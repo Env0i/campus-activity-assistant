@@ -14,9 +14,9 @@
 
 ```
 /root/campus-activity-watch/      应用与脚本
-├── scripts/                     生产脚本（cron 用相对路径调用）
-├── bot/                         飞书长连接机器人（bot.js + node_modules）
-├── deploy/                      部署脚本与 systemd 模板
+├── server/scripts/                     生产脚本（cron 用相对路径调用）
+├── server/bot/                         飞书长连接机器人（bot.js + node_modules）
+├── server/deploy/                      部署脚本与 systemd 模板
 ├── data/                        运行数据（session.json、state.json、日志）
 └── reports/                     推送产物
 
@@ -33,7 +33,7 @@
 |------|------|------|
 | `campus-login.service` | simple | `node server_refresh.js --daemon`：每 2h 校验 token，成功即刷新会话 |
 | `campus-bot.service` | simple | `node bot.js`：飞书长连接，@ 查询与私聊按钮回调 |
-| `campus-trigger.service` | simple | `python3 scripts/trigger_server.py`：HTTP 一键触发（18080） |
+| `campus-trigger.service` | simple | `python3 server/scripts/trigger_server.py`：HTTP 一键触发（18080） |
 | `campus-autologin.service` | oneshot | `python3 /root/campus-login/auto_login.py --preempt` |
 | `campus-autologin.timer` | timer | `OnCalendar=*:0/5`，每 5 分钟唤起上面的 oneshot |
 
@@ -104,8 +104,8 @@ ssh root@<你的服务器IP> 'cd /root/campus-login && node server_refresh.js'
 cd /root/campus-activity-watch && python3 scripts/watchlist.py list
 
 # 手工加/删预报名
-python3 scripts/watchlist.py add --id <id> --name <名称> --at "2026-10-30 12:00:00"
-python3 scripts/watchlist.py remove --id <id>
+python3 server/scripts/watchlist.py add --id <id> --name <名称> --at "2026-10-30 12:00:00"
+python3 server/scripts/watchlist.py remove --id <id>
 ```
 
 ## 6. 部署更新
@@ -114,13 +114,13 @@ python3 scripts/watchlist.py remove --id <id>
 
 ```bash
 # 1) 本地自检
-python -m py_compile scripts/*.py
-node --check bot/bot.js
-python tests/test_endpoints.py && python tests/test_notify.py
+python -m py_compile server/scripts/*.py
+node --check server/bot/bot.js
+python server/tests/test_endpoints.py && python server/tests/test_notify.py
 
 # 2) 传文件（只传改动的那几个，别整套覆盖 data/）
 scp -i ~/.ssh/develop scripts/<file>.py root@<你的服务器IP>:/root/campus-activity-watch/scripts/
-scp -i ~/.ssh/develop bot/bot.js        root@<你的服务器IP>:/root/campus-bot/bot.js
+scp -i ~/.ssh/develop server/bot/bot.js        root@<你的服务器IP>:/root/campus-bot/bot.js
 
 # 3) 重启
 ssh root@<你的服务器IP> 'systemctl restart campus-bot && systemctl is-active campus-bot'
