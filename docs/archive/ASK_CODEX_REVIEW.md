@@ -5,7 +5,7 @@
 >
 > 提示词里已经列出需要读取的文件路径，Codex 会自己去读，不需要你粘贴任何内容。
 >
-> 仓库根目录：`<host>/03-course/activities/campus-activity-watch`
+> 仓库根目录：`<repo>`
 > （若在上级目录 `activities/` 启动，把路径前缀改成 `campus-activity-watch/`）
 
 ---
