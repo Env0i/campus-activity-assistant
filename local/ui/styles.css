@@ -703,8 +703,11 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
    不靠隐藏大屏结论、线路、重试策略或帮助来换空间。 */
 @media (max-height: 860px) {
   body { overflow-y: auto; overflow-x: hidden; }
-  .zd { height: auto; min-height: 100%; }
-  .table { flex: 0 0 auto; min-height: 208px; }
+  /* 短高窗口仍让主列占满视口；之前改成 height:auto + flex:none 后，
+     table 只保留最小高度，空态被挤到表头附近，底部却留下整块灰背景。
+     保持 flex 主链，内容超出极矮视口时再由 body 滚动承接。 */
+  .zd { height: 100%; min-height: 100%; }
+  .table { flex: 1 1 auto; min-height: 208px; }
   .list { min-height: 164px; }
   .log { height: 120px; }
 }

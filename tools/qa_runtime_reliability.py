@@ -1154,6 +1154,37 @@ def _(s: Session):
     s.shot("empty")
 
 
+@scenario("empty-short-height",
+          "短高窗口空态仍把剩余高度交给列表区（用户 1316x824 截图回归）",
+          (1316, 824), "empty")
+def _(s: Session):
+    s.wait("document.querySelector('#empty-title').textContent.includes('学校当前没有返回活动')")
+    geo = s.js("""() => {
+      const rect = (sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { top: r.top, height: r.height, bottom: r.bottom };
+      };
+      const parts = [".empty-art", "#empty-title", "#empty-text", "#empty-action"]
+        .map((q) => document.querySelector(q))
+        .filter((el) => el && !el.hidden && el.getBoundingClientRect().width > 0)
+        .map((el) => el.getBoundingClientRect());
+      const list = rect("#list");
+      const blockTop = Math.min(...parts.map((r) => r.top));
+      const blockBottom = Math.max(...parts.map((r) => r.bottom));
+      return { innerHeight: window.innerHeight, zd: rect("#zd"),
+               table: rect(".table"), list,
+               blockMid: (blockTop + blockBottom) / 2,
+               listMid: (list.top + list.bottom) / 2 };
+    }""")
+    s.check("短高窗口主列仍撑满视口", geo["zd"]["height"] >= geo["innerHeight"] - 2, geo)
+    s.check("短高窗口列表区没有塌缩", geo["list"]["height"] >= 300, geo)
+    s.check("短高窗口空态仍在列表区垂直居中",
+            abs(geo["blockMid"] - geo["listMid"]) <= 6, geo)
+    s.shot("empty-short-height")
+
+
 _EMPTY_CENTER_JS = r"""() => {
   /* 空态块水平居中测量：内容块（art/title/text/action 的并集包围盒）中心
    * vs .list 两个参照中心——矩形（可视卡片，用户视觉参照）与内容盒
