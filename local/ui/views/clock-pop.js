@@ -109,6 +109,12 @@ function renderClockPop() {
     '<dl class="facts pop-facts">' +
     '<div><dt>最近校准</dt><dd>' + esc(ui === "demo" ? "离线示例" : clockLastSyncText()) + '</dd></div>' +
     '<div><dt>估计误差</dt><dd>' + esc(ui === "demo" ? "不适用" : clockUncertaintyText(uncNow)) + '</dd></div>' +
+    '<div><dt>下一次重试</dt><dd>' + esc(ui === "demo" ? "不适用"
+      : (clockRetryDueText() || "暂无记录")) + '</dd></div>' +
+    '<div><dt>最近失败来源</dt><dd>' + esc(ui === "demo" ? "不适用"
+      : (clockFailureSourceText() || "暂无记录")) + '</dd></div>' +
+    '<div><dt>最近失败原因</dt><dd>' + esc(ui === "demo" ? "不适用"
+      : (clockFailureReasonText() || "暂无记录")) + '</dd></div>' +
     '<div><dt>上次退出</dt><dd>' + esc(lifeText) + '</dd></div>' +
     '<div><dt>登录预计剩余</dt>' + loginRow + '</div>' +
     '</dl>' +
@@ -124,7 +130,8 @@ function renderClockPop() {
     '<div class="pop-foot"><span class="pop-note">不会修改电脑时间</span>' +
     '<button class="sync-btn" id="clock-pop-sync" type="button"' +
     ((syncing || ui === "demo") ? " disabled" : "") + '>' +
-    (syncing ? "正在校准…" : (ui === "unavailable" ? "重试校准" : "重新校准时间")) +
+    (syncing ? "正在校准…"
+      : ((ui === "unavailable" || ui === "retrying") ? "点这里重试" : "重新校准时间")) +
     '</button></div>' +
     '<p class="pop-feedback" id="clock-pop-feedback" role="status"></p>';
   Array.from(pop.querySelectorAll("details.records") || []).forEach((details, index) => {

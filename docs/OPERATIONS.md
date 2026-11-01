@@ -5,7 +5,7 @@
 | 项 | 值 |
 |----|----|
 | 服务器 | `<你的服务器IP>`（Ubuntu 22.04.5，root） |
-| 私钥 | 本机 `C:/Users/dev/.ssh/develop` |
+| 私钥 | 本机 `~/.ssh/<私钥文件名>`（下面 `scp` 命令里的同名占位符请替换为你自己的文件名） |
 | 时区 | Asia/Shanghai |
 | Python | 3.10.12（系统自带） |
 | Node | v20.20.2（`/usr/local/bin/node`，playwright 要求 ≥18） |
@@ -119,7 +119,7 @@ cd /root/campus-activity-watch && python3 scripts/run.py --force
 cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx python3 scripts/remind.py
 
 # 换 token（本机登录后）
-scp -i ~/.ssh/develop data/storage_state.json root@<你的服务器IP>:/root/campus-login/
+scp -i ~/.ssh/<私钥文件名> data/storage_state.json root@<你的服务器IP>:/root/campus-login/
 ssh root@<你的服务器IP> 'cd /root/campus-login && node server_refresh.js'
 
 # 看预报名清单
@@ -154,8 +154,8 @@ python -m unittest server.tests.test_activity_watch -v
 node server/bot/test_bot_runtime.js
 
 # 2) 传文件（只传改动的那几个，别整套覆盖 data/）
-scp -i ~/.ssh/develop server/scripts/<file>.py root@<你的服务器IP>:/root/campus-activity-watch/scripts/
-scp -i ~/.ssh/develop server/bot/bot.js        root@<你的服务器IP>:/root/campus-bot/bot.js
+scp -i ~/.ssh/<私钥文件名> server/scripts/<file>.py root@<你的服务器IP>:/root/campus-activity-watch/scripts/
+scp -i ~/.ssh/<私钥文件名> server/bot/bot.js        root@<你的服务器IP>:/root/campus-bot/bot.js
 
 # 3) 重启（combined 只有一个进程）
 ssh root@<你的服务器IP> 'systemctl restart campus-bot && systemctl is-active campus-bot'

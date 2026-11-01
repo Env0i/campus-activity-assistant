@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from domain.phone_rules import (
-    CSRF_HEADER, MAX_BODY_BYTES, host_matches, origin_matches,
+    CSRF_HEADER, MAX_BODY_BYTES, hosts_allowed, origins_allowed,
     parse_json_body,
 )
 
@@ -38,22 +38,48 @@ SECURITY_HEADERS = (
 )
 
 
+def _allowed_hosts(bind_host: str, public_host: str,
+                   scheme: str = "http") -> tuple:
+    """Host/Origin 白名单。
+
+    隧道（https）只认那一个公网域名，旧的本机 Host 必须立刻失效；
+    直连（http，Tailscale）除公网名外还要认绑定地址，手机上解析不到
+    MagicDNS 时可以用 100.x 备用地址打开。
+    """
+    values = (public_host,) if str(scheme).lower() == "https" else (public_host, bind_host)
+    hosts = []
+    for value in values:
+        text = str(value or "").strip()
+        if text and text not in hosts:
+            hosts.append(text)
+    return tuple(hosts)
+
+
 class PhoneHttpServer:
     """ThreadingHTTPServer 的薄包装：start/stop/address，线程随进程收尾。"""
 
-    def __init__(self, host: str, port: int, service, ui_dir: "Path | None" = None):
+    def __init__(self, host: str, port: int, service, ui_dir: "Path | None" = None,
+                 public_host: str = "", public_scheme: str = "http", log=None):
         self._host = str(host)
+        self._public_host = str(public_host or host)
+        self._public_scheme = "https" if str(public_scheme).lower() == "https" else "http"
         self._service = service
-        self._ui_dir = Path(ui_dir) if ui_dir else Path(__file__).resolve().parents[2] / "ui" / "m"
+        self._ui_dir = Path(ui_dir) if ui_dir else Path(__file__).resolve().parents[1] / "ui" / "m"
         self._httpd = None
         self._thread = None
         self._want_port = int(port)
+        self._log = log
 
     def start(self) -> None:
-        handler = _make_handler(self._service, self._host, self._ui_dir)
+        handler = _make_handler(self._service, self._host, self._public_host,
+                                self._public_scheme, self._ui_dir, self._log)
         httpd = ThreadingHTTPServer((self._host, self._want_port), handler)
         httpd.daemon_threads = True
         httpd.timeout = 5.0
+        httpd._campus_public_host = self._public_host
+        httpd._campus_hosts = _allowed_hosts(self._host, self._public_host,
+                                           self._public_scheme)
+        httpd._campus_public_scheme = self._public_scheme
         self._httpd = httpd
         self._thread = threading.Thread(target=httpd.serve_forever,
                                         name="phone-http", daemon=True)
@@ -62,7 +88,21 @@ class PhoneHttpServer:
     def address(self) -> str:
         if self._httpd is None:
             return ""
-        return "http://%s:%d" % (self._host, self._httpd.server_address[1])
+        suffix = "" if self._public_scheme == "https" else ":%d" % self._httpd.server_address[1]
+        return "%s://%s%s" % (self._public_scheme, self._public_host, suffix)
+
+    def set_public_host(self, public_host: str, public_scheme: str = "http") -> None:
+        """隧道拿到域名后更新 Host/Origin 白名单与桌面展示地址。"""
+        value = str(public_host or "").strip()
+        if not value:
+            return
+        self._public_host = value
+        self._public_scheme = "https" if str(public_scheme).lower() == "https" else "http"
+        if self._httpd is not None:
+            self._httpd._campus_public_host = value
+            self._httpd._campus_hosts = _allowed_hosts(self._host, value,
+                                                     self._public_scheme)
+            self._httpd._campus_public_scheme = self._public_scheme
 
     def stop(self) -> None:
         httpd = self._httpd
@@ -82,7 +122,8 @@ class PhoneHttpServer:
             self._thread = None
 
 
-def _make_handler(service, bind_host: str, ui_dir: Path):
+def _make_handler(service, bind_host: str, public_host: str,
+                  public_scheme: str, ui_dir: Path, log=None):
     """按服务实例生成处理器类：Host/Origin 用服务的字面 origin，不收外部配置。"""
 
     class Handler(BaseHTTPRequestHandler):
@@ -114,6 +155,7 @@ def _make_handler(service, bind_host: str, ui_dir: Path):
         # ---- 通用出口 ----
         def _send(self, status: int, body: bytes, content_type: str,
                   extra: "list | None" = None) -> None:
+            self._campus_status = status
             try:
                 self.send_response(status)
                 self.send_header("Content-Type", content_type)
@@ -133,7 +175,30 @@ def _make_handler(service, bind_host: str, ui_dir: Path):
 
         def _deny(self, code: str, status: int = 403) -> None:
             # 只回错误码与一句话，不回堆栈、不回路径、不回请求内容
+            self._campus_error = code
             self._json(status, {"ok": False, "error": code})
+
+        def _log_access(self) -> None:
+            """一行一条请求，只记「谁问的、结果如何」，不记 cookie 值、不记请求体。
+
+            排查手机端问题全靠这行：Host/Origin 说明请求打的是哪个地址，
+            cookies 里的名字说明浏览器到底带回了哪些凭证。
+            """
+            if log is None:
+                return
+            names = [part.split("=", 1)[0].strip()
+                     for part in str(self.headers.get("Cookie") or "").split(";")
+                     if "=" in part]
+            try:
+                log("http %s %s %d%s host=%s origin=%s cookies=[%s]" % (
+                    self.command, self.path.split("?", 1)[0],
+                    self._campus_status,
+                    (" " + self._campus_error) if self._campus_error else "",
+                    self.headers.get("Host") or "-",
+                    self.headers.get("Origin") or "-",
+                    ",".join(names)))
+            except Exception:  # noqa: BLE001 - 记日志失败不影响响应
+                pass
 
         def _expected_port(self) -> int:
             # 测试可用端口 0 换临时端口：校验必须认实际监听端口，不是写死 8765
@@ -143,12 +208,22 @@ def _make_handler(service, bind_host: str, ui_dir: Path):
                 return 8765
 
         def _check_host(self) -> bool:
-            return host_matches(self.headers.get("Host"), bind_host,
-                                self._expected_port())
+            hosts = getattr(self.server, "_campus_hosts",
+                            (public_host, bind_host))
+            return hosts_allowed(self.headers.get("Host"), hosts,
+                                 self._expected_port())
 
         def _check_origin(self) -> bool:
-            return origin_matches(self.headers.get("Origin"), bind_host,
-                                  self._expected_port())
+            expected = getattr(self.server, "_campus_public_host", public_host)
+            scheme = getattr(self.server, "_campus_public_scheme", public_scheme)
+            if scheme == "https":
+                # 隧道是 https 时只认那一个公网 origin
+                return str(self.headers.get("Origin") or "").strip() == (
+                    "https://%s" % expected)
+            hosts = getattr(self.server, "_campus_hosts",
+                            (public_host, bind_host))
+            return origins_allowed(self.headers.get("Origin"), hosts,
+                                   self._expected_port())
 
         def _read_body(self):
             raw_len = self.headers.get("Content-Length")
@@ -170,16 +245,24 @@ def _make_handler(service, bind_host: str, ui_dir: Path):
 
         # ---- 路由 ----
         def do_GET(self):  # noqa: N802 - 基类命名
+            self._campus_status = 0
+            self._campus_error = ""
             try:
                 self._route_get()
             except Exception:  # noqa: BLE001 - 任何异常都不回堆栈
                 self._deny("internal", 500)
+            finally:
+                self._log_access()
 
         def do_POST(self):  # noqa: N802
+            self._campus_status = 0
+            self._campus_error = ""
             try:
                 self._route_post()
             except Exception:  # noqa: BLE001
                 self._deny("internal", 500)
+            finally:
+                self._log_access()
 
         def _route_get(self):
             if not self._check_host():
@@ -229,17 +312,24 @@ def _make_handler(service, bind_host: str, ui_dir: Path):
             result = service.pair(data.get("code"), ip=self.client_address[0])
             if not result.get("ok"):
                 return self._json(403, result)
+            cookies = [("Set-Cookie", result.get("cookie", "")),
+                       ("Set-Cookie", result.get("csrf_cookie", ""))]
+            # 只有固定地址通道会带回设备 cookie；Cloudflare 通道没有这一条
+            if result.get("device_cookie"):
+                cookies.append(("Set-Cookie", result["device_cookie"]))
             self._json(200, {"ok": True, "csrf_header": result.get("csrf_header", CSRF_HEADER),
                              "csrf": result.get("csrf", ""),
                              "expires_in": result.get("expires_in", 0)},
-                       extra=[("Set-Cookie", result.get("cookie", "")),
-                              ("Set-Cookie", result.get("csrf_cookie", ""))])
+                       extra=cookies)
 
         # ---- 状态（只读本机缓存，绝不触发学校流量）----
         def _get_state(self):
             if not self._check_host():
                 return self._deny("bad_host")
-            session = service.authenticate(self.headers.get("Cookie"))
+            cookie = self.headers.get("Cookie")
+            # 浏览器把会话与设备 cookie 放在同一个 Cookie 头里：先认活动会话，
+            # 没有会话才用设备信任换一条新的（只有 Tailscale 通道会走到这里）。
+            session, headers = service.authenticate_or_restore(cookie, cookie)
             if session is None:
                 return self._deny("need_pair", 401)
             cursor = None
@@ -248,7 +338,7 @@ def _make_handler(service, bind_host: str, ui_dir: Path):
                     key, _, value = piece.partition("=")
                     if key == "after":
                         cursor = value
-            self._json(200, service.safe_state(cursor))
+            self._json(200, service.safe_state(cursor), extra=headers)
 
         # ---- 动作 ----
         def _post_action(self):

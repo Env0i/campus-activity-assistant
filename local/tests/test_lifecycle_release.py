@@ -43,6 +43,41 @@ def load_release():
     return module
 
 
+def make_component_zip(path: Path) -> Path:
+    """造一个能过装机校验的手机控制组件包（假二进制，清单真实）。
+
+    `publish` 侧现在要求候选带组件包，装配与核验的测试都得先有这份合格样本。
+    """
+    import hashlib
+    import json as json_mod
+    import zipfile as zf_mod
+    packages = load_release().component_modules()["component_packages"]
+    helper = b"MZfake-feature-helper"
+    binary = b"MZfake-cloudflared"
+    files = {
+        "feature-helper.exe": hashlib.sha256(helper).hexdigest(),
+        packages.CLOUDFLARED_NAME: hashlib.sha256(binary).hexdigest(),
+    }
+    manifest = {
+        "schema": 1,
+        "feature": "phone_control",
+        "version": packages.version(),
+        "app_version": packages.version(),
+        "target": "win-x64",
+        "platform": "windows-x64",
+        "entry": "feature-helper.exe",
+        "files": files,
+        "cloudflared": {"version": packages.CLOUDFLARED_VERSION,
+                        "sha256": files[packages.CLOUDFLARED_NAME]},
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zf_mod.ZipFile(path, "w") as zf:
+        zf.writestr("manifest.json", json_mod.dumps(manifest))
+        zf.writestr("feature-helper.exe", helper)
+        zf.writestr(packages.CLOUDFLARED_NAME, binary)
+    return path
+
+
 class VersionSourceTests(unittest.TestCase):
     """VERSION 文件格式与三处读取口径。"""
 
@@ -283,6 +318,25 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
 
     VERSION = "1.2.3"
 
+    def test_real_component_bridge_uses_builder_accepted_temporary_directory(self):
+        import build_advanced
+        rel = load_release()
+        seen = []
+        def run_builder(args):
+            directory = build_advanced.output_root(args[args.index("--output-dir") + 1])
+            seen.append(directory)
+            make_component_zip(directory / "phone_control-build-windows-x64.zip")
+        with tempfile.TemporaryDirectory() as name:
+            stage = Path(name) / "release"
+            stage.mkdir()
+            binary = Path(name) / "cloudflared.exe"
+            binary.write_bytes(b"MZfixture")
+            with mock.patch.object(rel, "run", side_effect=run_builder):
+                asset = rel.stage_phone_component(self.VERSION, stage, binary)
+            self.assertTrue(asset.is_file())
+            self.assertFalse(seen[0].exists())
+            self.assertFalse(seen[0].is_relative_to(stage))
+
     class _FakeBuilder:
         """替身 build_installer：记录被喂的 EXE，吐出约定命名的假安装包。"""
         PRODUCT_NAME = "校园活动预报名工具"
@@ -300,6 +354,17 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             stub.write_bytes(b"installer-stub")
             return stub
 
+    class _FakeComponent:
+        """替身 BUILD_COMPONENT：不跑 PyInstaller，只写一份合规组件包。"""
+
+        def __init__(self):
+            self.calls = []
+
+        def __call__(self, version, work_dir, cloudflared=None):
+            from pathlib import Path as _P
+            self.calls.append((version, _P(work_dir).name, str(cloudflared or "")))
+            return make_component_zip(_P(work_dir) / "phone_control-build.zip")
+
     def _stage(self, tmp):
         """跑一遍 stage_local_assets（构建与安装器都 mock），返回 (结果, 假构建器)。"""
         rel = load_release()
@@ -312,7 +377,8 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
         with mock.patch.object(rel, "DIST", Path(tmp)), \
                 mock.patch.object(rel, "git_state", lambda: state), \
                 mock.patch.object(rel, "build_exe_onefile", lambda: out), \
-                mock.patch.object(rel, "BUILD_INSTALLER", fake):
+                mock.patch.object(rel, "BUILD_INSTALLER", fake), \
+                mock.patch.object(rel, "BUILD_COMPONENT", self._FakeComponent()):
             got = rel.stage_local_assets(self.VERSION)
         return rel, got, fake, frozen_body
 
@@ -334,8 +400,8 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             self.assertEqual(got["installer"].name, rel.installer_asset_name(self.VERSION),
                              "上传资产统一 ASCII 名（本地中文名只留在构建目录）")
 
-    def test_manifest_records_all_three_assets(self):
-        """manifest 必须同时记账 ZIP、独立 EXE、安装器的哈希与大小。"""
+    def test_manifest_records_all_four_assets(self):
+        """manifest 必须同时记账 ZIP、独立 EXE、安装器、组件包的哈希与大小。"""
         import json
         import tempfile
         with tempfile.TemporaryDirectory() as name:
@@ -344,20 +410,24 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             stage_dir = got["manifest"].parent
             for key in (rel.zip_asset_name(self.VERSION),
                         rel.exe_asset_name(self.VERSION),
-                        rel.installer_asset_name(self.VERSION)):
+                        rel.installer_asset_name(self.VERSION),
+                        rel.component_asset_name(self.VERSION)):
                 self.assertIn(key, data["files"],
                               "manifest 缺 %s 的记录" % key)
                 self.assertEqual(data["files"][key]["sha256"],
                                  rel.sha256_of(stage_dir / key))
             self.assertFalse(data["source_dirty"], "mock 干净来源必须如实记账")
-            # 安装器构建的中间目录不留残骸：stage 里只有四份上传物
+            self.assertIs(data.get("component_included"), True,
+                          "装配了组件包就必须在清单里显式记账")
+            # 安装器与组件包的中间目录不留残骸：stage 里只有五份上传物
             leftovers = sorted(p.name for p in stage_dir.iterdir())
             self.assertEqual(leftovers,
                              sorted([rel.zip_asset_name(self.VERSION),
                                      rel.exe_asset_name(self.VERSION),
                                      rel.installer_asset_name(self.VERSION),
+                                     rel.component_asset_name(self.VERSION),
                                      "manifest.json"]),
-                             "暂存目录不得留下 .installer-build/.zip-root 残骸")
+                             "暂存目录不得留下 .installer-build/.zip-root/.component-build 残骸")
 
     def test_installer_failure_fails_prepare(self):
         """安装器构建失败（如没装 ISCC）：prepare 整体失败，不产出半套资产。"""
@@ -381,6 +451,36 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
                     rel.stage_local_assets(self.VERSION)
 
 
+    def test_component_failure_fails_prepare(self):
+        """组件包不合规就得整体失败：宁可没候选，也不发一个装不上的包。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            rel = load_release()
+            out = Path(name) / "campus-grab-exe"
+            out.mkdir(parents=True)
+            (out / "campus-activity-watch.exe").write_bytes(b"frozen")
+            state = {"branch": "main", "dirty": "", "commit": "f" * 7, "full": "f" * 40}
+
+            class BrokenComponent:
+                def __call__(self, version, work_dir, cloudflared=None):
+                    bad = Path(work_dir) / "bad.zip"
+                    bad.parent.mkdir(parents=True, exist_ok=True)
+                    bad.write_bytes(b"not-a-zip")
+                    return bad
+
+            with mock.patch.object(rel, "DIST", Path(name)), \
+                    mock.patch.object(rel, "git_state", lambda: state), \
+                    mock.patch.object(rel, "build_exe_onefile", lambda: out), \
+                    mock.patch.object(rel, "BUILD_INSTALLER", self._FakeBuilder()), \
+                    mock.patch.object(rel, "BUILD_COMPONENT", BrokenComponent()):
+                with self.assertRaises(SystemExit) as refused:
+                    rel.stage_local_assets(self.VERSION)
+            self.assertIn("组件包", str(refused.exception))
+            self.assertFalse(
+                (Path(name) / ("release-" + rel.tag_of(self.VERSION)) / "manifest.json").is_file(),
+                "组件失败时不得留下可被 publish 误用的候选清单")
+
+
 class AssetVerificationTests(unittest.TestCase):
     """R1/R2：publish 前逐项核验候选资产；拒绝路径全部在 tag/push/upload 之前。
 
@@ -396,9 +496,9 @@ class AssetVerificationTests(unittest.TestCase):
         return {"branch": branch, "dirty": dirty,
                 "commit": (full or "f" * 40)[:7], "full": full or "f" * 40}
 
-    def _candidate(self, tmp, version=VERSION, dirty=""):
+    def _candidate(self, tmp, version=VERSION, dirty="", component=True):
         """在临时 DIST 下搭一份候选：EXE + 四成员白名单 ZIP（内外 EXE 字节一致）
-        + 安装器 + 真实 write_manifest。"""
+        + 安装器 + 手机控制组件包 + 真实 write_manifest。"""
         import zipfile as zf_mod
         stage = Path(tmp) / ("release-" + self.rel.tag_of(version))
         stage.mkdir(parents=True, exist_ok=True)
@@ -412,8 +512,15 @@ class AssetVerificationTests(unittest.TestCase):
             zf.writestr("README.md", "readme")
             zf.writestr("启动说明.txt", "note")
             zf.writestr("LICENSE", "lic")
+        files = [zp, exe, inst]
+        component_path = None
+        if component:
+            component_path = make_component_zip(
+                stage / self.rel.component_asset_name(version))
+            files.append(component_path)
         manifest = self.rel.write_manifest(stage, version, self.rel.tag_of(version),
-                                           [zp, exe, inst], build_state=self._state(dirty))
+                                           files, build_state=self._state(dirty),
+                                           component_included=component_path is not None)
         return stage, exe, zp, manifest
 
     def _patched(self, tmp):
@@ -433,6 +540,23 @@ class AssetVerificationTests(unittest.TestCase):
                                  self.rel.installer_asset_name(self.VERSION),
                                  "安装器是第三份必验资产，缺了就是候选不完整")
                 self.assertEqual(got["manifest"].name, "manifest.json")
+                self.assertEqual(got["component"].name,
+                                 self.rel.component_asset_name(self.VERSION),
+                                 "组件包是第四份必验资产，缺它手机控制就装不上")
+            finally:
+                mock.patch.stopall()
+
+    def test_verify_rejects_candidate_without_component(self):
+        """没有组件包的候选一律拒绝：缺它发布出去「安装手机控制」直接不可用。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            for p in self._patched(name):
+                p.start()
+            try:
+                self._candidate(name, component=False)
+                with self.assertRaises(SystemExit) as refused:
+                    self.rel.verify_release_assets(self.VERSION)
+                self.assertIn("手机控制组件包", str(refused.exception))
             finally:
                 mock.patch.stopall()
 
@@ -598,7 +722,11 @@ class AssetVerificationTests(unittest.TestCase):
                 mock.patch.stopall()
 
     def test_do_publish_happy_path_uploads_assets_and_manifest(self):
-        """核验通过 + 确认后才 tag/上传；上传清单= ZIP + EXE + manifest。"""
+        """核验通过 + 确认后才 tag/上传；上传清单= ZIP + EXE + 安装器 + 组件 + manifest。
+
+        组件必须上传：只上传四项时 Release 里没有 phone_control ZIP，
+        用户的一键安装会一直落到「这个版本没有发布手机控制组件」。
+        """
         import tempfile
         with tempfile.TemporaryDirectory() as name:
             for p in self._patched(name):
@@ -626,9 +754,10 @@ class AssetVerificationTests(unittest.TestCase):
                                  "tag 必须绑定完整 HEAD")
                 expected_upload = [zp.name, exe.name,
                                    self.rel.installer_asset_name(self.VERSION),
+                                   self.rel.component_asset_name(self.VERSION),
                                    "manifest.json"]
                 self.assertEqual(recorded["upload"][1], expected_upload,
-                                 "上传清单=完整 ZIP + 单文件 EXE + 安装器 + manifest")
+                                 "上传清单=完整 ZIP + 单文件 EXE + 安装器 + 手机组件 + manifest")
                 self.assertFalse(recorded["upload"][2], "默认不覆盖已有附件")
             finally:
                 mock.patch.stopall()
@@ -873,8 +1002,11 @@ class ConfirmedSourceRecheckTests(unittest.TestCase):
             zf.writestr("README.md", "readme")
             zf.writestr("启动说明.txt", "note")
             zf.writestr("LICENSE", "lic")
+        component = make_component_zip(stage / self.rel.component_asset_name(version))
         manifest = self.rel.write_manifest(stage, version, self.rel.tag_of(version),
-                                           [zp, exe, inst], build_state=self._state())
+                                           [zp, exe, inst, component],
+                                           build_state=self._state(),
+                                           component_included=True)
         return stage, exe, zp, manifest
 
     def _run_do_publish(self, tmp, source_commits, mutate_after_confirm=None):
@@ -1014,6 +1146,59 @@ class ConfirmedSourceRecheckTests(unittest.TestCase):
             # 无论命中哪一层，上传都必须中止
             self.assertTrue(error, "上传前必须拦下被替换的资产")
             self.assertEqual(calls, ["tag"], "tag 已打（Git 副作用已发生），但上传必须中止")
+
+    def test_asset_digest_includes_phone_component(self):
+        """资产指纹必须含手机控制组件：漏了它，发布前门禁证明不了组件已核验。
+
+        根因是 asset_digest() 只算 zip/exe/installer/manifest 四项，
+        组件哈希变化不会让「确认前后指纹一致」这条判断失效。
+        """
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            stage, exe, zip_path, manifest = self._candidate(name)
+            installer = stage / self.rel.installer_asset_name(self.VERSION)
+            component = stage / self.rel.component_asset_name(self.VERSION)
+            assets = {
+                "zip": zip_path,
+                "exe": exe,
+                "installer": installer,
+                "component": component,
+                "manifest": manifest,
+            }
+            digest = self.rel.asset_digest(assets)
+            self.assertEqual(
+                set(digest), {"zip", "exe", "installer", "component", "manifest"}
+            )
+            self.assertEqual(digest["component"], self.rel.sha256_of(component))
+
+    def test_publish_uploads_phone_component_asset(self):
+        """发布上传列表必须带组件 ZIP：否则 Release 里没有它，一键安装必然落空。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            captured = []
+            stage, _exe, _zip_path, _manifest = self._candidate(name)
+            patches = [
+                mock.patch.object(self.rel, "DIST", Path(name)),
+                mock.patch.object(self.rel, "git_state", lambda: self._state()),
+                mock.patch.object(self.rel, "source_commit", lambda: "f" * 40),
+                mock.patch.object(self.rel, "confirm_publish", lambda *args: None),
+                mock.patch.object(self.rel, "ensure_tag", lambda *args, **kwargs: None),
+                mock.patch.object(
+                    self.rel,
+                    "publish",
+                    lambda tag, assets, clobber=False: captured.extend(assets),
+                ),
+            ]
+            for patch in patches:
+                patch.start()
+            try:
+                self.rel.do_publish(self.rel.tag_of(self.VERSION), True, self.VERSION)
+            finally:
+                mock.patch.stopall()
+
+            names = [Path(path).name for path in captured]
+            self.assertIn(self.rel.component_asset_name(self.VERSION), names)
+            self.assertEqual(len(names), 5)
 
 
 @unittest.skipUnless(

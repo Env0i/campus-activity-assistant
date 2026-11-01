@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E9EEF6">
 <title>校园活动 · 手机</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -12,83 +13,119 @@
   <section id="pair" class="card">
     <h1>连接电脑</h1>
     <p class="hint">在电脑上的工具窗口里查看 6 位配对码，5 分钟内有效。</p>
+    <ol class="steps">
+      <li>先扫二维码打开这一页。</li>
+      <li>再输入电脑上显示的配对码。</li>
+      <li>打开后建议加入手机书签，方便下次访问。</li>
+    </ol>
     <label class="field"><span>配对码</span>
       <input id="pair-code" inputmode="numeric" autocomplete="one-time-code"
              maxlength="6" placeholder="6 位数字" aria-label="配对码"></label>
     <button id="btn-pair" class="primary" type="button">配对</button>
     <p id="pair-error" class="error" role="alert"></p>
+    <p class="hint bookmark">打开后建议加入手机书签，方便下次访问。</p>
   </section>
 
-  <!-- 主界面：配对成功后显示 -->
+  <!-- 主界面：配对成功后显示。顺序＝手机上的真实任务：先看今天，再看以后 -->
   <section id="app" hidden>
     <header class="bar">
       <h1>这次报名</h1>
       <span id="conn" class="pill" data-state="ok">已连接</span>
       <button id="btn-refresh" class="ghost" type="button">刷新</button>
     </header>
+    <p class="bar-sub" id="last-sync">还没有同步过</p>
+    <p id="offline-note" class="warn" role="alert" hidden></p>
+    <p id="stale-note" class="hint" hidden>状态已过时：先点右上角「刷新」，拿到最新状态后才能开始报名。</p>
     <p id="banner" class="error" role="alert" hidden></p>
+    <p id="login-expired-banner" class="warn" role="alert" hidden>电脑上的登录已失效：可以在下面「更多 → 重新登录」里处理，也能回电脑上点重登。</p>
 
-    <section class="card">
-      <h2>筛选</h2>
-      <label class="field"><span>名称/关键词</span>
-        <input id="q" type="search" placeholder="搜活动名或地点" aria-label="名称或关键词"></label>
-      <div class="row" role="group" aria-label="报名状态">
-        <button class="chip" type="button" data-status="all" aria-pressed="true">全部</button>
-        <button class="chip" type="button" data-status="free" aria-pressed="false">可报名</button>
-        <button class="chip" type="button" data-status="signed" aria-pressed="false">已报名</button>
-      </div>
-      <div class="row" role="group" aria-label="开放时间">
-        <button class="chip" type="button" data-time="all" aria-pressed="true">不限</button>
-        <button class="chip" type="button" data-time="today" aria-pressed="false">今天</button>
-        <button class="chip" type="button" data-time="week" aria-pressed="false">7 天内</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>活动</h2>
+    <section class="card today" id="today-items">
+      <h2>今天要参加</h2>
       <ul id="items" class="items"></ul>
-      <p id="empty" class="hint">没有符合条件的活动。</p>
-    </section>
-
-    <section class="card">
-      <h2>重试设置</h2>
-      <label class="field"><span>尝试时长</span>
-        <select id="retry-for" aria-label="尝试时长"></select></label>
-      <p id="retry-hint" class="hint"></p>
-      <label class="field"><span>最多提交次数（0=不限）</span>
-        <input id="max-attempts" type="number" min="0" step="1" value="0" aria-label="最多提交次数"></label>
-    </section>
-
-    <section class="card">
-      <h2>执行</h2>
-      <p id="plan-line" class="hint">未开始</p>
-      <div class="row">
-        <button id="btn-start" class="primary" type="button">开始报名计划</button>
-        <button id="btn-stop" class="danger" type="button" hidden>停止计划</button>
+      <p id="empty" class="hint">今天没有可报名的活动，往下看即将开放的。</p>
+      <div class="row actions">
+        <button id="btn-start" class="primary wide" type="button">开始报名计划</button>
+        <button id="btn-stop" class="danger wide" type="button" hidden>停止计划</button>
       </div>
+      <p id="plan-line" class="hint">未开始</p>
       <p id="pending-note" class="hint" hidden>已发出开始请求，正在核对结果，请先不要重复点击。</p>
+      <button id="btn-cancel-start" type="button" hidden>取消等待</button>
       <button id="btn-cancel-task" class="danger" type="button" hidden>取消这一场</button>
     </section>
 
     <section class="card">
-      <h2>日志</h2>
-      <ol id="logs" class="logs"></ol>
+      <h2>即将开放</h2>
+      <ul id="upcoming-items" class="items"></ul>
+      <p id="upcoming-empty" class="hint">暂时没有更晚开放的活动。</p>
     </section>
 
-    <section class="card">
-      <h2>重新登录</h2>
-      <p id="relogin-note" class="hint"></p>
-      <img id="captcha" alt="验证码" hidden>
-      <label class="field"><span>验证码</span>
-        <input id="code" inputmode="text" autocomplete="off" maxlength="4"
-               placeholder="4 位字母数字" aria-label="验证码"></label>
-      <div class="row">
-        <button id="btn-relogin" class="primary" type="button">在手机上重登</button>
-        <button id="btn-relogin-submit" class="primary" type="button" hidden>提交验证码</button>
-        <button id="btn-relogin-refresh" class="ghost" type="button" hidden>换一张图</button>
-        <button id="btn-relogin-cancel" class="ghost" type="button" hidden>取消</button>
-      </div>
-    </section>
+    <details class="card" id="signed-summary">
+      <summary>已报名 <b id="signed-count">0</b> 场</summary>
+      <ul id="signed-items" class="items"></ul>
+    </details>
+
+    <p class="hint bookmark" id="bookmark-hint">打开后建议加入手机书签，方便下次访问。</p>
+
+    <details class="card" id="more-panel">
+      <summary>更多（筛选、重试、日志、重新登录）</summary>
+
+      <section id="filter-panel" class="sub">
+        <h3>筛选</h3>
+        <label class="field"><span>名称/关键词</span>
+          <input id="q" type="search" placeholder="搜活动名或地点" aria-label="名称或关键词"></label>
+        <div class="row" role="group" aria-label="报名状态">
+          <button class="chip" type="button" data-status="all" aria-pressed="true">全部</button>
+          <button class="chip" type="button" data-status="free" aria-pressed="false">可报名</button>
+          <button class="chip" type="button" data-status="signed" aria-pressed="false">已报名</button>
+        </div>
+        <div class="row" role="group" aria-label="开放时间">
+          <button class="chip" type="button" data-time="all" aria-pressed="true">不限</button>
+          <button class="chip" type="button" data-time="today" aria-pressed="false">今天</button>
+          <button class="chip" type="button" data-time="week" aria-pressed="false">7 天内</button>
+        </div>
+      </section>
+
+      <section id="retry-panel" class="sub">
+        <h3>重试设置</h3>
+        <label class="field"><span>尝试时长</span>
+          <select id="retry-for" aria-label="尝试时长"></select></label>
+        <p id="retry-hint" class="hint"></p>
+        <label class="field"><span>最多提交次数（0=不限）</span>
+          <input id="max-attempts" type="number" min="0" step="1" value="0" aria-label="最多提交次数"></label>
+      </section>
+
+      <section id="logs-panel" class="sub">
+        <h3>日志</h3>
+        <ol id="logs" class="logs"></ol>
+      </section>
+
+      <section id="window-panel" class="sub">
+        <h3>电脑窗口</h3>
+        <p class="hint">电脑上的窗口可能被隐藏到后台了（程序还在跑）。</p>
+        <button class="btn btn-line" id="btn-show-window" type="button">显示电脑窗口</button>
+      </section>
+
+      <section id="relogin-panel" class="sub">
+        <h3>重新登录</h3>
+        <p id="relogin-note" class="hint"></p>
+        <!-- 验证码整组（图 + 输入框 + 三个按钮）：电脑自己在认图时整组收起，
+             不留一个空白输入框让人以为「该我输了」。 -->
+        <div id="relogin-captcha-group" hidden>
+          <img id="captcha" alt="验证码" hidden>
+          <label class="field"><span>验证码（只对这场重登有效，不过期计时）</span>
+            <input id="code" inputmode="text" autocomplete="off" maxlength="4"
+                   placeholder="4 位字母数字" aria-label="验证码"></label>
+          <div class="row">
+            <button id="btn-relogin-submit" class="primary" type="button" hidden>提交验证码</button>
+            <button id="btn-relogin-refresh" class="ghost" type="button" hidden>换一张图</button>
+            <button id="btn-relogin-cancel" class="ghost" type="button" hidden>取消</button>
+          </div>
+        </div>
+        <div class="row">
+          <button id="btn-relogin" class="primary" type="button">在手机上重登</button>
+        </div>
+      </section>
+    </details>
   </section>
 </main>
 <script src="app.js"></script>

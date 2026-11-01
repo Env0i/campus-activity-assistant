@@ -1,3 +1,8 @@
 playwright>=1.40
 pillow>=9.0
 pywebview>=5.0
+
+# 高级功能按需安装，不随基础安装拉取：
+#   手机控制：segno
+#   无人值守重登：ddddocr
+# 打包版的手机控制组件内置并校验 cloudflared.exe，不由 pip 安装。

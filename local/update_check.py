@@ -39,6 +39,12 @@ def installer_asset_name(version: str) -> str:
     return "campus-activity-watch-installer-v%s-win-x64.exe" % version
 
 
+def phone_control_asset_name(version: str) -> str:
+    """手机控制组件包的资产名：与安装器同一套版本口径，独立成一个 Release 资产。"""
+    parse_version(version)
+    return "campus-activity-watch-phone-control-v%s-win-x64.zip" % version
+
+
 def is_release_asset_url(url, name) -> bool:
     """只接受本仓库 GitHub Release 资产的 HTTPS 下载地址，且路径尾段必须等于资产名。"""
     if not isinstance(url, str) or not isinstance(name, str) or not name:
@@ -58,12 +64,14 @@ def is_release_asset_url(url, name) -> bool:
 
 
 def select_release_assets(payload: dict, version: str) -> dict:
-    """从 Release 资产里挑安装器与 manifest；命名或地址不符的条目一律不选中。"""
+    """从 Release 资产里挑安装器、组件包与 manifest；命名或地址不符的条目一律不选中。"""
     assets = payload.get("assets") if isinstance(payload, dict) else None
     if not isinstance(assets, list):
-        return {"installer": None, "manifest_url": ""}
+        return {"installer": None, "manifest_url": "", "phone_control": None}
     wanted = installer_asset_name(version)
+    wanted_component = phone_control_asset_name(version)
     installer = None
+    phone_control = None
     manifest_url = ""
     for item in assets:
         if not isinstance(item, dict):
@@ -75,13 +83,20 @@ def select_release_assets(payload: dict, version: str) -> dict:
             if (isinstance(size, int) and not isinstance(size, bool)
                     and 0 < size <= MAX_INSTALLER_BYTES):
                 installer = {"name": name, "url": url, "bytes": size}
+        elif name == wanted_component and is_release_asset_url(url, name):
+            # 组件包比安装器小得多，但仍按同一上限拦一次异常体积
+            size = item.get("size")
+            if (isinstance(size, int) and not isinstance(size, bool)
+                    and 0 < size <= MAX_INSTALLER_BYTES):
+                phone_control = {"name": name, "url": url, "bytes": size}
         elif name == MANIFEST_ASSET_NAME and is_release_asset_url(url, name):
             manifest_url = url
-    return {"installer": installer, "manifest_url": manifest_url}
+    return {"installer": installer, "manifest_url": manifest_url,
+            "phone_control": phone_control}
 
 
-def parse_manifest(raw, version: str, installer_name: str) -> dict:
-    """校验 manifest 结构并取出安装器条目；任何不符都拒绝，不给可下载结论。"""
+def parse_manifest_entry(raw, version: str, name: str) -> dict:
+    """校验 manifest 结构并取出指定资产的条目；任何不符都拒绝，不给可下载结论。"""
     if not isinstance(raw, (bytes, bytearray)):
         raise ValueError("manifest not bytes")
     data = json.loads(bytes(raw).decode("utf-8"))
@@ -92,9 +107,9 @@ def parse_manifest(raw, version: str, installer_name: str) -> dict:
     files = data.get("files")
     if not isinstance(files, dict):
         raise ValueError("manifest files missing")
-    entry = files.get(installer_name)
+    entry = files.get(name)
     if not isinstance(entry, dict):
-        raise ValueError("installer entry missing")
+        raise ValueError("asset entry missing")
     sha = entry.get("sha256")
     size = entry.get("bytes")
     if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", sha):
@@ -103,6 +118,37 @@ def parse_manifest(raw, version: str, installer_name: str) -> dict:
             or size <= 0 or size > MAX_INSTALLER_BYTES):
         raise ValueError("bad bytes")
     return {"sha256": sha.lower(), "bytes": size}
+
+
+def parse_manifest(raw, version: str, installer_name: str) -> dict:
+    """安装器清单条目；保留旧函数名给安装流程与既有测试使用。"""
+    return parse_manifest_entry(raw, version, installer_name)
+
+
+def resolve_phone_control_asset(payload: dict, version: str, raw_manifest) -> dict:
+    """把「组件资产 + Release 清单」解析成可用于下载的结论。
+
+    三种结论分开给：没发组件（no_component）、清单对不上（manifest_invalid）、
+    可以下载（available）。不给「退回手动下载页」这种模棱两可的中间态。
+    """
+    picked = select_release_assets(payload, version)
+    asset = picked["phone_control"]
+    if asset is None:
+        return {"state": "no_component", "error_code": "no_component", "asset": None,
+                "text": "这个版本没有发布手机控制组件包。"}
+    if not picked["manifest_url"]:
+        return {"state": "manifest_invalid", "error_code": "manifest_invalid", "asset": None,
+                "text": "组件包缺少清单，无法校验来源。"}
+    try:
+        entry = parse_manifest_entry(raw_manifest, version, asset["name"])
+    except (ValueError, TypeError, UnicodeError):
+        return {"state": "manifest_invalid", "error_code": "manifest_invalid", "asset": None,
+                "text": "组件包清单不可用，已停止下载。"}
+    if entry["bytes"] != asset["bytes"]:
+        return {"state": "manifest_invalid", "error_code": "manifest_invalid", "asset": None,
+                "text": "组件包大小与清单不一致，已停止下载。"}
+    return {"state": "available", "error_code": "", "text": "",
+            "asset": dict(asset, sha256=entry["sha256"], bytes=entry["bytes"])}
 
 
 def _result(current: str, state: str, text: str, latest=None, error_code="") -> dict:

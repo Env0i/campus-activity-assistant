@@ -30,6 +30,11 @@ from domain.retry_window import (  # noqa: E402
     ADAPTIVE_RETRY, ADAPTIVE_SECONDS, DEFAULT_RETRY_SECONDS,
     extension_cap, initial_deadline,
 )
+
+# 合法的一像素 PNG（1×1 透明）：投影层只放行真 PNG 魔数的图，
+# 'AAAA' 这类假图会被丢成空串，用它测正常链路等于测一个不可能发生的事件。
+CAPTCHA_PNG = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
+               "AAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=")
 from infrastructure.phone_http import PhoneHttpServer  # noqa: E402
 
 PHONE_DIR = LOCAL / "ui" / "m"
@@ -241,7 +246,7 @@ class FullChainTests(IntegrationBase):
         self.assertTrue(result["ok"])
         self.service.record_event("phone_relogin", {
             "ready": True, "state": "waiting_code", "flow_id": "flow-1",
-            "challenge_id": "chg-1", "image": "data:image/png;base64,AAAA",
+            "challenge_id": "chg-1", "image": CAPTCHA_PNG,
             "expires_in": 60, "attempts": 0, "max_attempts": 3, "safe_error": ""})
         state = self._state(cookie)
         relay = state["events"][-1]["payload"]

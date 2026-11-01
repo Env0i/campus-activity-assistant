@@ -1,11 +1,25 @@
-/* 手机页样式：375/390/430px 单栏、无横向滚动、按钮 ≥44px，浅色同桌面。 */
+/* 手机页样式：375/390/430px 单栏、无横向滚动、触摸目标 ≥44px。
+ * 色板与桌面同一套 token（候车厅灰底 + 白卡 + 深蓝），手机端只是更松的间距，
+ * 不再自造第二套颜色，否则两个端看起来像两个产品。 */
+:root {
+  --hall: #e8ecef; --paper: #fff; --paper-2: #f4f6f8;
+  --ink: #1a1f24; --ink-2: #4e5964; --ink-3: #616c76;
+  --line: #dde3e8; --line-2: #c5cdd4;
+  --blue: #1e5a8c; --blue-2: #174a75; --blue-tint: #e3edf6;
+  --ok: #146c43; --ok-tint: #e1f3e9;
+  --bad: #b63227; --bad-tint: #fbe6e3;
+  --warn: #8f5600; --warn-tint: #fff0d4;
+  --font-ui: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+}
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; padding: 0; }
 body {
-  font: 15px/1.6 "Segoe UI", "Microsoft YaHei", sans-serif;
-  color: #1f2430;
-  background: #f5f6fa;
+  font: 15px/1.6 var(--font-ui);
+  color: var(--ink);
+  background: var(--hall);
   overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 .wrap {
   max-width: 430px;
@@ -15,29 +29,61 @@ body {
   flex-direction: column;
   gap: 12px;
 }
+/* 状态条吸顶：断网时「刷新」永远在拇指够得到的位置，不用往上翻 */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--hall);
+  padding: 8px 0 6px;
+  margin: -4px 0 0;
+}
 .card {
-  background: #fff;
-  border: 1px solid #e3e6ee;
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 14px;
 }
+/* 今天要参加是这一页的主角：比其它卡片重一点，一眼能找到主按钮 */
+.card.today {
+  border-color: var(--blue);
+  box-shadow: 0 2px 8px rgba(30, 90, 140, .08);
+}
+.card.today h2 { color: var(--blue); }
 h1 { font-size: 20px; margin: 0 0 8px; }
 h2 { font-size: 16px; margin: 0 0 10px; }
-.hint { color: #6b7280; font-size: 13px; margin: 6px 0; overflow-wrap: anywhere; }
-.error { color: #b42318; font-size: 13px; margin: 6px 0; overflow-wrap: anywhere; }
+h3 { font-size: 14px; margin: 0 0 8px; color: var(--ink-2); }
+.hint { color: var(--ink-2); font-size: 13px; margin: 6px 0; overflow-wrap: anywhere; }
+.hint.bookmark { color: var(--ink-3); }
+.error { color: var(--bad); font-size: 13px; margin: 6px 0; overflow-wrap: anywhere; }
+.warn {
+  color: var(--warn);
+  background: var(--warn-tint);
+  border: 1px solid #f0d9ac;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  margin: 6px 0;
+}
 .field { display: block; margin: 10px 0; }
-.field > span { display: block; font-size: 13px; color: #4b5563; margin-bottom: 4px; }
+.field > span { display: block; font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
 .field input, .field select {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
   font-size: 16px;             /* 防 iOS 聚焦缩放 */
-  border: 1px solid #cbd2e0;
+  border: 1px solid var(--line-2);
   border-radius: 10px;
-  background: #fff;
-  color: #1f2430;
+  background: var(--paper);
+  color: var(--ink);
 }
 .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+/* 主操作占满一行：手机上拇指点得到，不用瞄准半个屏幕宽度的按钮 */
+.row.actions { flex-direction: column; }
+button.wide { width: 100%; }
+/* 连不上电脑时顶部的固定说明：它是「为什么点了没反应」的唯一答案 */
+#offline-note { position: sticky; top: 52px; z-index: 2; }
+#stale-note { color: var(--warn); }
 button {
   min-height: 44px;
   min-width: 44px;
@@ -47,44 +93,66 @@ button {
   border: 1px solid transparent;
   cursor: pointer;
 }
-button.primary { background: #2f5fe0; color: #fff; }
-button.ghost { background: #fff; color: #2f5fe0; border-color: #b9c6f2; }
-button.danger { background: #fff; color: #b42318; border-color: #f0b7b2; }
+button.primary { background: var(--blue); color: #fff; }
+button.ghost { background: var(--paper); color: var(--blue); border-color: #b9c6d8; }
+button.danger { background: var(--paper); color: var(--bad); border-color: #e6bdb8; }
 button:disabled { opacity: .5; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .chip {
   min-height: 44px;
-  background: #eef1f8;
-  color: #344054;
-  border-color: #dfe4ef;
+  background: var(--paper-2);
+  color: var(--ink-2);
+  border-color: var(--line);
 }
-.chip[aria-pressed="true"] { background: #2f5fe0; color: #fff; border-color: #2f5fe0; }
+.chip[aria-pressed="true"] { background: var(--blue); color: #fff; border-color: var(--blue); }
 .bar { display: flex; align-items: center; gap: 8px; }
 .bar h1 { margin: 0; flex: 1; }
+.bar-sub { margin: 2px 0 0; color: var(--ink-3); font-size: 12px; }
 .pill {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
-  background: #e7f6ec;
-  color: #157347;
+  background: var(--ok-tint);
+  color: var(--ok);
 }
-.pill[data-state="stale"] { background: #fdf1e7; color: #9a5b00; }
-.pill[data-state="off"] { background: #fdecec; color: #b42318; }
+.pill[data-state="stale"] { background: var(--warn-tint); color: var(--warn); }
+.pill[data-state="off"] { background: var(--bad-tint); color: var(--bad); }
+.steps { margin: 6px 0 10px; padding-left: 20px; color: var(--ink-2); font-size: 13px; }
+.steps li { margin: 3px 0; }
 .items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .items li {
-  border: 1px solid #e3e6ee;
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 10px;
 }
 .items li[data-disabled="1"] { opacity: .55; }
 .items .name { font-weight: 600; overflow-wrap: anywhere; }
-.items .meta { font-size: 12px; color: #6b7280; overflow-wrap: anywhere; }
+.items .meta { font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
 .items label { display: flex; gap: 8px; align-items: flex-start; min-height: 44px; }
-.items input[type="checkbox"] { width: 22px; height: 22px; margin-top: 4px; }
+/* 原生复选框默认只有 20 出头，手指点不准；放大到 28 并把整行做成点击区 */
+.items input[type="checkbox"] { width: 28px; height: 28px; margin-top: 2px; }
+details.card > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 15px;
+  color: var(--ink);
+  list-style: none;
+}
+details.card > summary::-webkit-details-marker { display: none; }
+details.card > summary::before { content: "▸"; color: var(--ink-3); }
+details.card[open] > summary::before { content: "▾"; }
+.sub { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .logs { margin: 0; padding-left: 18px; max-height: 220px; overflow-y: auto; }
 .logs li { font-size: 13px; overflow-wrap: anywhere; }
-#captcha { width: 140px; height: 44px; border: 1px solid #cbd2e0; border-radius: 8px; display: block; }
-#pending-note { color: #9a5b00; }
+#captcha { width: 140px; height: 44px; border: 1px solid var(--line-2); border-radius: 8px; display: block; }
+#pending-note { color: var(--warn); }
 @media (max-width: 374px) {
   .wrap { padding: 10px 8px 20px; }
   h1 { font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
 }

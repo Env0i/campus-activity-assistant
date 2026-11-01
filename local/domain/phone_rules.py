@@ -3,12 +3,15 @@
 
 只做校验与投影：不起 socket、不读墙钟（此刻一律由调用方传入）、不碰 Api。
 敏感字段（token/password/cookie/凭据/路径）在投影里一律剔除；文本截断防日志
-被撑爆。所有判断返回可判定的值或错误码，不抛异常给上层拼堆栈。
+被撑爆；验证码图（data:image/png;base64,）合法且有界时整段保留，非法/超限
+不放行。所有判断返回可判定的值或错误码，不抛异常给上层拼堆栈。
 
 @author Author
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import ipaddress
 import json
 import math
@@ -32,6 +35,10 @@ GLOBAL_FAIL_LIMIT = 3
 COOKIE_NAME = "campus_phone_sid"
 CSRF_HEADER = "X-Campus-Csrf"
 CSRF_COOKIE_NAME = "campus_phone_csrf"
+# 设备信任 cookie：只在 Tailscale 通道签发（地址固定），一年有效；
+# 它换的是「重开工具后不用回电脑重新配对」，不延长 8 小时的活动会话。
+DEVICE_COOKIE_NAME = "campus_phone_device"
+DEVICE_TTL_S = 365 * 24 * 3600
 # 投影里永远不许出现的键名片段（大小写不敏感）
 SENSITIVE_SUBSTRINGS = ("token", "password", "passwd", "cookie", "secret",
                         "credential", "storage_state", "csrf", "pair_code")
@@ -40,6 +47,11 @@ SENSITIVE_EXACT = {"path", "paths", "installer_path", "session_file",
 # 状态投影里整个剔除的顶层块：帮助路径、更新信息都是电脑专属
 DROP_TOP_KEYS = {"help", "update", "update_check"}
 TEXT_LIMIT = 200
+# 验证码图上限与 worker（login_relay.MAX_IMAGE_BYTES）同一口径：base64 段长度
+MAX_IMAGE_BYTES = 128 * 1024
+_DATA_IMAGE_PNG = "data:image/png;base64,"
+# PNG 魔数与 worker（login_relay.PNG_MAGIC）同一口径：解码内容不带它就不放行
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 _ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _CODE_RE = re.compile(r"^[0-9A-Za-z]{4}$")
@@ -84,6 +96,23 @@ def origin_matches(origin_header, host, port: int = HTTP_PORT) -> bool:
     """Origin 必须与服务当前字面 origin 逐字相等：拒绝 CORS 与无 Origin。"""
     raw = str(origin_header or "").strip()
     return bool(raw) and raw == literal_origin(host, port)
+
+
+def hosts_allowed(host_header, hosts, port: int = HTTP_PORT) -> bool:
+    """Host 命中白名单里任一「字面地址:端口」即可。
+
+    白名单只装我们自己写死的字面量（MagicDNS 名 + 绑定地址），不采信请求里的值，
+    所以不会给 DNS rebinding 留口子；备用地址之所以要列进来，是因为手机解析不到
+    MagicDNS 时还得能用 100.x 打开。
+    """
+    return any(host_matches(host_header, host, port)
+               for host in hosts or () if str(host or "").strip())
+
+
+def origins_allowed(origin_header, hosts, port: int = HTTP_PORT) -> bool:
+    """Origin 命中白名单里任一「字面地址:端口」即可（规则同 hosts_allowed）。"""
+    return any(origin_matches(origin_header, host, port)
+               for host in hosts or () if str(host or "").strip())
 
 
 # ---- 请求体与动作白名单 ---------------------------------------------------
@@ -132,6 +161,8 @@ ACTION_PARAMS = {
     "stop_plan": {"plan_id"},
     "cancel_task": {"plan_id", "task_id"},
     "save_retry_policy": {"retry_policy"},
+    # 窗口藏到后台以后，手机上点「显示电脑窗口」把界面叫回来（无参数、无副作用）
+    "show_window": set(),
     # relay 三动作（login-relay 任务接入 Api）：白名单先占位，未实现时明确报错
     "phone_relogin_begin": set(),
     "phone_relogin_submit": {"flow_id", "challenge_id", "code"},
@@ -221,8 +252,30 @@ def clip_text(value, limit: int = TEXT_LIMIT):
     return value if len(value) <= limit else value[:limit] + "…"
 
 
+def project_text(value):
+    """叶子值投影：验证码图整段放行或整体不放行；普通文本仍 200 字符限长。
+
+    data:image/png;base64, 图的门禁与 worker 的 extract_captcha_image 同
+    一张：前缀 + 严格 base64 + base64 段 ≤ MAX_IMAGE_BYTES（128 KiB）+
+    解码内容带 PNG 魔数。合法且有界的整段返回——截断会毁掉验证码；空内容、
+    非 PNG 或超限整体返回空串，绝不截半段放行。
+    """
+    if isinstance(value, str) and value.startswith(_DATA_IMAGE_PNG):
+        raw = value.split(",", 1)[1]
+        if len(raw) <= MAX_IMAGE_BYTES:
+            try:
+                blob = base64.b64decode(raw, validate=True)
+            except (binascii.Error, ValueError):
+                return ""
+            if not blob.startswith(_PNG_MAGIC):
+                return ""
+            return value
+        return ""
+    return clip_text(value)
+
+
 def strip_sensitive(value):
-    """递归剔除敏感键并截断文本；结构保持可 JSON 序列化。"""
+    """递归剔除敏感键并投影文本/验证码图；结构保持可 JSON 序列化。"""
     if isinstance(value, dict):
         out = {}
         for key, item in value.items():
@@ -232,7 +285,7 @@ def strip_sensitive(value):
         return out
     if isinstance(value, list):
         return [strip_sensitive(item) for item in value]
-    return clip_text(value)
+    return project_text(value)
 
 
 def project_state(raw) -> dict:
@@ -287,8 +340,15 @@ def cookie_header_value(token) -> str:
 
 
 def csrf_cookie_header_value(token) -> str:
-    """CSRF 头取值来源：可被 JS 读到才能随写请求回传，故不加 HttpOnly。"""
-    return "%s=%s; SameSite=Strict; Path=/" % (CSRF_COOKIE_NAME, token)
+    """可读 CSRF 标记保留一年供首屏发现设备信任；它本身不授予会话权限。"""
+    return "%s=%s; SameSite=Strict; Path=/; Max-Age=%d" % (
+        CSRF_COOKIE_NAME, token, DEVICE_TTL_S)
+
+
+def device_cookie_header_value(token) -> str:
+    """设备信任 cookie：HttpOnly 且一年有效；只证明「这台手机配对过」。"""
+    return "%s=%s; HttpOnly; SameSite=Strict; Path=/; Max-Age=%d" % (
+        DEVICE_COOKIE_NAME, token, DEVICE_TTL_S)
 
 
 # ---- 事件回放（重连对账）--------------------------------------------------

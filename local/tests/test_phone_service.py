@@ -14,6 +14,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from pathlib import Path
 
 LOCAL = Path(__file__).resolve().parents[1]
@@ -22,7 +23,8 @@ if str(LOCAL) not in sys.path:
 
 from application.phone_service import PhoneAccessService  # noqa: E402
 from domain.phone_rules import (  # noqa: E402
-    COOKIE_NAME, CSRF_HEADER, EVENT_BUFFER_LIMIT, GLOBAL_FAIL_LIMIT,
+    COOKIE_NAME, CSRF_HEADER, DEVICE_COOKIE_NAME, DEVICE_TTL_S,
+    EVENT_BUFFER_LIMIT, GLOBAL_FAIL_LIMIT,
     IP_FAIL_LIMIT, IP_LOCK_S, PAIR_TTL_S, SESSION_TTL_S,
     is_allowed_bind, project_state,
 )
@@ -66,6 +68,10 @@ class FakeApi:
     def cancel_start_request(self, request_id):
         self.calls.append(("cancel_start_request", request_id))
         return {"ok": True}
+
+    def show_window(self):
+        self.calls.append(("show_window",))
+        return {"ok": True, "hidden": False}
 
     def save_prefs(self, prefs):
         self.calls.append(("save_prefs", prefs))
@@ -121,6 +127,34 @@ class PhoneServiceBase(unittest.TestCase):
 
     def tearDown(self):
         self.service.stop()
+
+
+class ClockUnavailableTests(PhoneServiceBase):
+
+    def test_pair_code_status_degrades_instead_of_raising(self):
+        # 校时失败时面板每 5 秒就调一次这里，抛异常会让整个手机面板打不开
+        def boom():
+            raise RuntimeError("本轮没有可用的时间源响应")
+
+        service = PhoneAccessService(
+            api=self.api, now=boom, state_of=lambda: self.raw_state,
+            server_factory=lambda host, port, svc: FakeServer(host, port, svc))
+        self.addCleanup(service.stop)
+        status = service.pair_code_status()
+        self.assertEqual(status["reason"], "clock_unavailable")
+        self.assertEqual(status["code"], "")
+        self.assertEqual(status["expires_in"], 0)
+
+    def test_clock_failure_claims_no_way_back(self):
+        """时间源坏了就不能断言手机还连得上：那个判断会决定要不要把窗口藏起来。"""
+        def boom():
+            raise RuntimeError("本轮没有可用的时间源响应")
+
+        service = PhoneAccessService(
+            api=self.api, now=boom, state_of=lambda: self.raw_state,
+            server_factory=lambda host, port, svc: FakeServer(host, port, svc))
+        self.addCleanup(service.stop)
+        self.assertIs(service.has_live_session(), False)
 
 
 class ProjectionTests(PhoneServiceBase):
@@ -179,7 +213,26 @@ class PairAndSessionTests(PhoneServiceBase):
         self.assertTrue(first["ok"])
         self.assertFalse(second["ok"], "一码一次：第二次兑换必须失败")
 
-    def test_concurrent_redeem_only_one_wins(self):
+    def test_pair_code_status_reports_leftover_time_and_change_reason(self):
+        """面板要能说清「码还剩多久」「为什么换了一张」，而不是只给一串数字。"""
+        self.service.start("127.0.0.1", 0)
+        first = self.service.pair_code_status()
+        self.assertEqual(len(first["code"]), 6)
+        self.assertEqual(first["reason"], "started")
+        self.assertGreater(first["expires_in"], 0)
+        self.assertLessEqual(first["expires_in"], int(PAIR_TTL_S))
+        self.clock["now"] += PAIR_TTL_S + 1
+        expired = self.service.pair_code_status()
+        self.assertNotEqual(expired["code"], first["code"], "过期必须换新码")
+        self.assertEqual(expired["seq"], first["seq"] + 1)
+        self.assertEqual(expired["reason"], "expired")
+        self.assertTrue(self.service.pair(expired["code"], ip="127.0.0.1")["ok"])
+        paired = self.service.pair_code_status()
+        self.assertEqual(paired["seq"], expired["seq"] + 1)
+        self.assertEqual(paired["reason"], "paired")
+        self.assertNotEqual(paired["code"], expired["code"], "兑换过就不能再用")
+
+
         self.service.start("127.0.0.1", 0)
         code = self.service.current_pair_code()
         results = []
@@ -235,6 +288,36 @@ class PairAndSessionTests(PhoneServiceBase):
         self.assertIsNone(self.service.authenticate(cookie), "8 小时后必须失效")
 
 
+class LiveSessionTests(PhoneServiceBase):
+    """「还叫得回来吗」：隐藏窗口前唯一的凭据，只回答有没有，不给 token。"""
+
+    def _pair(self):
+        self.service.start("127.0.0.1", 0)
+        return self.service.pair(self.service.current_pair_code(), ip="127.0.0.1")
+
+    def test_fresh_service_has_no_live_session(self):
+        self.assertIs(self.service.has_live_session(), False)
+
+    def test_pairing_gives_a_way_back_until_it_expires(self):
+        self._pair()
+        self.assertIs(self.service.has_live_session(), True)
+        # 边界是「<= 8 小时」，所以过期要往后多走一秒
+        self.clock["now"] += SESSION_TTL_S + 1
+        self.assertIs(self.service.has_live_session(), False,
+                      "过期的会话不能当成「手机还连得上」")
+
+    def test_stopping_the_service_revokes_the_way_back(self):
+        self._pair()
+        self.service.stop(revoke_devices=True)
+        self.assertIs(self.service.has_live_session(), False)
+
+    def test_answer_is_a_bare_boolean_never_a_token(self):
+        self._pair()
+        answer = self.service.has_live_session()
+        self.assertIsInstance(answer, bool)
+        self.assertNotIn("token", str(answer))
+
+
 class DispatchWhitelistTests(PhoneServiceBase):
     def test_forbidden_actions_are_rejected(self):
         for action in ("shutdown", "open_data", "update", "check_update",
@@ -250,6 +333,14 @@ class DispatchWhitelistTests(PhoneServiceBase):
         result = self.service.dispatch("check", {"request_id": "r1", "evil": "x"})
         self.assertEqual(result["error"], "args_not_allowed")
         self.assertEqual(self.api.calls, [])
+
+    def test_show_window_is_allowed_without_arguments(self):
+        """手机页「显示电脑窗口」：无参数动作，允许；带参数一律拒。"""
+        ok = self.service.dispatch("show_window", {})
+        self.assertTrue(ok["ok"], ok)
+        self.assertEqual(self.api.calls[-1], ("show_window",))
+        bad = self.service.dispatch("show_window", {"request_id": "r1"})
+        self.assertEqual(bad["error"], "args_not_allowed")
 
     def test_save_retry_policy_only_allows_policy_keys(self):
         ok = self.service.dispatch(
@@ -284,6 +375,17 @@ class DispatchWhitelistTests(PhoneServiceBase):
 
 
 class EventBufferTests(PhoneServiceBase):
+    def test_state_projection_cannot_advance_cursor_past_unreturned_event(self):
+        self.service.record_event("log", {"text": "first"})
+        def state_with_new_event():
+            self.service.record_event("log", {"text": "second"})
+            return {}
+        self.service._state_of = state_with_new_event
+        first = self.service.safe_state(cursor=0)
+        self.service._state_of = lambda: {}
+        second = self.service.safe_state(cursor=first["seq"])
+        self.assertEqual([event["payload"]["text"] for event in second["events"]], ["second"])
+
     def test_events_survive_without_window(self):
         """窗口为空也要能发布：_emit 只进缓冲，不回调任何客户端。"""
         self.service.record_event("log", {"text": "hello", "token": "fake"})
@@ -344,3 +446,273 @@ class BindAndLifecycleTests(PhoneServiceBase):
         self.assertTrue(self.servers[0].stopped)
         self.assertFalse(other.stopped, "关闭不得影响别的进程/服务")
         self.assertFalse(self.service.is_running())
+
+
+class PublicUrlServer(FakeServer):
+    """带公网展示地址的假 server：行为对齐 PhoneHttpServer.address()。"""
+
+    def __init__(self, host, port, service, public_host="", public_scheme="http"):
+        super().__init__(host, port, service)
+        self.public_host = str(public_host or host)
+        self.public_scheme = "https" if str(public_scheme).lower() == "https" else "http"
+
+    def set_public_host(self, public_host, scheme="http"):
+        self.public_host = str(public_host)
+        self.public_scheme = "https" if str(scheme).lower() == "https" else "http"
+
+    def address(self):
+        suffix = "" if self.public_scheme == "https" else ":%d" % (self.port or 8765)
+        return "%s://%s%s" % (self.public_scheme, self.public_host, suffix)
+
+
+class PublicUrlTests(unittest.TestCase):
+    """远程通道展示地址：Tailscale 域名直用，Cloudflare 建隧道后切换。"""
+
+    def setUp(self):
+        self.api = FakeApi()
+        self.clock = {"now": 1000.0}
+        self.servers = []
+
+        def factory(host, port, service, public_host="", public_scheme="http"):
+            server = PublicUrlServer(host, port, service,
+                                     public_host=public_host,
+                                     public_scheme=public_scheme)
+            self.servers.append(server)
+            return server
+
+        self.service = PhoneAccessService(
+            api=self.api, now=lambda: self.clock["now"],
+            state_of=lambda: {"activities": [], "busy": False},
+            server_factory=factory)
+        self.addCleanup(self.service.stop)
+
+    def test_tailscale_public_host_is_used_in_address(self):
+        result = self.service.start("100.64.0.9", 0,
+                                    public_host="box.tailnet.ts.net")
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["address"], "http://box.tailnet.ts.net:8765")
+
+    def test_set_public_url_switches_to_https_tunnel_host(self):
+        self.service.start("127.0.0.1", 0)
+        result = self.service.set_public_url(
+            "https://neat-words.trycloudflare.com/some/path?q=1")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["address"], "https://neat-words.trycloudflare.com")
+        self.assertEqual(self.servers[0].public_scheme, "https")
+
+    def test_bad_public_url_and_host_are_rejected(self):
+        self.service.start("127.0.0.1", 0)
+        for bad in ("", "ftp://x.example", "https://", "not a url",
+                    "javascript:alert(1)"):
+            with self.subTest(bad=bad):
+                self.assertFalse(self.service.set_public_url(bad)["ok"])
+        self.assertFalse(self.service.set_public_host("")["ok"])
+
+    def test_stop_clears_public_host(self):
+        self.service.start("127.0.0.1", 0)
+        self.service.set_public_url("https://x.trycloudflare.com")
+        self.service.stop()
+        self.assertEqual(self.service.address(), "")
+
+
+class FakeDeviceStore:
+    """替身设备信任存储：只记内存，不落盘、不碰 DPAPI。"""
+
+    def __init__(self, valid=True):
+        self.valid = valid
+        self.devices = []
+        self.validated = []
+        self.revoked = 0
+        self.fail = False
+
+    def add_device(self, token, now=None):
+        if self.fail:
+            raise RuntimeError("boom")
+        self.devices.append(token)
+        return True
+
+    def validate_device(self, token, now=None):
+        self.validated.append(token)
+        return self.valid and token in self.devices
+
+    def revoke_all(self):
+        self.revoked += 1
+        self.devices = []
+        return True
+
+
+def _device_token(cookie_header) -> str:
+    """从 Set-Cookie 文本里取设备 token（测试用，不认识别的键）。"""
+    for part in str(cookie_header or "").split(";"):
+        key, _, value = part.strip().partition("=")
+        if key == DEVICE_COOKIE_NAME:
+            return value.strip()
+    return ""
+
+
+class DeviceTrustBase(PhoneServiceBase):
+    def setUp(self):
+        super().setUp()
+        self.store = FakeDeviceStore()
+        self.service = self._build(self.store)
+
+    def _build(self, store):
+        self.servers = []
+
+        def factory(host, port, service):
+            server = FakeServer(host, port, service)
+            self.servers.append(server)
+            return server
+
+        return PhoneAccessService(
+            api=self.api, now=lambda: self.clock["now"],
+            state_of=lambda: self.raw_state, server_factory=factory,
+            device_store=store)
+
+    def _pair_persistent(self):
+        started = self.service.start("100.64.0.9", 0, persistent_device=True)
+        self.assertTrue(started["ok"], started)
+        self.assertTrue(started["persistent_device"])
+        redeemed = self.service.pair(self.service.current_pair_code(), ip="127.0.0.1")
+        self.assertTrue(redeemed["ok"], redeemed)
+        return redeemed
+
+
+class DeviceTrustTests(DeviceTrustBase):
+    def test_pair_persistence_cannot_restore_revoked_trust_after_stop(self):
+        self.service.start("100.64.0.9", 0, persistent_device=True)
+        code = self.service.current_pair_code()
+        entered, release = threading.Event(), threading.Event()
+        original = self.store.add_device
+        def add(*args):
+            entered.set()
+            release.wait(2)
+            return original(*args)
+        with mock.patch.object(self.store, "add_device", side_effect=add):
+            worker = threading.Thread(target=lambda: self.service.pair(code, ip="127.0.0.1"))
+            worker.start()
+            self.assertTrue(entered.wait(2))
+            stopper = threading.Thread(target=self.service.stop)
+            stopper.start()
+            stopper.join(0.1)
+            release.set()
+            worker.join(3)
+            stopper.join(3)
+        self.assertEqual(self.store.devices, [])
+
+    def test_inflight_restore_cannot_recreate_sessions_after_stop(self):
+        redeemed = self._pair_persistent()
+        device_cookie = redeemed["device_cookie"]
+        entered, release = threading.Event(), threading.Event()
+        def validate(*args):
+            entered.set()
+            release.wait(2)
+            return True
+        with mock.patch.object(self.store, "validate_device", side_effect=validate):
+            worker = threading.Thread(target=lambda: self.service.authenticate_or_restore("", device_cookie))
+            worker.start()
+            self.assertTrue(entered.wait(2))
+            stopper = threading.Thread(target=self.service.stop)
+            stopper.start()
+            stopper.join(0.1)
+            release.set()
+            worker.join(3)
+            stopper.join(3)
+        self.assertEqual(self.service._sessions, {})
+
+    def test_tailscale_pair_issues_device_cookie(self):
+        redeemed = self._pair_persistent()
+        cookie = redeemed["device_cookie"]
+        self.assertIn("%s=" % DEVICE_COOKIE_NAME, cookie)
+        self.assertIn("HttpOnly", cookie)
+        self.assertIn("Max-Age=%d" % DEVICE_TTL_S, cookie)
+        self.assertEqual(self.store.devices, [_device_token(cookie)],
+                         "存储里只该有 hash 由存储自己算，服务只交原始 token 一次")
+
+    def test_cloudflare_pair_has_no_device_cookie(self):
+        started = self.service.start("127.0.0.1", 0)
+        self.assertTrue(started["ok"], started)
+        self.assertFalse(started["persistent_device"], "非固定地址通道不得承诺免配对")
+        redeemed = self.service.pair(self.service.current_pair_code(), ip="127.0.0.1")
+        self.assertTrue(redeemed["ok"], redeemed)
+        self.assertEqual(redeemed["device_cookie"], "")
+        self.assertEqual(self.store.devices, [])
+
+    def test_shutdown_preserves_device_trust_and_restores(self):
+        redeemed = self._pair_persistent()
+        token = _device_token(redeemed["device_cookie"])
+        self.service.shutdown(preserve_devices=True)
+        self.assertEqual(self.store.revoked, 0, "程序退出不得撤销设备信任")
+        restarted = self._build(self.store)
+        started = restarted.start("100.64.0.9", 0, persistent_device=True)
+        self.assertTrue(started["ok"], started)
+        try:
+            session, headers = restarted.authenticate_or_restore("", redeemed["device_cookie"])
+            self.assertIsNotNone(session, "配对过的手机重开工具后应直接可用")
+            self.assertTrue(session["restored"])
+            self.assertEqual(len(headers), 3, "会话 + CSRF + 设备续期三条 Set-Cookie")
+            self.assertTrue(any(value.startswith("%s=" % COOKIE_NAME)
+                                for _key, value in headers),
+                            "恢复时必须回写新的会话 cookie")
+            self.assertEqual([value for _key, value in headers
+                              if value.startswith("%s=" % DEVICE_COOKIE_NAME)],
+                             [redeemed["device_cookie"]],
+                             "恢复时顺带给设备 cookie 续期")
+        finally:
+            restarted.shutdown(preserve_devices=True)
+
+    def test_manual_stop_revokes_device_trust(self):
+        redeemed = self._pair_persistent()
+        self.service.stop()
+        self.assertEqual(self.store.revoked, 1, "手动关闭手机访问必须撤销设备信任")
+        restarted = self._build(self.store)
+        restarted.start("100.64.0.9", 0, persistent_device=True)
+        try:
+            session, headers = restarted.authenticate_or_restore(
+                "", redeemed["device_cookie"])
+            self.assertIsNone(session)
+            self.assertEqual(headers, [])
+        finally:
+            restarted.shutdown(preserve_devices=True)
+
+    def test_restore_requires_persistent_channel(self):
+        self.service.start("127.0.0.1", 0)
+        session, headers = self.service.authenticate_or_restore(
+            "", "%s=whatever; Path=/" % DEVICE_COOKIE_NAME)
+        self.assertIsNone(session, "非 Tailscale 通道永不进恢复分支")
+        self.assertEqual(headers, [])
+        self.assertEqual(self.store.validated, [], "不该白读存储")
+
+    def test_active_session_wins_without_new_cookies(self):
+        redeemed = self._pair_persistent()
+        session, headers = self.service.authenticate_or_restore(
+            redeemed["cookie"], redeemed["device_cookie"])
+        self.assertIsNotNone(session)
+        self.assertNotIn("restored", session)
+        self.assertEqual(headers, [], "活动会话有效时不得再签发新 cookie")
+
+    def test_unknown_device_token_is_rejected(self):
+        self._pair_persistent()
+        session, headers = self.service.authenticate_or_restore(
+            "", "%s=deadbeef; Path=/" % DEVICE_COOKIE_NAME)
+        self.assertIsNone(session, "没登记过的设备不得换会话")
+
+    def test_store_failure_does_not_break_pairing(self):
+        self.store.fail = True
+        redeemed = self._pair_persistent()
+        self.assertEqual(redeemed["device_cookie"], "",
+                         "落盘失败只影响免配对，配对本身必须成功")
+
+    def test_restored_session_is_usable(self):
+        redeemed = self._pair_persistent()
+        self.service.shutdown(preserve_devices=True)
+        restarted = self._build(self.store)
+        restarted.start("100.64.0.9", 0, persistent_device=True)
+        try:
+            session, _headers = restarted.authenticate_or_restore(
+                "", redeemed["device_cookie"])
+            again = restarted.authenticate("%s=%s" % (COOKIE_NAME, session["token"]))
+            self.assertIsNotNone(again, "恢复出来的会话必须是真会话")
+            self.assertEqual(again["csrf"], session["csrf"])
+        finally:
+            restarted.shutdown(preserve_devices=True)

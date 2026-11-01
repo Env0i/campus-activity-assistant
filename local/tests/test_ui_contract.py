@@ -5670,5 +5670,290 @@ out.push({ enterPrevented: eEnter.defaultPrevented,
         self.assertEqual(calls["bridgeCalls"], [], "反馈路径必须零桥调用")
 
 
+class ClockRetryBackoffDisplayTests(unittest.TestCase):
+    """R1：首轮校时失败后自动退避重试，界面要说清「什么时候再试」与失败原因。"""
+
+    def test_retrying_state_exposes_countdown_and_whitelisted_reason(self):
+        res = run_js(r"""
+ingestBusinessClock({ schema: 1, owner_id: "harness-clock", generation: 12,
+  state: "unavailable", epoch_s: null, tick_s: null, sampled_tick_s: null,
+  uncertainty_s: null, source: "", age_s: null, reason: "本轮没有可用的时间源响应",
+  sync_status: "failed", sync_round: 3, retry_attempt: 2, retry_in_s: 9.4,
+  last_failure_source: "ntp.aliyun.com", last_failure_reason: "timeout" }, { rttMs: 0 });
+S.businessClock.attempted = true;
+out.push({ ui: clockUiState(), hint: clockRetryText(), due: clockRetryDueText(),
+  source: clockFailureSourceText(), reason: clockFailureReasonText(),
+  now: businessNowMs() });
+""")
+        row = res[0]
+        self.assertEqual(row["ui"], "retrying", "排了退避就要显示「正在重试」而不是直接失败")
+        self.assertIn("正在重试", row["hint"])
+        self.assertEqual(row["due"], "10 秒后", "剩余秒数向上取整，避免显示 0 秒后")
+        self.assertEqual(row["source"], "ntp.aliyun.com")
+        self.assertEqual(row["reason"], "网络超时", "白名单原因要翻成人话")
+        self.assertIsNone(row["now"], "校时失败时不得回退系统时间")
+
+    def test_backoff_fields_and_copy_are_wired_through_ui(self):
+        state_js = (LOCAL / "ui" / "state" / "clock.js").read_text(encoding="utf-8")
+        pop_js = (LOCAL / "ui" / "views" / "clock-pop.js").read_text(encoding="utf-8")
+        top_js = (LOCAL / "ui" / "views" / "clock.js").read_text(encoding="utf-8")
+        html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
+        styles = (LOCAL / "ui" / "styles.css").read_text(encoding="utf-8")
+        for field in ("retry_attempt", "retry_in_s", "last_failure_source",
+                      "last_failure_reason"):
+            self.assertIn(field, state_js, "快照字段必须逐个读出，不能靠缺键猜")
+        self.assertIn("正在重试", state_js)
+        self.assertIn("点这里重试", pop_js, "失败态的按钮要说清点它会发生什么")
+        for label in ("下一次重试", "最近失败来源", "最近失败原因"):
+            self.assertIn(label, pop_js)
+        self.assertIn("clock-retry-hint", html)
+        self.assertIn("clock-retry-hint", top_js)
+        self.assertIn('[data-state="retrying"]', styles)
+
+
+
+class ChannelInstallContractTests(unittest.TestCase):
+    """手机控制安装区：能力状态在前、一键装组件、长期/临时说得清。"""
+
+    def setUp(self):
+        self.html = read("ui/index.html")
+        self.css = read("ui/styles.css")
+        self.view = read("ui/views/phone.js")
+
+    def test_component_download_elements_exist(self):
+        for marker in ('id="phone-component-state"',
+                       'id="phone-component-progress"',
+                       'id="phone-component-error"',
+                       'id="btn-phone-component-install"',
+                       'id="btn-phone-component-cancel"'):
+            self.assertIn(marker, self.html, marker)
+
+    def test_component_state_is_announced(self):
+        self.assertIn('id="phone-component-state" aria-live="polite"', self.html)
+        self.assertIn('id="phone-status" role="status"', self.html,
+                      "结果提示同样要能被读屏念出来")
+
+    def test_progress_and_error_have_styles(self):
+        self.assertIn(".phone-component-progress", self.css)
+        self.assertIn(".phone-component-error", self.css)
+        self.assertIn("var(--bad-tint)", self.css)
+        block = self.css.split("/* ---- 帮助里的跨设备访问")[-1]
+        self.assertNotIn("gradient", block.split("/* ---- 独立北京时间")[0],
+                         "新增的组件区不引入渐变")
+
+    def test_channels_say_long_lived_versus_temporary(self):
+        self.assertIn("Tailscale（长期地址）", self.view)
+        self.assertIn("Cloudflare（临时地址）", self.view)
+        self.assertIn("重新扫码", self.html)
+
+    def test_no_path_box_or_raw_binary_picker_for_normal_users(self):
+        for forbidden in ('id="phone-cloudflared-path"',
+                          'id="btn-phone-cloudflared-inspect"',
+                          "cloudflared.exe 路径"):
+            self.assertNotIn(forbidden, self.html, forbidden)
+
+
 if __name__ == "__main__":
     unittest.main()
+
+
+class BookmarkCopyContractTests(unittest.TestCase):
+    """桌面帮助页与手机页必须给同一句话：扫码只当首次引导，长期入口是书签。"""
+
+    COPY = "打开后建议加入手机书签，方便下次访问。"
+
+    def _read(self, *parts):
+        return (LOCAL.joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_desktop_and_mobile_share_the_same_hint(self):
+        desktop = self._read("ui", "index.html")
+        mobile = self._read("ui", "m", "index.html")
+        self.assertIn(self.COPY, desktop, "桌面帮助页要提示存书签")
+        self.assertIn(self.COPY, mobile, "手机页要提示存书签")
+        self.assertGreaterEqual(desktop.count(self.COPY), 2,
+                                "桌面：地址区与二维码旁各一处")
+
+
+class AdvancedComponentDialogContractTests(unittest.TestCase):
+    """「安装/更换」打开的是逐项自检的对话框，不是点一下就装、也不是代下载。"""
+
+    def setUp(self):
+        self.html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
+        self.css = (LOCAL / "ui" / "styles.css").read_text(encoding="utf-8")
+        self.phone = (LOCAL / "ui" / "views" / "phone.js").read_text(encoding="utf-8")
+
+    def test_the_dialog_lists_one_row_per_component(self):
+        for needle in ('id="dlg-components"', 'id="comp-phone"', 'id="comp-ocr"',
+                       'id="comp-tailscale"', 'id="btn-comp-close"'):
+            self.assertIn(needle, self.html, "组件对话框缺少 %s" % needle)
+        for prefix in ("comp-phone", "comp-ocr"):
+            for suffix in ("status", "need", "path", "note"):
+                self.assertIn('id="%s-%s"' % (prefix, suffix), self.html)
+            for action in ("pick", "inspect", "install"):
+                self.assertIn('id="btn-%s-%s"' % (prefix, action), self.html)
+
+    def test_nothing_is_installed_before_a_file_passes_the_check(self):
+        """安装按钮默认不可点：必须先选文件、且自检通过。"""
+        start = self.html.index('id="btn-comp-phone-install"')
+        stop = self.html.index(">", start)
+        self.assertIn("disabled", self.html[start:stop])
+        start = self.html.index('id="btn-comp-ocr-install"')
+        stop = self.html.index(">", start)
+        self.assertIn("disabled", self.html[start:stop])
+        self.assertIn("installEl.disabled = !verified", self.phone)
+        self.assertIn("inspect_advanced_component", self.phone)
+        self.assertIn("install_advanced_feature", self.phone)
+
+    def test_the_install_buttons_only_open_the_dialog(self):
+        """帮助页那两个「安装」按钮改成打开对话框，不再直接调安装接口。"""
+        self.assertNotIn('PhonePanel.install("phone_control"', self.phone)
+        self.assertNotIn('PhonePanel.install("relogin_ocr"', self.phone)
+        self.assertEqual(2, self.phone.count("PhonePanel.openComponents()"))
+
+    def test_tailscale_is_detected_not_installed(self):
+        """Tailscale 是系统装的软件：这一行只检测，不接收文件。"""
+        start = self.html.index('id="comp-tailscale"')
+        stop = self.html.index("</section>", start)
+        row = self.html[start:stop]
+        self.assertNotIn("btn-comp-tailscale-pick", row)
+        self.assertIn("Tailscale", row)
+        self.assertIn("comp-tailscale-status", row)
+        self.assertIn(".comp-row-plain", self.css)
+        self.assertIn(".comp-status", self.css)
+
+
+class WindowCloseChoiceContractTests(unittest.TestCase):
+    """关窗三选：X 不再等于直接退出，最小化/退出/记住都要在界面上有对应物。"""
+
+    def setUp(self):
+        self.html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
+        self.css = (LOCAL / "ui" / "styles.css").read_text(encoding="utf-8")
+        self.controller = (LOCAL / "ui" / "controllers" / "window.js").read_text(encoding="utf-8")
+
+    def test_dialog_offers_hide_minimize_exit_and_cancel(self):
+        for needle in ('id="dlg-close"', 'id="dlg-close-body"', 'id="dlg-close-remember"',
+                       'id="btn-close-hide"', 'id="btn-close-minimize"',
+                       'id="btn-close-exit"', 'id="btn-close-cancel"'):
+            self.assertIn(needle, self.html, "关窗对话框缺少 %s" % needle)
+        self.assertIn("隐藏到后台运行", self.html)
+        self.assertIn("最小化到任务栏", self.html)
+        self.assertIn("以后都这样", self.html)
+        self.assertIn('src="controllers/window.js"', self.html)
+        self.assertIn(".dlg-check", self.css)
+
+    def test_choices_are_stacked_rows_not_a_button_row(self):
+        """三个出口并排看不清谁更安全：改成竖排可选行，每行带一句代价说明。"""
+        self.assertEqual(3, self.html.count('class="close-choice"')
+                         + self.html.count('class="close-choice is-danger"'))
+        self.assertIn("is-danger", self.html)
+        for needle in (".close-choices", ".close-choice", ".close-choice.is-danger"):
+            self.assertIn(needle, self.css)
+        # 一行放不下三个「标题+说明」按钮，旧的窄弹窗宽度不该再被这个对话框引用
+        self.assertIn('class="dlg dlg-close"', self.html)
+
+    def test_controller_routes_the_four_outcomes(self):
+        self.assertIn("request_window_close", self.controller)
+        self.assertIn("remember_", self.controller)
+        self.assertIn('submitWindowClose("hide")', self.controller)
+        self.assertIn("window.close_action", (LOCAL / "app.py").read_text(encoding="utf-8"))
+        # 隐藏走后端 window.hide()（pywebview 原生）；前端不自己调，也不引托盘库
+        self.assertNotIn("pystray", self.controller)
+        self.assertNotIn(".hide()", self.controller)
+
+    def test_hide_runs_in_background_and_can_be_woken_from_the_phone(self):
+        """隐藏＝进程继续跑，所以必须有唤回入口：托盘 + 手机页各一条。"""
+        tray = (LOCAL / "infrastructure" / "tray_icon.py").read_text(encoding="utf-8")
+        app_py = (LOCAL / "app.py").read_text(encoding="utf-8")
+        self.assertIn("NotifyIcon", tray)
+        self.assertIn("def start(self) -> bool", tray, "托盘建不起来要能优雅失败")
+        # 消息循环不能挂在窗体上：Application.Run(form) 会把宿主窗体显示出来，
+        # 用户点「隐藏到后台」时就会多出一个空白小窗。
+        self.assertIn("ApplicationContext", tray)
+        self.assertNotIn("Application.Run(form)", tray)
+        self.assertIn("def hide_window(self) -> dict", app_py)
+        self.assertIn("def show_window(self) -> dict", app_py)
+        self.assertIn("def _ensure_tray(self) -> bool", app_py)
+        self.assertIn('"show_window": set()',
+                      (LOCAL / "domain" / "phone_rules.py").read_text(encoding="utf-8"))
+        mobile = (LOCAL / "ui" / "m" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('id="btn-show-window"', mobile)
+        self.assertIn("显示电脑窗口", mobile)
+
+    def test_minimize_takes_focus_when_the_dialog_opens(self):
+        """焦点落在「最小化」：三个出口里最轻、随时能回来的那一个。"""
+        start = self.html.index('id="btn-close-minimize"')
+        self.assertIn("autofocus", self.html[start:].split("</button>")[0],
+                      "静态标记也要有：showModal 时内核先把焦点放到最小化")
+        self.assertIn("focusSafestClose", self.controller)
+        self.assertIn('getElementById("btn-close-minimize")', self.controller)
+        # 元素或 focus 缺失时必须静默跳过：焦点问题不该把关窗流程卡住
+        self.assertIn('typeof target.focus !== "function"', self.controller)
+        self.assertIn("try {", self.controller)
+
+    def test_hide_needs_a_live_way_back(self):
+        """托盘和手机都没连着时拒绝隐藏：否则窗口一藏就再也叫不回来。"""
+        app_py = (LOCAL / "app.py").read_text(encoding="utf-8")
+        self.assertIn("has_live_session", app_py)
+        self.assertIn("hide_unavailable", app_py)
+        phone = (LOCAL / "application" / "phone_service.py").read_text(encoding="utf-8")
+        self.assertIn("def has_live_session(self) -> bool:", phone)
+        # 判断只读会话表，且「有没有」与 token/csrf 无关
+        self.assertIn("session_alive(session, now)", phone)
+        self.assertNotIn("has_live_session", self.controller,
+                         "能不能唤回由后端判定，界面不自己猜")
+
+
+class DocAndCopySyncTests(unittest.TestCase):
+    """文档和提示文案必须跟真实能力对得上：cloudflared 只从组件包来。"""
+
+    def setUp(self):
+        self.doc = (LOCAL.parent / "docs" / "PHONE_ACCESS.md").read_text(encoding="utf-8")
+        self.readme = (LOCAL / "README.md").read_text(encoding="utf-8")
+        self.html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
+        self.phone_view = (LOCAL / "ui" / "views" / "phone.js").read_text(encoding="utf-8")
+
+    def test_docs_point_at_the_component_package_not_the_path(self):
+        """task-1 之后 PATH 回退没了：文档再教人自备 cloudflared 就是骗人。"""
+        for name, text in (("PHONE_ACCESS.md", self.doc), ("local/README.md", self.readme)):
+            self.assertNotIn("需要用户自行准备", text, "%s 还在教用户自备 cloudflared" % name)
+            self.assertNotIn("PATH 或安装包 bin", text, "%s 还在把 PATH 当合法来源" % name)
+            self.assertIn("组件包", text, "%s 没写清 cloudflared 从组件包来" % name)
+        # 版本、安装方式与校验口径要能被用户读到，不能只活在代码里
+        self.assertIn("2026.10.7", self.doc)
+        self.assertIn("SHA-256", self.doc)
+        # task-4 起组件可以一键装：文档要写清这条路和两条通道的长期/临时差别
+        self.assertIn("下载并安装组件包", self.doc)
+        self.assertIn("长期通道", self.doc)
+        self.assertIn("不会自动升级", self.doc)
+
+    def test_ui_copy_matches_the_bundled_binary(self):
+        self.assertIn("组件包", self.html)
+        self.assertIn("不用另装", self.html)
+        self.assertIn("组件包", self.phone_view)
+
+    def test_hide_choice_says_how_it_comes_back(self):
+        """「隐藏到后台」必须交代两条唤回路，否则用户不知道窗口去哪了。"""
+        start = self.html.index('id="btn-close-hide"')
+        block = self.html[start:].split("</button>")[0]
+        self.assertIn("托盘", block)
+        self.assertIn("手机页", block)
+        self.assertIn("不会隐藏", block)
+
+    def test_the_install_entry_survives_a_missing_component_package(self):
+        """源码版模块可用不代表组件包在：通道报缺失时入口必须还看得见。
+
+        以前是 `phoneInstall.hidden = phoneReady`，源码版 segno 一导入就 ready，
+        按钮被藏起来，Cloudflare 却因为没组件包而不可用 —— 用户无处可补装。
+        """
+        self.assertIn("cloudflared_missing", self.phone_view)
+        self.assertIn("componentMissing", self.phone_view)
+        self.assertIn("安装/更换组件包", self.phone_view)
+        self.assertNotIn("phoneInstall.hidden = phoneReady;", self.phone_view)
+
+    def test_a_check_event_refreshes_the_desktop_relogin_card(self):
+        """重登成功后顶栏会变，右侧「电脑续登录」卡片也得跟着刷新。"""
+        app_js = (LOCAL / "ui" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("window.PhonePanel", app_js)
+        self.assertIn("PhonePanel.refresh", app_js)
+        # 顶层 const 不会挂到 window 上：必须显式暴露，否则上面的调用永远是空
+        self.assertIn("window.PhonePanel = PhonePanel;", self.phone_view)

@@ -72,6 +72,8 @@ async function boot() {
 
 window.onBackend = {
   log: (line) => addLog(line),
+  /* 点右上角 X：后端取消了关闭，改为让用户选「最小化 / 退出」 */
+  window_close_ask: (payload) => openWindowCloseDialog(payload),
   check: (payload) => {
     const data = payload || {};
     /* 旧轮迟到：不能覆盖新一轮的检查结论（R11）。先有界暂存，
@@ -118,6 +120,12 @@ window.onBackend = {
      * 一起刷新，不留「胶囊更新了、倒计时还是旧的」混合态（上面的 request_id
      * 代次校验已保证只有本轮结果能走到这里）。 */
     syncLoginDependentView();
+    /* 重登成功也会走这条 check 事件：顶栏换了，右侧「电脑续登录」卡片还是旧
+     * 记录（最近一次登录/账号状态）。顺手让手机面板重取一次自己的快照，
+     * 失败就静默——卡片陈旧不该影响登录结论本身。 */
+    if (window.PhonePanel && typeof window.PhonePanel.refresh === "function") {
+      try { window.PhonePanel.refresh(); } catch (error) { /* 面板刷新失败不干扰 check */ }
+    }
   },
   activities: (payload) => applyActivities(payload, false),
   done: (payload) => handleDone(payload),

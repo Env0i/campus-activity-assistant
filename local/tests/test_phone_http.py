@@ -24,7 +24,8 @@ if str(LOCAL) not in sys.path:
 
 from application.phone_service import PhoneAccessService  # noqa: E402
 from domain.phone_rules import (  # noqa: E402
-    CSRF_HEADER, MAX_BODY_BYTES, cookie_header_value,
+    COOKIE_NAME, CSRF_HEADER, DEVICE_COOKIE_NAME, MAX_BODY_BYTES,
+    cookie_header_value,
 )
 from infrastructure.phone_http import PhoneHttpServer  # noqa: E402
 
@@ -50,7 +51,31 @@ class FakeApi:
         return {"ok": True}
 
 
+class MemoryDeviceStore:
+    """替身设备信任存储：只在内存里记已配对的设备 token。"""
+
+    def __init__(self):
+        self.devices = []
+        self.revoked = 0
+
+    def add_device(self, token, now=None):
+        self.devices.append(token)
+        return True
+
+    def validate_device(self, token, now=None):
+        return token in self.devices
+
+    def revoke_all(self):
+        self.revoked += 1
+        self.devices = []
+        return True
+
+
 class PhoneHttpBase(unittest.TestCase):
+    # 子类改为 True 即可测试「固定地址通道」的设备恢复；默认与生产 Cloudflare 一致
+    persistent_device = False
+    device_store = None
+
     def setUp(self):
         self.api = FakeApi()
         self.clock = {"now": 5000.0}
@@ -68,9 +93,11 @@ class PhoneHttpBase(unittest.TestCase):
         self.service = PhoneAccessService(
             api=self.api, now=lambda: self.clock["now"],
             state_of=lambda: self.raw_state,
+            device_store=self.device_store,
             server_factory=lambda host, port, svc: PhoneHttpServer(
                 host, port, svc, ui_dir=self.ui_dir))
-        started = self.service.start("127.0.0.1", 0)
+        started = self.service.start("127.0.0.1", 0,
+                                     persistent_device=self.persistent_device)
         self.assertTrue(started["ok"], started)
         self.base = started["address"].rstrip("/")
         self.origin = self.base
@@ -269,3 +296,236 @@ class HeaderSafetyTests(PhoneHttpBase):
         self.assertIn("SameSite=Strict", session_cookie)
         self.assertIn("Path=/", session_cookie)
         self.assertNotIn("Secure", session_cookie)
+
+
+class PublicHostSwitchTests(unittest.TestCase):
+    """Cloudflare 场景：socket 在回环，Host/Origin 必须切到隧道公网域名。"""
+
+    PUBLIC_HOST = "neat-words.trycloudflare.com"
+    PUBLIC = "https://neat-words.trycloudflare.com"
+
+    def setUp(self):
+        self.api = FakeApi()
+        self.clock = {"now": 5000.0}
+        self.ui_dir = Path(tempfile.mkdtemp(prefix="campus-phone-ui-"))
+        self.addCleanup(shutil.rmtree, str(self.ui_dir), True)
+        for name, text in (("index.html", "<html>配对</html>"),
+                           ("styles.css", "body{}"), ("app.js", ";")):
+            (self.ui_dir / name).write_text(text, encoding="utf-8")
+        self.raw_state = {"activities": [], "login": {"session_present": True},
+                          "plan": None, "busy": False,
+                          "terms": {"accepted_version": "1"},
+                          "retry_options": {"default": 120}}
+        self.servers = []
+
+        def factory(host, port, svc, public_host="", public_scheme="http"):
+            server = PhoneHttpServer(
+                host, port, svc, ui_dir=self.ui_dir,
+                public_host=public_host, public_scheme=public_scheme)
+            self.servers.append(server)
+            return server
+
+        self.service = PhoneAccessService(
+            api=self.api, now=lambda: self.clock["now"],
+            state_of=lambda: self.raw_state, server_factory=factory)
+        started = self.service.start(
+            "127.0.0.1", 0, public_host=self.PUBLIC_HOST,
+            public_scheme="https")
+        self.assertTrue(started["ok"], started)
+        self.code = started["pair_code"]
+        port = self.servers[0]._httpd.server_address[1]
+        self.local_base = "http://127.0.0.1:%d" % port
+        self.addCleanup(self.service.stop)
+
+    def _request(self, method, path, *, body=None, headers=None, cookie=None,
+                 host=None):
+        req = urllib.request.Request(self.local_base + path,
+                                     data=json.dumps(body).encode("utf-8")
+                                     if body is not None else None,
+                                     method=method)
+        req.add_header("Host", host or self.PUBLIC_HOST)
+        if body is not None:
+            req.add_header("Content-Type", "application/json")
+        for key, value in (headers or {}).items():
+            req.add_header(key, value)
+        if cookie:
+            req.add_header("Cookie", cookie)
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return resp.status, dict(resp.headers), resp.read()
+        except urllib.error.HTTPError as exc:
+            return exc.code, dict(exc.headers), exc.read()
+
+    def test_pair_over_public_host_requires_https_origin(self):
+        status, _, body = self._request(
+            "POST", "/pair", body={"code": self.code},
+            headers={"Origin": self.PUBLIC})
+        self.assertEqual(status, 200)
+        payload = json.loads(body)
+        status, _, body = self._request(
+            "POST", "/pair", body={"code": self.code},
+            headers={"Origin": "http://" + self.PUBLIC_HOST})
+        self.assertEqual(status, 403, "https 隧道必须拒 http Origin")
+        self.assertEqual(json.loads(body)["error"], "bad_origin")
+
+    def test_stale_local_host_is_rejected_after_switch(self):
+        status, _, _ = self._request("GET", "/", host="127.0.0.1")
+        self.assertIn(status, (400, 403),
+                      "切到公网域名后不得再认本机 Host")
+
+    def test_bare_host_without_port_is_accepted(self):
+        status, _, _ = self._request("GET", "/")
+        self.assertEqual(status, 200)
+
+    def test_state_action_roundtrip_with_public_origin(self):
+        status, headers, body = self._request(
+            "POST", "/pair", body={"code": self.code},
+            headers={"Origin": self.PUBLIC})
+        self.assertEqual(status, 200)
+        payload = json.loads(body)
+        cookie = next(v for k, v in headers.items()
+                      if k.lower() == "set-cookie"
+                      and v.startswith("campus_phone_sid=")).split(";", 1)[0]
+        status, _, body = self._request("GET", "/api/state?after=0", cookie=cookie)
+        self.assertEqual(status, 200)
+        status, _, _ = self._request(
+            "POST", "/api/action",
+            body={"action": "check", "args": {"request_id": "r1"}},
+            headers={"Origin": self.PUBLIC, CSRF_HEADER: payload["csrf"]},
+            cookie=cookie)
+        self.assertEqual(status, 200)
+        self.assertEqual([c[0] for c in self.api.calls], ["check"])
+
+class DeviceRestoreHttpTests(PhoneHttpBase):
+    """固定地址通道（Tailscale）：重新打开工具后靠设备 cookie 直接恢复。"""
+
+    persistent_device = True
+
+    def setUp(self):
+        self.device_store = MemoryDeviceStore()
+        super().setUp()
+
+    def _pair_with_cookies(self):
+        url = self.base + "/pair"
+        body = json.dumps({"code": self.code}).encode("utf-8")
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("Host", self.base.split("//", 1)[1])
+        req.add_header("Origin", self.origin)
+        req.add_header("Content-Type", "application/json")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            cookies = list(resp.headers.get_all("Set-Cookie") or [])
+            payload = json.loads(resp.read().decode("utf-8"))
+        return payload, cookies
+
+    def test_pair_writes_device_cookie(self):
+        _payload, cookies = self._pair_with_cookies()
+        names = [cookie.split("=", 1)[0] for cookie in cookies]
+        self.assertIn(DEVICE_COOKIE_NAME, names)
+        self.assertIn(COOKIE_NAME, names)
+        self.assertEqual(len(self.device_store.devices), 1, "配对成功登记一条设备令牌")
+
+    def test_state_restores_session_from_device_cookie_only(self):
+        _payload, cookies = self._pair_with_cookies()
+        device = next(cookie for cookie in cookies
+                      if cookie.startswith(DEVICE_COOKIE_NAME + "="))
+        status, _headers, body = self._request(
+            "GET", "/api/state?after=0", cookie=device.split(";", 1)[0])
+        self.assertEqual(status, 200, "配对过的设备重启服务后应直接读到状态")
+        state = json.loads(body.decode("utf-8"))
+        self.assertEqual(state["state"]["activities"][0]["id"], "a1")
+
+    def test_forged_device_cookie_is_401(self):
+        self._pair_with_cookies()
+        status, _headers, _body = self._request(
+            "GET", "/api/state", cookie="%s=deadbeefdeadbeef" % DEVICE_COOKIE_NAME)
+        self.assertEqual(status, 401)
+
+
+class DeviceRestoreOffHttpTests(PhoneHttpBase):
+    """Cloudflare 通道：没有设备 cookie，永远回配对页。"""
+
+    def test_pair_writes_no_device_cookie(self):
+        status, headers, body = self._request(
+            "POST", "/pair", body={"code": self.code},
+            headers={"Origin": self.origin})
+        self.assertEqual(status, 200)
+        self.assertIn("ok", json.loads(body.decode("utf-8")))
+        self.assertNotIn(DEVICE_COOKIE_NAME, "".join(headers.values()),
+                         "Cloudflare 通道不得签发设备 cookie")
+
+    def test_device_cookie_alone_cannot_restore(self):
+        status, _headers, _body = self._request(
+            "GET", "/api/state", cookie="%s=anything" % DEVICE_COOKIE_NAME)
+        self.assertEqual(status, 401, "域名会变，设备 cookie 一律不认")
+
+
+class BackupHostTests(unittest.TestCase):
+    """Tailscale 直连：MagicDNS 名与 100.x 备用地址都要能过 Host/Origin 校验。"""
+
+    PUBLIC_HOST = "pc.tail1234.ts.net"
+
+    def setUp(self):
+        self.api = FakeApi()
+        self.clock = {"now": 9000.0}
+        self.ui_dir = Path(tempfile.mkdtemp(prefix="campus-phone-ui-"))
+        self.addCleanup(shutil.rmtree, str(self.ui_dir), True)
+        for name, text in (("index.html", "<html>配对</html>"),
+                           ("styles.css", "body{}"), ("app.js", ";")):
+            (self.ui_dir / name).write_text(text, encoding="utf-8")
+        self.raw_state = {"activities": [], "login": {"session_present": True},
+                          "plan": None, "busy": False,
+                          "terms": {"accepted_version": "1"},
+                          "retry_options": {"default": 120}}
+        self.servers = []
+
+        def factory(host, port, svc, public_host="", public_scheme="http"):
+            server = PhoneHttpServer(
+                host, port, svc, ui_dir=self.ui_dir,
+                public_host=public_host, public_scheme=public_scheme)
+            self.servers.append(server)
+            return server
+
+        self.service = PhoneAccessService(
+            api=self.api, now=lambda: self.clock["now"],
+            state_of=lambda: self.raw_state, server_factory=factory)
+        started = self.service.start("127.0.0.1", 0, public_host=self.PUBLIC_HOST)
+        self.assertTrue(started["ok"], started)
+        self.code = started["pair_code"]
+        port = self.servers[0]._httpd.server_address[1]
+        self.local_base = "http://127.0.0.1:%d" % port
+        self.backup_host = "127.0.0.1:%d" % port
+        self.addCleanup(self.service.stop)
+
+    def _request(self, method, path, *, body=None, headers=None, host=None):
+        req = urllib.request.Request(
+            self.local_base + path,
+            data=json.dumps(body).encode("utf-8") if body is not None else None,
+            method=method)
+        req.add_header("Host", host or self.PUBLIC_HOST)
+        if body is not None:
+            req.add_header("Content-Type", "application/json")
+        for key, value in (headers or {}).items():
+            req.add_header(key, value)
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return resp.status, dict(resp.headers), resp.read()
+        except urllib.error.HTTPError as exc:
+            return exc.code, dict(exc.headers), exc.read()
+
+    def test_bind_address_is_accepted_as_host(self):
+        status, _, body = self._request(
+            "GET", "/api/state", host=self.backup_host)
+        self.assertEqual(status, 401, "备用地址要走到会话校验，而不是被判成 bad_host")
+        self.assertEqual(json.loads(body)["error"], "need_pair")
+
+    def test_backup_origin_can_pair(self):
+        status, _, body = self._request(
+            "POST", "/pair", body={"code": self.code},
+            headers={"Origin": "http://" + self.backup_host})
+        self.assertEqual(status, 200, body[:120])
+        self.assertTrue(json.loads(body)["ok"])
+
+    def test_foreign_host_still_rejected(self):
+        status, _, _ = self._request(
+            "GET", "/api/state", host="evil.example")
+        self.assertIn(status, (400, 403), "白名单之外的主机名仍必须拒绝")

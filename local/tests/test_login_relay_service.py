@@ -26,6 +26,11 @@ from application.login_relay_service import (  # noqa: E402
     public_state,
 )
 
+# 合法的一像素 PNG（1×1 透明）：投影层只放行真 PNG 魔数的图，
+# 'AAAA' 这类假图会被丢成空串，用它测正常流程等于测一个不可能发生的事件。
+CAPTCHA_PNG = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
+               "AAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=")
+
 
 class FakeStdout:
     """worker stdout 替身：行由测试写入，写完置 EOF。"""
@@ -201,6 +206,52 @@ class BeginTests(RelayServiceBase):
 
 
 class FlowTests(RelayServiceBase):
+    def test_unreadable_ocr_result_falls_back_to_manual_without_submitting(self):
+        self.service._classify_captcha = lambda image: ""
+        tree, flow_id = self._begin()
+        self.service.observe_line("[login] " + json.dumps({"kind":"challenge", "flow_id":flow_id,
+            "challenge_id":"manual", "attempts":0, "image":CAPTCHA_PNG}))
+        self.assertEqual(self.service.state()["mode"], "manual")
+        self.assertEqual(len(tree.proc.stdin.written), 1)
+
+    def test_ocr_threshold_hands_submission_ownership_to_manual(self):
+        self.service._manual_after = 3
+        self.service._classify_captcha = lambda image: "Ab12"
+        tree, flow_id = self._begin()
+        for attempt in range(4):
+            self.service.observe_line("[login] " + json.dumps({
+                "kind": "challenge", "flow_id": flow_id,
+                "challenge_id": "c%d" % attempt, "attempts": attempt,
+                "image": CAPTCHA_PNG}))
+        submitted = [json.loads(line) for line in tree.proc.stdin.written
+                     if json.loads(line).get("kind") == "submit"]
+        self.assertEqual(len(submitted), 3)
+        self.assertEqual(self.service.state()["mode"], "manual")
+        self.assertTrue(self.service.submit(flow_id, "c3", "Cd34")["ok"])
+
+    def test_late_ocr_result_cannot_submit_after_manual_handoff(self):
+        entered, release = threading.Event(), threading.Event()
+        def classify(image):
+            entered.set()
+            release.wait(2)
+            return "Ab12"
+        self.service._manual_after = 3
+        self.service._classify_captcha = classify
+        tree, flow_id = self._begin()
+        def challenge(challenge_id, attempts):
+            self.service.observe_line("[login] " + json.dumps({
+                "kind": "challenge", "flow_id": flow_id,
+                "challenge_id": challenge_id, "attempts": attempts, "image": CAPTCHA_PNG}))
+        worker = threading.Thread(target=lambda: challenge("old", 0))
+        worker.start()
+        self.assertTrue(entered.wait(2))
+        challenge("manual", 3)
+        release.set()
+        worker.join(3)
+        submitted = [line for line in tree.proc.stdin.written if json.loads(line).get("kind") == "submit"]
+        self.assertEqual(submitted, [])
+        self.assertEqual(self.service.state()["challenge_id"], "manual")
+
     def _begin(self):
         self.service.prepare("u", "p")
         result = self.service.begin(worker_command=["x"])
@@ -214,7 +265,7 @@ class FlowTests(RelayServiceBase):
         tree, flow_id = self._begin()
         self._emit(tree, {"kind": "challenge", "flow_id": flow_id,
                           "challenge_id": "chg-1",
-                          "image": "data:image/png;base64,AAAA", "expires_in": 60,
+                          "image": CAPTCHA_PNG, "expires_in": 60,
                           "attempts": 0, "max_attempts": 3})
         tree.proc.stdout.end()
         self.service._pump_thread.join(timeout=5)
@@ -222,13 +273,14 @@ class FlowTests(RelayServiceBase):
         text = json.dumps(state, ensure_ascii=False)
         self.assertNotIn("password", text)
         self.assertNotIn("secret", text)
-        self.assertEqual(state["challenge_id"], "chg-1")
+        self.assertEqual(state["challenge_id"], "",
+                         "worker 结束后终态不得继续暴露验证码挑战号")
 
     def test_old_flow_lines_are_ignored(self):
         tree, flow_id = self._begin()
         self._emit(tree, {"kind": "challenge", "flow_id": "stale",
                           "challenge_id": "chg-old",
-                          "image": "data:image/png;base64,AAAA", "expires_in": 60})
+                          "image": CAPTCHA_PNG, "expires_in": 60})
         self._emit(tree, {"kind": "success", "flow_id": "stale"})
         tree.proc.stdout.end()
         self.service._pump_thread.join(timeout=5)
@@ -253,11 +305,30 @@ class FlowTests(RelayServiceBase):
 
     def test_submit_forwards_to_worker(self):
         tree, flow_id = self._begin()
+        self.service.observe_line("[login] " + json.dumps({"kind": "challenge", "flow_id": flow_id,
+                                  "challenge_id": "chg-1", "image": CAPTCHA_PNG}))
         result = self.service.submit(flow_id, "chg-1", "Ab12")
         self.assertTrue(result["ok"])
         sent = json.loads(tree.proc.stdin.written[1])
         self.assertEqual(sent["kind"], "submit")
         self.assertEqual(sent["code"], "Ab12")
+
+    def test_duplicate_submit_is_blocked_until_worker_replies(self):
+        tree, flow_id = self._begin()
+        self.service.observe_line("[login] " + json.dumps({"kind": "challenge", "flow_id": flow_id,
+                                  "challenge_id": "chg-1", "image": CAPTCHA_PNG}))
+        first = self.service.submit(flow_id, "chg-1", "Ab12")
+        second = self.service.submit(flow_id, "chg-1", "Ab12")
+        self.assertTrue(first["ok"])
+        self.assertEqual(second["error"], "duplicate_submit")
+        self.assertEqual(len(tree.proc.stdin.written), 2,
+                         "同一张验证码只允许一条在途提交")
+
+        self._emit(tree, {"kind": "rejected", "flow_id": flow_id,
+                          "reason": "bad_code", "challenge_id": "chg-1",
+                          "attempts": 1})
+        tree.proc.stdout.end()
+        self.service._pump_thread.join(timeout=5)
 
     def test_cancel_and_shutdown_clear_everything(self):
         tree, flow_id = self._begin()
@@ -271,7 +342,7 @@ class FlowTests(RelayServiceBase):
         tree, flow_id = self._begin()
         self._emit(tree, {"kind": "challenge", "flow_id": flow_id,
                           "challenge_id": "chg-1",
-                          "image": "data:image/png;base64,AAAA", "expires_in": 60})
+                          "image": CAPTCHA_PNG, "expires_in": 60})
         tree.proc.stdout.end()
         self.service._pump_thread.join(timeout=5)
         state = self.service.state()
@@ -281,9 +352,180 @@ class FlowTests(RelayServiceBase):
         self.assertEqual(len(tree.proc.stdin.written), 1,
                          "收口后不再向 worker 写任何内容")
 
+    def _run_success_with_origin(self, origin):
+        """跑一场成功流程，返回回调收到的来源标签列表。"""
+        seen = []
+        service = LoginRelayService(
+            spawn=self.service._spawn, now=lambda: self.clock["now"],
+            emit=lambda kind, payload: self.events.append((kind, payload)),
+            on_success=lambda label: seen.append(label),
+            on_finish=lambda: self.finish_calls.append(time.time()))
+        self.addCleanup(service.shutdown)
+        service.prepare("u", "p")
+        result = service.begin(worker_command=["x"])
+        self.assertTrue(result["ok"])
+        tree = self.trees[-1]
+        self._emit(tree, {"kind": "success", "flow_id": result["flow_id"],
+                          "origin": origin})
+        tree.proc.stdout.end()
+        service._pump_thread.join(timeout=5)
+        return seen
+
+    def test_success_reports_who_finished_the_flow(self):
+        self.assertEqual(self._run_success_with_origin("auto"), ["auto_ocr"])
+        self.assertEqual(self._run_success_with_origin("phone"), ["phone_manual"])
+        # 没写 origin 的旧 worker 按手机人工完成处理，绝不丢锚点
+        self.assertEqual(self._run_success_with_origin(""), ["phone_manual"])
+
+    def test_begin_origin_survives_when_worker_says_nothing(self):
+        seen = []
+        service = LoginRelayService(
+            spawn=self.service._spawn, now=lambda: self.clock["now"],
+            emit=lambda kind, payload: None,
+            on_success=lambda label: seen.append(label))
+        self.addCleanup(service.shutdown)
+        service.prepare("u", "p")
+        result = service.begin(worker_command=["x"], origin="auto")
+        self.assertTrue(result["ok"])
+        tree = self.trees[-1]
+        self._emit(tree, {"kind": "success", "flow_id": result["flow_id"]})
+        tree.proc.stdout.end()
+        service._pump_thread.join(timeout=5)
+        self.assertEqual(seen, ["auto_ocr"])
+
+    def test_zero_argument_callback_still_fires_once(self):
+        tree, flow_id = self._begin()
+        self._emit(tree, {"kind": "success", "flow_id": flow_id})
+        tree.proc.stdout.end()
+        self.service._pump_thread.join(timeout=5)
+        self.assertEqual(len(self.success_calls), 1,
+                         "零参回调（旧调用方）也必须收到且只收到一次")
+
     def test_public_state_shape(self):
         state = public_state(None)
         self.assertFalse(state["ready"])
         for key in ("flow_id", "state", "challenge_id", "image", "expires_in",
-                    "attempts", "max_attempts", "safe_error"):
+                    "attempts", "max_attempts", "safe_error", "submit_pending",
+                    "origin", "live"):
             self.assertIn(key, state)
+
+
+class RelayLiveTests(RelayServiceBase):
+    """live 只对「正在进行的这一场」为真，历史快照一律为假。
+
+    手机端靠它决定要不要播报「重登成功」：没有这个区分，每次打开页面都会
+    重播很早以前那一次成功。
+    """
+
+    def test_a_running_flow_is_live(self):
+        self.service.prepare("u", "p")
+        result = self.service.begin(worker_command=["x"])
+        self.assertTrue(result["ok"])
+        state = self.service.state()
+        self.assertTrue(state["live"])
+        self.assertEqual(state["state"], "starting")
+
+    def test_the_archived_success_is_history_not_this_round(self):
+        self.service.prepare("u", "p")
+        result = self.service.begin(worker_command=["x"])
+        self.assertTrue(result["ok"])
+        # 直接走 observe_line：结论立刻落到 _last，不必等 pump 线程调度
+        self.service.observe_line("[login] " + json.dumps({
+            "kind": "success", "flow_id": result["flow_id"]}))
+        archived = self.service.state()
+        self.assertEqual(archived["state"], "success")
+        self.assertFalse(archived["live"], "上一场的结论不是「这一次还在跑」")
+
+    def test_no_flow_at_all_is_not_live(self):
+        self.assertFalse(public_state(None)["live"])
+        self.assertFalse(self.service.state()["live"])
+
+
+class SubmitPendingStateTests(RelayServiceBase):
+    """提交在途的可见性：同一张图没结论前，手机不能再发第二个 POST。"""
+
+    def _begin(self):
+        self.service.prepare("u", "p")
+        result = self.service.begin(worker_command=["x"])
+        self.assertTrue(result["ok"])
+        return result["flow_id"]
+
+    def _challenge(self, flow_id, challenge_id="chg-1"):
+        # 直接走 observe_line，不经 worker 线程：断言不依赖 pump 的调度时机
+        self.service.observe_line("[login] " + json.dumps({
+            "kind": "challenge", "flow_id": flow_id,
+            "challenge_id": challenge_id, "image": CAPTCHA_PNG,
+            "expires_in": 60, "attempts": 0, "max_attempts": 3}))
+
+    def test_submit_pending_is_true_until_a_verdict(self):
+        flow_id = self._begin()
+        self._challenge(flow_id)
+        self.assertFalse(self.service.state()["submit_pending"])
+        self.assertTrue(self.service.submit(flow_id, "chg-1", "Ab12")["ok"])
+        self.assertTrue(self.service.state()["submit_pending"],
+                        "已发出提交、还没结论：手机必须知道不能再发第二个")
+        self.service.observe_line("[login] " + json.dumps({
+            "kind": "verifying", "flow_id": flow_id, "challenge_id": "chg-1"}))
+        self.assertEqual(self.service.state()["state"], "verifying")
+        self.assertTrue(self.service.state()["submit_pending"],
+                        "校验途中仍然禁止重复提交")
+        self.service.observe_line("[login] " + json.dumps({
+            "kind": "rejected", "flow_id": flow_id, "challenge_id": "chg-1",
+            "reason": "bad_code", "attempts": 1}))
+        state = self.service.state()
+        self.assertFalse(state["submit_pending"], "被拒后必须允许重试")
+        self.assertIn(state["state"], ("verifying", "waiting_code"),
+                      "被拒不是终态：收口要等新图或明确的失败")
+        self.assertNotIn("Ab12", json.dumps(state, ensure_ascii=False),
+                         "公开状态绝不回显用户输入的验证码")
+
+    def test_success_clears_pending_submit(self):
+        flow_id = self._begin()
+        self._challenge(flow_id)
+        self.service.submit(flow_id, "chg-1", "Ab12")
+        self.service.observe_line("[login] " + json.dumps({
+            "kind": "success", "flow_id": flow_id}))
+        state = self.service.state()
+        self.assertEqual(state["state"], "success")
+        self.assertFalse(state["submit_pending"])
+
+    def test_terminal_states_never_report_pending_submit(self):
+        flow = {"state": "waiting_code", "flow_id": "f", "challenge_id": "c",
+                "image": "", "expires_in": None, "attempts": 0,
+                "max_attempts": 0, "safe_error": "", "submit_pending": True}
+        self.assertTrue(public_state(flow)["submit_pending"])
+        for state in ("success", "failed", "canceled", "idle"):
+            flow["state"] = state
+            self.assertFalse(public_state(flow)["submit_pending"],
+                             "终态 %s 不得留下在途提交" % state)
+        self.assertFalse(public_state(None)["submit_pending"])
+
+    def test_new_challenge_releases_pending_submit(self):
+        flow_id = self._begin()
+        self._challenge(flow_id)
+        self.service.submit(flow_id, "chg-1", "Ab12")
+        self._challenge(flow_id, "chg-2")
+        state = self.service.state()
+        self.assertEqual(state["challenge_id"], "chg-2")
+        self.assertFalse(state["submit_pending"], "换图后必须能重新提交")
+
+
+class RelayOriginTests(RelayServiceBase):
+    """谁发起的这一场：手机据此判断该不该接管验证码，只暴露来源标签。"""
+
+    def _begin(self, **kwargs):
+        self.service.prepare("u", "p")
+        result = self.service.begin(worker_command=["x"], **kwargs)
+        self.assertTrue(result["ok"])
+        return result["flow_id"]
+
+    def test_auto_and_phone_are_told_apart(self):
+        self._begin(origin="auto")
+        self.assertEqual(self.service.state()["origin"], "auto")
+        self.service.cancel(origin="auto")
+        self._begin()
+        self.assertEqual(self.service.state()["origin"], "phone",
+                         "手机人工发起时默认来源就是 phone")
+
+    def test_no_flow_reports_no_origin(self):
+        self.assertEqual(public_state(None)["origin"], "")

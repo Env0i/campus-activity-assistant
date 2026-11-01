@@ -12,6 +12,7 @@ function showHelp() {
   helpStatus("");
   paintUpdate();
   if (!dialog.open) dialog.showModal();
+  if (typeof PhonePanel !== "undefined") void PhonePanel.refresh();
   savePrefs({ welcome_seen: true });
 }
 

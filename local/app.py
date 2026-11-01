@@ -22,6 +22,7 @@ import os
 import queue
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -45,6 +46,8 @@ from signup_plan import PlanCoordinator, TaskSpec, classify_signup_mode, validat
 from business_clock import BusinessClock, ClockUnavailable
 from time_contract import school_epoch, school_time_text, configure_time_source
 from update_check import check_latest_release
+import update_check as _update_check
+from urllib.error import HTTPError, URLError
 import updater
 
 # 登录态/偏好统一数据根：开发用 local/data，冻结 EXE 用 %LOCALAPPDATA%
@@ -66,9 +69,17 @@ from infrastructure import lifecycle_store as _lifecycle_store
 from infrastructure import prefs_store as _prefs_store
 from infrastructure import process_tree as _process_tree
 from infrastructure import phone_http as _phone_http
+from infrastructure import advanced_features as _advanced_features
+from infrastructure import component_packages as _component_packages
+from infrastructure import credential_store as _credential_store
+from infrastructure import phone_session_store as _phone_session_store
+from infrastructure import phone_qr as _phone_qr
+from infrastructure import tunnel_manager as _tunnel_manager
 from application import login_service as _login_service
 from application import login_relay_service as _login_relay_service
+from application.auto_relogin import AutoReloginMonitor
 from application import phone_service as _phone_service
+from application import advanced_component_service as _advanced_component
 from application import plan_service as _plan_service
 from application import update_service as _update_service
 
@@ -92,6 +103,55 @@ TOKEN_LIFETIME_H = 17.5
 # GitHub 最新版本页：用户点「GitHub 最新版本」时由系统默认浏览器打开，
 # 启动时不自动联网检查，也不在 WebView 里跳转
 RELEASES_LATEST_URL = "https://github.com/ShenTingBai/campus-activity-watch/releases/latest"
+CREDENTIAL_FILE = DATA_DIR / "relogin-credentials.dpapi.json"
+_CREDENTIAL_STORE_OK = None
+# 电脑自己识别验证码连续失败这么多次，才把图交给手机上的人来打。
+# 只改这一个数字就能调整「多信任 OCR」的程度。
+_MANUAL_RELOGIN_AFTER = 3
+
+
+def _credential_store_available() -> bool:
+    """本机加密存储（DPAPI）是否可用：首次探测后缓存，结果只用于界面与门禁。
+
+    探测失败一律当「不可用」，绝不退化成明文保存。
+    """
+    global _CREDENTIAL_STORE_OK
+    if _CREDENTIAL_STORE_OK is None:
+        probe = getattr(_credential_store, "_protect", None)
+        try:
+            _CREDENTIAL_STORE_OK = bool(probe and probe(b"probe"))
+        except Exception:
+            _CREDENTIAL_STORE_OK = False
+    return _CREDENTIAL_STORE_OK
+# 手机设备信任：只存 token 的 SHA-256，仍由 DPAPI 封在外层，明文 token 只活在手机浏览器里
+DEVICE_FILE = DATA_DIR / "phone-devices.dpapi.json"
+PHONE_LOG = DATA_DIR / "phone.log"
+_PHONE_LOG_LOCK = threading.Lock()
+_PHONE_LOG_MAX_BYTES = 512 * 1024
+
+
+def phone_log(message: str) -> None:
+    """手机访问专用日志：一行一条，落 DATA_DIR/phone.log，超过 512KB 轮转一次。
+
+    只记事实（方法/路径/状态码/主机名/带了哪些 cookie 名），
+    绝不记配对码、cookie 值、账号密码与验证码——这文件会被随手贴出去。
+    """
+    if DEMO:
+        # 演示/测试模式不落真实日志：否则替身数据会混进用户排障用的文件
+        return
+    try:
+        with _PHONE_LOG_LOCK:
+            try:
+                if PHONE_LOG.stat().st_size > _PHONE_LOG_MAX_BYTES:
+                    PHONE_LOG.replace(PHONE_LOG.with_name("phone.log.1"))
+            except OSError:
+                pass
+            with PHONE_LOG.open("a", encoding="utf-8", newline=chr(10)) as fp:
+                fp.write("%s %s" % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                    message))
+                fp.write(chr(10))
+    except Exception:  # noqa: BLE001 - 日志写不进去也不能影响业务
+        pass
 
 
 def read_version() -> str:
@@ -262,6 +322,45 @@ def load_prefs() -> dict:
     return load_prefs_from(PREFS)
 
 
+# ---- 手机访问通道偏好 ------------------------------------------------------
+# 只记两件事：上次用的是哪个通道、要不要在下次启动时自动恢复 Tailscale。
+# 不记地址、不记设备、不记配对码：地址由探测现算，设备信任有自己的存储。
+_PHONE_PREF_NAMESPACE = "phone_access"
+_PHONE_CHANNELS = ("tailscale", "cloudflare", "local")
+
+
+def _phone_access_prefs(prefs: dict) -> dict:
+    """读通道偏好；形状非法一律当「没配过」，不猜用户的意图。"""
+    block = prefs.get(_PHONE_PREF_NAMESPACE) if isinstance(prefs, dict) else None
+    if not isinstance(block, dict):
+        block = {}
+    channel = str(block.get("preferred_channel") or "").strip().lower()
+    if channel not in _PHONE_CHANNELS:
+        channel = ""
+    return {"preferred_channel": channel,
+            "tailscale_autostart": bool(block.get("tailscale_autostart"))}
+
+
+# 帮助面板会定时来问状态，二维码按地址缓存一份：地址不变就不重复画 PNG
+_QR_CACHE: dict = {}
+
+
+def _phone_qr_data(address: str) -> str:
+    """按地址缓存二维码 data URI；地址变了才重画，失败按「没有二维码」处理。"""
+    if not address:
+        return ""
+    cached = _QR_CACHE.get(address)
+    if cached is not None:
+        return cached
+    try:
+        data = _phone_qr.png_data_uri(address, root=DATA_DIR)
+    except Exception:  # noqa: BLE001 - 画不出二维码不该让整个状态接口失败
+        return ""
+    _QR_CACHE.clear()          # 旧地址的图再没人要，只留当前这一份
+    _QR_CACHE[address] = data
+    return data
+
+
 # ---- 独立北京时间（决策 012）-----------------------------------------------
 # 生产 main 恒注入 BusinessClock；未注入时这里是显式不可用，绝不回退本机墙钟。
 # 测试需要可读时钟时必须显式注入 Fake（见 local/tests/fixtures/business_clock.py）。
@@ -361,6 +460,66 @@ def update_prefs(patch: dict) -> bool:
         return True
     except _PrefsLockTimeout:
         return False
+
+
+CLOSE_ACTIONS = ("ask", "hide", "minimize", "exit")
+
+
+def defer_close_action(callback, delay: float = 0.25) -> None:
+    """把「和界面打交道」的关窗动作挪到工作线程去跑。
+
+    closing 事件回调在 UI 主线程里执行，回调里直接 evaluate_js / 弹自家对话框
+    会在主线程抢 pywebview 的内部锁，窗口直接变「未响应」（pywebview#1699）。
+    所以先取消这次关闭，再从工作线程把要问的话推给界面。
+    """
+
+    def _run() -> None:
+        try:
+            callback()
+        except Exception:
+            pass
+
+    timer = threading.Timer(max(0.0, float(delay)), _run)
+    timer.daemon = True
+    timer.start()
+
+
+def handle_window_close(api, window, *, defer=None) -> bool:
+    """closing 回调的全部判定：返回 True 放行关闭，False 取消。
+
+    与界面交互的部分（弹三选、最小化）一律经 defer 挪走，绝不在主线程直接调用。
+    """
+    defer = defer or defer_close_action
+    if getattr(api, "_close_approved", False):
+        return True
+    action = resolve_close_action(load_prefs(), api.plan_active_for_close())
+    if action == "exit":
+        api._close_approved = True
+        return True
+    if action == "hide":
+        defer(api.hide_window)
+        return False
+    if action == "minimize":
+        defer(window.minimize)
+        return False
+    defer(api.ask_window_close)
+    return False
+
+
+def resolve_close_action(prefs, plan_running: bool) -> str:
+    """点右上角 X 之后该做什么：ask（弹三选）/ hide（藏到后台）/ minimize / exit。
+
+    计划在跑或已就绪时一律先问——这时候隐藏、最小化或退出都意味着手机那边可能
+    正要打开报名，不能让一次误点静默地把计划带走。
+    """
+    if plan_running:
+        return "ask"
+    try:
+        window = (prefs or {}).get("window") or {}
+        value = str(window.get("close_action") or "")
+    except Exception:
+        value = ""
+    return value if value in CLOSE_ACTIONS else "ask"
 
 
 def login_state(clock=None) -> dict:
@@ -465,15 +624,25 @@ class Api:
         self._aux_procs: set = set()
         self._activities: dict[str, dict] = {}
         self._lock = threading.Lock()
+        self._credential_lock = threading.RLock()
+        self._advanced_busy = False
+        self._phone_access_lock = threading.RLock()
         # 关闭屏障：shutdown 在同一把 _lock 内置位 _closing，而一切 worker 创建
         # （Popen）与登记也都在这把锁里先核它——关闭先发生则零创建；创建已开始
         # 则 shutdown 必等登记完成才能取快照，收走的进程不会漏。
         # _closing 表达「关闭已开始」；「收尾已完成」用 Event 表达（FB2）：后到
         # 的 shutdown 在锁外等待同一个 Event，返回即代表收尾真正完成。
         self._closing = False
+        # 关窗弹窗里点过「退出」才放行：closing 事件返回 False 会取消关闭
+        self._close_approved = False
+        # 托盘图标：只在窗口藏起来以后才建，建不起来也不影响主程序
+        self._tray = None
         self._shutdown_done_event = threading.Event()
         # 刷新去重：连点「刷新」不该堆起多个 check/list 子进程
         self._checking = False
+        # 去重期间又被要求刷新的标记：本轮收尾时补查一次，重登成功后的刷新
+        # 不能被「已在检查」静默丢掉（只补一次，不排循环）
+        self._check_again = False
         self._listing = False
         # 在途请求 ID：去重跳过时界面才能对上账（R11）
         self._check_request_id = ""
@@ -496,6 +665,8 @@ class Api:
         # 只留最近有限条，活跃请求不驱逐；不存凭证、不写外部数据。
         self._start_requests: dict[str, dict] = {}
         self._start_order: list[str] = []
+        # 取消保护跨过普通 32 条历史的淘汰；进程内保留，上限满时拒绝新取消。
+        self._canceled_start_ids: set[str] = set()
         # 计划接纳代次与最近接纳计划（P1）：plan/task/plan_done 事件与终态快照
         # 只归属「最近接纳的计划」。槽为空（_plan=None）不代表迟到回调属于最新
         # 计划——较新的计划可能已经结束；归属以接纳代次为准，不随 _plan 清空遗失。
@@ -507,14 +678,46 @@ class Api:
         # 这里不建 socket——只有显式 start_phone_access 才监听。
         self._phone = _phone_service.PhoneAccessService(
             api=self, now=self._clock_now, state_of=self._phone_raw_state,
-            server_factory=lambda host, port, svc: _phone_http.PhoneHttpServer(
-                host, port, svc))
+            device_store=_phone_session_store.PhoneSessionStore(DEVICE_FILE),
+            log=phone_log,
+            server_factory=lambda host, port, svc, public_host="", public_scheme="http": _phone_http.PhoneHttpServer(
+                host, port, svc, public_host=public_host, public_scheme=public_scheme,
+                log=phone_log))
+        self._phone_channel = ""
+        # 手机控制组件包：只有用户点「下载组件包」才动网络；失败不影响已有组件
+        self._component_service = _advanced_component.AdvancedComponentService(
+            root=DATA_DIR,
+            download=updater.download_installer,
+            asset_resolver=self._resolve_component_asset,
+            install=self._install_downloaded_component,
+            on_installed=self._component_installed,
+            on_finished=self._component_finished,
+            log=phone_log)
+        # 上一次登录真实成功后由谁完成（auto_ocr / phone_manual）：只用于说明文案
+        self._last_login_origin = ""
+        self._cloudflare = _tunnel_manager.CloudflareTunnel(
+            _tunnel_manager.resolve_cloudflared(resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR),
+            # 每次真正拉起隧道前再核一遍组件：缓存路径可能已被替换或删除
+            verify=lambda path: _tunnel_manager.verify_managed_cloudflared(path, root=DATA_DIR))
+        # 隧道异常退出只报一次 exited，之后 status() 读到的就是 stopped：
+        # 退出提示必须自己存住，否则同一次状态组装里的第二次读取会把它降级成「可用」。
+        # None 表示「没有未收起的退出提示」，用户手动 stop 或成功 start 后清空。
+        self._cloudflare_exit_notice: dict | None = None
+        # Cloudflare 拉起隧道是一段有网络等待的同步过程：期间再点一次「开启」，
+        # 必须明确回「正在启动」，而不是排队后又叠一条隧道。
+        self._cloudflare_starting = False
         # 手机重登中继：凭据只在进程内存，singleflight，成功才建时钟锚点
         self._relay = _login_relay_service.LoginRelayService(
             spawn=self._spawn_relay_worker, now=time.monotonic,
             emit=self._emit, log=lambda _msg: None,
             on_success=self._anchor_login_success,
-            on_finish=self._relay_finished)
+            on_finish=self._relay_finished,
+            classify_captcha=self._classify_captcha, manual_after=_MANUAL_RELOGIN_AFTER)
+        self._auto_relogin = AutoReloginMonitor(
+            now=time.monotonic, check=self.check, start=self._begin_auto_relogin,
+            eligible=self._auto_relogin_eligible, state=self._relay.state)
+        if not DEMO:
+            self._auto_relogin.start()
 
     # ---------- 独立北京时间 ----------
     def _clock_now(self) -> float:
@@ -541,6 +744,9 @@ class Api:
                     "state": "ready", "epoch_s": time.time(), "tick_s": 0,
                     "sampled_tick_s": 0, "uncertainty_s": None,
                     "source": "演示时间（离线，非真实授时）", "age_s": 0,
+                    "sync_status": "succeeded", "sync_round": 1,
+                    "retry_attempt": 0, "retry_in_s": 0,
+                    "last_failure_source": "", "last_failure_reason": "",
                     "reason": "演示模式不联网：顶栏时间仅供演示"}
         return self.clock_snapshot()
 
@@ -549,7 +755,10 @@ class Api:
         try:
             return self._clock.snapshot()
         except Exception as exc:
-            return {"schema": 1, "state": "unavailable", "reason": str(exc)}
+            # 兜底也要带齐退避字段：界面按「有字段但为空」渲染，不靠缺键猜测
+            return {"schema": 1, "state": "unavailable", "reason": str(exc),
+                    "retry_attempt": 0, "retry_in_s": 0,
+                    "last_failure_source": "", "last_failure_reason": ""}
 
     def sync_clock(self) -> dict:
         """界面「重新校时」：去重后台重校，完成后推 business_clock 事件。"""
@@ -612,7 +821,8 @@ class Api:
                 payload = dict(payload, request_id=self._list_request_id)
         # 手机事件缓冲：窗口为空也可发布（有界 400 条、脱敏、独立锁、锁外投递）；
         # 只入内存缓冲，绝不回调任何 HTTP 客户端，也不在这里碰 Api/协调器锁
-        self._phone.record_event(kind, payload)
+        phone_payload = self._phone_relay_view() if kind == "phone_relogin" else payload
+        self._phone.record_event(kind, phone_payload)
         if not self._window:
             return
         # 终态快照留档：去重跳过时若原操作已经结束，直接把结果交回去，
@@ -673,6 +883,7 @@ class Api:
             "terms": terms_state(prefs),
             "business_clock": self._clock_payload(),
             "help": self.help(),
+            "advanced_features": self.advanced_features_state(),
             "login": login_info,
             # 生命周期元数据（上一周期关闭时长/质量 + 登录估算）：只作提示，
             # 不参与任何放行/拦截；F5 重载重复调用拿到的是同一份进程级快照
@@ -761,6 +972,467 @@ class Api:
             "note": "适用于我们学校（校园）专升本学生使用的活动中心。"
                     "活动要求与报名结果以学校活动页为准。",
         }
+
+    # ---------- 可选高级功能与本机凭据 ------------------------------------
+    def _resolve_component_asset(self, version: str) -> dict:
+        """解析 Release 里的手机控制组件资产（网络只在用户点下载时用）。
+
+        `application` 层不允许直接 import `update_check`（分层契约），所以这层
+        网络与错误分类留在 composition root：拿不到、清单不对、限速必须分开说。
+        """
+        try:
+            _update_check.parse_version(version)
+            release_api = _update_check.LATEST_API.rsplit("/", 1)[0] + "/tags/v" + version
+            payload = json.loads(
+                _update_check._fetch_bytes(
+                    release_api, _update_check.MAX_BYTES,
+                    "TianSoftActivityPreRegistration/component").decode("utf-8"))
+            picked = _update_check.select_release_assets(payload, version)
+            raw_manifest = b""
+            if picked["manifest_url"]:
+                raw_manifest = _update_check._fetch_bytes(
+                    picked["manifest_url"], _update_check.MAX_MANIFEST_BYTES,
+                    "TianSoftActivityPreRegistration-component-manifest")
+            verdict = _update_check.resolve_phone_control_asset(
+                payload, version, raw_manifest)
+        except HTTPError as exc:
+            if exc.code in (403, 429):
+                return {"ok": False, "error": "rate_limited",
+                        "text": "GitHub 暂时限制查询，请稍后重试或查看发布页。"}
+            if exc.code == 404:
+                return {"ok": False, "error": "no_component",
+                        "text": "这个版本没有发布手机控制组件包。"}
+            return {"ok": False, "error": "http_error",
+                    "text": "GitHub 暂时无法响应，请稍后重试。"}
+        except (TimeoutError, socket.timeout):
+            return {"ok": False, "error": "timeout", "text": "查询组件包信息超时，请重试。"}
+        except URLError as exc:
+            code = ("timeout" if isinstance(exc.reason, (TimeoutError, socket.timeout))
+                    else "network_error")
+            return {"ok": False, "error": code, "text": "暂时连不上 GitHub，请检查网络后重试。"}
+        except (ValueError, UnicodeError, TypeError):
+            return {"ok": False, "error": "invalid_response",
+                    "text": "组件包信息无法识别，请查看发布页。"}
+        except OSError:
+            return {"ok": False, "error": "network_error",
+                    "text": "暂时连不上 GitHub，请检查网络后重试。"}
+        if verdict.get("state") != "available":
+            return {"ok": False,
+                    "error": str(verdict.get("error_code") or verdict.get("state") or "no_component"),
+                    "text": str(verdict.get("text") or "组件包不可用。")}
+        return {"ok": True, "asset": verdict["asset"]}
+
+    def _install_downloaded_component(self, archive, key, *, root=None):
+        """下载与手动导入共用通道锁，换包前先释放正在使用的组件进程。"""
+        with self._credential_lock, self._phone_access_lock:
+            with self._lock:
+                if self._closing:
+                    raise RuntimeError("application_closing")
+            self._cloudflare.stop()
+            self._phone.shutdown(preserve_devices=True)
+            self._phone_channel = ""
+            return _component_packages.install(archive, key, root=root)
+
+    def _component_finished(self) -> None:
+        with self._lock:
+            self._advanced_busy = False
+
+    def _component_installed(self, version: str) -> None:
+        """组件装好后的收尾（在工作线程里被调用）：写启用状态、刷新 cloudflared。"""
+        enabled = dict(load_prefs().get("advanced_features") or {})
+        enabled[_advanced_features.PHONE_CONTROL] = True
+        if not update_prefs({"advanced_features": enabled}):
+            phone_log("组件已安装，但启用状态没有保存成功")
+        self._cloudflare.executable = _tunnel_manager.resolve_cloudflared(
+            resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)
+        self._emit("log", "手机控制组件已安装（%s）。" % (version or "版本未知"))
+
+    def download_advanced_feature(self, key: str = "") -> dict:
+        """用户主动下载手机控制组件包：单飞，重复点击直接回 busy。"""
+        chosen = str(key or _advanced_features.PHONE_CONTROL)
+        if chosen != _advanced_features.PHONE_CONTROL:
+            return {"ok": False, "error": "bad_feature",
+                    "text": "只有手机控制支持在线下载组件包。"}
+        if not bool(getattr(sys, "frozen", False)):
+            # 源码版跑的是仓库里的 Python 依赖，组件包对它没有作用
+            return {"ok": False, "error": "source_build",
+                    "text": "源码版用的是已装好的 Python 依赖，不需要组件包。"}
+        with self._phone_access_lock:
+            with self._lock:
+                if self._closing or self._advanced_busy or self._is_busy_locked():
+                    return {"ok": False, "error": "busy", "text": "请等待当前操作结束。"}
+                self._advanced_busy = True
+            try:
+                result = self._component_service.start()
+            except Exception:
+                self._component_finished()
+                raise
+            if not result.get("ok"):
+                self._component_finished()
+        if result.get("ok"):
+            self._emit("log", "开始下载手机控制组件包。")
+        return result
+
+    def cancel_advanced_feature_download(self, key: str = "") -> dict:
+        """取消正在进行的组件下载；未在下载时如实说没有任务。"""
+        chosen = str(key or _advanced_features.PHONE_CONTROL)
+        if chosen != _advanced_features.PHONE_CONTROL:
+            return {"ok": False, "error": "bad_feature", "text": "未知高级功能"}
+        return self._component_service.cancel()
+
+    def advanced_features_state(self) -> dict:
+        """帮助弹窗使用的高级功能快照；不返回密码、密文或安装路径。"""
+        prefs = load_prefs()
+        features = _advanced_features.feature_state(
+            prefs, root=DATA_DIR, frozen=bool(getattr(sys, "frozen", False)))
+        if self._advanced_busy:
+            for feature in features.values():
+                feature["busy"] = True
+        # 组件下载事务的快照只挂在手机控制这一行：ddddocr 走已装依赖，没有下载概念
+        try:
+            download = self._component_service.snapshot()
+        except Exception:
+            download = {}
+        if _advanced_features.PHONE_CONTROL in features:
+            features[_advanced_features.PHONE_CONTROL]["download"] = download
+        tailscale = _tunnel_manager.tailscale_endpoint()
+        cloudflare_status, cloudflare_exit = self._cloudflare_status_snapshot()
+        if cloudflare_exit:
+            # 进程已经退出：这次刷新就要报「退出」，不能因为读到的第二次状态是
+            # stopped 就把通道重新说成可用——用户会照着旧地址去扫码。
+            cf_state = "exited"
+            cf_text = str(cloudflare_exit.get("text")
+                          or "Cloudflare 隧道已退出，重新开启会得到新地址。")
+            cf_error = "tunnel_exited"
+        elif self._cloudflare.executable:
+            # 快速隧道地址每次开启都变，所以状态只有「可用/在运行」两档，
+            # 且必须把「重启后要重新扫码」写进快照，界面照抄，不再自行判断
+            cf_state = "running" if cloudflare_status.get("running") else "available"
+            cf_text = ("Cloudflare 临时地址正在提供访问。" if cf_state == "running"
+                       else "可用时由 Cloudflare 临时地址提供远程访问。")
+            cf_error = ""
+        else:
+            cf_state = "missing"
+            cf_text = "没有找到 cloudflared，Cloudflare 通道目前不可用。"
+            cf_error = "cloudflared_missing"
+        saved = _credential_store.has_credentials(CREDENTIAL_FILE)
+        username = ""
+        if saved:
+            try:
+                username = _credential_store.stored_username(CREDENTIAL_FILE)
+            except Exception:
+                saved = False
+        return {
+            "ok": True,
+            "features": features,
+            "channels": {
+                "tailscale": dict(tailscale,
+                                  temporary=False,
+                                  restart_requires_pairing=False,
+                                  restart_note="地址固定：重启程序后手机仍可直接打开。"),
+                "cloudflare": {
+                    "available": bool(self._cloudflare.executable),
+                    "error": cf_error,
+                    "state": cf_state,
+                    "text": cf_text,
+                    "temporary": True,
+                    "restart_requires_pairing": True,
+                    "restart_note": "临时地址：重启或重新开启后地址会变，手机需要重新扫码配对。",
+                },
+            },
+            "phone_access": _phone_access_prefs(prefs),
+            "credential": {
+                # 保存账号只看本机加密存储；ddddocr 是否就绪单列，界面分开显示
+                "available": _credential_store_available(),
+                "store_available": _credential_store_available(),
+                "saved": saved,
+                "username": username,
+                "ocr_ready": _advanced_features.feature_ready(
+                    prefs, _advanced_features.RELOGIN_OCR, root=DATA_DIR),
+                "automatic": self._auto_relogin.snapshot(),
+                "last_origin": self._last_login_origin,
+            },
+        }
+
+    def inspect_advanced_component(self, key: str = "", path: str = "") -> dict:
+        """只读自检：用户选的这份文件到底是不是这里要装的东西。
+
+        对话框每选一次文件就调一次，把「这是别的组件的包」「这是 Tailscale 的 exe」
+        这类结论直接顶到界面上，而不是等他点了保存才看到一个错误码。不落盘、不安装。
+        """
+        if not _advanced_features.allowed_feature(key):
+            return {"ok": False, "kind": "unknown_feature", "text": "未知高级功能"}
+        chosen = str(path or "").strip().strip('"')
+        if not chosen:
+            return {"ok": False, "kind": "empty", "text": "还没有选择文件。"}
+        if Path(chosen).suffix.lower() == ".exe":
+            if key != _advanced_features.PHONE_CONTROL:
+                return {"ok": False, "kind": "not_zip",
+                        "text": "这里需要组件包 ZIP，不是可执行文件。"}
+            return _component_packages.inspect_cloudflared(chosen)
+        return _component_packages.inspect_archive(chosen, key)
+
+    def pick_advanced_component(self, key: str = "") -> dict:
+        """弹系统文件选择框，把用户选中的路径交回给对话框。
+
+        路径只用于这一次自检与安装，不写进偏好、不进日志。
+        """
+        if not _advanced_features.allowed_feature(key):
+            return {"ok": False, "text": "未知高级功能"}
+        if self._window is None:
+            return {"ok": False, "text": "请在电脑窗口里选择文件。"}
+        if key == _advanced_features.PHONE_CONTROL:
+            types = ("cloudflared (*.exe)", "组件包 (*.zip)")
+        else:
+            types = ("组件包 (*.zip)",)
+        try:
+            selected = self._window.create_file_dialog(
+                webview.FileDialog.OPEN, allow_multiple=False, file_types=types)
+        except Exception:  # noqa: BLE001 - 原生对话框不可用不该让整个页面崩掉
+            return {"ok": False, "error": "dialog_unavailable",
+                    "text": "打不开系统的文件选择框，请改用手动填写路径。"}
+        if not selected:
+            return {"ok": True, "canceled": True, "text": "已取消选择。"}
+        return {"ok": True, "path": str(selected[0])}
+
+    def install_advanced_feature(self, key: str = "", path: str = "") -> dict:
+        """只响应帮助弹窗明确点击的固定组件，不接受任意 pip 包名。
+
+        path 非空时按「用户亲自选的文件」处理：先自检，再决定走组件包导入还是
+        收编一份单独校验过的 cloudflared；自检不过就原样把原因交回界面。
+        """
+        if not _advanced_features.allowed_feature(key):
+            return {"ok": False, "text": "未知高级功能"}
+        chosen = str(path or "").strip().strip('"')
+        if chosen:
+            inspected = self.inspect_advanced_component(key, chosen)
+            if not inspected.get("ok"):
+                return {"ok": False, "error": str(inspected.get("kind") or "inspect_failed"),
+                        "text": str(inspected.get("text") or "这个文件不能用。")}
+        with self._lock:
+            if self._closing or self._advanced_busy or self._is_busy_locked():
+                return {"ok": False, "text": "请等待当前操作结束后再安装。"}
+            self._advanced_busy = True
+        try:
+            if chosen and str(inspected.get("kind")) == "cloudflared":
+                # 单独一份 cloudflared：不进组件包体系，但同样要核版本与哈希
+                with self._credential_lock, self._phone_access_lock:
+                    if key == _advanced_features.PHONE_CONTROL and self._phone.is_running():
+                        self.stop_phone_access()
+                    try:
+                        result = _component_packages.install_cloudflared(chosen)
+                    except _component_packages.PackageError as exc:
+                        code = str(exc.args[0] if exc.args else "install_failed")
+                        return {"ok": False, "error": code,
+                                "text": "这份 cloudflared 没有通过校验：%s" % code}
+                    prefs = load_prefs()
+                    enabled = dict(prefs.get("advanced_features") or {})
+                    enabled[str(key)] = True
+                    if not update_prefs({"advanced_features": enabled}):
+                        return {"ok": False, "error": "prefs_busy",
+                                "text": "cloudflared 已收好，但启用状态暂未保存；重新打开帮助再试。"}
+                    self._cloudflare.executable = _tunnel_manager.resolve_cloudflared(
+                        resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)
+                    return result
+            return self._install_selected_feature(key, chosen)
+        finally:
+            with self._lock:
+                self._advanced_busy = False
+
+    def _install_selected_feature(self, key: str, chosen: str = "") -> dict:
+        """在已占住 _advanced_busy 的前提下真正安装。
+
+        带 path 表示用户已经在对话框里选好文件；不带 path 是旧入口（打包版现场弹框）。
+        """
+        frozen = bool(getattr(sys, "frozen", False))
+        archive = chosen or None
+        if archive is None and frozen:
+            if self._window is None:
+                return {"ok": False, "text": "请在电脑窗口中导入组件。"}
+            selected = self._window.create_file_dialog(
+                webview.FileDialog.OPEN, allow_multiple=False,
+                file_types=("组件包 (*.zip)",))
+            if not selected:
+                return {"ok": True, "canceled": True, "text": "已取消导入。"}
+            archive = str(selected[0])
+        if archive and not frozen:
+            # 源码版跑的是仓库里的 Python 代码，组件包对它没有作用：
+            # 与其「装完没变化」，不如直接说清该走哪条路
+            return {"ok": False, "error": "source_build",
+                    "text": "源码版用的是已装好的 Python 依赖，组件包对它不起作用；"
+                            "Cloudflare 通道请改为选择 cloudflared.exe。"}
+        with self._credential_lock, self._phone_access_lock:
+            with self._lock:
+                if self._closing:
+                    return {"ok": False, "text": "程序正在关闭。"}
+            if key == _advanced_features.PHONE_CONTROL and self._phone.is_running():
+                self.stop_phone_access()
+            if key == _advanced_features.RELOGIN_OCR:
+                self._relay.cancel(origin="auto")
+                self._auto_relogin.reset()
+            result = _advanced_features.install_feature(
+                key, frozen=frozen, root=DATA_DIR, archive=archive)
+            if not result.get("ok"):
+                return result
+            prefs = load_prefs()
+            enabled = dict(prefs.get("advanced_features") or {})
+            enabled[str(key)] = True
+            if not update_prefs({"advanced_features": enabled}):
+                return {"ok": False, "error": "prefs_busy",
+                        "text": "组件已安装，但启用状态暂未保存；重新打开帮助再试。"}
+            self._cloudflare.executable = _tunnel_manager.resolve_cloudflared(
+                resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)
+            return result
+
+    def remove_advanced_feature(self, key: str = "") -> dict:
+        if not _advanced_features.allowed_feature(key):
+            return {"ok": False, "text": "未知高级功能"}
+        with self._credential_lock, self._phone_access_lock:
+            with self._lock:
+                if self._closing or self._advanced_busy:
+                    return {"ok": False, "text": "请等待当前操作结束。"}
+                self._advanced_busy = True
+            try:
+                if key == _advanced_features.PHONE_CONTROL:
+                    self.stop_phone_access()
+                else:
+                    self._relay.cancel(origin="auto")
+                    self._relay.clear_staged()
+                    self._auto_relogin.reset()
+                enabled = dict(load_prefs().get("advanced_features") or {})
+                enabled[key] = False
+                if not update_prefs({"advanced_features": enabled}):
+                    return {"ok": False, "text": "停用状态未保存，请重试。"}
+                if getattr(sys, "frozen", False):
+                    if key == _advanced_features.PHONE_CONTROL:
+                        # 走下载服务移除：它同时收拾 .part 残渣与「已安装」状态位
+                        removed = self._component_service.remove()
+                        if not removed.get("ok"):
+                            return {"ok": False,
+                                    "text": str(removed.get("text") or "组件文件未能移除，请关闭后重试。")}
+                    else:
+                        _component_packages.remove(key, root=DATA_DIR)
+                self._cloudflare.executable = _tunnel_manager.resolve_cloudflared(
+                    resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)
+                return {"ok": True, "text": "功能已移除；已保存的账号可另行清除。"}
+            except (OSError, ValueError):
+                return {"ok": False, "text": "功能已停用，组件文件未能移除，请关闭后重试。"}
+            finally:
+                with self._lock:
+                    self._advanced_busy = False
+
+    def save_relogin_credentials(self, username: str = "", password: str = "") -> dict:
+        """保存续登录用的账号密码（DPAPI 加密落盘）。
+
+        只依赖「本机加密存储可用」：ddddocr 只决定能不能自动识别验证码，
+        手机端人工输码的重登同样需要这份账号——两件事不再互相绑死。
+        """
+        user = str(username or "").strip()
+        secret = str(password or "")
+        if not user or not secret:
+            return {"ok": False, "error": "needs_local_setup",
+                    "text": "请输入账号和密码。"}
+        if not _credential_store_available():
+            return {"ok": False, "error": "store_unavailable",
+                    "text": "本机加密存储不可用，暂时无法保存账号密码。"}
+        try:
+            with self._credential_lock:
+                _credential_store.save(CREDENTIAL_FILE, user, secret)
+                self._auto_relogin.reset()
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": "credential_save_failed",
+                    "text": "账号密码暂时没有保存：%s" % type(exc).__name__}
+        return {"ok": True, "saved": True, "username": user}
+
+    def clear_relogin_credentials(self) -> dict:
+        with self._credential_lock:
+            _credential_store.clear(CREDENTIAL_FILE)
+            self._relay.clear_staged()
+            self._relay.cancel(origin="auto")
+            self._auto_relogin.reset()
+        return {"ok": True, "saved": False}
+
+    def _auto_relogin_eligible(self) -> bool:
+        if DEMO or self._terms_gate() is not None:
+            return False
+        with self._lock:
+            if (self._closing or self._advanced_busy or self._checking or self._listing
+                    or self._is_busy_locked()):
+                return False
+        return bool(_advanced_features.feature_ready(
+            load_prefs(), _advanced_features.RELOGIN_OCR, root=DATA_DIR)
+            and _credential_store.has_credentials(CREDENTIAL_FILE))
+
+    def _relogin_ocr_ready(self) -> bool:
+        """电脑这边有没有「自己认验证码」的能力。"""
+        return bool(_advanced_features.feature_ready(
+            load_prefs(), _advanced_features.RELOGIN_OCR, root=DATA_DIR))
+
+    def _manual_relogin_wanted(self, relay=None) -> bool:
+        """验证码该不该交给手机上的人来打。
+
+        电脑装了 OCR 就让它自己认：手机只看到「重试中」，两个人抢同一张图只会
+        互相把对方顶掉。同一场连认 _MANUAL_RELOGIN_AFTER 次都不对、或整轮自动
+        重登连续失败同样次数，说明机器解决不了，这时才把图推给手机。
+        """
+        if not self._relogin_ocr_ready():
+            return True
+        relay = self._relay.state() if relay is None else relay
+        if relay.get("live") and relay.get("mode") in ("auto", "manual"):
+            return relay["mode"] == "manual"
+        # 只有这一场还在跑，attempts 才说明「电脑认了几次都没认对」；
+        # 历史快照里的 attempts 是上一场残留，拿它判定会把手机永久锁进人工模式
+        if relay.get("live") and int(relay.get("attempts") or 0) >= _MANUAL_RELOGIN_AFTER:
+            return True
+        failures = int(self._auto_relogin.snapshot().get("failures") or 0)
+        return failures >= _MANUAL_RELOGIN_AFTER
+
+    def _phone_relay_view(self) -> dict:
+        """手机 /api/state 里的重登投影。
+
+        机器还在认的时候，图和挑战号都不下发：手机看不到验证码就不会去提交，
+        也就不会和电脑抢同一张图。mode/retrying/retry_in 让手机能显示「重试中」，
+        而不是把「还没有图」误当成「重登已经结束」。
+        """
+        relay = dict(self._relay.state())
+        auto = self._auto_relogin.snapshot()
+        manual = self._manual_relogin_wanted(relay)
+        state = str(relay.get("state") or "")
+        retrying = bool(auto.get("inflight")) or state in ("starting", "verifying")
+        if not manual:
+            relay["image"] = ""
+            relay["challenge_id"] = ""
+        relay["mode"] = "manual" if manual else "auto"
+        relay["retrying"] = retrying
+        relay["retry_in"] = max(0, int(auto.get("retry_in") or 0))
+        relay["auto_failures"] = max(0, int(auto.get("failures") or 0))
+        # live 原样透传：手机端只有在本场真的还在跑时才播报「重登成功」
+        relay["live"] = bool(relay.get("live"))
+        return relay
+
+    def _begin_auto_relogin(self) -> dict:
+        with self._credential_lock:
+            if not self._auto_relogin_eligible():
+                return {"ok": False, "error": "busy"}
+            stored = {}
+            try:
+                stored = _credential_store.load(CREDENTIAL_FILE)
+                result = self._relay.prepare(stored["username"], stored["password"])
+                if not result.get("ok"):
+                    return result
+                manual = int(self._auto_relogin.snapshot().get("failures") or 0) >= _MANUAL_RELOGIN_AFTER
+                return self._relay.begin(origin="auto", worker_command=worker_command("login"),
+                                         manual=manual)
+            except Exception:
+                return {"ok": False, "error": "needs_local_setup"}
+            finally:
+                stored.clear()
+
+    def _classify_captcha(self, image: str) -> str:
+        prefs = load_prefs()
+        if not _advanced_features.feature_ready(prefs, _advanced_features.RELOGIN_OCR, root=DATA_DIR):
+            return ""
+        return _advanced_features.classify_captcha(image, root=DATA_DIR)
 
     def front_ready(self) -> dict:
         # 仅排障：前端 boot 完成时打一声招呼，确认桥接真的通了
@@ -889,6 +1561,8 @@ class Api:
                         "text": "程序正在关闭，已取消本次检查"}
             if self._checking:
                 # 去重必须带上在途请求 ID：界面按 ID 对账，不能把旧轮当新轮
+                # 但这一轮的真实意图不能丢：记下来，等本轮收尾再补查一次
+                self._check_again = True
                 answer = {"ok": True, "queued": True, "skipped": "已在检查登录态",
                           "request_id": self._check_request_id}
                 last = self._check_last
@@ -938,6 +1612,16 @@ class Api:
         finally:
             with self._lock:
                 self._checking = False
+                conclusion = self._last_check.get("result", "unknown")
+                # 去重期间有人要求过再查：只补这一次，且立刻重新占住去重槽位，
+                # 避免补查的线程还没起来就被第三次点击当成「空闲」再起一个
+                again = self._check_again and not self._closing
+                self._check_again = False
+                if again:
+                    self._checking = True
+            self._auto_relogin.observe_check(conclusion)
+            if again:
+                threading.Thread(target=self._do_check, daemon=True).start()
 
     def _do_check_inner(self) -> None:
         if DEMO:
@@ -1181,6 +1865,8 @@ class Api:
         rid = str(request_id or "")
         with self._lock:
             record = self._start_requests.get(rid)
+            if record is None and rid in getattr(self, "_canceled_start_ids", set()):
+                record = {"state": "canceled"}
             plan = self._plan
             # 代次只在该请求的计划仍是最近接纳计划时给出：对旧请求对账不得
             # 伪造成最新接纳代次（P1）
@@ -1212,13 +1898,26 @@ class Api:
         return payload
 
     def cancel_start_request(self, request_id: str) -> dict:
-        """放弃一次还在 pending 的开始；已有结论的请求不能取消。"""
+        """放弃待确认的开始；未知 ID 先登记取消，拦住网络中迟到的原请求。"""
         rid = str(request_id or "")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", rid):
+            return {"ok": False, "text": "开始请求标识无效，请重试。"}
         with self._lock:
             record = self._start_requests.get(rid)
+            canceled_ids = self.__dict__.setdefault("_canceled_start_ids", set())
+            if rid in canceled_ids:
+                return {"ok": True, "state": "canceled", "request_id": rid}
+            if (not record or record.get("state") == "pending") and len(canceled_ids) >= 1024:
+                return {"ok": False, "error": "cancel_capacity",
+                        "text": "取消记录已满，请等待本次对账结果。"}
             if not record:
-                return {"ok": False, "text": "没有这次开始的记录"}
+                canceled_ids.add(rid)
+                self._remember_start(rid, "canceled")
+                return {"ok": True, "state": "canceled", "request_id": rid}
+            if record.get("state") == "canceled":
+                return {"ok": True, "state": "canceled", "request_id": rid}
             if record.get("state") == "pending":
+                canceled_ids.add(rid)
                 record["state"] = "canceled"
                 return {"ok": True, "state": "canceled", "request_id": rid}
             if record.get("state") == "accepted":
@@ -1246,6 +1945,8 @@ class Api:
             # 都读到「不存在」，然后各自去建计划（C04）
             with self._lock:
                 known = self._start_requests.get(rid)
+                if rid in getattr(self, "_canceled_start_ids", set()):
+                    known = {"state": "canceled"}
                 if known is not None:
                     replay = self._start_replay(known, rid)
                 else:
@@ -1552,6 +2253,133 @@ class Api:
         for proc in procs:
             _kill_tree(proc)
 
+    def plan_active_for_close(self) -> bool:
+        """计划在跑或已就绪：关窗必须先问，不能静默最小化/退出。"""
+        plan = getattr(self, "_plan", None)
+        if plan is None:
+            return False
+        try:
+            return plan.published_status() in {"running", "ready"}
+        except Exception:
+            return False
+
+    def ask_window_close(self) -> dict:
+        """把「要关了，你想怎样」推给界面去选；返回本次判定依据。"""
+        plan_running = self.plan_active_for_close()
+        action = resolve_close_action(load_prefs(), plan_running)
+        self._emit("window_close_ask", {"plan_running": plan_running,
+                                        "default_action": action})
+        return {"ok": True, "plan_running": plan_running, "default_action": action}
+
+    def request_window_close(self, action: str = "") -> dict:
+        """界面四选的结果：hide 藏到后台 / minimize / exit / 先不关，remember_ 表示「以后都这样」。
+
+        只认这几个词；记住的选择写进 ui.json 的 window.close_action，
+        下次点 X 直接照做（计划在跑时仍会先问）。
+
+        hide 是唯一「先做再记」的选项：这条出口有门禁（托盘或手机访问必须至少
+        通一条），门禁没过就不能把「以后都隐藏」写进偏好——否则下次点 X 会直接
+        走到一条走不通的路上，而用户根本没成功隐藏过。
+        """
+        action = str(action or "")
+        allowed = ("hide", "minimize", "exit",
+                   "remember_hide", "remember_minimize", "remember_exit")
+        if action not in allowed:
+            return {"ok": False, "error": "bad_action", "text": "未知的关闭方式。"}
+        remember = action.startswith("remember_")
+        chosen = action[len("remember_"):] if remember else action
+        if chosen == "hide":
+            result = self.hide_window()
+            result["remembered"] = False
+            if not result.get("ok"):
+                # 门禁没通过：原样返回失败原因，用户原来的偏好一个字都不动
+                return result
+            if remember:
+                if self._remember_close_action("hide"):
+                    result["remembered"] = True
+                else:
+                    # 已经藏起来了就别再翻回来，只是这次没记住
+                    result["text"] = "窗口已隐藏，但偏好没有保存成功，这次先不记住。"
+            return result
+        if remember and not self._remember_close_action(chosen):
+            return {"ok": False, "error": "prefs_busy",
+                    "text": "偏好没有保存成功，这次先不记住。"}
+        if chosen == "minimize":
+            try:
+                self._window.minimize()
+            except Exception:
+                return {"ok": False, "error": "no_window", "text": "窗口不可用，没能最小化。"}
+            return {"ok": True, "action": "minimize", "remembered": remember}
+        self._close_approved = True
+        try:
+            self._window.destroy()
+        except Exception:
+            return {"ok": False, "error": "no_window", "text": "窗口不可用，没能退出。"}
+        return {"ok": True, "action": "exit", "remembered": remember}
+
+    def _remember_close_action(self, action: str) -> bool:
+        """把「以后都这样」写进 ui.json 的 window.close_action，返回是否写成功。"""
+        prefs = load_prefs()
+        window = dict(prefs.get("window") or {}) if isinstance(prefs.get("window"), dict) else {}
+        window["close_action"] = action
+        return bool(update_prefs({"window": window}))
+
+    # ---------- 隐藏到后台（窗口消失、进程继续跑） ----------
+    def hide_window(self) -> dict:
+        """把窗口藏起来：手机访问、报名计划、校时全都继续跑。
+
+        藏起来以后任务栏上就没有按钮了，所以必须先有一条能把界面叫回来的路：
+        托盘图标，或者至少还有一条未过期的手机会话。两样都没有就拒绝隐藏——
+        把窗口藏成再也打不开的样子，比不让它隐藏糟糕得多。
+        """
+        tray = self._ensure_tray()
+        if not tray:
+            if not self._phone.has_live_session():
+                return {"ok": False, "error": "hide_unavailable",
+                        "text": "托盘图标和手机访问都不可用：现在隐藏就没法把窗口叫回来，"
+                                "这次先不隐藏。"}
+            phone_log("托盘图标没有建起来：隐藏后请用手机页的「显示电脑窗口」叫回界面。")
+        try:
+            self._window.hide()
+        except Exception:
+            return {"ok": False, "error": "no_window", "text": "窗口不可用，没能隐藏。"}
+        phone_log("窗口已隐藏到后台；进程继续运行，托盘或手机页可以唤回")
+        return {"ok": True, "action": "hide", "hidden": True, "tray": self._tray is not None}
+
+    def show_window(self) -> dict:
+        """把藏起来的窗口叫回来（托盘菜单、手机页都用这一个入口）。"""
+        try:
+            self._window.show()
+        except Exception:
+            return {"ok": False, "error": "no_window", "text": "窗口不可用，没能显示。"}
+        phone_log("窗口已从后台显示出来")
+        return {"ok": True, "hidden": False, "tray": self._tray is not None}
+
+    def _ensure_tray(self) -> bool:
+        """懒建托盘图标；已经建过就直接复用。任何异常都只当作「没有托盘」。"""
+        if self._tray is not None:
+            return True
+        try:
+            from infrastructure import tray_icon as _tray_icon
+
+            tray = _tray_icon.TrayIcon(on_show=self.show_window,
+                                       on_exit=lambda: self.request_window_close("exit"))
+            if tray.start():
+                self._tray = tray
+                return True
+        except Exception:
+            self._tray = None
+        return False
+
+    def _stop_tray(self) -> None:
+        tray = self._tray
+        self._tray = None
+        if tray is not None:
+            try:
+                tray.stop()
+            except Exception:
+                pass
+
     def shutdown(self) -> None:
         """窗口正常关闭的进程收尾：先同锁置关闭屏障并取快照，再停协调器、树终止**仅本 Api 登记**的 worker。
 
@@ -1567,6 +2395,8 @@ class Api:
         拿着旧资源继续跑——必须先收干净再 finalize 生命周期。
         绝不按进程名扫杀：用户可能同时开着别的实例或别的程序，只动自己登记的进程。
         """
+        # 托盘图标先撤：窗口都收尾了还挂着一个图标，用户点它只会点出幽灵窗口
+        self._stop_tray()
         with self._lock:
             if self._closing:
                 # 已有收尾在进行：后到调用不重取快照、不重复 stop/kill，
@@ -1583,13 +2413,22 @@ class Api:
             done_event.wait()
             return
         try:
+            # 等组件目录替换提交/回滚完毕，再让主进程和 onefile 资源退出。
+            component_service = getattr(self, "_component_service", None)
+            if component_service is not None:
+                component_service.shutdown()
+            self._auto_relogin.stop()
             # 手机入口先收：有界取消中继、关 HTTP、撤销会话，再走进程收尾
             try:
                 self._relay.shutdown()
             except Exception:
                 pass
             try:
-                self._phone.stop()
+                self._cloudflare.stop()
+                # 正常退出只是关程序：保留设备信任，下次恢复入口不用重新配对；
+                # 用户在界面里手动关闭才走 stop(revoke_devices=True)。
+                self._phone.shutdown(preserve_devices=True)
+                self._phone_channel = ""
             except Exception:
                 pass
             if plan:
@@ -1642,40 +2481,245 @@ class Api:
             "business_clock": self._clock_payload(),
             "retry_options": _retry_options_payload(),
             "terms": terms_state(load_prefs()),
-            # relay 公开状态：login-relay 任务接入后改成真实投影
-            "login_relay": {"ready": False},
+            # relay 公开状态只含阶段/挑战图，不含账号密码、token 或 DPAPI 密文；
+            # 电脑自己认图时投影层会把验证码抹掉，手机只看到「重试中」
+            "login_relay": self._phone_relay_view(),
         }
 
+    def _cloudflare_status_snapshot(self) -> tuple[dict, dict]:
+        """读一次隧道状态，顺手把「异常退出」收成可复用的退出提示。
+
+        CloudflareTunnel.status() 只报一次 exited，读完就把子进程句柄与地址清掉，
+        下一次读到的只会是 stopped。一次响应里要读好几处状态，所以退出结论必须
+        在这里留住；返回 (本次状态, 仍然有效的退出提示)，提示为空 dict 表示没有。
+        """
+        status = self._cloudflare.status()
+        if status.get("state") == "exited":
+            self._cloudflare_exit_notice = dict(status)
+        return status, dict(self._cloudflare_exit_notice or {})
+
+    def _reconcile_cloudflare_lifecycle(self) -> dict:
+        """Cloudflare 临时通道的生命周期对账：隧道没了就把这条通道彻底收口。
+
+        进程异常退出等于这条临时通道已经失效：手机服务没有公网入口了，旧地址和
+        二维码也注定打不开，所以立刻停服务、撤销会话、清空通道与地址，让界面拿到
+        running=false、address=''、qr=''。必须幂等——状态刷新会被反复调用，手机已经
+        停下、通道已经清空时再来一次什么都不做。
+        """
+        _, notice = self._cloudflare_status_snapshot()
+        if not notice:
+            return {}
+        with self._phone_access_lock:
+            if self._phone_channel != "cloudflare":
+                return {}
+            if self._phone.is_running():
+                self._stop_phone_access()
+            self._phone_channel = ""
+            phone_log("Cloudflare 隧道已退出：手机访问随之停止，手机需要重新开启并重新配对")
+            self._emit("log", "Cloudflare 临时通道已失效，请重新开启手机访问")
+        return dict(notice)
+
     def phone_access_state(self) -> dict:
-        """桌面面板：监听状态、地址、一次性配对码与可选绑定地址。
+        """帮助弹窗：监听状态、远程通道、地址、二维码与一次性配对码。
 
         配对码只在这里给桌面面板显示，不进 URL、不落日志、不发给未配对手机。
         """
+        # 先对账再读：同一次响应不得把已经失效的旧地址或旧二维码带回界面
+        self._reconcile_cloudflare_lifecycle()
         service = self._phone
+        prefs = load_prefs()
+        feature = _advanced_features.feature_state(
+            prefs, root=DATA_DIR, frozen=bool(getattr(sys, "frozen", False))).get(
+                _advanced_features.PHONE_CONTROL, {})
+        address = service.address()
+        prefs_info = _phone_access_prefs(prefs)
+        # 一次取全：配对码、剩余有效秒数、换码序号（界面靠 seq/reason 提示码已换新）
+        code_info = service.pair_code_status()
+        # 三份状态各归各：能力（组件装没装）、通道（网络入口通不通）、当前跑的是哪条。
+        # 前端不允许用单个 ready 推导全部状态——那正是「ddddocr 没装却说手机控制
+        # 不可用」那类串台的老毛病。
+        advanced = self.advanced_features_state()
+        channels = dict(advanced.get("channels") or {})
         return {"ok": True,
+                "feature": feature,
+                "features": {"phone_control": dict(feature)},
+                "channels": channels,
+                "active_channel": self._phone_channel,
                 "running": service.is_running(),
-                "address": service.address(),
-                "pair_code": service.current_pair_code(),
-                "supported": service.bind_supported("127.0.0.1")}
+                "channel": self._phone_channel,
+                "address": address,
+                "qr": _phone_qr_data(address),
+                "pair_code": code_info["code"],
+                "pair_code_status": code_info,
+                "supported": bool(feature.get("ready")),
+                # 通道选择的单一真源：界面只显示，不自己推断该恢复哪一个
+                "preferred_channel": prefs_info["preferred_channel"],
+                "tailscale_autostart": prefs_info["tailscale_autostart"],
+                "advanced": self.advanced_features_state()}
 
-    def start_phone_access(self, host: str = "127.0.0.1") -> dict:
-        """开启受限手机入口：只绑定回环或 Tailscale 专属地址，固定 8765。"""
-        target = str(host or "127.0.0.1").strip()
-        if not self._phone.bind_supported(target):
-            return {"ok": False, "error": "bind_not_allowed",
-                    "text": "只允许本机回环或 Tailscale 专属地址"}
+    def start_phone_access(self, channel: str = "tailscale") -> dict:
+        with self._phone_access_lock:
+            return self._start_phone_access(channel)
+
+    def _start_phone_access(self, channel: str) -> dict:
+        """开启远程手机入口：Tailscale 或 Cloudflare，局域网不作为产品入口。"""
+        prefs = load_prefs()
+        if not _advanced_features.feature_ready(prefs, _advanced_features.PHONE_CONTROL, root=DATA_DIR):
+            return {"ok": False, "error": "feature_required",
+                    "text": "请先在帮助里的高级功能安装手机控制。"}
+        selected = str(channel or "tailscale").strip().lower()
+        # 保留旧测试/开发调用的回环入口；帮助界面只提供两个远程通道。
+        if selected in {"127.0.0.1", "localhost"}:
+            selected = "local"
+        if selected not in {"tailscale", "cloudflare", "local"}:
+            return {"ok": False, "error": "bad_channel", "text": "请选择远程通道"}
         with self._lock:
-            if self._closing:
+            if self._closing or self._advanced_busy:
                 return {"ok": False, "text": "程序正在关闭，手机访问没有开启"}
-        result = self._phone.start(target)
+        # 同一时间只跑一条通道：换通道必须先关掉现在这条，绝不自动切换
+        if self._phone.is_running() and self._phone_channel and selected != self._phone_channel:
+            return {"ok": False, "error": "other_channel_running",
+                    "text": "现在开着的是另一条通道，请先关闭再切换。"}
+        if selected == "cloudflare" and self._cloudflare_starting:
+            return {"ok": False, "error": "cloudflare_starting",
+                    "text": "Cloudflare 隧道正在启动，请稍等几秒。"}
+        target = "127.0.0.1"
+        public_host = "127.0.0.1"
+        if selected == "tailscale":
+            endpoint = _tunnel_manager.tailscale_endpoint()
+            if not endpoint.get("available"):
+                return {"ok": False, "error": endpoint.get("error", "tailscale_unavailable"),
+                        "text": endpoint.get("text", "请先登录 Tailscale")}
+            target = str(endpoint.get("bind_host") or "")
+            public_host = str(endpoint.get("public_host") or target)
+        if selected == "cloudflare":
+            # 组件可能在程序启动之后被替换或删除：每次真正启动前都重新解析校验，
+            # 校验不过就先清掉初始化时缓存的旧路径，绝不再拿它去执行
+            verified = _tunnel_manager.resolve_cloudflared(
+                resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)
+            self._cloudflare.executable = verified
+            if not verified:
+                return {"ok": False, "error": "cloudflared_missing",
+                        "text": "没有找到通过校验的 cloudflared，Cloudflare 通道暂时不可用。"}
+        result = self._phone.start(target, public_host=public_host,
+                                   persistent_device=(selected == "tailscale"))
         if result.get("ok"):
+            self._phone_channel = selected
+            if selected == "cloudflare":
+                self._cloudflare_starting = True
+                try:
+                    tunnel = self._cloudflare.start(self._phone.address())
+                finally:
+                    self._cloudflare_starting = False
+                if not tunnel.get("ok"):
+                    self._phone.stop()
+                    self._phone_channel = ""
+                    return tunnel
+                public_url = str(tunnel.get("url") or "")
+                public_host = public_url.split("//", 1)[-1].split("/", 1)[0]
+                self._phone.set_public_url(public_url)
+                # 重新开启成功：上一次的「隧道已退出」提示到此为止
+                self._cloudflare_exit_notice = None
+            phone_log("开启手机访问：通道=%s 监听=%s 公网=%s 设备信任=%s" % (
+                selected, target, public_host,
+                "开" if result.get("persistent_device") else "关"))
             self._emit("log", "手机访问已开启：%s" % result.get("address", ""))
+            self._remember_phone_channel(selected)
+            result = dict(result, channel=selected, address=self._phone.address())
         return result
 
+    def _remember_phone_channel(self, channel: str) -> None:
+        """开启成功后记下通道；只有地址固定的 Tailscale 才允许下次自动恢复。"""
+        block = {"preferred_channel": str(channel),
+                 "tailscale_autostart": str(channel) == "tailscale"}
+        if not update_prefs({_PHONE_PREF_NAMESPACE: block}):
+            self._emit("log", "通道选择没有写进偏好；本次照常可用，下次需要重新选。")
+
+    def _forget_phone_autostart(self) -> None:
+        """手动关闭手机访问：不再自动恢复（设备信任由服务自己撤销）。"""
+        current = _phone_access_prefs(load_prefs())
+        update_prefs({_PHONE_PREF_NAMESPACE: {
+            "preferred_channel": current["preferred_channel"],
+            "tailscale_autostart": False}})
+
+    def set_phone_access_preferences(self, preferred_channel: str = "") -> dict:
+        """记住用户选的通道；只影响下次启动是否自动恢复，不动当前监听。"""
+        channel = str(preferred_channel or "").strip().lower()
+        if channel and channel not in _PHONE_CHANNELS:
+            return {"ok": False, "error": "bad_channel", "text": "请选择远程通道"}
+        current = _phone_access_prefs(load_prefs())
+        chosen = channel or current["preferred_channel"]
+        block = {"preferred_channel": chosen,
+                 # 明确选了 Tailscale 才开启下次自动恢复；换成 Cloudflare 等于放弃
+                 "tailscale_autostart": chosen == "tailscale"}
+        if not update_prefs({_PHONE_PREF_NAMESPACE: block}):
+            return {"ok": False, "error": "prefs_busy",
+                    "text": "通道选择没有保存，请重试。"}
+        return {"ok": True, "preferred_channel": chosen,
+                "tailscale_autostart": block["tailscale_autostart"]}
+
+    def restore_phone_access(self) -> dict:
+        """窗口就绪后按上次的通道恢复入口：只恢复 Tailscale，绝不自动恢复 Cloudflare。
+
+        只做「已经装好并登录」的恢复：不安装外部程序、不启动守护进程、不弹提示。
+        """
+        current = _phone_access_prefs(load_prefs())
+        if current["preferred_channel"] != "tailscale" or not current["tailscale_autostart"]:
+            return {"ok": False, "error": "not_configured",
+                    "text": "上次没有用 Tailscale 开启手机访问，本次不自动恢复。"}
+        with self._lock:
+            if self._closing:
+                return {"ok": False, "text": "程序正在关闭，手机访问没有恢复"}
+        if self._phone.is_running():
+            return {"ok": True, "running": True, "channel": self._phone_channel,
+                    "address": self._phone.address()}
+        endpoint = _tunnel_manager.tailscale_endpoint()
+        if not endpoint.get("available"):
+            return {"ok": False,
+                    "error": endpoint.get("error", "tailscale_unavailable"),
+                    "state": endpoint.get("state", ""),
+                    "text": endpoint.get("text", "Tailscale 现在不可用")}
+        result = self.start_phone_access("tailscale")
+        return dict(result, restored=True)
+
+    def schedule_phone_restore(self, window) -> None:
+        """窗口加载完再恢复手机入口：此时界面能收到日志，HTTP 桥也已就绪。
+
+        只恢复上次用 Tailscale 开启的固定入口；没配过就什么都不做，不弹提示——
+        「首次不装也不影响后续」靠的就是这条静默路径。
+        """
+        def run() -> None:
+            try:
+                event = getattr(getattr(window, "events", None), "loaded", None)
+                if event is not None:
+                    event.wait(15)
+            except Exception:
+                pass
+            try:
+                result = self.restore_phone_access()
+            except Exception as exc:
+                self._emit("log", "手机访问没有恢复：%s" % type(exc).__name__)
+                return
+            if result.get("ok") and result.get("address"):
+                self._emit("log", "已恢复手机访问：%s" % result["address"])
+
+        threading.Thread(target=run, name="phone-restore", daemon=True).start()
+
     def stop_phone_access(self) -> dict:
+        with self._phone_access_lock:
+            result = self._stop_phone_access()
+        # 用户自己关掉通道＝他已经知道那条隧道废了，退出提示可以收起来
+        self._cloudflare_exit_notice = None
+        return result
+
+    def _stop_phone_access(self) -> dict:
         """关闭手机入口并撤销全部会话：有界收尾，不留后台监听。"""
-        self._relay.cancel()
-        result = self._phone.stop()
+        self._relay.cancel(origin="phone")
+        self._cloudflare.stop()
+        result = self._phone.stop(revoke_devices=True)
+        phone_log("关闭手机访问：通道=%s，已撤销会话与设备信任" % (self._phone_channel or "-"))
+        self._phone_channel = ""
+        self._forget_phone_autostart()
         self._emit("log", "手机访问已关闭")
         return result
 
@@ -1685,7 +2729,18 @@ class Api:
 
         绝不写 prefs/文件/命令行/env/日志；手机 HTTP 白名单也读不到这份数据。
         """
-        result = self._relay.prepare(username, password)
+        user = str(username or "")
+        secret = str(password or "")
+        if not user or not secret:
+            if _credential_store_available():
+                try:
+                    stored = _credential_store.load(CREDENTIAL_FILE)
+                    user, secret = stored["username"], stored["password"]
+                except Exception:
+                    user, secret = "", ""
+        result = self._relay.prepare(user, secret)
+        user = ""
+        secret = ""
         if result.get("ok"):
             self._emit("log", "已为手机重登准备好账号（只在本工具内存里）")
         return result
@@ -1703,8 +2758,25 @@ class Api:
                 return {"ok": False, "text": "程序正在关闭，已取消本次重登"}
             plan_active = bool(
                 self._plan and self._plan.published_status() in {"ready", "running"})
+        if not self._manual_relogin_wanted():
+            # 电脑自己会认图：手机别另开一场人工重登，只回报进度。
+            # 已经有一场在跑就什么都不做——重复点按钮不该变成第二个 worker。
+            current = self._relay.state()
+            state = str(current.get("state") or "")
+            # 只有真的还在跑的流程才算忙：历史快照里剩下的 waiting_code/verifying
+            # 不代表「现在别再开一场」，否则一次残留会让手机永远点不动
+            busy = bool(current.get("live")) and state not in (
+                "idle", "success", "failed", "canceled")
+            if not busy:
+                started = self._begin_auto_relogin()
+                if not started.get("ok") and started.get("error") != "busy":
+                    return started
+            return {"ok": True, "mode": "auto",
+                    "text": "电脑正在自动重登，手机上不用再操作"}
+        if not self._relay.prepared():
+            self.prepare_phone_relogin()
         return self._relay.begin(plan_active=plan_active,
-                                 worker_command=worker_command("login"))
+                                 worker_command=worker_command("login"), manual=True)
 
     def phone_relogin_submit(self, flow_id: str = "", challenge_id: str = "",
                              code: str = "") -> dict:
@@ -1712,10 +2784,12 @@ class Api:
 
     def phone_relogin_cancel(self, flow_id: str = "") -> dict:
         state = self._relay.state()
-        if flow_id and state.get("flow_id") and flow_id != state.get("flow_id"):
+        # 历史快照的 flow_id 不属于现在这一场：拿它挡取消只会让用户点了没反应
+        if (flow_id and state.get("live") and state.get("flow_id")
+                and flow_id != state.get("flow_id")):
             return {"ok": False, "error": "stale_flow",
                     "text": "这次重登已经结束"}
-        return self._relay.cancel()
+        return self._relay.cancel(origin=None if state.get("mode") == "manual" else "phone")
 
     def _spawn_relay_worker(self, args: list[str]):
         """relay worker 创建：与 _spawn 同锁关闭屏障与 busy 预留，登记后才允许输入。"""
@@ -1725,7 +2799,7 @@ class Api:
         with self._lock:
             if self._closing:
                 raise RuntimeError("closing")
-            if self._is_busy_locked():
+            if self._is_busy_locked() or self._checking or self._listing:
                 raise RuntimeError("busy")
             proc = subprocess.Popen(
                 args, cwd=str(HERE), stdin=subprocess.PIPE,
@@ -1899,12 +2973,21 @@ class Api:
                          daemon=True).start()
         return {"ok": True}
 
-    def _anchor_login_success(self) -> None:
+    def _anchor_login_success(self, origin: str = "") -> None:
         """新登录真实成功后建立 v2 锚点；没有可信时钟就不写（不拿系统时间冒充）。
 
         只在本次 login worker 成功路径调用：check/refresh/bootstrap 都不续期，
         也不改 session/storage_state 结构，旧有效凭证不要求重登。
+        origin 由中继给出（auto_ocr=无人值守、phone_manual=手机人工），
+        只用于「上一次是怎么完成的」这一行说明，不参与判断。
         """
+        if origin in ("auto_ocr", "phone_manual"):
+            with self._lock:
+                self._last_login_origin = origin
+            # 重登成功时桌面还停在「登录已过期」：补一次正常的登录检查，
+            # 让顶栏状态、活动列表和时间锚点跟着刷新。check 自带忙碌去重，
+            # 手动重登、自动重登走的是同一条路。
+            threading.Thread(target=self.check, daemon=True).start()
         try:
             lower, upper = self._clock.bounds()
             token = str(json.loads(SESSION_FILE.read_text(encoding="utf-8"))
@@ -2106,6 +3189,18 @@ def main() -> int:
         background_color="#E9EEF6",
     )
     api._window = window
+    api.schedule_phone_restore(window)
+
+    def _closing() -> bool:
+        """返回 False 取消关闭。默认 ask：弹出三选，绝不静默带走正在跑的计划。"""
+        return handle_window_close(api, window)
+
+    try:
+        window.events.closing += _closing
+    except AttributeError:
+        # 老版本 pywebview 没有可取消的 closing：退化成「直接关」，
+        # 行为与升级前一致，不假装能拦
+        pass
     webview.start(debug=False)
     # 窗口已关（正常路径）：先收本实例登记的 worker（计划/登录/单活动/check/list）——
     # onefile 退出后运行期资源根即消失，绝不能留下还握着它的孤儿进程；

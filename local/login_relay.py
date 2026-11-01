@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
 """手机重登中继的 worker 侧编排：验证码挑战、人工提交与新 token 结算。
 
-Playwright 端口与 grab 本地函数全部由调用方注入，本模块不反向依赖 grab、
-不自己拼登录 HTTP、不逆向学校接口：由页面自己发 captcha/login，这里只
-观察响应、读 body、填表与结算。stdout 只打印 [login] 安全 JSON 行——
-uuid/token/user/password 一律不外传。
+两条路径共用 stdin/[login] 协议与 ChallengeBook：
+- run_http_relay（主路径）：按 2026-10-30 公开 JS 证据的契约直接走
+  /auth/captcha 与 /auth/login，由注入的 post 端口发请求，本模块不自建
+  连接、不逆向、不猜未证实端点；
+- run_relay（Playwright 兜底）：由页面自己发 captcha/login，这里只观察
+  响应、读 body、填表与结算；仅 HTTP 契约不符时凭据留内存一次性切换。
+
+stdout 只打印 [login] 安全 JSON 行——uuid/token/user/password 一律不外传。
 
 安全边界：凭据只从 stdin 收一次、用完即弃；挑战必须 flow_id/challenge_id
-匹配、4 位字母数字、60 秒内、每挑战只消费一次；最多 3 次人工提交、每次
-换图、换图间隔 ≥3 秒、总时长 10 分钟。成功必须「本场 login 应答成功」且
-「本场新 token 校验通过」同时成立，旧 token 轮询成功不能冒充新登录。
+匹配、4 位字母数字、每挑战只消费一次；验证码不设倒计时和提交次数上限，
+每次换图仍受最小间隔保护、总时长 10 分钟。成功必须「本场 login 应答成功」且
+「本场新 token 校验通过」同时成立，旧 token 轮询成功不能冒充新登录；
+持久化失败不报告成功，网络错误安全失败，凭据不进异常或日志。
 
 @author Author
 """
@@ -22,9 +27,10 @@ import queue
 import re
 import threading
 
-# 挑战与预算（决策 5）
-CHALLENGE_TTL_S = 60.0
-MAX_MANUAL_TRIES = 3
+# 挑战与预算（决策 5）：学校验证码没有服务端倒计时和提交次数上限。
+# 这两个名称保留为空值，避免旧调用方导入常量时静默恢复旧限制。
+CHALLENGE_TTL_S = None
+MAX_MANUAL_TRIES = None
 REFRESH_MIN_GAP_S = 3.0
 TOTAL_BUDGET_S = 600.0
 MAX_IMAGE_BYTES = 128 * 1024
@@ -39,6 +45,33 @@ SUBMIT_SELECTOR = "uni-button.view-form-box-btn"
 TOKEN_KEY = "xgUniToken"
 VERIFY_PAYLOAD = {"pageSize": 1, "pageNum": 1, "hdmc": "", "hdzt": None,
                   "kssj": "", "jssj": ""}
+
+# ---- HTTP 主路径契约（2026-10-30 公开 JS 证据，非猜测） --------------------
+# mainPages-login.50dce831.js 直接传 userName/pwd/code/uuid/client/userType/
+# grantType；index.b489a1d6.js 的 store async login 读 n.data.token 写
+# xgUniToken；captcha 响应 data.key（登录 uuid）/data.image。只实现已证实
+# 的字段与路径，不猜别的端点；取验证码匿名（tok=""），登录应答只认
+# code=1 且 data.token 非空。
+AUTH_CAPTCHA_PATH = "/auth/captcha"
+AUTH_LOGIN_PATH = "/auth/login"
+AUTH_CLIENT = ("NzVmNDdlMjJiMGNjMTFlZGExNGQ4MmUxNDExNWM2OWY6N2FkOTI4YTliMGNj"
+               "MTFlZGExNGQ4MmUxNDExNWM2OWY=")
+AUTH_USER_TYPE = "2"
+AUTH_GRANT_TYPE = "pwd"
+# 取验证码的精确匿名载荷（仅 client/userType 两个字段，tok 固定 ""）
+AUTH_CAPTCHA_PAYLOAD = {"client": AUTH_CLIENT, "userType": AUTH_USER_TYPE}
+SESSION_ORIGIN = "https://portal.school.example.edu"
+
+# 首次取验证码的三种结局：OK 继续；MISMATCH=成功契约确已变化（code=1 却
+# 拿不到 key/image），凭据留内存一次性切 Playwright；REFUSED=网络错误、
+# 传输异常或业务拒绝，安全失败不切换——网络问题 Playwright 同样过不去，
+# 业务拒绝换浏览器就是换着花样撞库。
+_CAPTCHA_OK = "ok"
+_CAPTCHA_MISMATCH = "mismatch"
+_CAPTCHA_REFUSED = "refused"
+
+# 官网实测的精确业务消息：验证码错才换图继续；密码错不能自动重试。
+CAPTCHA_ERROR_MESSAGES = frozenset({"登录失败，验证码不正确！"})
 
 
 # ---- 纯规则 ---------------------------------------------------------------
@@ -84,15 +117,15 @@ def extract_captcha_image(payload):
 class ChallengeBook:
     """挑战期状态机（纯逻辑，时刻由调用方传入）。
 
-    只认本场 flow_id；每挑战只消费一次；过期/换图/重复/旧 flow 都不得
-    复用旧码。失败只回安全码，不回任何输入内容。
+    只认本场 flow_id；每挑战只消费一次；换图/重复/旧 flow 都不得复用旧码。
+    验证码本身不设倒计时和提交次数上限。失败只回安全码，不回任何输入内容。
     """
 
-    def __init__(self, flow_id, ttl_s=CHALLENGE_TTL_S, max_tries=MAX_MANUAL_TRIES,
+    def __init__(self, flow_id, ttl_s=None, max_tries=None,
                  refresh_gap_s=REFRESH_MIN_GAP_S):
         self.flow_id = str(flow_id)
-        self.ttl_s = float(ttl_s)
-        self.max_tries = int(max_tries)
+        self.ttl_s = None if ttl_s is None else float(ttl_s)
+        self.max_tries = None if max_tries is None else int(max_tries)
         self.refresh_gap_s = float(refresh_gap_s)
         self.challenge_id = ""
         self.issued_at = 0.0
@@ -108,8 +141,7 @@ class ChallengeBook:
     def open_challenge(self, challenge_id, now) -> bool:
         """换图/新挑战：旧码立即作废；刷新间隔不足时拒绝换图。
 
-        人工提交次数是本场计数，不随换图清零——「最多 3 次人工提交、
-        每次换图」说的就是这一场的总次数。
+        人工提交次数只用于状态展示，不参与拒绝判定。
         """
         if not self.may_refresh(now):
             return False
@@ -123,14 +155,10 @@ class ChallengeBook:
         """提交判定：返回 (接受?, 错误码)。接受后该挑战立即作废。"""
         if str(flow_id or "") != self.flow_id:
             return False, "stale_flow"
-        if self.tries >= self.max_tries:
-            return False, "max_tries"
         if not self.challenge_id or self.consumed:
             return False, "consumed"
         if str(challenge_id or "") != self.challenge_id:
             return False, "stale_challenge"
-        if float(now) - self.issued_at > self.ttl_s:
-            return False, "expired"
         if not valid_code(code):
             return False, "bad_code"
         self.consumed = True
@@ -246,8 +274,6 @@ def _relay_session(deps, stdout, inbox, creds):
             return 2
         book = ChallengeBook(
             flow_id,
-            ttl_s=float(getattr(deps, "challenge_ttl_s", CHALLENGE_TTL_S)),
-            max_tries=int(getattr(deps, "max_tries", MAX_MANUAL_TRIES)),
             refresh_gap_s=float(getattr(deps, "refresh_gap_s", REFRESH_MIN_GAP_S)))
         responses: "queue.Queue" = queue.Queue()
         try:
@@ -377,8 +403,7 @@ def _drain_responses(deps, stdout, responses, book, flow_id):
                 continue
             _emit_line(stdout, flow_id, kind="challenge",
                        challenge_id=challenge_id, image=image,
-                       expires_in=int(CHALLENGE_TTL_S), attempts=book.tries,
-                       max_attempts=book.max_tries)
+                       attempts=book.tries, max_attempts=0)
         elif "login" in url:
             # 只有本场 login 应答成功才算登录成功；旧 token 轮询成功不算
             code = payload.get("code") if isinstance(payload, dict) else None
@@ -435,3 +460,245 @@ def _close_all(ctx, browser):
                 closer()
             except Exception:  # noqa: BLE001
                 pass
+
+
+# ---- HTTP 主路径 -----------------------------------------------------------
+def _extract_captcha_key(payload):
+    """captcha 响应的 data.key（登录 uuid）：非空字符串才认。"""
+    if not isinstance(payload, dict):
+        return ""
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return ""
+    key = data.get("key")
+    return str(key).strip() if isinstance(key, str) and key.strip() else ""
+
+
+def _extract_login_token(payload):
+    """login 响应的 data.token：仅 code=1 且非空才算登录应答成功。
+
+    token 只来自本场应答，绝不读旧 session 猜成功。
+    """
+    if not isinstance(payload, dict):
+        return ""
+    if str(payload.get("code")) != "1":
+        return ""
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return ""
+    token = data.get("token")
+    return str(token).strip() if isinstance(token, str) else ""
+
+
+def _http_fetch_captcha(deps):
+    """匿名取验证码：返回 (结局, uuid, image)。tok 固定 ""，不读旧会话。
+
+    严格先判 code=1 再接收 data.key/image：业务拒绝即便仍带图也不算成功。
+    code=-1（传输异常/超时/HTTPError）与非 dict 都无法确定 HTTP 状态，
+    一律安全失败，不当协议变化切浏览器。
+    """
+    try:
+        payload = deps.post(AUTH_CAPTCHA_PATH, dict(AUTH_CAPTCHA_PAYLOAD), "")
+    except Exception:  # noqa: BLE001 - 网络错误安全失败，不切兜底
+        return _CAPTCHA_REFUSED, "", ""
+    if not isinstance(payload, dict) or str(payload.get("code")) != "1":
+        return _CAPTCHA_REFUSED, "", ""
+    key = _extract_captcha_key(payload)
+    image = extract_captcha_image(payload)
+    if key and image:
+        return _CAPTCHA_OK, key, image
+    # code=1 却拿不到 key/image：成功契约确已变化，一次性切 Playwright
+    return _CAPTCHA_MISMATCH, "", ""
+
+
+def _http_storage_state(token):
+    """HTTP 登录的 storage_state：只带本场新 token 的 localStorage 项。
+
+    浏览器报名路径（new_context）靠它拿到登录态；旧 state 属于旧会话，
+    成功时整体替换，失败路径一次都不碰。
+    """
+    return {"cookies": [], "origins": [{
+        "origin": SESSION_ORIGIN,
+        "localStorage": [{"name": TOKEN_KEY, "value": str(token)}]}]}
+
+
+def _session_from_token(token):
+    """新 token → session 文档（与 Playwright 路径同一字段结构）。"""
+    return {"token": str(token), "saved_at": "", "name": "", "student_no": "",
+            "gender": ""}
+
+
+def _http_fail(stdout, flow_id, error, code):
+    _emit_line(stdout, flow_id, kind="failed", error=error)
+    return code
+
+
+def run_http_relay(*, deps, stdin, stdout, pw_deps=None) -> int:
+    """HTTP 主路径 worker 编排：直接走 /auth/captcha 与 /auth/login。
+
+    与 run_relay 共用 stdin/[login] 协议和 ChallengeBook。仅首次验证码契约
+    不符（HTTP 不支持/协议改变）时**一次**切 Playwright 兜底（pw_deps 给定时），
+    凭据留内存交接、不落盘、不进异常或日志；网络错误安全失败不切换，
+    也不因密码错误反复切换撞库。
+    """
+    inbox: "queue.Queue" = queue.Queue()
+    reader = _start_stdin_reader(stdin, inbox)
+    try:
+        creds = _wait_credentials(inbox, deps)
+        if creds is None:
+            _emit_line(stdout, "", kind="failed", error="eof")
+            return 1
+        try:
+            return _http_session_flow(deps, stdout, inbox, creds, pw_deps)
+        finally:
+            # 用完即弃：任何路径退出都不留凭据副本（含提前失败/兜底交接后）
+            creds.clear()
+    finally:
+        reader.join(timeout=0.1)
+
+
+def _http_session_flow(deps, stdout, inbox, creds, pw_deps):
+    flow_id = creds["flow_id"]
+    # 先取第一张验证码再展开凭据：契约不符时连同凭据一次性交 Playwright
+    outcome, uuid, image = _http_fetch_captcha(deps)
+    if outcome == _CAPTCHA_MISMATCH:
+        if pw_deps is not None:
+            return _relay_session(pw_deps, stdout, inbox, creds)
+        return _http_fail(stdout, flow_id, "bad_response", 2)
+    if outcome != _CAPTCHA_OK:
+        return _http_fail(stdout, flow_id, "bad_response", 2)
+    username = creds.pop("username")
+    password = creds.pop("password")
+    deadline = float(deps.now()) + TOTAL_BUDGET_S
+    try:
+        book = ChallengeBook(
+            flow_id,
+            refresh_gap_s=float(getattr(deps, "refresh_gap_s", REFRESH_MIN_GAP_S)))
+        challenge_id = str(deps.new_id())
+        if not book.open_challenge(challenge_id, float(deps.now())):
+            return _http_fail(stdout, flow_id, "internal", 4)
+        _emit_line(stdout, flow_id, kind="challenge",
+                       challenge_id=challenge_id, image=image,
+                       attempts=book.tries, max_attempts=0)
+        return _http_drive(deps, stdout, inbox, book, flow_id, username,
+                           password, {"uuid": uuid}, deadline)
+    finally:
+        # 函数作用域即销毁：不留任何凭据副本
+        username = ""
+        password = ""
+
+
+def _http_drive(deps, stdout, inbox, book, flow_id, username, password, sess,
+                deadline):
+    while True:
+        now = float(deps.now())
+        if now >= deadline:
+            return _http_fail(stdout, flow_id, "timeout", 1)
+        outcome = _http_drain_inbox(deps, stdout, inbox, book, flow_id,
+                                    username, password, sess, deadline)
+        if outcome is not None:
+            return outcome
+        try:
+            deps.sleep(0.05)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _http_drain_inbox(deps, stdout, inbox, book, flow_id, username, password,
+                      sess, deadline):
+    """处理 stdin 消息；None=继续，整数=退出码（失败行已随码发出）。"""
+    while True:
+        try:
+            item = inbox.get_nowait()
+        except queue.Empty:
+            return None
+        kind = str(item.get("kind") or "")
+        if kind == "_eof":
+            return _http_fail(stdout, flow_id, "eof", 1)
+        if kind == "cancel":
+            return _http_fail(stdout, flow_id, "canceled", 5)
+        if kind != "submit":
+            continue
+        accepted, error = book.accept(item.get("flow_id"),
+                                      item.get("challenge_id"),
+                                      item.get("code"), float(deps.now()))
+        if not accepted:
+            _emit_line(stdout, flow_id, kind="rejected", reason=error,
+                       challenge_id=book.challenge_id, attempts=book.tries)
+            continue
+        return _http_login(deps, stdout, book, flow_id, username, password,
+                           sess, str(item.get("code") or ""), deadline)
+
+
+def _http_login(deps, stdout, book, flow_id, username, password, sess, code,
+                deadline):
+    """提交登录并结算：本场新 token 校验通过才保存；失败不碰旧会话。
+
+    code=-1/超时/传输异常/非 dict/密码错误/原因不明的业务拒绝一律安全终止：
+    不换图、不切浏览器、不重复提交密码。只有 CAPTCHA_ERROR_MESSAGES 里明确
+    「验证码输错」的拒绝才换图继续；验证码提交没有次数上限。
+    """
+    _emit_line(stdout, flow_id, kind="verifying", challenge_id=book.challenge_id)
+    body = {"userName": str(username), "pwd": str(password), "code": str(code),
+            "uuid": str(sess.get("uuid") or ""), "userType": AUTH_USER_TYPE,
+            "client": AUTH_CLIENT, "grantType": AUTH_GRANT_TYPE}
+    try:
+        result = deps.post(AUTH_LOGIN_PATH, body, "")
+    except Exception:  # noqa: BLE001 - 网络错误安全失败；凭据不进异常
+        return _http_fail(stdout, flow_id, "bad_response", 2)
+    body = {}
+    if not isinstance(result, dict):
+        return _http_fail(stdout, flow_id, "bad_response", 2)
+    token = _extract_login_token(result)
+    if token:
+        return _http_settle(deps, stdout, flow_id, token)
+    code_value = str(result.get("code"))
+    if code_value in ("1", "-1"):
+        # code=1 却没有 token：成功契约变了；code=-1：传输异常/超时。人工
+        # 尝试已消费，只安全失败，不二次切换、不重复提交同一份凭据
+        return _http_fail(stdout, flow_id, "bad_response", 2)
+    if str(result.get("message") or "") in CAPTCHA_ERROR_MESSAGES:
+        return _http_refresh_challenge(deps, stdout, book, flow_id, sess, deadline)
+    # 密码错误或原因不明的业务拒绝：安全终止
+    return _http_fail(stdout, flow_id, "bad_response", 2)
+
+
+def _http_refresh_challenge(deps, stdout, book, flow_id, sess, deadline):
+    """换图：间隔不足先等到点（不越过总预算），再取新验证码开新挑战。"""
+    now = float(deps.now())
+    if not book.may_refresh(now):
+        wait = book.refresh_gap_s - (now - book.last_refresh)
+        if now + wait >= deadline:
+            return _http_fail(stdout, flow_id, "timeout", 1)
+        try:
+            deps.sleep(wait)
+        except Exception:  # noqa: BLE001
+            pass
+    outcome, uuid, image = _http_fetch_captcha(deps)
+    if outcome != _CAPTCHA_OK:
+        return _http_fail(stdout, flow_id, "bad_response", 2)
+    sess["uuid"] = uuid
+    challenge_id = str(deps.new_id())
+    if not book.open_challenge(challenge_id, float(deps.now())):
+        return _http_fail(stdout, flow_id, "internal", 4)
+    _emit_line(stdout, flow_id, kind="challenge",
+               challenge_id=challenge_id, image=image,
+               attempts=book.tries, max_attempts=0)
+    return None
+
+
+def _http_settle(deps, stdout, flow_id, token):
+    """结算：本场新 token 校验 code=1 才保存会话与 state；持久化失败不报成功。"""
+    try:
+        result = deps.post("/rjyHd/listActivity", dict(VERIFY_PAYLOAD), token)
+    except Exception:  # noqa: BLE001
+        return _http_fail(stdout, flow_id, "token_unverified", 3)
+    if not (isinstance(result, dict) and str(result.get("code")) == "1"):
+        return _http_fail(stdout, flow_id, "token_unverified", 3)
+    try:
+        # 双文件走事务端口：两份一起落位，第二文件失败要能回到保存前状态
+        deps.save_verified(_http_storage_state(token), _session_from_token(token))
+    except Exception:  # noqa: BLE001 - 持久化失败不得报告成功
+        return _http_fail(stdout, flow_id, "internal", 4)
+    _emit_line(stdout, flow_id, kind="success", verified=True)
+    return 0

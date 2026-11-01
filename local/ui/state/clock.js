@@ -29,6 +29,7 @@ const CLOCK_ICONS = {
 const CLOCK_COPY = {
   ready: { label: "已校准", explain: "报名时间和倒计时均以北京时间为准。" },
   syncing: { label: "正在校准…", explain: "正在获取网络时间。报名计划需在校准完成后启动。" },
+  retrying: { label: "正在重试校准", explain: "上一轮没得到可信时间，工具会按 5、10、20、30 秒退避自动重试；也可以点「重试校准」立刻再试。" },
   holdover: { label: "使用上次校准结果", explain: "时间仍可用，工具会自动重试校准。" },
   unavailable: { label: "时间校准失败", explain: "报名计划暂不可启动。检查网络后重试。" },
   demo: { label: "演示时间", explain: "使用示例活动和时间，不会提交报名。" },
@@ -61,6 +62,12 @@ function clockSnapshotFields(snap, rttMs) {
     syncStatus: ["pending", "syncing", "succeeded", "failed"].includes(s.sync_status)
       ? s.sync_status : null,
     syncRound: Number.isSafeInteger(s.sync_round) && s.sync_round >= 0 ? s.sync_round : null,
+    /* 退避重试：只在自动重试时有值，用来解释「还要等多久」和失败来源 */
+    retryAttempt: Number.isSafeInteger(s.retry_attempt) && s.retry_attempt > 0 ? s.retry_attempt : 0,
+    retryInS: Number.isFinite(Number(s.retry_in_s)) && Number(s.retry_in_s) > 0
+      ? Number(s.retry_in_s) : 0,
+    lastFailureSource: String(s.last_failure_source || ""),
+    lastFailureReason: String(s.last_failure_reason || ""),
   };
 }
 
@@ -116,6 +123,11 @@ function ingestBusinessClock(snap, opts) {
     cur.reason = fields.reason || "暂时无法获取北京时间";
     cur.gen = fields.gen;
     cur.owner = fields.owner || cur.owner;
+    /* 失败也带着退避信息：界面要能说清「什么时候会自动再试」 */
+    cur.retryAttempt = fields.retryAttempt;
+    cur.retryInS = fields.retryInS;
+    cur.lastFailureSource = fields.lastFailureSource;
+    cur.lastFailureReason = fields.lastFailureReason;
     cur.syncState = "idle";
     paintClockStatus();
     updateControls();
@@ -133,6 +145,10 @@ function ingestBusinessClock(snap, opts) {
   cur.bridgeMs = fields.bridgeMs;
   cur.source = fields.source;
   cur.reason = fields.reason;
+  cur.retryAttempt = fields.retryAttempt;
+  cur.retryInS = fields.retryInS;
+  cur.lastFailureSource = fields.lastFailureSource;
+  cur.lastFailureReason = fields.lastFailureReason;
   if (advanced && !attemptSettled) {
     cur.syncState = "idle";
     cur.syncError = "";
@@ -197,7 +213,7 @@ function bnLeftSec(targetSec) {
   return (n == null || !Number.isFinite(targetSec)) ? null : targetSec - n;
 }
 
-/* 五个界面状态：演示 / 校准中 / 已校准 / 使用上次结果 / 待校准 */
+/* 界面状态：演示 / 校准中 / 已校准 / 使用上次结果 / 自动重试中 / 待校准 */
 function clockUiState() {
   if (S.demo) return "demo";
   const c = S.businessClock || {};
@@ -205,6 +221,8 @@ function clockUiState() {
   if (!reading || !reading.valid) {
     if (!c.anchorEpochMs && (c.syncStatus === "pending" || c.syncStatus === "syncing"
         || c.attempted !== true)) return "syncing";
+    /* 已经失败并排了重试：告诉用户「会自动再试」，而不是只说失败 */
+    if (c.retryAttempt > 0 && c.retryInS > 0) return "retrying";
     return "unavailable";
   }
   return reading.ageMs > CLOCK_HOLDOVER_MS ? "holdover" : "ready";
@@ -227,6 +245,41 @@ function clockParts(ms) {
   } catch (err) {
     return { time: moment.toTimeString().slice(0, 8), date: "" };
   }
+}
+
+/* 自动重试提示：只在排了退避时给一行「约 N 秒后」，没排就返回空串。 */
+function clockRetryText() {
+  const c = S.businessClock || {};
+  if (!(Number(c.retryAttempt) > 0) || !(Number(c.retryInS) > 0)) return "";
+  return "正在重试（约 " + Math.ceil(Number(c.retryInS)) + " 秒后）";
+}
+
+/* 下一次重试的剩余秒数文案；没排队返回空串（详情里显示「暂无记录」）。 */
+function clockRetryDueText() {
+  const c = S.businessClock || {};
+  if (!(Number(c.retryInS) > 0)) return "";
+  return Math.ceil(Number(c.retryInS)) + " 秒后";
+}
+
+/* 失败原因白名单 → 人话。原始异常不落到界面，只给粗分类。 */
+const CLOCK_FAILURE_TEXT = {
+  timeout: "网络超时",
+  dns_error: "域名解析失败",
+  bad_packet: "响应包无效",
+  peer_mismatch: "响应来源不一致",
+  transport_error: "网络连接失败",
+};
+
+function clockFailureSourceText() {
+  const c = S.businessClock || {};
+  return String(c.lastFailureSource || "");
+}
+
+function clockFailureReasonText() {
+  const c = S.businessClock || {};
+  const key = String(c.lastFailureReason || "");
+  if (!key) return "";
+  return CLOCK_FAILURE_TEXT[key] || "其他网络问题";
 }
 
 function clockUncertaintyText(ms) {

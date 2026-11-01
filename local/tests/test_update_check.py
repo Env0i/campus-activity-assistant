@@ -41,14 +41,16 @@ def manifest(version="1.1.1", name=INSTALLER, sha256="ab" * 32, size=1024, files
             "files": files if files is not None else {name: {"sha256": sha256, "bytes": size}}}
 
 
-def stable(tag="v1.1.1", installer=True, manifest_name="manifest.json", size=1024):
-    """一份“有安装器 + 有清单”的正式 Release 资产集合。"""
+def stable(tag="v1.1.1", installer=True, manifest_name="manifest.json", size=1024, assets_extra=None):
+    """一份“有安装器 + 有清单”的正式 Release 资产集合；assets_extra 用于追加组件资产。"""
     assets = [asset("campus-activity-watch-v1.1.1-win-x64.zip"),
               asset("campus-activity-watch-v1.1.1-win-x64.exe")]
     if installer:
         assets.append(asset(INSTALLER, size=size))
     if manifest_name:
         assets.append(asset(manifest_name))
+    if assets_extra:
+        assets.extend(assets_extra)
     return release(tag, assets=assets)
 
 
@@ -120,8 +122,9 @@ class InstallerAssetTests(unittest.TestCase):
         self.assertEqual(picked["manifest_url"], "")
 
     def test_select_release_assets_without_assets_key(self):
+        # 接口新增 phone_control 字段后，空资产仍要三个键齐全且都为「没有」
         self.assertEqual(updates.select_release_assets(release(), "1.1.1"),
-                         {"installer": None, "manifest_url": ""})
+                         {"installer": None, "manifest_url": "", "phone_control": None})
 
     def test_parse_manifest_extracts_entry(self):
         raw = json.dumps(manifest()).encode("utf-8")
@@ -143,6 +146,87 @@ class InstallerAssetTests(unittest.TestCase):
         for raw in cases:
             with self.subTest(size=len(raw)), self.assertRaises(ValueError):
                 updates.parse_manifest(raw, "1.1.1", INSTALLER)
+
+
+COMPONENT = "campus-activity-watch-phone-control-v1.1.1-win-x64.zip"
+
+
+def component_manifest(version="1.1.1", name=COMPONENT, sha256="cd" * 32, size=2048, files=None):
+    return manifest(version=version, files=files if files is not None else
+                    {name: {"sha256": sha256, "bytes": size}})
+
+
+class PhoneControlAssetTests(unittest.TestCase):
+    """手机控制组件是独立 Release 资产：命名固定、地址限定本仓库、清单必须对得上。"""
+
+    def test_phone_control_asset_name_is_stable(self):
+        self.assertEqual(
+            updates.phone_control_asset_name("1.2.3"),
+            "campus-activity-watch-phone-control-v1.2.3-win-x64.zip",
+        )
+        with self.assertRaises(ValueError):
+            updates.phone_control_asset_name("1.2.3-beta")
+
+    def test_release_selection_rejects_phone_asset_outside_repository(self):
+        payload = {"assets": [{
+            "name": "campus-activity-watch-phone-control-v1.2.3-win-x64.zip",
+            "browser_download_url": "https://example.com/component.zip",
+            "size": 10,
+        }]}
+        picked = updates.select_release_assets(payload, "1.2.3")
+        self.assertIsNone(picked["phone_control"])
+
+    def test_selection_picks_component_with_repo_url_and_bounded_size(self):
+        payload = stable("v1.1.1", assets_extra=[asset(COMPONENT, size=2048)])
+        picked = updates.select_release_assets(payload, "1.1.1")
+        self.assertEqual(picked["phone_control"]["name"], COMPONENT)
+        self.assertEqual(picked["phone_control"]["url"], DOWNLOAD + COMPONENT)
+        self.assertEqual(picked["phone_control"]["bytes"], 2048)
+        # 安装器与组件的选择互不影响
+        self.assertEqual(picked["installer"]["name"], INSTALLER)
+
+    def test_component_selection_skips_oversize_and_alias(self):
+        payload = release("v1.1.1", assets=[
+            asset(COMPONENT, size=updates.MAX_INSTALLER_BYTES + 1),
+            asset("campus-activity-watch-phone-control-v1.1.1-win-x86.zip"),
+        ])
+        self.assertIsNone(updates.select_release_assets(payload, "1.1.1")["phone_control"])
+
+    def test_resolve_component_asset_returns_verified_entry(self):
+        payload = stable("v1.1.1", assets_extra=[asset(COMPONENT, size=2048)])
+        resolved = updates.resolve_phone_control_asset(
+            payload, "1.1.1", json.dumps(component_manifest()).encode("utf-8"))
+        self.assertEqual(resolved["state"], "available")
+        self.assertEqual(resolved["asset"]["sha256"], "cd" * 32)
+        self.assertEqual(resolved["asset"]["bytes"], 2048)
+
+    def test_resolve_component_asset_reports_no_component(self):
+        resolved = updates.resolve_phone_control_asset(
+            stable("v1.1.1"), "1.1.1", json.dumps(component_manifest()).encode("utf-8"))
+        self.assertEqual(resolved["state"], "no_component")
+        self.assertEqual(resolved["error_code"], "no_component")
+        self.assertIsNone(resolved["asset"])
+
+    def test_resolve_component_asset_rejects_bad_manifest(self):
+        payload = stable("v1.1.1", assets_extra=[asset(COMPONENT, size=2048)])
+        cases = [
+            b"not json",
+            json.dumps(component_manifest(version="1.1.0")).encode(),     # 版本不符
+            json.dumps(component_manifest(files={})).encode(),            # 缺组件条目
+            json.dumps(component_manifest(size=4096)).encode(),           # 大小与资产不符
+            json.dumps(component_manifest(files={COMPONENT: {"sha256": "zz", "bytes": 2048}})).encode(),
+        ]
+        for raw in cases:
+            with self.subTest(size=len(raw)):
+                resolved = updates.resolve_phone_control_asset(payload, "1.1.1", raw)
+                self.assertEqual(resolved["state"], "manifest_invalid")
+                self.assertEqual(resolved["error_code"], "manifest_invalid")
+
+    def test_resolve_component_asset_requires_manifest_url(self):
+        payload = release("v1.1.1", assets=[asset(COMPONENT, size=2048)])
+        resolved = updates.resolve_phone_control_asset(
+            payload, "1.1.1", json.dumps(component_manifest()).encode("utf-8"))
+        self.assertEqual(resolved["state"], "manifest_invalid")
 
 
 class UpdateNetworkTests(unittest.TestCase):

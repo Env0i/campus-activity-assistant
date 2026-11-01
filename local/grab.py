@@ -24,16 +24,21 @@
 """
 
 import argparse
+import base64
+import hashlib
+import hmac
 import json
 import math
 import os
 import queue
+import secrets
 import sys
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -46,6 +51,11 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 # 直发白名单：只有页面入口脚本恰好是这个已知打包（签名协议与之绑定）才启用直发；
 # 其它/未知脚本一律点击兜底，不下载脚本、不抽新 key（L1 保守匹配，C01）
 KNOWN_DIRECT_SCRIPT_BASENAME = "index.b489a1d6.js"
+
+# 官网入口脚本公开的请求安全参数。签名只保护请求完整性，不替代登录态 token；
+# 页面脚本更新后若更换 requestSecurityRawKey，必须重新核对并更新这组常量。
+REQUEST_SECURITY_RAW_KEY = "7afdca069faa4acb8c0ab09322636245"
+REQUEST_SECURITY_CLIENT_KEY = "Pq3Zk2A9xML7"
 
 HERE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 # 登录态/偏好统一走 runtime_paths：开发与绿色版仍是脚本旁 data，
@@ -144,6 +154,23 @@ def setup_console():
             pass
 
 
+def _school_open(request, timeout=None):
+    """学校请求统一走「不走代理」的 opener。
+
+    系统代理（Clash/公司代理）会把校内域名当外网转发或改写请求身份，现象是
+    「浏览器能进、脚本 401」。更新检查、组件下载与飞书通知仍用 urllib 默认
+    opener（跟随环境变量与 Windows 系统代理）。
+
+    每次都按当前 urllib 现建 opener，而不是模块导入时建一次：测试替换
+    grab.urllib 成替身时这条路径同样生效（替身没有 build_opener 就退回 urlopen）。
+    """
+    build_opener = getattr(urllib.request, "build_opener", None)
+    handler = getattr(urllib.request, "ProxyHandler", None)
+    if build_opener is None or handler is None:
+        return urllib.request.urlopen(request, timeout=timeout)
+    return build_opener(handler({})).open(request, timeout=timeout)
+
+
 def log(msg):
     ensure_data_dir()
     try:
@@ -181,9 +208,121 @@ def write_json_atomic(path, obj):
             pass
 
 
+def _unlink_quiet(path):
+    try:
+        Path(path).unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
+def _snapshot_bytes(path):
+    """保存前存量字节；原本不存在回 None，存在但读不出则抛错（先不动盘）。"""
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except FileNotFoundError:
+        return None
+
+
+def save_verified_files(state, session, state_path=None, session_path=None):
+    """登录成功后 state+session 双文件事务保存（HTTP 路径 save_verified 端口）。
+
+    两份内容先写好临时文件再依次替换；第二文件替换失败时把已落位的文件恢复
+    到保存前的原始字节或删除回不存在，未落位文件保持原状，两文件最终回到
+    保存前状态。只覆盖正常异常下的回滚，不承诺跨文件断电原子性；回滚用的
+    存量字节只在运行时读入内存，不另写备份文件。
+    """
+    targets = [(STATE_FILE if state_path is None else Path(state_path), state),
+               (SESSION_FILE if session_path is None else Path(session_path), session)]
+    prepared = []
+    try:
+        for path, obj in targets:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(path.suffix + ".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(obj, f, ensure_ascii=False, indent=2)
+            prepared.append((path, tmp))
+    except Exception:
+        for _path, tmp in prepared:
+            _unlink_quiet(tmp)
+        raise
+    originals = {}
+    replaced = []
+    try:
+        for path, _tmp in prepared:
+            originals[path] = _snapshot_bytes(path)
+        for path, tmp in prepared:
+            os.replace(tmp, path)
+            replaced.append(path)
+    except Exception:
+        for _path, tmp in prepared:
+            _unlink_quiet(tmp)
+        for path in replaced:
+            blob = originals.get(path)
+            if blob is None:
+                _unlink_quiet(path)
+            else:
+                tmp = path.with_suffix(path.suffix + ".tmp")
+                with open(tmp, "wb") as f:
+                    f.write(blob)
+                os.replace(tmp, path)
+        raise
+
+
 def token():
     sess = read_json(SESSION_FILE, {}) or {}
     return str(sess.get("token") or "").strip()
+
+
+def _hmac_sha256_hex(message: bytes, key: bytes) -> str:
+    return hmac.new(key, message, hashlib.sha256).hexdigest()
+
+
+def _xor_base64(value: str, key: str) -> str:
+    """复现官网 K0：按字符异或后按 Latin1 字节做 Base64。"""
+    mixed = "".join(chr(ord(value[i]) ^ ord(key[i % len(key)]))
+                    for i in range(len(value)))
+    return base64.b64encode(mixed.encode("latin-1")).decode("ascii")
+
+
+def _encode_x_token(signature_hex: str, path: str, nonce: str) -> str:
+    encoded = base64.b64encode(signature_hex.encode("utf-8")).decode("ascii")
+    mask = _hmac_sha256_hex(
+        (path + "|" + nonce).encode("utf-8"),
+        REQUEST_SECURITY_CLIENT_KEY.encode("utf-8"),
+    )[:16]
+    return _xor_base64(encoded, mask)[::-1]
+
+
+def sign_request_headers(path: str, body: bytes, timestamp_ms: int,
+                         nonce: str) -> dict:
+    """按官网登录页 Z0 算法生成四个网关请求头。"""
+    page_ticket = _hmac_sha256_hex(
+        REQUEST_SECURITY_RAW_KEY.encode("utf-8"),
+        REQUEST_SECURITY_CLIENT_KEY.encode("utf-8"),
+    )
+    body_hash = hashlib.sha256(body or b"").hexdigest()
+    canonical = "\n".join(("POST", str(path), str(timestamp_ms), str(nonce),
+                            body_hash, page_ticket))
+    derived_key = _hmac_sha256_hex(
+        (page_ticket + "|" + str(int(timestamp_ms) // 1000) + "|"
+         + str(path) + "|" + str(nonce)).encode("utf-8"),
+        REQUEST_SECURITY_CLIENT_KEY.encode("utf-8"),
+    )
+    signature = _hmac_sha256_hex(canonical.encode("utf-8"),
+                                 derived_key.encode("utf-8"))
+    return {
+        "X-Page-Ticket": page_ticket,
+        "X-Timestamp": str(timestamp_ms),
+        "X-Nonce": str(nonce),
+        "X-Token": _encode_x_token(signature, str(path), str(nonce)),
+    }
+
+
+def _request_nonce() -> str:
+    seed = "%d-%s-%s" % (int(time.time() * 1000),
+                          secrets.token_hex(8), secrets.token_hex(8))
+    return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
 
 
 def _post(path, payload=None, tok=None, timeout=None, budget=None):
@@ -194,17 +333,25 @@ def _post(path, payload=None, tok=None, timeout=None, budget=None):
     """
     if budget is not None:
         timeout = budget.timeout_s(15 if timeout is None else timeout)
-    body = json.dumps(payload if payload is not None else {}).encode("utf-8")
+    # JSON.stringify 的紧凑格式是签名 bodyHash 的输入；先定字节，再签名和发送。
+    body = json.dumps(payload if payload is not None else {}, ensure_ascii=False,
+                      separators=(",", ":")).encode("utf-8")
     req = urllib.request.Request(API + path, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
     req.add_header("Accept", "application/json, text/plain, */*")
-    req.add_header("token", tok if tok is not None else token())
+    tok_value = tok if tok is not None else token()
+    if tok_value:
+        req.add_header("token", tok_value)
     req.add_header("Referer", REFERER)
     req.add_header("User-Agent", UA)
+    req_headers = sign_request_headers(path, body, int(time.time() * 1000),
+                                       _request_nonce())
+    for name, value in req_headers.items():
+        req.add_header(name, value)
     try:
         # timeout 可由调用方按剩余预算收紧：固定 15 秒会在 2 秒窗口里
         # 一次查询就把流程拖出截止（R03）
-        resp = urllib.request.urlopen(req, timeout=15 if timeout is None else float(timeout))
+        resp = _school_open(req, timeout=15 if timeout is None else float(timeout))
         try:
             raw = resp.read().decode("utf-8", "replace")
         finally:
@@ -212,6 +359,15 @@ def _post(path, payload=None, tok=None, timeout=None, budget=None):
         return json.loads(raw)
     except BudgetExhausted:
         raise
+    except urllib.error.HTTPError as exc:
+        try:
+            raw = exc.read().decode("utf-8", "replace")
+            payload = json.loads(raw)
+            return payload if isinstance(payload, dict) else {
+                "code": -1, "message": "HTTPError"
+            }
+        except Exception:
+            return {"code": -1, "message": "HTTPError"}
     except Exception as exc:
         return {"code": -1, "message": type(exc).__name__}
 
@@ -227,7 +383,7 @@ def _get(path, tok=None, timeout=None):
     req.add_header("Referer", REFERER)
     req.add_header("User-Agent", UA)
     try:
-        resp = urllib.request.urlopen(req, timeout=15 if timeout is None else float(timeout))
+        resp = _school_open(req, timeout=15 if timeout is None else float(timeout))
         try:
             raw = resp.read().decode("utf-8", "replace")
         finally:
@@ -263,7 +419,7 @@ def clock_sample(timeout_s=6.0):
     try:
         req = urllib.request.Request(BASE + "/stu/", method="HEAD")
         req.add_header("User-Agent", UA)
-        resp = urllib.request.urlopen(req, timeout=max(0.5, float(timeout_s)))
+        resp = _school_open(req, timeout=max(0.5, float(timeout_s)))
         try:
             raw = resp.headers.get("Date")
         finally:
@@ -629,11 +785,12 @@ def session_from_items(items):
 
 # ---------------------------------------------------------------- 子命令
 def _cmd_login_relay(args):
-    """手机重登中继模式：独立 headless 上下文 + stdin/stdout JSON 行。
+    """手机重登中继模式：HTTP 主路径 + Playwright 一次性兜底。
 
-    默认 cmd_login 行为完全不变；只有显式 --relay 才走这条路径。页面自己
-    发 captcha/login，这里只观察响应、填表、结算；凭据从 stdin 收一次用完
-    即弃，stdout 只有 [login] 安全 JSON 行（决策 5）。
+    默认 cmd_login 行为完全不变；只有显式 --relay 才走这条路径。stdin/
+    stdout 仍是同一套 [login] JSON 行协议；HTTP 契约不符时凭据留内存切
+    Playwright（页面自己发 captcha/login），网络错误安全失败不切换。
+    凭据从 stdin 收一次用完即弃，stdout 只有 [login] 安全 JSON 行（决策 5）。
     """
     import secrets as _secrets
 
@@ -673,7 +830,14 @@ def _cmd_login_relay(args):
             session["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             write_json_atomic(SESSION_FILE, session)
 
-    return login_relay.run_relay(deps=_Deps(), stdin=sys.stdin, stdout=sys.stdout)
+        def save_verified(self, state, session):
+            # HTTP 路径的事务端口：两文件一起落位，失败回滚到保存前状态
+            session["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            save_verified_files(state, session)
+
+    deps = _Deps()
+    return login_relay.run_http_relay(deps=deps, stdin=sys.stdin,
+                                      stdout=sys.stdout, pw_deps=deps)
 
 
 def cmd_login(args):

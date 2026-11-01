@@ -44,7 +44,11 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .clock-label { color: var(--ink-3); font-size: 11px; }
 .clock-time { min-width: 74px; text-align: center; font: 16px var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .clock[data-state="syncing"] .clock-time,
+.clock[data-state="retrying"] .clock-time,
 .clock[data-state="unavailable"] .clock-time { min-width: 52px; font: 12px var(--font-ui); }
+/* 退避重试提示：紧跟时钟的一行小字，只在自动重试排队时出现 */
+.clock-retry-hint { display: none; font: 12px var(--font-ui); color: var(--warn); }
+.clock[data-state="retrying"] .clock-retry-hint { display: inline; }
 .clock .state-icon { width: 14px; height: 14px; display: inline-flex; flex: none; color: var(--ok); }
 .clock .state-icon svg { width: 14px; height: 14px; }
 .clock[data-state="holdover"] .state-icon,
@@ -322,7 +326,43 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .lg[data-k="ok"] { color: var(--ok); }
 
 /* 弹窗：分区式（原型 680 / padding 0 / 三列步骤卡） */
-.dlg { width: min(680px, calc(100vw - 32px)); max-width: calc(100vw - 32px); padding: 0; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); box-shadow: 0 24px 70px rgba(24,55,45,.2); }.dlg::backdrop { background: rgba(17,29,38,.38); }.dlg-sm { width: min(440px, 90vw); }.dlg-sm form { display: flex; gap: 8px; justify-content: flex-end; }.dlg-sm .btn { height: 36px; padding: 0 16px; }.btn-stop-confirm { background: var(--bad); color: #fff; }.btn-stop-confirm:hover { background: #9a2a20; }.dlg-head { padding: 22px 24px 4px; }.dlg-head h2 { margin: 0; font-size: 20px; }.dlg-head p { margin: 6px 0 0; color: var(--ink-2); font-size: 13px; }.dlg-body { padding: 14px 24px 4px; }.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }.steps li { padding: 14px 14px 16px; border-radius: 10px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); }.step-no, .steps .no { display: block; width: auto; height: auto; padding: 0; border-radius: 0; background: none; color: var(--blue); font-family: var(--font-num); font-size: 30px; font-weight: 600; line-height: 1; }.steps h3, .steps .t { margin: 10px 0 6px; font-size: 15px; font-weight: 700; }.steps p, .steps .d { margin: 0; color: var(--ink-2); font-size: 13px; }.rules { margin: 14px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--warn-tint); color: #5e3a00; font-size: 13px; }.dlg-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 16px 24px 20px; }.grow { flex: 1; }
+.dlg { width: min(680px, calc(100vw - 32px)); max-width: calc(100vw - 32px); padding: 0; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); box-shadow: 0 24px 70px rgba(24,55,45,.2); }.dlg::backdrop { background: rgba(17,29,38,.38); }.dlg-sm { width: min(440px, 90vw); }.dlg-sm form { display: flex; gap: 8px; justify-content: flex-end; }.dlg-sm .btn { height: 36px; padding: 0 16px; }.btn-stop-confirm { background: var(--bad); color: #fff; }.btn-stop-confirm:hover { background: #9a2a20; }.dlg-head { padding: 22px 24px 4px; }.dlg-head h2 { margin: 0; font-size: 20px; }.dlg-head p { margin: 6px 0 0; color: var(--ink-2); font-size: 13px; }.dlg-body { padding: 14px 24px 4px; }.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }.steps li { padding: 14px 14px 16px; border-radius: 10px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); }.step-no, .steps .no { display: block; width: auto; height: auto; padding: 0; border-radius: 0; background: none; color: var(--blue); font-family: var(--font-num); font-size: 30px; font-weight: 600; line-height: 1; }.steps h3, .steps .t { margin: 10px 0 6px; font-size: 15px; font-weight: 700; }.steps p, .steps .d { margin: 0; color: var(--ink-2); font-size: 13px; }.rules { margin: 14px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--warn-tint); color: #5e3a00; font-size: 13px; }.dlg-check { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 24px 0; color: var(--ink-2); font-size: 13px; }
+.dlg-check input { width: 16px; height: 16px; }
+/* 关窗三选：竖排可选行，点一行就执行，不用再点「确定」。
+   标题写结果、说明写代价，避免三个并排按钮分不清谁更安全。 */
+.dlg-close { width: min(460px, 92vw); }
+.close-choices { display: grid; gap: 8px; padding: 14px 24px 2px; }
+.close-choice { display: grid; gap: 3px; width: 100%; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
+.close-choice b { font-size: 13px; font-weight: 700; }
+.close-choice span { color: var(--ink-3); font-size: 12px; line-height: 1.55; }
+.close-choice:hover { border-color: var(--blue); background: var(--blue-tint); }
+.close-choice:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.close-choice.is-danger b { color: var(--bad); }
+.close-choice.is-danger:hover { border-color: var(--bad); background: var(--bad-tint); }
+.dlg-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 16px 24px 20px; }.grow { flex: 1; }
+
+/* 组件与通道：每行从上到下是「这是什么 → 缺什么 → 选文件 → 自检/安装」，
+   单列排布。两列网格会让说明文字把标题列挤成一字一行。 */
+.dlg-components { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); }
+.dlg-components[open] { display: flex; flex-direction: column; }
+.comp-rows { display: grid; gap: 10px; flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 24px 12px; }
+.comp-row { display: grid; gap: 8px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper-2); }
+.comp-row-plain { background: var(--paper); }
+.comp-row-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.comp-row-head b { font-size: 15px; font-weight: 700; }
+.comp-status { padding: 1px 8px; border-radius: 999px; background: var(--paper); color: var(--ink-2); font-size: 12px; font-weight: 600; }
+.comp-status[data-state="available"] { background: var(--warn-tint); color: #5e3a00; }
+.comp-status[data-state="ready"] { background: #e7f6ec; color: #1f6b3a; }
+.comp-status[data-state="failed"] { background: var(--bad-tint); color: var(--bad); }
+.comp-need { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.55; }
+.comp-need code { padding: 1px 4px; border-radius: 4px; background: var(--paper); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.comp-pick { display: flex; gap: 8px; align-items: center; }
+.comp-path { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.comp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.comp-note { margin: 0; font-size: 13px; line-height: 1.55; }
+.comp-note[data-tone="ok"] { color: #1f6b3a; }
+.comp-note[data-tone="warn"] { color: var(--bad); }
+.comp-foot-note { color: var(--ink-2); font-size: 12px; }
 
 /* 帮助沿用站牌与时刻表的层级：黑色标题、白纸正文、真实三步路线和普通工具行。
    只有正文滚动；[open] 才改 flex，保留原生 dialog 的关闭语义。 */
@@ -573,12 +613,13 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
   .filter-select span { display: none; }
   .skel-row i:nth-child(4) { display: none; }
 }
-/* 短窗（高度 ≤620px，含 746×512 / 680×480 压力视口）：
+/* 非完整高度窗口（高度 ≤860px，含常规 1106×793 演示窗口与压力视口）：
    body 的 overflow:hidden 配合 list 的 min-height:0 会把活动行挤到 0 高，
-   屏幕上只剩筛选条和表头——列表"存在"但没法操作（FR07）。
+   屏幕上只剩筛选条和表头，帮助入口也会落到可视区外——列表和辅助入口
+   "存在"但没法操作（FR07）。
    这里改成整页允许纵向滚动，并给表格与列表一个可操作的最小高度；
    不靠隐藏大屏结论、线路、重试策略或帮助来换空间。 */
-@media (max-height: 620px) {
+@media (max-height: 860px) {
   body { overflow-y: auto; overflow-x: hidden; }
   .zd { height: auto; min-height: 100%; }
   .table { flex: 0 0 auto; min-height: 208px; }
@@ -589,13 +630,53 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 
 
-/* ---- 手机访问面板：地址、一次性配对码与进程内准备重登 ---- */
-.phone-panel { margin: 12px 0; padding: 12px 14px; border: 1px solid var(--line, #dfe4ef); border-radius: 12px; background: #fff; }
-.phone-panel h2 { margin: 0 0 8px; font-size: 15px; }
-.phone-panel h3 { margin: 12px 0 6px; font-size: 14px; }
-.phone-line { margin: 4px 0; font-size: 13px; color: #4b5563; overflow-wrap: anywhere; }
-.phone-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
-.phone-actions input { min-height: 34px; padding: 6px 10px; border: 1px solid #cbd2e0; border-radius: 8px; font-size: 14px; }
+/* ---- 帮助里的跨设备访问与可选高级功能 ------------------------------- */
+.help-advanced { padding-bottom: 4px; }
+.help-advanced .help-section-head { margin: 0; padding: 13px 0 7px; }
+.help-advanced-title { border-top: 1px solid var(--line); margin-top: 2px; }
+.help-feature-status { color: var(--ink-3); font-size: 11px; white-space: nowrap; }
+.help-feature-status[data-state="ready"] { color: var(--ok); }
+.help-feature-status[data-state="missing"] { color: var(--warn); }
+.help-tool-row-phone { border-bottom: 0; }
+.phone-access-detail { margin: 0 0 12px; padding: 12px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--paper); }
+.phone-access-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.phone-channel { display: flex; flex-direction: column; gap: 4px; min-width: 210px; color: var(--ink-2); font-size: 12px; }
+.phone-channel select, .credential-editor input { min-height: 32px; padding: 0 9px; border: 1px solid var(--line-2); border-radius: 7px; background: var(--paper); }
+.phone-channel-state { margin-top: 10px; padding: 8px 10px; border: 1px dashed var(--line-2); border-radius: 8px; }
+.phone-component { margin: 10px 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper-2); }
+.phone-component-progress { width: 100%; height: 8px; margin: 4px 0; accent-color: var(--blue); }
+.phone-component-error { margin: 6px 0; padding: 6px 8px; border-radius: 6px; background: var(--bad-tint); color: var(--bad); font-size: 12px; }
+.phone-channel-hint { color: var(--ink-3); }
+.phone-code-note { color: var(--ink-3); font-size: 12px; }
+.phone-steps { margin: 8px 0; padding-left: 20px; color: var(--ink-2); font-size: 12px; }
+.phone-steps li { margin: 3px 0; }
+.phone-warn { margin: 8px 0; padding: 7px 9px; border-radius: 7px; background: #FFF6E5; color: #8A5A00; font-size: 12px; }
+.phone-stop-confirm { margin: 8px 0; padding: 8px 10px; border: 1px solid #E7C0B8; border-radius: 8px; background: #FFF3F1; }
+.phone-stop-confirm .help-actions { margin-top: 6px; }
+.phone-access-grid { display: grid; grid-template-columns: minmax(0,1fr) 116px; gap: 14px; align-items: center; margin-top: 12px; }
+.phone-line { margin: 4px 0; color: var(--ink-2); font-size: 12px; overflow-wrap: anywhere; }
+.phone-line b { color: var(--ink); font-weight: 700; }
+.phone-code { letter-spacing: .16em; font: 20px/1 var(--font-num); }
+.phone-qr-wrap { display: flex; width: 116px; height: 116px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink-3); font-size: 11px; text-align: center; }
+.phone-qr-wrap img { display: block; width: 108px; height: 108px; image-rendering: pixelated; }
+.credential-editor { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 0 13px; }
+.credential-editor input { flex: 1 1 140px; min-width: 0; }
+.credential-editor .btn { flex: none; }
+/* 电脑续登录：一张卡里说清「自动识别」与「账号保存」两件事各自的现状 */
+.relogin-card { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
+.relogin-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.relogin-head h3 { margin: 0; }
+.relogin-line { margin: 6px 0 0; color: var(--ink-2); font-size: 12px; overflow-wrap: anywhere; }
+.relogin-path { color: var(--ink-3); }
+.relogin-clear-confirm { margin-top: 10px; padding: 8px 10px; border: 1px solid #E7C0B8; border-radius: 8px; background: #FFF3F1; }
+.relogin-clear-confirm .help-actions { margin-top: 6px; }
+@media (max-width: 520px) {
+  .phone-access-toolbar { align-items: stretch; flex-direction: column; }
+  .phone-channel { min-width: 0; }
+  .phone-access-grid { grid-template-columns: minmax(0,1fr) 96px; }
+  .phone-qr-wrap { width: 96px; height: 96px; }
+  .phone-qr-wrap img { width: 88px; height: 88px; }
+}
 
 
 /* ---- 独立北京时间（决策 012）：顶栏唯一时间入口，状态用图形+短字表达 ---- */

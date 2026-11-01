@@ -275,7 +275,9 @@ class SnapshotAndClientTests(unittest.TestCase):
         snap = clock.snapshot()
         self.assertEqual(set(snap), {"schema", "owner_id", "generation", "state",
                                      "epoch_s", "tick_s", "sampled_tick_s",
-                                     "uncertainty_s", "source", "age_s", "reason", "sync_status", "sync_round"})
+                                     "uncertainty_s", "source", "age_s", "reason", "sync_status", "sync_round",
+                                     "retry_attempt", "retry_in_s",
+                                     "last_failure_source", "last_failure_reason"})
         self.assertEqual(snap["sync_status"], "succeeded")
         self.assertEqual(snap["schema"], 1)
         path = clock._snapshot_path()
@@ -825,6 +827,80 @@ class HoldoverAndGenerationTests(unittest.TestCase):
         clock._transport = echo_transport(tick, live_sources=())   # 断网
         clock.sync()
         self.assertEqual(clock.generation, gen, "失败重校不得倒退代次")
+        clock.close()
+
+
+class RetryBackoffTests(unittest.TestCase):
+    """首轮校时失败后的自动退避：5/10/20 秒，之后每 30 秒；成功即清零。
+
+    只驱动 sync() 与退避闸门，不跑真实后台线程的等待，避免用 sleep 制造竞态。
+    """
+
+    def _clock(self, tick, transport):
+        return BusinessClock(sources=SOURCES, tick_fn=tick, transport=transport,
+                             snapshot_dir=tempfile.mkdtemp(prefix="campus-clock-t-"))
+
+    def test_failures_schedule_five_ten_twenty_then_thirty(self):
+        tick = Tick(1000.0)
+        clock = self._clock(tick, echo_transport(tick, live_sources=()))
+        expected = [5.0, 10.0, 20.0, 30.0, 30.0]
+        for attempt, delay in enumerate(expected, start=1):
+            clock.sync()
+            snap = clock.snapshot()
+            self.assertEqual(snap["sync_status"], "failed")
+            self.assertEqual(snap["retry_attempt"], attempt)
+            self.assertAlmostEqual(snap["retry_in_s"], delay, delta=0.01)
+            self.assertEqual(snap["last_failure_reason"], "transport_error",
+                             "源不可用按白名单映射成 transport_error")
+            self.assertTrue(snap["last_failure_source"])
+            # 越过每源冷却（64 秒），下一轮才有真实样本失败可记
+            tick.advance(65.0)
+        clock.close()
+
+    def test_success_clears_backoff_and_failure_fields(self):
+        tick = Tick(1000.0)
+        clock = self._clock(tick, echo_transport(tick, live_sources=()))
+        clock.sync()
+        tick.advance(65.0)
+        clock.sync()
+        self.assertEqual(clock.snapshot()["retry_attempt"], 2)
+        tick.advance(65.0)
+        clock._transport = echo_transport(tick, base_epoch=TARGET)
+        clock.sync()
+        snap = clock.snapshot()
+        self.assertEqual(snap["sync_status"], "succeeded")
+        self.assertEqual(snap["retry_attempt"], 0)
+        self.assertEqual(snap["retry_in_s"], 0.0)
+        self.assertEqual(snap["last_failure_source"], "")
+        self.assertEqual(snap["last_failure_reason"], "")
+        clock.close()
+
+    def test_gate_stays_closed_until_retry_due(self):
+        tick = Tick(1000.0)
+        clock = self._clock(tick, echo_transport(tick, live_sources=()))
+        clock.sync()
+        self.assertFalse(clock._retry_gate_open(tick(), False),
+                         "退避未到期前后台循环不得发起新轮")
+        self.assertTrue(clock._retry_gate_open(tick() + 5.0, False),
+                        "到期后必须放行")
+        tick.advance(5.0)
+        clock.request_resync()
+        clock._force_resync = False          # 消费掉强制位，模拟循环取走标志
+        clock.sync()
+        self.assertEqual(clock.snapshot()["retry_attempt"], 2)
+        self.assertTrue(clock._retry_gate_open(tick(), True),
+                        "request_resync 的强制重校不受退避限制")
+        clock.close()
+
+    def test_unknown_failure_reason_is_whitelisted(self):
+        tick = Tick(1000.0)
+
+        def transport(source, packet, timeout_s):
+            raise SNTPPacketError("坏包")
+
+        clock = self._clock(tick, transport)
+        clock.sync()
+        self.assertEqual(clock.snapshot()["last_failure_reason"], "bad_packet")
         clock.close()
 
 

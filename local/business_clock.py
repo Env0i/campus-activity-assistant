@@ -46,6 +46,47 @@ HOLDOVER_DRIFT_PPM = 100             # holdover 保守漂移
 TICK_RESOLUTION_S = 0.015625
 
 
+# 首轮校时失败后的重试节奏（秒）：5、10、20，之后每 30 秒一次。
+# 网络抖动通常几十秒内恢复，指数退避既不会打爆时间服务器，也不会让界面
+# 停在「待校准」太久；退避只影响后台自动重试，手动重校永远立即执行。
+RETRY_DELAYS_S = (5.0, 10.0, 20.0)
+RETRY_MAX_DELAY_S = 30.0
+
+# 失败原因白名单：对外只给这些粗分类，不带异常原文、地址或请求内容。
+FAILURE_TIMEOUT = "timeout"
+FAILURE_DNS = "dns_error"
+FAILURE_BAD_PACKET = "bad_packet"
+FAILURE_PEER = "peer_mismatch"
+FAILURE_TRANSPORT = "transport_error"
+FAILURE_REASONS = (FAILURE_TIMEOUT, FAILURE_DNS, FAILURE_BAD_PACKET,
+                   FAILURE_PEER, FAILURE_TRANSPORT)
+
+
+def retry_delay_s(failure_count: int) -> float:
+    """按连续失败次数给出下一次自动重试的等待秒数。"""
+    if failure_count <= 0:
+        return 0.0
+    if failure_count <= len(RETRY_DELAYS_S):
+        return RETRY_DELAYS_S[failure_count - 1]
+    return RETRY_MAX_DELAY_S
+
+
+def classify_failure(exc: BaseException) -> str:
+    """把传输异常收敛成白名单原因；拿不准就报 transport_error。"""
+    if isinstance(exc, SNTPPacketError):
+        return FAILURE_BAD_PACKET
+    if isinstance(exc, (socket.timeout, TimeoutError)):
+        return FAILURE_TIMEOUT
+    if isinstance(exc, socket.gaierror):
+        return FAILURE_DNS
+    if isinstance(exc, ValueError):
+        return FAILURE_BAD_PACKET
+    text = str(exc or "")
+    if "解析不到" in text:
+        return FAILURE_DNS
+    return FAILURE_TRANSPORT
+
+
 class ClockUnavailable(Exception):
     """业务时钟不可信：无锚点/快照缺失/过期/损坏。调用方必须显式处理。"""
 
@@ -222,6 +263,13 @@ class BusinessClock:
         self._snapshot_dir = str(snapshot_dir)
         os.makedirs(self._snapshot_dir, exist_ok=True)
         self._sync_status = "pending"        # 首轮未开始不等于校准失败
+        # 失败退避：只在后台循环里生效，手动重校与 request_resync 立即执行
+        self._retry_attempt = 0              # 连续失败轮数，成功后清零
+        self._retry_at_tick = None           # 下一次自动重试的最早 tick
+        self._force_resync = False           # request_resync 置位，允许越过退避闸门
+        self._last_failure_source = ""       # 最近一轮失败的来源名（不是地址）
+        self._last_failure_reason = ""       # 白名单原因，见 FAILURE_REASONS
+        self._source_errors = {}             # 本轮各源的失败原因（每轮开头清空）
         if background:
             self._bg = threading.Thread(target=self._background_loop,
                                         name="business-clock", daemon=True)
@@ -285,7 +333,12 @@ class BusinessClock:
                     "age_s": (self.elapsed_s() - self._anchor_tick)
                              if self._anchor_tick is not None else None,
                     "reason": reason, "sync_status": self._sync_status,
-                    "sync_round": self._round_seq}
+                    "sync_round": self._round_seq,
+                    "retry_attempt": self._retry_attempt,
+                    "retry_in_s": (max(0.0, self._retry_at_tick - self.elapsed_s())
+                                   if self._retry_at_tick is not None else 0.0),
+                    "last_failure_source": self._last_failure_source,
+                    "last_failure_reason": self._last_failure_reason}
 
     @property
     def owner_id(self) -> str:
@@ -330,12 +383,40 @@ class BusinessClock:
         finally:
             # 即使传输失败或关闭抛错，界面也能区分正在尝试与已经失败。
             with self._lock:
-                self._sync_status = ("succeeded" if self._generation > previous_generation
-                                     else "failed")
+                succeeded = self._generation > previous_generation
+                self._sync_status = "succeeded" if succeeded else "failed"
+                self._note_sync_outcome_locked(succeeded)
             try:
                 self._publish_snapshot()
             finally:
                 self._sync_lock.release()
+
+    def _note_source_error(self, source: str, reason: str) -> None:
+        """记下单源失败原因；只留本轮第一条，避免三源抖动互相覆盖。"""
+        if reason not in FAILURE_REASONS:
+            reason = FAILURE_TRANSPORT
+        with self._lock:
+            self._source_errors.setdefault(source, reason)
+
+    def _note_sync_outcome_locked(self, succeeded: bool) -> None:
+        """按本轮结果排下一次自动重试；成功即清零退避。"""
+        if succeeded:
+            self._retry_attempt = 0
+            self._retry_at_tick = None
+            self._last_failure_source = ""
+            self._last_failure_reason = ""
+            return
+        self._retry_attempt += 1
+        delay = retry_delay_s(self._retry_attempt)
+        self._retry_at_tick = self.elapsed_s() + delay
+        if self._source_errors:
+            source, reason = next(iter(self._source_errors.items()))
+            self._last_failure_source = source
+            self._last_failure_reason = reason
+        else:
+            # 全员被冷却跳过或样本不合簇：没有具体异常可报，按无响应处理
+            self._last_failure_source = ""
+            self._last_failure_reason = ""
 
     def _sync_round(self, timeout_s: float | None = None) -> str:
         real_deadline = time.monotonic() + float(timeout_s or self._sync_timeout_s)
@@ -346,6 +427,7 @@ class BusinessClock:
             round_id = self._round_seq
             if self._anchor_epoch is None:
                 self._reason = "正在获取北京时间"
+            self._source_errors = {}         # 每轮重新收集，不继承上一轮原因
         attempt_tick = self._tick()      # 只用于每源冷却记账，不参与 RTT
         results = []
         threads = []
@@ -389,6 +471,7 @@ class BusinessClock:
             out = transport(slot.source, bytes(packet), remaining)
             data, send_tick, recv_tick, peer_ok = self._timing_of(out, call_tick)
             if not peer_ok:
+                self._note_source_error(slot.source, FAILURE_PEER)
                 return          # 来源不是已解析的 endpoint：不当作本轮样本
             if self._closed or time.monotonic() > real_deadline:
                 return          # 迟到的响应：不得进入本轮样本，更不得覆盖新代次
@@ -413,8 +496,9 @@ class BusinessClock:
             results.append({"source": slot.source, "epoch": epoch_at_recv,
                             "tick": recv_tick, "rtt": rtt, "err": err,
                             "round": round_id})
-        except (SNTPPacketError, OSError, socket.error, ValueError, Exception):
+        except Exception as exc:
             # 单源失败只少一个候选；原因不外泄为登录失效或回退墙钟
+            self._note_source_error(slot.source, classify_failure(exc))
             import traceback
             if os.environ.get("CAMPUS_CLOCK_DEBUG"):
                 traceback.print_exc()
@@ -561,7 +645,17 @@ class BusinessClock:
 
     def request_resync(self) -> None:
         """有未来任务时提前 20 秒请求一次后台重校；尊重每源冷却。"""
+        with self._lock:
+            self._force_resync = True     # 手动/任务触发的重校不受退避限制
         self._wakeup.set()
+
+    def _retry_gate_open(self, now_tick: float, forced: bool) -> bool:
+        """后台循环用：没到退避点且没有被强制重校时，不发起新一轮。"""
+        if forced:
+            return True
+        if self._retry_at_tick is None:
+            return True
+        return now_tick >= self._retry_at_tick
 
     def _background_loop(self) -> None:
         # 启动即先同步一次：不能让界面在 300 秒内一直「正在获取北京时间」
@@ -570,10 +664,22 @@ class BusinessClock:
         except Exception:
             pass
         while True:
-            self._wakeup.wait(timeout=self._resync_interval_s)
+            with self._lock:
+                wait = self._resync_interval_s
+                if self._retry_at_tick is not None:
+                    remain = self._retry_at_tick - self.elapsed_s()
+                    wait = max(0.0, min(wait, remain))
+            self._wakeup.wait(timeout=wait)
             self._wakeup.clear()
             if self._closed:
                 return
+            with self._lock:
+                forced = self._force_resync
+                self._force_resync = False
+                now_tick = self.elapsed_s()
+                open_now = self._retry_gate_open(now_tick, forced)
+            if not open_now:
+                continue      # 还没到退避点：被别的唤醒提前排出也不打乱节奏
             try:
                 self.sync()
             except Exception:

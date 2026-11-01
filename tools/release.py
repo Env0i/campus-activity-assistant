@@ -23,7 +23,7 @@
 兼容输入：位置参数 tag 只作校验（必须与 VERSION 推导一致，否则拒绝），
 **不再单独触发发布**——要发布必须显式 --publish。
 
-本机正式资产 = 独立 EXE + 完整 ZIP + **安装版安装器**（+manifest 清单），三者由
+本机正式资产 = 独立 EXE + 完整 ZIP + **安装版安装器** + 可选手机组件（+manifest 清单），前三者由
 同一次 --prepare 里构建的**同一份冻结 EXE** 派生（安装器经 local/build_installer.py
 从该 EXE 生成，独立 EXE 与 ZIP 内 EXE 字节一致；安装器自身不与 EXE 比字节——
 它是自解压容器，可比性在安装后哈希核验，见 specs/versioning-and-release）。
@@ -50,6 +50,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import sys
 import zipfile
 from datetime import datetime
@@ -58,7 +59,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
 GH = Path(os.environ.get("GH_EXE", r"D:/Env/gh/bin/gh.exe"))
-PROXY = "http://127.0.0.1:7897"     # api.github.com 在本机要走代理，git push 不用
+# 代理不写死：跑发布的人自己的环境里已经有 HTTPS_PROXY/系统代理就用，没有就直连。
+# 写死某个端口只会让别人的机器上 publish 直接失败。
 
 PRODUCT_NAME = "校园活动预报名工具"
 VERSION_FILE = ROOT / "VERSION"
@@ -79,6 +81,40 @@ def _load_build_installer():
 
 
 BUILD_INSTALLER = _load_build_installer()
+
+# 手机控制组件是可选的第四个资产：缺它发布出去，「安装手机控制」这条路就不可用。
+COMPONENT_FEATURE = "phone_control"
+_COMPONENT_MODULES: dict = {}
+
+
+def _load_local_module(name: str, *parts: str):
+    """按文件路径加载 local/ 下的模块（不污染 sys.path）；文件不存在返回 None。"""
+    import importlib.util
+    path = ROOT.joinpath("local", *parts)
+    if not path.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def component_modules() -> dict:
+    """组件包用到的两个模块：命名规则与装机校验各自只有一份实现。"""
+    if not _COMPONENT_MODULES:
+        _COMPONENT_MODULES["update_check"] = _load_local_module(
+            "release_update_check", "update_check.py")
+        _COMPONENT_MODULES["component_packages"] = _load_local_module(
+            "release_component_packages", "infrastructure", "component_packages.py")
+    return _COMPONENT_MODULES
+
+
+def component_asset_name(version: str) -> str:
+    """组件包的 ASCII 资产名：与下载侧（local/update_check.py）同一来源。"""
+    module = component_modules()["update_check"]
+    if module is None:
+        raise SystemExit("[release] 找不到 local/update_check.py：组件包命名没有单一来源")
+    return module.phone_control_asset_name(version)
 
 # 服务器版打包时排除的东西：密钥、运行时数据、产物
 SERVER_EXCLUDE = {"config.json", "data", "dist", "reports",
@@ -189,11 +225,14 @@ def sha256_of(path: Path) -> str:
 
 
 def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
-                   build_state: dict | None = None) -> Path:
+                   build_state: dict | None = None,
+                   component_included: bool | None = None) -> Path:
     """资产证据：版本、tag、来源分支、**完整 HEAD**、来源是否干净、每个文件的 SHA-256 与大小。
 
     source_dirty=true 的产物只能当预览：main 干净不等于资产来自干净提交，
     发布侧会拒绝脏候选，绝不把它说成来源于干净提交。
+    component_included 显式记录这次候选有没有手机控制组件包：字段缺失的旧候选
+    一律按「没有」处理，publish 会因此拒绝，而不是猜。
     """
     state = build_state or git_state()
     manifest = {
@@ -207,6 +246,8 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
         "files": {p.name: {"sha256": sha256_of(p), "bytes": p.stat().st_size}
                   for p in files},
     }
+    if component_included is not None:
+        manifest["component_included"] = bool(component_included)
     path = stage_dir / "manifest.json"
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2),
                     encoding="utf-8")
@@ -224,7 +265,68 @@ def build_exe_onefile() -> Path:
     return out
 
 
-def stage_local_assets(version: str) -> dict:
+def _default_cloudflared() -> Path:
+    return ROOT / "local" / "bin" / "cloudflared.exe"
+
+
+def build_phone_component(version: str, work_dir: Path,
+                          cloudflared: Path | None = None) -> Path:
+    """调 local/build_advanced.py 打组件包（PyInstaller，耗时几分钟）。
+
+    只调脚本、不 import：打包必须在独立进程里跑，且「cloudflared 版本必须等于
+    写死值」这条规则只允许有 build_advanced 一个实现，发布侧再核一遍清单即可。
+    """
+    binary = Path(cloudflared) if cloudflared else _default_cloudflared()
+    if not binary.is_file():
+        raise SystemExit("[prepare] 缺 cloudflared 二进制：%s\n"
+                         "手机控制组件包必须内置固定版本；请把它放到 local/bin/，"
+                         "或用 --cloudflared 指定" % binary)
+    work_dir.mkdir(parents=True, exist_ok=True)
+    print("[prepare] 构建手机控制组件包（内置 cloudflared）...")
+    run([sys.executable, str(ROOT / "local" / "build_advanced.py"),
+         "--feature", COMPONENT_FEATURE,
+         "--output-dir", str(work_dir),
+         "--cloudflared", str(binary)])
+    produced = sorted(work_dir.glob("%s-*-windows-x64.zip" % COMPONENT_FEATURE))
+    if len(produced) != 1:
+        raise SystemExit("[prepare] 组件构建产物不唯一：%s" % (produced or "（没有产物）"))
+    return produced[0]
+
+
+# 可替换的构建入口：测试用假构建器验证装配契约，不跑 PyInstaller、不打包几十兆二进制
+BUILD_COMPONENT = build_phone_component
+
+
+def inspect_phone_component(archive: Path) -> dict:
+    """用装机同一套清单校验组件包；不合规直接失败（发布不带「装不上」的包）。"""
+    packages = component_modules()["component_packages"]
+    if packages is None:
+        raise SystemExit("[release] 找不到 local/infrastructure/component_packages.py")
+    try:
+        result = packages.inspect_archive(archive, COMPONENT_FEATURE)
+    except Exception as exc:                       # 只读自检不该抛，抛了就当不合规
+        raise SystemExit("[prepare] 组件包自检失败（%s）：%s" % (exc, archive))
+    if not (isinstance(result, dict) and result.get("ok") is True):
+        text = (result or {}).get("text") if isinstance(result, dict) else ""
+        raise SystemExit("[prepare] 组件包不合规：%s（%s）" % (text or "未知原因", archive))
+    return result
+
+
+def stage_phone_component(version: str, stage_dir: Path,
+                          cloudflared: Path | None = None) -> Path:
+    """构建组件包 → 改成发布资产名 → 按装机规则核验，返回资产路径。"""
+    target = stage_dir / component_asset_name(version)
+    # 组件脚本只接受系统临时目录下的独立工作区；发布目录只收最终资产。
+    with tempfile.TemporaryDirectory(prefix="campus-phone-component-") as directory:
+        work_dir = Path(directory)
+        produced = BUILD_COMPONENT(version, work_dir, cloudflared)
+        shutil.copy2(produced, target)
+    inspect_phone_component(target)
+    return target
+
+
+def stage_local_assets(version: str, *, with_component: bool = True,
+                       cloudflared: Path | str | None = None) -> dict:
     """准备阶段：构建 + 按白名单组装完整 ZIP 与单文件 EXE 资产，写 manifest。
 
     只产生本地文件：不打 tag、不上传、不访问网络；OUT/data 里的旧登录态
@@ -282,27 +384,44 @@ def stage_local_assets(version: str) -> dict:
         shutil.rmtree(installer_build_dir, ignore_errors=True)
     shutil.rmtree(staging, ignore_errors=True)
 
-    manifest = write_manifest(stage_dir, version, tag,
-                              [zip_path, exe_path, installer_path],
-                              build_state=post)
-    for path in (zip_path, exe_path, installer_path):
+    # 手机控制组件包：和安装器同属「派生资产」，但它必须内置固定版本的 cloudflared，
+    # 所以单独构建、单独核验。--without-component 只在明确接受「组件不可用」时用。
+    component_path = None
+    if with_component:
+        component_path = stage_phone_component(version, stage_dir, cloudflared)
+    else:
+        print("[prepare] 跳过手机控制组件包（--without-component）："
+              "这次发布里「安装手机控制」会不可用")
+
+    assets = [zip_path, exe_path, installer_path]
+    if component_path is not None:
+        assets.append(component_path)
+    manifest = write_manifest(stage_dir, version, tag, assets,
+                              build_state=post,
+                              component_included=component_path is not None)
+    for path in assets:
         print("   %s  %.1f MB" % (path.name, path.stat().st_size / 1024 / 1024))
     print("[prepare] 资产就绪：%s" % stage_dir)
     print("[prepare] 清单：%s（版本/完整 HEAD/来源%s/SHA-256）"
           % (manifest, "脏（仅供预览，不得发布）" if post["dirty"] else "干净"))
     return {"zip": zip_path, "exe": exe_path, "installer": installer_path,
-            "manifest": manifest}
+            "component": component_path, "manifest": manifest}
 
 
 def check_only(version: str) -> None:
     """默认阶段：只读检查，输出资产命名、ZIP 白名单与发布门禁预演结果。"""
     tag = tag_of(version)
     print("[check] 版本（VERSION 唯一来源）：%s → tag %s" % (version, tag))
-    print("[check] 资产命名：%s / %s / %s"
+    print("[check] 资产命名：%s / %s / %s / %s"
           % (zip_asset_name(version), exe_asset_name(version),
-             installer_asset_name(version)))
+             installer_asset_name(version), component_asset_name(version)))
     print("[check] 完整 ZIP 白名单成员：%s"
           % "、".join(exe_asset_name(version) if m == "EXE" else m for m in ZIP_MEMBERS))
+    cloudflared = _default_cloudflared()
+    print("[check] 手机控制组件包：%s（%s）"
+          % (component_asset_name(version),
+             "cloudflared 就绪：%s" % cloudflared if cloudflared.is_file()
+             else "缺 cloudflared：%s —— prepare 前先放好或用 --cloudflared 指定" % cloudflared))
     missing = [str(p) for p in (ROOT / "local" / "build_exe.py",
                                 ROOT / "local" / "build_installer.py",
                                 ROOT / "local" / "installer" / "ChineseSimplified.isl",
@@ -511,8 +630,27 @@ def verify_release_assets(version: str) -> dict:
         if hashlib.sha256(inner).hexdigest() != sha256_of(exe_path):
             raise SystemExit("[publish] ZIP 内主 EXE 与单独 EXE 不一致：候选装配损坏，"
                              "请重新 --prepare（不得手工拼包）")
+    # 手机控制组件包：缺它就是通道里的「安装手机控制」不可用，不能当作发布完成
+    if manifest.get("component_included") is not True:
+        raise SystemExit("[publish] 候选没有手机控制组件包（manifest.component_included "
+                         "不是布尔 true）：缺它「安装手机控制」不可用，不得发布；"
+                         "请重新 --prepare（如确要发不带组件的版本，得显式接受这条降级）")
+    component_path = stage_dir / component_asset_name(version)
+    if not component_path.is_file():
+        raise SystemExit("[publish] 组件包资产缺失：%s（请重新 --prepare）" % component_path)
+    meta = (manifest.get("files") or {}).get(component_path.name)
+    if not isinstance(meta, dict):
+        raise SystemExit("[publish] manifest 里没有 %s 的清单记录" % component_path.name)
+    if component_path.stat().st_size != meta.get("bytes"):
+        raise SystemExit("[publish] %s 大小与 manifest 不符（%d ≠ %s）：文件被动过，拒绝发布"
+                         % (component_path.name, component_path.stat().st_size, meta.get("bytes")))
+    if sha256_of(component_path) != meta.get("sha256"):
+        raise SystemExit("[publish] %s SHA-256 与 manifest 不符：文件被动过，拒绝发布"
+                         % component_path.name)
+    inspect_phone_component(component_path)
     return {"stage": stage_dir, "exe": exe_path, "zip": zip_path,
-            "installer": installer_path, "manifest": manifest_path}
+            "installer": installer_path, "component": component_path,
+            "manifest": manifest_path}
 
 
 def remote_tag_commit(tag: str) -> str:
@@ -591,14 +729,15 @@ def release_notes(tag: str) -> str:
             buf.append(line)
     body = "\n".join(buf).strip()
     version = tag[1:] if tag.startswith("v") else tag
-    download = ("**下载**：`%s`（安装版，推荐） · `%s`（单 EXE） · `%s`（完整 ZIP）\n\n---\n\n"
+    download = ("**下载**：`%s`（安装版，推荐） · `%s`（单 EXE） · `%s`（完整 ZIP）\n\n"
+                "**可选手机控制组件**：`%s`，也可在程序帮助中下载并安装。\n\n---\n\n"
                 % (installer_asset_name(version), exe_asset_name(version),
-                   zip_asset_name(version)))
+                   zip_asset_name(version), component_asset_name(version)))
     return (body or tag) + "\n\n" + download
 
 
 def publish(tag: str, assets: list[Path], clobber: bool = False) -> None:
-    env = dict(os.environ, HTTPS_PROXY=PROXY)
+    env = dict(os.environ)
     exists = subprocess.run([str(GH), "release", "view", tag],
                             capture_output=True, text=True, env=env,
                             encoding="utf-8", errors="replace")
@@ -634,14 +773,22 @@ def confirm_publish(tag: str, assume_yes: bool) -> None:
 
 
 def asset_digest(assets: dict) -> dict:
-    """候选资产指纹：EXE/ZIP/安装器/manifest 的 SHA-256（确认前后比对用，防等待期被替换）。"""
-    return {key: sha256_of(assets[key]) for key in ("zip", "exe", "installer", "manifest")}
+    """候选资产指纹：主程序、安装器、手机组件和 manifest 全部纳入复核。
+
+    组件必须一起算：只算四项时，组件 ZIP 在确认等待期被替换不会让指纹变化，
+    发布前门禁就无法证明「用户拿到的组件包」还是核验过的那一份。
+    """
+    return {
+        key: sha256_of(assets[key])
+        for key in ("zip", "exe", "installer", "component", "manifest")
+    }
 
 
 def do_publish(tag: str, assume_yes: bool, version: str, clobber: bool = False) -> None:
     """外部发布：门禁 → 资产核验 → 人工确认 → 复核 → tag → 上传，副作用全部在核验之后。
 
-    正式本机资产 = 独立 EXE + 完整 ZIP + 安装版安装器 + manifest；publish 不自动构建、
+    正式本机资产 = 独立 EXE + 完整 ZIP + 安装版安装器 + 手机控制组件 + manifest 五项；
+    publish 不自动构建、
     不调用 make_portable/绿色版组包，也不隐式同步 local/server 分发分支
     （兼容发行流程另行授权）。
     人工确认可能等待很久：确认后、第一次 Git 写入前必须重验「同一干净 main、
@@ -678,7 +825,7 @@ def do_publish(tag: str, assume_yes: bool, version: str, clobber: bool = False) 
         raise SystemExit("[publish] 上传前发现候选资产被替换（哈希变化）：已中止上传")
     print("[2/2] 上传 Release ...")
     publish(tag, [assets["zip"], assets["exe"], assets["installer"],
-                  assets["manifest"]], clobber)
+                  assets["component"], assets["manifest"]], clobber)
 
     print("\n完成：https://github.com/ShenTingBai/campus-activity-watch/releases/tag/%s" % tag)
     print("[提示] 绿色版/服务器版打包与 local/server 分发分支同步属兼容发行流程，需另行授权执行。")
@@ -696,6 +843,10 @@ def main() -> int:
     ap.add_argument("--yes", action="store_true", help="publish 的非交互确认（其余门禁照常）")
     ap.add_argument("--clobber", action="store_true",
                     help="允许覆盖已有 Release 的附件（默认拒绝覆盖，保护已发布产物）")
+    ap.add_argument("--without-component", action="store_true",
+                    help="prepare 时不打手机控制组件包（会让「安装手机控制」不可用）")
+    ap.add_argument("--cloudflared",
+                    help="prepare 打包组件时内置的 cloudflared.exe（默认 local/bin/cloudflared.exe）")
     args = ap.parse_args()
     stages = [args.check, args.prepare, args.publish]
     if sum(1 for s in stages if s) > 1:
@@ -715,7 +866,9 @@ def main() -> int:
         do_publish(derived, args.yes, version, args.clobber)
         return 0
     if args.prepare:
-        stage_local_assets(version)
+        stage_local_assets(version,
+                           with_component=not args.without_component,
+                           cloudflared=args.cloudflared)
         return 0
     check_only(version)   # 默认与 --check：零副作用
     return 0
