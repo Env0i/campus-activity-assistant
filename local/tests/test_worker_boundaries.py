@@ -33,6 +33,10 @@ sys.path.insert(0, str(LOCAL))
 import grab  # noqa: E402
 import time_contract  # noqa: E402
 
+# 站点地址不在测试里写死：跟着运行时的 site_target/config.json 走，
+# 否则本机配置了真实域名时，这里写占位值会让 URL 归属判断全部落空
+SITE = grab.BASE
+
 START = 1792000000.0
 OPEN_AHEAD = 20.0
 OPAQUE = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"   # 学校前端算出的 hash，不含活动 ID
@@ -177,7 +181,7 @@ class FakeLocator:
             if behavior == "open_race":
                 # 页面抢跑：开确认框的同时就发出一笔 signUp（闸门②必须看到名额被占）
                 request = FakeRequest(
-                    "https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-race")
+                    SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-race")
                 self.page._notify(request)
                 self.page._enqueue_response(
                     FakeResponse(request, {"code": 0, "message": "未就绪"}, status=404),
@@ -185,7 +189,7 @@ class FakeLocator:
             if behavior == "success_on_open":
                 # 页面抢跑直接成功：闸门②必须先 drain 到它，绝不点「确定」
                 request = FakeRequest(
-                    "https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-ok")
+                    SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-ok")
                 self.page._notify(request)
                 self.page._enqueue_response(
                     FakeResponse(request, {"code": 1, "message": "报名成功"}))
@@ -277,7 +281,7 @@ class FakePage:
         if self.foreign:
             # 页面自己发的 signUp：不在受控窗口内，不得计入本场
             self._notify(FakeRequest(
-                "https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/other-hash"))
+                SITE + "/dr/api/rjyHdCyr/signUp/other-hash"))
 
     def reload(self, wait_until=None, timeout=None):
         self._guard()
@@ -293,7 +297,7 @@ class FakePage:
         if self.inject_failed_at is not None and self.clock.mono >= self.inject_failed_at:
             self.inject_failed_at = None
             self.fire_requestfailed(FakeRequest(
-                "https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/ghost-unregistered"))
+                SITE + "/dr/api/rjyHdCyr/signUp/ghost-unregistered"))
         self._deliver_due()
 
     def eval_on_selector_all(self, selector, script):
@@ -337,21 +341,21 @@ class FakePage:
             payload = {"code": 1, "message": "ok"}
         if behavior == "login_expired":
             # 学校明确回 4001：token 失效，必须停发并提示重登
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self._enqueue_response(FakeResponse(request, {"code": 4001, "message": "token 失效"}))
             return
         if behavior == "login_words_only":
             # 业务失败文案里带「登录/身份验证」不算 token 失效（子串匹配回归守卫）
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self._enqueue_response(FakeResponse(
                 request, {"code": 0, "message": "请登录后完成身份验证"}))
             return
         if behavior == "login_race":
             # 4001 先到、成功后到（1 秒内）：成功优先级更高
-            first = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-0")
-            second = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-1")
+            first = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-0")
+            second = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-1")
             self._notify(first)
             self._notify(second)
             self._enqueue_response(FakeResponse(first, {"code": 4001, "message": "token 失效"}),
@@ -360,29 +364,29 @@ class FakePage:
                                    delay=0.5)
             return
         if behavior == "throttled_429":
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self._enqueue_response(FakeResponse(
                 request, {"code": 0, "message": "太频繁"}, status=429))
             return
         if behavior == "server_error_500":
             # 5xx + HTML 载体：必须按 server_error 结算（不伪装 lost、不吞 pending）
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self._enqueue_response(FakeResponse(
                 request, b"<html><body>502 Bad Gateway</body></html>", status=502))
             return
         if behavior == "version_incompatible":
             # 精确版本错误文案：本场单向降级到 click，不得误伤其它 code=0
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self._enqueue_response(FakeResponse(
                 request, {"code": 0, "message": "版本不兼容，请刷新页面或清除缓存后重试"}))
             return
         if behavior == "ooo_5xx_two":
             # F06 反例一：#1/#2 发出，#2=200 先回、#1=500 后回 → 地板 0
-            first = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-0")
-            second = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-1")
+            first = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-0")
+            second = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-1")
             self._notify(first)
             self._notify(second)
             self._enqueue_response(
@@ -392,9 +396,9 @@ class FakePage:
             return
         if behavior == "ooo_5xx_three":
             # F06 反例二：#1/#2/#3 发出，#3=500、#1=500、#2=200 → 地板 0.5
-            first = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-0")
-            second = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-1")
-            third = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-2")
+            first = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-0")
+            second = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-1")
+            third = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-2")
             self._notify(first)
             self._notify(second)
             self._notify(third)
@@ -405,7 +409,7 @@ class FakePage:
             return
         if behavior == "http_404_429":
             # 404/404/429 混合连击：policy/budget/retry_deadline 必须同时扩窗
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             step = getattr(self, "_step_429", 0)
             self._step_429 = step + 1
@@ -417,14 +421,14 @@ class FakePage:
                     request, {"code": 0, "message": "未就绪"}, status=404))
             return
         if behavior == "http_429_triple":
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self._enqueue_response(FakeResponse(
                 request, {"code": 0, "message": "太频繁"}, status=429))
             return
         if behavior == "boom_after_response":
             # 流程异常：先把一笔成功应答入队，紧接页面崩——可读队列必须先被结算
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self._enqueue_response(FakeResponse(request, {"code": 1, "message": "ok"}))
             self._deliver_due()          # 让成功先落进响应队列
@@ -433,36 +437,36 @@ class FakePage:
             # 我方动作没有发出请求；别家请求在更早的 goto 阶段就发过了
             return
         if behavior == "lost":
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             return                      # 响应永不到达：请求保持未决
         if behavior == "lose_after_request":
             # 提交已发出、校时随即失效：未决事实必须保留，不能判成名额已满
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self.clock.lose()
             return
         if behavior == "response_stuck":
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self._enqueue_response(FakeResponse(request, FakeTimeout("读响应卡住")))
             return
         if behavior == "dup_notify":
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self._notify(request)          # 同一个 Request 重复通知
             self._enqueue_response(FakeResponse(request, {"code": 1, "message": "ok"}))
             return
         if behavior == "http_404":
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self._enqueue_response(FakeResponse(request, {"code": 0, "message": "未就绪"},
                                                 status=404))
             return
         if behavior == "out_of_order":
             # 一次动作发两笔：先发的响应回来得更晚，结算必须各归各的编号
-            first = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-0")
-            second = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-1")
+            first = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-0")
+            second = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-1")
             self._notify(first)
             self._notify(second)
             self._enqueue_response(
@@ -476,7 +480,7 @@ class FakePage:
             # 一次动作真的发两笔，但只有一笔拿到确定应答：另一笔保持未决
             for index in range(2):
                 request = FakeRequest(
-                    "https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/%s-%d" % (OPAQUE, index))
+                    SITE + "/dr/api/rjyHdCyr/signUp/%s-%d" % (OPAQUE, index))
                 request.post_data = ""
                 self._notify(request)
                 if index == 1:
@@ -484,12 +488,12 @@ class FakePage:
             return
         if behavior == "abort_inflight":
             # 导航中止在途请求：Playwright 只发 requestfailed，没有 response
-            request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+            request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
             self._notify(request)
             self.fire_requestfailed(request)
             return
         # 默认 full/success/slow_*：一次动作一笔请求
-        request = FakeRequest("https://portal.school.example.edu/dr/api/rjyHdCyr/signUp/" + OPAQUE)
+        request = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE)
         self._notify(request)
         self._enqueue_response(FakeResponse(request, dict(payload)))
 

@@ -1,4 +1,7 @@
 {
+  "site": {
+    "base": ""
+  },
   "notify": {
     "channel": "webhook",
     "platform": "feishu",

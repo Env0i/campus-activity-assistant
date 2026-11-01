@@ -29,7 +29,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from common import ACTIVITY_API, REFERER  # noqa: E402
+from common import ACTIVITY_API, REFERER, SITE_CONFIGURED  # noqa: E402
 
 SESSION_FILE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -151,7 +151,7 @@ def _handle_alert(result, detail, ts):
                 text = (
                     "【校园活动机器人】学校接口连续 %d 次探测不通（最近一次 %s，%s），"
                     "推送已停摆。这多半是服务器出网/带宽问题，不是登录态过期；"
-                    "先看机器能不能访问 portal.school.example.edu，恢复后探针会自动清零。"
+                    "先看机器能不能访问站点首页，恢复后探针会自动清零。"
                 ) % (st["fail_streak"], ts, detail or result)
             else:
                 text = (
@@ -172,6 +172,9 @@ def _handle_alert(result, detail, ts):
 
 
 def main():
+    if not SITE_CONFIGURED:
+        print("[x] 未配置目标学校站点，跳过 token 探测")
+        return 2
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     try:

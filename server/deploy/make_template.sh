@@ -36,9 +36,12 @@ cp "$ROOT"/deploy/atomic_json.js "$STAGE/deploy/"
 cp "$ROOT"/deploy/test_atomic_json.js "$STAGE/deploy/"
 cp "$ROOT"/docs/archive/BUILD_FROM_SCRATCH.md "$STAGE/docs/"
 
-# 配置模板：全部占位符
+# 配置模板：全部占位符；site.base 由部署者填写目标学校站点
 cat > "$STAGE/config.json" <<'JSON'
 {
+  "site": {
+    "base": ""
+  },
   "filter": {
     "keyword_blocklist": []
   },
@@ -120,8 +123,8 @@ cat > "$STAGE/README.md" <<'MD'
 - 动态监测 `scripts/activity_watch.py` 由 cron 每分钟唤醒，自己按
   `data/activity_watch.json` 里的 `next_poll_at` 控频（白天 3 分钟 / 夜间 10 分钟，
   不做临近开放加密）；它只读公开活动，不参与预报名与报名
-- 学校接口字段在本项目里是 `hdmc/bmkssj/hdjssj` 等，**换学校必须重新核对**；
-  只换域名时设 `SCHOOL_ORIGIN` 即可，但 Python 与 Node 两边默认值要同时改
+- 目标学校接口字段在本项目里是 `hdmc/bmkssj/hdjssj` 等，**换目标学校必须重新核对**；
+  只换站点地址时在 `config.json` 的 `site.base` 填写即可，必要时再用 `SCHOOL_ORIGIN` 环境变量覆盖
 - `config.json` 含密钥，权限设 600，不要提交到公开仓库
 
 ## 验收

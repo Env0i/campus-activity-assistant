@@ -7,7 +7,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import HOME_URL  # noqa: E402
+from common import HOME_URL, SITE_CONFIGURED  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 PROFILE = ROOT / "data" / "chrome-profile"
@@ -17,6 +17,9 @@ OUT = ROOT / "data" / "explore"
 
 
 def main() -> None:
+    if not SITE_CONFIGURED:
+        print("[x] 未配置目标学校站点，请先填写 server/config.json 的 site.base")
+        return
     OUT.mkdir(parents=True, exist_ok=True)
     api_hits = []
 

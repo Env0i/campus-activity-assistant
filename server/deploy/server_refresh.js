@@ -15,6 +15,7 @@ const { chromium } = require('playwright');
 const { atomicWriteJson } = require('./atomic_json');
 
 const APP = '/root/campus-activity-watch';
+const CONFIG_FILE = path.join(APP, 'server', 'config.json');
 const STATE_FILE = path.join(__dirname, 'storage_state.json');
 const SESSION_FILE = path.join(APP, 'data', 'session.json');
 const DAEMON = process.argv.includes('--daemon');
@@ -22,9 +23,20 @@ const LOOP_INTERVAL_MS = 60 * 1000;
 const VALIDATE_INTERVAL_MS = 2 * 60 * 60 * 1000;
 const NO_TOKEN_LOG_INTERVAL_MS = 10 * 60 * 1000;
 
-// 学校站点 origin（含 scheme）。换学校时改这里，或在服务器环境里设 SCHOOL_ORIGIN。
-// 默认值保持当前学校；/dr/api 这类端点路径是站点路由，不随学校变化。
-const SCHOOL_ORIGIN = (process.env.SCHOOL_ORIGIN || 'https://portal.school.example.edu')
+function configOrigin() {
+  try {
+    const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    return String((config.site || {}).base || '').trim();
+  } catch (e) {
+    return '';
+  }
+}
+
+// 目标学校站点 origin（含 scheme）：环境变量优先，其次读取部署机配置。
+// /dr/api 这类端点路径是站点路由，不随目标学校变化。
+const CONFIGURED = Boolean(process.env.SCHOOL_ORIGIN || configOrigin());
+const SCHOOL_ORIGIN = (process.env.SCHOOL_ORIGIN || configOrigin() ||
+  'https://portal.school.example.edu')
   .replace(/\/+$/, '');
 const PAGE_URL = `${SCHOOL_ORIGIN}/stu/`;
 const API = `${SCHOOL_ORIGIN}/dr/api/rjyHd/listActivity`;
@@ -293,6 +305,11 @@ async function runDaemon() {
 }
 
 (async () => {
+  if (!CONFIGURED) {
+    console.log('[x] 未配置目标学校站点，请填写 server/config.json 的 site.base 或注入 SCHOOL_ORIGIN');
+    process.exitCode = 2;
+    return;
+  }
   if (DAEMON) {
     await runDaemon();
     return;

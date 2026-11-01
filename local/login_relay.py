@@ -27,6 +27,8 @@ import queue
 import re
 import threading
 
+from site_target import BASE_URL
+
 # 挑战与预算（决策 5）：学校验证码没有服务端倒计时和提交次数上限。
 # 这两个名称保留为空值，避免旧调用方导入常量时静默恢复旧限制。
 CHALLENGE_TTL_S = None
@@ -60,7 +62,7 @@ AUTH_USER_TYPE = "2"
 AUTH_GRANT_TYPE = "pwd"
 # 取验证码的精确匿名载荷（仅 client/userType 两个字段，tok 固定 ""）
 AUTH_CAPTCHA_PAYLOAD = {"client": AUTH_CLIENT, "userType": AUTH_USER_TYPE}
-SESSION_ORIGIN = "https://portal.school.example.edu"
+SESSION_ORIGIN = BASE_URL
 
 # 首次取验证码的三种结局：OK 继续；MISMATCH=成功契约确已变化（code=1 却
 # 拿不到 key/image），凭据留内存一次性切 Playwright；REFUSED=网络错误、

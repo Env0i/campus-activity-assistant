@@ -12,10 +12,11 @@
 
 ### 1.1 `server/config.json`（服务器版）
 
-从 `server/config.example.json` 复制而来。所有字段都在 `notify`、`filter`、`watch` 三个对象下。
+从 `server/config.example.json` 复制而来。所有字段都在 `site`、`notify`、`filter`、`watch` 四个对象下。
 
 | 键 | 类型 | 必填 | 默认/留空时 | 作用 | 代码位置 |
 |---|---|---|---|---|---|
+| `site.base` | string | 运行学校功能时必填 | 留空则使用占位域名，不能访问目标学校 | 目标学校站点根地址；只写 origin，不带 `/dr/api` 或 `/stu/` | `scripts/site_target.py` |
 | `notify.channel` | string | 否 | — | 通道名，只用于日志区分；除 `qq` 外都走 webhook 分支 | `notify.py` |
 | `notify.platform` | string | **是** | — | 走哪条通道：`feishu`（应用/webhook 统一入口）或 `webhook`（纯群机器人） | `notify.py` `send()` |
 | `notify.webhook_url` | string | 二选一 | 留空则不走 webhook | 群自定义机器人的 Webhook 地址（自动推送 + 动态事件都走它） | `notify.py` `send()` |
@@ -49,12 +50,16 @@
 
 ```json
 {
+  "site": {
+    "base": ""
+  },
   "feishu_webhook": ""
 }
 ```
 
 | 键 | 必填 | 说明 |
 |---|---|---|
+| `site.base` | 运行学校功能时必填 | 目标学校站点根地址；留空时只能运行离线部分 |
 | `feishu_webhook` | 否 | 群自定义机器人地址；填了抢报名结果会发飞书卡片，留空只在控制台打印 |
 
 本机版**不需要** `app_id` / `app_secret`：它只推送结果，不接收消息，也不发私聊。
@@ -87,7 +92,7 @@
 
 | 变量 | 默认 | 谁读 | 作用 |
 |---|---|---|---|
-| `SCHOOL_ORIGIN` | `https://portal.school.example.edu` | `common.py` | 学校站点根地址，**换学校只改这一处**（`API_BASE`、`HOME_URL` 都由它拼） |
+| `SCHOOL_ORIGIN` | 占位域名（真实值见 `config.json` 的 `site.base`） | `common.py` | 目标学校站点根地址，**换目标学校只改这一处**（`API_BASE`、`HOME_URL` 都由它拼） |
 | `PRIVATE_OWNER_OPEN_ID` | 空 | `notify.py`、`grab_signup.py`、`bot.js` | owner 的 `open_id`；空 = 私聊全部关闭，`private_owner` 实例拒绝启动 |
 | `WATCHLIST_FILE` | `server/data/watchlist.json` | `watchlist.py` | 预报名清单路径（测试用） |
 | `GRAB_SCRIPT` | `/root/campus-login/grab_signup.py` | `watchlist_runner.py` | 抢报名脚本绝对路径 |
@@ -212,7 +217,7 @@ python3 scripts/selfcheck.py          # 凭据、缓存、锁、卡片构造
 | 私聊收不到，日志有 `[i] 未配置 PRIVATE_OWNER_OPEN_ID` | 那条 cron/systemd 没注入变量 |
 | 预报名按钮点击无效 | `PRIVATE_OWNER_OPEN_ID` 与 `users.json` 的键不一致，或卡片被转发到别的会话 |
 | 活动被过滤掉了 | `filter.keyword_blocklist` 命中标题（只影响推送，动态监测仍会记录状态） |
-| 换学校后全 404 | `SCHOOL_ORIGIN` 没改，或该校接口结构不同（本项目按校园学生端适配） |
+| 换目标学校后全 404 | `SCHOOL_ORIGIN` 没改，或目标学校接口结构不同（本项目按当前学生端适配） |
 
 ---
 

@@ -356,7 +356,7 @@ local/
 ├─ gui.py                   旧版 tkinter 界面（已停用，保留作对照）
 ├─ gui-preview.png          界面预览图（README 用）
 ├─ requirements.txt         依赖清单：playwright + pillow + pywebview
-├─ config.example.json      可选：飞书群机器人 webhook（复制成 config.json 再填）
+├─ config.example.json      配置模板：复制成 config.json，填写目标学校 site.base（可选再填 webhook）
 ├─ 1-登录.bat               双击：手动登录一次
 ├─ 2-抢活动.bat             双击：交互式选择并到点自动报名（历史命名）
 ├─ 3-检查登录和活动.bat     双击：看登录态 + 列活动

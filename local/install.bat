@@ -75,7 +75,7 @@ exit /b 0
 :selftest_bad
 echo.
 echo [X] 自检没通过，先别抢活动。常见原因：
-echo     - 网络/代理挡住了 portal.school.example.edu
+echo     - 网络/代理挡住了目标学校站点
 echo     - 浏览器内核没装好（重跑一次 install.bat）
 pause
 exit /b 1

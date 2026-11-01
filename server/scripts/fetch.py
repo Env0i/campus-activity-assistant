@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from common import (ACTIVITY_API, DATA, REFERER, REPORTS, USER_AGENT,  # noqa: E402
                     business_now, load_config, load_session, load_state,
-                    update_state)
+                    update_state, SITE_CONFIGURED)
 
 # 接口一次能返回的上限远大于 100：实测 pageSize=500 会把当时全部 285 条一次给全
 # （0.21s，code=1），pageSize=1000 结果相同。原先按 100 翻页，一次全量要打 3 个请求，
@@ -46,6 +46,8 @@ STATUSES = (STATUS_PENDING, STATUS_OPEN, STATUS_CLOSED, STATUS_UNKNOWN)
 
 def call_api(token: str, page_num: int, page_size: int = PAGE_SIZE,
              timeout: int = REQUEST_TIMEOUT) -> dict:
+    if not SITE_CONFIGURED:
+        raise RuntimeError("未配置目标学校站点")
     payload = {"pageSize": page_size, "pageNum": page_num,
                "hdmc": "", "hdzt": None, "jssj": "", "kssj": ""}
     req = urllib.request.Request(
@@ -271,6 +273,9 @@ def mine_items(items: list, now: datetime):
 
 
 def main() -> int:
+    if not SITE_CONFIGURED:
+        print("[x] 未配置目标学校站点，请在 server/config.json 的 site.base 填写目标学校根地址")
+        return 3
     cfg = load_config()
     session = load_session()
     token = (session.get("token") or "").strip()

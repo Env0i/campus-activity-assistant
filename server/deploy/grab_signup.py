@@ -43,16 +43,18 @@ STATE_FILE = os.path.join(LOGIN_DIR, "storage_state.json")
 SESSION_FILE = os.path.join(APP_DIR, "data", "session.json")
 # 测试用 GRAB_LOG_FILE 重定向日志落点，绝不写真实 /root/campus-login
 LOG_FILE = os.path.join(LOGIN_DIR, "grab_signup.log")
-API = "https://portal.school.example.edu/dr/api"
-REFERER = "https://portal.school.example.edu/stu/"
+sys.path.insert(0, os.path.join(APP_DIR, "scripts"))
+from site_target import BASE_URL as SCHOOL_ORIGIN  # noqa: E402
+from site_target import CONFIGURED as SITE_CONFIGURED  # noqa: E402
+from site_target import CONFIG_MESSAGE as SITE_CONFIG_MESSAGE  # noqa: E402
+
+API = SCHOOL_ORIGIN + "/dr/api"
+REFERER = SCHOOL_ORIGIN + "/stu/"
 # 开放前多少秒开始逐次看按钮：名额放开往往只有几秒窗口，
 # 等到开放前一秒再刷新会丢掉首轮点击时机。
 POLL_LEAD = 5.0
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-
-sys.path.insert(0, os.path.join(APP_DIR, "scripts"))
-
 
 def log(msg):
     # 落点每次调用时解析：测试重定向到临时文件，不会碰真实登录目录
@@ -157,7 +159,7 @@ def notify(title, lines, template="green"):
 
 
 def detail_url(act_id):
-    return ("https://portal.school.example.edu/stu/#/secondClassroom/student/activity/"
+    return (SCHOOL_ORIGIN + "/stu/#/secondClassroom/student/activity/"
             "studentActivity/activityDetails?activityId=%s&from=acList" % act_id)
 
 
@@ -755,6 +757,9 @@ def main():
     ap.add_argument("--sign-end", default="", help="报名截止时间（硬上限），如 2026-10-23 23:59:59")
     ap.add_argument("--dry-run", action="store_true", help="只检查页面与按钮，不点击")
     args = ap.parse_args()
+    if not SITE_CONFIGURED:
+        print("[x] %s" % SITE_CONFIG_MESSAGE)
+        return 2
 
     at = datetime.strptime(args.at, "%Y-%m-%d %H:%M:%S").timestamp()
     start = at - args.lead

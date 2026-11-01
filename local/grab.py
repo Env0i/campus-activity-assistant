@@ -43,7 +43,11 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
-BASE = "https://portal.school.example.edu"
+# 站点根地址来自 site_target：本机从 config.json 的 site.base 读真实域名，
+# 仓库里只留占位值（公开树不含真实域名）
+from site_target import BASE_URL as BASE, CONFIGURED as SITE_CONFIGURED
+from site_target import CONFIG_MESSAGE as SITE_CONFIG_MESSAGE
+
 API = BASE + "/dr/api"
 REFERER = BASE + "/stu/"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -3051,6 +3055,9 @@ def main():
     p.set_defaults(func=cmd_selftest)
 
     args = ap.parse_args()
+    if not SITE_CONFIGURED:
+        print("[X] %s" % SITE_CONFIG_MESSAGE)
+        return 2
     # CLI check/list 也按需建立同一业务时钟：授时失败不阻断鉴权与原始数据读取，
     # 由各子命令显式降级（列表状态未知、不做本机时钟筛选）
     if args.cmd in ("check", "list"):

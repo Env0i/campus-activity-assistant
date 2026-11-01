@@ -58,7 +58,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
-GH = Path(os.environ.get("GH_EXE", r"D:/Env/gh/bin/gh.exe"))
+# gh 的可执行文件不写死本机路径：优先 GH_EXE，其次 PATH 里的 gh，最后交给子进程自己找。
+GH = Path(os.environ.get("GH_EXE") or shutil.which("gh") or "gh")
 # 代理不写死：跑发布的人自己的环境里已经有 HTTPS_PROXY/系统代理就用，没有就直连。
 # 写死某个端口只会让别人的机器上 publish 直接失败。
 

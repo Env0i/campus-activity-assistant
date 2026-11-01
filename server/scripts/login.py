@@ -14,7 +14,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import HOME_URL, PROFILE, save_session  # noqa: E402
+from common import HOME_URL, PROFILE, SITE_CONFIGURED, save_session  # noqa: E402
 
 # 首页地址跟着 common.SCHOOL_ORIGIN 走，不要在本地再硬编码一份学校域名
 START_URL = HOME_URL
@@ -93,6 +93,9 @@ def interactive_login() -> dict | None:
 
 
 def main() -> int:
+    if not SITE_CONFIGURED:
+        print("[x] 未配置目标学校站点，请在 server/config.json 的 site.base 填写目标学校根地址")
+        return 2
     force = "--force" in sys.argv
 
     if not force:

@@ -29,11 +29,14 @@ import urllib.error
 import urllib.request
 from datetime import datetime
 
+from site_target import BASE_URL as SCHOOL_ORIGIN
+from site_target import CONFIGURED as SITE_CONFIGURED
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
 STATE_FILE = os.path.join(DATA_DIR, "net_probe_state.json")
 
-SCHOOL_URL = "https://portal.school.example.edu/stu/"
+SCHOOL_URL = SCHOOL_ORIGIN + "/stu/"
 CONTROL_URL = "https://www.baidu.com/"
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -165,6 +168,9 @@ def _handle_alert(ok, net, detail, ts):
 
 def main():
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if not SITE_CONFIGURED:
+        print("[x] %s 未配置目标学校站点，跳过目标学校探测" % ts)
+        return 0
     ok, detail = _probe(SCHOOL_URL)
     net = ""
     if not ok:

@@ -10,7 +10,8 @@ ExecStart=/usr/bin/node /root/campus-login/server_refresh.js --daemon
 Restart=always
 RestartSec=30
 User=root
-Environment=SCHOOL_ORIGIN=https://portal.school.example.edu
+# 可选：在服务器外部文件里覆盖目标学校地址；未设置时读取 server/config.json
+EnvironmentFile=-/etc/campus-activity-watch/site.env
 StandardOutput=append:/root/campus-login/refresh.log
 StandardError=append:/root/campus-login/refresh.log
 

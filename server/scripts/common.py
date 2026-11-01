@@ -8,6 +8,9 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from site_target import BASE_URL as SITE_TARGET_BASE_URL
+from site_target import CONFIGURED as SITE_CONFIGURED
+
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
@@ -46,10 +49,7 @@ BEIJING_TZ = timezone(timedelta(hours=8))
 _PROCESS_LOCK = threading.RLock()
 _HELD: dict[str, int] = {}
 
-# 学校站点 origin（含 scheme）。换学校时只改这一处，或在运行环境里设 SCHOOL_ORIGIN。
-# 默认值就是当前学校，所以不配置时行为和以前完全一致。
-# 端点路径（/dr/api、/stu/）是站点自己的路由，不属于换学校的变量，保持不动。
-SCHOOL_ORIGIN = (os.environ.get("SCHOOL_ORIGIN") or "https://portal.school.example.edu").rstrip("/")
+SCHOOL_ORIGIN = SITE_TARGET_BASE_URL
 
 API_BASE = f"{SCHOOL_ORIGIN}/dr/api"
 ACTIVITY_API = f"{API_BASE}/rjyHd/listActivity"

@@ -5,7 +5,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import HOME_URL  # noqa: E402
+from common import HOME_URL, SITE_CONFIGURED  # noqa: E402
 
 # 登录页就是站点首页，地址跟着 common.SCHOOL_ORIGIN 走
 START = HOME_URL
@@ -29,6 +29,9 @@ JS = """() => {
 
 
 def main():
+    if not SITE_CONFIGURED:
+        print("[x] 未配置目标学校站点，请先填写 server/config.json 的 site.base")
+        return 2
     with sync_playwright() as p:
         b = p.chromium.launch(headless=True, channel="chrome")
         page = b.new_page()
