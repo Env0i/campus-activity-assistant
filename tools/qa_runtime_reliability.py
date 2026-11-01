@@ -38,6 +38,7 @@ import json
 import sys
 import threading
 import time
+import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -45,7 +46,22 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "local" / "ui"
 BRIDGE = ROOT / "local" / "tests" / "fixtures" / "runtime_bridge.js"
-SCREENSHOT_FILES = {"app.js", "led.js", "styles.css", "index.html"}
+# 静态资源按后缀决定 Content-Type。旧写法是列举 4 个文件的 SCREENSHOT_FILES，
+# UI 拆成 state/controllers/views 多目录后其余 28 个模块全部 404，页面直接
+# `S is not defined`——工具自己在腐烂，却只报成「场景断言失败」，还因为
+# 截图断言看体积而留下假绿。改成服务 UI 目录内任意文件，后缀不在表里才 404。
+CTYPES = {
+    ".js": "application/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".html": "text/html; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+    ".woff2": "font/woff2",
+}
+# 与 local/app.py 的 TERMS_VERSION 必须同值，契约测试 test_qa_bridge_contract 会核对
+TERMS_VERSION = "2026-10-27-r3"
 
 
 def _ui_root() -> Path:
@@ -91,16 +107,21 @@ class QaHandler(BaseHTTPRequestHandler):
                            BRIDGE.read_bytes())
                 return
             name = path.lstrip("/")
-            if name in SCREENSHOT_FILES:
-                target = _ui_root() / name
-                ctype = {"js": "application/javascript; charset=utf-8",
-                         "css": "text/css; charset=utf-8",
-                         "html": "text/html; charset=utf-8"}[name.rsplit(".", 1)[-1]]
+            target = (_ui_root() / name).resolve()
+            root = _ui_root().resolve()
+            ctype = CTYPES.get(target.suffix.lower())
+            # is_relative_to 一并挡住 .. 与绝对路径；隐藏文件不对外暴露
+            inside = (ctype is not None and target.is_file()
+                      and target.is_relative_to(root)
+                      and not any(part.startswith(".")
+                                  for part in target.relative_to(root).parts))
+            if inside:
                 self._send(200, ctype, target.read_bytes())
                 return
             self._send(404, "text/plain; charset=utf-8", b"not found")
-        except Exception as exc:  # noqa: BLE001 - QA 服务要把真实原因交回去
-            self._send(500, "text/plain; charset=utf-8", str(exc).encode("utf-8"))
+        except Exception as exc:  # noqa: BLE001 - 500 只回固定串，不把内部绝对路径交给页面
+            traceback.print_exception(exc)  # 真实原因打在本机控制台
+            self._send(500, "text/plain; charset=utf-8", "静态文件读取失败".encode("utf-8"))
 
 
 class QaServer:
@@ -187,8 +208,14 @@ class Session:
     def shot(self, name: str) -> str:
         path = self.evidence / ("%s-%s.png" % (self.scenario["id"], name))
         self.page.screenshot(path=str(path), full_page=False)
+        # 截图是证据不是断言：旧写法按 size>2000 判「过」，失败现场的大截图
+        # 反而必然通过，等于给失败场景发绿灯。这里只校验文件真的是 PNG：
+        # 只看非空等于恒真（playwright 写不出 0 字节），魔数才是能被写坏的证据。
         size = path.stat().st_size if path.exists() else 0
-        self.check("截图 %s 非空" % path.name, size > 2000, "bytes=%d" % size)
+        head = path.open("rb").read(8) if path.exists() else b""
+        self.check("截图 %s 是有效 PNG" % path.name,
+                   head == b"\x89PNG\r\n\x1a\n" and size > 512,
+                   "head=%r bytes=%d" % (head, size))
         self.screenshots.append(str(path.resolve()))
         return str(path)
 
@@ -438,6 +465,495 @@ def _(s: Session):
     s.shot("demo-ready")
 
 
+# ------------------------------------------------------------ 条款门场景
+# 这些场景补的是「浏览器里 0 覆盖」的四条拒绝路径：状态未知、未同意、
+# 已拒绝、版本不匹配。它们断言的是 HEAD 的拆分版前端；v1.1.1 实包的同名
+# 行为仍要走 B01 手工切片（包内是单体 app.js，行号不同）。
+
+def _gate_disabled(s: Session) -> list:
+    """条款门禁的三入口状态：[登录, 刷新, 开始]。"""
+    return s.js("() => ['#btn-login', '#btn-refresh', '#btn-plan']"
+                ".map((q) => document.querySelector(q).disabled)")
+
+
+def _dialog_open(s: Session) -> bool:
+    return bool(s.js("() => document.querySelector('#dlg-terms').open"))
+
+
+@scenario("terms-unknown-gate", "后端没给条款状态：未知态横幅 + 三入口停用 + 不自动弹窗",
+          (1120, 800), "terms_absent", settle=False)
+def _(s: Session):
+    s.wait("S.terms.unknown === true")
+    s.check_contains("#banners", "条款状态没能确认")
+    disabled = _gate_disabled(s)
+    s.check("条款未知时登录/刷新/开始全部停用", disabled == [True, True, True], disabled)
+    s.check("未知态不自动弹条款（要用户自己点开才可确认）", not _dialog_open(s))
+    s.shot("unknown")
+
+
+@scenario("terms-first-run-decline", "首启强弹条款；拒绝后落盘 declined_version 且保持停用",
+          (1120, 800), "terms_unaccepted", settle=False)
+def _(s: Session):
+    s.wait("document.querySelector('#dlg-terms').open === true")
+    s.wait("S.terms.unknown === false")
+    s.check("程序版本与内嵌全文同版",
+            s.text("#dlg-terms-version").strip() == TERMS_VERSION
+            and s.text("#dlg-terms-document-version").strip() == TERMS_VERSION,
+            [s.text("#dlg-terms-version"), s.text("#dlg-terms-document-version")])
+    disabled = _gate_disabled(s)
+    s.check("未同意时三入口停用", disabled == [True, True, True], disabled)
+    s.shot("dialog")
+    s.click("#btn-terms-decline")
+    s.wait("!document.querySelector('#dlg-terms').open")
+    s.check_contains("#banners", "还没有同意使用条款")
+    s.check("会话进入 declined 语义", s.js("() => S.terms.declined") is True)
+    # 落盘是异步的：等 IPC 回写真的到，别拿「弹窗已关」当「设置已存」
+    s.wait("(window.__QA_STATE.savedPrefs || {}).terms_declined_version === '%s'" % TERMS_VERSION)
+    s.check("拒绝写入本版 declined_version",
+            s.js("() => (window.__QA_STATE.savedPrefs || {}).terms_declined_version")
+            == TERMS_VERSION,
+            s.js("() => (window.__QA_STATE.savedPrefs || {}).terms_declined_version"))
+    disabled = _gate_disabled(s)
+    s.check("拒绝后三入口仍停用（拒绝不是放行）", disabled == [True, True, True], disabled)
+    s.shot("declined")
+
+
+@scenario("terms-accept-unlocks", "同意条款后清空 declined 落盘并解锁首轮加载",
+          (1120, 800), "terms_unaccepted", settle=False)
+def _(s: Session):
+    s.wait("document.querySelector('#dlg-terms').open === true")
+    # 方案 A（条款文档化）：同意按钮先禁用，必须先勾选再点，勾选是纯前端态
+    s.check("未勾选时同意按钮禁用",
+            s.js("() => document.querySelector('#btn-terms-accept').disabled") is True)
+    s.click("#chk-terms-agree")
+    s.check("勾选后同意按钮解锁",
+            s.js("() => document.querySelector('#btn-terms-accept').disabled") is False)
+    s.click("#btn-terms-accept")
+    s.wait("!document.querySelector('#dlg-terms').open")
+    s.wait("S.terms.acceptedVersion === '%s'" % TERMS_VERSION)
+    s.check("同意回执带 accepted_at", bool(s.js("() => S.terms.acceptedAt")))
+    s.check("同意后落盘空的 declined_version",
+            s.js("() => (window.__QA_STATE.savedPrefs || {}).terms_declined_version") == "",
+            s.js("() => (window.__QA_STATE.savedPrefs || {}).terms_declined_version"))
+    s.check("同意后未确认标记被清掉", s.js("() => S.terms.unknown") is False)
+    s.check_not_contains("#banners", "还没有同意使用条款")
+    s.wait("S.listState === 'ready' || S.listState === 'error'")
+    s.check("登录与刷新恢复可点",
+            s.js("() => !document.querySelector('#btn-login').disabled"
+                 " && !document.querySelector('#btn-refresh').disabled"),
+            _gate_disabled(s))
+    s.shot("accepted")
+
+
+@scenario("terms-short-window", "420 高的窄窗：底栏三个动作仍在视口内、阅读区自己滚",
+          (746, 420), "terms_unaccepted", settle=False)
+def _(s: Session):
+    s.wait("document.querySelector('#dlg-terms').open === true")
+    geo = s.js("""() => {
+      const vh = window.innerHeight;
+      const pick = (sel) => { const el = document.querySelector(sel); if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { sel: sel, bottom: Math.round(r.bottom), top: Math.round(r.top),
+                 w: Math.round(r.width), h: Math.round(r.height) }; };
+      const body = document.querySelector('.terms-body');
+      return { vh: vh, btns: ['#btn-terms-decline', '#btn-terms-accept'].map(pick).filter(Boolean),
+               bodyScrolls: body.scrollHeight > body.clientHeight + 1 };
+    }""")
+    out = [b["sel"] for b in geo["btns"] if b["bottom"] > geo["vh"] + 1 or b["h"] < 20]
+    s.check("420 高时两个动作仍在视口内且没被压没", out == [], out)
+    s.check("420 高时阅读区自己滚（不是整窗溢出）", geo["bodyScrolls"] is True, geo["bodyScrolls"])
+    s.shot("short-window")
+    s.click("#btn-terms-full")
+    s.wait("document.querySelector('#dlg-terms-full-text').hidden === false")
+    s.click("#tab-terms-privacy")
+    s.check("短窗里 tab 照样能切",
+            s.js("() => document.querySelector('#doc-terms-privacy').hidden === false") is True)
+    s.shot("short-window-fulltext")
+
+
+@scenario("terms-fulltext-tabs", "两份文档用 tab 切换：切过去就只看到那一份",
+          (1120, 800), "terms_unaccepted", settle=False)
+def _(s: Session):
+    s.wait("document.querySelector('#dlg-terms').open === true")
+    s.click("#btn-terms-full")
+    s.wait("document.querySelector('#dlg-terms-full-text').hidden === false")
+    s.check("默认停在用户协议",
+            s.js("() => document.querySelector('#doc-terms-agreement').hidden === false"
+                 " && document.querySelector('#doc-terms-privacy').hidden === true") is True)
+    s.click("#tab-terms-privacy")
+    s.check("切到隐私政策后两份互斥",
+            s.js("() => document.querySelector('#doc-terms-agreement').hidden === true && document.querySelector('#doc-terms-privacy').hidden === false") is True)
+    s.check("tab 的 aria-pressed 跟着走（button 不用 aria-selected）",
+            s.js("() => document.querySelector('#tab-terms-privacy').getAttribute('aria-pressed') === 'true' && document.querySelector('#tab-terms-agreement').getAttribute('aria-pressed') === 'false'") is True)
+    s.check("没有残留的 tab 语义",
+            s.js("() => !document.querySelector('#tab-terms-agreement').hasAttribute('role') && !document.querySelector('#tab-terms-agreement').hasAttribute('aria-selected')") is True)
+    s.check("切到的那份内容确实是隐私政策",
+            s.text("#doc-terms-privacy h4").strip() == "隐私政策")
+    s.shot("privacy-pane")
+    s.click("#tab-terms-agreement")
+    s.check("切回来",
+            s.js("() => document.querySelector('#doc-terms-agreement').hidden === false && document.querySelector('#doc-terms-privacy').hidden === true") is True)
+
+
+_LICENSE_CALLS_JS = "() => window.__QA_CALLS.filter((c) => c.name === 'get_license_text').length"
+
+
+@scenario("terms-links-license", "正文/勾选行内联蓝链开全文切页签；MIT 页签经桥懒加载、缓存与就地重试",
+          (1120, 800), "terms_unaccepted", settle=False)
+def _(s: Session):
+    s.wait("document.querySelector('#dlg-terms').open === true")
+    # ① 副行两处内联链接：存在、蓝色下划线、点击打开全文并切对应页签
+    links = s.js("""() => [...document.querySelectorAll('#dlg-terms-sub button.doc-link')]
+      .map((b) => ({ doc: b.getAttribute('data-doc'), text: b.textContent.trim(),
+                     color: getComputedStyle(b).color,
+                     underline: getComputedStyle(b).textDecorationLine }))""")
+    s.check("副行恰有两个 doc-link（协议/隐私）且蓝色下划线",
+            [l["doc"] for l in links] == ["agreement", "privacy"]
+            and all(l["color"] == "rgb(30, 90, 140)" and l["underline"] == "underline"
+                    for l in links), links)
+    s.click('#dlg-terms-sub button.doc-link[data-doc="agreement"]')
+    s.wait("document.querySelector('#dlg-terms-full-text').hidden === false")
+    s.check("点《用户协议》打开全文并停在协议页签",
+            s.js("() => document.querySelector('#tab-terms-agreement').classList.contains('is-on')"
+                 " && document.querySelector('#doc-terms-agreement').hidden === false") is True)
+    s.check("点副行链接没有翻转勾选框",
+            s.js("() => document.querySelector('#chk-terms-agree').checked") is False)
+    s.click('#dlg-terms-sub button.doc-link[data-doc="privacy"]')
+    s.check("点《隐私政策》切到隐私页签",
+            s.js("() => document.querySelector('#tab-terms-privacy').classList.contains('is-on')"
+                 " && document.querySelector('#doc-terms-privacy').hidden === false") is True)
+    s.shot("links")
+    s.click("#tab-terms-agreement")
+    s.wait("document.querySelector('#doc-terms-agreement').hidden === false")
+    # ④ 失败路径先行（注入桥返回 ok:false）：错误只在页签内就地提示，无全局弹窗
+    s.js("() => { window.__QA_STATE.licenseFail = true; }")
+    s.click('#doc-terms-agreement button.doc-link[data-doc="license"]')
+    s.wait("document.querySelector('#doc-terms-license').hidden === false")
+    s.wait("document.querySelector('#license-status').hidden === false")
+    s.check("MIT 页签激活且协议/隐私互斥收起",
+            s.js("() => document.querySelector('#tab-terms-license').classList.contains('is-on')"
+                 " && document.querySelector('#doc-terms-agreement').hidden === true"
+                 " && document.querySelector('#doc-terms-privacy').hidden === true") is True)
+    s.check("失败就地提示人话，不弹全局弹窗",
+            s.js("() => document.querySelector('#license-status').textContent.includes('LICENSE')"
+                 " && document.querySelectorAll('dialog[open]').length === 1") is True)
+    s.check("失败态亮出「重新读取」且首次激活恰调一次桥",
+            s.js("() => document.querySelector('#btn-license-retry').hidden === false") is True
+            and s.js(_LICENSE_CALLS_JS) == 1, s.js(_LICENSE_CALLS_JS))
+    s.shot("license-error")
+    # ③ 成功路径：重试读到内嵌 MIT 全文；再次切换走缓存，桥不再被调
+    s.js("() => { window.__QA_STATE.licenseFail = false; }")
+    s.click("#btn-license-retry")
+    s.wait("document.querySelector('#license-pre').hidden === false")
+    s.check("pre 内是 MIT License 全文且状态收起",
+            s.js("() => document.querySelector('#license-pre').textContent.includes('MIT License')"
+                 " && document.querySelector('#license-status').hidden === true") is True)
+    s.check("重试后桥共被调两次（失败一次+重试一次）", s.js(_LICENSE_CALLS_JS) == 2,
+            s.js(_LICENSE_CALLS_JS))
+    s.shot("license-ok")
+    s.click("#tab-terms-privacy")
+    s.click("#tab-terms-license")
+    s.wait("document.querySelector('#license-pre').hidden === false")
+    s.check("再次切回 MIT 走缓存（桥调用次数不变）", s.js(_LICENSE_CALLS_JS) == 2,
+            s.js(_LICENSE_CALLS_JS))
+    # ② 同意勾选行：点链接外的文字正常 toggle，点链接不改变勾选状态
+    pt = s.js("""() => {
+      const w = document.createTreeWalker(document.querySelector('.terms-agree'),
+                                          NodeFilter.SHOW_TEXT, null);
+      let n;
+      while ((n = w.nextNode())) {
+        if (n.textContent.includes('我已阅读并同意')) {
+          const r = document.createRange();
+          r.selectNodeContents(n);
+          const rect = r.getBoundingClientRect();
+          return { x: rect.left + 4, y: (rect.top + rect.bottom) / 2 };
+        }
+      }
+      return null;
+    }""")
+    s.check("勾选行里找得到链接外的文字用于对照点击", bool(pt), pt)
+    if pt:
+        s.page.mouse.click(pt["x"], pt["y"])
+        s.wait("document.querySelector('#chk-terms-agree').checked === true")
+        s.click('.terms-agree button.doc-link[data-doc="privacy"]')
+        s.check("点勾选行里的链接不改变勾选状态（preventDefault 生效）且切到隐私页签",
+                s.js("() => document.querySelector('#chk-terms-agree').checked === true"
+                     " && document.querySelector('#tab-terms-privacy').classList.contains('is-on')") is True)
+    s.check("全场景结束桥恰好被调两次", s.js(_LICENSE_CALLS_JS) == 2, s.js(_LICENSE_CALLS_JS))
+    s.shot("agree-label")
+
+
+@scenario("terms-fulltext-document", "方案 A：全文视图按文档体排版（限宽、左边界齐、文末元信息）",
+          (1120, 800), "terms_unaccepted", settle=False)
+def _(s: Session):
+    s.wait("document.querySelector('#dlg-terms').open === true")
+    s.click("#btn-terms-full")
+    s.wait("document.querySelector('#dlg-terms-full-text').hidden === false")
+    s.check("全文视图显示文末元信息",
+            s.js("() => document.querySelector('#terms-doc-meta').hidden") is False)
+    # 左边界一致：副行、工具行标题、要点正文、全文段落应共用同一条文档列左边
+    lefts = s.js("""() => {
+      // 只量当前可见的块：进全文视图后要点区是隐藏的，宽度 0 的块不参与比对。
+      const q = (sel) => { const el = document.querySelector(sel);
+        if (!el) return null; const r = el.getBoundingClientRect();
+        return r.width > 0 ? Math.round(r.left) : null; };
+      return { sub: q('#dlg-terms-sub'), toolbar: q('.terms-toolbar'),
+               summary: q('#dlg-terms-summary'), doc: q('#dlg-terms-full-text'),
+               meta: q('#terms-doc-meta') };
+    }""")
+    vals = [v for v in lefts.values() if v is not None]
+    s.check("文档列左边界一致（容差 2px）", max(vals) - min(vals) <= 2, lefts)
+    s.shot("fulltext-1120")
+    # 滚到文末：版本/生效日期/许可要真的落在文档列里，而不是悬在别处
+    s.js("() => { const b = document.querySelector('.terms-body'); b.scrollTop = b.scrollHeight; }")
+    s.wait("() => { const b = document.querySelector('.terms-body'); return b.scrollTop + b.clientHeight >= b.scrollHeight - 2; }")
+    end = s.js("""() => { const m = document.querySelector('#terms-doc-meta');
+      const d = document.querySelector('#dlg-terms-full-text');
+      const r = m.getBoundingClientRect(); const dr = d.getBoundingClientRect();
+      return { visible: !m.hidden && r.height > 0, aligned: Math.abs(r.left - dr.left) <= 2,
+               lastIn: Math.round(r.bottom) <= Math.round(document.querySelector('.terms-body').getBoundingClientRect().bottom) + 1 }; }""")
+    s.check("文末元信息可见且与正文左对齐", end["visible"] and end["aligned"], end)
+    s.shot("fulltext-end")
+
+
+@scenario("terms-fulltext-narrow", "方案 A：窄窗（746）全文视图仍单列、按钮不撑出",
+          (746, 900), "terms_unaccepted", settle=False)
+def _(s: Session):
+    s.wait("document.querySelector('#dlg-terms').open === true")
+    s.click("#btn-terms-full")
+    s.wait("document.querySelector('#dlg-terms-full-text').hidden === false")
+    foot = s.js("""() => {
+      const foot = document.querySelector('.terms-foot');
+      const fr = foot.getBoundingClientRect();
+      const btns = ['#btn-terms-close', '#btn-terms-decline', '#btn-terms-accept']
+        .map((sel) => { const el = document.querySelector(sel); if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { sel: sel, bottom: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) }; })
+        .filter((b) => b && b.w > 0);
+      return { footBottom: Math.round(fr.bottom), btns: btns };
+    }""")
+    overflow = [b["sel"] for b in foot["btns"] if b["bottom"] > foot["footBottom"] + 1]
+    s.check("窄窗下按钮没被挤出底栏", overflow == [], overflow)
+    tiny = [b["sel"] for b in foot["btns"] if b["h"] < 20 or b["w"] < 40]
+    s.check("窄窗下每个按钮仍可点（尺寸不为零）", tiny == [], tiny)
+    s.check("窄窗下底栏不横向溢出",
+            s.js("() => document.querySelector('.terms-foot').scrollWidth"
+                 " <= document.querySelector('.terms-foot').clientWidth + 1") is True)
+    s.shot("fulltext-746")
+
+@scenario("terms-version-mismatch-locked", "后端版本与内嵌全文不一致：发请求前本地拒绝",
+          (1120, 800), "terms_mismatch", settle=False)
+def _(s: Session):
+    s.wait("document.querySelector('#dlg-terms').open === true")
+    # 方案 A：先过勾选门，才能测到「版本不一致」这条本地拒绝路径
+    s.click("#chk-terms-agree")
+    s.click("#btn-terms-accept")
+    s.wait("document.querySelector('#dlg-terms-status').textContent.includes('不一致')")
+    s.check("本地拒绝后弹窗不关（门禁保持）", _dialog_open(s))
+    s.check("零 accept_terms 请求：不同源副本不得替后端确认", s.calls_count("accept_terms") == 0,
+            s.calls_count("accept_terms"))
+    disabled = _gate_disabled(s)
+    s.check("三入口仍停用", disabled == [True, True, True], disabled)
+    s.shot("mismatch")
+
+
+@scenario("terms-declined-no-reopen", "拒绝过的本版重启后不再强弹，横幅保持停用",
+          (1120, 800), "terms_declined", settle=False)
+def _(s: Session):
+    s.wait("S.terms.declined === true")
+    s.check("不自动弹窗", not _dialog_open(s))
+    s.check_contains("#banners", "还没有同意使用条款")
+    s.check("横幅说明保持停用",
+            s.js("() => document.querySelector('#banners').textContent.includes('保持停用')"))
+    disabled = _gate_disabled(s)
+    s.check("三入口停用", disabled == [True, True, True], disabled)
+    s.shot("declined-restart")
+
+
+@scenario("terms-declined-old-version-regate", "拒绝的是旧版：条款更新后重新门禁",
+          (1120, 800), "terms_declined_old", settle=False)
+def _(s: Session):
+    s.wait("document.querySelector('#dlg-terms').open === true")
+    s.check("旧版拒绝不恢复 declined（必须重新同意）", s.js("() => S.terms.declined") is False)
+    s.check("弹窗显示的是程序当前版本",
+            s.text("#dlg-terms-version").strip() == TERMS_VERSION,
+            s.text("#dlg-terms-version"))
+    disabled = _gate_disabled(s)
+    s.check("三入口停用", disabled == [True, True, True], disabled)
+    s.shot("regate")
+
+
+@scenario("terms-status-viewonly", "1104×790：只读条款状态行合并为一行好消息，info 色不是错误红",
+          (1104, 790), "valid")
+def _(s: Session):
+    """用户图2 反馈「已同意本版」好消息渲染成错误红 + 两行冗余。HEAD 实测
+    （centering-diagnosis.txt）：#dlg-terms-status 在 .terms-feedback 内，
+    info 色已是 --ink-2，红色未复现（疑出自 v1.1.1 实包旧单体 UI）——颜色
+    断言按行为级「≠ var(--bad) rgb」作守护；两行合并（用户拍板）是真改动，
+    断言整行不再出现「程序要求版本」版本句。"""
+    s.settle()
+    s.click("#btn-help")
+    s.wait("document.querySelector('#help').open === true")
+    s.click("#btn-help-terms")
+    s.wait("document.querySelector('#dlg-terms').open === true")
+    s.wait("document.querySelector('#dlg-terms-status').hidden === false")
+    d = s.js("""() => {
+      const box = document.querySelector('#dlg-terms-status');
+      const sub = document.querySelector('#dlg-terms-sub');
+      return {
+        tone: box.getAttribute('data-tone'),
+        text: box.textContent.trim(),
+        color: getComputedStyle(box).color,
+        badRgb: 'rgb(182, 50, 39)',
+        docLinks: box.querySelectorAll('button.doc-link').length,
+        boldVersion: box.querySelector('b') ? box.querySelector('b').textContent : '',
+        subHidden: sub.hidden,
+        /* 用户读到的「整行」= 状态行 + 仍可见的副行；合并后副行收起只剩状态行 */
+        topText: box.textContent.trim() + " " + (sub.hidden ? "" : sub.textContent.trim()),
+      };
+    }""")
+    s.check("状态行 data-tone=info", d["tone"] == "info", d["tone"])
+    s.check("好消息不是错误红：computed color ≠ var(--bad) 的 rgb",
+            d["color"] != d["badRgb"], "实际 %s（--bad=%s）" % (d["color"], d["badRgb"]))
+    s.check_contains("#dlg-terms-status", "已同意《用户协议》与《隐私政策》")
+    s.check_contains("#dlg-terms-status", "（10-30 09:00 同意）")
+    s.check("状态行两处书名号仍是 doc-link 蓝链", d["docLinks"] == 2, d["docLinks"])
+    s.check("版本号用 <b> 保留且是内嵌全文版本", d["boldVersion"] == TERMS_VERSION,
+            d["boldVersion"])
+    s.check("整行（状态行+可见副行）不含「程序要求版本」版本句",
+            "程序要求版本" not in d["topText"], d["topText"][:160])
+    s.check("副行 #dlg-terms-sub 只读态收起", d["subHidden"], d["subHidden"])
+    s.shot("status-merged")
+    # 蓝链可点：点状态行《用户协议》开全文并切对应页签（委托处理覆盖动态按钮）
+    s.click('#dlg-terms-status button.doc-link[data-doc="agreement"]')
+    s.wait("document.querySelector('#dlg-terms-full-text').hidden === false")
+    s.check("点状态行蓝链打开全文并切到协议页签", s.js(
+        "() => document.querySelector('#dlg-terms-full-text').hidden === false &&"
+        " document.querySelector('#tab-terms-agreement').getAttribute('aria-pressed') === 'true'"))
+    s.shot("status-link-opens-full")
+
+
+_TERMS_LINE_AUDIT_JS = r"""() => {
+  /* 副行逐行审计：对 #dlg-terms-sub 内每个文本节点建 Range，取 getClientRects()
+   * 按行归并，逐行核对「完整落在 .terms-body 可视矩形内」并点名每行中点/
+   * 底缘的实际命中元素（找盖住者）。这是 20261031 用户图1（副行第二行只见
+   * 上半截字形）的机械判据与诊断数据源。 */
+  const sub = document.querySelector("#dlg-terms-sub");
+  const body = document.querySelector(".terms-body");
+  const toolbar = document.querySelector(".terms-toolbar");
+  if (!sub || !body) return { missing: true };
+  const bodyRect = body.getBoundingClientRect();
+  const subRect = sub.getBoundingClientRect();
+  const nameOf = (el) => !el ? "null"
+    : el.tagName + (el.id ? "#" + el.id : "")
+      + (el.classList && el.classList.length ? "." + [...el.classList].join(".") : "");
+  const walker = document.createTreeWalker(sub, NodeFilter.SHOW_TEXT, null);
+  const frags = [];
+  let node;
+  while ((node = walker.nextNode())) {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const list = range.getClientRects();
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      if (r.width <= 0 && r.height <= 0) continue;
+      frags.push({ top: r.top, bottom: r.bottom, left: r.left, right: r.right });
+    }
+  }
+  frags.sort((a, b) => a.top - b.top || a.left - b.left);
+  const lines = [];
+  for (const f of frags) {
+    const last = lines[lines.length - 1];
+    if (last && Math.abs(f.top - last.top) <= 3) {
+      last.top = Math.min(last.top, f.top);
+      last.bottom = Math.max(last.bottom, f.bottom);
+      last.left = Math.min(last.left, f.left);
+      last.right = Math.max(last.right, f.right);
+    } else {
+      lines.push({ top: f.top, bottom: f.bottom, left: f.left, right: f.right });
+    }
+  }
+  const EPS = 2;
+  for (const l of lines) {
+    l.h = Math.round((l.bottom - l.top) * 10) / 10;
+    const cx = Math.min(Math.max((l.left + l.right) / 2, l.left + 2), l.right - 2);
+    const midEl = document.elementFromPoint(cx, (l.top + l.bottom) / 2);
+    const lowEl = document.elementFromPoint(cx, l.bottom - 2);
+    l.coverMid = nameOf(midEl);
+    l.coverLow = nameOf(lowEl);
+    l.covered = midEl ? !midEl.closest("#dlg-terms-sub") : true;
+  }
+  const offenders = lines
+    .map((l, i) => ({ i, ...l }))
+    .filter((l) => l.top < bodyRect.top - EPS || l.bottom > bodyRect.bottom + EPS);
+  const toolbarRect = toolbar ? toolbar.getBoundingClientRect() : null;
+  /* 工具行向上的同色投影带：box-shadow 纵向负偏移会在工具行**未吸顶**时
+   * 盖住它上方 20px 内的正文（20261031 图1 副行末行下半截被裁的机制）。
+   * 这里按计算样式解析投影，还原它实际涂抹的矩形，供断言逐行求交。 */
+  let band = null;
+  if (toolbar && toolbarRect) {
+    const shadow = getComputedStyle(toolbar).boxShadow;
+    const m = /(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px/.exec(shadow || "");
+    if (shadow && shadow !== "none" && m) {
+      const oy = parseFloat(m[2]), blur = parseFloat(m[3]), spread = parseFloat(m[4]);
+      if (oy < 0) {
+        band = { top: toolbarRect.top + oy - spread - blur,
+                 bottom: toolbarRect.top,
+                 left: toolbarRect.left, right: toolbarRect.right,
+                 shadow };
+      }
+    }
+  }
+  const shadowLines = !band ? []
+    : lines.filter((l) => l.bottom > band.top + 2 && l.top < band.bottom - 2
+                         && l.right > band.left + 2 && l.left < band.right - 2)
+        .map((l, i) => ({ i, top: l.top, bottom: l.bottom }));
+  const cs = getComputedStyle(sub);
+  const bold = sub.querySelector("b");
+  const csB = bold ? getComputedStyle(bold) : null;
+  return {
+    dpr: window.devicePixelRatio,
+    innerW: window.innerWidth, innerH: window.innerHeight,
+    body: { top: bodyRect.top, bottom: bodyRect.bottom, clientH: body.clientHeight,
+            scrollH: body.scrollHeight, scrollTop: body.scrollTop },
+    sub: { top: subRect.top, bottom: subRect.bottom, fontSize: cs.fontSize,
+           lineHeight: cs.lineHeight, fontFamily: cs.fontFamily.slice(0, 90) },
+    bFont: csB ? { fontFamily: csB.fontFamily.slice(0, 90), fontSize: csB.fontSize,
+                   lineHeight: csB.lineHeight } : null,
+    toolbar: toolbarRect ? { top: toolbarRect.top, bottom: toolbarRect.bottom,
+                             left: toolbarRect.left, right: toolbarRect.right } : null,
+    shadowBand: band, shadowLines,
+    lines, offenders,
+  };
+}"""
+
+
+@scenario("terms-dialog-no-clip", "1104×790：条款副行逐行完整落在阅读区内、行高一致、无元素遮盖",
+          (1104, 790), "terms_absent", settle=False)
+def _(s: Session):
+    s.wait("S.terms.unknown === true")
+    s.click('[data-act="terms-open"]')
+    s.wait("document.querySelector('#dlg-terms').open === true")
+    s.shot("dialog-open")
+    audit = s.js(_TERMS_LINE_AUDIT_JS)
+    s.check("副行审计取到行数据", bool(audit) and not audit.get("missing")
+            and len(audit.get("lines", [])) >= 1,
+            str(audit)[:300])
+    if not audit or audit.get("missing") or not audit.get("lines"):
+        return
+    s.check("副行每一行完整落在阅读区可视矩形内（±2px）",
+            audit["offenders"] == [], audit["offenders"] or audit["lines"])
+    heights = [l["h"] for l in audit["lines"]]
+    s.check("行数≥2 时每行高度一致（±2px）",
+            len(heights) < 2 or max(heights) - min(heights) <= 2, heights)
+    s.check("副行没有一行被别的元素盖住（行中点命中仍是副行自身/其后代）",
+            not any(l["covered"] for l in audit["lines"]),
+            [[l["coverMid"], l["coverLow"]] for l in audit["lines"]])
+    s.check("工具行不再向上涂抹同色投影带盖住副行（吸顶补条带不得盖未吸顶正文）",
+            not audit.get("shadowLines"), audit.get("shadowBand"))
+    s.shot("dialog-audited")
+
+
 @scenario("first-run-unlogged", "首次未登录空态", (980, 760), "unlogged")
 def _(s: Session):
     s.wait("document.querySelector('#pill-text').textContent.includes('未登录')")
@@ -450,6 +966,70 @@ def _(s: Session):
     s.wait_business_ready()
     s.check_clock_text("未登录同样只显独立北京时间")
     s.shot("empty")
+
+
+_TOPBAR_FIT_JS = r"""() => {
+  /* 顶栏最右元素 vs 窗口右缘：枚举 header.top 全部后代取最大 right。
+   * 用户真机 1104 宽截图「登录」被右缘裁掉（20261031 图2）；QA Chromium 在
+   * 861–1152 各宽度、未登录/拒绝条款/最长右簇四种形状下均未复现
+   * （loginRight 恒 = innerW−12..16），本场景按用户裁定作回归守护。 */
+  let worst = null;
+  for (const el of document.querySelectorAll(".top *")) {
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 && r.height <= 0) continue;
+    if (!worst || r.right > worst.right) {
+      worst = { sel: el.tagName + (el.id ? "#" + el.id : ""),
+                right: Math.round(r.right * 100) / 100 };
+    }
+  }
+  return { innerW: window.innerWidth, worst,
+           hScroll: document.documentElement.scrollWidth
+                    > document.documentElement.clientWidth + 1 };
+}"""
+
+
+@scenario("topbar-fits-width", "1024–1152 每 16px：顶栏最右元素不越过窗口右缘（图2 回归守护）",
+          (1104, 790), "unlogged_declined", settle=False)
+def _(s: Session):
+    s.wait("S.terms.declined === true")
+    s.wait("(document.querySelector('#pill-text').textContent || '').includes('未登录')")
+    s.shot("w1104-declined")
+    widths = list(range(1024, 1153, 16))
+
+    def sweep():
+        rows, bad = [], []
+        for w in widths:
+            s.page.set_viewport_size({"width": w, "height": 790})
+            s.page.wait_for_timeout(60)
+            d = s.js(_TOPBAR_FIT_JS)
+            rows.append({"w": w, **d})
+            if d["worst"] is None or d["worst"]["right"] > d["innerW"] + 1 or d["hScroll"]:
+                bad.append({"w": w, **d})
+        return rows, bad
+
+    # 判据有效性对照：右簇临时注入假按钮，判据必须报出溢出，否则判据无效。
+    # 对照注入只活在这一步，拔掉后复测必须干净（不放宽、也不跳过）。
+    # 宽度取 500px 而不是口头说的 200px：brand（desc+name 可缩/可换行）能吸收
+    # 约 430px 余量，200px 在 1024–1152 任何一档都打不红，对照会假绿。
+    s.js("""() => {
+      const fake = document.createElement('button');
+      fake.id = 'qa-topbar-fake';
+      fake.type = 'button';
+      fake.textContent = '对照';
+      fake.style.flex = 'none';
+      fake.style.width = '500px';
+      document.querySelector('.top-right').appendChild(fake);
+    }""")
+    _, contrast_bad = sweep()
+    s.check("判据有效性对照：注入 500px 假按钮后判据报出溢出（能红才算数）",
+            len(contrast_bad) >= 1, contrast_bad)
+    s.js("() => { const f = document.getElementById('qa-topbar-fake'); if (f) f.remove(); }")
+    rows, bad = sweep()
+    s.check("1024–1152 每 16px 共 %d 档：顶栏最右元素 right ≤ innerWidth+1 且无横向滚动"
+            % len(widths), bad == [], bad)
+    s.page.set_viewport_size({"width": 1104, "height": 790})
+    s.page.wait_for_timeout(60)
+    s.shot("w1104-guard")
 
 
 @scenario("checking", "正在检查登录态", (1120, 800), "checking", settle=False)
@@ -488,8 +1068,307 @@ def _(s: Session):
     s.wait("document.querySelector('#empty-title').textContent.includes('学校当前没有返回活动')")
     s.check_contains("#empty-title", "学校当前没有返回活动")
     s.check_contains("#empty-text", "登录是有效的")
+    # 第 3 条：副行与标题「当前」口径一致（vm 假元素不聚合 innerHTML，渲染层归这里钉）
+    s.check_contains("#empty-text", "学校当前没有返回可报名活动")
+    s.check_not_contains("#empty-text", "学校这次")
     s.check("#metric-total", s.text("#metric-total").strip() == "0")
     s.shot("empty")
+
+
+@scenario("empty-state-layout-copy",
+          "空态布局与文案：拆行、同句、垂直居中、按钮更名、底部空白测量", (1280, 900), "empty")
+def _(s: Session):
+    s.wait("document.querySelector('#empty-title').textContent.includes('学校当前没有返回活动')")
+    # 第 2 条：大屏与列表空态是同一状态，两处标题必须同句，不得各写一套措辞
+    board, title = s.text("#selected").strip(), s.text("#empty-title").strip()
+    s.check("大屏与空态标题同句", board == title,
+            "大屏#selected=%r 空态#empty-title=%r" % (board, title))
+    # 第 1 条：副行书名号里的「刷新」不得被中文任意断行拆到两行。
+    # 判据说明：本 Chromium 的 innerText 按规范不把软折行写成 \n（探针证实：
+    # 段落 lineRects=2 时 innerText 仍无 \n），原判据「innerText 不含 刷\n新」
+    # 无判别力；改用 Range 顶坐标——刷/新 两字渲染行不同行即算拆行。
+    wrap = s.js("""() => {
+      const root = document.querySelector("#empty-text");
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let n, spots = [];
+      while ((n = walker.nextNode())) {
+        const i = n.data.indexOf("刷新");
+        if (i >= 0) spots.push([n, i]);
+      }
+      if (spots.length !== 1)
+        return { ok: false, reason: "「刷新」文本节点不唯一：" + spots.length };
+      const [node, off] = spots[0];
+      const topOf = (o) => {
+        const r = document.createRange();
+        r.setStart(node, o); r.setEnd(node, o + 1);
+        const rect = r.getClientRects()[0];
+        return rect ? Math.round(rect.top * 10) / 10 : null;
+      };
+      return { ok: true, shuaTop: topOf(off), xinTop: topOf(off + 1),
+               innerTextJson: JSON.stringify(root.innerText) };
+    }""")
+    same_line = bool(wrap.get("ok")) and wrap.get("shuaTop") is not None \
+        and wrap.get("shuaTop") == wrap.get("xinTop")
+    s.check("空态副行「刷新」两字渲染在同一行", same_line, str(wrap))
+    # 副行第二行孤行判据已随 f538cc9 回退删除（revert 4ad23ca）：span 恢复只包
+    # 「刷新」二字，84px「「」开头孤行回到 main 口径，不再守护。
+    # 第 5 条：空态按钮改叫「重新加载」与顶栏「刷新」区分；只改文案，dataset.action 仍 refresh
+    empty_btn, top_btn = s.text("#empty-action").strip(), s.text("#btn-refresh").strip()
+    s.check("空态按钮文案是「重新加载」", empty_btn == "重新加载", empty_btn)
+    s.check("空态按钮与顶栏「刷新」不同文", empty_btn != top_btn,
+            "空态=%r 顶栏=%r" % (empty_btn, top_btn))
+    # 第 4 条：底部空白只测量不设断言——数值链原样进 qa-report，归因交主代理/用户拍板
+    geo = s.js("""() => {
+      const rectOf = (sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { top: Math.round(r.top * 10) / 10,
+                 height: Math.round(r.height * 10) / 10,
+                 bottom: Math.round(r.bottom * 10) / 10 };
+      };
+      /* 内容块并集（同 empty-centered 的四元素）：顶对齐判据用 */
+      const blocks = [".empty-art", "#empty-title", "#empty-text", "#empty-action"]
+        .map((q) => document.querySelector(q))
+        .filter((el) => el && !el.hidden && el.getBoundingClientRect().width > 0)
+        .map((el) => el.getBoundingClientRect());
+      return { innerHeight: window.innerHeight,
+               html: rectOf("html"), body: rectOf("body"), zd: rectOf("#zd"),
+               table: rectOf(".table"), list: rectOf("#list"), logbar: rectOf("#logbar"),
+               empty: rectOf("#empty"), emptyArt: rectOf("#empty .empty-art"),
+               blockTop: blocks.length ? +(Math.min(...blocks.map((b) => b.top))).toFixed(1) : null,
+               blockBottom: blocks.length ? +(Math.max(...blocks.map((b) => b.bottom))).toFixed(1) : null };
+    }""")
+    s.actions.append({"action": "bottom-gap-geometry", **geo})
+    # 第 3 条（第二次换向，撤销 dd440ad）：顶对齐经用户真机验证否决——默认与
+    # 拉大拉小都不正确，与窗口尺寸无关；恢复 19:03 认可态的垂直居中口径：
+    # 内容块（art/title/text/action 并集）垂直中心与 .list 垂直中心差 ≤ 6px。
+    # 换向链：ebd8d03 垂直中心 → af32672 顶边差 ≤40px → 本次回垂直中心；
+    # 此后该断言锁定为垂直居中口径，除非用户带截图再次要求。
+    listMid = round((geo["list"]["top"] + geo["list"]["bottom"]) / 2, 1)
+    blockMid = round((geo["blockTop"] + geo["blockBottom"]) / 2, 1)
+    voff = round(blockMid - listMid, 1)
+    s.check("空态内容块垂直中心与 .list 垂直中心差 ≤ 6px", abs(voff) <= 6,
+            "blockMid=%.1f listMid=%.1f 实际差=%.1f blockTop=%.1f blockBottom=%.1f" % (
+                blockMid, listMid, voff, geo["blockTop"], geo["blockBottom"]))
+    s.shot("empty")
+
+
+_EMPTY_CENTER_JS = r"""() => {
+  /* 空态块水平居中测量：内容块（art/title/text/action 的并集包围盒）中心
+   * vs .list 两个参照中心——矩形（可视卡片，用户视觉参照）与内容盒
+   * （clientWidth，列头/行同轴）。inset:0 是否真覆盖 = empty.right 与
+   * list.right 之差（scrollbar-gutter 预留槽不在 abspos 包含块内时 >0）。 */
+  const rect = (el) => el.getBoundingClientRect();
+  const list = document.querySelector("#list");
+  const empty = document.querySelector("#empty");
+  const parts = [".empty-art", "#empty-title", "#empty-text", "#empty-action"]
+    .map((sel) => document.querySelector(sel))
+    .filter((el) => el && !el.hidden && rect(el).width > 0);
+  const union = parts.reduce((acc, el) => {
+    const b = rect(el);
+    return { left: Math.min(acc.left, b.left), right: Math.max(acc.right, b.right) };
+  }, { left: Infinity, right: -Infinity });
+  const lb = rect(list), eb = rect(empty);
+  const cxOf = (b) => (b.left + b.right) / 2;
+  return {
+    innerWidth: window.innerWidth,
+    title: document.querySelector("#empty-title").textContent.trim(),
+    blockCx: +(cxOf(union)).toFixed(1),
+    listRectCx: +(cxOf(lb)).toFixed(1),
+    listContentCx: +(lb.left + list.clientWidth / 2).toFixed(1),
+    listClientW: list.clientWidth, listOffsetW: list.offsetWidth,
+    emptyW: +eb.width.toFixed(1),
+    emptyCx: +(cxOf(eb)).toFixed(1),
+    coverGap: +(lb.right - eb.right).toFixed(1),
+    partsCx: parts.map((el) => ({
+      sel: el.id ? "#" + el.id
+           : el.tagName + "." + String(el.className.baseVal ?? el.className).split(" ")[0],
+      cx: +(cxOf(rect(el))).toFixed(1) })),
+  };
+}"""
+
+_EMPTY_WORD_JS = r"""(words) => {
+  /* 判据③量法：把 #empty-text 的文本节点按序拼成全文并记录 (node, offset)，
+   * 对每个受保护词的每次出现构造覆盖 Range，getClientRects() 的所有矩形
+   * top 差 ≤1px 视为同一行，换行即红。innerText 按规范不把软折行写成 \n
+   * （f541ba4 探针证实），禁止用它判行。 */
+  const root = document.querySelector("#empty-text");
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  let full = "", n;
+  while ((n = walker.nextNode())) {
+    nodes.push({ node: n, base: full.length });
+    full += n.data;
+  }
+  const loc = (i) => {
+    for (let k = nodes.length - 1; k >= 0; k--) {
+      if (i >= nodes[k].base) return [nodes[k].node, i - nodes[k].base];
+    }
+    return null;
+  };
+  const out = { text: full, words: {} };
+  for (const w of words) {
+    const occ = [];
+    let hit = full.indexOf(w);
+    while (hit >= 0) {
+      const a = loc(hit), b = loc(hit + w.length);
+      if (a && b) {
+        const r = document.createRange();
+        r.setStart(a[0], a[1]);
+        r.setEnd(b[0], b[1]);
+        const tops = [...r.getClientRects()]
+          .filter((x) => x.width > 0 || x.height > 0)
+          .map((x) => Math.round(x.top * 10) / 10);
+        occ.push(tops.length
+          ? { n: tops.length, topMin: Math.min(...tops), topMax: Math.max(...tops),
+              split: Math.max(...tops) - Math.min(...tops) > 1 }
+          : { n: 0, topMin: null, topMax: null, split: true });
+      } else {
+        occ.push({ n: 0, topMin: null, topMax: null, split: true });
+      }
+      hit = full.indexOf(w, hit + w.length);
+    }
+    out.words[w] = { found: occ.length, occ };
+  }
+  return out;
+}"""
+
+
+@scenario("empty-centered",
+          "空态块水平居中与副行防拆词：1024/1067/1104/1280@790 + 1067×831 × 五状态，"
+          "块中心对 .list 可视盒中心 ≤4px",
+          (1104, 790), "empty")
+def _(s: Session):
+    """用户实测空态块偏左 20-35px（两份截图，改顶对齐前也有）——是 .empty
+    居中参照的旧问题不是回归。判据：内容块中心 vs .list 矩形（可视卡片）
+    中心 ≤4px；与内容盒（clientWidth）中心的差值一并打印进 detail 不隐藏
+    （列头/行与内容盒同轴，两个参照的差 = 滚动槽/2，诊断归因用）。
+
+    方案 B 增补两守护：
+    - 判据①：art/title/text/action 四元素各自中心 X 对 #empty 卡片中心
+      ≤2px，每元素一条、五状态×五档位聚合（ebd8d03 删掉的同轴守护按更强
+      形式补回，锚点从四元素极差改为卡片中心）；
+    - 判据③：各态副行受保护词逐词 Range 单行，档位含复现档 1067×831——
+      #empty-text 盒宽被 max-width:330 钳住、与视口基本无关，拆词是
+      「有没有 nowrap span」决定的，多档位扫描防回归漏网；
+    - terms-locked 态经 unlogged_declined 预设重启进页：条款锁定时 refresh
+      安静返回（controllers/refresh.js），listState 停在 idle，空态走
+      「还没有加载活动列表」锁定副行；R11 失联兜底 100/130s，hang 态足够
+      撑完本轮量测。"""
+    row_sizes = [(1024, 790), (1067, 790), (1104, 790), (1280, 790), (1067, 831)]
+    states = (
+        # (名称, 等待元素, 等待特征, 进入方式, 本态副行受保护词)
+        ("valid-empty", "#empty-title", "学校当前没有返回活动", None, ("刷新",)),
+        ("expired", "#empty-title", "登录状态失效",
+         ("set", {"check": "expired"}), ("重新登录", "刷新")),
+        ("unlogged", "#empty-title", "登录后查看活动",
+         ("set", {"check": "none"}), ("「登录」", "刷新")),
+        ("checking", "#empty-title", "正在检查登录状态",
+         ("set", {"check": "hang"}), ("重新登录",)),
+        ("terms-locked", "#empty-text", "同意使用条款",
+         ("preset", "unlogged_declined"), ("查看条款", "可以")),
+    )
+    rows = []
+    word_rows = []   # (state, 视口标签, 词量测 JSON)
+    for name, sel, needle, switch, words in states:
+        if switch and switch[0] == "set":
+            s.set_state(**switch[1])
+            s.js("() => refresh(false)")
+        elif switch and switch[0] == "preset":
+            s.inject("window.__QA_SCENARIO = %s;" % json.dumps(switch[1]))
+            s.page.reload(wait_until="domcontentloaded")
+        s.wait("document.querySelector('%s').textContent.includes(%s)"
+               % (sel, json.dumps(needle)), 12000)
+        for (w, h) in row_sizes:
+            s.page.set_viewport_size({"width": w, "height": h})
+            s.page.wait_for_timeout(60)
+            d = s.js(_EMPTY_CENTER_JS)
+            d["state"] = name
+            d["vh"] = h
+            rows.append(d)
+            word_rows.append((name, "%dx%d" % (w, h),
+                              s.js(_EMPTY_WORD_JS, list(words))))
+            if (w, h) == (1104, 790):
+                s.shot("w1104-" + name)
+            if (w, h) == (1067, 831):
+                s.shot("w1067h831-" + name)
+        if switch and switch[0] == "set":
+            # 换态后回 valid-empty 基线，下一态不受上一态残留影响
+            s.set_state(check="valid", list="empty")
+            s.js("() => refresh(false)")
+            s.wait("document.querySelector('#empty-title')"
+                   ".textContent.includes('学校当前没有返回活动')", 8000)
+    if any(d["state"] == "terms-locked" for d in rows):
+        # terms-locked 走过预设重启：恢复 empty 预设，别把改过的 init 脚本带出本场景
+        s.inject("window.__QA_SCENARIO = 'empty';")
+        s.page.reload(wait_until="domcontentloaded")
+        s.settle()
+        s.wait("document.querySelector('#empty-title')"
+               ".textContent.includes('学校当前没有返回活动')", 8000)
+    for d in rows:
+        off_rect = round(d["listRectCx"] - d["blockCx"], 1)
+        off_content = round(d["listContentCx"] - d["blockCx"], 1)
+        s.check("空态块中心与 .list 可视盒中心差 ≤4px（%s @%dx%d）"
+                % (d["state"], d["innerWidth"], d["vh"]),
+                abs(off_rect) <= 4,
+                "blockCx=%.1f listRectCx=%.1f 差=%.1f | 内容盒参照差=%.1f "
+                "listClientW=%d listOffsetW=%d emptyW=%.1f coverGap=%.1f parts=%s"
+                % (d["blockCx"], d["listRectCx"], off_rect, off_content,
+                   d["listClientW"], d["listOffsetW"], d["emptyW"],
+                   d["coverGap"], json.dumps(d["partsCx"], ensure_ascii=False)))
+        # 四元素中心 X 极差 ≤0.5px（原 D-1 判据②，ebd8d03 保留）：按钮满宽
+        # 拉伸时中心仍应同轴，判据继续成立；按钮宽判据随 4ad23ca 删除不再守护
+        cxs = [p["cx"] for p in d["partsCx"]]
+        spread = round(max(cxs) - min(cxs), 2)
+        s.check("空态四元素中心X极差 ≤0.5px（%s @%dx%d）"
+                % (d["state"], d["innerWidth"], d["vh"]),
+                spread <= 0.5,
+                "spread=%.2f parts=%s" % (spread, json.dumps(d["partsCx"], ensure_ascii=False)))
+    # 判据①（方案 B）：每元素中心 X 对 #empty 卡片中心 ≤2px，五状态×五档位聚合
+    part_names = (".empty-art", "#empty-title", "#empty-text", "#empty-action")
+    for idx, pname in enumerate(part_names):
+        worst, worst_at, missing = 0.0, "", 0
+        for d in rows:
+            if len(d["partsCx"]) <= idx:
+                missing += 1
+                continue
+            diff = abs(round(d["partsCx"][idx]["cx"] - d["emptyCx"], 1))
+            if diff > worst:
+                worst = diff
+                worst_at = "%s @%dx%d" % (d["state"], d["innerWidth"], d["vh"])
+        s.check("空态%s中心X对卡片中心差 ≤2px（五状态×五档位聚合）" % pname,
+                worst <= 2 and missing == 0,
+                "最差=%.1fpx（%s） 元素缺失行=%d" % (worst, worst_at, missing))
+    # 判据③（方案 B）：受保护词逐词 Range 单行；每状态每词一条，跨档位聚合。
+    # not-ready/unlocked 与 unknown 两分支副行 ≤300/144px < 330 max-width，
+    # 数学上不可折行且其词已在别态覆盖，不为形式覆盖引入非生产形态的状态注入。
+    by_state = {}
+    for name, vw, wc in word_rows:
+        by_state.setdefault(name, []).append((vw, wc))
+    for name, samples in by_state.items():
+        for w in sorted({w for _, wc in samples for w in wc["words"]}):
+            found, bad = 0, []
+            for vw, wc in samples:
+                data = wc["words"].get(w)
+                if not data:
+                    bad.append("%s:词量测缺失" % vw)
+                    continue
+                found += data["found"]
+                if data["found"] == 0:
+                    bad.append("%s:副行未命中" % vw)
+                for o in data["occ"]:
+                    if o["split"]:
+                        bad.append("%s:%s" % (vw, json.dumps(o, ensure_ascii=False)))
+            s.check("空态副行「%s」不拆词（%s，五档位聚合）" % (w, name),
+                    found > 0 and not bad,
+                    "命中=%d 违例=%s 全文=%r"
+                    % (found, json.dumps(bad, ensure_ascii=False),
+                       samples[0][1]["text"]))
+    covers = [d for d in rows if d["innerWidth"] == 1104 and d["vh"] == 790]
+    s.check("inset:0 真覆盖：#empty right 与 .list right 之差 ≤1px（五状态 @1104）",
+            all(d["coverGap"] <= 1 for d in covers),
+            "coverGap=%s" % [d["coverGap"] for d in covers])
 
 
 @scenario("long-place", "超长地点两行与大屏展开", (1280, 900), "valid")
@@ -555,6 +1434,69 @@ def _(s: Session):
     s.check("#max-attempts 保持 3", s.page.input_value("#max-attempts") == "3")
     s.check("#rows 恢复", s.count("#rows .row") >= 5)
     s.shot("cleared")
+
+
+@scenario("filter-persist-reload", "筛选保存跨重载恢复（save_prefs→bootstrap 整环）", (1120, 800), "valid")
+def _(s: Session):
+    """F5 不许弄丢用户设的筛选：save_prefs 带出 filter，bootstrap 原样回放。"""
+    s.wait("document.querySelectorAll('#rows .row').length >= 8")
+    s.check("未筛选时 a-open 在列", s.count("input.row-check[data-id=a-open]") == 1)
+    s.page.select_option("#checkin", "yes")
+    s.wait("S.filter.checkin === 'yes'")
+    # savePrefs 有 250ms 防抖：等真正落盘（桥记录到调用）再继续，否则
+    # 后面采集 savedPrefs 会拿到空对象
+    s.wait("window.__QA_CALLS.some((c) => c.name === 'save_prefs'"
+           " && c.args[0] && c.args[0].filter && c.args[0].filter.checkin === 'yes')", 4000)
+    s.check("save_prefs 已带 filter.checkin=yes", s.js(
+        "window.__QA_CALLS.some((c) => c.name === 'save_prefs'"
+        " && c.args[0] && c.args[0].filter && c.args[0].filter.checkin === 'yes')"),
+        s.js("JSON.stringify(window.__QA_CALLS.filter((c) => c.name === 'save_prefs'))"))
+    s.check("保存后立即按签到过滤", s.count("#rows .row") == 7
+            and s.count("input.row-check[data-id=a-open]") == 0,
+            [s.count("#rows .row"), s.count("input.row-check[data-id=a-open]")])
+    s.shot("filtered-yes")
+    # 重载：生产语义是后端进程不重启、偏好从 ui.json 回放——桥把 savedPrefs
+    # 重新喂给 state（init 脚本先于桥装载），等价于后端已落盘这一事实
+    saved = s.js("window.__QA_STATE.savedPrefs")
+    s.inject("window.__QA_STATE = Object.assign(window.__QA_STATE || {}, { savedPrefs: %s });"
+             % json.dumps(saved, ensure_ascii=False))
+    s.page.reload(wait_until="domcontentloaded")
+    s.settle()
+    s.check("重载后下拉恢复签到=需要", s.page.input_value("#checkin") == "yes",
+            s.page.input_value("#checkin"))
+    s.check("重载后 S.filter 恢复", s.js("S.filter.checkin") == "yes",
+            s.js("JSON.stringify(S.filter)"))
+    s.check("重载后可见行仍按签到过滤", s.count("#rows .row") == 7
+            and s.count("input.row-check[data-id=a-open]") == 0,
+            [s.count("#rows .row"), s.count("input.row-check[data-id=a-open]")])
+    s.shot("filter-restored")
+
+
+@scenario("list-fail-login-states", "没登录/失效 + 列表失败：空态标题各归各", (1120, 800),
+          "list_fail_unlogged")
+def _(s: Session):
+    """列表失败叠加登录四态时，空态标题必须按真实登录结论归因，不得互串。"""
+    s.settle()
+    s.wait("document.querySelector('#empty-title').textContent.includes('还没登录')", 8000)
+    s.check_contains("#pill-text", "未登录")
+    s.check("未登录变体不含过期关键词",
+            "登录已过期" not in s.text("#empty-title")
+            and "登录已失效" not in s.text("#empty-title"),
+            s.text("#empty-title"))
+    s.check("未登录重试入口存在", s.text("#empty-action").strip() == "重试",
+            s.text("#empty-action"))
+    s.shot("list-fail-unlogged")
+    # 同一场景切到「登录失效 + 列表失败」：标题走 expired 分支，不借未登录话术
+    s.set_state(check="expired")
+    s.js("() => refresh(false)")
+    s.wait("S.listState === 'error' && document.querySelector('#empty-title')"
+           ".textContent.includes('登录已过期')", 8000)
+    s.check_contains("#pill-text", "登录已失效")
+    s.check("过期变体不含未登录关键词", "还没登录" not in s.text("#empty-title"),
+            s.text("#empty-title"))
+    s.check("过期重试入口存在", s.text("#empty-action").strip() == "重试",
+            s.text("#empty-action"))
+    s.shot("list-fail-expired")
 
 
 @scenario("preopen-and-instant", "预报名与立即报名同批", (1280, 900), "valid")
@@ -625,7 +1567,19 @@ def _(s: Session):
     s.click("#btn-update-check")
     s.wait("S.update.state === 'current'")
     s.check_contains("#update-status", "当前为最新正式版")
+    # 桥替身的版本号必须走生产 _result 键（update_check.py:109 的
+    # current_version/latest_version）：旧名 current/latest 恰好不被
+    # current 态文案消费，漂移不会自己爆红，这里必须显式守住。
+    s.check("版本号来自生产契约字段 current_version/latest_version", s.js(
+        "(() => { const r = S.update.result || {};"
+        " return r.current_version === '1.1.1' && r.latest_version === '1.1.1'; })()"))
     s.check("检查后按钮回到可点", not s.page.locator("#btn-update-check").is_disabled())
+    # 桥回执的 checked_at 必须是前端能解析的时间：替身若发 epoch 秒，
+    # Date.parse 得 NaN，「检查时间」行被隐藏（B11 失真，此处必须红）。
+    s.check("检查时间行可见且内容可解析", s.js(
+        "(() => { const el = document.querySelector('#update-checked-at');"
+        " return !el.hidden && el.textContent.trim() !== ''"
+        " && Number.isFinite(Date.parse(S.update.result.checked_at)); })()"))
     request_id = s.js("S.update.requestId")
     s.shot("update-current")
     cases = [
@@ -819,6 +1773,7 @@ def _(s: Session):
                 ".filter((el) => el.textContent.indexOf(needle) >= 0).length")
     before = s.js(count_js, "已复用本机登录态")
     s.actions.append({"action": "log-before", "count": before})
+    s.check("#复用日志在本轮 valid 校验后输出过一次", before >= 1, before)
 
     # roundB：新一轮先置「检查中」，后端回 skipped + 同一 owner 的既有终态
     s.set_state(check="valid", nextCheckSkipped=True, skipCheckId=owner,
@@ -1537,11 +2492,14 @@ def _(s: Session):
     s.settle()
     s.wait("document.querySelector('#pill-text').textContent.includes('已登录')", 10000)
     s.check_contains("#pill-text", "已登录")
-    s.check("旧会话不编「约剩 N 小时」", s.text("#pill-sub").strip() == "",
-            s.text("#pill-sub"))
+    sub = s.text("#pill-sub")
+    s.check("旧会话剩余时间明说未知", "未知" in sub, sub)
+    s.check("旧会话给下一步：建议重新登录", "重新登录" in sub, sub)
+    s.check("旧会话不编造剩余小时数", "约剩" not in sub and "小时" not in sub, sub)
     s.check_not_contains("#status-detail", "约剩")
-    s.check("旧会话不被催促重登", "重新登录" not in s.text("#status-detail"),
-            s.text("#status-detail"))
+    note = s.text("#status-detail")
+    s.check("详情说明登录本身有效", "登录有效" in note, note)
+    s.check("详情解释重新登录能恢复估算", "重新登录" in note, note)
     s.wait("document.querySelectorAll('#rows .row').length >= 5")
     # 时间详情里的登录剩余：未知（以学校校验为准），不拿旧 saved_at 冒充。
     # 浮层每秒重绘会把 dd 短暂换新：原子读 + 短重试，避免抓到重建瞬间。
@@ -1589,19 +2547,49 @@ def _(s: Session):
     s.shot("login-success")
 
 
-@scenario("login-four-states", "四态登录与未知小时数准确", (1120, 800), "valid")
+@scenario("login-four-states", "四态登录与未知小时数准确（含已选择×四态门禁）", (1120, 800), "valid")
 def _(s: Session):
+    def _matrix(tag: str) -> None:
+        """已选择 × 当前登录态的按钮矩阵：开始禁用、登录/刷新不被连坐、选择不丢。
+        读 DOM 的 disabled 属性本身，不用 is_disabled 的观感判定（B04 门禁）。"""
+        s.check("%s：#btn-plan 禁用" % tag,
+                s.js("document.querySelector('#btn-plan').disabled === true"),
+                s.js("document.querySelector('#btn-plan').disabled"))
+        s.check("%s：#btn-refresh 保持可用" % tag,
+                s.js("document.querySelector('#btn-refresh').disabled === false"),
+                s.js("document.querySelector('#btn-refresh').disabled"))
+        s.check("%s：#btn-login 保持可用" % tag,
+                s.js("document.querySelector('#btn-login').disabled === false"),
+                s.js("document.querySelector('#btn-login').disabled"))
+        s.check("%s：已选择不丢" % tag, s.js("S.selected.has('a-future')"),
+                s.js("Array.from(S.selected).join(',') || '（空）'"))
+
     s.settle()
     # 1) 有效：已登录 + 估算小时数
     s.wait("document.querySelector('#pill-text').textContent.includes('已登录')")
     s.check_contains("#pill-sub", "约剩")
     s.check("有效时按钮叫重新登录", s.text("#btn-login-text").strip() == "重新登录")
+    # 已选择 × 四态矩阵：真实勾选一场可报名活动，checking/unknown/none/expired
+    # 下开始一律禁用（board.js loginReady），登录/刷新保持可用，选择不丢；
+    # 回到 valid 恢复可用。
+    s.pick("a-future")
+    s.wait("!document.querySelector('#btn-plan').disabled")
+    s.check("valid+已选择：#btn-plan 可用",
+            s.js("!document.querySelector('#btn-plan').disabled"),
+            s.js("document.querySelector('#btn-plan').disabled"))
+    # checking：check 分支放慢 1200ms、list 分支先落定——检查期不得放行开始
+    s.set_state(check="slow")
+    s.click("#btn-refresh")
+    s.wait("S.listState === 'ready' && S.login.checking === true", 8000)
+    _matrix("checking")
+    s.wait("S.login.checking === false", 8000)
     # 2) 失效：明确叫重新登录
     s.set_state(check="expired")
     s.click("#btn-refresh")
     s.wait("document.querySelector('#pill-text').textContent.includes('登录已失效')", 8000)
     s.check("失效按钮叫重新登录", s.text("#btn-login-text").strip() == "重新登录")
     s.check("失效说明给动作", "重新登录" in s.text("#status-detail"), s.text("#status-detail"))
+    _matrix("expired")
     # 3) 未知：不诱导重登、不编小时数
     s.set_state(check="unknown")
     s.click("#btn-refresh")
@@ -1611,12 +2599,88 @@ def _(s: Session):
     s.check("未知说明给恢复动作", "刷新" in s.text("#status-detail")
             and "先不用重新登录" in s.text("#status-detail"), s.text("#status-detail"))
     s.check("未知小时数留空", s.text("#pill-sub").strip() == "", s.text("#pill-sub"))
+    _matrix("unknown")
     # 4) 未登录：引导首次登录
     s.set_state(check="none")
     s.click("#btn-refresh")
     s.wait("document.querySelector('#pill-text').textContent.includes('未登录')", 8000)
     s.check("未登录按钮叫登录", s.text("#btn-login-text").strip() == "登录")
+    _matrix("none")
+    # 回到有效：开始恢复可用，选择仍在
+    s.set_state(check="valid")
+    s.click("#btn-refresh")
+    s.wait("document.querySelector('#pill-text').textContent.includes('已登录')", 8000)
+    s.wait("!document.querySelector('#btn-plan').disabled")
+    s.check("回到 valid：#btn-plan 恢复可用",
+            s.js("!document.querySelector('#btn-plan').disabled"),
+            s.js("document.querySelector('#btn-plan').disabled"))
+    s.check("回到 valid：已选择不丢", s.js("S.selected.has('a-future')"),
+            s.js("Array.from(S.selected).join(',') || '（空）'"))
     s.shot("login-four-states")
+
+
+@scenario("relogin-cancel-fail-keeps-session", "重登取消/失败整份回滚登录快照", (1120, 800), "valid")
+def _(s: Session):
+    """浏览器级复刻 B02 契约：取消/超时/失败都整份回滚到尝试前，旧会话仍有效。"""
+    s.settle()
+    s.wait("document.querySelector('#pill-text').textContent.includes('已登录')")
+    s.check_contains("#pill-sub", "约剩")
+    before = s.js("""() => ({
+        pill: document.querySelector('#pill-text').textContent.trim(),
+        sub: document.querySelector('#pill-sub').textContent.trim(),
+        btn: document.querySelector('#btn-login-text').textContent.trim(),
+        expireAt: S.login.expireAt, savedAt: S.login.savedAt })""")
+
+    def _rollback(tag: str, title_needle: str) -> None:
+        s.check("%s：胶囊仍已登录" % tag,
+                s.js("document.querySelector('#pill-text').textContent.includes('已登录')"),
+                s.js("document.querySelector('#pill-text').textContent"))
+        s.check("%s：不画登录已失效" % tag,
+                s.js("!document.querySelector('#pill-text').textContent.includes('登录已失效')"),
+                s.js("document.querySelector('#pill-text').textContent"))
+        s.check("%s：约剩数值不变" % tag,
+                s.js("document.querySelector('#pill-sub').textContent.trim() === %s"
+                     % json.dumps(before["sub"])),
+                s.js("document.querySelector('#pill-sub').textContent.trim()"))
+        s.check("%s：按钮文字复原" % tag,
+                s.js("document.querySelector('#btn-login-text').textContent.trim() === %s"
+                     % json.dumps(before["btn"])),
+                s.js("document.querySelector('#btn-login-text').textContent.trim()"))
+        s.check("%s：零锚点写入" % tag,
+                s.js("S.login.expireAt === %s && S.login.savedAt === %s"
+                     % (json.dumps(before["expireAt"]), json.dumps(before["savedAt"]))),
+                [s.js("S.login.expireAt"), s.js("S.login.savedAt")])
+        s.check("%s：尝试前快照已清" % tag, s.js("S.login.preLoginSnapshot === null"),
+                s.js("S.login.preLoginSnapshot"))
+        s.check("%s：大屏回到非登录态" % tag,
+                s.js("document.querySelector('#board-tag-text').textContent") != "登录中",
+                s.js("document.querySelector('#board-tag-text').textContent"))
+        s.check("%s：结果框只报这次失败" % tag, title_needle in s.text("#result"),
+                s.text("#result")[:120])
+
+    # (a) 失败路径：worker 等满 10 分钟没检测到登录——挂起期先证明「登录中」，
+    # 不得提前报失败；终态后整份回滚
+    s.set_state(loginDone=True, loginOk=False,
+                loginReason="仍未检测到登录成功", loginDelayMs=1500)
+    s.click("#btn-login")
+    s.wait("S.login.loginPending === true && S.busy === true", 8000)
+    s.check("挂起期大屏进入登录中",
+            s.js("document.querySelector('#board-tag-text').textContent") == "登录中",
+            s.js("document.querySelector('#board-tag-text').textContent"))
+    s.check("挂起期不提前报失败", s.js("document.querySelector('#result').hidden"),
+            s.text("#result")[:120])
+    s.wait("S.login.loginPending === false", 12000)
+    _rollback("失败终态", "还没登录成功")
+    s.check("失败登录按钮恢复可用", s.js("!document.querySelector('#btn-login').disabled"))
+    s.shot("relogin-fail-rollback")
+
+    # (b) 取消路径：登录窗口被关掉——同样整份回滚，且零锚点写入
+    s.wait("!document.querySelector('#btn-login').disabled")
+    s.set_state(loginOk=False, loginReason="窗口被关掉", loginDelayMs=300)
+    s.click("#btn-login")
+    s.wait("S.login.loginPending === false", 12000)
+    _rollback("取消终态", "登录窗口被关掉了")
+    s.shot("relogin-cancel-rollback")
 
 
 @scenario("busy-pill-login-state", "忙时胶囊保持登录结论且操作禁用", (1120, 800), "valid")

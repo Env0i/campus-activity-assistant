@@ -84,18 +84,42 @@ def closed_items_error(normalized, accepted_at: float, classify_mode):
                        for item in closed]}
 
 
+# 非冲突类失败的外层文案：逐字复用前端 PLAN_ERROR_TEXT
+# （local/ui/views/selection.js）已有的人话，不在这里发明新句子。
+# 只收能到达 check_conflicts 的 kind（missing_id/duplicate_id/sign_end_passed
+# 已被 normalize_plan_items/closed_items_error 前置拦截）。
+_NON_CONFLICT_TEXT = {
+    "already_signed": "此活动已报名，请从本次计划中移除。",
+    "invalid_sign_start": "报名开放时间缺失或格式不对。",
+    "activity_time_unknown": "缺少完整的活动举办起止时间。",
+    "activity_time_invalid": "活动结束时间不晚于开始时间。",
+}
+
+
 def check_conflicts(normalized, accepted_at: float, signed_baseline: list,
                     validate_fn) -> dict:
     """已报名活动占用的举办时段也是冲突基线（act_start/act_end 比较）。
 
     validate_fn：冲突校验纯函数（app.py 注入 signup_plan.validate_plan）。
+    外层文案 kind 感知：只有真有举办时段重叠（activity_overlap，混合时
+    优先）才用冲突话术；非冲突失败用首条 error 对应的人话，不再让
+    「缺举办时间」被说成「不能同时报名」。未收录 kind / 非 dict error
+    保持旧冲突文案兜底。
     """
     checked = validate_fn(normalized, now=accepted_at,
                           signed_activities=signed_baseline)
     if checked["ok"]:
         return {"ok": True}
-    return {"ok": False, "text": "计划里有不能同时报名的活动",
-            "conflicts": checked["conflicts"], "errors": checked["errors"]}
+    errors = checked["errors"]
+    has_overlap = any(isinstance(e, dict) and e.get("kind") == "activity_overlap"
+                      for e in errors)
+    first = errors[0] if errors else None
+    text = (_NON_CONFLICT_TEXT.get(first.get("kind"), "")
+            if isinstance(first, dict) else "")
+    if has_overlap or not text:
+        text = "计划里有不能同时报名的活动"
+    return {"ok": False, "text": text,
+            "conflicts": checked["conflicts"], "errors": errors}
 
 
 def merge_list_activities(items, prev: dict, now: "float | None",
@@ -201,4 +225,5 @@ def classify_task_stop(spec, code, tail: list, canceled: bool,
         "login_invalid" if code == 3 and "登录失效" in "".join(tail) else "process_error")
     return {"status": "failed", "code": code,
             "reason": reason or "退出码 %s" % code,
-            **retry_payload(stop, spec, stop_reason=stop_reason)}
+            **retry_payload(with_attempts(stop, attempts_seen), spec,
+                            stop_reason=stop_reason)}

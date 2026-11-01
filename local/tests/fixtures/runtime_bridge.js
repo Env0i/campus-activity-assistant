@@ -22,6 +22,12 @@
     unknown: { check: "unknown", list: "fail", start: "reject" },
     empty: { check: "valid", list: "empty", start: "accept" },
     list_fail: { check: "valid", list: "fail", start: "accept" },
+    /* 没登录/登录失效 + 列表失败：空态标题必须走各自分支（tick.js listErrorCopy）；
+     * start 语义跟随同类——未登录/失效都不放行开始 */
+    list_fail_unlogged: { check: "none", list: "fail", start: "reject" },
+    /* 用户图2 的会话形状：拒绝过本版条款（横幅）+ 未登录——顶栏宽度守护用 */
+    unlogged_declined: { check: "none", list: "empty", start: "reject", termsMode: "declined" },
+    list_fail_expired: { check: "expired", list: "fail", start: "reject" },
     component: { check: "valid", list: "component", start: "reject" },
     demo: { check: "valid", list: "ok", start: "accept", demo: true },
     skipped: { check: "valid", list: "ok", start: "accept" },
@@ -29,9 +35,17 @@
     reconcile_lost: { check: "valid", list: "ok", start: "pending" },
     legacy_session: { check: "valid_no_estimate", list: "ok", start: "accept" },
     login_ok: { check: "valid", list: "ok", start: "accept", loginDone: true, loginOk: true },
+    /* 条款门（§5.1）的四种真实形状：后端缺字段 / 未同意 / 已拒绝本版 /
+     * 拒绝的是旧版（版本更新后要重新门禁）。默认场景给「已同意本版」，
+     * 否则每条场景都会被条款门禁停用，断言全部跑偏。 */
+    terms_absent: { check: "valid", list: "ok", start: "accept", termsMode: "absent" },
+    terms_unaccepted: { check: "valid", list: "ok", start: "accept", termsMode: "unaccepted" },
+    terms_declined: { check: "valid", list: "ok", start: "accept", termsMode: "declined" },
+    terms_declined_old: { check: "valid", list: "ok", start: "accept", termsMode: "declined_old" },
+    terms_mismatch: { check: "valid", list: "ok", start: "accept", termsMode: "mismatch" },
   }[scenario] || { check: "valid", list: "ok", start: "accept" };
 
-  ["check", "list", "start", "demo", "planId", "busy"].forEach((key) => {
+  ["check", "list", "start", "demo", "planId", "busy", "termsMode"].forEach((key) => {
     if (state[key] === undefined && DEFAULTS[key] !== undefined) state[key] = DEFAULTS[key];
   });
   if (state.planId === undefined) state.planId = "qa-plan";
@@ -39,6 +53,72 @@
   /* 计划接纳代次（P1）：生产 Api 每次最终接纳新计划递增；qa-plan 视为第二次
    * 接纳（代次 2），旧计划 qa-plan-old 携带代次 1。 */
   if (state.planGen === undefined) state.planGen = 2;
+
+  /* ---------------------------------------------------------- 条款门 */
+  /* bootstrap.terms 与 Api.accept_terms 的形状对照 local/app.py 与
+   * local/ui/controllers/terms.js。默认「已同意本版」：老场景原本没有 terms，
+   * 前端 markTermsUnknown 后登录/列表/开始全被停用，断言只会假失败；缺字段
+   * 是真实缺陷形状，所以由 termsMode=absent 显式制造，而不是当作默认。 */
+  const TERMS_VERSION = "2026-10-27-r3";
+  const TERMS_DECLINED_OLD = "2026-10-05-r1";
+  /* 随包 LICENSE 原文（与仓库根 LICENSE 逐字一致）：生产 Api.get_license_text
+   * 从安装目录读，QA 离线所以内嵌同文。state.licenseFail=true 注入失败。 */
+  const MIT_LICENSE_TEXT = [
+    "MIT License",
+    "",
+    "Copyright (c) 2026 Author",
+    "",
+    "Permission is hereby granted, free of charge, to any person obtaining a copy",
+    "of this software and associated documentation files (the \"Software\"), to deal",
+    "in the Software without restriction, including without limitation the rights",
+    "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell",
+    "copies of the Software, and to permit persons to whom the Software is",
+    "furnished to do so, subject to the following conditions:",
+    "",
+    "The above copyright notice and this permission notice shall be included in all",
+    "copies or substantial portions of the Software.",
+    "",
+    "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR",
+    "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,",
+    "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE",
+    "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER",
+    "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,",
+    "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE",
+    "SOFTWARE.",
+  ].join("\n");
+  if (state.termsMode === undefined) state.termsMode = "accepted";
+
+  function termsInfo() {
+    const mode = String(state.termsMode || "accepted");
+    /* 后端缺 terms 字段：前端必须 fail closed（未知态），不得当未同意放行 */
+    if (mode === "absent") return null;
+    /* 后端自报版本与内嵌全文不同：前端要在发请求前就拒绝，否则旧副本
+     * 能替新后端「同意当前版」（acceptTerms 的 documentVersion 门） */
+    if (mode === "mismatch") {
+      return { version: "2026-99-99-r9", accepted_version: "", accepted_at: "" };
+    }
+    if (mode === "accepted") {
+      return { version: TERMS_VERSION, accepted_version: TERMS_VERSION,
+               accepted_at: "2026-10-30 09:00:00" };
+    }
+    return { version: TERMS_VERSION, accepted_version: "", accepted_at: "" };
+  }
+
+  function prefsInfo() {
+    const prefs = { welcome_seen: true, tour_version: 2,
+                    retry_policy: { retry_for_s: 120, max_attempts: 0 } };
+    /* save_prefs 落在 state.savedPrefs：生产 get_prefs 把 ui.json 整份偏好
+     * 原样回放进 bootstrap.prefs，filter（q/status/time/sort/checkin/checkout
+     * 六键）也必须透传，否则「保存 → F5 → 恢复」整环在浏览器级断链。 */
+    if (state.savedPrefs && state.savedPrefs.filter) {
+      prefs.filter = state.savedPrefs.filter;
+    }
+    /* 拒绝过的版本存在 prefs 里：ingestTerms 只在它等于当前版本时恢复
+     * declined（=不重弹）；旧版号则重新门禁（版本更新后必须再同意） */
+    if (state.termsMode === "declined") prefs.terms_declined_version = TERMS_VERSION;
+    if (state.termsMode === "declined_old") prefs.terms_declined_version = TERMS_DECLINED_OLD;
+    return prefs;
+  }
 
   /* 独立北京时间（决策 012）：固定权威 epoch + 页面单调经过时长。
    * 字段形状与生产 BusinessClock.snapshot() 相同：epoch_s 只对应 tick_s，
@@ -418,8 +498,7 @@
       record("bootstrap", []);
       const info = {
         version: "1.1.1",
-        prefs: { welcome_seen: true, tour_version: 2,
-                 retry_policy: { retry_for_s: 120, max_attempts: 0 } },
+        prefs: prefsInfo(),
         login: loginInfo(),
         lifecycle: null,
         busy: !!state.busy,
@@ -427,6 +506,9 @@
         update_check: null,
         business_clock: clockSnapshot(1),
       };
+      /* absent 模式刻意不写 terms 键：那是 bootstrap 缺字段的真实形状 */
+      const terms = termsInfo();
+      if (terms) info.terms = terms;
       if (window.__QA_HELP) info.help = window.__QA_HELP;
       /* 数据准备注入点：给 F5 恢复场景提供计划快照，仍然走真实 boot() 路径 */
       if (window.__QA_PLAN) {
@@ -442,6 +524,30 @@
     stop_plan: stopPlan,
     cancel_task: (taskId) => { record("cancel_task", [taskId]); return Promise.resolve({ ok: true }); },
     save_prefs: savePrefs,
+    /* 生产 Api.accept_terms(document_version) 的回执形状：前端要求
+     * version/accepted_version/accepted_at 三项齐全且 accepted_version===version
+     * 才解锁，缺一项就只提示、不改状态——所以桥必须给出完整回执。 */
+    accept_terms: (documentVersion) => {
+      const doc = String(documentVersion || "");
+      record("accept_terms", [doc]);
+      if (doc !== TERMS_VERSION) {
+        return Promise.resolve({ ok: false, error: "terms_version_mismatch",
+                                 text: "本份条款与程序要求的版本不一致。" });
+      }
+      state.termsMode = "accepted";
+      return Promise.resolve({ ok: true, terms: termsInfo() });
+    },
+    /* 生产 Api.get_license_text 的镜像：成功回包内嵌 MIT 全文；
+     * state.licenseFail=true 时回人话失败（不抛异常，与生产失败形状一致），
+     * QA 通过 window.__QA_CALLS 断言「一次激活恰一次调用」。 */
+    get_license_text: () => {
+      record("get_license_text", []);
+      if (state.licenseFail === true) {
+        return Promise.resolve({ ok: false,
+                                 text: "没有找到随包的 LICENSE 文件（安装目录、程序目录与仓库根都没有）。请重新下载完整版本，或到仓库首页查看 MIT 许可证全文。" });
+      }
+      return Promise.resolve({ ok: true, text: MIT_LICENSE_TEXT });
+    },
     login: () => {
       record("login", []);
       if (state.loginDone === true) {
@@ -456,6 +562,33 @@
       return Promise.resolve({ ok: true, queued: true });
     },
     open_data: () => { record("open_data", []); return Promise.resolve({ ok: true }); },
+    /* 这些是生产 UI 的本机操作桥：QA 不打开文件选择框、不启动下载或关窗，
+     * 但必须返回真实调用方能消费的最小回执，否则拆分后的页面一点击就抛
+     * no_such_method，场景连到业务断言之前就失真。 */
+    download_advanced_feature: (key) => {
+      record("download_advanced_feature", [key]);
+      return Promise.resolve({ ok: true, queued: true });
+    },
+    cancel_advanced_feature_download: (key) => {
+      record("cancel_advanced_feature_download", [key]);
+      return Promise.resolve({ ok: true, text: "已取消下载。" });
+    },
+    inspect_advanced_component: (key, path) => {
+      record("inspect_advanced_component", [key, path]);
+      return Promise.resolve({ ok: false, text: "QA 场景不读取本机组件文件。" });
+    },
+    pick_advanced_component: (key) => {
+      record("pick_advanced_component", [key]);
+      return Promise.resolve({ ok: true, canceled: true, text: "已取消选择。" });
+    },
+    request_window_close: (action) => {
+      record("request_window_close", [action]);
+      return Promise.resolve({ ok: true, action: String(action || "") });
+    },
+    set_phone_access_preferences: (channel) => {
+      record("set_phone_access_preferences", [channel]);
+      return Promise.resolve({ ok: true, preferred_channel: String(channel || "") });
+    },
     /* 本机快照读取（生产 Api.clock_snapshot 同名）：UI 每 10 秒轮询、
      * visibility 恢复与 business_clock 事件后都会调它；不实现会被
      * pollClockNow 的 catch 判成「暂时无法读取时间状态」。 */
@@ -482,9 +615,12 @@
     check_update: (rid) => {
       record("check_update", [rid]);
       setTimeout(() => {
+        /* checked_at 与生产 _result（update_check.py:110）同为 ISO 串，且走桥内
+         * 权威业务时刻 clockNowS：给 epoch 秒会被前端 Date.parse 判 NaN，
+         * 「检查时间」行被隐藏（B11 验收发现的替身失真）。 */
         window.onBackend.update({ request_id: rid, state: "current",
-                                  current: "1.1.1", latest: "1.1.1", url: "",
-                                  checked_at: Math.floor(Date.now() / 1000) });
+                                  current_version: "1.1.1", latest_version: "1.1.1", url: "",
+                                  checked_at: new Date(clockNowS() * 1000).toISOString() });
       }, 120);
       return Promise.resolve({ ok: true, queued: true, request_id: rid });
     },

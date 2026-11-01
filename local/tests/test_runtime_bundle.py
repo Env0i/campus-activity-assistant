@@ -1096,6 +1096,39 @@ class RuntimeCheckTests(unittest.TestCase):
                         "关闭必须先收本实例 worker，再 finalize 生命周期")
 
 
+class WindowGeometryTests(unittest.TestCase):
+    """窗口出厂几何：目标 1280×820、最小 1024×680，小屏收敛且托底不塌缩。"""
+
+    def setUp(self):
+        self.app = _app()
+
+    def test_geometry_none_returns_defaults(self):
+        """QA/无显示环境：拿不到屏幕信息就直接用出厂几何，不抛错。"""
+        self.assertEqual(self.app._window_geometry(None), (1280, 820, 1024, 680))
+
+    def test_geometry_large_screen_keeps_target(self):
+        """大屏：宽高都充足，完整使用目标尺寸。"""
+        self.assertEqual(self.app._window_geometry((1920, 1000)),
+                         (1280, 820, 1024, 680))
+
+    def test_geometry_short_screen_height_floors_to_min(self):
+        """1366×768 档：可用高度不够放 820，高度收敛后托底到 min_h。"""
+        self.assertEqual(self.app._window_geometry((1366, 688)),
+                         (1280, 680, 1024, 680))
+
+    def test_geometry_tiny_screen_both_floored(self):
+        """1000×600 档：宽高都低于最小值，双托底（宁可略超不塌缩）。"""
+        self.assertEqual(self.app._window_geometry((1000, 600)),
+                         (1024, 680, 1024, 680))
+
+    def test_create_window_keeps_min_size(self):
+        """源码契约：create_window 必须绑定 min_size=(min_w, min_h)，防最小尺寸被删。"""
+        src = read("local/app.py")
+        main_src = src[src.index("def main("):]
+        self.assertIn("min_size=(min_w, min_h)", main_src,
+                      "create_window 必须带上最小尺寸")
+
+
 class PlanDoneCommitOrderTests(unittest.TestCase):
     """FR05：plan_done 发布之前，可观察的完成状态必须已经提交。
 

@@ -658,6 +658,10 @@ class NetworkRoundFenceTests(unittest.TestCase):
                         data = json.load(fh)
                 except FileNotFoundError:
                     continue
+                except PermissionError:
+                    # Windows 原子替换瞬间可能暂时拒绝新读句柄；这不是半份 JSON，
+                    # 下一轮重试仍必须读到完整快照，其他 OSError 仍按失败处理。
+                    continue
                 except (OSError, ValueError) as exc:
                     errors.append(repr(exc))
                     return

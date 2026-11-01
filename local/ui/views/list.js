@@ -134,7 +134,8 @@ function rowHtml(item) {
   if (armed) classes.push("is-armed");
   const leftText = leftTextOf(item);
   /* 已截止活动保留在列表里查看，但复选框禁用；已报名同理 */
-  const checkDisabled = S.busy || !isEligibleForPlan(item);
+  /* 条款未同意时与登录/刷新/开始同一道门：勾选也算学校动作的前置，不能漏拦。 */
+  const checkDisabled = S.busy || termsLocked() || !isEligibleForPlan(item);
   /* 学校常把开放时间定在 00:59:59 这种点：有秒就把秒写成小号 */
   let timeHtml = '<span class="t">--:--</span>';
   if (toTs(item.sign_start) !== null) {
@@ -251,8 +252,23 @@ function paintEmpty(rows) {
     /* 还没成功加载过一次（idle，或首屏加载中）：未知占位，
      * 不能趁这时候说「学校没有活动」，也不能先让用户去登录 */
     title.textContent = "还没有加载活动列表";
-    text.textContent = "点「刷新」加载一次；需要登录时，顶部会提示下一步。";
-    action.textContent = "刷新";
+    /* 条款没同意时「刷新」是禁用的，还写「点刷新」就是把人指进死路。 */
+    /* 副行防拆词（方案 B，各分支统一）：受保护词（书名号词与「可以」）所在的
+     * 短语整段用 nowrap 包住。只包词本身的 2 字 span 能防拆词（f541ba4），
+     * 但 kinsoku 会把「点「刷新」」整簇压到次行成标点开头孤行（f538cc9 实测），
+     * 所以 span 从短语起点包到子句尾/句尾；各 span ≤252px < max-width 330px，
+     * 不会撑破。textContent 一字不变（span 不产生文本），契约断言仍按原文比对。 */
+    text.innerHTML = termsLocked()
+      ? '同意使用条款后才会加载活动列表；<span style="white-space:nowrap">点顶部的「查看条款」可以先看内容。</span>'
+      : '<span style="white-space:nowrap">点「刷新」加载一次；</span>需要登录时，顶部会提示下一步。';
+    if (termsLocked()) {
+      /* 按钮也得换：光改文案、按钮仍指向被禁用的刷新，等于换个位置把人指进死路。 */
+      action.textContent = "查看条款";
+      action.dataset.action = "terms-open";
+    } else {
+      action.textContent = "刷新";
+      action.dataset.action = "refresh";
+    }
     return;
   }
   /* 以下都是「学校成功返回了 0 场」：按登录状态给各自下一步 */
@@ -260,31 +276,32 @@ function paintEmpty(rows) {
   if (login === "checking") {
     /* 校验还没回来：不提前说有效，也不逼用户重登 */
     title.textContent = "正在检查登录状态";
-    text.textContent = "正在核对已保存的登录，稍等一下；这段时间先不用重新登录。";
+    text.innerHTML = '正在核对已保存的登录，稍等一下；<span style="white-space:nowrap">这段时间先不用重新登录。</span>';
     action.textContent = "刷新";
     return;
   }
   if (login === "none") {
     title.textContent = "登录后查看活动";
-    text.textContent = "点右上角「登录」，在打开的浏览器中完成登录，然后点「刷新」。";
+    text.innerHTML = '<span style="white-space:nowrap">点右上角「登录」，</span>在打开的浏览器中完成登录，<span style="white-space:nowrap">然后点「刷新」。</span>';
     action.textContent = "刷新";
     return;
   }
   if (login === "expired") {
     title.textContent = "登录状态失效，先重新登录";
-    text.textContent = "点右上角「重新登录」，完成后点「刷新」。";
+    text.innerHTML = '<span style="white-space:nowrap">点右上角「重新登录」，完成后点「刷新」。</span>';
     action.textContent = "刷新";
     return;
   }
   if (login === "unknown") {
     title.textContent = "暂时无法确认登录状态";
-    text.textContent = "请检查网络后点「刷新」。";
+    text.innerHTML = '<span style="white-space:nowrap">请检查网络后点「刷新」。</span>';
     action.textContent = "刷新";
     return;
   }
   title.textContent = "学校当前没有返回活动";
-  text.textContent = "登录是有效的，学校这次没有返回可报名活动；稍后点「刷新」再看。";
-  action.textContent = "刷新";
+  text.innerHTML = '登录是有效的，学校当前没有返回可报名活动；<span style="white-space:nowrap">稍后点「刷新」再看。</span>';
+  /* 按钮叫「重新加载」与顶栏「刷新」区分；dataset.action 仍是 refresh，分派逻辑不动 */
+  action.textContent = "重新加载";
 }
 
 function paintCount(rows) {

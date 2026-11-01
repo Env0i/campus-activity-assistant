@@ -24,8 +24,8 @@ LOCAL = Path(__file__).resolve().parents[1]
 
 # 与 local/app.py 的 TERMS_VERSION 同源的测试常量：任何一处漂移都会让
 # 「已同意版本 == 当前版本」的判定失效，测试就是要盯住这一点。
-# r2：条款修订（数据目录与迁移披露）后必须重新同意，r1 的同意记录不再放行。
-TEST_TERMS = "2026-10-27-r2"
+# r3：拆分条款并新增未成年人规则后必须重新同意，r1/r2 的同意记录不再放行。
+TEST_TERMS = "2026-10-27-r3"
 
 SCHOOL_METHODS = ("check", "list_activities", "login", "grab", "start_plan")
 HELPER_METHODS = ("_terms_gate", "_remember_start", "_start_replay")
@@ -148,7 +148,7 @@ class TermsGateHelperTests(unittest.TestCase):
                               "terms_accepted_at": "2026-10-27 19:00:00"})
         self.assertIsNone(accepted._terms_gate(), "已同意当前版本必须放行")
 
-        # 旧 r1 的同意记录在 r2 下必须被拒：版本变化要求重新点击同意
+        # 旧 r1 的同意记录在 r3 下必须被拒：版本变化要求重新点击同意
         old = build_api({"terms_version": "2026-10-27-r1"})
         gate = old._terms_gate()
         self.assertIsNotNone(gate)
@@ -342,7 +342,7 @@ class AcceptTermsWriteTests(unittest.TestCase):
     def test_mismatched_inputs_write_nothing_and_gate_stays_closed(self):
         # 缺参（默认空串）、空串、旧版、未知新版、None、数字、对象、列表
         for bad in ("", "2026-10-27-r1", "2026-10-28-r3", None, 2026,
-                    ["2026-10-27-r2"], {"version": TEST_TERMS}):
+                    ["2026-10-27-r3"], {"version": TEST_TERMS}):
             api, store, writes, terms_state = build_accept_api(dict(self.OLD))
             got = api.accept_terms(bad)
             self.assertEqual(got["ok"], False, "输入 %r 必须拒绝" % (bad,))
@@ -357,7 +357,7 @@ class AcceptTermsWriteTests(unittest.TestCase):
             self.assertEqual(STARTED_TARGETS, [], "拒绝路径不得排任何线程")
 
     def test_old_html_cannot_forge_current_acceptance(self):
-        """旧 HTML（只认识 r1）向当前后端提交：重读 terms_state 不出现 r2。"""
+        """旧 HTML（只认识 r1）向当前后端提交：重读 terms_state 不出现 r3。"""
         api, store, writes, terms_state = build_accept_api(dict(self.OLD))
         got = api.accept_terms("2026-10-27-r1")   # 旧副本提交旧版
         self.assertEqual(got["ok"], False)
@@ -365,7 +365,7 @@ class AcceptTermsWriteTests(unittest.TestCase):
         self.assertEqual(writes, [], "旧副本提交不得留下任何写入")
         snapshot = terms_state(store)
         self.assertNotEqual(snapshot["accepted_version"], TEST_TERMS,
-                            "拒绝后不得出现伪造的 r2 同意")
+                            "拒绝后不得出现伪造的 r3 同意")
         self.assertEqual(snapshot["accepted_at"], "2026-10-27 10:00:00",
                          "原同意时间不得被改写")
 

@@ -226,7 +226,8 @@ campus-activity-watch/
 | [docs/LOGIN.md](docs/LOGIN.md) | token 寿命实测、守护续期、验证码 OCR 无人值守登录 |
 | [docs/GRAB.md](docs/GRAB.md) | 预报名状态机、到点自动报名时间线、结果回执 |
 | [docs/TIMING_AND_DEDUP_ANALYSIS.md](docs/TIMING_AND_DEDUP_ANALYSIS.md) | 推送时点与去重的设计推导、请求量账本 |
-| [docs/TERMS_AND_PRIVACY.md](docs/TERMS_AND_PRIVACY.md) | 使用条款与隐私告知（本机版/服务器版的数据边界） |
+| [docs/USER_AGREEMENT.md](docs/USER_AGREEMENT.md) | 用户协议（软件性质、授权范围、使用提醒、责任限制） |
+| [docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md) | 隐私政策（数据边界、存储位置、对外通信、日志与你的权利） |
 | [CHANGELOG.md](CHANGELOG.md) | 变更记录 |
 
 ## 边界与安全

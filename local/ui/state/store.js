@@ -106,6 +106,10 @@ const S = {
            saving: false, requestSeq: 0, unconfirmed: false, viewOnly: false,
            source: "", focusBack: null, closeHandled: false, tourYield: false,
            deferredIntro: null },
+  /* MIT 许可证页签的懒加载缓存：null=还没取过；{state:"loading"}=在途；
+   * {state:"ok",text}=随包 LICENSE 原文；{state:"error",text}=就地可重试的失败。
+   * 只缓存成功结果，失败留 error 态等「重新读取」，不自动轮询。 */
+  licenseText: null,
   /* 后端 bootstrap 的 lifecycle 快照：上次关闭时长/质量 + 登录估算（只提示，不参与门禁） */
   lifecycle: null,
   /* 六步引导运行态：open=遮罩在场；paused=计划运行中暂停；restoreFocus=结束后要还的焦点 */

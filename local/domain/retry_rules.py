@@ -83,6 +83,10 @@ def retry_payload(stop: dict, spec, stop_reason: str) -> dict:
     }
     if (stop or {}).get("last_reason"):
         payload["last_reason"] = stop["last_reason"]
+    if (stop or {}).get("phase"):
+        # 终态行的提交阶段原样转发（golden/full_speed/adaptive_backoff）；
+        # 缺失/未知不编造，界面按缺失处理
+        payload["phase"] = stop["phase"]
     return payload
 
 

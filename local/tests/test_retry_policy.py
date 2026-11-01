@@ -10,6 +10,7 @@ fake worker 场景不连学校站点，只验证 worker 输出 → task 事件�
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -153,6 +154,31 @@ class RetryLineParsingTests(unittest.TestCase):
         self.assertEqual(parsed["stop_reason"], "max_attempts")
         self.assertEqual(parsed["retry_deadline"], "1792900000")
         self.assertEqual(parsed["last_reason"], "code:0 报名人数已满")
+
+    def test_parse_done_line_real_shape_tail_fields_independent(self):
+        """真实形状：done 行 last_reason 在行末，尾字段各自独立成键。
+
+        发射端（grab.py）与解析端（retry_rules.py）的契约：last_reason 恒为
+        最后一个字段、可含空格；pending / streak_404 / phase 不得粘进原话。
+        发射端回退（last_reason 挪回行中）必须让本用例变红。
+        """
+        app = self._app()
+        parsed = app._parse_retry_line(
+            "[retry] kind=done attempts=3 stop_reason=max_attempts "
+            "retry_deadline=1792900000 sign_end=1792810000 "
+            "pending=2 streak_404=3 phase=full_speed "
+            "last_reason=code:0 报名人数已满")
+        self.assertEqual(parsed["last_reason"], "code:0 报名人数已满")
+        self.assertEqual(parsed["pending"], "2")
+        self.assertEqual(parsed["streak_404"], "3")
+        self.assertEqual(parsed["phase"], "full_speed")
+        # 发射端契约守护：grab.py 的 done 行格式串必须以 last_reason 收尾
+        source = (LOCAL / "grab.py").read_text(encoding="utf-8")
+        match = re.search(r'log\("\[retry\] kind=done[^"]*"(?:\s*\n\s*"[^"]*")*', source)
+        self.assertIsNotNone(match, "done 行格式串找不到：发射端形状变了，先对齐本契约")
+        format_text = "".join(re.findall(r'"([^"]*)"', match.group(0)))
+        self.assertTrue(format_text.endswith("last_reason=%s"),
+                        "done 行 last_reason 必须在行末，否则尾字段会粘进原话")
 
     def test_parse_retry_line_rejects_plain_lines(self):
         app = self._app()
@@ -360,6 +386,32 @@ class WorkerTelemetryFlowTests(unittest.TestCase):
         early = [p for p in task_events
                  if p.get("status") == "submitting" and p.get("retry_deadline") == "1792900300"]
         self.assertTrue(early, "窗口确定的进度行必须让截止尽早上屏")
+
+    def test_phase_forwarded_from_progress_and_done_lines(self):
+        """进度行 phase 实时上屏，终态行 phase 独立成键后原样进终态载荷。
+
+        done 行按 grab.py 新形状构造（last_reason 在行末）；转发链
+        plan_service 进度 → retry_payload 终态任一处丢 phase 都会让本用例红。
+        """
+        api = self._api()
+        source = (
+            "import sys, time\n"
+            "print('[retry] kind=window retry_deadline=1792900300', flush=True)\n"
+            "print('[retry] kind=submit attempts=1 request_id=r1 phase=golden', flush=True)\n"
+            "time.sleep(0.1)\n"
+            "print('[X] 没抢到：名额已满', flush=True)\n"
+            "print('[retry] kind=done attempts=1 stop_reason=retry_duration "
+            "retry_deadline=1792900300 sign_end=1792900000 "
+            "pending=0 streak_404=0 phase=full_speed last_reason=名额已满', flush=True)\n"
+            "sys.exit(2)\n"
+        )
+        events, _, _ = self._run_worker(api, source)
+        task_events = [p for kind, p in events if kind == "task"]
+        progress = [p for p in task_events if p.get("phase")]
+        self.assertEqual(progress[0]["phase"], "golden", "进度行 phase 必须实时转发")
+        final = task_events[-1]
+        self.assertEqual(final["phase"], "full_speed", "终态行 phase 必须进终态载荷")
+        self.assertEqual(final["last_reason"], "名额已满", "last_reason 不得粘尾字段")
 
     def test_plan_snapshot_carries_policy(self):
         """计划快照保留策略：页面重载后策略不丢。"""

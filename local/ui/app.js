@@ -106,7 +106,7 @@ window.onBackend = {
      * 否则会走「首次未登录」板面，把演示样例全遮住（C07） */
     setLogin(data.hours_left, !!data.ok, loginPresent(data, !!data.demo), data);
     if (data.result === "valid" && firstNotice("check", data.request_id, "valid")) {
-      addLog("[OK] 已复用本机登录状态，学校接口校验通过");
+      addLog("[OK] 已复用本机登录态，学校接口校验通过");
     }
     /* 时钟只认结构化载荷：没有结论就落 unknown，绝不从文本猜「慢几秒」（R08） */
     applyClock(data.clock);
@@ -180,6 +180,28 @@ $("#btn-help").addEventListener("click", showHelp);
  * Esc、右上角 X、暂不使用都算「暂不使用」（close 监听统一收口）；保存中 Esc
  * 被 cancel 明确拒绝；同意成功由 acceptTerms 自己走程序性关闭，不会到 decline。 */
 $("#btn-terms-full").addEventListener("click", toggleTermsFull);
+/* 方案 A：勾选是解锁「同意」的唯一前置；勾选态只活在这个弹窗实例里，
+ * 不写 prefs、不写 ui.json——取消勾选立刻把同意按钮压回禁用。 */
+$("#chk-terms-agree").addEventListener("change", applyTermsFooter);
+  $("#tab-terms-agreement").addEventListener("click", function () { switchTermsDoc("agreement"); });
+  $("#tab-terms-privacy").addEventListener("click", function () { switchTermsDoc("privacy"); });
+  /* MIT 许可证：切换即懒加载（S.licenseText 已缓存/在途时是零请求） */
+  $("#tab-terms-license").addEventListener("click", function () { switchTermsDoc("license"); ensureLicenseText(); });
+  /* 正文/勾选行/第 3 条里的《用户协议》《隐私政策》《随包 LICENSE》内联链接：
+   * 打开全文并切到对应页签。preventDefault 同时拦下 label 把点击转成勾选翻转
+   * 的默认行为——点链接不改变勾选状态，点链接外的文字照常 toggle。 */
+  $("#dlg-terms").addEventListener("click", (event) => {
+    const link = event.target.closest(".doc-link");
+    if (!link) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const doc = link.getAttribute("data-doc");
+    const full = $("#dlg-terms-full-text");
+    if (full && full.hidden) toggleTermsFull();
+    switchTermsDoc(doc);
+    if (doc === "license") ensureLicenseText();
+  });
+  $("#btn-license-retry").addEventListener("click", () => ensureLicenseText(true));
 $("#btn-terms-accept").addEventListener("click", acceptTerms);
 $("#btn-terms-decline").addEventListener("click", declineTerms);
 $("#btn-help-terms").addEventListener("click", () => openTerms("help"));
@@ -265,9 +287,13 @@ function setRetryPolicy(patch) {
   savePrefs({ retry_policy: Object.assign({}, S.retryPolicy) });
 }
 $("#retry-for").addEventListener("change", (event) => {
-  const value = Number(event.target.value);
-  if (["120", "600", "1800", "3600", "0"].indexOf(event.target.value) >= 0) {
-    setRetryPolicy({ retry_for_s: value });
+  /* 选项表以 S.retryOptions.choices 为唯一口径（store.js 的注释已写明不各自维护
+   * 第二套清单）：之前这里硬编码 ["120","600","1800","3600","0"]，漏了 -1 自动延长，
+   * 选中会被当成非法值回滚成原值。 */
+  const choices = (S.retryOptions && S.retryOptions.choices) || [];
+  const picked = choices.filter((c) => String(c.value) === event.target.value)[0];
+  if (picked) {
+    setRetryPolicy({ retry_for_s: picked.value });
   } else {
     event.target.value = String(S.retryPolicy.retry_for_s);
   }
@@ -332,7 +358,9 @@ document.addEventListener("scroll", () => { if (S.tour.open && !S.tour.paused) p
 $("#empty-action").addEventListener("click", () => {
   /* 只按 paintEmpty 写下的动作意图分派：
    * 「有缓存 + 列表失败」的空态写的是 refresh，不能被 items.length 猜成清筛选。 */
-  if ($("#empty-action").dataset.action === "clear-filters") clearFilters();
+  const intent = $("#empty-action").dataset.action;
+  if (intent === "clear-filters") clearFilters();
+  else if (intent === "terms-open") openTerms("banner", true);
   else refresh(false);
 });
 

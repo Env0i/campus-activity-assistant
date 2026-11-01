@@ -177,16 +177,25 @@ def read_version() -> str:
                      % "、".join(str(p) for p in candidates))
 
 
+def license_candidates(resource_root: Path, here: Path) -> tuple:
+    """随包 LICENSE 的唯一候选链（纯函数，供契约测试）：冻结资源根 → 脚本旁 → 仓库根。
+
+    与上面 VERSION 的三形态同构；只找 LICENSE 这一个名字，
+    绝不指向任何登录态/凭据文件。
+    """
+    return (resource_root / "LICENSE", here / "LICENSE", here.parent / "LICENSE")
+
+
 APP_VERSION = read_version()
 
-# 使用条款与隐私告知的当前版本：与 docs/TERMS_AND_PRIVACY.md 顶部的版本字段
+# 条款的当前版本：与 docs/USER_AGREEMENT.md、docs/PRIVACY_POLICY.md 顶部的版本字段
 # 是同一份（契约测试会核对两处一致）。条款内容更新时同步改这两处，
 # 界面据此判断是否需要重新弹出条款确认。
 #
 # 版本形如「日期」或「日期-rN」：本轮修订修正了许可边界、通信披露和
 # 「版本变化必须再次点击同意」的接受语义，旧版本（2026-10-27）的同意
 # 记录不能静默覆盖新内容，所以提升到 -r1 而不是沿用同一天。
-TERMS_VERSION = "2026-10-27-r2"
+TERMS_VERSION = "2026-10-27-r3"
 
 
 def terms_unknown_payload() -> dict:
@@ -2838,6 +2847,25 @@ class Api:
             return {"ok": False, "text": "没能打开浏览器（%s）" % type(exc).__name__,
                     "url": RELEASES_LATEST_URL}
 
+    def get_license_text(self) -> dict:
+        """全文弹窗「MIT 许可证」页签的随包 LICENSE 原文（UTF-8 读入，原样回传）。
+
+        生产 UI 由 pywebview 直接加载本地 index.html、没有 HTTP 服务，许可证文本
+        只能走桥。候选链见 license_candidates：冻结资源根 → 脚本旁 → 仓库根，
+        拿第一个存在的；三个位置都没有（残缺包）或读取失败时给人话，让界面
+        在页签内就地重试，而不是把异常抛给页面。只读 LICENSE，不碰任何凭据文件。
+        """
+        for path in license_candidates(RESOURCE_ROOT, HERE):
+            try:
+                if path.is_file():
+                    text = path.read_text(encoding="utf-8")
+                    return {"ok": True, "text": text, "path": str(path)}
+            except OSError:
+                continue  # 换下一个候选；三处都读不到就走统一的人话失败
+        return {"ok": False,
+                "text": "没有找到随包的 LICENSE 文件（安装目录、程序目录与仓库根都没有）。"
+                        "请重新下载完整版本，或到仓库首页查看 MIT 许可证全文。"}
+
     def save_prefs(self, prefs: dict) -> dict:
         # 与生命周期心跳共用同一把锁的原子读-合并-写（update_prefs）
         if not update_prefs(prefs or {}):
@@ -3149,6 +3177,36 @@ def _runtime_check_main(argv: list[str]) -> int:
     return 0 if result["ok"] else 1
 
 
+def _screen_size():
+    """主屏分辨率 (宽, 高)；取不到（QA/无显示环境）返回 None，不抛错。"""
+    try:
+        screen = webview.screens[0]
+        return int(screen.width), int(screen.height)
+    except Exception:
+        return None
+
+
+def _window_geometry(screen=None) -> tuple[int, int, int, int]:
+    """窗口出厂几何 (width, height, min_w, min_h)。
+
+    目标 1280×820（内容密度按 ≥1280 设计），最小 1024×680；screen 为
+    主屏分辨率时，宽度按原值、高度先扣 80px 任务栏余量再收敛到目标，
+    并托底到最小尺寸（屏过小时宁可略超也不塌缩）。screen 不可用则直接
+    返回出厂值。
+    """
+    width, height, min_w, min_h = 1280, 820, 1024, 680
+    if screen:
+        try:
+            screen_w, screen_h = int(screen[0]), int(screen[1])
+        except (TypeError, ValueError, IndexError):
+            return width, height, min_w, min_h
+        width = min(width, screen_w)
+        height = min(height, screen_h - 80)
+        width = max(width, min_w)
+        height = max(height, min_h)
+    return width, height, min_w, min_h
+
+
 def main() -> int:
     # --runtime-check 先于一切副作用分发：不建数据根、不起生命周期、不开窗口
     if "--runtime-check" in sys.argv:
@@ -3183,9 +3241,10 @@ def main() -> int:
     lifecycle = get_lifecycle(now_fn=clock.now)
     api = Api(clock=clock)
     api._start_clock_monitor()
+    width, height, min_w, min_h = _window_geometry(_screen_size())
     window = webview.create_window(
         "校园活动预报名工具", str(UI),
-        js_api=api, width=1120, height=800, min_size=(980, 700),
+        js_api=api, width=width, height=height, min_size=(min_w, min_h),
         background_color="#E9EEF6",
     )
     api._window = window

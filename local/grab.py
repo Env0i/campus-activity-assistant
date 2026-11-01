@@ -1874,11 +1874,11 @@ def cmd_grab(args):
             return 2
         done["value"] = True
         log("[retry] kind=done attempts=%d stop_reason=%s retry_deadline=%d sign_end=%d "
-            "last_reason=%s pending=%d streak_404=%d phase=%s"
+            "pending=%d streak_404=%d phase=%s last_reason=%s"
             % (state["attempts"], stop_reason, int(state["deadline"]),
-               int(sign_end_ts or 0), (state["last_reason"] or "")[:40],
+               int(sign_end_ts or 0),
                state.get("pending", 0), state.get("streak_404", 0),
-               state.get("phase", "")))
+               state.get("phase", ""), (state["last_reason"] or "")[:40]))
         attempts, last = state["attempts"], state["last_reason"]
         if stop_reason == "success":
             log("[OK] 报名成功（尝试 %d 次）" % attempts)

@@ -212,7 +212,7 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
 
         节点时间只认 worker 自己记录的 [checkpoint] 源时间：日志转发慢 2 秒，
         「页面已打开」也不会被记成晚 2 秒的接收时刻（R10）。没有结构化事件
-        就不填，让界面老实显示「待打开/待发生」。
+        就不填，让界面老实显示「待打开/待开始」。
         """
         tail.append(line)
         del tail[:-40]
@@ -258,6 +258,10 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
                     payload["attempts"] = int(parsed["attempts"])
                 except (TypeError, ValueError):
                     pass
+            if parsed.get("phase") and not parsed.get("stop_reason"):
+                # 提交阶段（golden/full_speed/adaptive_backoff）实时上屏：
+                # UI_SPEC 5.8 要求任务卡显示当前阶段，未知/缺失不转发
+                payload["phase"] = str(parsed["phase"])
             if payload:
                 status("submitting", payload)
 

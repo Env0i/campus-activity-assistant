@@ -76,6 +76,7 @@ function markClockUnavailable(reason) {
   cur.state = "unavailable";
   cur.reason = String(reason || "暂时无法获取北京时间");
   paintClockStatus();
+  if (clockPopOpenNow()) renderClockPop();   /* 浮层与顶栏同源（UI_SPEC §5.16.13） */
   updateControls();
   render();
 }
@@ -111,6 +112,7 @@ function ingestBusinessClock(snap, opts) {
   }
   if (attemptSettled) {
     paintClockStatus();
+    if (clockPopOpenNow()) renderClockPop();   /* 收口必须解浮层按钮锁死与「正在校准…」残留 */
     paintClockPopFeedback();
   }
   if (fields.gen === cur.gen && cur.anchorEpochMs
@@ -130,6 +132,7 @@ function ingestBusinessClock(snap, opts) {
     cur.lastFailureReason = fields.lastFailureReason;
     cur.syncState = "idle";
     paintClockStatus();
+    if (clockPopOpenNow()) renderClockPop();   /* 浮层状态行与顶栏同源（UI_SPEC §5.16.13） */
     updateControls();
     render();
     return;
@@ -154,6 +157,7 @@ function ingestBusinessClock(snap, opts) {
     cur.syncError = "";
   }
   paintClockStatus();
+  if (clockPopOpenNow()) renderClockPop();   /* 锚点/ready↔holdover 变化同步进已打开的浮层 */
   updateControls();   /* 时钟门禁即时生效：不可用→开始禁用，恢复→解禁 */
   render();
 }

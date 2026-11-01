@@ -1156,7 +1156,7 @@ class BurstPolicyPureTests(unittest.TestCase):
         self.assertEqual(policy.phase, policy.PHASE_FULL_SPEED)
         self.assertEqual(policy.golden_rounds, 0)
 
-    def test_404_streak_enters_adaptive_and_extends_window(self):
+    def test_404_streak_extends_window_without_adaptive_phase(self):
         # 语义更新（§4，2026-10-29 直发核心轮）：纯 404 段只扩窗、不进 ADAPTIVE。
         # 旧断言 assertEqual(phase, ADAPTIVE) 与 §4「纯 404 不切 phase、只扩窗」
         # 冲突——退避种子只发给「含 throttled 的连击段」，纯 404 段不降速。

@@ -119,7 +119,8 @@ BOT_ROLE=combined node bot/bot.js --selftest      # 打印允许/拒绝的事件
 | [docs/OPERATIONS.md](../docs/OPERATIONS.md) | 服务器布局、systemd、crontab、日志、部署更新、回滚 |
 | [docs/LOGIN.md](../docs/LOGIN.md) | token 寿命实测、守护续期、验证码 OCR 无人值守登录 |
 | [docs/GRAB.md](../docs/GRAB.md) | 预报名状态机、到点自动报名时间线 |
-| [docs/TERMS_AND_PRIVACY.md](../docs/TERMS_AND_PRIVACY.md) | 使用条款与隐私告知（服务器版的数据边界） |
+| [docs/PRIVACY_POLICY.md](../docs/PRIVACY_POLICY.md) | 隐私政策（服务器版的数据边界） |
+| [docs/USER_AGREEMENT.md](../docs/USER_AGREEMENT.md) | 用户协议（软件性质、责任限制） |
 | [docs/TIMING_AND_DEDUP_ANALYSIS.md](../docs/TIMING_AND_DEDUP_ANALYSIS.md) | 推送时点与去重推导、请求量账本 |
 
 ## 边界（部署者是唯一的凭证持有人）
@@ -138,7 +139,7 @@ BOT_ROLE=combined node bot/bot.js --selftest      # 打印允许/拒绝的事件
 - **动态发现不执行动作**：`activity_watch.py` 只读学校公开活动，永不调用报名入口，也不读写个人清单。
 - 日志不写账号、密码、验证码、token、姓名；`credentials.json` 与 `storage_state.json` 权限 600。
 - 只有部署者点了「预报名」的活动才会自动提交，不做无差别报名。
-- 向群成员提供推送服务前，请先向他们说明 [docs/TERMS_AND_PRIVACY.md](../docs/TERMS_AND_PRIVACY.md)
+- 向群成员提供推送服务前，请先向他们说明 [docs/PRIVACY_POLICY.md](../docs/PRIVACY_POLICY.md)
   的数据边界：服务器版的数据处理者是你（部署者）本人。
 
 ---

@@ -247,6 +247,12 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .filter-select select { border: 0; outline: 0; background: transparent; color: var(--ink-2); cursor: pointer; font-size: 12px; }
 .meta { margin-left: auto; color: var(--ink-3); font-size: 12px; white-space: nowrap; }
 .list { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+/* 空态可见 = 列表 0 行无溢出，stable 预留的滚动槽白占右侧 15px：绝对定位
+   包含块不含预留槽，.empty{inset:0} 只覆盖内容盒，grid 居中便整体偏左
+   滚动槽一半（用户实测空态块偏左）。此时放开槽让 .empty 真覆盖整卡，
+   水平居中回到卡片中心；行态不受影响（有行时槽保持 stable，滚动条出现
+   不跳版），空态本身 colhead+空 #rows 绝无溢出，不会出现滚动条回弹。 */
+.list:has(#empty:not([hidden])) { scrollbar-gutter: auto; }
 /* 刷新中：列表顶上一条扫光 */
 .list.is-loading::before { content: ""; position: sticky; top: 0; z-index: 5; display: block; height: 2px; margin-bottom: -2px; background: linear-gradient(90deg, transparent, var(--blue), transparent) 0 0/40% 100% no-repeat; animation: sweep 1.1s linear infinite; }
 .colhead { position: sticky; top: 0; z-index: 4; display: grid; grid-template-columns: var(--cols); column-gap: 14px; align-items: center; height: 30px; padding: 0 12px; background: var(--paper); border-bottom: 1px solid var(--line); color: var(--ink-3); font-size: 12px; }
@@ -437,7 +443,6 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .dlg-terms .terms-points li:last-child { margin-bottom: 0; }
 .dlg-terms .terms-points .t { font-size: 16px; font-weight: 700; line-height: 1.5; }
 .dlg-terms .terms-points .d { margin: 4px 0 0; max-width: 68ch; color: var(--ink-2); font-size: 14px; line-height: 1.75; }
-.dlg-terms .terms-summary .rules { margin: 16px 0 0; max-width: 68ch; border-radius: 8px; font-size: 13px; line-height: 1.7; }
 .dlg-terms .terms-offline { margin: 0 0 6px; color: var(--ink-3); font-size: 12px; line-height: 1.6; }
 .dlg-terms .terms-section { margin: 18px 0 0; }
 .dlg-terms .terms-section h3 { margin: 0 0 6px; font-size: 16px; font-weight: 700; line-height: 1.5; }
@@ -488,6 +493,83 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
   .dlg-terms .terms-head h2 { font-size: 18px; line-height: 1.35; }
   .dlg-terms .terms-toolbar { position: static; margin-bottom: 8px; }
   .dlg-terms .terms-foot { padding-top: 8px; padding-bottom: 8px; }
+}
+
+/* ---- 方案 A：条款弹窗按「文档体」重排（用户 2026-10-30 拍板） ----
+   保留站牌深色标题区作为外壳，但把法律文本当文档读：
+   ①标题去荧光黄——深色区只留中性分隔线，不再用琥珀色强调法律标题；
+   ②正文换成居中的文档列（66ch），标题/正文/列表共用同一条左边界；
+   ③要点去掉圆点列表，改成「小标题 + 段落」的定义式排版；
+   ④底栏先勾选再解锁「同意」，勾选态不进任何存储；
+   ⑤全文末尾给版本、生效日期与许可，读到底能确认同意的是哪一版。
+   本段只作用于 .dlg-terms，帮助面板与页面其余部分不受影响。 */
+.dlg-terms { width: min(760px, calc(100vw - 32px)); }
+.dlg-terms .terms-head h2 { padding-left: 12px; border-left: 1px solid rgba(236,239,234,.28); font-size: 18px; }
+/* 标题与正文列同一条左边界：头部内宽减去文档列宽后居中，窄窗时收回 0。 */
+.dlg-terms .terms-head h2 { margin-left: max(0px, calc((100% - var(--terms-col)) / 2)); }
+/* 弹窗打开时脚本把焦点放到标题上（tabindex=-1），:focus-visible 会画出琥珀色焦点框，
+   在深色标题区看起来就是一圈 LED 描边。标题不是可操作控件，键鼠用户不靠它定位，去掉焦点框。 */
+.dlg-terms .terms-head h2:focus, .dlg-terms .terms-head h2:focus-visible { outline: none; }
+.dlg-terms .terms-body { padding: 0 30px 18px; }
+.dlg-terms .terms-body > #dlg-terms-sub { margin-top: 18px; }
+/* 文档列：所有正文块同宽同左边界；比阅读区窄，行长控制在 66ch 内 */
+/* 文档列宽用 px 定死：ch 会随元素自身字号变化（12/13/14px 各算出不同宽度），
+   那样每个块会各中心一次，左边界反而更不齐。540px 约等于 14px 正文的 66ch。 */
+.dlg-terms { --terms-col: 540px; }
+.dlg-terms .terms-body > #dlg-terms-sub,
+.dlg-terms .terms-toolbar,
+.dlg-terms .terms-summary,
+.dlg-terms .terms-document,
+.dlg-terms .terms-doc-meta,
+.dlg-terms .terms-offline,
+.dlg-terms .terms-body > .help-esc { width: 100%; max-width: var(--terms-col); margin-right: auto; margin-left: auto; }
+/* 工具行是 position:sticky，底色必须不透明，否则正文会从它背后滚过去、和标题叠在一起。 */
+.dlg-terms .terms-toolbar { background: var(--paper); border-bottom: 1px solid var(--line); padding-bottom: 6px;
+  /* 不得加向上的同色投影补「吸顶上方露出的条带」：.terms-body 顶部 padding 已是 0，
+     吸顶时投影整条落在滚动夹之外本就不可见；未吸顶时它只会盖住上一块正文的末行
+     （20261031 图1：#dlg-terms-sub 末行字形下半截被裁 5.2px 的机制）。 */
+  padding-top: 12px; }
+.dlg-terms .terms-toolbar h3 { font-size: 13px; font-weight: 600; color: var(--ink-3); letter-spacing: .02em; }
+/* 要点＝定义式排版：细线分隔的小标题 + 段落，去掉圆点与缩进，左边界回到文档列 */
+.dlg-terms .terms-points { padding-left: 0; list-style: none; }
+.dlg-terms .terms-points li { margin: 0 0 12px; padding: 12px 0 0; border-top: 1px solid var(--line); }
+.dlg-terms .terms-points li:first-child { padding-top: 0; border-top: 0; }
+.dlg-terms .terms-points .t { font-size: 14px; font-weight: 700; line-height: 1.6; color: var(--ink); }
+.dlg-terms .terms-points .d { margin: 3px 0 0; max-width: none; font-size: 13px; line-height: 1.75; }
+/* 黄框提示改成中性的「停用说明」：不再用告警底色抢走正文，也不留孤字尾行 */
+.dlg-terms .terms-document { font-size: 14px; line-height: 1.8; }
+.dlg-terms .terms-document .terms-section { margin: 22px 0 0; }
+.dlg-terms .terms-document .terms-section h3 { font-size: 15px; }
+.dlg-terms .terms-document .terms-section p { max-width: none; }
+/* 文末元信息：版本/生效日期/许可，不与正文抢视线 */
+/* 全文区里的两份文档：tab 只切可见性，样式跟工具行同一套中性色 */
+.dlg-terms .terms-tabs { display: flex; gap: 4px; margin: 14px 0 10px; border-bottom: 1px solid var(--line); }
+.dlg-terms .terms-tab { padding: 6px 12px; border: 0; border-bottom: 2px solid transparent;
+  background: transparent; color: var(--ink-3); font-size: 13px; cursor: pointer; }
+.dlg-terms .terms-tab:hover { color: var(--ink-1); }
+.dlg-terms .terms-tab.is-on { color: var(--ink-1); border-bottom-color: var(--ink-1); font-weight: 600; }
+.dlg-terms .terms-doc[hidden] { display: none; }
+/* 正文/勾选行/第 3 条的内联文档链接：蓝色下划线、按钮外观归零、键盘焦点可见；
+   委托点击负责开全文并切对应页签，preventDefault 让它不翻转勾选框。 */
+.dlg-terms .doc-link { padding: 0; border: 0; background: none; color: var(--blue); font: inherit; line-height: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.dlg-terms .doc-link:hover { color: var(--blue-2); }
+.dlg-terms .doc-link:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; border-radius: 2px; }
+/* MIT 许可证全文：等宽原样显示（不重排、不折行），横向自己滚、纵向跟阅读区走 */
+.dlg-terms .license-pre { margin: 0 0 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink-2); font-family: ui-monospace, Consolas, "Courier New", monospace; font-size: 12px; line-height: 1.6; white-space: pre; overflow: auto; overflow-wrap: normal; user-select: text; }
+.dlg-terms .terms-doc-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 24px auto 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12px; line-height: 1.6; }
+.dlg-terms .terms-doc-meta[hidden] { display: none; }
+.dlg-terms .terms-doc-meta b { font-family: var(--font-num); font-weight: 600; color: var(--ink-2); }
+/* 底栏：勾选在左、动作在右；勾选控件跟着正文列宽走 */
+/* 「暂不使用」的后果放在决策点旁边，比放在要点区末尾更靠近你要点的那个按钮 */
+.dlg-terms .terms-agree-wrap { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; margin-right: auto; }
+.dlg-terms .terms-agree-note { color: var(--ink-3); font-size: 12px; line-height: 1.5; }
+.dlg-terms .terms-foot { padding: 12px 30px 14px; border-top: 1px solid var(--line); background: var(--paper-2); }
+.dlg-terms .terms-agree { display: inline-flex; align-items: center; gap: 8px; margin-right: auto; color: var(--ink-2); font-size: 13px; line-height: 1.5; cursor: pointer; user-select: none; }
+.dlg-terms .terms-agree input { width: 16px; height: 16px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+.dlg-terms .terms-agree input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+@media (max-width: 560px) {
+  .dlg-terms .terms-body, .dlg-terms .terms-foot { padding-right: 18px; padding-left: 18px; }
+  .dlg-terms .terms-agree { margin-right: 0; }
 }
 
 /* 时钟/时间详情浮层：先给当前状态，再按需展开诊断信息。 */

@@ -20,7 +20,7 @@
 要点：**群成员不登录学校系统、也不向机器人提供任何学校凭证**；服务器仍需部署者会话才能
 查询公开活动。群查询不是"匿名访问学校接口"，而是部署者会话的只读代答。私聊动作只认
 `PRIVATE_OWNER_OPEN_ID` 对应的部署者本人。数据边界与告知义务见
-[TERMS_AND_PRIVACY.md](TERMS_AND_PRIVACY.md)。
+[USER_AGREEMENT.md](USER_AGREEMENT.md) 与 [PRIVACY_POLICY.md](PRIVACY_POLICY.md)。
 
 ## 数据流
 

@@ -23,6 +23,7 @@ if str(LOCAL) not in sys.path:
 
 from application import login_service, update_service  # noqa: E402
 from domain import plan_rules  # noqa: E402
+from signup_plan import TaskSpec  # noqa: E402
 
 
 class FakeState:
@@ -123,6 +124,21 @@ class PlanRulesTests(unittest.TestCase):
         merged = plan_rules.merge_list_activities(
             [{"id": "a1", "signed": False}], prev, now=300.0, window_s=120.0)
         self.assertFalse(merged[0]["signed"])
+
+    def test_fallback_exit_without_done_line_keeps_attempts_seen(self):
+        """worker 无终态行自然退出：进度行已见的提交次数必须保留（不归零）。
+
+        与取消分支、supervised 分支同一口径：发过几次就如实记几次，
+        界面的「已提交 N 次」不得在收尾时消失。
+        """
+        spec = TaskSpec("t1", "a1", "测试活动", "2026-10-25 10:00:00",
+                        "2026-10-25 12:00:00", "2026-10-25 13:00:00")
+        result = plan_rules.classify_task_stop(
+            spec, 2, ["[i] 第 1 次提交：已发起", "[i] 第 2 次提交：已发起",
+                      "[X] 没抢到：名额已满"],
+            canceled=False, supervised_fired=False, stop={}, attempts_seen=2,
+            epoch_of=lambda text: 0.0)
+        self.assertEqual(result["attempts"], 2)
 
 
 class FakePhoneService:

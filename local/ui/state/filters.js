@@ -224,6 +224,9 @@ function uniqueErrors(errors) {
 
 function toggleSelection(id, checked) {
   if (S.busy) return;
+  /* 条款门对「选中」同样生效：大屏「选这一场」走的是同一条选择路径，
+   * 只拦列表复选框会自相矛盾。 */
+  if (termsLocked()) return;
   const item = findItem(id);
   /* 已报名和已截止都不能进选择集合（含整行点击路径，复选框已禁用） */
   if (!item || !isEligibleForPlan(item)) return;

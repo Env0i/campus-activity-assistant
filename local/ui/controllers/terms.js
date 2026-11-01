@@ -96,14 +96,16 @@ function openTerms(source, focusBack) {
   /* 任何时刻都不叠两个 open dialog：帮助入口先关帮助（关闭后按来源重开） */
   closeHelpIfOpen();
   resetTermsFullView();
+  /* 方案 A：每次打开都回到未勾选，勾选不跨弹窗复用——上一轮勾过不等于这一轮读过 */
+  resetTermsAgree();
   /* 只读查看：已同意同版只显示「关闭」——不写时间、不写 declined、不刷新 */
   S.terms.viewOnly = termsAccepted() && !S.terms.unknown;
   applyTermsFooter();
   /* 条款状态未知时给出明确说明：弹窗里的全文仍可阅读，同意会按程序当前
    * 条款版本记录；不让用户在「版本 ——」的情况下猜自己同意了什么。 */
   if (S.terms.viewOnly) {
-    termsStatus("已同意本版（" + (S.terms.acceptedAt || "同意时间未记录") +
-      "）；条款更新后会再次展示并要求重新同意。", "info");
+    /* 只读查看：好消息合并成一行（蓝链+版本+同意时间），副行版本句收起 */
+    paintTermsViewOnlyStatus(S.terms.acceptedAt || "");
   } else {
     termsStatus(S.terms.unknown
       ? "本机没读到条款状态，登录、列表和报名计划已停用。下面的完整条款仍可阅读；"
@@ -159,6 +161,12 @@ function acceptTerms() {
   /* 在途保存、超时未确认、只读查看期间禁止直接再次写同意：先验状态，
    * 零请求零写入——连续点击只会登记一次在途、发出一次请求。 */
   if (S.terms.saving || S.terms.unconfirmed || S.terms.viewOnly) return;
+  /* 方案 A 的不变量：没勾「我已阅读以上全部条款」就不写同意。
+   * 按钮禁用只是呈现，这里再拦一次，键盘/脚本触发同样走这条。 */
+  if (termsAgreeMissing()) {
+    termsStatus("请先勾选「我已阅读并同意《用户协议》与《隐私政策》」，再点同意。", "warn");
+    return;
+  }
   /* 提交的必须是用户实际读到的那份全文版本（内嵌全文的版本节点），
    * 不是后端自报的版本——否则旧 HTML 也能给新后端「同意当前版」。
    * 副本没标版本、或与已知程序版本不一致时先在本地拒绝，零请求零写入；
@@ -339,4 +347,28 @@ function declineTerms() {
   closeTermsDialog();
   paintBanners();
   updateControls();
+}
+
+/* MIT 许可证页签的懒加载：首次激活（或失败后重试）经桥读随包 LICENSE。
+ * 成功结果缓存进 S.licenseText，重复切换不再发请求；在途与 error 态的
+ * 重复触发也被挡住（重试按钮显式传 force）。失败只在页签内就地提示。 */
+function ensureLicenseText(force) {
+  const cached = S.licenseText;
+  if (!force && cached && (cached.state === "ok" || cached.state === "loading")) return;
+  S.licenseText = { state: "loading" };
+  paintLicenseDoc();
+  api("get_license_text").then((res) => {
+    if (res && res.ok && typeof res.text === "string" && res.text) {
+      S.licenseText = { state: "ok", text: res.text };
+    } else {
+      S.licenseText = { state: "error",
+                        text: (res && res.text) || "没有读到随包许可文件，请重试一次。" };
+    }
+    paintLicenseDoc();
+  }).catch(() => {
+    S.licenseText = { state: "error",
+                      text: "本机程序没有响应读取许可文件的请求；请重试一次，" +
+                            "仍失败就到仓库首页查看 MIT 许可证全文。" };
+    paintLicenseDoc();
+  });
 }

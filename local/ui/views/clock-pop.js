@@ -131,7 +131,7 @@ function renderClockPop() {
     '<button class="sync-btn" id="clock-pop-sync" type="button"' +
     ((syncing || ui === "demo") ? " disabled" : "") + '>' +
     (syncing ? "正在校准…"
-      : ((ui === "unavailable" || ui === "retrying") ? "点这里重试" : "重新校准时间")) +
+      : ((ui === "unavailable" || ui === "retrying") ? "重试校准" : "重新校准时间")) +
     '</button></div>' +
     '<p class="pop-feedback" id="clock-pop-feedback" role="status"></p>';
   Array.from(pop.querySelectorAll("details.records") || []).forEach((details, index) => {

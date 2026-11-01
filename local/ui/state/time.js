@@ -62,6 +62,19 @@ function shortTime(value) {
   return match ? match[1] + "-" + match[2] + " " + match[3] + ":" + match[4] : "";
 }
 
+/* 同意时间的展示口径：当年内「月-日 时:分」省略年份，跨年保留完整年份；
+ * 读不到可信「现在」或原文不合法时保守用原文（不编造日期）。
+ * businessNowMs 为空 = 时钟不可用，年份基准不可信，一律完整年份。 */
+function consentTimeText(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
+  if (!match) return String(value || "");
+  const bnMs = businessNowMs();
+  const thisYear = bnMs == null ? null : schoolParts(bnMs).y;
+  const full = match[1] + "-" + match[2] + "-" + match[3] + " " + match[4] + ":" + match[5];
+  return thisYear === null || Number(match[1]) !== thisYear ? full
+    : match[2] + "-" + match[3] + " " + match[4] + ":" + match[5];
+}
+
 function hm(ms) {
   const p = schoolParts(ms);
   const pad = (n) => String(n).padStart(2, "0");

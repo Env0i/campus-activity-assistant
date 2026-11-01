@@ -85,7 +85,7 @@ function paintSelected() {
     } else if (S.listState === "ready" && !S.items.length) {
       /* 学校成功返回 0 场：大屏只留一句短状态，完整原因在列表空态，不在这里复读 */
       setBoardTag("暂时没有", "off", true);
-      box.textContent = "学校这次没有返回活动";
+      box.textContent = "学校当前没有返回活动";
       boardText.textContent = "稍后点「刷新」再看。";
     } else if (S.listState === "ready" && bnowS() === null && !S.demo) {
       /* 没有可信现在：不能断言「没有可报名的场次」，也不能显示伪计数。
@@ -621,6 +621,11 @@ function telemetryDeadline(task) {
   return Number.isFinite(epoch) && epoch > 0 ? epoch : null;
 }
 
+/* worker [retry] 行的提交阶段 → 界面文案（UI_SPEC 5.8 的三段节奏同名同义）；
+ * 未知/缺失不显示，不编造。 */
+const SUBMIT_PHASE_LABELS = { golden: "黄金风暴", full_speed: "常规全速",
+                              adaptive_backoff: "404 自适应" };
+
 /* 提交中任务行的说明文字：telemetry（第 N 次/最近原因/重试到）优先，
  * 没有 telemetry 才退回固定窗口估算。taskHtml 与每秒走字共用这一份口径。
  * 次数按「已提交 N/M 次」显示；0 表示不限，必须明说，不能只写「第 N 次」。
@@ -636,6 +641,8 @@ function submittingDetail(task) {
   } else if (limited) {
     parts.push("上限 " + cap + " 次，还没发起提交");
   }
+  const phaseText = SUBMIT_PHASE_LABELS[String(task && task.phase) || ""];
+  if (phaseText) parts.push(phaseText);
   if (task.last_reason) parts.push(task.last_reason);
   const deadline = telemetryDeadline(task);
   if (deadline) {
@@ -769,7 +776,7 @@ function updateControls() {
   document.querySelectorAll(".row-check").forEach((check) => {
     const item = findItem(check.dataset.id);
     /* 与行渲染同一份判据：已报名/已截止/忙碌都禁用，已截止仍可查看 */
-    check.disabled = S.busy || !isEligibleForPlan(item);
+    check.disabled = S.busy || termsLocked() || !isEligibleForPlan(item);
   });
   paintBoardActions();
 }

@@ -185,6 +185,46 @@ class SignupPlanValidationTests(unittest.TestCase):
                          [["t-a", "t-b"], ["t-late"]])
 
 
+class CheckConflictsOuterTextTests(unittest.TestCase):
+    """check_conflicts 外层文案 kind 感知：非冲突失败不得套冲突话术。"""
+
+    def test_activity_time_unknown_uses_first_error_copy(self):
+        from local.domain.plan_rules import check_conflicts
+        checked = check_conflicts(
+            [activity("a", "2026-10-23 10:00:00", "", "")],
+            1793000000.0, [], validate_plan)
+        self.assertFalse(checked["ok"])
+        self.assertEqual([e["kind"] for e in checked["errors"]][0],
+                         "activity_time_unknown")
+        self.assertNotIn("不能同时报名", checked["text"],
+                         "缺举办时间被说成冲突会误导用户去改场次")
+        self.assertEqual(checked["text"], "缺少完整的活动举办起止时间。")
+
+    def test_real_conflict_keeps_conflict_copy(self):
+        from local.domain.plan_rules import check_conflicts
+        checked = check_conflicts([
+            activity("a", "2026-10-23 10:00:00", "2026-10-23 12:00:00", "2026-10-23 13:00:00"),
+            activity("b", "2026-10-23 11:00:00", "2026-10-23 12:30:00", "2026-10-23 14:00:00"),
+        ], 1793000000.0, [], validate_plan)
+        self.assertFalse(checked["ok"])
+        self.assertTrue(checked["conflicts"])
+        self.assertEqual(checked["text"], "计划里有不能同时报名的活动")
+
+    def test_mixed_overlap_takes_priority(self):
+        """一场缺举办时间 + 一对真冲突：外层仍用冲突文案（保持现语义）。"""
+        from local.domain.plan_rules import check_conflicts
+        checked = check_conflicts([
+            activity("a", "2026-10-23 10:00:00", "2026-10-23 12:00:00", "2026-10-23 13:00:00"),
+            activity("b", "2026-10-23 11:00:00", "2026-10-23 12:30:00", "2026-10-23 14:00:00"),
+            activity("c", "2026-10-23 10:00:00", "", ""),
+        ], 1793000000.0, [], validate_plan)
+        self.assertFalse(checked["ok"])
+        kinds = [e["kind"] for e in checked["errors"]]
+        self.assertIn("activity_time_unknown", kinds)
+        self.assertIn("activity_overlap", kinds)
+        self.assertEqual(checked["text"], "计划里有不能同时报名的活动")
+
+
 class SignupPlanCoordinatorTests(unittest.TestCase):
     def _wait(self, coordinator):
         thread = coordinator._thread
