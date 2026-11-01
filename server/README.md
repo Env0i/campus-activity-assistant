@@ -2,7 +2,7 @@
 
 常驻 Linux 的那一套：定时抓 `portal.school.example.edu` 的活动，推到飞书群和私聊，@ 机器人可查询，私聊点「预报名」到点自动报名，登录态失效时用验证码 OCR 无人值守重登。
 
-> **适用对象**：我们学校（校园）**专升本**学生。接口与页面按该校学生端写死，换学校需自行适配。
+> **适用对象**：目标学校（校园）**专升本**学生。接口与页面按目标学校学生端写死，换学校需自行适配。
 
 > 这个目录同时是 GitHub **`server` 分支**的根目录（分发快照）。只想下载部署的话，直接下
 > [Releases](https://github.com/ShenTingBai/campus-activity-watch/releases) 里的 `campus-server-*.zip`，

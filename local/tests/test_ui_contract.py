@@ -3627,7 +3627,7 @@ class AssistanceBehaviorTests(unittest.TestCase):
     _EXPECTED_COPY = {
         "title": "使用帮助",
         "subtitle": "使用说明、版本更新与本机数据",
-        "note": "适用于我们学校（校园）专升本学生使用的活动中心。"
+        "note": "适用于目标学校（校园）专升本学生使用的活动中心。"
                 "活动要求与报名结果以学校活动页为准。",
         "steps": [
             (1, "登录账号",

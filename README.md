@@ -1,6 +1,6 @@
 # 校园助手 · 校园活动推送机器人
 
-> 我们学校（专升本）学生端 `portal.school.example.edu` 的活动，自动整理后推送到飞书；可以 @ 机器人查询，可以在私聊点「预报名」到点自动报名。
+> 目标学校（专升本）学生端 `portal.school.example.edu` 的活动，自动整理后推送到飞书；可以 @ 机器人查询，可以在私聊点「预报名」到点自动报名。
 
 [![Release](https://img.shields.io/github/v/release/ShenTingBai/campus-activity-watch)](https://github.com/ShenTingBai/campus-activity-watch/releases)
 [![License](https://img.shields.io/github/license/ShenTingBai/campus-activity-watch)](LICENSE)
@@ -11,7 +11,7 @@
 
 <sub>当前界面（mock 演示数据，待用户验收）；六步引导的分步截图见 [design/current-ui/](design/current-ui/)。</sub>
 
-> **适用对象**：我们学校（校园）**专升本**学生。项目按该校学生端的接口与页面写死；换学校要改 `SCHOOL_ORIGIN` 与接口适配，不在支持范围内。
+> **适用对象**：目标学校（校园）**专升本**学生。项目按目标学校学生端的接口与页面写死；换学校要改 `SCHOOL_ORIGIN` 与接口适配，不在支持范围内。
 > **不适用范围**：不代他人报名、不多账号批量占位、不占用他人的报名名额。
 
 ## 目录
