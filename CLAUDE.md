@@ -6,7 +6,7 @@
 
 ## 共享主工作区
 
-- 当前工作区就是共享目录下的 `share/code/tjise-activity-watch`，不同协作者可能同时看到同一份文件。
+- 当前工作区就是共享目录下的 `share/code/campus-activity-assistant`，不同协作者可能同时看到同一份文件。
 - 开工前和收工后都检查 `git status --short`；发现不是自己改的文件，不要 reset、clean、回滚或覆盖。
 - Git 操作可以正常使用，包括 status、diff、branch、pull 和 commit；commit、push、force-push、历史改写、删除 refs、merge 或 reset 等有副作用操作必须先取得用户授权或由 `/plan-execute` 计划明确要求。
 - 真实站点地址只通过运行环境的 `SCHOOL_ORIGIN` 提供，不创建或复制真实 `local/config.json`、`server/config.json`。

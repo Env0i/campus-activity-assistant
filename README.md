@@ -10,7 +10,7 @@
 
 ## 协作主工作区
 
-当前唯一主工作区是共享目录下的 `share/code/tjise-activity-watch`。不同协作者打开的是同一份 Git 工作区；其他副本只作为临时备份或审查副本，不作为开发来源。
+当前唯一主工作区是共享目录下的 `share/code/campus-activity-assistant`。不同协作者打开的是同一份 Git 工作区；其他副本只作为临时备份或审查副本，不作为开发来源。
 
 - 开工前先看 `git status --short`，发现别人留下的改动不要回滚、清理或覆盖。
 - Claude 可以在共享工作区分析、修改和使用 Git；GitHub push 需要用户明确审核，历史改写和删除 refs 仍需单独授权。
