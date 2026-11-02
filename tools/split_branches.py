@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""把服务器版 / 本机版拆成两条「分发分支」。
+"""把服务器版 / 本机版拆成本地「分发快照」。
 
 main 上是两版并存（server/ 与 local/），这里生成两条根目录即成品的分支：
 
     local   —— 根目录就是本机版（舍友点 Code → Download ZIP 直接能用）
     server  —— 根目录就是服务器版（含 docs/，部署时对着它 rsync 即可）
 
-这两条分支是**只读快照**，每次发布时由脚本重建并强推，不要在上面直接改代码：
-改了下次发布就被覆盖。改代码永远在 main。
+远端 `local` / `server` 分支已经退役；本脚本只允许用 `--dry-run` 在临时目录生成快照，
+不会再创建或强推这两个远端分支。改代码永远在 main。
 
 用法：
 
-    python tools/split_branches.py            # 重建并推送
     python tools/split_branches.py --dry-run  # 只在本地建，不推送
 
 @author Author
@@ -157,6 +156,8 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="只建不推")
     ap.add_argument("--only", choices=sorted(SNAPSHOTS), help="只处理一条分支")
     args = ap.parse_args()
+    if not args.dry_run:
+        raise SystemExit("远端 local/server 分支已退役；只允许使用 --dry-run 生成本地快照")
 
     names = [args.only] if args.only else list(SNAPSHOTS)
     for name in names:
