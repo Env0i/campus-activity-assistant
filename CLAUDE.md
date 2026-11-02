@@ -6,11 +6,11 @@
 
 ## 共享主工作区
 
-- 当前工作区就是共享目录下的 `share/code/tjise-activity-watch`，宿主机 agent 与虚拟机 Claude 可能同时看到同一份文件。
+- 当前工作区就是共享目录下的 `share/code/tjise-activity-watch`，不同协作者可能同时看到同一份文件。
 - 开工前和收工后都检查 `git status --short`；发现不是自己改的文件，不要 reset、clean、回滚或覆盖。
-- Claude 不执行 GitHub push；用户审核通过后由宿主机完成 push。commit 只有在明确授权或 `/plan-execute` 计划要求时执行。
+- Git 操作可以正常使用，包括 status、diff、branch、pull 和 commit；commit、push、force-push、历史改写、删除 refs、merge 或 reset 等有副作用操作必须先取得用户授权或由 `/plan-execute` 计划明确要求。
 - 真实站点地址只通过运行环境的 `SCHOOL_ORIGIN` 提供，不创建或复制真实 `local/config.json`、`server/config.json`。
-- 每轮结束由宿主机用 `pwsh -NoProfile -File scrub-share.ps1` 运行共享桥接目录的脚本，因为 `.claude/` 内容对虚拟机可见。
+- 每轮结束用 `pwsh -NoProfile -File scrub-share.ps1` 运行共享桥接目录的脚本，因为 `.claude/` 内容对共享工作区可见。
 
 ## 开工前
 
@@ -26,7 +26,7 @@
 | `server/data/`、`local/data/` | 运行时数据（登录态、日志、状态）。目录不存在是正常的，程序自己会建 |
 | `dist/`、`reports/` | 构建产物与运行产物，不入库 |
 | `.git/config`、`.git/hooks` | 共享配置。改坏了同一台机器上的其他工作区也会受影响 |
-| `origin` 远端 | Claude 不 push；宿主机在用户审核后才 push |
+| `origin` 远端 | push 需要用户审核；未经授权不得 push 或改写远端历史 |
 
 ## 不要跑的命令
 
