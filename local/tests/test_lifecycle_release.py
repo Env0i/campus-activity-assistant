@@ -262,7 +262,7 @@ class PortableBundleTests(unittest.TestCase):
         src = read("local/make_portable.py")
         self.assertIn('"runtime_paths.py"', src,
                       "APP_FILES 必须包含 runtime_paths.py（缺了 app.py 直接 ImportError）")
-        self.assertIn('"gui-preview.png"', src, "当前预览图要随绿色版分发")
+        self.assertNotIn('"gui-preview.png"', src, "公开仓库已移除预览图，绿色版不应依赖它")
         self.assertIn('out / "VERSION"', src, "根 VERSION 必须复制到应用目录")
 
 

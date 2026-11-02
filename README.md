@@ -2,14 +2,11 @@
 
 > 目标学校（专升本）学生端 `portal.school.example.edu` 的活动，自动整理后推送到飞书；可以 @ 机器人查询，可以在私聊点「预报名」到点自动报名。
 
-[![Release](https://img.shields.io/github/v/release/Env0i/campus-activity-assistant)](https://github.com/Env0i/campus-activity-assistant/releases)
-[![License](https://img.shields.io/github/license/Env0i/campus-activity-assistant)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-20-339933?logo=nodedotjs&logoColor=white)
 
-![本机版界面](local/gui-preview.png)
-
-<sub>当前界面（mock 演示数据，待用户验收）；六步引导的分步截图见 [design/current-ui/](design/current-ui/)。</sub>
+> 当前版本见 [VERSION](VERSION)。界面说明和交互契约见 [design/current-ui/](design/current-ui/) 与 [docs/UI_SPEC.md](docs/UI_SPEC.md)；公开仓库不再附带本机截图。
 
 ## 协作主工作区
 

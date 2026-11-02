@@ -121,7 +121,7 @@
 | 完整 ZIP（Release） | 上面同样四项的等价物：EXE、`README.md`、`启动说明.txt`、`LICENSE` |
 | 绿色版（历史） | EXE + 4 个 `.bat` 启动器 + `启动不了点我.txt` + 依赖 |
 
-刻意**不打**的两样：`CHANGELOG.md`（开发记录，32 KB，用户不看）、`gui-preview.png`（README 在 GitHub 上的配图，装到本地是打不开的死文件）。构建时会打印一行「源目录里这些文件不会打包：…」，免得以为打进去了。排障说明分两份：`启动不了点我.txt` 面向 .bat 绿色版，`遇到问题先看我.txt` 面向安装版/解压版（写清了两种形态怎么区分、装在哪、数据在哪、怎么卸载）。
+刻意不打包公开仓库不再保存的界面预览图；构建时会报告未纳入发行包的文件。排障说明分两份：`启动不了点我.txt` 面向 .bat 绿色版，`遇到问题先看我.txt` 面向安装版/解压版。
 
 **安装向导是中文的**：语言文件 `local/installer/ChineseSimplified.isl` 跟着仓库走（官方 Inno 发行包不带中文），构建时复制到 `.iss` 旁边再引用，所以换台机器 clone 下来也能编出中文向导，不依赖本机有没有语言包。文件是 UTF-8 **带 BOM** 的——Inno 靠 BOM 判断 Unicode，存成无 BOM 会静默变乱码（官方 issrc 里的原文件就是无 BOM 的，照抄必踩）。文件缺失时退成英文向导，不会导致编译失败。
 
@@ -233,7 +233,7 @@ python grab.py grab --activity-id 2ae75dd103654543b1a8b97053adf4a6 ^
 
 ### 不想敲命令行？双击 `4-图形界面.bat`
 
-![界面预览](gui-preview.png)
+界面预览图未随公开仓库分发；请以 `local/ui/` 和 [docs/UI_SPEC.md](../docs/UI_SPEC.md) 为准。
 
 窗口名是**「校园活动预报名工具」**，一个窗口搞定，打开就会自动检查登录、拉一次活动列表：
 
@@ -353,7 +353,7 @@ local/
 │  ├─ views/                DOM 呈现（list/board/login/clock/clock-pop/log/selection/terms/help/update/tour）
 │  └─ app.js                唯一入口：初始化、window.onBackend 事件绑定
 ├─ gui.py                   旧版 tkinter 界面（已停用，保留作对照）
-├─ gui-preview.png          界面预览图（README 用）
+├─ ui/                      界面源码（README 不再依赖截图文件）
 ├─ requirements.txt         依赖清单：playwright + pillow + pywebview
 ├─ config.example.json      配置模板：复制成 config.json，填写目标学校 site.base（可选再填 webhook）
 ├─ 1-登录.bat               双击：手动登录一次

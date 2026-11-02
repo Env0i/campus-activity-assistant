@@ -45,7 +45,7 @@ APP_FILES = [
     "business_clock.py", "time_contract.py", "update_check.py",
     "install.bat", "_py.bat",
     "1-登录.bat", "2-抢活动.bat", "3-检查登录和活动.bat", "4-图形界面.bat",
-    "requirements.txt", "config.example.json", "README.md", "gui-preview.png",
+    "requirements.txt", "config.example.json", "README.md",
     "启动不了点我.txt",
 ]
 

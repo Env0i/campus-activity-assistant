@@ -7,15 +7,8 @@
 
 ## 截图索引
 
-| 文件 | 内容 |
-|---|---|
-| [help-center.png](help-center.png) | 统一帮助：三步说明、重播、当前版本、手动更新与本机数据；尚未发起检查 |
-| [guide-login.png](guide-login.png) | 六步引导第 1 步「登录状态」：高亮登录区 |
-| [guide-retry.png](guide-retry.png) | 第 5 步「重试与开始」：高亮策略与计划操作区 |
-| [guide-progress.png](guide-progress.png) | 第 6 步「运行与结果」：高亮大屏 |
-| [local/gui-preview.png](../../local/gui-preview.png) | 主界面：勾选一场未来活动，开始操作与真实模式标签可见；根和本机 README 共用 |
-
-![统一帮助](help-center.png)
+公开仓库已移除截图和二维码等二进制证据，避免把界面中的环境信息带入共享工作区。
+原截图对应的交互内容仍以 `local/ui/` 和 `docs/UI_SPEC.md` 为准：包括统一帮助、六步引导、重试与开始、运行与结果等场景。
 
 ## 生成方式与来源
 

@@ -2,7 +2,7 @@
 
 > 现行规则见 [决策 011](../decisions/011-unified-help-and-manual-update.md) 与
 > [UI_SPEC §5.15](../../docs/UI_SPEC.md)。本页取代旧「说明 + 更多」分入口方案；
-> [旧概念图](../proposals/assets/more-panel-concept-20261025.png) 只保留为演进资料。
+> 旧概念图未随公开仓库保留；演进结论以本页和对应决策文档为准。
 
 ## 1. 一个入口完成辅助任务
 
