@@ -3,7 +3,7 @@
 > 这个文件同时是 GitHub **`local` 分支**的首页。三条分支的分工：
 > `main` 源码总仓（两版并存）、`local` 本机版快照（就这一份，根目录双击即用）、`server` 服务器版快照。
 >
-> 不想装 Python：到 [Releases](https://github.com/ShenTingBai/campus-activity-watch/releases) 下载
+> 不想装 Python：到 [Releases](https://github.com/Env0i/tjise-activity-watch/releases) 下载
 > **当前 Release 实际提供**的资产——**完整 ZIP** `campus-activity-watch-vX.Y.Z-win-x64.zip`
 > （约 60 MB，解压双击主 EXE 就能用，内置依赖，使用电脑上的 Chrome 或 Edge）
 > 或 **独立 EXE** `campus-activity-watch-vX.Y.Z-win-x64.exe`（单文件，拷到空目录双击即用）。
@@ -12,7 +12,7 @@
 > 安装器与独立 EXE、完整 ZIP 一起发布；从发布页下载即可使用，无需自行构建。
 > `campus-grab-portable-*.zip` 绿色版是 **v1.0.2 及以前的历史形态**，已停止新增发布，新用户别下。
 
-只用自己电脑，不需要服务器。服务器版（定时推送、飞书机器人、无人值守重登）在仓库的 `server/` 目录，也可以直接看分支 [`server`](https://github.com/ShenTingBai/campus-activity-watch/tree/server)。
+只用自己电脑，不需要服务器。服务器版（定时推送、飞书机器人、无人值守重登）在仓库的 `server/` 目录，也可以直接看分支 [`server`](https://github.com/Env0i/tjise-activity-watch/tree/server)。
 
 一个**不需要服务器**的小工具：在你自己的 Windows 电脑上登录一次，之后把多场活动加入计划，脚本会在各自开放时刻自动点「立即报名 → 确定」。
 

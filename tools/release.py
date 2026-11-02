@@ -828,7 +828,7 @@ def do_publish(tag: str, assume_yes: bool, version: str, clobber: bool = False) 
     publish(tag, [assets["zip"], assets["exe"], assets["installer"],
                   assets["component"], assets["manifest"]], clobber)
 
-    print("\n完成：https://github.com/ShenTingBai/campus-activity-watch/releases/tag/%s" % tag)
+    print("\n完成：https://github.com/Env0i/tjise-activity-watch/releases/tag/%s" % tag)
     print("[提示] 绿色版/服务器版打包与 local/server 分发分支同步属兼容发行流程，需另行授权执行。")
 
 

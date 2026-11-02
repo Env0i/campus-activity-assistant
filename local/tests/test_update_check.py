@@ -21,7 +21,7 @@ import app as local_app
 from fixtures.business_clock import TestWallClock  # noqa: E402
 
 INSTALLER = "campus-activity-watch-installer-v1.1.1-win-x64.exe"
-DOWNLOAD = "https://github.com/ShenTingBai/campus-activity-watch/releases/download/v1.1.1/"
+DOWNLOAD = "https://github.com/Env0i/tjise-activity-watch/releases/download/v1.1.1/"
 
 
 def release(tag="v1.1.0", **extra):
@@ -93,10 +93,10 @@ class InstallerAssetTests(unittest.TestCase):
         good = DOWNLOAD + INSTALLER
         self.assertTrue(updates.is_release_asset_url(good, INSTALLER))
         self.assertTrue(updates.is_release_asset_url(good + "?download=1", INSTALLER))
-        for bad in ("http://github.com/ShenTingBai/campus-activity-watch/releases/download/v1.1.1/" + INSTALLER,
+        for bad in ("http://github.com/Env0i/tjise-activity-watch/releases/download/v1.1.1/" + INSTALLER,
                     "https://evil.example/releases/download/v1.1.1/" + INSTALLER,
                     "https://github.com/other/repo/releases/download/v1.1.1/" + INSTALLER,
-                    "https://github.com/ShenTingBai/campus-activity-watch/archive/refs/tags/v1.1.1.zip",
+                    "https://github.com/Env0i/tjise-activity-watch/archive/refs/tags/v1.1.1.zip",
                     good.replace(INSTALLER, "other.exe"),
                     "", None, 7):
             with self.subTest(url=bad):

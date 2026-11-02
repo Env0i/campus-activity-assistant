@@ -5,7 +5,7 @@
 > **适用对象**：目标学校（校园）**专升本**学生。接口与页面按目标学校学生端写死，换学校需自行适配。
 
 > 这个目录同时是 GitHub **`server` 分支**的根目录（分发快照）。只想下载部署的话，直接下
-> [Releases](https://github.com/ShenTingBai/campus-activity-watch/releases) 里的 `campus-server-*.zip`，
+> [Releases](https://github.com/Env0i/tjise-activity-watch/releases) 里的 `campus-server-*.zip`，
 > 或 `git clone -b server`。改代码请回 `main` 分支。
 
 ## 它做什么
@@ -144,4 +144,4 @@ BOT_ROLE=combined node bot/bot.js --selftest      # 打印允许/拒绝的事件
 
 ---
 
-想在自己电脑上报一两场、不想维护服务器：用仓库的 [`local` 分支](https://github.com/ShenTingBai/campus-activity-watch/tree/local)（本机版）。
+想在自己电脑上报一两场、不想维护服务器：用仓库的 [`local` 分支](https://github.com/Env0i/tjise-activity-watch/tree/local)（本机版）。

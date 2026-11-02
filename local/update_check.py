@@ -12,9 +12,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-LATEST_API = "https://api.github.com/repos/ShenTingBai/campus-activity-watch/releases/latest"
-LATEST_URL = "https://github.com/ShenTingBai/campus-activity-watch/releases/latest"
-REPO_DOWNLOAD_PREFIX = "/ShenTingBai/campus-activity-watch/releases/download/"
+LATEST_API = "https://api.github.com/repos/Env0i/tjise-activity-watch/releases/latest"
+LATEST_URL = "https://github.com/Env0i/tjise-activity-watch/releases/latest"
+REPO_DOWNLOAD_PREFIX = "/Env0i/tjise-activity-watch/releases/download/"
 TIMEOUT_S = 8
 MAX_BYTES = 256 * 1024
 MAX_MANIFEST_BYTES = 64 * 1024

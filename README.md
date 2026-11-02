@@ -2,14 +2,24 @@
 
 > 目标学校（专升本）学生端 `portal.school.example.edu` 的活动，自动整理后推送到飞书；可以 @ 机器人查询，可以在私聊点「预报名」到点自动报名。
 
-[![Release](https://img.shields.io/github/v/release/ShenTingBai/campus-activity-watch)](https://github.com/ShenTingBai/campus-activity-watch/releases)
-[![License](https://img.shields.io/github/license/ShenTingBai/campus-activity-watch)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Env0i/tjise-activity-watch)](https://github.com/Env0i/tjise-activity-watch/releases)
+[![License](https://img.shields.io/github/license/Env0i/tjise-activity-watch)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-20-339933?logo=nodedotjs&logoColor=white)
 
 ![本机版界面](local/gui-preview.png)
 
 <sub>当前界面（mock 演示数据，待用户验收）；六步引导的分步截图见 [design/current-ui/](design/current-ui/)。</sub>
+
+## 协作主工作区
+
+当前唯一主工作区是共享目录下的 `share/code/tjise-activity-watch`。宿主机 agent 与虚拟机 Claude 打开的是同一份 Git 工作区；其他副本只作为临时备份或审查副本，不作为开发来源。
+
+- 开工前先看 `git status --short`，发现别人留下的改动不要回滚、清理或覆盖。
+- Claude 可以在共享工作区分析和修改代码；GitHub push 只由宿主机在用户审核后执行。
+- 真实站点地址只从运行环境的 `SCHOOL_ORIGIN` 读取，不把真实值写入 `local/config.json`、`server/config.json` 或仓库文件。
+- 每轮收工后由宿主机用 `pwsh -NoProfile -File scrub-share.ps1` 运行共享桥接目录里的脚本，净化 `.claude/` 下会被虚拟机看到的计划、结果和日志。
+- `local/data/`、`server/data/`、`dist/`、真实配置和认证材料不放进共享工作区。
 
 > **适用对象**：目标学校（校园）**专升本**学生。项目按目标学校学生端的接口与页面写死；换学校要改 `SCHOOL_ORIGIN` 与接口适配，不在支持范围内。
 > **不适用范围**：不代他人报名、不多账号批量占位、不占用他人的报名名额。
@@ -50,7 +60,7 @@
 
 ## 快速开始 · 本机版（5 分钟）
 
-**不想装 Python**：到 [Releases](https://github.com/ShenTingBai/campus-activity-watch/releases) 下载**当前 Release 实际提供**的本机版资产（以发布页附件为准）：
+**不想装 Python**：到 [Releases](https://github.com/Env0i/tjise-activity-watch/releases) 下载**当前 Release 实际提供**的本机版资产（以发布页附件为准）：
 
 - `campus-activity-watch-vX.Y.Z-win-x64.zip`（**完整 ZIP，免安装**）：独立 EXE、README 和启动说明都在里面，解压双击主 EXE 即用；
 - `campus-activity-watch-vX.Y.Z-win-x64.exe`：**独立可用单文件**——程序组件（grab-worker）已内置，拷到任何空目录双击即可。
@@ -69,13 +79,13 @@
 > 独立 EXE 与四成员 ZIP 形态自 v1.1.0 起生效并**已于 2026-10-26 发布**；当前工作区版本
 > 当前正式版本为 1.1.1；真实学校窗口仍属于使用者自己的验收范围，软件不对学校平台结果作保证。
 
-右上角 **「帮助」** 集中三步使用说明、重看六步引导、当前版本和本机数据目录。点「检查更新」才会查询 GitHub 最新正式版并比较版本；失败会显示原因与重试入口，当前候选比正式版新时明确提示「当前为预览版本」。检查结果附检查时间，不自动下载或安装；「查看发布页」用系统浏览器打开 [最新发布](https://github.com/ShenTingBai/campus-activity-watch/releases/latest)。当前版本以 [VERSION](VERSION) 为准。
+右上角 **「帮助」** 集中三步使用说明、重看六步引导、当前版本和本机数据目录。点「检查更新」才会查询 GitHub 最新正式版并比较版本；失败会显示原因与重试入口，当前候选比正式版新时明确提示「当前为预览版本」。检查结果附检查时间，不自动下载或安装；「查看发布页」用系统浏览器打开 [最新发布](https://github.com/Env0i/tjise-activity-watch/releases/latest)。当前版本以 [VERSION](VERSION) 为准。
 
 **装了 Python**：
 
 ```bash
-git clone -b local https://github.com/ShenTingBai/campus-activity-watch.git
-cd campus-activity-watch
+git clone -b local https://github.com/Env0i/tjise-activity-watch.git
+cd tjise-activity-watch
 ```
 
 1. 双击 `install.bat`：安装 Playwright、Pillow、pywebview，并准备浏览器（只第一次）
@@ -106,7 +116,7 @@ cd /tmp && curl -fsSLO https://npmmirror.com/mirrors/node/v20.20.2/node-v20.20.2
 mkdir -p /root/campus-activity-watch /root/campus-bot /root/campus-login
 
 # 3) 代码
-git clone -b server https://github.com/ShenTingBai/campus-activity-watch.git /root/campus-activity-watch
+git clone -b server https://github.com/Env0i/tjise-activity-watch.git /root/campus-activity-watch
 ```
 
 4. **建飞书机器人** → 跟着 [docs/FEISHU_BOT.md](docs/FEISHU_BOT.md) 走（两条路线：只推送 / 全功能）
