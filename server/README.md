@@ -4,9 +4,9 @@
 
 > **适用对象**：目标学校（校园）**专升本**学生。接口与页面按目标学校学生端写死，换学校需自行适配。
 
-> 这个目录同时是 GitHub **`server` 分支**的根目录（分发快照）。只想下载部署的话，直接下
-> [Releases](https://github.com/Env0i/tjise-activity-watch/releases) 里的 `campus-server-*.zip`，
-> 或 `git clone -b server`。改代码请回 `main` 分支。
+> 服务器版代码位于 GitHub **`main` 分支的 `server/` 子目录**。只想下载部署的话，直接下
+> [Releases](https://github.com/Env0i/campus-activity-assistant/releases) 里的 `campus-server-*.zip`；
+> 远端 `server` 分支已经删除，改代码统一回 `main`。
 
 ## 它做什么
 
@@ -89,16 +89,16 @@ mkdir -p /root/campus-activity-watch /root/campus-bot /root/campus-login
 ## 常用命令
 
 ```bash
-python3 scripts/run.py --dry                 # 看这一轮会推什么，不发
-python3 scripts/run.py --force               # 忽略「今天已推过」，真推一次
-python3 scripts/query.py pending             # 命令行查待开放活动
-python3 scripts/activity_watch.py --dry-run  # 看动态监测这一轮会发什么，不发送不写状态
-python3 scripts/watchlist.py list            # 看预报名清单
-python3 scripts/selfcheck.py                 # 运行时自检
-python3 tests/test_endpoints.py              # 站点地址测试（离线）
-python3 -m unittest tests.test_activity_watch -v   # 动态发现边界测试（离线）
-node bot/test_bot_runtime.js                 # 机器人 combined 双入口测试（离线）
-BOT_ROLE=combined node bot/bot.js --selftest      # 打印允许/拒绝的事件类型
+python3 server/scripts/run.py --dry                 # 看这一轮会推什么，不发
+python3 server/scripts/run.py --force               # 忽略「今天已推过」，真推一次
+python3 server/scripts/query.py pending             # 命令行查待开放活动
+python3 server/scripts/activity_watch.py --dry-run  # 看动态监测这一轮会发什么，不发送不写状态
+python3 server/scripts/watchlist.py list            # 看预报名清单
+python3 server/scripts/selfcheck.py                 # 运行时自检
+python3 server/tests/test_endpoints.py              # 站点地址测试（离线）
+python3 -m unittest server.tests.test_activity_watch -v   # 动态发现边界测试（离线）
+node server/bot/test_bot_runtime.js                 # 机器人 combined 双入口测试（离线）
+BOT_ROLE=combined node server/bot/bot.js --selftest      # 打印允许/拒绝的事件类型
 ```
 
 ## 配置
@@ -144,4 +144,4 @@ BOT_ROLE=combined node bot/bot.js --selftest      # 打印允许/拒绝的事件
 
 ---
 
-想在自己电脑上报一两场、不想维护服务器：用仓库的 [`local` 分支](https://github.com/Env0i/tjise-activity-watch/tree/local)（本机版）。
+想在自己电脑上报一两场、不想维护服务器：使用 main 中的 [`local/`](https://github.com/Env0i/campus-activity-assistant/tree/main/local) 目录（本机版）。

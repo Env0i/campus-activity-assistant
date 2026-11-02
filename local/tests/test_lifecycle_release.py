@@ -239,7 +239,7 @@ class LatestLinkTests(unittest.TestCase):
     """GitHub latest 固定外链：用户点击触发，启动不自动联网。"""
 
     def test_constant_url_consistent_everywhere(self):
-        url = "https://github.com/Env0i/tjise-activity-watch/releases/latest"
+        url = "https://github.com/Env0i/campus-activity-assistant/releases/latest"
         app_src = read("local/app.py")
         self.assertIn('RELEASES_LATEST_URL = "%s"' % url, app_src,
                       "app.py 的外链必须是固定常量")

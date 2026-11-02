@@ -80,5 +80,5 @@
 ## 8. 变更与联系方式
 
 - 本政策随条款一起变更：变更后在程序内与代码仓库中公示，并显示新的版本号；**版本变化后需要你再次点击同意**；
-- GitHub Issues：`https://github.com/Env0i/tjise-activity-watch/issues`
+- GitHub Issues：`https://github.com/Env0i/campus-activity-assistant/issues`
 - 电子邮件：`maintainer@example.invalid`

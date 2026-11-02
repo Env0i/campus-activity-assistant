@@ -102,7 +102,7 @@ PREFS = UI_STATE_FILE
 TOKEN_LIFETIME_H = 17.5
 # GitHub 最新版本页：用户点「GitHub 最新版本」时由系统默认浏览器打开，
 # 启动时不自动联网检查，也不在 WebView 里跳转
-RELEASES_LATEST_URL = "https://github.com/Env0i/tjise-activity-watch/releases/latest"
+RELEASES_LATEST_URL = "https://github.com/Env0i/campus-activity-assistant/releases/latest"
 CREDENTIAL_FILE = DATA_DIR / "relogin-credentials.dpapi.json"
 _CREDENTIAL_STORE_OK = None
 # 电脑自己识别验证码连续失败这么多次，才把图交给手机上的人来打。

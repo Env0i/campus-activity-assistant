@@ -2,8 +2,8 @@
 
 > 目标学校（专升本）学生端 `portal.school.example.edu` 的活动，自动整理后推送到飞书；可以 @ 机器人查询，可以在私聊点「预报名」到点自动报名。
 
-[![Release](https://img.shields.io/github/v/release/Env0i/tjise-activity-watch)](https://github.com/Env0i/tjise-activity-watch/releases)
-[![License](https://img.shields.io/github/license/Env0i/tjise-activity-watch)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Env0i/campus-activity-assistant)](https://github.com/Env0i/campus-activity-assistant/releases)
+[![License](https://img.shields.io/github/license/Env0i/campus-activity-assistant)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-20-339933?logo=nodedotjs&logoColor=white)
 
@@ -60,7 +60,7 @@
 
 ## 快速开始 · 本机版（5 分钟）
 
-**不想装 Python**：到 [Releases](https://github.com/Env0i/tjise-activity-watch/releases) 下载**当前 Release 实际提供**的本机版资产（以发布页附件为准）：
+**不想装 Python**：到 [Releases](https://github.com/Env0i/campus-activity-assistant/releases) 下载**当前 Release 实际提供**的本机版资产（以发布页附件为准）：
 
 - `campus-activity-watch-vX.Y.Z-win-x64.zip`（**完整 ZIP，免安装**）：独立 EXE、README 和启动说明都在里面，解压双击主 EXE 即用；
 - `campus-activity-watch-vX.Y.Z-win-x64.exe`：**独立可用单文件**——程序组件（grab-worker）已内置，拷到任何空目录双击即可。
@@ -79,13 +79,13 @@
 > 独立 EXE 与四成员 ZIP 形态自 v1.1.0 起生效并**已于 2026-10-26 发布**；当前工作区版本
 > 当前正式版本为 1.1.1；真实学校窗口仍属于使用者自己的验收范围，软件不对学校平台结果作保证。
 
-右上角 **「帮助」** 集中三步使用说明、重看六步引导、当前版本和本机数据目录。点「检查更新」才会查询 GitHub 最新正式版并比较版本；失败会显示原因与重试入口，当前候选比正式版新时明确提示「当前为预览版本」。检查结果附检查时间，不自动下载或安装；「查看发布页」用系统浏览器打开 [最新发布](https://github.com/Env0i/tjise-activity-watch/releases/latest)。当前版本以 [VERSION](VERSION) 为准。
+右上角 **「帮助」** 集中三步使用说明、重看六步引导、当前版本和本机数据目录。点「检查更新」才会查询 GitHub 最新正式版并比较版本；失败会显示原因与重试入口，当前候选比正式版新时明确提示「当前为预览版本」。检查结果附检查时间，不自动下载或安装；「查看发布页」用系统浏览器打开 [最新发布](https://github.com/Env0i/campus-activity-assistant/releases/latest)。当前版本以 [VERSION](VERSION) 为准。
 
 **装了 Python**：
 
 ```bash
-git clone -b local https://github.com/Env0i/tjise-activity-watch.git
-cd tjise-activity-watch
+git clone https://github.com/Env0i/campus-activity-assistant.git
+cd campus-activity-assistant
 ```
 
 1. 双击 `install.bat`：安装 Playwright、Pillow、pywebview，并准备浏览器（只第一次）
@@ -115,8 +115,8 @@ cd /tmp && curl -fsSLO https://npmmirror.com/mirrors/node/v20.20.2/node-v20.20.2
 # 2) 目录
 mkdir -p /root/campus-activity-watch /root/campus-bot /root/campus-login
 
-# 3) 代码
-git clone -b server https://github.com/Env0i/tjise-activity-watch.git /root/campus-activity-watch
+# 3) 代码（main 中的 server/ 子目录）
+git clone https://github.com/Env0i/campus-activity-assistant.git /root/campus-activity-watch
 ```
 
 4. **建飞书机器人** → 跟着 [docs/FEISHU_BOT.md](docs/FEISHU_BOT.md) 走（两条路线：只推送 / 全功能）
@@ -126,9 +126,9 @@ git clone -b server https://github.com/Env0i/tjise-activity-watch.git /root/camp
 
 ```bash
 cd /root/campus-activity-watch
-python3 scripts/selfcheck.py          # 凭据/锁/卡片自检
-python3 scripts/run.py --dry          # 看这一轮会推什么（不发）
-python3 scripts/run.py --force        # 真推一次
+python3 server/scripts/selfcheck.py          # 凭据/锁/卡片自检
+python3 server/scripts/run.py --dry          # 看这一轮会推什么（不发）
+python3 server/scripts/run.py --force        # 真推一次
 ```
 
 群里收到卡片就说明通了。之后每天四个时点自动推送，登录态自己续。
@@ -219,11 +219,9 @@ campus-activity-watch/
 |---|---|---|---|
 | `main` | 唯一开发、评审和发布真源 | ✅ 可以 | 所有代码、docs、design 改动先进入这里 |
 | `design` | 短期设计工作分支 | ⚠️ 只在设计评审期间使用 | 设计确认后合并回 `main` 并删除 |
-| `local` | 本机版根目录分发快照 | ❌ 不要直接改 | `tools/split_branches.py` 从 `main` 自动生成并强制刷新 |
-| `server` | 服务器版根目录部署快照 | ❌ 不要直接改 | `tools/split_branches.py` 从 `main` 自动生成并强制刷新 |
+| `local` / `server` | 远端分支已删除；代码保留在 `main` 的对应子目录 | 不作为开发分支 | Release 资产从 `main` 生成，目录内代码回 main 修改 |
 
-`local` / `server` 可能落后于 `main`，它们只在 Release 流程中刷新；下载前看 GitHub Release 的版本和日期。
-开发时始终切到 `main`（或从 `main` 开出的短期 feature 分支），不要在分发快照上提 PR。发布脚本会拒绝从非 `main` 或有未提交改动的工作区生成快照。
+开发时始终使用 `main`（或从 `main` 开出的短期 feature 分支），不要再 clone 已删除的 `local` / `server` 分支。发布脚本从 `main` 生成分发资产，并拒绝从有未提交改动的工作区生成快照。
 
 ## 文档
 

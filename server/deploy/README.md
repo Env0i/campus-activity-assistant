@@ -21,7 +21,7 @@
 
 ## 地址、权限与交付证据
 
-- **学校地址不再写死**：`auto_login.py` 从 `/root/campus-activity-watch/scripts/common.py` 读取
+- **学校地址不再写死**：`auto_login.py` 从 `/root/campus-activity-watch/server/scripts/common.py` 读取
   `SCHOOL_ORIGIN` / `API_BASE` / `REFERER`，登录页、验证码接口、活动接口与 `Origin` 头都由它派生。
   部署时必须同时铺 `server/scripts/`（`common.py` 缺失会直接报错退出，不会回退旧域名）。
   换学校只改 `SCHOOL_ORIGIN` 环境变量或 common 默认值。

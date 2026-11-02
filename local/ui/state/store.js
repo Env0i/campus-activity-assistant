@@ -24,7 +24,7 @@ const WEEK = ["周日", "周一", "周二", "周三", "周四", "周五", "周�
  * 2：六步顺序与高亮目标都没变，只纠正「选中即执行」的误导并补清次数口径。 */
 const TOUR_VERSION = 2;
 /* GitHub 最新版本页：只有用户点按钮时才由后端用系统浏览器打开，启动时不联网检查 */
-const RELEASES_LATEST_URL = "https://github.com/Env0i/tjise-activity-watch/releases/latest";
+const RELEASES_LATEST_URL = "https://github.com/Env0i/campus-activity-assistant/releases/latest";
 /* 六步主线：登录状态 → 活动与模式 → 筛选 → 选择与冲突 → 重试与开始 → 运行与结果。
  * target 对应 index.html 的 data-tour-target；目标隐藏/窄窗时退回底部静态说明，
  * 引导本身从不代替用户点登录、选活动或开始报名。 */

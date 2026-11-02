@@ -89,7 +89,7 @@
 
 ## 10. 联系方式
 
-- GitHub Issues：`https://github.com/Env0i/tjise-activity-watch/issues`
+- GitHub Issues：`https://github.com/Env0i/campus-activity-assistant/issues`
 - 电子邮件：`maintainer@example.invalid`
 
 反馈问题时请附脱敏截图与文字描述（含版本号）；**不要**发送登录文件或未脱敏的运行日志。

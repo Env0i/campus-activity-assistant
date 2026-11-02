@@ -16,7 +16,7 @@ if str(LOCAL) not in sys.path:
 import updater  # noqa: E402
 
 NAME = "campus-activity-watch-installer-v1.1.1-win-x64.exe"
-URL = "https://github.com/Env0i/tjise-activity-watch/releases/download/v1.1.1/" + NAME
+URL = "https://github.com/Env0i/campus-activity-assistant/releases/download/v1.1.1/" + NAME
 BODY = b"installer-bytes-0123456789"
 DIGEST = sha256(BODY).hexdigest()
 TEMP_BASE = Path("<tmp>")
