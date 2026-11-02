@@ -89,16 +89,16 @@ mkdir -p /root/campus-activity-watch /root/campus-bot /root/campus-login
 ## 常用命令
 
 ```bash
-python3 scripts/run.py --dry                 # 看这一轮会推什么，不发
-python3 scripts/run.py --force               # 忽略「今天已推过」，真推一次
-python3 scripts/query.py pending             # 命令行查待开放活动
-python3 scripts/activity_watch.py --dry-run  # 看动态监测这一轮会发什么，不发送不写状态
-python3 scripts/watchlist.py list            # 看预报名清单
-python3 scripts/selfcheck.py                 # 运行时自检
-python3 tests/test_endpoints.py              # 站点地址测试（离线）
-python3 -m unittest tests.test_activity_watch -v   # 动态发现边界测试（离线）
-node bot/test_bot_runtime.js                 # 机器人 combined 双入口测试（离线）
-BOT_ROLE=combined node bot/bot.js --selftest      # 打印允许/拒绝的事件类型
+python3 server/scripts/run.py --dry                 # 看这一轮会推什么，不发
+python3 server/scripts/run.py --force               # 忽略「今天已推过」，真推一次
+python3 server/scripts/query.py pending             # 命令行查待开放活动
+python3 server/scripts/activity_watch.py --dry-run  # 看动态监测这一轮会发什么，不发送不写状态
+python3 server/scripts/watchlist.py list            # 看预报名清单
+python3 server/scripts/selfcheck.py                 # 运行时自检
+python3 server/tests/test_endpoints.py              # 站点地址测试（离线）
+python3 -m unittest server.tests.test_activity_watch -v   # 动态发现边界测试（离线）
+node server/bot/test_bot_runtime.js                 # 机器人 combined 双入口测试（离线）
+BOT_ROLE=combined node server/bot/bot.js --selftest      # 打印允许/拒绝的事件类型
 ```
 
 ## 配置

@@ -114,7 +114,6 @@ mkdir -p /root/campus-activity-watch /root/campus-bot /root/campus-login
 
 # 3) 代码（main 中的 server/ 子目录）
 git clone https://github.com/Env0i/campus-activity-assistant.git /root/campus-activity-watch
-cd /root/campus-activity-watch/server
 ```
 
 4. **建飞书机器人** → 跟着 [docs/FEISHU_BOT.md](docs/FEISHU_BOT.md) 走（两条路线：只推送 / 全功能）
@@ -123,10 +122,10 @@ cd /root/campus-activity-watch/server
 7. **验证**：
 
 ```bash
-cd /root/campus-activity-watch/server
-python3 scripts/selfcheck.py          # 凭据/锁/卡片自检
-python3 scripts/run.py --dry          # 看这一轮会推什么（不发）
-python3 scripts/run.py --force        # 真推一次
+cd /root/campus-activity-watch
+python3 server/scripts/selfcheck.py          # 凭据/锁/卡片自检
+python3 server/scripts/run.py --dry          # 看这一轮会推什么（不发）
+python3 server/scripts/run.py --force        # 真推一次
 ```
 
 群里收到卡片就说明通了。之后每天四个时点自动推送，登录态自己续。
