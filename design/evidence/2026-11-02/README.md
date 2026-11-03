@@ -12,7 +12,7 @@
 
 | 文件 | 内容 |
 |---|---|
-| `signup-direct-log-audit.md` | 28 场真实运行、4,049 次直发的回包结论统计；直发与点击兜底的实际触发情况 |
+| `signup-direct-log-audit.md` | 28 场真实运行、4,049 次直发的回包统计；直发请求结构（GET、无 body）、`<sig>` 算法、`runtime/profile` 的 body 与签名头；直发与点击兜底的实际触发情况 |
 | `server-and-token-check.md` | server 侧数据最后活动时间、迁移后的可判断边界、token 寿命报告缺失情况 |
 | `doc-consistency-check.md` | 文档硬伤复核：公开方法数、决策篇数、索引缺 013、桌面端工具与 `.Codex` 归属 |
 
