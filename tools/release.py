@@ -118,8 +118,10 @@ def _load_build_installer():
 
 BUILD_INSTALLER = _load_build_installer()
 
-# 手机控制组件是可选的第四个资产：缺它发布出去，「安装手机控制」这条路就不可用。
+# 手机控制组件是第四个资产：缺它发布出去，「安装手机控制」这条路就不可用。
 COMPONENT_FEATURE = "phone_control"
+# 验证码识别组件是第五个资产：缺它，设置里验证码识别的「下载并安装」就不可用。
+OCR_FEATURE = "relogin_ocr"
 _COMPONENT_MODULES: dict = {}
 
 
@@ -151,6 +153,14 @@ def component_asset_name(version: str) -> str:
     if module is None:
         raise SystemExit("[release] 找不到 local/update_check.py：组件包命名没有单一来源")
     return module.phone_control_asset_name(version)
+
+
+def ocr_component_asset_name(version: str) -> str:
+    """验证码识别组件包的资产名：同样只认 local/update_check.py 的命名规则。"""
+    module = component_modules()["update_check"]
+    if module is None:
+        raise SystemExit("[release] 找不到 local/update_check.py：组件包命名没有单一来源")
+    return module.component_asset_name(OCR_FEATURE, version)
 
 # 服务器版打包时排除的东西：密钥、运行时数据、产物
 SERVER_EXCLUDE = {"config.json", "data", "dist", "reports",
@@ -263,7 +273,8 @@ def sha256_of(path: Path) -> str:
 def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
                    build_state: dict | None = None,
                    component_included: bool | None = None,
-                   site_configured: bool | None = None) -> Path:
+                   site_configured: bool | None = None,
+                   ocr_component_included: bool | None = None) -> Path:
     """资产证据：版本、tag、来源分支、**完整 HEAD**、来源是否干净、每个文件的 SHA-256 与大小。
 
     source_dirty=true 的产物只能当预览：main 干净不等于资产来自干净提交，
@@ -286,6 +297,9 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
     }
     if component_included is not None:
         manifest["component_included"] = bool(component_included)
+    if ocr_component_included is not None:
+        # 同样显式记账：字段缺失的旧候选按「没有验证码识别组件」处理，publish 拒绝
+        manifest["ocr_component_included"] = bool(ocr_component_included)
     if site_configured is not None:
         manifest["site_configured"] = bool(site_configured)
     path = stage_dir / "manifest.json"
@@ -333,23 +347,42 @@ def build_phone_component(version: str, work_dir: Path,
     return produced[0]
 
 
+def build_ocr_component(version: str, work_dir: Path) -> Path:
+    """调 local/build/build_advanced.py 打验证码识别组件包（PyInstaller，需要 ddddocr 与 onnxruntime）。"""
+    work_dir.mkdir(parents=True, exist_ok=True)
+    print("[prepare] 构建验证码识别组件包 ...")
+    run([sys.executable, str(ROOT / "local" / "build" / "build_advanced.py"),
+         "--feature", OCR_FEATURE,
+         "--output-dir", str(work_dir)])
+    produced = sorted(work_dir.glob("%s-*-windows-x64.zip" % OCR_FEATURE))
+    if len(produced) != 1:
+        raise SystemExit("[prepare] 验证码识别组件构建产物不唯一：%s" % (produced or "（没有产物）"))
+    return produced[0]
+
+
 # 可替换的构建入口：测试用假构建器验证装配契约，不跑 PyInstaller、不打包几十兆二进制
 BUILD_COMPONENT = build_phone_component
+BUILD_OCR_COMPONENT = build_ocr_component
 
 
-def inspect_phone_component(archive: Path) -> dict:
+def inspect_component(archive: Path, feature: str) -> dict:
     """用装机同一套清单校验组件包；不合规直接失败（发布不带「装不上」的包）。"""
     packages = component_modules()["component_packages"]
     if packages is None:
         raise SystemExit("[release] 找不到 local/infrastructure/component_packages.py")
     try:
-        result = packages.inspect_archive(archive, COMPONENT_FEATURE)
+        result = packages.inspect_archive(archive, feature)
     except Exception as exc:                       # 只读自检不该抛，抛了就当不合规
         raise SystemExit("[prepare] 组件包自检失败（%s）：%s" % (exc, archive))
     if not (isinstance(result, dict) and result.get("ok") is True):
         text = (result or {}).get("text") if isinstance(result, dict) else ""
         raise SystemExit("[prepare] 组件包不合规：%s（%s）" % (text or "未知原因", archive))
     return result
+
+
+def inspect_phone_component(archive: Path) -> dict:
+    """手机控制组件包自检（旧函数名）。"""
+    return inspect_component(archive, COMPONENT_FEATURE)
 
 
 def stage_phone_component(version: str, stage_dir: Path,
@@ -362,6 +395,16 @@ def stage_phone_component(version: str, stage_dir: Path,
         produced = BUILD_COMPONENT(version, work_dir, cloudflared)
         shutil.copy2(produced, target)
     inspect_phone_component(target)
+    return target
+
+
+def stage_ocr_component(version: str, stage_dir: Path) -> Path:
+    """构建验证码识别组件包 → 改成发布资产名 → 按装机规则核验，返回资产路径。"""
+    target = stage_dir / ocr_component_asset_name(version)
+    with tempfile.TemporaryDirectory(prefix="campus-ocr-component-") as directory:
+        produced = BUILD_OCR_COMPONENT(version, Path(directory))
+        shutil.copy2(produced, target)
+    inspect_component(target, OCR_FEATURE)
     return target
 
 
@@ -439,35 +482,42 @@ def stage_local_assets(version: str, *, with_component: bool = True,
     # 手机控制组件包：和安装器同属「派生资产」，但它必须内置固定版本的 cloudflared，
     # 所以单独构建、单独核验。--without-component 只在明确接受「组件不可用」时用。
     component_path = None
+    ocr_component_path = None
     if with_component:
         component_path = stage_phone_component(version, stage_dir, cloudflared)
+        ocr_component_path = stage_ocr_component(version, stage_dir)
     else:
-        print("[prepare] 跳过手机控制组件包（--without-component）："
-              "这次发布里「安装手机控制」会不可用")
+        print("[prepare] 跳过两个组件包（--without-component）："
+              "这次发布里手机控制和验证码识别的「下载并安装」都会不可用")
 
     assets = [zip_path, exe_path, installer_path]
     if component_path is not None:
         assets.append(component_path)
+    if ocr_component_path is not None:
+        assets.append(ocr_component_path)
     manifest = write_manifest(stage_dir, version, tag, assets,
                               build_state=post,
                               component_included=component_path is not None,
-                              site_configured=bool(site_origin))
+                              site_configured=bool(site_origin),
+                              ocr_component_included=ocr_component_path is not None)
     for path in assets:
         print("   %s  %.1f MB" % (path.name, path.stat().st_size / 1024 / 1024))
     print("[prepare] 资产就绪：%s" % stage_dir)
     print("[prepare] 清单：%s（版本/完整 HEAD/来源%s/SHA-256）"
           % (manifest, "脏（仅供预览，不得发布）" if post["dirty"] else "干净"))
     return {"zip": zip_path, "exe": exe_path, "installer": installer_path,
-            "component": component_path, "manifest": manifest}
+            "component": component_path, "ocr_component": ocr_component_path,
+            "manifest": manifest}
 
 
 def check_only(version: str) -> None:
     """默认阶段：只读检查，输出资产命名、ZIP 白名单与发布门禁预演结果。"""
     tag = tag_of(version)
     print("[check] 版本（VERSION 唯一来源）：%s → tag %s" % (version, tag))
-    print("[check] 资产命名：%s / %s / %s / %s"
+    print("[check] 资产命名：%s / %s / %s / %s / %s"
           % (zip_asset_name(version), exe_asset_name(version),
-             installer_asset_name(version), component_asset_name(version)))
+             installer_asset_name(version), component_asset_name(version),
+             ocr_component_asset_name(version)))
     print("[check] 完整 ZIP 白名单成员：%s"
           % "、".join(exe_asset_name(version) if m == "EXE" else m for m in ZIP_MEMBERS))
     cloudflared = _default_cloudflared()
@@ -688,7 +738,23 @@ def verify_release_assets(version: str) -> dict:
         raise SystemExit("[publish] 候选没有手机控制组件包（manifest.component_included "
                          "不是布尔 true）：缺它「安装手机控制」不可用，不得发布；"
                          "请重新 --prepare（如确要发不带组件的版本，得显式接受这条降级）")
-    component_path = stage_dir / component_asset_name(version)
+    component_path = _verified_component(stage_dir, manifest,
+                                         component_asset_name(version), COMPONENT_FEATURE)
+    # 验证码识别组件包：同样缺包就拒绝，不静默发出一个「下载并安装」点了没东西的版本
+    if manifest.get("ocr_component_included") is not True:
+        raise SystemExit("[publish] 候选没有验证码识别组件包（manifest.ocr_component_included "
+                         "不是布尔 true）：缺它设置里验证码识别的「下载并安装」不可用，不得发布；"
+                         "请重新 --prepare")
+    ocr_component_path = _verified_component(stage_dir, manifest,
+                                             ocr_component_asset_name(version), OCR_FEATURE)
+    return {"stage": stage_dir, "exe": exe_path, "zip": zip_path,
+            "installer": installer_path, "component": component_path,
+            "ocr_component": ocr_component_path, "manifest": manifest_path}
+
+
+def _verified_component(stage_dir: Path, manifest: dict, name: str, feature: str) -> Path:
+    """组件包资产逐项核：文件在、清单有记录、大小与哈希一致、按装机规则自检通过。"""
+    component_path = stage_dir / name
     if not component_path.is_file():
         raise SystemExit("[publish] 组件包资产缺失：%s（请重新 --prepare）" % component_path)
     meta = (manifest.get("files") or {}).get(component_path.name)
@@ -700,10 +766,8 @@ def verify_release_assets(version: str) -> dict:
     if sha256_of(component_path) != meta.get("sha256"):
         raise SystemExit("[publish] %s SHA-256 与 manifest 不符：文件被动过，拒绝发布"
                          % component_path.name)
-    inspect_phone_component(component_path)
-    return {"stage": stage_dir, "exe": exe_path, "zip": zip_path,
-            "installer": installer_path, "component": component_path,
-            "manifest": manifest_path}
+    inspect_component(component_path, feature)
+    return component_path
 
 
 def remote_tag_commit(tag: str) -> str:
@@ -826,21 +890,21 @@ def confirm_publish(tag: str, assume_yes: bool) -> None:
 
 
 def asset_digest(assets: dict) -> dict:
-    """候选资产指纹：主程序、安装器、手机组件和 manifest 全部纳入复核。
+    """候选资产指纹：主程序、安装器、两个组件包和 manifest 全部纳入复核。
 
-    组件必须一起算：只算四项时，组件 ZIP 在确认等待期被替换不会让指纹变化，
+    组件必须一起算：少算一项时，那个组件 ZIP 在确认等待期被替换不会让指纹变化，
     发布前门禁就无法证明「用户拿到的组件包」还是核验过的那一份。
     """
     return {
         key: sha256_of(assets[key])
-        for key in ("zip", "exe", "installer", "component", "manifest")
+        for key in ("zip", "exe", "installer", "component", "ocr_component", "manifest")
     }
 
 
 def do_publish(tag: str, assume_yes: bool, version: str, clobber: bool = False) -> None:
     """外部发布：门禁 → 资产核验 → 人工确认 → 复核 → tag → 上传，副作用全部在核验之后。
 
-    正式本机资产 = 独立 EXE + 完整 ZIP + 安装版安装器 + 手机控制组件 + manifest 五项；
+    正式本机资产 = 独立 EXE + 完整 ZIP + 安装版安装器 + 手机控制组件 + 验证码识别组件 + manifest 六项；
     publish 不自动构建、
     不调用 make_portable/绿色版组包，也不隐式同步 local/server 分发分支
     （兼容发行流程另行授权）。
@@ -878,7 +942,7 @@ def do_publish(tag: str, assume_yes: bool, version: str, clobber: bool = False) 
         raise SystemExit("[publish] 上传前发现候选资产被替换（哈希变化）：已中止上传")
     print("[2/2] 上传 Release ...")
     publish(tag, [assets["zip"], assets["exe"], assets["installer"],
-                  assets["component"], assets["manifest"]], clobber)
+                  assets["component"], assets["ocr_component"], assets["manifest"]], clobber)
 
     print("\n完成：https://github.com/Env0i/campus-activity-assistant/releases/tag/%s" % tag)
     print("[提示] 绿色版/服务器版打包与 local/server 分发分支同步属兼容发行流程，需另行授权执行。")

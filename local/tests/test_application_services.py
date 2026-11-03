@@ -675,9 +675,15 @@ class AdvancedComponentDialogTests(unittest.TestCase):
         self.assertEqual(result["error"], "source_build")
 
     def test_download_rejects_unknown_feature(self):
-        result = self.api.download_advanced_feature("relogin_ocr")
+        result = self.api.download_advanced_feature("segno")
         self.assertFalse(result["ok"])
         self.assertEqual(result["error"], "bad_feature")
+
+    def test_ocr_download_is_a_known_feature(self):
+        """验证码识别也能一键下载：源码版同样直说不需要，而不是报「未知功能」。"""
+        result = self.api.download_advanced_feature("relogin_ocr")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "source_build")
 
     def test_cancel_without_task_says_nothing_to_cancel(self):
         result = self.api.cancel_advanced_feature_download("phone_control")
@@ -1184,6 +1190,27 @@ class AdvancedComponentServiceTests(unittest.TestCase):
         service.start()
         snap = self._wait(service, "failed")
         self.assertEqual(snap["error_code"], "bad_manifest")
+        self.assertEqual(state["installs"], [])
+
+    def test_ocr_service_installs_its_own_feature(self):
+        service, state = self._service(feature="relogin_ocr")
+        import tempfile
+        state["tmp"] = tempfile.mkdtemp(prefix="advanced-component-")
+        state["inspect_result"] = {"ok": True, "kind": "component", "feature": "relogin_ocr",
+                                   "version": "1.2.3", "text": "已识别"}
+        service.start()
+        snap = self._wait(service, "installed")
+        self.assertEqual(snap["state"], "installed")
+        self.assertEqual(state["installs"][0][1], "relogin_ocr", "装的是验证码识别，不是手机控制")
+
+    def test_ocr_service_rejects_phone_package(self):
+        service, state = self._service(feature="relogin_ocr")
+        import tempfile
+        state["tmp"] = tempfile.mkdtemp(prefix="advanced-component-")
+        service.start()     # 默认 inspect 回的是 phone_control 包
+        snap = self._wait(service, "failed")
+        self.assertEqual(snap["error_code"], "wrong_feature")
+        self.assertIn("验证码识别", snap["text"])
         self.assertEqual(state["installs"], [])
 
     def test_cloudflared_version_mismatch_is_rejected(self):

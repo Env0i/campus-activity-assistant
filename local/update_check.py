@@ -39,10 +39,22 @@ def installer_asset_name(version: str) -> str:
     return "campus-activity-watch-installer-v%s-win-x64.exe" % version
 
 
-def phone_control_asset_name(version: str) -> str:
-    """手机控制组件包的资产名：与安装器同一套版本口径，独立成一个 Release 资产。"""
+# 可在线下载的组件包：每个都是独立 Release 资产，命名、清单校验规则相同
+COMPONENT_FEATURES = ("phone_control", "relogin_ocr")
+COMPONENT_TITLES = {"phone_control": "手机控制", "relogin_ocr": "验证码识别"}
+
+
+def component_asset_name(feature: str, version: str) -> str:
+    """组件包的资产名：与安装器同一套版本口径；功能键里的下划线换成连字符。"""
+    if feature not in COMPONENT_FEATURES:
+        raise ValueError("unknown component")
     parse_version(version)
-    return "campus-activity-watch-phone-control-v%s-win-x64.zip" % version
+    return "campus-activity-watch-%s-v%s-win-x64.zip" % (feature.replace("_", "-"), version)
+
+
+def phone_control_asset_name(version: str) -> str:
+    """手机控制组件包的资产名（旧函数名，发布脚本与既有测试仍在用）。"""
+    return component_asset_name("phone_control", version)
 
 
 def is_release_asset_url(url, name) -> bool:
@@ -65,13 +77,16 @@ def is_release_asset_url(url, name) -> bool:
 
 def select_release_assets(payload: dict, version: str) -> dict:
     """从 Release 资产里挑安装器、组件包与 manifest；命名或地址不符的条目一律不选中。"""
+    empty = {"installer": None, "manifest_url": ""}
+    empty.update({feature: None for feature in COMPONENT_FEATURES})
     assets = payload.get("assets") if isinstance(payload, dict) else None
     if not isinstance(assets, list):
-        return {"installer": None, "manifest_url": "", "phone_control": None}
+        return empty
     wanted = installer_asset_name(version)
-    wanted_component = phone_control_asset_name(version)
+    wanted_components = {component_asset_name(feature, version): feature
+                         for feature in COMPONENT_FEATURES}
+    picked = dict(empty)
     installer = None
-    phone_control = None
     manifest_url = ""
     for item in assets:
         if not isinstance(item, dict):
@@ -83,16 +98,17 @@ def select_release_assets(payload: dict, version: str) -> dict:
             if (isinstance(size, int) and not isinstance(size, bool)
                     and 0 < size <= MAX_INSTALLER_BYTES):
                 installer = {"name": name, "url": url, "bytes": size}
-        elif name == wanted_component and is_release_asset_url(url, name):
+        elif name in wanted_components and is_release_asset_url(url, name):
             # 组件包比安装器小得多，但仍按同一上限拦一次异常体积
             size = item.get("size")
             if (isinstance(size, int) and not isinstance(size, bool)
                     and 0 < size <= MAX_INSTALLER_BYTES):
-                phone_control = {"name": name, "url": url, "bytes": size}
+                picked[wanted_components[name]] = {"name": name, "url": url, "bytes": size}
         elif name == MANIFEST_ASSET_NAME and is_release_asset_url(url, name):
             manifest_url = url
-    return {"installer": installer, "manifest_url": manifest_url,
-            "phone_control": phone_control}
+    picked["installer"] = installer
+    picked["manifest_url"] = manifest_url
+    return picked
 
 
 def parse_manifest_entry(raw, version: str, name: str) -> dict:
@@ -125,17 +141,21 @@ def parse_manifest(raw, version: str, installer_name: str) -> dict:
     return parse_manifest_entry(raw, version, installer_name)
 
 
-def resolve_phone_control_asset(payload: dict, version: str, raw_manifest) -> dict:
+def resolve_component_asset(payload: dict, version: str, raw_manifest,
+                            feature: str = "phone_control") -> dict:
     """把「组件资产 + Release 清单」解析成可用于下载的结论。
 
     三种结论分开给：没发组件（no_component）、清单对不上（manifest_invalid）、
     可以下载（available）。不给「退回手动下载页」这种模棱两可的中间态。
     """
+    if feature not in COMPONENT_FEATURES:
+        return {"state": "no_component", "error_code": "no_component", "asset": None,
+                "text": "这个组件不支持在线下载。"}
     picked = select_release_assets(payload, version)
-    asset = picked["phone_control"]
+    asset = picked[feature]
     if asset is None:
         return {"state": "no_component", "error_code": "no_component", "asset": None,
-                "text": "这个版本没有发布手机控制组件包。"}
+                "text": "这个版本没有发布%s组件包。" % COMPONENT_TITLES[feature]}
     if not picked["manifest_url"]:
         return {"state": "manifest_invalid", "error_code": "manifest_invalid", "asset": None,
                 "text": "组件包缺少清单，无法校验来源。"}
@@ -149,6 +169,11 @@ def resolve_phone_control_asset(payload: dict, version: str, raw_manifest) -> di
                 "text": "组件包大小与清单不一致，已停止下载。"}
     return {"state": "available", "error_code": "", "text": "",
             "asset": dict(asset, sha256=entry["sha256"], bytes=entry["bytes"])}
+
+
+def resolve_phone_control_asset(payload: dict, version: str, raw_manifest) -> dict:
+    """手机控制组件的解析结论（旧函数名，返回值不变）。"""
+    return resolve_component_asset(payload, version, raw_manifest, "phone_control")
 
 
 def _result(current: str, state: str, text: str, latest=None, error_code="") -> dict:

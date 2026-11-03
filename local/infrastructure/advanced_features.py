@@ -40,7 +40,7 @@ FEATURES = {
         "二维码、远程通道和手机控制台。",
     ),
     RELOGIN_OCR: FeatureSpec(
-        RELOGIN_OCR, "无人值守重登", "ddddocr", "ddddocr",
+        RELOGIN_OCR, "验证码识别", "ddddocr", "ddddocr",
         "保存本机凭据并自动识别验证码；未安装时仍可人工输入。",
     ),
 }

@@ -285,7 +285,7 @@ class PackageTests(unittest.TestCase):
         wrong = cp.inspect_archive(other, "phone_control")
         self.assertFalse(wrong["ok"])
         self.assertEqual(wrong["kind"], "wrong_feature")
-        self.assertIn("无人值守重登", wrong["text"])
+        self.assertIn("验证码识别", wrong["text"])
 
     def test_parse_cloudflared_version(self):
         self.assertEqual(cp.parse_cloudflared_version(

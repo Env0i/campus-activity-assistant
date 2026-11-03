@@ -563,7 +563,7 @@ def inspect_archive(archive, key) -> dict:
         return {"ok": False, "kind": "bad_zip", "feature": "",
                 "text": "这个 ZIP 打不开或清单损坏，请重新获取组件包。"}
     feature = str((raw or {}).get("feature") or "")
-    title = {"phone_control": "手机控制", "relogin_ocr": "无人值守重登"}
+    title = {"phone_control": "手机控制", "relogin_ocr": "验证码识别"}
     if feature not in FEATURES:
         return {"ok": False, "kind": "unknown_feature", "feature": feature,
                 "text": "这个 ZIP 的组件类型是「%s」，不是本程序认识的组件。" % (feature or "未声明")}

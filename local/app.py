@@ -225,6 +225,13 @@ def terms_state(prefs: dict) -> dict:
     }
 
 
+
+
+def _component_title(feature: str) -> str:
+    """组件的中文名：下载日志与「没有发布组件包」提示用，和 update_check 同一份。"""
+    return _update_check.COMPONENT_TITLES.get(str(feature), str(feature))
+
+
 def _retry_options_payload() -> dict:
     """三种重试模式的权威选项与默认值：桌面/手机共用这一份口径。
 
@@ -689,13 +696,25 @@ class Api:
                 host, port, svc, public_host=public_host, public_scheme=public_scheme,
                 log=phone_log))
         self._phone_channel = ""
-        # 手机控制组件包：只有用户点「下载组件包」才动网络；失败不影响已有组件
+        # 组件包下载：手机控制、验证码识别各一条事务。只有用户点「下载并安装」才动网络；
+        # 失败不影响已有组件
         self._component_service = _advanced_component.AdvancedComponentService(
+            feature=_advanced_features.PHONE_CONTROL,
             root=DATA_DIR,
             download=updater.download_installer,
             asset_resolver=self._resolve_component_asset,
             install=self._install_downloaded_component,
             on_installed=self._component_installed,
+            on_finished=self._component_finished,
+            log=phone_log)
+        self._ocr_component_service = _advanced_component.AdvancedComponentService(
+            feature=_advanced_features.RELOGIN_OCR,
+            root=DATA_DIR,
+            download=updater.download_installer,
+            asset_resolver=lambda version: self._resolve_component_asset(
+                version, _advanced_features.RELOGIN_OCR),
+            install=self._install_downloaded_ocr,
+            on_installed=self._ocr_component_installed,
             on_finished=self._component_finished,
             log=phone_log)
         # 上一次登录真实成功后由谁完成（auto_ocr / phone_manual）：只用于说明文案
@@ -984,8 +1003,9 @@ class Api:
         }
 
     # ---------- 可选高级功能与本机凭据 ------------------------------------
-    def _resolve_component_asset(self, version: str) -> dict:
-        """解析 Release 里的手机控制组件资产（网络只在用户点下载时用）。
+    def _resolve_component_asset(self, version: str,
+                                 feature: str = _advanced_features.PHONE_CONTROL) -> dict:
+        """解析 Release 里的组件资产（网络只在用户点下载时用）。
 
         `application` 层不允许直接 import `update_check`（分层契约），所以这层
         网络与错误分类留在 composition root：拿不到、清单不对、限速必须分开说。
@@ -1003,15 +1023,15 @@ class Api:
                 raw_manifest = _update_check._fetch_bytes(
                     picked["manifest_url"], _update_check.MAX_MANIFEST_BYTES,
                     "TianSoftActivityPreRegistration-component-manifest")
-            verdict = _update_check.resolve_phone_control_asset(
-                payload, version, raw_manifest)
+            verdict = _update_check.resolve_component_asset(
+                payload, version, raw_manifest, feature)
         except HTTPError as exc:
             if exc.code in (403, 429):
                 return {"ok": False, "error": "rate_limited",
                         "text": "GitHub 暂时限制查询，请稍后重试或查看发布页。"}
             if exc.code == 404:
                 return {"ok": False, "error": "no_component",
-                        "text": "这个版本没有发布手机控制组件包。"}
+                        "text": "这个版本没有发布%s组件包。" % _component_title(feature)}
             return {"ok": False, "error": "http_error",
                     "text": "GitHub 暂时无法响应，请稍后重试。"}
         except (TimeoutError, socket.timeout):
@@ -1057,12 +1077,36 @@ class Api:
             resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)
         self._emit("log", "手机控制组件已安装（%s）。" % (version or "版本未知"))
 
+    def _install_downloaded_ocr(self, archive, key, *, root=None):
+        """验证码识别包换位前先停掉正在跑的自动登录：识别引擎可能正被它占着。"""
+        with self._credential_lock:
+            with self._lock:
+                if self._closing:
+                    raise RuntimeError("application_closing")
+            self._relay.cancel(origin="auto")
+            self._auto_relogin.reset()
+            return _component_packages.install(archive, key, root=root)
+
+    def _ocr_component_installed(self, version: str) -> None:
+        """验证码识别装好后写启用状态（在工作线程里被调用）。"""
+        enabled = dict(load_prefs().get("advanced_features") or {})
+        enabled[_advanced_features.RELOGIN_OCR] = True
+        if not update_prefs({"advanced_features": enabled}):
+            phone_log("验证码识别组件已安装，但启用状态没有保存成功")
+        self._emit("log", "验证码识别组件已安装（%s）。" % (version or "版本未知"))
+
+    def _component_service_for(self, key: str):
+        """功能键 → 对应的下载事务；不认识的键返回 None。"""
+        return {_advanced_features.PHONE_CONTROL: self._component_service,
+                _advanced_features.RELOGIN_OCR: self._ocr_component_service}.get(key)
+
     def download_advanced_feature(self, key: str = "") -> dict:
-        """用户主动下载手机控制组件包：单飞，重复点击直接回 busy。"""
+        """用户主动下载组件包（手机控制或验证码识别）：单飞，重复点击直接回 busy。"""
         chosen = str(key or _advanced_features.PHONE_CONTROL)
-        if chosen != _advanced_features.PHONE_CONTROL:
+        service = self._component_service_for(chosen)
+        if service is None:
             return {"ok": False, "error": "bad_feature",
-                    "text": "只有手机控制支持在线下载组件包。"}
+                    "text": "这个功能没有可在线下载的组件包。"}
         if not bool(getattr(sys, "frozen", False)):
             # 源码版跑的是仓库里的 Python 依赖，组件包对它没有作用
             return {"ok": False, "error": "source_build",
@@ -1073,22 +1117,22 @@ class Api:
                     return {"ok": False, "error": "busy", "text": "请等待当前操作结束。"}
                 self._advanced_busy = True
             try:
-                result = self._component_service.start()
+                result = service.start()
             except Exception:
                 self._component_finished()
                 raise
             if not result.get("ok"):
                 self._component_finished()
         if result.get("ok"):
-            self._emit("log", "开始下载手机控制组件包。")
+            self._emit("log", "开始下载%s组件包。" % _component_title(chosen))
         return result
 
     def cancel_advanced_feature_download(self, key: str = "") -> dict:
         """取消正在进行的组件下载；未在下载时如实说没有任务。"""
-        chosen = str(key or _advanced_features.PHONE_CONTROL)
-        if chosen != _advanced_features.PHONE_CONTROL:
+        service = self._component_service_for(str(key or _advanced_features.PHONE_CONTROL))
+        if service is None:
             return {"ok": False, "error": "bad_feature", "text": "未知高级功能"}
-        return self._component_service.cancel()
+        return service.cancel()
 
     def advanced_features_state(self) -> dict:
         """帮助弹窗使用的高级功能快照；不返回密码、密文或安装路径。"""
@@ -1098,13 +1142,15 @@ class Api:
         if self._advanced_busy:
             for feature in features.values():
                 feature["busy"] = True
-        # 组件下载事务的快照只挂在手机控制这一行：ddddocr 走已装依赖，没有下载概念
-        try:
-            download = self._component_service.snapshot()
-        except Exception:
-            download = {}
-        if _advanced_features.PHONE_CONTROL in features:
-            features[_advanced_features.PHONE_CONTROL]["download"] = download
+        # 组件下载事务的快照挂在各自那一行：界面据此显示下载中、失败、可取消
+        for key in (_advanced_features.PHONE_CONTROL, _advanced_features.RELOGIN_OCR):
+            service = self._component_service_for(key)
+            try:
+                download = service.snapshot() if service is not None else {}
+            except Exception:
+                download = {}
+            if key in features:
+                features[key]["download"] = download
         tailscale = _tunnel_manager.tailscale_endpoint()
         cloudflare_status, cloudflare_exit = self._cloudflare_status_snapshot()
         if cloudflare_exit:
@@ -2500,9 +2546,10 @@ class Api:
             return
         try:
             # 等组件目录替换提交/回滚完毕，再让主进程和 onefile 资源退出。
-            component_service = getattr(self, "_component_service", None)
-            if component_service is not None:
-                component_service.shutdown()
+            for name in ("_component_service", "_ocr_component_service"):
+                component_service = getattr(self, name, None)
+                if component_service is not None:
+                    component_service.shutdown()
             self._auto_relogin.stop()
             # 手机入口先收：有界取消中继、关 HTTP、撤销会话，再走进程收尾
             try:

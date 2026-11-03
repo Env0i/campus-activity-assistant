@@ -122,9 +122,10 @@ class InstallerAssetTests(unittest.TestCase):
         self.assertEqual(picked["manifest_url"], "")
 
     def test_select_release_assets_without_assets_key(self):
-        # 接口新增 phone_control 字段后，空资产仍要三个键齐全且都为「没有」
+        # 两个组件包字段都在：空资产时每个键齐全且都为「没有」
         self.assertEqual(updates.select_release_assets(release(), "1.1.1"),
-                         {"installer": None, "manifest_url": "", "phone_control": None})
+                         {"installer": None, "manifest_url": "", "phone_control": None,
+                          "relogin_ocr": None})
 
     def test_parse_manifest_extracts_entry(self):
         raw = json.dumps(manifest()).encode("utf-8")
@@ -191,6 +192,31 @@ class PhoneControlAssetTests(unittest.TestCase):
             asset("campus-activity-watch-phone-control-v1.1.1-win-x86.zip"),
         ])
         self.assertIsNone(updates.select_release_assets(payload, "1.1.1")["phone_control"])
+
+    def test_ocr_component_asset_name_follows_same_rule(self):
+        self.assertEqual(
+            updates.component_asset_name("relogin_ocr", "1.2.3"),
+            "campus-activity-watch-relogin-ocr-v1.2.3-win-x64.zip",
+        )
+        with self.assertRaises(ValueError):
+            updates.component_asset_name("segno", "1.2.3")
+
+    def test_ocr_component_is_selected_and_resolved_separately(self):
+        ocr = "campus-activity-watch-relogin-ocr-v1.1.1-win-x64.zip"
+        payload = stable("v1.1.1", assets_extra=[asset(COMPONENT, size=2048), asset(ocr, size=4096)])
+        picked = updates.select_release_assets(payload, "1.1.1")
+        self.assertEqual(picked["relogin_ocr"]["name"], ocr)
+        self.assertEqual(picked["phone_control"]["name"], COMPONENT, "两个组件互不影响")
+        raw = json.dumps(manifest(version="1.1.1", files={
+            COMPONENT: {"sha256": "cd" * 32, "bytes": 2048},
+            ocr: {"sha256": "ef" * 32, "bytes": 4096}})).encode("utf-8")
+        resolved = updates.resolve_component_asset(payload, "1.1.1", raw, "relogin_ocr")
+        self.assertEqual(resolved["state"], "available")
+        self.assertEqual(resolved["asset"]["sha256"], "ef" * 32)
+        missing = updates.resolve_component_asset(
+            stable("v1.1.1", assets_extra=[asset(COMPONENT, size=2048)]), "1.1.1", raw, "relogin_ocr")
+        self.assertEqual(missing["state"], "no_component")
+        self.assertIn("验证码识别", missing["text"])
 
     def test_resolve_component_asset_returns_verified_entry(self):
         payload = stable("v1.1.1", assets_extra=[asset(COMPONENT, size=2048)])

@@ -43,10 +43,11 @@ def load_release():
     return module
 
 
-def make_component_zip(path: Path) -> Path:
-    """造一个能过装机校验的手机控制组件包（假二进制，清单真实）。
+def make_component_zip(path: Path, feature: str = "phone_control") -> Path:
+    """造一个能过装机校验的组件包（假二进制，清单真实）。
 
-    `publish` 侧现在要求候选带组件包，装配与核验的测试都得先有这份合格样本。
+    `publish` 侧要求候选带手机控制和验证码识别两个组件包，装配与核验的测试都得先有合格样本。
+    只有手机控制内置 cloudflared。
     """
     import hashlib
     import json as json_mod
@@ -54,28 +55,34 @@ def make_component_zip(path: Path) -> Path:
     packages = load_release().component_modules()["component_packages"]
     helper = b"MZfake-feature-helper"
     binary = b"MZfake-cloudflared"
-    files = {
-        "feature-helper.exe": hashlib.sha256(helper).hexdigest(),
-        packages.CLOUDFLARED_NAME: hashlib.sha256(binary).hexdigest(),
-    }
+    files = {"feature-helper.exe": hashlib.sha256(helper).hexdigest()}
+    if feature == "phone_control":
+        files[packages.CLOUDFLARED_NAME] = hashlib.sha256(binary).hexdigest()
     manifest = {
         "schema": 1,
-        "feature": "phone_control",
+        "feature": feature,
         "version": packages.version(),
         "app_version": packages.version(),
         "target": "win-x64",
         "platform": "windows-x64",
         "entry": "feature-helper.exe",
         "files": files,
-        "cloudflared": {"version": packages.CLOUDFLARED_VERSION,
-                        "sha256": files[packages.CLOUDFLARED_NAME]},
     }
+    if feature == "phone_control":
+        manifest["cloudflared"] = {"version": packages.CLOUDFLARED_VERSION,
+                                   "sha256": files[packages.CLOUDFLARED_NAME]}
     path.parent.mkdir(parents=True, exist_ok=True)
     with zf_mod.ZipFile(path, "w") as zf:
         zf.writestr("manifest.json", json_mod.dumps(manifest))
         zf.writestr("feature-helper.exe", helper)
-        zf.writestr(packages.CLOUDFLARED_NAME, binary)
+        if feature == "phone_control":
+            zf.writestr(packages.CLOUDFLARED_NAME, binary)
     return path
+
+
+def make_ocr_component_zip(path: Path) -> Path:
+    """造一个能过装机校验的验证码识别组件包。"""
+    return make_component_zip(path, "relogin_ocr")
 
 
 class VersionSourceTests(unittest.TestCase):
@@ -369,6 +376,17 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             self.calls.append((version, _P(work_dir).name, str(cloudflared or "")))
             return make_component_zip(_P(work_dir) / "phone_control-build.zip")
 
+    class _FakeOcrComponent:
+        """替身 BUILD_OCR_COMPONENT：不跑 PyInstaller，只写一份合规的验证码识别组件包。"""
+
+        def __init__(self):
+            self.calls = []
+
+        def __call__(self, version, work_dir):
+            from pathlib import Path as _P
+            self.calls.append((version, _P(work_dir).name))
+            return make_ocr_component_zip(_P(work_dir) / "relogin_ocr-build.zip")
+
     # 正式构建必须在构建环境注入站点地址（tools/release.py site_origin_for_build）。
     # 测试只模拟打包、不连学校，用保留域名占位即可；真实地址绝不进测试。
     FAKE_ORIGIN = "https://school.example.invalid"
@@ -393,6 +411,7 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
                 mock.patch.object(rel, "build_exe_onefile", lambda: out), \
                 mock.patch.object(rel, "BUILD_INSTALLER", fake), \
                 mock.patch.object(rel, "BUILD_COMPONENT", self._FakeComponent()), \
+                mock.patch.object(rel, "BUILD_OCR_COMPONENT", self._FakeOcrComponent()), \
                 env_patch, site_patch:
             got = rel.stage_local_assets(self.VERSION)
         return rel, got, fake, frozen_body
@@ -416,7 +435,7 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
                              "上传资产统一 ASCII 名（本地中文名只留在构建目录）")
 
     def test_manifest_records_all_four_assets(self):
-        """manifest 必须同时记账 ZIP、独立 EXE、安装器、组件包的哈希与大小。"""
+        """manifest 必须同时记账 ZIP、独立 EXE、安装器、两个组件包的哈希与大小。"""
         import json
         import tempfile
         with tempfile.TemporaryDirectory() as name:
@@ -426,7 +445,8 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             for key in (rel.zip_asset_name(self.VERSION),
                         rel.exe_asset_name(self.VERSION),
                         rel.installer_asset_name(self.VERSION),
-                        rel.component_asset_name(self.VERSION)):
+                        rel.component_asset_name(self.VERSION),
+                        rel.ocr_component_asset_name(self.VERSION)):
                 self.assertIn(key, data["files"],
                               "manifest 缺 %s 的记录" % key)
                 self.assertEqual(data["files"][key]["sha256"],
@@ -434,13 +454,16 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             self.assertFalse(data["source_dirty"], "mock 干净来源必须如实记账")
             self.assertIs(data.get("component_included"), True,
                           "装配了组件包就必须在清单里显式记账")
-            # 安装器与组件包的中间目录不留残骸：stage 里只有五份上传物
+            self.assertIs(data.get("ocr_component_included"), True,
+                          "验证码识别组件包同样要显式记账")
+            # 安装器与组件包的中间目录不留残骸：stage 里只有六份上传物
             leftovers = sorted(p.name for p in stage_dir.iterdir())
             self.assertEqual(leftovers,
                              sorted([rel.zip_asset_name(self.VERSION),
                                      rel.exe_asset_name(self.VERSION),
                                      rel.installer_asset_name(self.VERSION),
                                      rel.component_asset_name(self.VERSION),
+                                     rel.ocr_component_asset_name(self.VERSION),
                                      "manifest.json"]),
                              "暂存目录不得留下 .installer-build/.zip-root/.component-build 残骸")
 
@@ -513,9 +536,9 @@ class AssetVerificationTests(unittest.TestCase):
         return {"branch": branch, "dirty": dirty,
                 "commit": (full or "f" * 40)[:7], "full": full or "f" * 40}
 
-    def _candidate(self, tmp, version=VERSION, dirty="", component=True):
+    def _candidate(self, tmp, version=VERSION, dirty="", component=True, ocr=True):
         """在临时 DIST 下搭一份候选：EXE + 四成员白名单 ZIP（内外 EXE 字节一致）
-        + 安装器 + 手机控制组件包 + 真实 write_manifest。"""
+        + 安装器 + 手机控制组件包 + 验证码识别组件包 + 真实 write_manifest。"""
         import zipfile as zf_mod
         stage = Path(tmp) / ("release-" + self.rel.tag_of(version))
         stage.mkdir(parents=True, exist_ok=True)
@@ -535,9 +558,14 @@ class AssetVerificationTests(unittest.TestCase):
             component_path = make_component_zip(
                 stage / self.rel.component_asset_name(version))
             files.append(component_path)
+        ocr_path = None
+        if ocr:
+            ocr_path = make_ocr_component_zip(stage / self.rel.ocr_component_asset_name(version))
+            files.append(ocr_path)
         manifest = self.rel.write_manifest(stage, version, self.rel.tag_of(version),
                                            files, build_state=self._state(dirty),
-                                           component_included=component_path is not None)
+                                           component_included=component_path is not None,
+                                           ocr_component_included=ocr_path is not None)
         return stage, exe, zp, manifest
 
     def _patched(self, tmp):
@@ -560,6 +588,23 @@ class AssetVerificationTests(unittest.TestCase):
                 self.assertEqual(got["component"].name,
                                  self.rel.component_asset_name(self.VERSION),
                                  "组件包是第四份必验资产，缺它手机控制就装不上")
+                self.assertEqual(got["ocr_component"].name,
+                                 self.rel.ocr_component_asset_name(self.VERSION),
+                                 "验证码识别组件包是第五份必验资产")
+            finally:
+                mock.patch.stopall()
+
+    def test_verify_rejects_candidate_without_ocr_component(self):
+        """没有验证码识别组件包的候选一律拒绝：缺它设置里「下载并安装」点了没东西。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            for p in self._patched(name):
+                p.start()
+            try:
+                self._candidate(name, ocr=False)
+                with self.assertRaises(SystemExit) as refused:
+                    self.rel.verify_release_assets(self.VERSION)
+                self.assertIn("验证码识别组件包", str(refused.exception))
             finally:
                 mock.patch.stopall()
 
@@ -772,9 +817,10 @@ class AssetVerificationTests(unittest.TestCase):
                 expected_upload = [zp.name, exe.name,
                                    self.rel.installer_asset_name(self.VERSION),
                                    self.rel.component_asset_name(self.VERSION),
+                                   self.rel.ocr_component_asset_name(self.VERSION),
                                    "manifest.json"]
                 self.assertEqual(recorded["upload"][1], expected_upload,
-                                 "上传清单=完整 ZIP + 单文件 EXE + 安装器 + 手机组件 + manifest")
+                                 "上传清单=完整 ZIP + 单文件 EXE + 安装器 + 两个组件 + manifest")
                 self.assertFalse(recorded["upload"][2], "默认不覆盖已有附件")
             finally:
                 mock.patch.stopall()
@@ -1020,10 +1066,12 @@ class ConfirmedSourceRecheckTests(unittest.TestCase):
             zf.writestr("启动说明.txt", "note")
             zf.writestr("LICENSE", "lic")
         component = make_component_zip(stage / self.rel.component_asset_name(version))
+        ocr = make_ocr_component_zip(stage / self.rel.ocr_component_asset_name(version))
         manifest = self.rel.write_manifest(stage, version, self.rel.tag_of(version),
-                                           [zp, exe, inst, component],
+                                           [zp, exe, inst, component, ocr],
                                            build_state=self._state(),
-                                           component_included=True)
+                                           component_included=True,
+                                           ocr_component_included=True)
         return stage, exe, zp, manifest
 
     def _run_do_publish(self, tmp, source_commits, mutate_after_confirm=None):
@@ -1175,18 +1223,21 @@ class ConfirmedSourceRecheckTests(unittest.TestCase):
             stage, exe, zip_path, manifest = self._candidate(name)
             installer = stage / self.rel.installer_asset_name(self.VERSION)
             component = stage / self.rel.component_asset_name(self.VERSION)
+            ocr = stage / self.rel.ocr_component_asset_name(self.VERSION)
             assets = {
                 "zip": zip_path,
                 "exe": exe,
                 "installer": installer,
                 "component": component,
+                "ocr_component": ocr,
                 "manifest": manifest,
             }
             digest = self.rel.asset_digest(assets)
             self.assertEqual(
-                set(digest), {"zip", "exe", "installer", "component", "manifest"}
+                set(digest), {"zip", "exe", "installer", "component", "ocr_component", "manifest"}
             )
             self.assertEqual(digest["component"], self.rel.sha256_of(component))
+            self.assertEqual(digest["ocr_component"], self.rel.sha256_of(ocr))
 
     def test_publish_uploads_phone_component_asset(self):
         """发布上传列表必须带组件 ZIP：否则 Release 里没有它，一键安装必然落空。"""
@@ -1215,7 +1266,8 @@ class ConfirmedSourceRecheckTests(unittest.TestCase):
 
             names = [Path(path).name for path in captured]
             self.assertIn(self.rel.component_asset_name(self.VERSION), names)
-            self.assertEqual(len(names), 5)
+            self.assertIn(self.rel.ocr_component_asset_name(self.VERSION), names)
+            self.assertEqual(len(names), 6)
 
 
 @unittest.skipUnless(

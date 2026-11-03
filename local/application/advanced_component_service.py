@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""用户主动触发的手机控制组件下载与安装事务。
+"""用户主动触发的组件包下载与安装事务（手机控制、验证码识别各一份实例）。
 
-状态机（只服务 phone_control，不碰 ddddocr 那条独立线）：
+状态机（每个组件一份，互不影响）：
 
     available → downloading → verifying → installed
     available/downloading → cancelled（不改动现有组件）
@@ -29,6 +29,8 @@ from urllib.error import HTTPError, URLError
 from infrastructure import component_packages as _packages
 
 FEATURE = "phone_control"
+# 校验失败时说「这是别的组件的包，不是 XX」用的名字
+_TITLES = {"phone_control": "手机控制", "relogin_ocr": "验证码识别"}
 # 每 1 MiB 至少发一次进度：界面靠这个数字动，不是靠每块都重画
 PROGRESS_STEP_BYTES = 1024 * 1024
 
@@ -45,11 +47,15 @@ _STATE_TEXT = {
 
 
 class AdvancedComponentService:
-    """phone_control 组件的下载/校验/安装事务（单飞，可取消，可重试）。"""
+    """单个组件包的下载/校验/安装事务（单飞，可取消，可重试）。"""
 
     def __init__(self, *, download, asset_resolver, root=None, version=None,
                  inspect=None, install=None, status=None,
-                  remover=None, on_installed=None, on_finished=None, log=None):
+                  remover=None, on_installed=None, on_finished=None, log=None,
+                 feature=FEATURE):
+        if feature not in _TITLES:
+            raise ValueError("unknown component feature")
+        self._feature = feature
         self._root = root
         self._version = version or _packages.version
         self._asset_resolver = asset_resolver
@@ -81,7 +87,7 @@ class AdvancedComponentService:
     def _refresh_idle_state(self) -> None:
         """空闲态直接从装机目录读：装没装以磁盘为准，不靠内存记忆。"""
         try:
-            info = self._status(FEATURE, root=self._root) or {}
+            info = self._status(self._feature, root=self._root) or {}
         except Exception:
             info = {}
         available = bool(info.get("available"))
@@ -192,7 +198,7 @@ class AdvancedComponentService:
             self._error_code = ""
             self._text = ""
         try:
-            self._remover(FEATURE, root=self._root)
+            self._remover(self._feature, root=self._root)
         except Exception as exc:
             with self._lock:
                 self._state = "installed" if self._installed else "failed"
@@ -249,7 +255,7 @@ class AdvancedComponentService:
             if problem:
                 self._fail(problem[0], problem[1])
                 return
-            info = self._inspect(archive, FEATURE)
+            info = self._inspect(archive, self._feature)
             # 与 cancel 共用锁确定提交点：此前取消不动旧包，此后明确拒绝取消。
             with self._lock:
                 if self._cancel_flag:
@@ -257,7 +263,7 @@ class AdvancedComponentService:
                     self._text = ""
                     return
                 self._installing = True
-            self._install(archive, FEATURE, root=self._root)
+            self._install(archive, self._feature, root=self._root)
             version = str((info or {}).get("version") or "")
             with self._lock:
                 self._state = "installed"
@@ -304,16 +310,17 @@ class AdvancedComponentService:
         if not archive:
             return ("download_failed", "没有拿到下载文件。")
         try:
-            info = self._inspect(archive, FEATURE)
+            info = self._inspect(archive, self._feature)
         except Exception as exc:
             return ("bad_component", "组件包打不开（%s）。" % type(exc).__name__)
         if not (isinstance(info, dict) and info.get("ok") is True):
             text = (info or {}).get("text") if isinstance(info, dict) else ""
             return (str((info or {}).get("kind") or "bad_component"),
                     str(text or "组件包不合规。"))
-        if str(info.get("feature") or "") != FEATURE:
-            return ("wrong_feature", "这是别的组件的包，不是手机控制。")
+        if str(info.get("feature") or "") != self._feature:
+            return ("wrong_feature", "这是别的组件的包，不是%s。" % _TITLES[self._feature])
         declared = str(info.get("cloudflared") or "")
+        # 只有手机控制内置 cloudflared；验证码识别包里出现这个字段同样按清单核一遍
         if declared and declared != _packages.CLOUDFLARED_VERSION:
             return ("cloudflared_version",
                     "组件包内置的 cloudflared 版本不对（%s），请重新下载。" % declared)
