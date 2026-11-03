@@ -612,7 +612,8 @@ def run_worker(*, behavior="success", at_offset=0.0, retry_for=120.0, max_attemp
                direct_signer=None, direct_transport=None,
                api_token="test-token",
                inject_failed_at=None, break_wait_at=None, join_info_data=None,
-               recheck_state="expired", runtime_key=_AUTO_KEY):
+               recheck_state="expired", runtime_key=_AUTO_KEY,
+               relogin_wait=0.0, relogin_writes_token=False):
     clock = FakeClock()
     page = FakePage(clock, behavior, button_visible, click_delay, foreign,
                     response_delay, script_srcs,
@@ -642,6 +643,10 @@ def run_worker(*, behavior="success", at_offset=0.0, retry_for=120.0, max_attemp
         probe_calls["n"] += 1
         if probe_calls["n"] > 1:
             # 入场之后的探测只可能是提交中收到 4001 的复查（决策 015）
+            if isinstance(recheck_state, (list, tuple)):
+                # 依次作答：入场之后第 1 次探测取第 1 个，用完后一直取最后一个
+                index = min(probe_calls["n"] - 2, len(recheck_state) - 1)
+                return recheck_state[index], "recheck"
             return recheck_state, "recheck"
         wait = probe_delay
         if budget is not None:
@@ -683,11 +688,15 @@ def run_worker(*, behavior="success", at_offset=0.0, retry_for=120.0, max_attemp
         retry_for=retry_for, max_attempts=max_attempts, sign_end=sign_end,
         retry_start=START if retry_start is None else retry_start,
         activity_id="act-1", at=grab.school_time_text(at_ts), name="边界实验活动",
+        relogin_wait=relogin_wait,
     )
 
     patches = {"log": fake_log, "probe_token": fake_probe,
                # token 替身固定值：直发 headers 断言用，严禁读取真实 session 文件
-               "token": lambda: api_token,
+               # relogin_writes_token：模拟界面在 worker 发出 login_wait 后自动登录、写入新 token
+               "token": ((lambda: api_token + "-new"
+                          if any("等自动登录" in line for line in logs) else api_token)
+                         if relogin_writes_token else (lambda: api_token)),
                "setup_business_clock": lambda *a, **k: (grab.configure_business_clock(clock), clock)[1],
                # 兼容入场实现（旧 cmd_grab 调 check_token）；新实现不读它
                "check_token": lambda budget=None: (probe_state == "valid", probe_detail),
@@ -3468,6 +3477,78 @@ class DirectRuntimeKeyTests(unittest.TestCase):
                          max_attempts=5, button_visible=True,
                          direct_signer=signer, direct_transport=FakeTransport)
         self.assertEqual(res.stop_reason, "page_unavailable")
+
+
+class ReloginHandoffTests(unittest.TestCase):
+    """决策 015：登录失效后 worker 等界面自动登录，换上新登录态后继续（--relogin-wait）。"""
+
+    def setUp(self):
+        FakeTransport.reset()
+
+    def _first_4001_then(self, reply):
+        seen = {"n": 0}
+
+        def responder(ticket):
+            seen["n"] += 1
+            if seen["n"] == 1:
+                return _d_payload(4001, "身份验证失败！")
+            return _d_payload(reply["code"], reply["message"])
+        return responder
+
+    def test_submit_4001_waits_for_relogin_then_resumes(self):
+        FakeTransport.responder_fn = staticmethod(self._first_4001_then(RETRYABLE_REPLY))
+        res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=120.0,
+                         max_attempts=3, button_visible=False,
+                         direct_signer=_RecordingSigner(), direct_transport=FakeTransport,
+                         recheck_state=["expired", "valid"], relogin_wait=30.0,
+                         relogin_writes_token=True)
+        logs = "\n".join(res.logs)
+        self.assertIn("等自动登录", logs)
+        self.assertIn("kind=login_wait", logs)
+        self.assertIn("自动登录完成", logs)
+        self.assertIn("kind=login_resumed", logs)
+        self.assertEqual(res.stop_reason, "max_attempts", "换上新登录态后继续发到次数上限")
+        self.assertEqual(res.attempts, 3, "等待期间不计次")
+        key_fetches = [post for post in res.posts if post["path"] == grab.RUNTIME_PROFILE_PATH]
+        self.assertEqual(len(key_fetches), 2, "重新登录后重取一次运行时密钥")
+
+    def test_submit_4001_wait_times_out_is_login_invalid(self):
+        FakeTransport.responder_fn = staticmethod(lambda t: _d_payload(4001, "身份验证失败！"))
+        res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=120.0,
+                         max_attempts=0, button_visible=False,
+                         direct_signer=_RecordingSigner(), direct_transport=FakeTransport,
+                         relogin_wait=10.0)
+        logs = "\n".join(res.logs)
+        self.assertIn("等自动登录超时", logs)
+        self.assertEqual(res.stop_reason, "login_invalid")
+        self.assertLessEqual(res.attempts, grab.MAX_INFLIGHT, "等待期间不发新提交")
+
+    def test_zero_wait_keeps_old_behavior(self):
+        FakeTransport.responder_fn = staticmethod(lambda t: _d_payload(4001, "身份验证失败！"))
+        res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=120.0,
+                         max_attempts=0, button_visible=False,
+                         direct_signer=_RecordingSigner(), direct_transport=FakeTransport)
+        self.assertEqual(res.stop_reason, "login_invalid")
+        self.assertNotIn("等自动登录", "\n".join(res.logs))
+
+    def test_preflight_expired_waits_then_proceeds(self):
+        FakeTransport.responder_fn = staticmethod(_d_ok)
+        res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=120.0,
+                         max_attempts=1, button_visible=False, probe_state="expired",
+                         direct_signer=_RecordingSigner(), direct_transport=FakeTransport,
+                         recheck_state="valid", relogin_wait=30.0, relogin_writes_token=True)
+        self.assertIn("开抢前检查", "\n".join(res.logs))
+        self.assertEqual(res.stop_reason, "success")
+
+    def test_relogin_wait_never_exceeds_budget(self):
+        # 窗口只剩不到 1 秒时不等，直接按登录失效结束
+        FakeTransport.responder_fn = staticmethod(lambda t: _d_payload(4001, "身份验证失败！"))
+        res = run_worker(behavior="success", at_offset=0.0, retry_for=0.5,
+                         max_attempts=0, button_visible=False,
+                         direct_signer=_RecordingSigner(), direct_transport=FakeTransport,
+                         relogin_wait=30.0)
+        self.assertEqual(res.stop_reason, "login_invalid")
+        self.assertNotIn("等自动登录，最多", "\n".join(res.logs))
 
 if __name__ == "__main__":
     unittest.main()

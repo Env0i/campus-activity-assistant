@@ -54,6 +54,29 @@ def attempts_of(stop: dict) -> int:
         return 0
 
 
+def progress_event_status(parsed: dict, now_epoch=None) -> dict:
+    """把报名进程的进度事件转成任务快照字段（决策 015）；其余事件返回空字典。
+
+    path：这一场走直发还是点击，以及退回点击的原因；
+    login_wait：在等自动登录，login_wait_until 是预计等到的时刻（epoch 秒，读不到时钟时留空）；
+    login_resumed：自动登录完成、继续提交，清掉等待字段。
+    """
+    kind = (parsed or {}).get("kind")
+    if kind == "path":
+        return {"path": str(parsed.get("path") or ""),
+                "path_reason": str(parsed.get("path_reason") or "").replace("\u00a0", " ")}
+    if kind == "login_wait":
+        try:
+            wait_s = max(0, int(float(parsed.get("wait_s") or 0)))
+        except (TypeError, ValueError):
+            wait_s = 0
+        until = int(now_epoch + wait_s) if (now_epoch is not None and wait_s) else ""
+        return {"login_wait": "waiting", "login_wait_until": until}
+    if kind == "login_resumed":
+        return {"login_wait": "", "login_wait_until": ""}
+    return {}
+
+
 def with_attempts(stop: dict, attempts: int) -> dict:
     """终态载荷统一写「两路归并后的次数」，不让某一路缺失把次数清零。"""
     merged = dict(stop or {})

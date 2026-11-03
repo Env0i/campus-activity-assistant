@@ -31,6 +31,30 @@ class MonitorTests(unittest.TestCase):
         self.flow = {"state": "starting", "flow_id": str(len(self.starts))}
         return {"ok": True, "flow_id": self.flow["flow_id"]}
 
+    def test_worker_request_starts_relogin_right_away_even_in_backoff(self):
+        # 决策 015：报名进程发来 login_wait，下一拍就自动登录，不等退避
+        self.monitor.observe_check("expired")
+        self.flow = {"state": "idle"}
+        self.monitor._failures = 2
+        self.monitor._retry_at = self.now + 900
+        self.monitor.request_recover()
+        self.monitor.tick()
+        self.assertEqual(len(self.starts), 1)
+
+    def test_worker_request_does_not_double_start_while_inflight(self):
+        self.monitor.request_recover()
+        self.monitor.tick()
+        self.assertEqual(len(self.starts), 1)
+        self.monitor.request_recover()   # 第一轮还在跑
+        self.monitor.tick()
+        self.assertEqual(len(self.starts), 1)
+
+    def test_worker_request_respects_eligibility_gate(self):
+        self.allowed = False
+        self.monitor.request_recover()
+        self.monitor.tick()
+        self.assertEqual(self.starts, [])
+
     def test_initial_wait_period_and_disabled_gate(self):
         self.monitor.tick()
         self.assertEqual(self.checks, [])

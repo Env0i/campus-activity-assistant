@@ -54,6 +54,17 @@ class AutoReloginMonitor:
             self._expired = result == "expired"
             self._next_check = self._now() + self._period
 
+    def request_recover(self):
+        """报名进程确认登录失效、在等新登录态（决策 015）：下一拍立即自动登录一次。
+
+        已经有一轮自动登录在跑就不重复发起；会跳过失败后的退避等待。
+        """
+        with self._lock:
+            if self._inflight:
+                return
+            self._expired = True
+            self._retry_at = 0
+
     def reset(self):
         with self._lock:
             self._generation += 1

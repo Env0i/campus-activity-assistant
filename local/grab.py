@@ -1787,8 +1787,12 @@ def _checkpoint_event(kind, at=None):
 
 
 def _retry_event(**fields):
-    """进度型 [retry] 行：只带进度字段，绝不带 stop_reason（终态才有一条）。"""
-    body = " ".join("%s=%s" % (key, value) for key, value in fields.items())
+    """进度型 [retry] 行：只带进度字段，绝不带 stop_reason（终态才有一条）。
+
+    解析方按空格切字段：值里的空格换成不换行空格，原因文案不会把一行切碎。
+    """
+    body = " ".join("%s=%s" % (key, str(value).replace(" ", "\u00a0"))
+                    for key, value in fields.items())
     log("[retry] " + body)
 
 
@@ -2054,6 +2058,45 @@ def cmd_grab(args):
         state["last_reason"] = "%s时重试窗口已到点" % phase
         return terminal("sign_end" if state["binding"] == "sign_end" else "retry_duration")
 
+    # 登录失效后等界面自动登录多久（决策 015）：界面有自动登录能力时才传正数
+    relogin_wait_s = max(0.0, float(getattr(args, "relogin_wait", 0) or 0))
+
+    def _wait_for_relogin(where):
+        """确认登录失效后等界面自动登录：最多 relogin_wait_s 秒，期间不提交。
+
+        发 login_wait 事件让界面做一次自动登录；这里只读登录态文件，
+        换成新 token 且复查有效才返回 True。不等、窗口不够或等不到都返回 False。
+        """
+        if relogin_wait_s <= 0:
+            return False
+        try:
+            remain = budget.remaining_s()
+        except ClockUnavailable:
+            return False
+        wait_s = min(relogin_wait_s, remain - 1.0)
+        if wait_s <= 0:
+            return False
+        old = token()
+        log("[!] 登录失效（%s）：等自动登录，最多 %d 秒，期间不提交" % (where, int(wait_s)))
+        _retry_event(kind="login_wait", wait_s=int(wait_s))
+        until = time.monotonic() + wait_s
+        while time.monotonic() < until:
+            time.sleep(min(0.5, max(0.0, until - time.monotonic())))
+            fresh = token()
+            if not fresh or fresh == old:
+                continue
+            try:
+                again, _detail = probe_token(budget)
+            except (BudgetExhausted, ClockUnavailable):
+                return False
+            if again == "valid":
+                log("[i] 自动登录完成：换上新的登录态，继续")
+                _retry_event(kind="login_resumed")
+                return True
+            old = fresh     # 新登录态也不行：继续等下一次写入
+        log("[X] 等自动登录超时（%s）" % where)
+        return False
+
     # 鉴权也要受限：固定 15 秒会把 2 秒窗口直接撑破
     try:
         token_state, token_detail = probe_token(budget)
@@ -2067,7 +2110,15 @@ def cmd_grab(args):
         return 3
     if token_state == "expired":
         state["last_reason"] = token_detail
-        return terminal("login_invalid")
+        try:
+            relogged = _wait_for_relogin("开抢前检查")
+        except BudgetExhausted:
+            return _budget_stop("鉴权")
+        except ClockUnavailable:
+            return _clock_stop()
+        if not relogged:
+            return terminal("login_invalid")
+        state["last_reason"] = ""
     if token_state == "unknown":
         state["last_reason"] = token_detail
         return terminal("auth_unavailable")
@@ -2961,9 +3012,20 @@ def cmd_grab(args):
                             continue
                         recheck, _detail = probe_token(budget)
                         if recheck == "expired":
-                            state["login_invalid"] = True
-                            stop_reason = "login_invalid"
-                            break
+                            if not _wait_for_relogin("提交中"):
+                                state["login_invalid"] = True
+                                stop_reason = "login_invalid"
+                                break
+                            # 新登录态下重取运行时密钥；取不到就退回点击
+                            if direct["enabled"] and not direct["downgrade"]:
+                                new_key, rekey_reason = fetch_runtime_key(budget)
+                                if new_key is None:
+                                    _downgrade("重新登录后取不到运行时密钥（%s）" % rekey_reason)
+                                else:
+                                    direct["signer"] = functools.partial(direct["build"], key=new_key)
+                                new_key = None
+                            state["login_suspect"] = False
+                            continue
                         state["login_suspect"] = False
                         log("[i] 复查登录结论 %s：不判失效，继续发送" % recheck)
                         continue
@@ -3252,6 +3314,8 @@ def main():
                    help="重试持续秒数，默认沿用 --window；0 表示持续到 --sign-end（缺截止则回退 120 秒）")
     p.add_argument("--max-attempts", type=int, default=0,
                    help="最大提交次数，只数真正点 signUp 的次数；0 表示不限")
+    p.add_argument("--relogin-wait", type=float, default=0,
+                   help="内部：登录失效后等图形界面自动登录的秒数（决策 015）；0 表示不等，直接按登录失效结束")
     p.add_argument("--retry-start", type=float, default=0,
                    help="内部：计划接纳时固定的重试起点（epoch 秒），由图形界面传入；"
                         "CLI 独跑留空则用本进程入口时刻")

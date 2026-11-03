@@ -109,6 +109,9 @@ _CREDENTIAL_STORE_OK = None
 # 电脑自己识别验证码连续失败这么多次，才把图交给手机上的人来打。
 # 只改这一个数字就能调整「多信任 OCR」的程度。
 _MANUAL_RELOGIN_AFTER = 3
+# 报名进程确认登录失效后等界面自动登录的秒数（决策 015）：本机自动登录要开浏览器、
+# 认验证码，留够时间；只有电脑能自己登录时才传给 worker，否则传 0、照旧直接结束
+RELOGIN_WAIT_S = 45.0
 
 
 def _credential_store_available() -> bool:
@@ -648,6 +651,8 @@ class Api:
         self._list_last = {"request_id": "", "payload": None}
         # 最近一次 check 的四态结论：start_plan 的放行/拒绝只信它
         self._last_check: dict = {}
+        # 报名进程发来 login_wait（决策 015）：允许这一次在计划运行中自动登录
+        self._login_wait_pending = False
         # 更新检查独立于登录/报名，只由帮助按钮触发；页面重载复用内存中的在途请求。
         # _updating 表示「任一更新动作在途」（检查或下载），单飞共用一个槽位；
         # _update_installer 是检查阶段选好的安装器资产（URL/大小/哈希），
@@ -1359,11 +1364,41 @@ class Api:
             return False
         with self._lock:
             if (self._closing or self._advanced_busy or self._checking or self._listing
-                    or self._is_busy_locked()):
+                    or self._relogin_blocked_locked()):
                 return False
         return bool(_advanced_features.feature_ready(
             load_prefs(), _advanced_features.RELOGIN_OCR, root=DATA_DIR)
             and _credential_store.has_credentials(CREDENTIAL_FILE))
+
+    def _relogin_blocked_locked(self) -> bool:
+        """计划运行中什么时候不该自动登录（决策 015）。调用方持 self._lock。
+
+        计划在等开放、报名进程还没起来：可以原地自动登录。报名进程在跑：只有它确认
+        登录失效、发来 login_wait 时才登录，免得开抢中途把它手里的登录态顶掉。
+        """
+        if self._login_wait_pending:
+            return False
+        if self._proc and self._proc.poll() is None:
+            return True
+        return any(proc.poll() is None for proc in self._plan_procs.values())
+
+    def _request_auto_relogin(self) -> None:
+        """报名进程发来 login_wait：放行这一次计划运行中的自动登录，并让调度立即动手。"""
+        with self._lock:
+            self._login_wait_pending = True
+        self._auto_relogin.request_recover()
+
+    def _relogin_wait_s(self) -> float:
+        """worker 确认登录失效后能等多久：电脑能自己登录（有账号密码、验证码识别已装）才等。"""
+        if DEMO:
+            return 0.0
+        try:
+            ready = bool(_advanced_features.feature_ready(
+                load_prefs(), _advanced_features.RELOGIN_OCR, root=DATA_DIR)
+                and _credential_store.has_credentials(CREDENTIAL_FILE))
+        except Exception:
+            return 0.0
+        return RELOGIN_WAIT_S if ready else 0.0
 
     def _relogin_ocr_ready(self) -> bool:
         """电脑这边有没有「自己认验证码」的能力。"""
@@ -1429,6 +1464,9 @@ class Api:
                 return {"ok": False, "error": "needs_local_setup"}
             finally:
                 stored.clear()
+                # 一次 login_wait 只放行一轮自动登录：发起过就收回（成败都一样）
+                with self._lock:
+                    self._login_wait_pending = False
 
     def _classify_captcha(self, image: str) -> str:
         prefs = load_prefs()
@@ -2922,7 +2960,9 @@ class Api:
             worker_command=worker_command, env=_env, spawn=spawn_owned_worker,
             cwd=str(HERE), grace_s=SUPERVISE_GRACE_S,
             epoch_of=school_epoch, time_text_of=school_time_text,
-            clock_unavailable=ClockUnavailable)
+            clock_unavailable=ClockUnavailable,
+            relogin_wait_s=self._relogin_wait_s(),
+            on_login_wait=self._request_auto_relogin)
 
     def _trace(self, msg: str) -> None:
         """调试用：只有设了 CAMPUS_TRACE 才落盘，平时零副作用。"""

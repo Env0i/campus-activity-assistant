@@ -17,7 +17,7 @@ import time
 
 from domain.errors import ClosingError
 from domain.plan_rules import classify_task_stop
-from domain.retry_rules import ATTEMPT_RE, attempts_of, parse_retry_line
+from domain.retry_rules import ATTEMPT_RE, attempts_of, parse_retry_line, progress_event_status
 from domain.retry_window import (
     ADAPTIVE_RETRY, DEFAULT_RETRY_SECONDS, extension_cap, extension_delta,
 )
@@ -28,7 +28,8 @@ from domain.worker_lines import parse_checkpoint_line
 def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
                   emit, lock, plan_procs: dict, clock_now, is_closing,
                   worker_command, env, spawn, cwd: str, grace_s: float,
-                  epoch_of, time_text_of, clock_unavailable) -> dict:
+                  epoch_of, time_text_of, clock_unavailable,
+                  relogin_wait_s: float = 0.0, on_login_wait=None) -> dict:
     """运行一个单活动脚本；取消只终止对应进程，不影响同批其他任务。
 
     emit(kind, payload) 发结构化事件；lock/plan_procs 是 Api 的进程登记表；
@@ -75,6 +76,9 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
         args += ["--retry-start", "%.3f" % float(spec.retry_started_at)]
     if spec.headed:
         args.append("--headed")
+    # 界面能自己登录时才让 worker 在登录失效后等一等（决策 015）；0 保持原行为
+    if relogin_wait_s and relogin_wait_s > 0:
+        args += ["--relogin-wait", str(int(relogin_wait_s))]
     with lock:
         # 关闭屏障：创建与登记同临界区——关闭先发生则零创建（取消语义）；
         # 创建已开始则 shutdown 必等登记完成才能取快照，收走不会漏。
@@ -247,6 +251,12 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
             elif parsed.get("kind") == "window_extended":
                 # 进度型扩窗事件：合法的才平移单调截止（自动延长模式）
                 _accept_window_extension(parsed)
+            elif parsed.get("kind") == "login_wait" and on_login_wait is not None:
+                # worker 确认登录失效、在等新登录态：请界面立即自动登录一次（决策 015）
+                try:
+                    on_login_wait()
+                except Exception:  # noqa: BLE001 - 通知失败只是等不到，worker 会按登录失效收口
+                    pass
         if parsed and status:
             # 窗口确定/请求发起都是进度行：先把截止与次数推上去，
             # 不必等进程收尾；终态行才带 stop_reason，由收尾逻辑消费
@@ -262,6 +272,13 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
                 # 提交阶段（golden/full_speed/adaptive_backoff）实时上屏：
                 # UI_SPEC 5.8 要求任务卡显示当前阶段，未知/缺失不转发
                 payload["phase"] = str(parsed["phase"])
+            if not parsed.get("stop_reason"):
+                # 走直发还是点击、是否在等自动登录（决策 015）：上屏给计划栏
+                try:
+                    event_now = clock_now()
+                except clock_unavailable:
+                    event_now = None
+                payload.update(progress_event_status(parsed, event_now))
             if payload:
                 status("submitting", payload)
 
