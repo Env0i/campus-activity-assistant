@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>校园预报名手机页</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.m{--hall:#e8ecef;--paper:#fff;--paper-2:#f4f6f8;--ink:#1a1f24;--ink-2:#4e5964;--ink-3:#616c76;--line:#dde3e8;--line-2:#c5cdd4;--blue:#1e5a8c;--blue-tint:#e3edf6;--board:#121513;--board-2:#1b201c;--board-line:#2c332e;--on:#ecefea;--on-2:#a7afa9;--on-3:#8b948e;--amber:#ffb020;--amber-dim:#b98319;--red:#ff5b48;--green:#45dc8a;--led-off:#232823;--ok:#146c43;--ok-tint:#e1f3e9;--bad:#b63227;--bad-tint:#fbe6e3;--warn:#8f5600;--warn-tint:#fff0d4;--ui:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;--n:Bahnschrift,"DIN Alternate","Segoe UI","Microsoft YaHei UI",sans-serif;--mono:Consolas,"Cascadia Mono",monospace;--dots:radial-gradient(circle at 1.5px 1.5px,rgba(255,255,255,.045) 1px,transparent 1.4px) 0 0/6px 6px;position:relative;display:flex;flex-direction:column;width:100%;overflow:hidden;background:var(--hall);color:var(--ink);font:400 .875rem/1.5 var(--ui);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+.m *{box-sizing:border-box}
+:where(.m) button,:where(.m) select,:where(.m) input{font:inherit;color:inherit}
+.m button{cursor:pointer}
+.m button:disabled{cursor:not-allowed}
+.m :focus{outline:0}
+.m :focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
+.i{width:1.125rem;height:1.125rem;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.top{flex:none;display:flex;align-items:center;gap:.125rem;min-height:3.25rem;padding:.25rem .25rem .25rem .75rem}
+.brand{display:flex;align-items:center;gap:.5rem;min-width:0;margin-right:auto}
+.mark{width:1.5rem;height:1.5rem;flex:none}
+.brand b{overflow:hidden;font-size:1rem;font-weight:800;letter-spacing:.03em;text-overflow:ellipsis;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:.375rem;height:1.75rem;margin-right:.125rem;padding:0 .625rem 0 .5rem;border-radius:999px;font-size:.75rem;font-weight:700;white-space:nowrap}
+.pill i{width:.4375rem;height:.4375rem;border-radius:50%;background:currentColor}
+.pill.ok{background:var(--ok-tint);color:var(--ok);box-shadow:inset 0 0 0 1px #b9dbc8}
+.pill.bad{background:var(--bad-tint);color:var(--bad);box-shadow:inset 0 0 0 1px #ebb4ad}
+.pill.busy{background:var(--paper);color:var(--blue);box-shadow:inset 0 0 0 1px var(--line-2)}
+.ic{display:inline-flex;align-items:center;justify-content:center;width:2.75rem;height:2.75rem;border:0;border-radius:8px;background:transparent}
+.ic:active{background:rgba(26,31,36,.08)}
+.ic:disabled{opacity:.45}
+.alert{flex:none;display:flex;align-items:center;gap:.5rem;margin:0 .75rem .5rem;padding:.5rem .5rem .5rem .75rem;border-radius:8px;background:var(--warn-tint);color:#6b4100;box-shadow:inset 0 0 0 1px #e9c98a;font-size:.8125rem;line-height:1.45}
+.alert.bad{background:var(--bad-tint);color:#7e2119;box-shadow:inset 0 0 0 1px #ebb4ad}
+.alert.ok{background:var(--paper);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line-2)}
+.alert .grow{flex:1;min-width:0}
+.alert b{display:block;font-weight:700}
+.alert .b{flex:none;min-height:2.25rem;padding:0 .625rem;border-radius:8px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);font-size:.8125rem}
+.scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:.75rem}
+.board{margin:0 .75rem;overflow:hidden;border-radius:14px;background:var(--dots),var(--board);color:var(--on);box-shadow:inset 0 0 0 1px var(--board-line)}
+.board.st-ok{box-shadow:inset 0 0 0 2px var(--green)}.board.st-bad{box-shadow:inset 0 0 0 2px var(--red)}.board.st-warn{box-shadow:inset 0 0 0 2px var(--amber-dim)}
+.board :focus-visible{outline-color:var(--amber)}
+.b-in{padding:.75rem .875rem .875rem}
+.b-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.625rem}
+.b-tag{display:inline-flex;align-items:center;gap:.375rem;height:1.375rem;padding:0 .5rem;border-radius:4px;background:rgba(255,176,32,.13);color:var(--amber);font-size:.75rem;font-weight:700;white-space:nowrap}
+.b-tag i{width:.4375rem;height:.4375rem;border-radius:50%;background:currentColor}
+.b-tag.off{background:rgba(255,255,255,.06);color:var(--on-2)}
+.b-tag.red{background:rgba(255,91,72,.14);color:var(--red)}.b-tag.red i{animation:pulse 1s ease-in-out infinite}
+.b-tag.green{background:rgba(69,220,138,.13);color:var(--green)}
+.b-now{color:var(--on-2);font-size:.75rem}
+.b-now b{margin-left:.25rem;color:var(--on);font:400 .875rem var(--n);font-variant-numeric:tabular-nums}
+.led-wrap{--led-on:var(--amber);max-width:100%}
+.led-wrap.dim{--led-on:var(--amber-dim)}.led-wrap.red{--led-on:var(--red)}.led-wrap.green{--led-on:var(--green)}.led-wrap.off{--led-on:#3b4239}
+.led{display:grid;width:100%}
+.led i{display:block;aspect-ratio:1;margin:14%;border-radius:50%;background:var(--led-off)}
+.led i.on{background:var(--led-on)}
+.led i.gap{background:transparent}
+.led i.blink{background:var(--led-on);animation:pulse 1.1s ease-in-out infinite}
+.led-wrap.amber .led{filter:drop-shadow(0 0 3px rgba(255,176,32,.55))}
+.led-wrap.red .led{filter:drop-shadow(0 0 3px rgba(255,91,72,.6))}
+.led-wrap.green .led{filter:drop-shadow(0 0 3px rgba(69,220,138,.5))}
+.cap{display:flex;align-items:baseline;justify-content:space-between;gap:.75rem;margin:.5rem 0 0;padding-bottom:.625rem;border-bottom:1px solid var(--board-line);color:var(--on-2);font-size:.8125rem}
+.cap b{color:var(--on);font:600 .875rem var(--n);font-variant-numeric:tabular-nums;white-space:nowrap}
+.b-title{margin:.625rem 0 0;font-size:1.0625rem;font-weight:700;line-height:1.35}
+.b-sub{margin:.125rem 0 0;color:var(--on-2);font-size:.8125rem}
+.rail{display:grid;grid-template-columns:repeat(4,1fr);margin-top:.75rem}
+.rail div{position:relative;padding-top:1.0625rem;color:var(--on-3);font-size:.6875rem;font-weight:600}
+.rail i{position:absolute;top:.125rem;left:0;width:.625rem;height:.625rem;border-radius:50%;box-shadow:inset 0 0 0 2px #59625b}
+.rail div::after{content:"";position:absolute;top:.3125rem;left:.8125rem;right:.1875rem;height:2px;background:repeating-linear-gradient(90deg,#3f4741 0 4px,transparent 4px 7px)}
+.rail div:last-child::after{display:none}
+.rail .done{color:var(--on-2)}.rail .done i{background:#c9d0ca;box-shadow:none}
+.rail .now{color:var(--amber)}.rail .now i{background:var(--amber);box-shadow:0 0 0 3px rgba(255,176,32,.22)}
+.rail .hot{color:var(--red)}.rail .hot i{background:var(--red);box-shadow:0 0 0 3px rgba(255,91,72,.25);animation:pulse 1s ease-in-out infinite}
+.stats{display:flex;gap:1.5rem;padding-bottom:.625rem;border-bottom:1px solid var(--board-line)}
+.stats strong{display:block;font:600 2.75rem/1 var(--n);font-stretch:85%;font-variant-numeric:tabular-nums}
+.stats div>span{color:var(--on-2);font-size:.75rem;white-space:nowrap}
+.stats .ok strong{color:var(--green)}.stats .bad strong{color:#ff9b8f}.stats .ask strong{color:#ffd587}.stats .wait strong{color:var(--on-2)}
+.pick{width:100%;margin-top:.625rem}
+.fbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:.25rem;margin-top:.5rem;padding:.25rem .25rem .25rem .75rem;background:var(--hall)}
+.seg{display:flex;flex:1;gap:2px;padding:3px;border-radius:8px;background:#dfe4e8}
+.seg button{flex:1;min-height:2.25rem;padding:0 .25rem;border:0;border-radius:6px;background:transparent;color:var(--ink-2);font-size:.8125rem;white-space:nowrap}
+.seg button.on{background:var(--paper);color:var(--blue);font-weight:700;box-shadow:0 1px 3px rgba(31,50,65,.12)}
+.seg small{margin-left:.25rem;color:var(--ink-3);font:.75rem var(--n)}
+.search{display:flex;align-items:center;gap:.375rem;margin:0 .75rem .5rem;padding:0 .625rem;min-height:2.75rem;border-radius:8px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink-3)}
+.search input{flex:1;min-width:0;height:2.5rem;border:0;background:transparent;color:var(--ink);font-size:1rem}
+.notice{margin:0 .75rem .5rem;padding:.5rem .625rem;border-radius:8px;background:var(--warn-tint);color:#6b4100;font-size:.8125rem}
+.lst{margin:0 .75rem;overflow:hidden;border-radius:10px;background:var(--paper);box-shadow:0 0 0 1px var(--line)}
+.grp{display:flex;align-items:baseline;gap:.5rem;min-height:1.875rem;padding:.375rem .75rem 0;background:var(--paper-2);border-bottom:1px solid var(--line);color:var(--ink-2);font-size:.75rem}
+.grp b{color:var(--ink);font-size:.8125rem;font-weight:700}
+.grp.open b{color:var(--warn)}.grp.signed b{color:var(--ok)}
+.grp .ct{margin-left:auto;color:var(--ink-3);font-family:var(--n)}
+.nowline{position:relative;display:flex;align-items:center;height:1.625rem;padding:0 .75rem;background:var(--paper)}
+.nowline::before{content:"";position:absolute;right:0;left:0;top:50%;border-top:1px solid var(--ink)}
+.nowchip{position:relative;display:inline-flex;align-items:center;gap:.375rem;height:1.25rem;padding:0 .5rem;border-radius:4px;background:var(--ink);color:#fff;font-size:.75rem}
+.nowchip::before{content:"";width:.375rem;height:.375rem;border-radius:50%;background:var(--amber)}
+.nowchip b{font-family:var(--n);font-variant-numeric:tabular-nums;font-weight:600}
+.row{position:relative;display:grid;grid-template-columns:1.375rem 3.375rem minmax(0,1fr);gap:0 .5rem;padding:.625rem .75rem;border-bottom:1px solid var(--line);cursor:pointer}
+.row:last-child{border-bottom:0}
+.row:active{background:#f5f8fa}
+.row.sel,.row.sel:active{background:var(--blue-tint)}
+.row.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--blue)}
+.row.off{cursor:default}.row.off:active{background:transparent}
+.row.dim .name{font-weight:400;color:var(--ink-2)}.row.dim .time b{color:var(--ink-3)}
+.row input{width:1.25rem;height:1.25rem;margin:.1875rem 0 0;accent-color:var(--blue)}
+.time{display:flex;flex-direction:column;line-height:1.2}
+.time b{font:600 1.375rem var(--n);font-stretch:85%;font-variant-numeric:tabular-nums}
+.time b.txt{font:400 .8125rem var(--ui);color:var(--ink-3)}
+.time small{margin-top:.125rem;color:var(--blue);font:.75rem var(--n);font-variant-numeric:tabular-nums}
+.time small.soon{color:var(--warn);font-weight:700}
+.main{min-width:0}
+.name{display:block;font-size:.9375rem;font-weight:600;line-height:1.4}
+.sub{display:flex;flex-wrap:wrap;align-items:center;gap:.125rem .375rem;margin-top:.125rem;color:var(--ink-2);font-size:.75rem}
+.flag{padding:1px .3125rem;border-radius:4px;background:var(--blue-tint);color:var(--blue);font-size:.6875rem;line-height:1.35;white-space:nowrap}
+.row.sel .flag{background:#fff}
+.flag.warn,.row.sel .flag.warn{background:var(--warn-tint);color:var(--warn)}
+.flag.next,.row.sel .flag.next{background:var(--ink);color:#fff}
+.flag.signed{background:var(--ok-tint);color:var(--ok)}
+.flag.mute{background:#eceff2;color:var(--ink-2)}
+.w{display:block;margin-top:.125rem;color:var(--warn);font-size:.75rem}
+.tasks{margin:.5rem .75rem 0;overflow:hidden;border-radius:10px;background:var(--paper);box-shadow:0 0 0 1px var(--line)}
+.task{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.125rem .5rem;align-items:baseline;padding:.625rem .75rem;border-bottom:1px solid var(--line)}
+.task:last-child{border-bottom:0}
+.task b{font-weight:600}
+.task small{grid-column:1/-1;color:var(--ink-2);font-size:.75rem;line-height:1.45}
+.ts{color:var(--ink-2);font-size:.75rem;font-weight:700;white-space:nowrap}
+.ts.run{color:var(--warn)}.ts.ok{color:var(--ok)}.ts.bad{color:var(--bad)}.ts.ask{color:var(--warn)}
+.t-cancel{grid-column:1/-1;justify-self:start;min-height:2.25rem;margin-top:.25rem;padding:0 .625rem;border:0;border-radius:8px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink-2);font-size:.8125rem}
+.tip{margin:.5rem .875rem 0;color:var(--ink-2);font-size:.75rem}
+.lnk{display:block;min-height:2.75rem;margin:0 .75rem;padding:0;border:0;background:transparent;color:var(--blue);font-size:.8125rem;text-align:left}
+.bar{flex:none;display:flex;align-items:center;gap:.625rem;padding:.625rem .75rem calc(.625rem + env(safe-area-inset-bottom));background:var(--dots),var(--board);color:var(--on)}
+.bar-t{flex:1;min-width:0;line-height:1.35}
+.bar-t b{display:block;font-weight:700}
+.bar-t small{display:block;color:var(--on-2);font-size:.75rem}
+.bar.stack{flex-direction:column;align-items:stretch}
+.b{display:inline-flex;align-items:center;justify-content:center;min-height:2.75rem;padding:0 1rem;border:0;border-radius:10px;font-weight:700;white-space:nowrap}
+.b:disabled{opacity:.45}
+.b-amber{background:var(--amber);color:#1d1505}.b-amber:active:not(:disabled){background:#e89b0c}
+.b-ghost{background:transparent;color:var(--on);box-shadow:inset 0 0 0 1px #4b544d}
+.b-line{background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2)}
+.b-stop{background:var(--bad);color:#fff}
+.b-wide{width:100%}
+.scrim{position:absolute;inset:0;z-index:8;display:flex;align-items:flex-end;background:rgba(17,29,38,.46)}
+.sheet{display:flex;flex-direction:column;width:100%;max-height:88%;overflow:hidden;border-radius:16px 16px 0 0;background:var(--paper);color:var(--ink);animation:rise .18s ease-out}
+.sh-h{flex:none;display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.625rem .25rem .625rem 1rem;background:var(--dots),var(--board);color:var(--on)}
+.sh-h h2{margin:0;padding-left:.625rem;border-left:3px solid var(--amber);font-size:1.0625rem;line-height:1.3}
+.sh-b{flex:1;min-height:0;overflow-y:auto;padding:.875rem 1rem}
+.sh-b p{margin:0;color:var(--ink-2)}
+.sh-b p+p{margin-top:.5rem}
+.sh-f{flex:none;display:flex;flex-direction:column;gap:.5rem;padding:.625rem 1rem calc(.75rem + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.sh-f.two{flex-direction:row}.sh-f.two .b{flex:1}
+.sh-err{margin:0 0 .625rem;padding:.5rem .625rem;border-radius:8px;background:var(--bad-tint);color:#7e2119;font-size:.8125rem}
+.bh{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;margin:.75rem 0 .25rem;color:var(--ink-2);font-size:.75rem}
+.bh:first-child{margin-top:0}
+.bh b{color:var(--warn);font:600 .875rem var(--n);font-variant-numeric:tabular-nums}
+.tk{display:grid;grid-template-columns:minmax(0,1fr) 2.75rem;align-items:center;padding:.25rem 0 .25rem .75rem;border-radius:8px;background:var(--paper-2)}
+.tk+.tk{margin-top:.25rem}
+.tk b{display:block;font-weight:600}
+.tk small{display:block;color:var(--ink-2);font-size:.75rem}
+.fld{display:flex;align-items:center;justify-content:space-between;gap:.75rem;min-height:3rem;border-bottom:1px solid var(--line);color:var(--ink-2);font-size:.8125rem}
+.fld select,.fld input{height:2.25rem;padding:0 .375rem;border:0;border-radius:8px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink);font-size:1rem}
+.fld input{width:4rem;text-align:right;font-family:var(--n)}
+.fhint{margin:.375rem 0 0;color:var(--warn);font-size:.75rem}
+.sec{padding:.75rem 0;border-bottom:1px solid var(--line)}
+.sec:first-child{padding-top:0}
+.sec:last-child{padding-bottom:0;border-bottom:0}
+.sec h3{margin:0 0 .375rem;font-size:.8125rem;font-weight:700}
+.sec p{font-size:.75rem}
+.sec .b{margin-top:.5rem}
+.chips{display:flex;gap:.375rem}
+.chips button{min-height:2.25rem;padding:0 .75rem;border:0;border-radius:999px;background:var(--paper-2);color:var(--ink-2);font-size:.8125rem;box-shadow:inset 0 0 0 1px var(--line)}
+.chips button.on{background:var(--blue-tint);color:var(--blue);font-weight:700;box-shadow:inset 0 0 0 1px #b7cfe4}
+.logs{margin:0;padding:.5rem .625rem;border-radius:8px;background:#fbfcfd;box-shadow:inset 0 0 0 1px var(--line);color:#53616b;font:.6875rem/1.6 var(--mono);list-style:none}
+.demo{display:block;width:100%;min-height:2.25rem;padding:0;border:0;background:transparent;color:var(--blue);font-size:.75rem;text-align:left;text-decoration:underline}
+.pair-v{flex:1;min-height:0;overflow-y:auto;padding-bottom:1rem}
+.pair-b{position:relative}
+.pair-led{position:relative;margin:.25rem 0 .5rem;border-radius:8px}
+.pair-led:focus-within{box-shadow:0 0 0 2px var(--amber);outline-offset:4px}
+.pair-in{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;font-size:1rem;cursor:text}
+.pair-cap{margin:0 0 .75rem;color:var(--on-2);font-size:.8125rem}
+.pair-t{margin:1rem 1.25rem 0}
+.pair-t h1{margin:0;font-size:1.25rem;font-weight:800}
+.pair-t p{margin:.375rem 0 0;color:var(--ink-2);font-size:.8125rem}
+.pair-err{margin:.625rem .75rem 0;padding:.5rem .625rem;border-radius:8px;background:var(--bad-tint);color:#7e2119;font-size:.8125rem}
+.spin{display:flex;align-items:center;gap:.625rem;padding:.25rem 0;font-weight:600}
+.spin i{width:.625rem;height:.625rem;flex:none;border-radius:50%;background:var(--amber);box-shadow:0 0 0 4px rgba(255,176,32,.22);animation:pulse 1.1s ease-in-out infinite}
+.captcha{position:relative;display:flex;align-items:center;justify-content:center;gap:1.125rem;height:4.25rem;margin-bottom:.625rem;overflow:hidden;border-radius:8px;background:#fff;box-shadow:inset 0 0 0 1px var(--line-2);user-select:none}
+.captcha .cap-line{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:#a8742a;stroke-width:1.4;vector-effect:non-scaling-stroke}
+.captcha span{position:relative;font:400 2rem/1 Arial,"Segoe UI",sans-serif}
+.code-in{display:block;width:100%;height:3rem;padding:0 .75rem;border:0;border-radius:8px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink);font:600 1.25rem var(--n);letter-spacing:.3em;text-align:center}
+.code-in:focus{box-shadow:inset 0 0 0 2px var(--blue)}
+.lb{display:block;margin-bottom:.25rem;color:var(--ink-2);font-size:.75rem}
+.pw{display:grid;gap:.375rem;margin:.75rem 0 0;padding:0;list-style:none}
+.pw li{padding:.5rem .625rem;border-radius:8px;background:var(--warn-tint);color:#6b4100;font-size:.8125rem;line-height:1.5}
+.rel-lead{margin:0 0 .75rem!important;color:var(--ink-2)}
+.fld2{display:block;margin-bottom:.625rem}
+.txt-in{display:block;width:100%;height:2.75rem;padding:0 .75rem;border:0;border-radius:8px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink);font-size:1rem}
+.txt-in:focus{box-shadow:inset 0 0 0 2px var(--blue)}
+.rel-auto{display:flex;align-items:center;gap:.5rem;margin:0 0 .625rem!important;padding:.5rem .625rem;border-radius:8px;background:var(--ok-tint);color:var(--ok)!important;font-size:.8125rem}
+.chk{display:flex;align-items:flex-start;gap:.625rem;margin-top:.75rem;cursor:pointer}
+.chk input{flex:none;width:1.25rem;height:1.25rem;margin:.125rem 0 0;accent-color:var(--blue)}
+.chk b{display:block;font-weight:600}
+.chk small{display:block;color:var(--ink-2);font-size:.75rem;line-height:1.5}
+.demo-tip{margin-top:.625rem!important;font-size:.75rem}
+@keyframes pulse{50%{opacity:.35}}
+@keyframes rise{from{transform:translateY(1.5rem);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.m *,.m *::before{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</helmet>
+<div class="m" style="height: {{rootH}}">
+  <header class="top">
+    <div class="brand"><svg class="mark" viewBox="0 0 64 64" role="img" aria-label="校园预报名"><path d="M12 8H52A8 8 0 0 1 60 16V26A6 6 0 0 0 60 38V48A8 8 0 0 1 52 56H12A8 8 0 0 1 4 48V38A6 6 0 0 0 4 26V16A8 8 0 0 1 12 8Z" fill="#B98319"></path><path d="M12 12H52A4 4 0 0 1 56 16V22.83A10 10 0 0 0 56 41.17V48A4 4 0 0 1 52 52H12A4 4 0 0 1 8 48V41.17A10 10 0 0 0 8 22.83V16A4 4 0 0 1 12 12Z" fill="#FFB020"></path><path d="M20 32L28 40L44 24" fill="none" stroke="#121513" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></path></svg><b>校园预报名</b></div>
+    <sc-if value="{{isApp}}" hint-placeholder-val="{{true}}">
+      <span class="pill {{connTone}}" role="status"><i></i>{{connText}}</span>
+      <button class="ic" type="button" disabled="{{syncing}}" onClick="{{refresh}}" aria-label="刷新"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path></svg></button>
+      <button class="ic" type="button" onClick="{{openMore}}" aria-label="更多"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+    </sc-if>
+  </header>
+
+  <sc-if value="{{isPair}}" hint-placeholder-val="{{false}}">
+    <div class="pair-v">
+      <div class="board pair-b"><div class="b-in">
+        <div class="b-head"><span class="b-tag {{pair.tagTone}}"><i></i>{{pair.tag}}</span></div>
+        <div class="pair-led"><div class="led-wrap {{pair.led.tone}}"><div class="led" style="grid-template-columns: repeat({{pair.led.cols}}, minmax(0, 1fr))" aria-hidden="true"><sc-for list="{{pair.led.dots}}" as="d" hint-placeholder-count="1"><i class="{{d.cls}}"></i></sc-for></div></div><input class="pair-in" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="{{code}}" disabled="{{pair.locked}}" onChange="{{onCode}}" onKeyDown="{{onCodeKey}}" aria-label="配对码，6 位数字" aria-describedby="pair-cap"></div>
+        <p class="pair-cap" id="pair-cap">{{pair.cap}}</p>
+        <button class="b b-amber b-wide" type="button" disabled="{{pair.cantSubmit}}" onClick="{{submitPair}}">配对</button>
+      </div></div>
+      <sc-if value="{{pair.hasErr}}" hint-placeholder-val="{{false}}"><p class="pair-err" role="alert">{{pair.err}}</p></sc-if>
+      <div class="pair-t"><h1>连接电脑</h1><p>配对码在电脑的“设置 → 手机访问”里，5 分钟内有效，只能用一次。</p><p>手机只是遥控器，真正报名的还是电脑，所以电脑要开着、不能睡眠。</p><sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><p>原型演示配对码：<b>482913</b></p></sc-if></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isApp}}" hint-placeholder-val="{{true}}">
+    <sc-if value="{{hasAlert}}" hint-placeholder-val="{{false}}"><div class="alert {{alert.tone}}" role="alert"><span class="grow"><b>{{alert.title}}</b>{{alert.detail}}</span><sc-if value="{{alert.hasAction}}" hint-placeholder-val="{{true}}"><button class="b" type="button" disabled="{{syncing}}" onClick="{{alert.fn}}">{{alert.action}}</button></sc-if></div></sc-if>
+    <div class="scroll">
+      <section class="board {{boardCls}}" aria-label="报名计划" aria-live="polite"><div class="b-in">
+        <div class="b-head"><span class="b-tag {{head.tone}}"><i></i>{{head.text}}</span><span class="b-now">北京时间<b>{{nowText}}</b></span></div>
+        <sc-if value="{{isResult}}" hint-placeholder-val="{{false}}"><div class="stats"><sc-for list="{{res.counts}}" as="n" hint-placeholder-count="3"><div class="{{n.tone}}"><strong>{{n.n}}</strong><span>{{n.text}}</span></div></sc-for></div><h2 class="b-title">{{res.title}}</h2><p class="b-sub">{{res.text}}</p></sc-if>
+        <sc-if value="{{notResult}}" hint-placeholder-val="{{true}}">
+          <div class="led-wrap {{led.tone}}" role="img" aria-label="{{led.aria}}"><div class="led" style="grid-template-columns: repeat({{led.cols}}, minmax(0, 1fr))" aria-hidden="true"><sc-for list="{{led.dots}}" as="d" hint-placeholder-count="1"><i class="{{d.cls}}"></i></sc-for></div></div>
+          <p class="cap"><span>{{led.cap}}</span><b>{{led.capB}}</b></p>
+          <h2 class="b-title">{{board.title}}</h2><p class="b-sub">{{board.sub}}</p>
+          <sc-if value="{{hasRail}}" hint-placeholder-val="{{false}}"><div class="rail" aria-hidden="true"><sc-for list="{{board.rail}}" as="st" hint-placeholder-count="4"><div class="{{st.state}}"><i></i>{{st.label}}</div></sc-for></div></sc-if>
+          <sc-if value="{{hasPick}}" hint-placeholder-val="{{false}}"><button class="b b-ghost pick" type="button" onClick="{{pickNext}}">选这一场</button></sc-if>
+        </sc-if>
+      </div></section>
+
+      <sc-if value="{{hasTasks}}" hint-placeholder-val="{{false}}">
+        <div class="tasks"><sc-for list="{{taskCards}}" as="t" hint-placeholder-count="3"><div class="task"><b>{{t.name}}</b><span class="ts {{t.tone}}">{{t.label}}</span><small>{{t.detail}}</small><sc-if value="{{t.canCancel}}" hint-placeholder-val="{{false}}"><button class="t-cancel" type="button" onClick="{{t.cancel}}">取消这一场</button></sc-if></div></sc-for></div>
+      </sc-if>
+      <sc-if value="{{isRun}}" hint-placeholder-val="{{false}}">
+        <p class="tip">手机可以锁屏，电脑不能关机或睡眠。要改计划，回电脑点“修改计划”，或者停止后重新选。</p>
+        <sc-if value="{{canFF}}" hint-placeholder-val="{{false}}"><button class="lnk" type="button" onClick="{{demoFF}}">演示：快进到开放前 12 秒</button></sc-if>
+      </sc-if>
+      <sc-if value="{{canToggleList}}" hint-placeholder-val="{{false}}"><button class="lnk" type="button" aria-expanded="{{listOpen}}" onClick="{{toggleList}}">{{listBtn}}</button></sc-if>
+
+      <sc-if value="{{showList}}" hint-placeholder-val="{{true}}">
+        <div class="fbar"><div class="seg" role="group" aria-label="报名状态"><sc-for list="{{segs}}" as="g" hint-placeholder-count="3"><button class="{{g.cls}}" type="button" aria-pressed="{{g.on}}" onClick="{{g.pick}}">{{g.text}}<small>{{g.n}}</small></button></sc-for></div><button class="ic" type="button" aria-expanded="{{searchOpen}}" onClick="{{toggleSearch}}" aria-label="搜活动名或地点"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></button></div>
+        <sc-if value="{{searchOpen}}" hint-placeholder-val="{{false}}"><label class="search"><input type="search" placeholder="搜活动名或地点" value="{{q}}" onChange="{{onQ}}" aria-label="搜活动名或地点"></label></sc-if>
+        <sc-if value="{{hasNotice}}" hint-placeholder-val="{{false}}"><p class="notice" role="alert">{{notice}}</p></sc-if>
+        <div class="lst"><sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+          <sc-if value="{{g.nowBefore}}" hint-placeholder-val="{{false}}"><div class="nowline"><span class="nowchip">现在 <b>{{g.now}}</b></span></div></sc-if>
+          <div class="grp {{g.cls}}"><b>{{g.title}}</b><span>{{g.note}}</span><span class="ct">{{g.n}} 场</span></div>
+          <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3"><label class="row {{r.cls}}"><input type="checkbox" checked="{{r.selected}}" disabled="{{r.disabled}}" onChange="{{r.toggle}}" aria-label="{{r.aria}}"><span class="time"><b class="{{r.timeCls}}">{{r.time}}</b><sc-if value="{{r.hasLeft}}" hint-placeholder-val="{{true}}"><small class="{{r.leftCls}}">{{r.left}}</small></sc-if></span><span class="main"><span class="name">{{r.name}}</span><span class="sub"><sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1"><span class="flag {{f.cls}}">{{f.text}}</span></sc-for><span>{{r.act}}</span><sc-if value="{{r.hasPlace}}" hint-placeholder-val="{{true}}"><span>{{r.place}}</span></sc-if></span><sc-if value="{{r.hasWarn}}" hint-placeholder-val="{{false}}"><span class="w">{{r.warn}}</span></sc-if></span></label></sc-for>
+        </sc-for></div>
+        <sc-if value="{{noRows}}" hint-placeholder-val="{{false}}"><p class="tip" style="text-align: center">没有符合筛选的活动。</p></sc-if>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{bar.show}}" hint-placeholder-val="{{true}}"><div class="bar"><div class="bar-t"><b>{{bar.title}}</b><small>{{bar.sub}}</small></div><button class="b {{bar.cls}}" type="button" disabled="{{bar.off}}" onClick="{{bar.fn}}">{{bar.label}}</button></div></sc-if>
+    <sc-if value="{{isResult}}" hint-placeholder-val="{{false}}"><div class="bar stack"><sc-if value="{{res.canRetry}}" hint-placeholder-val="{{true}}"><button class="b b-amber" type="button" onClick="{{reselect}}">重新选择未成功的场次</button></sc-if><button class="b b-ghost" type="button" onClick="{{finishView}}">完成，回到活动列表</button></div></sc-if>
+  </sc-if>
+
+  <sc-if value="{{sheetOn}}" hint-placeholder-val="{{false}}">
+    <div class="scrim" onClick="{{scrimClick}}"><div class="sheet" role="dialog" aria-modal="true" aria-label="{{sh.title}}" tabindex="-1" onKeyDown="{{sheetKey}}">
+      <div class="sh-h"><h2>{{sh.title}}</h2><sc-if value="{{sh.canClose}}" hint-placeholder-val="{{true}}"><button class="ic" type="button" onClick="{{closeSheet}}" aria-label="关闭"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></sc-if></div>
+
+      <sc-if value="{{sh.isReview}}" hint-placeholder-val="{{false}}">
+        <div class="sh-b">
+          <sc-for list="{{batches}}" as="bb" hint-placeholder-count="2"><div class="bh"><b>{{bb.time}}</b><span>{{bb.note}}</span></div><sc-for list="{{bb.items}}" as="tk" hint-placeholder-count="2"><div class="tk"><div style="min-width: 0"><b>{{tk.name}}</b><small>{{tk.act}}</small></div><button class="ic" type="button" onClick="{{tk.remove}}" aria-label="{{tk.aria}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div></sc-for></sc-for>
+          <sc-if value="{{hasPreWarn}}" hint-placeholder-val="{{false}}"><ul class="pw" role="status" aria-label="开始前提醒"><sc-for list="{{preWarn}}" as="w" hint-placeholder-count="2"><li>{{w.text}}</li></sc-for></ul></sc-if>
+          <div style="margin-top: .5rem"><label class="fld">尝试时长<select value="{{retry}}" onChange="{{onRetry}}" aria-label="尝试时长"><option value="120">2 分钟</option><option value="600">10 分钟</option><option value="1800">30 分钟</option><option value="3600">1 小时</option><option value="-1">自动延长</option><option value="0">直到报名截止</option></select></label><label class="fld">最多提交次数（0 = 不限）<input type="number" inputmode="numeric" min="0" step="1" value="{{maxA}}" onChange="{{onMax}}" aria-label="最多提交次数"></label><sc-if value="{{hasRetryHint}}" hint-placeholder-val="{{false}}"><p class="fhint">{{retryHint}}</p></sc-if></div>
+        </div>
+        <div class="sh-f"><button class="b b-amber" type="button" disabled="{{cantStart}}" onClick="{{startPlan}}">{{startLabel}}</button></div>
+      </sc-if>
+
+      <sc-if value="{{sh.isConfirm}}" hint-placeholder-val="{{false}}">
+        <div class="sh-b"><sc-if value="{{sh.hasErr}}" hint-placeholder-val="{{false}}"><p class="sh-err" role="alert">{{sh.err}}</p></sc-if><p>{{sh.text}}</p></div>
+        <div class="sh-f two"><button class="b b-line" type="button" onClick="{{closeSheet}}">{{sh.noLabel}}</button><button class="b b-stop" type="button" onClick="{{sh.yes}}">{{sh.yesLabel}}</button></div>
+      </sc-if>
+
+      <sc-if value="{{sh.isMore}}" hint-placeholder-val="{{false}}">
+        <div class="sh-b">
+          <section class="sec"><h3>开放时间</h3><div class="chips" role="group" aria-label="开放时间"><sc-for list="{{timeChips}}" as="c" hint-placeholder-count="3"><button class="{{c.cls}}" type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.text}}</button></sc-for></div></section>
+          <section class="sec"><h3>登录</h3><p>{{loginLine}}</p><button class="b b-line" type="button" onClick="{{beginRelogin}}">在手机上重新登录</button></section>
+          <section class="sec"><h3>电脑窗口</h3><p>窗口被隐藏到后台时，可以从这里叫回来。</p><button class="b b-line" type="button" disabled="{{isOff}}" onClick="{{showWindow}}">{{showWindowLabel}}</button></section>
+          <section class="sec"><h3>运行记录</h3><ol class="logs"><sc-for list="{{logLines}}" as="l" hint-placeholder-count="3"><li>{{l.text}}</li></sc-for></ol></section>
+          <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><section class="sec"><h3>原型演示</h3><button class="demo" type="button" onClick="{{demoOffline}}">模拟连不上电脑</button><button class="demo" type="button" onClick="{{demoExpired}}">模拟电脑上的登录失效</button><button class="demo" type="button" onClick="{{demoNoCred}}">{{demoCredLabel}}</button><button class="demo" type="button" onClick="{{demoOcr}}">{{demoOcrLabel}}</button><button class="demo" type="button" onClick="{{demoBad}}">{{demoBadLabel}}</button><button class="demo" type="button" onClick="{{demoOcrFail}}">{{demoOcrFailLabel}}</button><button class="demo" type="button" onClick="{{demoTerms}}">{{demoTermsLabel}}</button></section></sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{sh.isRelogin}}" hint-placeholder-val="{{false}}">
+        <div class="sh-b">
+          <sc-if value="{{sh.hasErr}}" hint-placeholder-val="{{false}}"><p class="sh-err" role="alert">{{sh.err}}</p></sc-if>
+          <sc-if value="{{rel.isBusy}}" hint-placeholder-val="{{false}}"><div class="spin" role="status"><i></i>{{rel.busyText}}</div></sc-if>
+          <sc-if value="{{rel.hasText}}" hint-placeholder-val="{{true}}"><p>{{rel.text}}</p></sc-if>
+          <sc-if value="{{rel.isForm}}" hint-placeholder-val="{{false}}">
+            <sc-if value="{{rel.hasLead}}" hint-placeholder-val="{{true}}"><p class="rel-lead">{{rel.lead}}</p></sc-if>
+            <sc-if value="{{rel.needAcct}}" hint-placeholder-val="{{false}}">
+              <label class="fld2"><span class="lb">账号</span><input class="txt-in" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" value="{{relUser}}" onChange="{{onRelUser}}" aria-label="账号"></label>
+              <label class="fld2"><span class="lb">密码</span><input class="txt-in" type="password" autocomplete="current-password" value="{{relPass}}" onChange="{{onRelPass}}" aria-label="密码"></label>
+            </sc-if>
+            <sc-if value="{{rel.needCap}}" hint-placeholder-val="{{true}}">
+              <div class="captcha" role="img" aria-label="验证码图片，原型示意"><svg class="cap-line" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><path d="M3 24 C 28 8, 58 30, 117 22"></path></svg><sc-for list="{{rel.chars}}" as="c" hint-placeholder-count="4"><span style="color: {{c.col}}; transform: rotate({{c.r}}deg) translateY({{c.y}}px)">{{c.ch}}</span></sc-for></div>
+              <label><span class="lb">照图输入 4 位字母或数字</span><input class="code-in" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="4" value="{{capInput}}" onChange="{{onCap}}" aria-label="验证码"></label>
+            </sc-if>
+            <sc-if value="{{rel.autoCap}}" hint-placeholder-val="{{false}}"><p class="rel-auto">验证码由电脑自动识别，你不用输入。</p></sc-if>
+            <sc-if value="{{rel.needAcct}}" hint-placeholder-val="{{false}}"><label class="chk"><input type="checkbox" checked="{{relSave}}" onChange="{{onRelSave}}" aria-label="登录成功后保存到这台电脑"><span><b>登录成功后保存到这台电脑</b><small>加密保存，只有这台电脑能解开。下次失效时{{rel.saveGain}}。不勾的话，只在这次运行中有效。</small></span></label></sc-if>
+            <p class="demo-tip" style="color: var(--ink-3)">登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。</p>
+            <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><p class="demo-tip">{{rel.demoTip}}</p></sc-if>
+          </sc-if>
+        </div>
+        <sc-if value="{{rel.isForm}}" hint-placeholder-val="{{false}}"><div class="sh-f"><button class="b b-amber" type="button" disabled="{{rel.cantSubmit}}" onClick="{{submitRelogin}}">{{rel.submitLabel}}</button><div class="sh-f two" style="padding: 0; border: 0"><sc-if value="{{rel.needCap}}" hint-placeholder-val="{{true}}"><button class="b b-line" type="button" onClick="{{nextCaptcha}}">换一张图</button></sc-if><button class="b b-line" type="button" onClick="{{cancelRelogin}}">取消</button></div></div></sc-if>
+        <sc-if value="{{rel.isConfirm}}" hint-placeholder-val="{{false}}"><div class="sh-f"><button class="b b-amber" type="button" onClick="{{autoRelogin}}">自动登录一次</button><button class="b b-line" type="button" onClick="{{cancelRelogin}}">取消</button></div></sc-if>
+        <sc-if value="{{rel.hasDone}}" hint-placeholder-val="{{false}}"><div class="sh-f"><button class="b b-line" type="button" onClick="{{closeSheet}}">{{rel.doneLabel}}</button></div></sc-if>
+      </sc-if>
+    </div></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"pair","options":["pair","pairlock","home","picked","review","pending","running","offline","result","expired","captcha","auto","relall","relacct","relconfirm","relbad","phoneterms","reviewwarn"]},"frozen":{"editor":null},"height":{"editor":null},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  state = this.init((this.props || {}).scene || 'pair');
+
+  hhmmss(v) {
+    if (v < 0) v = 0;
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return p(Math.min(99, Math.floor(v / 3600))) + ':' + p(Math.floor(v % 3600 / 60)) + ':' + p(Math.floor(v % 60));
+  }
+  hms(v) {
+    var d = Math.floor(v / 86400), x = ((v % 86400) + 86400) % 86400;
+    var t = this.hhmmss(x);
+    return d > 0 ? (d === 1 ? '明天 ' : (d === 2 ? '后天 ' : d + ' 天后 ')) + t : t;
+  }
+  leftCn(v) {
+    if (v < 0) v = 0;
+    var h = Math.floor(v / 3600), m = Math.floor(v % 3600 / 60), s = Math.floor(v % 60);
+    if (h >= 10) return Math.round(v / 3600) + ' 小时后';
+    if (h > 0) return h + ' 时 ' + m + ' 分';
+    if (m > 0) return m + ' 分 ' + s + ' 秒';
+    return s + ' 秒';
+  }
+  glyphs() {
+    if (!this._g) this._g = {
+      '0': ['01110', '10001', '10011', '10101', '11001', '10001', '01110'],
+      '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
+      '2': ['01110', '10001', '00001', '00010', '00100', '01000', '11111'],
+      '3': ['11111', '00010', '00100', '00010', '00001', '10001', '01110'],
+      '4': ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
+      '5': ['11111', '10000', '11110', '00001', '00001', '10001', '01110'],
+      '6': ['00110', '01000', '10000', '11110', '10001', '10001', '01110'],
+      '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
+      '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
+      '9': ['01110', '10001', '10001', '01111', '00001', '00010', '01100'],
+      '-': ['00000', '00000', '00000', '11111', '00000', '00000', '00000'],
+      ' ': ['00', '00', '00', '00', '00', '00', '00'],
+      ':': ['0', '0', '1', '0', '1', '0', '0']
+    };
+    return this._g;
+  }
+  ledOf(text, tone, cap, capB, blinkAt) {
+    var G = this.glyphs(), cols = 0, dots = [], chars = Array.from(text);
+    chars.forEach(function (ch, i) { cols += (G[ch] || G[' '])[0].length + (i < chars.length - 1 ? 1 : 0); });
+    for (var r = 0; r < 7; r++) {
+      chars.forEach(function (ch, i) {
+        var g = G[ch] || G[' '];
+        for (var c = 0; c < g[0].length; c++) dots.push({ cls: g[r][c] === '1' ? (i === blinkAt ? 'blink' : 'on') : '' });
+        if (i < chars.length - 1) dots.push({ cls: 'gap' });
+      });
+    }
+    return { cols: cols, dots: dots, tone: tone, cap: cap || '', capB: capB || '', aria: (cap || '') + ' ' + (capB || '') + ' ' + text };
+  }
+  items() {
+    if (!this._it) this._it = [
+      { id: 'o1', name: '创新创业经验分享会', place: '大学生活动中心二楼', st: 'open', open: 32400, group: '正在开放', act: '11月3日 19:00–20:30', d: 3, s: 1140, e: 1230 },
+      { id: 'o2', name: '校园安全主题讲座', place: '一号教学楼 301', st: 'open', open: 37800, group: '正在开放', act: '11月4日 14:00–15:30', d: 4, s: 840, e: 930 },
+      { id: 't1', name: '人工智能与未来职业', place: '图书馆报告厅', st: 'pre', open: 52200, group: '今天', act: '11月5日 19:00–20:30', d: 5, s: 1140, e: 1230 },
+      { id: 't2', name: '志愿服务培训', place: '二号楼多功能厅', st: 'pre', open: 52200, group: '今天', noEnd: true, act: '11月6日 15:00–16:30', d: 6, s: 900, e: 990 },
+      { id: 't3', name: '心理健康工作坊', place: '学生事务中心', st: 'pre', open: 64800, group: '今天', act: '11月5日 20:00–21:00', d: 5, s: 1200, e: 1260 },
+      { id: 'm1', name: '“书香校园”经典诵读展演暨第十二届校园朗诵大赛决赛', place: '大学生活动中心一楼多功能报告厅（东侧入口，凭学生证入场）', st: 'pre', open: 118800, group: '明天', act: '11月7日 19:00–21:00', d: 7, s: 1140, e: 1260 },
+      { id: 'm2', name: '就业指导午间沙龙', place: '二号楼 204', st: 'pre', open: 129600, group: '明天', act: '11月8日 14:30–15:30', d: 8, s: 870, e: 930 },
+      { id: 'u1', name: '年度社团风采展', place: '地点待定', st: 'unknown', open: 0, group: '待公布', act: '举办时间待公布' },
+      { id: 's1', name: '学术诚信专题报告', place: '图书馆报告厅', st: 'signed', open: 28800, group: '已报名', act: '11月8日 14:00–15:30', d: 8, s: 840, e: 930 },
+      { id: 'w1', name: '毕业生双选会志愿者招募', place: '体育馆', st: 'pre', open: 205200, group: '后天', act: '11月10日 09:00–17:00', d: 10, s: 540, e: 1020 },
+      { id: 'c1', name: '秋季运动会志愿者招募', place: '体育馆', st: 'closed', open: 28800, group: '已截止', act: '报名已于今天 12:00 截止' }
+    ];
+    return this._it;
+  }
+  find(id) { return this.items().filter(function (i) { return i.id === id; })[0]; }
+  stOf(it, s) {
+    if (s.signedLocal.indexOf(it.id) >= 0 || s.tasks.some(function (t) { return t.id === it.id && t.status === 'success'; })) return 'signed';
+    if (it.st === 'pre' && s.now >= it.open) return 'open';
+    return it.st;
+  }
+  overlap(a, b) { return a.d && b.d && a.d === b.d && a.s < b.e && b.s < a.e; }
+  win(s) { return s.retry > 0 ? s.retry : (s.retry === -1 ? 120 : 3600); }
+  isEnd(st) { return ['success', 'full', 'failed', 'unconfirmed', 'canceled'].indexOf(st) >= 0; }
+
+  init(scene) {
+    var s = { scene: scene, view: 'app', code: '', pairErr: '', pairFails: 0, lockLeft: 0, conn: 'ok', tries: 0, syncing: false, lastOk: '14:20:03', login: 'valid', phase: 'draft', pendingLong: false, selected: [], tasks: [], signedLocal: [], now: 51605, stopped: false, retry: 120, maxA: 0, seg: 'free', q: '', searchOpen: false, fTime: 'all', notice: '', sheet: '', sheetErr: '', cancelId: '', relogin: 'idle', capIdx: 0, capInput: '', capErr: '', termsOk: true, credReady: true, credMem: false, ocrOn: false, relNeedAcct: false, relNeedCap: true, relUser: '', relPass: '', relSave: false, relHandoff: false, relBadSaved: false, relFresh: false, relDoneSaved: false, relDoneMem: false, demoBadSaved: false, demoOcrFail: false, bookmark: false, listOpen: false, windowShown: false, lines: ['14:20:03  [OK] 已同步电脑上的活动和登录状态'] };
+    if (scene === 'pair' || scene === 'pairlock') s.view = 'pair';
+    if (scene === 'pairlock') { s.lockLeft = 47; s.pairErr = '尝试次数过多，请稍后再试。换一台设备也一样要等。'; }
+    if (scene === 'picked' || scene === 'review') s.selected = ['o1', 't1', 't2'];
+    if (scene === 'review') s.sheet = 'review';
+    if (scene === 'reviewwarn') { s.selected = ['t2', 'w1']; s.retry = 0; s.sheet = 'review'; }
+    if (scene === 'phoneterms') { s.termsOk = false; s.selected = ['t1']; }
+    if (scene === 'pending') { s.selected = ['t1', 't2']; s.phase = 'pending'; s.pendingLong = true; }
+    if (scene === 'running' || scene === 'offline') { s.selected = ['t1', 't2']; s = this.startState(s); s = this.advance(s); s = this.advance(s); }
+    if (scene === 'offline') { s.conn = 'off'; s.tries = 3; s.lastOk = '14:19:40'; }
+    if (scene === 'result') {
+      s.selected = ['o1', 't1', 't2']; s = this.startState(s);
+      for (var n = 0; n < 80 && s.phase === 'running'; n++) { s = this.fastForward(s); if (s.phase === 'running') s = this.advance(s); }
+    }
+    if (['expired', 'captcha', 'auto', 'relall', 'relacct', 'relconfirm', 'relbad'].indexOf(scene) >= 0) { s.login = 'expired'; s.selected = ['t1']; }
+    if (scene === 'captcha') { s.sheet = 'relogin'; s.relogin = 'form'; s.relNeedAcct = false; s.relNeedCap = true; }
+    if (scene === 'auto') { s.ocrOn = true; s.sheet = 'relogin'; s.relogin = 'auto'; }
+    if (scene === 'relall') { s.credReady = false; s.sheet = 'relogin'; s.relogin = 'form'; s.relNeedAcct = true; s.relNeedCap = true; }
+    if (scene === 'relacct') { s.credReady = false; s.ocrOn = true; s.sheet = 'relogin'; s.relogin = 'form'; s.relNeedAcct = true; s.relNeedCap = false; }
+    if (scene === 'relconfirm') { s.ocrOn = true; s.sheet = 'relogin'; s.relogin = 'confirm'; }
+    if (scene === 'relbad') { s.ocrOn = true; s.sheet = 'relogin'; s.relogin = 'form'; s.relNeedAcct = true; s.relNeedCap = false; s.relBadSaved = true; s.capErr = '电脑上保存的密码学校不认，自动登录已暂停。输入新的账号密码；勾选保存会替换旧的。'; }
+    return s;
+  }
+
+  startState(s) {
+    var self = this;
+    var its = s.selected.map(function (id) { return self.find(id); }).sort(function (a, b) { return a.open - b.open; });
+    var outcomes = its.length === 1 ? ['success'] : ['success', 'full', 'unconfirmed', 'success', 'full', 'unconfirmed', 'success'];
+    var tasks = its.map(function (i, n) {
+      var instant = self.stOf(i, s) === 'open';
+      return { id: i.id, name: i.name, open: i.open, mode: instant ? 'instant' : 'pre', status: 'waiting', attempts: 0, last: '', reason: '', outcome: outcomes[n % outcomes.length], started: instant ? s.now : null, prep: instant ? s.now + 1 : null, via: 'direct', viaWhy: '', deadline: instant ? s.now + self.win(s) : null, subAt: null };
+    });
+    return Object.assign({}, s, { phase: 'running', tasks: tasks, notice: '', stopped: false, pendingLong: false, sheet: '', listOpen: false, lines: s.lines.concat(self.hms(s.now) + '  计划已开始，共 ' + tasks.length + ' 场') });
+  }
+  advance(s) {
+    var self = this, now = s.now + 1, lines = s.lines;
+    var tasks = s.tasks.map(function (o) {
+      var t = Object.assign({}, o);
+      if (self.isEnd(t.status)) return t;
+      if (t.mode === 'pre') {
+        if (now >= t.open - 100 && !t.started) { t.started = t.open - 100; t.prep = t.open - 92; }
+        // 登录失效又没在开放前登录回来：这一场以“登录失效”结束（架构方案 4.3）
+        if (now >= t.open && t.status === 'waiting' && s.login === 'expired') { t.status = 'failed'; t.reason = '登录失效：开放前没能重新登录，这一场没有提交'; lines = lines.concat(self.hms(now) + '  ' + t.name + '：' + t.reason); return t; }
+        if (now >= t.open && t.status === 'waiting') { t.status = 'submitting'; t.subAt = now; t.deadline = t.open + self.win(s); }
+      } else if (t.status === 'waiting') { t.status = 'submitting'; t.subAt = now; }
+      if (t.status === 'submitting') {
+        // 回包按架构方案 3.3 分类：报名未开始就接着发；名额已满当场结束；其余到点后向学校核对一次
+        var k = now - t.subAt;
+        if (k === 0) t.last = '学校说报名未开始，继续提交';
+        else { t.attempts += 1; t.last = '学校暂时没有回应'; }
+        if (t.outcome === 'full' && k >= 2) {
+          t.status = 'full'; t.last = '报名人数已满';
+          t.reason = '学校说报名人数已满，这一场到此结束，不再提交。不是工具出错。已提交 ' + t.attempts + ' 次';
+          lines = lines.concat(self.hms(now) + '  ' + t.name + '：学校回“报名人数已满”，本场结束');
+        } else if (k >= 4) {
+          t.status = t.outcome;
+          if (t.outcome === 'success') t.reason = '学校回“操作成功”，结束时向学校核对过：已报名';
+          if (t.outcome === 'unconfirmed') t.reason = '已提交 ' + t.attempts + ' 次，没拿到确定回应；结束时向学校核对也没查到结果。去活动页看一眼，或稍后刷新核对。工具不会再自动重发';
+          lines = lines.concat(self.hms(now) + '  ' + t.name + '：' + t.reason);
+        }
+      }
+      return t;
+    });
+    var next = Object.assign({}, s, { now: now, tasks: tasks, lines: lines });
+    return tasks.every(function (t) { return self.isEnd(t.status); }) ? this.finishState(next, false) : next;
+  }
+  finishState(s, stopped) {
+    var self = this;
+    var tasks = s.tasks.map(function (o) {
+      var t = Object.assign({}, o);
+      if (!self.isEnd(t.status)) {
+        if (t.attempts > 0) { t.status = 'unconfirmed'; t.reason = '已提交 ' + t.attempts + ' 次，没拿到确定回应；结束时向学校核对也没查到结果。去活动页看一眼'; }
+        else { t.status = 'canceled'; t.reason = '计划已停止，这一场没有提交'; }
+      }
+      return t;
+    });
+    return Object.assign({}, s, { phase: 'result', tasks: tasks, stopped: stopped, sheet: '', sheetErr: '', selected: [], lines: s.lines.concat(self.hms(s.now) + (stopped ? '  计划已停止' : '  计划已结束')) });
+  }
+  fastForward(s) {
+    var waiting = s.tasks.filter(function (t) { return t.status === 'waiting'; });
+    if (s.tasks.some(function (t) { return t.status === 'submitting'; }) || !waiting.length) return s;
+    var f = Math.min.apply(null, waiting.map(function (t) { return t.open; }));
+    if (f - s.now <= 12) return s;
+    return Object.assign({}, s, { now: f - 12 });
+  }
+
+  componentDidMount() {
+    var p = this.props || {};
+    if (p.scene && p.scene !== this.state.scene) this.setState(this.init(p.scene));
+    if (!p.frozen) this._t = setInterval(() => {
+      var s = this.state;
+      var n = s.phase === 'running' ? this.advance(s) : Object.assign({}, s, { now: s.now + 1 });
+      if (n.lockLeft > 0) { n.lockLeft -= 1; if (!n.lockLeft) n.pairErr = ''; }
+      this.setState(n);
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this._t); clearTimeout(this._pending); }
+  componentDidUpdate(prev) {
+    if (prev && prev.scene !== (this.props || {}).scene) { this.setState(this.init((this.props || {}).scene || 'pair')); return; }
+    var sheet = this.state.sheet;
+    if (sheet && this._sf !== sheet) {
+      var el = document.querySelector('.sheet');
+      if (el) el.focus();
+    }
+    this._sf = sheet;
+  }
+
+  log(s, text) { return s.lines.concat(this.hms(s.now) + '  ' + text); }
+  submitPair = () => {
+    var s = this.state;
+    if (s.lockLeft > 0 || s.code.length !== 6) return;
+    if (s.code === '482913') { this.setState({ view: 'app', code: '', pairErr: '', pairFails: 0, bookmark: true, lines: this.log(s, '手机已配对') }); return; }
+    var fails = s.pairFails + 1;
+    if (fails >= 3) { this.setState({ code: '', pairFails: 0, lockLeft: 60, pairErr: '尝试次数过多，请稍后再试。换一台设备也一样要等。' }); return; }
+    this.setState({ code: '', pairFails: fails, pairErr: '配对码不对，请核对后重试。再错 ' + (3 - fails) + ' 次要等 60 秒。' });
+  };
+  refresh = () => {
+    this.setState({ syncing: true });
+    setTimeout(() => {
+      var s = this.state;
+      this.setState({ syncing: false, conn: 'ok', tries: 0, lastOk: this.hms(s.now), lines: this.log(s, '已同步电脑上的状态') });
+    }, 800);
+  };
+  startPlan = () => {
+    var s = this.state;
+    if (s.conn === 'off' || s.login !== 'valid' || !s.selected.length) return;
+    this.setState({ phase: 'pending', pendingLong: false, sheet: '', lines: this.log(s, '已发出开始请求') });
+    this._pending = setTimeout(this.confirmStart, 1600);
+  };
+  confirmStart = () => { if (this.state.phase === 'pending') this.setState(this.startState(this.state)); };
+  beginRelogin = () => {
+    var s = this.state, has = s.credReady || s.credMem;
+    var base = { sheet: 'relogin', sheetErr: '', capErr: '', capInput: '', relUser: '', relPass: '', relSave: false, relHandoff: false, relBadSaved: false, relFresh: false };
+    if (s.phase === 'running' && this.reloginLate(s)) { this.setState(Object.assign(base, { relogin: 'planbusy' })); return; }
+    if (!s.termsOk) { this.setState(Object.assign(base, { relogin: 'terms' })); return; }
+    if (has && s.ocrOn) { this.setState(Object.assign(base, { relogin: 'confirm' })); return; }
+    this.setState(Object.assign(base, { relogin: 'starting', relNeedAcct: !has, relNeedCap: !s.ocrOn }));
+    setTimeout(() => { if (this.state.relogin === 'starting') this.setState({ relogin: 'form' }); }, 700);
+  };
+  // 开放前 100 秒内和提交中只留给自动登录，其余时间可以原地重新登录（架构方案 4.3）
+  reloginLate(s) { return s.tasks.some(function (t) { return t.status === 'submitting' || (t.status === 'waiting' && t.open - s.now <= 100); }); }
+  // 电脑自己认验证码；保存的密码不对就停下来换人工，认错 3 次就把验证码交给手机
+  autoRelogin = () => {
+    this.setState({ relogin: 'auto', capErr: '' });
+    setTimeout(() => {
+      var st = this.state;
+      if (st.relogin !== 'auto') return;
+      if (st.demoBadSaved && !st.relFresh) { this.setState({ relogin: 'form', relNeedAcct: true, relNeedCap: !st.ocrOn, relBadSaved: true, relPass: '', capErr: '电脑上保存的密码学校不认，自动登录已暂停。输入新的账号密码；勾选保存会替换旧的。' }); return; }
+      if (st.demoOcrFail) { this.setState({ relogin: 'form', relNeedAcct: false, relNeedCap: true, relHandoff: true, capInput: '' }); return; }
+      this.reloginOk();
+    }, 1600);
+  };
+  reloginOk() {
+    var s = this.state, saved = s.relNeedAcct && s.relSave, mem = s.relNeedAcct && !s.relSave;
+    this.setState({ relogin: 'done', login: 'valid', capInput: '', capErr: '', relUser: '', relPass: '', credReady: s.credReady || saved, credMem: s.credMem || mem, demoBadSaved: s.relNeedAcct ? false : s.demoBadSaved, relDoneSaved: saved, relDoneMem: mem, lines: this.log(s, '[OK] 在手机上重新登录成功，活动列表已刷新') });
+  }
+  relCanSubmit(s) {
+    if (s.conn === 'off' || s.relogin !== 'form') return false;
+    if (s.relNeedAcct && (!s.relUser.trim() || !s.relPass)) return false;
+    if (s.relNeedCap && s.capInput.length !== 4) return false;
+    return true;
+  }
+  submitRelogin = () => {
+    var s = this.state;
+    if (!this.relCanSubmit(s)) return;
+    var pass = s.relPass, code = s.capInput, needAcct = s.relNeedAcct, needCap = s.relNeedCap;
+    this.setState({ relogin: 'verifying', capErr: '' });
+    setTimeout(() => {
+      var st = this.state;
+      // 学校明确说密码错：一次就停，不换图重试，免得把账号试锁
+      if (needAcct && pass === 'wrong') { this.setState({ relogin: 'form', relPass: '', capInput: '', capIdx: st.capIdx + 1, capErr: '学校说账号或密码不对。为了避免账号被锁，没有重试。核对后再登录。' }); return; }
+      if (!needAcct && st.demoBadSaved) { this.setState({ relogin: 'form', relNeedAcct: true, relBadSaved: true, relPass: '', capInput: '', capIdx: st.capIdx + 1, capErr: '电脑上保存的密码学校不认，自动登录已暂停。输入新的账号密码；勾选保存会替换旧的。' }); return; }
+      if (needCap && code === '0000') { this.setState({ relogin: 'form', capIdx: st.capIdx + 1, capInput: '', capErr: '验证码不对，已经换了一张新图。' }); return; }
+      if (!needCap) { this.setState({ relFresh: true }); this.autoRelogin(); return; }
+      this.reloginOk();
+    }, 900);
+  };
+  toggle(id, on) {
+    var s = this.state, self = this, it = this.find(id);
+    if (!on) { this.setState({ selected: s.selected.filter(function (x) { return x !== id; }), notice: '' }); return; }
+    var hit = s.selected.map(function (x) { return self.find(x); }).filter(function (o) { return self.overlap(o, it); })[0];
+    if (hit) { this.setState({ notice: '「' + it.name + '」与「' + hit.name + '」的活动时间重叠，只能选其中一场。已保留原选择。' }); return; }
+    this.setState({ selected: s.selected.concat(id), notice: '' });
+  }
+
+  renderVals() {
+    var self = this, s = this.state, p = this.props || {};
+    var off = s.conn === 'off', q = s.q.trim();
+    var sel = s.selected.map(function (id) { return self.find(id); });
+    var signedIts = this.items().filter(function (i) { return self.stOf(i, s) === 'signed'; });
+    var busy = s.phase !== 'draft';
+
+    var eligible = this.items().filter(function (i) { return self.stOf(i, s) === 'pre' && !signedIts.some(function (o) { return self.overlap(o, i); }); }).sort(function (a, b) { return a.open - b.open; });
+    var nextPreId = eligible[0] ? eligible[0].id : '';
+    var nextIt = this.items().filter(function (i) { return self.stOf(i, s) === 'open' && !signedIts.some(function (o) { return self.overlap(o, i); }); })[0] || eligible[0];
+
+    var count = { free: 0, signed: 0, all: 0 };
+    var visible = this.items().filter(function (i) {
+      var st = self.stOf(i, s);
+      count.all++;
+      if (st === 'signed') count.signed++;
+      if (st === 'open' || st === 'pre') count.free++;
+      if (s.seg === 'free' && !(st === 'open' || st === 'pre')) return false;
+      if (s.seg === 'signed' && st !== 'signed') return false;
+      if (q && (i.name + i.place).indexOf(q) < 0) return false;
+      if (s.fTime === 'today' && i.group !== '今天' && i.group !== '正在开放') return false;
+      return true;
+    });
+    var nowPlaced = false, groups = [];
+    ['正在开放', '今天', '明天', '后天', '待公布', '已报名', '已截止'].forEach(function (g) {
+      var list = visible.filter(function (i) {
+        var st = self.stOf(i, s);
+        return (st === 'signed' ? '已报名' : (st === 'open' && i.st === 'pre' ? '正在开放' : i.group)) === g;
+      });
+      if (!list.length) return;
+      var nowBefore = false;
+      if (!nowPlaced && g !== '正在开放') { nowBefore = true; nowPlaced = true; }
+      groups.push({
+        title: g, n: list.length, cls: g === '正在开放' ? 'open' : (g === '已报名' ? 'signed' : ''), note: g === '正在开放' ? '现在就能报' : (g === '已截止' ? '只能查看' : ''), nowBefore: nowBefore, now: self.hhmmss(s.now % 86400).slice(0, 5),
+        rows: list.map(function (i) {
+          var st = self.stOf(i, s), selected = s.selected.indexOf(i.id) >= 0;
+          var hitSigned = st !== 'signed' ? signedIts.filter(function (o) { return self.overlap(o, i); })[0] : null;
+          var hitSel = !selected && (st === 'open' || st === 'pre') ? sel.filter(function (o) { return self.overlap(o, i); })[0] : null;
+          var disabled = busy || !s.termsOk || st === 'signed' || st === 'closed' || st === 'unknown' || !!hitSigned;
+          var flags = [];
+          if (st === 'open') flags.push({ text: '立即报名', cls: 'warn' });
+          if (st === 'pre') flags.push({ text: i.id === nextPreId ? '下一场' : '预报名', cls: i.id === nextPreId ? 'next' : '' });
+          if (st === 'signed') flags.push({ text: '已报名', cls: 'signed' });
+          if (st === 'closed') flags.push({ text: '已截止', cls: 'mute' });
+          var gap = i.open - s.now, left = st === 'pre' ? self.leftCn(gap) : (st === 'open' ? '已开放' : '');
+          var warn = hitSigned ? '与已报名的「' + hitSigned.name + '」时间重叠，不能加入' : (hitSel ? '与已选的「' + hitSel.name + '」时间重叠' : '');
+          return { name: i.name, act: i.act, place: i.place, hasPlace: st !== 'closed', flags: flags, time: st !== 'unknown' ? self.hhmmss(i.open % 86400).slice(0, 5) : '待公布', timeCls: st !== 'unknown' ? '' : 'txt', hasLeft: !!left, left: left, leftCls: st === 'pre' && gap < 600 ? 'soon' : '', selected: selected, disabled: disabled, cls: (selected ? 'sel ' : '') + (disabled && !selected ? 'off ' : '') + (st === 'signed' || st === 'closed' || st === 'unknown' ? 'dim' : ''), hasWarn: !!warn && !busy, warn: warn, aria: '选择 ' + i.name, toggle: function (e) { self.toggle(i.id, e.target.checked); } };
+        })
+      });
+    });
+
+    var batchMap = {}, batchKeys = [];
+    sel.slice().sort(function (a, b) { return a.open - b.open; }).forEach(function (i) {
+      var st = self.stOf(i, s), key = st === 'open' ? 'now' : String(i.open);
+      if (!batchMap[key]) { batchMap[key] = { time: st === 'open' ? '现在' : self.hms(i.open), note: '', items: [], instant: st === 'open' }; batchKeys.push(key); }
+      batchMap[key].items.push({ name: i.name, act: '活动 ' + i.act, aria: '从计划移除 ' + i.name, remove: function () { self.toggle(i.id, false); if (self.state.selected.length === 0) self.setState({ sheet: '' }); } });
+    });
+    var batches = batchKeys.map(function (k) {
+      var b = batchMap[k], n = b.items.length;
+      b.note = b.instant ? '立即报名 ' + n + ' 场' : (n > 1 ? '预报名，同时提交 ' + n + ' 场' : '预报名 1 场');
+      return b;
+    });
+    var nInstant = sel.filter(function (i) { return self.stOf(i, s) === 'open'; }).length, nPre = sel.length - nInstant;
+    var summary = [nInstant ? nInstant + ' 场立即报名' : '', nPre ? nPre + ' 场预报名' : ''].filter(Boolean).join('，');
+
+    var led = this.ledOf('--:--:--', 'off', '暂时没有目标', '');
+    var head = { text: '报名计划', tone: '' }, board = { title: '', sub: '', rail: [] };
+    if (s.phase === 'draft') {
+      var futures = sel.filter(function (i) { return self.stOf(i, s) === 'pre'; }).sort(function (a, b) { return a.open - b.open; });
+      if (sel.length) {
+        head = { text: '已选 ' + sel.length + ' 场', tone: '' };
+        board = { title: '核对后再开始', sub: '勾选不会开始报名。', rail: [] };
+        led = futures.length ? this.ledOf(this.hhmmss(futures[0].open - s.now), 'amber', '下一批开放', this.hms(futures[0].open)) : this.ledOf('00:00:00', 'amber', '已开放，可以立即报名', '现在');
+      } else if (nextIt) {
+        var isOpen = this.stOf(nextIt, s) === 'open';
+        head = { text: isOpen ? '开放中' : '下一场', tone: '' };
+        board = { title: nextIt.name, sub: nextIt.place + '，' + nextIt.act, rail: [] };
+        led = isOpen ? this.ledOf('00:00:00', 'amber', '已开放，可以立即报名', '现在') : this.ledOf(this.hhmmss(nextIt.open - s.now), 'amber', '最近开放', this.hms(nextIt.open));
+      } else { head = { text: '暂时没有', tone: 'off' }; board = { title: '没有可报名的场次', sub: '列表里的活动已报名、已截止或还没公布报名时间。', rail: [] }; }
+    }
+    if (s.phase === 'draft' && !s.termsOk) { head = { text: '已暂停', tone: 'off' }; led = this.ledOf('--:--:--', 'off', '电脑上同意条款后才能报名', ''); board = { title: '电脑上还没有同意条款', sub: '同意前只能查看上次的缓存，不能报名，也不能重新登录。', rail: [] }; }
+    if (s.phase === 'pending') {
+      head = { text: '核对中', tone: 'off' };
+      led = this.ledOf('--:--:--', 'off', s.pendingLong ? '还没有查到开始结果' : '正在核对开始结果', '');
+      board = { title: '开始请求已发出', sub: s.pendingLong ? '电脑可能已经开始，也可能没收到。工具只查询结果，不会重复发送。' : '请先不要重复点击。', rail: [] };
+    }
+    if (s.phase === 'running') {
+      var active = s.tasks.filter(function (t) { return t.status === 'submitting'; });
+      var wait = s.tasks.filter(function (t) { return t.status === 'waiting'; }).sort(function (a, b) { return a.open - b.open; });
+      var cur = active[0] || wait[0] || s.tasks[0];
+      var same = wait.filter(function (t) { return t.open === cur.open; }).length;
+      if (cur.status === 'submitting') {
+        head = { text: '正在提交', tone: 'red' };
+        led = this.ledOf(this.hhmmss(cur.deadline - s.now), off ? 'dim' : 'red', '本次尝试到', this.hms(cur.deadline));
+        board = { title: cur.name, sub: active.length > 1 ? '正在提交 ' + active.length + ' 场，每场结果单独显示。' : '已提交 ' + cur.attempts + ' 次，最近：' + cur.last, rail: [] };
+      } else {
+        var gap = cur.open - s.now;
+        head = { text: gap > 5 ? '等开放' : '即将开放', tone: '' };
+        led = this.ledOf(this.hhmmss(gap), off ? 'dim' : (gap <= 10 ? 'red' : 'amber'), '开放时间', this.hms(cur.open));
+        board = { title: cur.name, sub: same > 1 ? '这一批 ' + same + ' 场同时提交，到点自动开始。' : '这一场等开放，到点自动开始。', rail: [] };
+      }
+      var passed = function (v) { return !!v && s.now >= v; };
+      board.rail = [
+        { label: '启动', state: passed(cur.started) ? 'done' : '' },
+        { label: cur.via === 'click' ? '打开页面' : '准备好', state: passed(cur.prep) ? 'done' : (passed(cur.started) ? 'now' : '') },
+        { label: '开放提交', state: cur.status === 'submitting' ? 'hot' : (passed(cur.prep) ? 'now' : '') },
+        { label: '核对结果', state: '' }
+      ];
+      if (off) { led.cap = '状态已过时'; led.capB = '最后同步 ' + s.lastOk; }
+    }
+    var res = { title: '', text: '', counts: [], canRetry: false }, boardCls = '';
+    if (s.phase === 'result') {
+      var c = function (st) { return s.tasks.filter(function (t) { return t.status === st; }).length; };
+      var ok = c('success'), bad = c('failed'), ask = c('unconfirmed'), none = c('canceled'), full = c('full');
+      res.counts = [{ tone: 'ok', n: ok, text: '已报名' }, { tone: 'wait', n: full, text: '名额已满' }, { tone: 'bad', n: bad, text: '未成功' }, { tone: 'ask', n: ask, text: '待核对' }, { tone: 'wait', n: none, text: '已取消' }].filter(function (x) { return x.n > 0; });
+      res.canRetry = bad + none > 0;
+      if (s.stopped) { head = { text: ask ? '已停止，需确认' : '已停止', tone: ask ? '' : 'off' }; res.title = '报名计划已停止'; res.text = '已提交的场次保留原状态，还没提交的场次已取消。'; if (ask) boardCls = 'st-warn'; }
+      else if (ok && !bad && !ask && !none && !full) { head = { text: '报名成功', tone: 'green' }; res.title = '报名计划完成'; res.text = '每场结束时都向学校核对过。'; boardCls = 'st-ok'; }
+      else if (ok) { head = { text: '部分完成', tone: '' }; res.title = '报名计划部分完成'; res.text = ask ? '有 ' + ask + ' 场需要到活动页核对，结果以学校为准。' : (full ? '有 ' + full + ' 场名额已满，不是工具出错。' : '结果以学校活动页为准。'); boardCls = 'st-warn'; }
+      else if (ask) { head = { text: '需确认', tone: '' }; res.title = '计划已结束，有 ' + ask + ' 场需确认'; res.text = '工具不会自动重发，到学校活动页核对。'; boardCls = 'st-warn'; }
+      else if (full && !bad) { head = { text: '名额已满', tone: '' }; res.title = '这次没报上：名额满了'; res.text = '学校的名额在开放后被报满了，不是工具出错。'; boardCls = 'st-warn'; }
+      else { head = { text: '未成功', tone: 'red' }; res.title = '报名计划没有成功'; res.text = '每场的原因都列在下面。'; boardCls = 'st-bad'; }
+    }
+
+    var card = function (t) {
+      var map = { waiting: ['', t.mode === 'pre' ? '等待开放' : '准备报名'], submitting: ['run', '提交中'], success: ['ok', '报名成功'], full: ['', '名额已满'], failed: ['bad', '报名未成功'], unconfirmed: ['ask', '待核对'], canceled: ['', '已取消'] }[t.status];
+      var detail = t.reason;
+      if (t.status === 'waiting') detail = t.mode === 'pre' ? (t.prep && s.now >= t.prep ? '已准备好，' + self.hms(t.open) + ' 开放时提交' : '等到 ' + self.hms(t.open) + ' 开放') : '已开放，正在准备提交';
+      if (t.via === 'click' && t.status !== 'canceled') detail += '。改用页面点击：' + t.viaWhy;
+      if (t.status === 'submitting') detail = '已提交 ' + t.attempts + ' 次（' + (s.maxA ? '上限 ' + s.maxA + ' 次' : '不限次数') + '），重试到 ' + self.hms(t.deadline);
+      return { name: t.name, tone: map[0], label: map[1], detail: detail, canCancel: t.status === 'waiting', cancel: function () { self.setState({ sheet: 'cancel', cancelId: t.id, sheetErr: '' }); } };
+    };
+
+    var alert = null;
+    if (off) alert = { tone: 'bad', title: '连不上电脑' + (s.tries ? '，已重试 ' + s.tries + ' 次' : ''), detail: '确认电脑开着、程序没退出。如果只是手机断网，电脑上的计划不受影响。', action: s.syncing ? '同步中…' : '重试', hasAction: true, fn: this.refresh };
+    else if (!s.termsOk) alert = { tone: '', title: '电脑上还没有同意使用条款', detail: '回电脑同意后才能登录和报名。现在显示的是上次的缓存。', action: '', hasAction: false, fn: function () {} };
+    else if (s.login === 'expired') alert = { tone: 'bad', title: '电脑上的登录已失效', detail: s.phase === 'running' ? '报名计划还在等，开放前 100 秒以前重新登录就照常继续。' : '可以在手机上重新登录，也可以回电脑处理。', action: '重新登录', hasAction: true, fn: this.beginRelogin };
+    else if (s.bookmark) alert = { tone: 'ok', title: '已连接电脑', detail: '建议把这一页存成书签，下次直接打开。', action: '知道了', hasAction: true, fn: function () { self.setState({ bookmark: false }); } };
+
+    var bar = { show: false, title: '', sub: '', label: '', cls: 'b-amber', off: false, fn: function () {} };
+    if (s.phase === 'draft' && sel.length) {
+      bar = { show: true, title: '已选 ' + sel.length + ' 场', sub: summary, label: '核对并开始', cls: 'b-amber', off: false, fn: function () { self.setState({ sheet: 'review', sheetErr: '' }); } };
+      if (off) { bar.sub = '连上电脑后才能开始'; bar.off = true; }
+      else if (!s.termsOk) { bar.sub = '电脑上同意条款后才能开始'; bar.off = true; }
+      else if (s.login === 'expired') { bar.sub = '还差一步：重新登录'; bar.label = '重新登录'; bar.fn = this.beginRelogin; }
+    }
+    if (s.phase === 'pending') bar = { show: true, title: s.pendingLong ? '还没有查到结果' : '正在核对', sub: '请先不要重复点击', label: '取消等待', cls: 'b-ghost', off: false, fn: function () { self.setState({ sheet: 'cancelstart', sheetErr: '' }); } };
+    if (s.phase === 'running') bar = { show: true, title: '计划进行中', sub: '断网时也可以点停止', label: '停止计划', cls: 'b-ghost', off: false, fn: function () { self.setState({ sheet: 'stop', sheetErr: '' }); } };
+
+    var netErr = '网络不通，这次操作没有发出去。电脑上的计划还在跑，恢复连接后再试。';
+    var sh = { title: '', isReview: s.sheet === 'review', isConfirm: false, isMore: s.sheet === 'more', isRelogin: s.sheet === 'relogin', canClose: true, hasErr: !!s.sheetErr, err: s.sheetErr, text: '', noLabel: '', yesLabel: '', yes: function () {} };
+    if (sh.isReview) sh.title = '核对计划';
+    if (sh.isMore) sh.title = '更多';
+    if (s.sheet === 'stop') sh = Object.assign(sh, { title: '停止报名计划？', isConfirm: true, text: '工具会停止后续尝试。已发出的提交仍可能成功，停止不会取消已成功的报名。', noLabel: '继续计划', yesLabel: '停止计划', yes: function () { var st = self.state; if (st.conn === 'off') self.setState({ sheetErr: netErr }); else self.setState(self.finishState(st, true)); } });
+    if (s.sheet === 'cancel') {
+      var ct = s.tasks.filter(function (t) { return t.id === s.cancelId; })[0];
+      sh = Object.assign(sh, { title: '取消这一场？', isConfirm: true, text: '「' + (ct ? ct.name : '') + '」还没提交，取消后不会再报名，其他场次继续。', noLabel: '先不取消', yesLabel: '取消这一场', yes: function () { var st = self.state; if (st.conn === 'off') { self.setState({ sheetErr: netErr }); return; } self.setState({ sheet: '', tasks: st.tasks.map(function (o) { return o.id === st.cancelId ? Object.assign({}, o, { status: 'canceled', reason: '你取消了这一场' }) : o; }) }); } });
+    }
+    if (s.sheet === 'cancelstart') sh = Object.assign(sh, { title: '取消这次等待？', isConfirm: true, text: '只是不再等这次结果。如果计划其实已经启动，刷新后还要再点“停止计划”。', noLabel: '继续等', yesLabel: '取消等待', yes: function () { clearTimeout(self._pending); self.setState({ phase: 'draft', pendingLong: false, sheet: '', lines: self.log(self.state, '已取消这次开始，可以重新选择') }); } });
+
+    var has = s.credReady || s.credMem;
+    var rel = { isBusy: false, busyText: '', hasText: false, text: '', isForm: false, hasLead: false, lead: '', needAcct: false, needCap: false, autoCap: false, chars: [], submitLabel: '', cantSubmit: true, saveGain: s.ocrOn ? '电脑会自己重新登录，不用你动手' : '只需要输验证码', demoTip: '', isConfirm: false, hasDone: false, doneLabel: '知道了' };
+    if (sh.isRelogin) {
+      sh.title = '在手机上重新登录';
+      sh.hasErr = !!s.capErr; sh.err = s.capErr;
+      if (s.relogin === 'starting') { rel.isBusy = true; rel.busyText = s.relNeedCap ? '正在向电脑要验证码…' : '正在准备…'; }
+      if (s.relogin === 'verifying') { rel.isBusy = true; rel.busyText = '正在登录，请等结果'; sh.canClose = false; }
+      if (s.relogin === 'auto') { rel.isBusy = true; rel.busyText = '电脑正在自动登录'; rel.hasText = true; rel.text = '验证码由电脑识别，手机上不用操作。电脑连续认错 3 次，才会转给你输入。'; rel.hasDone = true; rel.doneLabel = '收起，在后台继续'; }
+      if (s.relogin === 'confirm') { rel.isConfirm = true; rel.hasText = true; rel.text = '用电脑上保存的账号密码自动登录一次，验证码由电脑识别。登录会向学校发送一次账号密码。登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。' + (s.phase === 'running' ? '成功后报名计划照常继续。' : '成功后刷新活动列表，计划不会自动开始。'); }
+      if (s.relogin === 'terms') { rel.hasText = true; rel.text = '电脑上还没有同意使用条款，回电脑同意后才能登录。手机上没法代你同意。'; rel.hasDone = true; }
+      if (s.relogin === 'planbusy') { rel.hasText = true; rel.text = '有场次正在提交，或者离开放不到 100 秒。这时只有电脑能自动登录；没开自动登录的场次会以“登录失效”结束。等这一批结束，再重新登录后面的场次。'; rel.hasDone = true; }
+      if (s.relogin === 'done') {
+        rel.hasText = true; rel.hasDone = true; rel.doneLabel = '完成';
+        rel.text = (s.phase === 'running' ? '重新登录成功，报名计划照常继续。' : '重新登录成功，活动列表已刷新。计划不会自动重新开始，要你重新核对后再点开始。') + (s.relDoneSaved ? '账号已加密保存到电脑，下次失效时' + rel.saveGain + '。' : (s.relDoneMem ? '账号只在这次运行中有效，关闭工具后清除。' : ''));
+      }
+      if (s.relogin === 'form') {
+        rel.isForm = true; rel.needAcct = s.relNeedAcct; rel.needCap = s.relNeedCap; rel.autoCap = !s.relNeedCap;
+        rel.lead = s.relBadSaved ? '' : (s.relHandoff ? '电脑连续 3 次没认对验证码，换你来输。账号密码由电脑自动填写。' : (!s.relNeedAcct ? '电脑会自动填账号密码，你只要输验证码。' : (s.relNeedCap ? '电脑上没有保存账号密码，账号、密码和验证码都要输。' : '电脑上没有保存账号密码，输入账号和密码就行。')));
+        rel.hasLead = !!rel.lead;
+        rel.submitLabel = s.relNeedAcct ? '登录' : '提交验证码';
+        rel.cantSubmit = !this.relCanSubmit(s);
+        rel.demoTip = '原型演示：' + [s.relNeedAcct ? '密码填 wrong 看密码错' : '', s.relNeedCap ? '验证码填 0000 看验证码错' : ''].filter(Boolean).join('，') + '，其他都算对。';
+        var words = ['CZUH', 'MQXE', 'BTWN', 'HKRP'], cols = ['#2f86d8', '#e8707a', '#8d5a8f', '#2f9e93'], word = words[s.capIdx % words.length], r = [-8, 6, -4, 9], y = [2, -3, 3, -2];
+        rel.chars = Array.from(word).map(function (ch, i) { return { ch: ch, col: cols[i], r: r[i], y: y[i] }; });
+      }
+    }
+
+    var codeShown = (s.code + '------').slice(0, 6), locked = s.lockLeft > 0;
+    var pairLed = this.ledOf(codeShown.slice(0, 3) + ' ' + codeShown.slice(3), locked ? 'off' : (s.pairErr ? 'red' : 'amber'), '', '', locked ? -1 : (s.code.length < 3 ? s.code.length : s.code.length + 1));
+    var pair = { led: pairLed, locked: locked, tag: locked ? '已锁定' : '输入配对码', tagTone: locked ? 'red' : '', cap: locked ? s.lockLeft + ' 秒后可以再试' : (s.code.length ? (s.code.length < 6 ? '还差 ' + (6 - s.code.length) + ' 位' : '输完了，点“配对”') : '点上面的点阵屏，输入电脑上的 6 位数'), cantSubmit: locked || s.code.length !== 6, hasErr: !!s.pairErr, err: s.pairErr };
+
+    var pwList = [], pwPre = sel.filter(function (i) { return self.stOf(i, s) === 'pre'; }).map(function (i) { return i.open; });
+    if (s.retry === 0) { var pwNe = sel.filter(function (i) { return i.noEnd; }); if (pwNe.length) pwList.push({ text: '「' + pwNe[0].name + '」没给报名截止时间，“直到报名截止”对它只会尝试 2 分钟。' }); }
+    var pwHas = s.credReady || s.credMem, pwLast = pwPre.length ? Math.max.apply(null, pwPre) : 0;
+    if (pwLast && pwLast - s.now > 3600 && !(pwHas && s.ocrOn)) pwList.push({ text: '要等到 ' + this.hms(pwLast).slice(0, -3) + '，' + (pwHas ? '电脑上没装验证码识别' : '电脑上没开自动登录') + '。中途登录失效要你' + (pwHas ? '输验证码' : '重新登录') + '；开放前 100 秒内失效的那场会直接结束。' });
+    if (pwLast && pwLast - s.now > 86400) pwList.push({ text: '有场次在 24 小时以后才开放，电脑要一直开着、不能睡眠。' });
+    var retryHint = s.retry === -1 ? '自动延长，最多 25 分钟；报名截止仍是硬上限。' : (s.retry === 0 ? '缺报名截止时间的场次，本次最多 2 分钟。' : '');
+    var ffState = s.phase === 'running' ? this.fastForward(s) : s;
+
+    return {
+      rootH: p.height || '100dvh', isPair: s.view === 'pair', isApp: s.view === 'app', canDemo: !p.frozen, pair: pair, code: s.code, submitPair: this.submitPair,
+      onCode: function (e) { var v = String(e.target.value).replace(/\D/g, '').slice(0, 6); if (e.target.value !== v) e.target.value = v; self.setState({ code: v, pairErr: '' }); }, onCodeKey: function (e) { if (e.key === 'Enter') self.submitPair(); },
+      connTone: s.syncing ? 'busy' : (off ? 'bad' : 'ok'), connText: s.syncing ? '同步中' : (off ? '离线' : '已连接'), syncing: s.syncing, refresh: this.refresh, isOff: off,
+      openMore: function () { self.setState({ sheet: 'more', sheetErr: '' }); }, closeSheet: function () { self.setState({ sheet: '', sheetErr: '', relogin: self.state.relogin === 'verifying' ? 'verifying' : 'idle', capErr: '' }); },
+      scrimClick: function (e) { if (e.target === e.currentTarget && self.state.relogin !== 'verifying') self.setState({ sheet: '', sheetErr: '', relogin: 'idle', capErr: '' }); },
+      sheetKey: function (e) { if (e.key === 'Escape' && self.state.relogin !== 'verifying') { e.preventDefault(); self.setState({ sheet: '', sheetErr: '', relogin: 'idle', capErr: '' }); } },
+      hasAlert: !!alert, alert: alert || { tone: '', title: '', detail: '', action: '', hasAction: false, fn: function () {} },
+      nowText: this.hhmmss(s.now % 86400), head: head, led: led, board: board, boardCls: boardCls, hasRail: board.rail.length > 0, hasPick: s.phase === 'draft' && !sel.length && !!nextIt && s.termsOk, pickNext: function () { self.toggle(nextIt.id, true); },
+      isRun: s.phase === 'running', isResult: s.phase === 'result', notResult: s.phase !== 'result', res: res, hasTasks: s.phase === 'running' || s.phase === 'result', taskCards: s.tasks.map(card), canFF: !p.frozen && ffState !== s, demoFF: function () { self.setState(self.fastForward(self.state)); },
+      canToggleList: s.phase === 'running' || s.phase === 'result', listOpen: s.listOpen, listBtn: s.listOpen ? '收起活动列表' : '查看活动列表', toggleList: function () { self.setState({ listOpen: !s.listOpen }); }, showList: s.phase === 'draft' || s.phase === 'pending' || s.listOpen,
+      segs: [{ k: 'free', t: '可报名', n: count.free }, { k: 'signed', t: '已报名', n: count.signed }, { k: 'all', t: '全部', n: count.all }].map(function (g) { return { text: g.t, n: g.n, on: s.seg === g.k, cls: s.seg === g.k ? 'on' : '', pick: function () { self.setState({ seg: g.k }); } }; }),
+      searchOpen: s.searchOpen, toggleSearch: function () { self.setState({ searchOpen: !s.searchOpen, q: '' }); }, q: s.q, onQ: function (e) { self.setState({ q: e.target.value }); }, hasNotice: !!s.notice, notice: s.notice, groups: groups, noRows: !groups.length,
+      bar: bar, reselect: function () { var st = self.state; self.setState({ phase: 'draft', selected: st.tasks.filter(function (t) { return t.status === 'failed' || t.status === 'canceled'; }).map(function (t) { return t.id; }), signedLocal: st.signedLocal.concat(st.tasks.filter(function (t) { return t.status === 'success'; }).map(function (t) { return t.id; })), tasks: [], now: 51605, lines: ['14:20:05  已把未成功的场次放回计划（演示时间已复位）'] }); },
+      finishView: function () { var st = self.state; self.setState({ phase: 'draft', selected: [], signedLocal: st.signedLocal.concat(st.tasks.filter(function (t) { return t.status === 'success'; }).map(function (t) { return t.id; })), tasks: [], now: 51605, lines: ['14:20:05  这次计划已结束（演示时间已复位）'] }); },
+      sheetOn: !!s.sheet, sh: sh, batches: batches, retry: String(s.retry), maxA: s.maxA, onRetry: function (e) { self.setState({ retry: Number(e.target.value) }); }, onMax: function (e) { var v = Math.floor(Number(e.target.value)); if (v >= 0) self.setState({ maxA: v }); }, hasRetryHint: !!retryHint, retryHint: retryHint, cantStart: off || !s.termsOk || s.login !== 'valid' || !sel.length, startPlan: this.startPlan,
+      timeChips: [{ k: 'all', t: '不限' }, { k: 'today', t: '今天' }, { k: 'week', t: '7 天内' }].map(function (c) { return { text: c.t, on: s.fTime === c.k, cls: s.fTime === c.k ? 'on' : '', pick: function () { self.setState({ fTime: c.k }); } }; }),
+      loginLine: (s.login === 'valid' ? '电脑上的登录有效。' : '电脑上的登录已失效。') + (has ? (s.ocrOn ? '失效时电脑会自己重新登录。' : '失效时只需在这里输验证码。') : (s.ocrOn ? '电脑上没保存账号，重新登录要输账号和密码。' : '电脑上没保存账号，重新登录要输账号、密码和验证码。')), beginRelogin: this.beginRelogin, showWindow: function () { self.setState({ windowShown: true, lines: self.log(self.state, '已请电脑把窗口显示出来') }); }, showWindowLabel: s.windowShown ? '已请电脑显示窗口' : '显示电脑窗口', logLines: s.lines.slice(-6).map(function (t) { return { text: t }; }),
+      demoOffline: function () { self.setState({ conn: 'off', tries: 1, sheet: '' }); }, demoExpired: function () { self.setState({ login: 'expired', sheet: '' }); }, demoNoCred: function () { var on = !(self.state.credReady || self.state.credMem); self.setState({ credReady: on, credMem: false }); }, demoCredLabel: has ? '模拟电脑没保存账号密码' : '恢复：电脑已保存账号密码',
+      demoOcr: function () { self.setState({ ocrOn: !self.state.ocrOn }); }, demoOcrLabel: s.ocrOn ? '模拟电脑没装验证码识别' : '恢复：电脑已装验证码识别',
+      demoBad: function () { self.setState({ demoBadSaved: !self.state.demoBadSaved }); }, demoBadLabel: s.demoBadSaved ? '恢复：保存的密码是对的' : '模拟电脑上保存的密码已改过',
+      preWarn: pwList, hasPreWarn: pwList.length > 0, startLabel: pwList.length ? '仍然开始报名计划' : '开始报名计划',
+      demoTerms: function () { self.setState({ termsOk: !self.state.termsOk, sheet: '' }); }, demoTermsLabel: s.termsOk ? '模拟电脑上没同意条款' : '恢复：电脑上已同意条款',
+      demoOcrFail: function () { self.setState({ demoOcrFail: !self.state.demoOcrFail }); }, demoOcrFailLabel: s.demoOcrFail ? '恢复：电脑能认对验证码' : '模拟电脑连续 3 次认错验证码',
+      rel: rel, capInput: s.capInput, onCap: function (e) { var v = String(e.target.value).replace(/[^0-9A-Za-z]/g, '').slice(0, 4); if (e.target.value !== v) e.target.value = v; self.setState({ capInput: v }); }, submitRelogin: this.submitRelogin, autoRelogin: this.autoRelogin, relUser: s.relUser, relPass: s.relPass, relSave: s.relSave, onRelUser: function (e) { self.setState({ relUser: e.target.value }); }, onRelPass: function (e) { self.setState({ relPass: e.target.value }); }, onRelSave: function (e) { self.setState({ relSave: e.target.checked }); }, nextCaptcha: function () { self.setState({ capIdx: self.state.capIdx + 1, capInput: '', capErr: '' }); }, cancelRelogin: function () { self.setState({ sheet: '', relogin: 'idle', capInput: '', capErr: '', lines: self.log(self.state, '已取消这次重新登录') }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="校园活动预报名工具">
+  <!-- 带底板版：需要方形图标的地方（手机主屏、应用列表、头像）。深色圆角底板 + 居中的入场券 -->
+  <rect width="256" height="256" rx="56" fill="#121513"/>
+  <g transform="translate(37.12 37.12) scale(0.71)">
+    <path d="M40 52H216A24 24 0 0 1 240 76V102A26 26 0 0 0 240 154V180A24 24 0 0 1 216 204H40A24 24 0 0 1 16 180V154A26 26 0 0 0 16 102V76A24 24 0 0 1 40 52Z" fill="#FFB020"/>
+    <path d="M178 76V180" fill="none" stroke="#121513" stroke-opacity="0.32" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 17.33"/>
+    <path d="M60 127L88 155L136 103" fill="none" stroke="#121513" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -1,0 +1,695 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-01T12:00:00Z"
+  },
+  "title": "校园活动预报名工具 UI 方案",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "主工作台（可操作）",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Running.dc.html": {
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "计划运行中"
+    },
+    "Result.dc.html": {
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "title": "部分成功与待核对"
+    },
+    "Attention.dc.html": {
+      "x": 0,
+      "y": 920,
+      "w": 1280,
+      "h": 800,
+      "title": "登录待确认"
+    },
+    "FirstUse.dc.html": {
+      "x": 1360,
+      "y": 920,
+      "w": 1280,
+      "h": 800,
+      "title": "首次使用（可操作：条款、登录、引导）",
+      "is_interactive": true
+    },
+    "Settings.dc.html": {
+      "x": 2720,
+      "y": 920,
+      "w": 1280,
+      "h": 800,
+      "title": "设置"
+    },
+    "Short.dc.html": {
+      "x": 0,
+      "y": 1840,
+      "w": 1280,
+      "h": 620,
+      "title": "短窗口"
+    },
+    "Narrow.dc.html": {
+      "x": 1360,
+      "y": 1840,
+      "w": 430,
+      "h": 820,
+      "title": "窄窗口"
+    },
+    "Waiting.dc.html": {
+      "x": 0,
+      "y": 2780,
+      "w": 1280,
+      "h": 800,
+      "title": "等开放，可以修改"
+    },
+    "Editing.dc.html": {
+      "x": 1360,
+      "y": 2780,
+      "w": 1280,
+      "h": 800,
+      "title": "修改中，计划已暂停"
+    },
+    "TourTable.dc.html": {
+      "x": 0,
+      "y": 3700,
+      "w": 1280,
+      "h": 800,
+      "title": "引导第 1 步：时刻表"
+    },
+    "TourPick.dc.html": {
+      "x": 1360,
+      "y": 3700,
+      "w": 1280,
+      "h": 800,
+      "title": "引导第 2 步：动手勾选"
+    },
+    "TourRun.dc.html": {
+      "x": 2720,
+      "y": 3700,
+      "w": 1280,
+      "h": 800,
+      "title": "引导第 4 步：开始以后"
+    },
+    "PhoneSetup.dc.html": {
+      "x": 0,
+      "y": 4620,
+      "w": 1280,
+      "h": 800,
+      "title": "电脑端手机访问（可操作：安装、选通道、配对）",
+      "is_interactive": true
+    },
+    "PhoneTs.dc.html": {
+      "x": 1360,
+      "y": 4620,
+      "w": 1280,
+      "h": 800,
+      "title": "通道还差一步：Tailscale 未登录"
+    },
+    "PhoneWait.dc.html": {
+      "x": 2720,
+      "y": 4620,
+      "w": 1280,
+      "h": 800,
+      "title": "已开启，等手机连接"
+    },
+    "PhoneLinked.dc.html": {
+      "x": 4080,
+      "y": 4620,
+      "w": 1280,
+      "h": 800,
+      "title": "手机已连接"
+    },
+    "PhoneApp.dc.html": {
+      "x": 0,
+      "y": 5540,
+      "w": 390,
+      "h": 844,
+      "title": "手机页（可操作，配对码 482913）",
+      "is_interactive": true
+    },
+    "PhonePick.dc.html": {
+      "x": 470,
+      "y": 5540,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：选活动"
+    },
+    "PhoneReview.dc.html": {
+      "x": 940,
+      "y": 5540,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：核对计划"
+    },
+    "PhoneRun.dc.html": {
+      "x": 1410,
+      "y": 5540,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：计划运行中"
+    },
+    "PhoneResult.dc.html": {
+      "x": 1880,
+      "y": 5540,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：结果"
+    },
+    "PhoneLock.dc.html": {
+      "x": 0,
+      "y": 6504,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：配对码错太多被锁"
+    },
+    "PhoneOffline.dc.html": {
+      "x": 470,
+      "y": 6504,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：连不上电脑"
+    },
+    "PhoneCheck.dc.html": {
+      "x": 940,
+      "y": 6504,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：开始没回应"
+    },
+    "PhoneExpired.dc.html": {
+      "x": 1410,
+      "y": 6504,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：登录失效"
+    },
+    "PhoneCaptcha.dc.html": {
+      "x": 1880,
+      "y": 6504,
+      "w": 390,
+      "h": 844,
+      "title": "手机上重新登录：电脑有账号、没装识别"
+    },
+    "PhoneAuto.dc.html": {
+      "x": 2350,
+      "y": 6504,
+      "w": 390,
+      "h": 844,
+      "title": "手机上重新登录：电脑正在自动登录"
+    },
+    "CloseLive.dc.html": {
+      "x": 0,
+      "y": 7468,
+      "w": 1280,
+      "h": 800,
+      "title": "关闭窗口（可操作：点标题栏的关闭）",
+      "is_interactive": true
+    },
+    "CloseAsk.dc.html": {
+      "x": 1360,
+      "y": 7468,
+      "w": 1280,
+      "h": 800,
+      "title": "关窗：计划运行中"
+    },
+    "CloseConfirm.dc.html": {
+      "x": 2720,
+      "y": 7468,
+      "w": 1280,
+      "h": 800,
+      "title": "关窗：退出要再确认"
+    },
+    "CloseIdle.dc.html": {
+      "x": 4080,
+      "y": 7468,
+      "w": 1280,
+      "h": 800,
+      "title": "关窗：没有计划，托盘也不可用"
+    },
+    "CloseHidden.dc.html": {
+      "x": 5440,
+      "y": 7468,
+      "w": 1280,
+      "h": 800,
+      "title": "关窗：隐藏到后台以后"
+    },
+    "UpdateLive.dc.html": {
+      "x": 0,
+      "y": 8388,
+      "w": 1280,
+      "h": 800,
+      "title": "检查更新（可操作：检查、下载、安装）",
+      "is_interactive": true
+    },
+    "UpdateAvail.dc.html": {
+      "x": 1360,
+      "y": 8388,
+      "w": 1280,
+      "h": 800,
+      "title": "更新：发现新版本"
+    },
+    "UpdateDown.dc.html": {
+      "x": 2720,
+      "y": 8388,
+      "w": 1280,
+      "h": 800,
+      "title": "更新：下载中"
+    },
+    "UpdateReady.dc.html": {
+      "x": 4080,
+      "y": 8388,
+      "w": 1280,
+      "h": 800,
+      "title": "更新：校验通过，计划还在运行"
+    },
+    "UpdateFail.dc.html": {
+      "x": 5440,
+      "y": 8388,
+      "w": 1280,
+      "h": 800,
+      "title": "更新：校验失败"
+    },
+    "CompLive.dc.html": {
+      "x": 0,
+      "y": 9308,
+      "w": 1280,
+      "h": 800,
+      "title": "高级功能：一键下载安装（可操作）",
+      "is_interactive": true
+    },
+    "CompWrong.dc.html": {
+      "x": 4080,
+      "y": 9308,
+      "w": 1280,
+      "h": 800,
+      "title": "手动导入时选错了文件"
+    },
+    "CompOk.dc.html": {
+      "x": 1360,
+      "y": 9308,
+      "w": 1280,
+      "h": 800,
+      "title": "高级功能：下载中"
+    },
+    "CredForm.dc.html": {
+      "x": 5440,
+      "y": 9308,
+      "w": 1280,
+      "h": 800,
+      "title": "填写账号密码"
+    },
+    "CredSaved.dc.html": {
+      "x": 6800,
+      "y": 9308,
+      "w": 1280,
+      "h": 800,
+      "title": "已保存账号，自动登录已启用"
+    },
+    "CompFail.dc.html": {
+      "x": 2720,
+      "y": 9308,
+      "w": 1280,
+      "h": 800,
+      "title": "下载失败：重试或手动导入"
+    },
+    "Relogin.dc.html": {
+      "x": 0,
+      "y": 10228,
+      "w": 1280,
+      "h": 800,
+      "title": "重新登录（可操作：有账号、没装识别）",
+      "is_interactive": true
+    },
+    "RlCap.dc.html": {
+      "x": 1360,
+      "y": 10228,
+      "w": 1280,
+      "h": 800,
+      "title": "电脑上输验证码"
+    },
+    "RlConfirm.dc.html": {
+      "x": 2720,
+      "y": 10228,
+      "w": 1280,
+      "h": 800,
+      "title": "电脑上自动登录一次"
+    },
+    "RlBad.dc.html": {
+      "x": 4080,
+      "y": 10228,
+      "w": 1280,
+      "h": 800,
+      "title": "保存的密码不对"
+    },
+    "LoginShort.dc.html": {
+      "x": 5440,
+      "y": 10228,
+      "w": 1280,
+      "h": 800,
+      "title": "登录撑不到开放的提醒"
+    },
+    "PhoneRelAll.dc.html": {
+      "x": 0,
+      "y": 11148,
+      "w": 390,
+      "h": 844,
+      "title": "手机上重新登录：电脑没账号、没装识别"
+    },
+    "PhoneRelAcct.dc.html": {
+      "x": 470,
+      "y": 11148,
+      "w": 390,
+      "h": 844,
+      "title": "手机上重新登录：电脑没账号、装了识别"
+    },
+    "PhoneRelConfirm.dc.html": {
+      "x": 940,
+      "y": 11148,
+      "w": 390,
+      "h": 844,
+      "title": "手机上重新登录：自动登录一次"
+    },
+    "PhoneRelBad.dc.html": {
+      "x": 1410,
+      "y": 11148,
+      "w": 390,
+      "h": 844,
+      "title": "手机上重新登录：保存的密码不对"
+    },
+    "TermsUpdate.dc.html": {
+      "x": 0,
+      "y": 12112,
+      "w": 1280,
+      "h": 800,
+      "title": "条款更新后重新同意（可操作）",
+      "is_interactive": true
+    },
+    "TermsDoc.dc.html": {
+      "x": 1360,
+      "y": 12112,
+      "w": 1280,
+      "h": 800,
+      "title": "完整条款：同意新版"
+    },
+    "TermsPrivacy.dc.html": {
+      "x": 2720,
+      "y": 12112,
+      "w": 1280,
+      "h": 800,
+      "title": "完整条款：隐私政策（只读）"
+    },
+    "TermsOff.dc.html": {
+      "x": 4080,
+      "y": 12112,
+      "w": 1280,
+      "h": 800,
+      "title": "没同意条款时（可操作）",
+      "is_interactive": true
+    },
+    "TermsWithdraw.dc.html": {
+      "x": 5440,
+      "y": 12112,
+      "w": 1280,
+      "h": 800,
+      "title": "撤回条款同意"
+    },
+    "PhoneTerms.dc.html": {
+      "x": 1880,
+      "y": 11148,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：电脑上没同意条款"
+    },
+    "PopClock.dc.html": {
+      "x": 0,
+      "y": 13032,
+      "w": 1280,
+      "h": 800,
+      "title": "北京时间详情卡（可操作：悬停预览、点击固定）",
+      "is_interactive": true
+    },
+    "PopLogin.dc.html": {
+      "x": 1360,
+      "y": 13032,
+      "w": 1280,
+      "h": 800,
+      "title": "登录详情卡"
+    },
+    "PopDown.dc.html": {
+      "x": 2720,
+      "y": 13032,
+      "w": 1280,
+      "h": 800,
+      "title": "北京时间没校准"
+    },
+    "DesignSpec.dc.html": {
+      "x": 5440,
+      "y": 13032,
+      "w": 1280,
+      "h": 1960,
+      "title": "字体与配色规范"
+    },
+    "PopPhone.dc.html": {
+      "x": 4080,
+      "y": 13032,
+      "w": 1280,
+      "h": 800,
+      "title": "手机访问详情卡"
+    },
+    "PreWarn.dc.html": {
+      "x": 0,
+      "y": 15112,
+      "w": 1280,
+      "h": 800,
+      "title": "开始前提醒（只提醒不拦）"
+    },
+    "NetOff.dc.html": {
+      "x": 1360,
+      "y": 15112,
+      "w": 1280,
+      "h": 800,
+      "title": "计划运行中断网"
+    },
+    "Slept.dc.html": {
+      "x": 2720,
+      "y": 15112,
+      "w": 1280,
+      "h": 800,
+      "title": "电脑睡眠错过了开放"
+    },
+    "Broken.dc.html": {
+      "x": 4080,
+      "y": 15112,
+      "w": 1280,
+      "h": 800,
+      "title": "程序组件缺失"
+    },
+    "HelpKeys.dc.html": {
+      "x": 5440,
+      "y": 15112,
+      "w": 1280,
+      "h": 800,
+      "title": "帮助里的键盘快捷键"
+    },
+    "LongName.dc.html": {
+      "x": 6800,
+      "y": 15112,
+      "w": 1280,
+      "h": 800,
+      "title": "超长活动名和地点"
+    },
+    "NarrowPop.dc.html": {
+      "x": 0,
+      "y": 16032,
+      "w": 430,
+      "h": 820,
+      "title": "窄窗口：详情卡铺满宽度"
+    },
+    "NarrowWarn.dc.html": {
+      "x": 510,
+      "y": 16032,
+      "w": 430,
+      "h": 820,
+      "title": "窄窗口：有提醒时先看计划再开始"
+    },
+    "ZeroAct.dc.html": {
+      "x": 0,
+      "y": 16952,
+      "w": 1280,
+      "h": 800,
+      "title": "学校没返回活动"
+    },
+    "ClockHold.dc.html": {
+      "x": 1360,
+      "y": 16952,
+      "w": 1280,
+      "h": 800,
+      "title": "沿用上次校准"
+    },
+    "RunExpired.dc.html": {
+      "x": 2720,
+      "y": 16952,
+      "w": 1280,
+      "h": 800,
+      "title": "运行中登录失效"
+    },
+    "ToastMin.dc.html": {
+      "x": 4080,
+      "y": 16952,
+      "w": 1280,
+      "h": 800,
+      "title": "后台结束的通知",
+      "is_interactive": true
+    },
+    "RunPhone.dc.html": {
+      "x": 5440,
+      "y": 16952,
+      "w": 1280,
+      "h": 800,
+      "title": "从手机开始的计划"
+    },
+    "PhoneReviewWarn.dc.html": {
+      "x": 2350,
+      "y": 5540,
+      "w": 390,
+      "h": 844,
+      "title": "手机核对计划带提醒"
+    },
+    "Medium.dc.html": {
+      "x": 1870,
+      "y": 1840,
+      "w": 900,
+      "h": 700,
+      "title": "中等宽度 900：草稿"
+    },
+    "MediumRun.dc.html": {
+      "x": 2850,
+      "y": 1840,
+      "w": 900,
+      "h": 700,
+      "title": "中等宽度 900：运行中"
+    },
+    "ImplNotes.dc.html": {
+      "x": 6800,
+      "y": 13032,
+      "w": 1280,
+      "h": 1580,
+      "title": "实现备注"
+    },
+    "RunAuto.dc.html": {
+      "x": 6800,
+      "y": 16952,
+      "w": 1280,
+      "h": 800,
+      "title": "等开放时自动登录"
+    },
+    "RunClick.dc.html": {
+      "x": 8160,
+      "y": 16952,
+      "w": 1280,
+      "h": 800,
+      "title": "本场改用页面点击"
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Running.dc.html",
+    "Result.dc.html",
+    "Attention.dc.html",
+    "FirstUse.dc.html",
+    "Settings.dc.html",
+    "Short.dc.html",
+    "Narrow.dc.html",
+    "Waiting.dc.html",
+    "Editing.dc.html",
+    "TourTable.dc.html",
+    "TourPick.dc.html",
+    "TourRun.dc.html",
+    "PhoneSetup.dc.html",
+    "PhoneTs.dc.html",
+    "PhoneWait.dc.html",
+    "PhoneLinked.dc.html",
+    "PhoneApp.dc.html",
+    "PhonePick.dc.html",
+    "PhoneReview.dc.html",
+    "PhoneRun.dc.html",
+    "PhoneResult.dc.html",
+    "PhoneLock.dc.html",
+    "PhoneOffline.dc.html",
+    "PhoneCheck.dc.html",
+    "PhoneExpired.dc.html",
+    "PhoneCaptcha.dc.html",
+    "PhoneAuto.dc.html",
+    "CloseLive.dc.html",
+    "CloseAsk.dc.html",
+    "CloseConfirm.dc.html",
+    "CloseIdle.dc.html",
+    "CloseHidden.dc.html",
+    "UpdateLive.dc.html",
+    "UpdateAvail.dc.html",
+    "UpdateDown.dc.html",
+    "UpdateReady.dc.html",
+    "UpdateFail.dc.html",
+    "CompLive.dc.html",
+    "CompWrong.dc.html",
+    "CompOk.dc.html",
+    "CredForm.dc.html",
+    "CredSaved.dc.html",
+    "CompFail.dc.html",
+    "Relogin.dc.html",
+    "RlCap.dc.html",
+    "RlConfirm.dc.html",
+    "RlBad.dc.html",
+    "LoginShort.dc.html",
+    "PhoneRelAll.dc.html",
+    "PhoneRelAcct.dc.html",
+    "PhoneRelConfirm.dc.html",
+    "PhoneRelBad.dc.html",
+    "TermsUpdate.dc.html",
+    "TermsDoc.dc.html",
+    "TermsPrivacy.dc.html",
+    "TermsOff.dc.html",
+    "TermsWithdraw.dc.html",
+    "PhoneTerms.dc.html",
+    "PopClock.dc.html",
+    "PopLogin.dc.html",
+    "PopDown.dc.html",
+    "DesignSpec.dc.html",
+    "PopPhone.dc.html",
+    "PreWarn.dc.html",
+    "NetOff.dc.html",
+    "Slept.dc.html",
+    "Broken.dc.html",
+    "HelpKeys.dc.html",
+    "LongName.dc.html",
+    "NarrowPop.dc.html",
+    "NarrowWarn.dc.html",
+    "ZeroAct.dc.html",
+    "ClockHold.dc.html",
+    "RunExpired.dc.html",
+    "ToastMin.dc.html",
+    "RunPhone.dc.html",
+    "RunAuto.dc.html",
+    "RunClick.dc.html",
+    "PhoneReviewWarn.dc.html",
+    "Medium.dc.html",
+    "MediumRun.dc.html",
+    "ImplNotes.dc.html"
+  ],
+  "notes": {},
+  "designSystems": []
+}

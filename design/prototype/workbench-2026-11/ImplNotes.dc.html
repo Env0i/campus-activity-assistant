@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>实现备注</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.nt{--hall:#e8ecef;--paper:#fff;--paper-2:#f4f6f8;--ink:#1a1f24;--ink-2:#4e5964;--ink-3:#616c76;--line:#dde3e8;--line-2:#c5cdd4;--amber:#ffb020;--warn:#8f5600;--warn-tint:#fff0d4;--bad:#b63227;--bad-tint:#fbe6e3;--blue:#1e5a8c;--blue-tint:#e3edf6;--ui:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;--mono:Consolas,"Cascadia Mono",monospace;min-height:100vh;padding:2rem 2.5rem 2.5rem;background:var(--hall);color:var(--ink);font:400 .8125rem/1.6 var(--ui);-webkit-font-smoothing:antialiased}
+.nt *{box-sizing:border-box}
+.nt h1{margin:0;font-size:1.5rem;font-weight:800;letter-spacing:.03em}
+.nt .lead{margin:.375rem 0 1.5rem;max-width:56rem;color:var(--ink-2)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem}
+.card{padding:1.125rem 1.25rem 1.25rem;border-radius:12px;background:var(--paper);box-shadow:0 0 0 1px var(--line)}
+.card.wide{grid-column:1/-1}
+.card h2{display:flex;align-items:baseline;gap:.5rem;margin:0 0 .25rem;padding-left:.625rem;border-left:3px solid var(--amber);font-size:1rem;line-height:1.3}
+.card h2 small{color:var(--ink-3);font-size:.75rem;font-weight:400}
+.card > p{margin:0 0 .75rem;color:var(--ink-2)}
+table{width:100%;border-collapse:collapse}
+th{padding:.375rem .5rem;border-bottom:1px solid var(--line-2);color:var(--ink-3);font-size:.6875rem;font-weight:700;text-align:left;white-space:nowrap}
+td{padding:.5rem;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td:first-child{width:8.5rem;color:var(--ink-2);white-space:nowrap}
+td b{font-weight:700}
+td span{color:var(--ink-2)}
+code{padding:0 .25rem;border-radius:4px;background:var(--paper-2);font:.75rem var(--mono)}
+.tag{display:inline-block;margin-right:.25rem;padding:0 .375rem;border-radius:4px;font-size:.6875rem;font-weight:700;line-height:1.25rem;white-space:nowrap}
+.tag.del{background:var(--bad-tint);color:var(--bad)}
+.tag.real{background:var(--blue-tint);color:var(--blue)}
+.tag.ask{background:var(--warn-tint);color:var(--warn)}
+.list{margin:0;padding:0;list-style:none}
+.list li{display:grid;grid-template-columns:3rem minmax(0,1fr);gap:.625rem;padding:.5rem 0;border-bottom:1px solid var(--line)}
+.list li:last-child{border-bottom:0}
+.list li > span:last-child{color:var(--ink-2)}
+.list .tag{align-self:start;justify-self:start}
+.list li b{color:var(--ink)}
+</style>
+</helmet>
+<div class="nt">
+  <h1>实现备注</h1>
+  <p class="lead">这张画板不是界面，是给写代码的人看的：原型里哪些东西只为演示存在、哪些数据是假的、哪些事还没定。原型本身不连学校、不连网，所有时间、账号和结果都是编的。</p>
+  <div class="grid">
+    <section class="card wide">
+      <h2>只为演示存在的控件 <small>实现时整段删掉，不要变成隐藏功能</small></h2>
+      <p>这些控件让画板能切到各种状态。真实程序里状态只来自后端，界面上不出现任何“模拟”“演示”字样。</p>
+      <table>
+        <tr><th>位置</th><th>控件</th><th>真实程序里由谁决定</th></tr>
+        <tr><td>计划栏</td><td><span class="tag del">删</span><b>演示：时间快进到开放前 12 秒</b>；计划结束后“演示时间已复位”</td><td><span>真实时钟</span></td></tr>
+        <tr><td>设置 · 手机访问</td><td><span class="tag del">删</span><b>演示：下载失败、切换 Tailscale 状态、手机配对成功、Cloudflare 隧道断开</b></td><td><span>组件下载结果、Tailscale 检测、配对服务、隧道进程状态</span></td></tr>
+        <tr><td>设置 · 验证码识别</td><td><span class="tag del">删</span><b>演示：下载失败</b></td><td><span>下载与校验结果</span></td></tr>
+        <tr><td>设置 · 版本与更新</td><td><span class="tag del">删</span><b>演示：下一次检查的结果</b>（下拉）、<b>演示：校验失败</b></td><td><span>发布页返回和安装包哈希校验</span></td></tr>
+        <tr><td>导入组件包</td><td><span class="tag del">删</span><b>模拟系统的选择文件窗口</b>；按文件名猜校验结论</td><td><span>系统文件对话框；包内清单和哈希</span></td></tr>
+        <tr><td>重新登录对话框</td><td><span class="tag del">删</span><b>验证码填 0000 看验证码错；模拟学校说密码不对</b></td><td><span>学校登录接口的返回</span></td></tr>
+        <tr><td>关闭窗口</td><td><span class="tag del">删</span><b>模拟的 Windows 标题栏、桌面、任务栏、托盘、系统通知</b>和“原型演示：关窗以后”卡片</td><td><span>pywebview 窗口事件、系统托盘、Windows 通知</span></td></tr>
+        <tr><td>组件缺失横幅</td><td><span class="tag del">删</span>“重新检查”直接通过（假设已重装）</td><td><span>真实文件自检</span></td></tr>
+        <tr><td>手机页 · 配对</td><td><span class="tag del">删</span><b>原型演示配对码</b>提示</td><td><span>配对码只显示在电脑上</span></td></tr>
+        <tr><td>手机页 · 菜单</td><td><span class="tag del">删</span><b>原型演示</b>整组开关：连不上电脑、登录失效、没保存账号、没装识别、保存的密码已改、没同意条款、连续 3 次认错；快进到开放前 12 秒</td><td><span>电脑端推过来的状态</span></td></tr>
+      </table>
+    </section>
+    <section class="card">
+      <h2>假数据 <small>换成真的</small></h2>
+      <ul class="list">
+        <li><span class="tag real">换</span><span><b>活动列表</b>：11 场编出来的活动、地点、时间。真实数据来自学校接口，字段口径按现有解析。</span></li>
+        <li><span class="tag real">换</span><span><b>账号打码</b> <code>st****01</code>：原型的打码规则是前两位加后两位，实现时照这个来。</span></li>
+        <li><span class="tag real">换</span><span><b>版本号和大小</b>：1.2.0、1.3.0、92.4 MB、31.6 MB 都是占位，以 <code>VERSION</code> 和 Release 资产为准。</span></li>
+        <li><span class="tag real">换</span><span><b>条款版本号和正文</b>：版本按架构方案升到 r4，<code>2026-11-03-r4</code> 里的日期按正式发布那天定；正文是按架构方案第 8 节披露清单写的草案，措辞要用户过一遍。</span></li>
+        <li><span class="tag real">换</span><span><b>二维码、验证码图片</b>：示意图，不能扫、不能认。</span></li>
+        <li><span class="tag real">换</span><span><b>上次校验时刻</b> 14:20:03 是编的，真实值来自最近一次学校校验。界面不再显示剩余时长：学校不公布有效期，工具也不估算。</span></li>
+      </ul>
+    </section>
+    <section class="card">
+      <h2>还没定，或要后端配合 <small>写计划前要有结论</small></h2>
+      <ul class="list">
+        <li><span class="tag ask">后端</span><span><b>计划等开放时重新登录</b>：计划不停。界面登录、写盘，worker 读到新登录态接着等；开放前 100 秒内和提交中只做自动登录，做不了的场次以“登录失效”结束（架构方案 4.3）。</span></li>
+        <li><span class="tag ask">后端</span><span><b>每场提交方式</b>：worker 要报告这一场走直接提交还是页面点击、为什么改用点击，计划栏和运行记录都显示（架构方案 3.1）。</span></li>
+        <li><span class="tag ask">后端</span><span><b>结束结论和核对</b>：按回包分类给结论：报上了、名额已满、时间冲突、报名已截止、活动不存在、登录失效、本机时钟有问题、待核对。每场结束用 <code>getJoinInfo</code> 核对一次，“刷新核对”用同一个接口（架构方案 3.3、3.5）。</span></li>
+        <li><span class="tag ask">后端</span><span><b>验证码识别组件</b>：要把 <code>relogin_ocr</code> 组件包发到 Release，清单解析和下载服务从只认 <code>phone_control</code> 改成两种都认。</span></li>
+        <li><span class="tag ask">后端</span><span><b>登录失效推飞书</b>：只在填了机器人地址时推，不带账号。</span></li>
+        <li><span class="tag ask">后端</span><span><b>手机端输入账号密码</b>：默认只放本次运行内存，勾选后才保存到电脑。</span></li>
+        <li><span class="tag ask">待定</span><span><b>验证码是否区分大小写</b>：还没确认。</span></li>
+        <li><span class="tag ask">待定</span><span><b>条款措辞</b>：正式发布前由用户或法务过一遍。</span></li>
+        <li><span class="tag ask">材料</span><span><b>还缺的材料</b>：真实 404/429、性别不符时的回包、同学首次使用的卡点。界面不等这些，先按“没见过的回包”处理。</span></li>
+        <li><span class="tag ask">以后</span><span><b>候补</b>：等架构方案第 6 节开工再画入口；条款到时再升一版。</span></li>
+      </ul>
+    </section>
+    <section class="card wide">
+      <h2>跟着要改的文档和测试</h2>
+      <ul class="list">
+        <li><span class="tag ask">决策</span><span><b>决策 009、010、011</b>：新手引导改成五步、登录和列表就绪后才开始；工作台取代旧大屏；状态统一先于视觉。引导版本号要升，老用户会再看一次。</span></li>
+        <li><span class="tag ask">测试</span><span><b>UI 契约测试</b>：旧大屏的断言要迁移到新工作台，按本画布的状态清单逐个补。</span></li>
+        <li><span class="tag ask">口径</span><span><b>有意和旧界面不同的地方</b>：24 小时提醒按最晚一场算；开始前提醒只提醒不拦；窄窗口底栏有提醒时不给直接开始；名额已满不算工具失败，不放回“重新选择未成功的场次”；登录胶囊不再显示剩余时间。</span></li>
+        <li><span class="tag ask">用词</span><span><b>统一用词</b>：动作叫“重新登录”，失效后工具自己登录叫“自动登录”，按钮叫“刷新”，不再用“重登”“刷新状态”这两个说法。报名方式叫“直接提交”和“页面点击”，不用“直发”。</span></li>
+      </ul>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1580}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

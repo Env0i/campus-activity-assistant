@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="校园活动预报名工具">
+  <!-- 单色版：只能用一种颜色时用（印章、单色打印、系统单色图标），勾和撕线镂空 -->
+  <defs><mask id="cut-mono-white"><rect width="256" height="256" fill="#FFFFFF"/><path d="M178 76V180" stroke="#000000" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 17.33"/><path d="M60 127L88 155L136 103" fill="none" stroke="#000000" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/></mask></defs>
+  <path d="M40 52H216A24 24 0 0 1 240 76V102A26 26 0 0 0 240 154V180A24 24 0 0 1 216 204H40A24 24 0 0 1 16 180V154A26 26 0 0 0 16 102V76A24 24 0 0 1 40 52Z" fill="#FFFFFF" mask="url(#cut-mono-white)"/>
+</svg>

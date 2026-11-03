@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新工作台原型</title>
+<style>
+:root{--hall:#e8ecef;--paper:#fff;--ink:#1a1f24;--ink-2:#4e5964;--ink-3:#616c76;--line:#dde3e8;--blue:#1e5a8c;--blue-tint:#e3edf6;--amber:#ffb020;--ui:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;height:100vh;display:grid;grid-template-columns:18rem minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);background:var(--hall);color:var(--ink);font:400 13px/1.5 var(--ui)}
+header{grid-column:1/-1;display:flex;align-items:center;gap:.75rem;padding:.625rem 1rem;border-bottom:1px solid var(--line);background:var(--paper)}
+header h1{margin:0;padding-left:.5rem;border-left:3px solid var(--amber);font-size:15px}
+header small{color:var(--ink-3)}
+header a{margin-left:auto;color:var(--blue)}
+nav{overflow:auto;padding:.5rem 0 1rem;border-right:1px solid var(--line);background:var(--paper)}
+nav h2{margin:.75rem 1rem .25rem;color:var(--ink-3);font-size:11px;font-weight:700}
+nav button{display:flex;justify-content:space-between;gap:.5rem;width:100%;padding:.3rem 1rem;border:0;background:none;color:var(--ink-2);font:inherit;text-align:left;cursor:pointer}
+nav button:hover{background:#f4f6f8;color:var(--ink)}
+nav button[aria-current="true"]{background:var(--blue-tint);color:var(--blue);font-weight:600}
+nav button small{flex:none;color:var(--ink-3);font-size:11px}
+nav button:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+main{overflow:auto;padding:1rem}
+.cap{margin:0 0 .5rem;color:var(--ink-2)}
+.cap b{color:var(--ink)}
+.frame{overflow:hidden;border-radius:6px;box-shadow:0 0 0 1px var(--line),0 6px 24px rgba(0,0,0,.08);background:var(--paper)}
+.frame iframe{display:block;border:0;transform-origin:0 0}
+.miss{max-width:40rem;padding:1rem 1.25rem;border-radius:8px;background:#fff0d4;color:#8f5600}
+</style>
+</head>
+<body>
+<header><h1>新工作台原型</h1><small id="count"></small><a id="open" href="#" target="_blank" rel="noopener">在新标签页打开这张</a></header>
+<nav id="list" aria-label="画板"></nav>
+<main><p class="cap" id="cap"></p><div class="frame" id="frame"></div></main>
+<script>
+// 本地查看器：按画布的行分组列出画板，右侧按原尺寸缩放显示。画板页面本身不改。
+var ROWS = { 0: '主流程', 920: '状态与设置', 1840: '窗口尺寸', 2780: '等开放与修改', 3700: '新手引导', 4620: '手机访问设置', 5540: '手机页', 6504: '手机页异常', 7468: '关闭窗口', 8388: '更新', 9308: '高级功能与登录恢复', 10228: '重新登录', 11148: '手机上重新登录', 12112: '条款', 13032: '详情卡与规范', 15112: '细节', 16032: '窄窗口细节', 16952: '审计补充' };
+var boards = [], current = -1;
+function show(i) {
+  var b = boards[i]; if (!b) return;
+  current = i;
+  document.querySelectorAll('nav button').forEach(function (el) { el.setAttribute('aria-current', String(Number(el.dataset.i) === i)); });
+  document.getElementById('cap').innerHTML = '<b>' + b.name + '</b> · ' + b.title + ' · ' + b.w + '×' + b.h;
+  document.getElementById('open').href = b.file;
+  var frame = document.getElementById('frame');
+  frame.innerHTML = '';
+  var f = document.createElement('iframe');
+  f.src = b.file; f.title = b.title; f.width = b.w; f.height = b.h;
+  frame.appendChild(f);
+  fit();
+  location.hash = b.name;
+}
+function fit() {
+  var b = boards[current]; if (!b) return;
+  var main = document.querySelector('main');
+  var s = Math.min(1, (main.clientWidth - 32) / b.w, (main.clientHeight - 64) / b.h);
+  var f = document.querySelector('.frame iframe');
+  f.style.transform = 'scale(' + s + ')';
+  var frame = document.getElementById('frame');
+  frame.style.width = Math.round(b.w * s) + 'px'; frame.style.height = Math.round(b.h * s) + 'px';
+}
+fetch('canvas.json').then(function (r) { return r.json(); }).then(function (c) {
+  boards = c.order.map(function (k) { var b = c.boards[k]; return { file: k, name: k.replace('.dc.html', ''), title: b.title, w: b.w, h: b.h, y: b.y, x: b.x }; })
+    .sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+  var nav = document.getElementById('list'), lastY = null;
+  boards.forEach(function (b, i) {
+    if (b.y !== lastY) { var h = document.createElement('h2'); h.textContent = ROWS[b.y] || ('第 ' + b.y + ' 行'); nav.appendChild(h); lastY = b.y; }
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.dataset.i = i;
+    btn.innerHTML = '<span></span><small>' + b.w + '×' + b.h + '</small>';
+    btn.firstChild.textContent = b.title;
+    btn.onclick = function () { show(i); };
+    nav.appendChild(btn);
+  });
+  document.getElementById('count').textContent = boards.length + ' 张画板，假数据';
+  var start = boards.findIndex(function (b) { return b.name === decodeURIComponent(location.hash.slice(1)); });
+  show(start >= 0 ? start : 0);
+}).catch(function () {
+  document.getElementById('frame').outerHTML = '<p class="miss">读不到 canvas.json。请按 README 用本地服务器打开（不能双击用 file:// 打开）。</p>';
+});
+addEventListener('resize', fit);
+addEventListener('keydown', function (e) {
+  if (e.target.closest && e.target.closest('iframe')) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); show(Math.max(0, Math.min(boards.length - 1, current + (e.key === 'ArrowDown' ? 1 : -1)))); }
+});
+</script>
+</body>
+</html>

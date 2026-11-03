@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>字体与配色</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.ds{--hall:#e8ecef;--paper:#fff;--paper-2:#f4f6f8;--ink:#1a1f24;--ink-2:#4e5964;--ink-3:#616c76;--line:#dde3e8;--line-2:#c5cdd4;--blue:#1e5a8c;--blue-tint:#e3edf6;--board:#121513;--board-2:#1b201c;--board-line:#2c332e;--on:#ecefea;--on-2:#a7afa9;--on-3:#8b948e;--amber:#ffb020;--amber-dim:#b98319;--red:#ff5b48;--green:#45dc8a;--ok:#146c43;--ok-tint:#e1f3e9;--bad:#b63227;--bad-tint:#fbe6e3;--warn:#8f5600;--warn-tint:#fff0d4;--ui:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;--n:Bahnschrift,"DIN Alternate","Segoe UI","Microsoft YaHei UI",sans-serif;--mono:Consolas,"Cascadia Mono",monospace;--dots:radial-gradient(circle at 1.5px 1.5px,rgba(255,255,255,.045) 1px,transparent 1.4px) 0 0/6px 6px;min-height:100vh;padding:2rem 2.5rem 2.5rem;background:var(--hall);color:var(--ink);font:400 .8125rem/1.6 var(--ui);-webkit-font-smoothing:antialiased}
+.ds *{box-sizing:border-box}
+.ds h1{margin:0;font-size:1.5rem;font-weight:800;letter-spacing:.03em}
+.ds .lead{margin:.375rem 0 1.5rem;max-width:52rem;color:var(--ink-2)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem}
+.card{padding:1.125rem 1.25rem 1.25rem;border-radius:12px;background:var(--paper);box-shadow:0 0 0 1px var(--line)}
+.card.wide{grid-column:1/-1}
+.card h2{margin:0 0 .75rem;padding-left:.625rem;border-left:3px solid var(--amber);font-size:1rem;line-height:1.3}
+.fontrow{display:grid;grid-template-columns:9rem minmax(0,1fr);gap:.25rem 1rem;align-items:baseline;padding:.625rem 0;border-bottom:1px solid var(--line)}
+.fontrow:last-child{border-bottom:0}
+.fontrow b{font-weight:700}
+.fontrow small{grid-column:2;color:var(--ink-2);font-size:.75rem}
+.spec-ui{font:400 1.125rem var(--ui)}
+.spec-n{font:600 1.75rem var(--n);font-stretch:85%;font-variant-numeric:tabular-nums}
+.spec-m{font:.875rem var(--mono)}
+.scale{width:100%;border-collapse:collapse;font-size:.75rem}
+.scale td{padding:.375rem .5rem;border-bottom:1px solid var(--line);vertical-align:baseline}
+.scale tr:last-child td{border-bottom:0}
+.scale td:first-child{width:9rem;color:var(--ink-2)}
+.scale td:last-child{color:var(--ink-3);text-align:right;white-space:nowrap}
+.sw-group{margin-bottom:.875rem}
+.sw-group:last-child{margin-bottom:0}
+.sw-group h3{margin:0 0 .375rem;color:var(--ink-2);font-size:.75rem;font-weight:700}
+.sws{display:grid;grid-template-columns:repeat(auto-fill,minmax(8.5rem,1fr));gap:.5rem}
+.sw{overflow:hidden;border-radius:8px;box-shadow:0 0 0 1px var(--line)}
+.sw i{display:block;height:2.75rem}
+.sw div{padding:.375rem .5rem}
+.sw b{display:block;font-size:.75rem}
+.sw code{color:var(--ink-3);font:.6875rem var(--mono)}
+.sw span{display:block;color:var(--ink-2);font-size:.6875rem;line-height:1.45}
+.rules{margin:0;padding:0;list-style:none}
+.rules li{display:grid;grid-template-columns:1rem minmax(0,1fr);gap:.625rem;padding:.5rem 0;border-bottom:1px solid var(--line)}
+.rules li:last-child{border-bottom:0}
+.rules i{width:.875rem;height:.875rem;margin-top:.25rem;border-radius:50%}
+.rules b{font-weight:700}
+.rules span{color:var(--ink-2)}
+.demo{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.surf{padding:.875rem;border-radius:10px}
+.surf.light{background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line)}
+.surf.dark{background:var(--dots),var(--board);color:var(--on)}
+.surf h3{margin:0 0 .625rem;font-size:.75rem;font-weight:700}
+.surf.light h3{color:var(--ink-2)}.surf.dark h3{color:var(--on-2)}
+.brow{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.5rem}
+.brow small{width:100%;color:inherit;opacity:.75;font-size:.6875rem}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:2rem;padding:0 .75rem;border:0;border-radius:8px;font:inherit;font-weight:600;white-space:nowrap}
+.btn-solid{background:var(--ink);color:#fff}
+.btn-line{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)}
+.btn-stop{background:var(--bad);color:#fff}
+.link{padding:0;border:0;background:transparent;color:var(--blue);font:inherit;text-decoration:underline}
+.bb{display:inline-flex;align-items:center;justify-content:center;height:2.25rem;padding:0 1rem;border:0;border-radius:8px;font:inherit;font-size:.875rem;font-weight:700}
+.bb-primary{background:var(--amber);color:#1d1505}
+.bb-ghost{background:transparent;color:var(--on);box-shadow:inset 0 0 0 1px #4b544d}
+.cr{width:100%;border-collapse:collapse;font-size:.75rem}
+.cr td{padding:.3125rem .5rem;border-bottom:1px solid var(--line)}
+.cr tr:last-child td{border-bottom:0}
+.cr .smp{width:7rem}
+.cr .smp span{display:inline-block;padding:.125rem .5rem;border-radius:4px;font-weight:700}
+.cr .ratio{font:600 .8125rem var(--n);text-align:right}
+.cr .pass{color:var(--ok);text-align:right;white-space:nowrap}
+.cr .edge{color:var(--warn)}
+.note{margin:.75rem 0 0;padding:.5rem .75rem;border-radius:8px;background:var(--warn-tint);color:#6b4100;font-size:.75rem}
+</style>
+</helmet>
+<div class="ds">
+  <h1>字体与配色</h1>
+  <p class="lead">沿用旧界面已经成型的一套，不重新设计；这里把规则写死，实现时照着用。改动只有一处：浅色底上的主按钮统一用墨黑，蓝色不再当按钮色。</p>
+  <div class="grid">
+    <section class="card">
+      <h2>三种字体，各管一件事</h2>
+      <div class="fontrow"><b>界面文字</b><span class="spec-ui">微软雅黑 UI：报名计划已开始</span><small>Microsoft YaHei UI，Windows 自带。所有中文、按钮和说明。</small></div>
+      <div class="fontrow"><b>数字</b><span class="spec-n">14:30 00:09:55 37/92</span><small>Bahnschrift（DIN 路牌体），Windows 自带。时刻、倒计时、统计、版本号，一律等宽数字。</small></div>
+      <div class="fontrow"><b>记录与地址</b><span class="spec-m">14:20:05 计划已开始</span><small>Consolas。运行记录、手机访问地址、许可证原文。</small></div>
+      <div class="fontrow"><b>点阵屏</b><span>5×7 点阵，只用在倒计时和配对码</span><small>不是字体，是画出来的点阵。全界面最显眼的地方，只此一处。</small></div>
+      <p class="note">手机页在手机上打开，手机没有 Bahnschrift：iPhone 会用 DIN Alternate，安卓用系统数字字体，都开等宽数字。不额外下载字体，保持离线可用。</p>
+    </section>
+    <section class="card">
+      <h2>字号层级</h2>
+      <table class="scale">
+        <tr><td>窗口标题</td><td style="font-size: 1.125rem; font-weight: 800">校园活动预报名工具</td><td>18 / 特粗</td></tr>
+        <tr><td>计划栏标题</td><td style="font-size: 1.3125rem; font-weight: 700">人工智能与未来职业</td><td>21 / 粗</td></tr>
+        <tr><td>对话框标题</td><td style="font-size: 1.125rem; font-weight: 700">报名计划还在运行</td><td>18 / 粗</td></tr>
+        <tr><td>区块标题</td><td style="font-size: .875rem; font-weight: 700">版本与更新</td><td>14 / 粗</td></tr>
+        <tr><td>正文</td><td style="font-size: .8125rem">勾选只是加入计划，不会开始报名。</td><td>13 / 常规</td></tr>
+        <tr><td>辅助说明</td><td style="font-size: .75rem; color: var(--ink-2)">下载后会校验版本和哈希。</td><td>12 / 常规</td></tr>
+        <tr><td>标签</td><td style="font-size: .6875rem">原型示意，不能扫</td><td>11，只用于极短文字</td></tr>
+        <tr><td>列表时刻</td><td style="font: 600 1.5rem var(--n); font-stretch: 85%">14:30</td><td>24 / 数字体</td></tr>
+        <tr><td>结果统计</td><td style="font: 600 3rem/1 var(--n); font-stretch: 85%">2</td><td>48 / 数字体</td></tr>
+      </table>
+    </section>
+    <section class="card wide">
+      <h2>配色</h2>
+      <div class="sw-group"><h3>底色与线</h3><div class="sws">
+        <div class="sw"><i style="background: #e8ecef"></i><div><b>大厅</b><code>#e8ecef</code><span>窗口底色</span></div></div>
+        <div class="sw"><i style="background: #ffffff"></i><div><b>纸面</b><code>#ffffff</code><span>时刻表、对话框、设置</span></div></div>
+        <div class="sw"><i style="background: #f4f6f8"></i><div><b>浅纸面</b><code>#f4f6f8</code><span>分组标题、表单底</span></div></div>
+        <div class="sw"><i style="background: #dde3e8"></i><div><b>分隔线</b><code>#dde3e8</code><span>行与行之间</span></div></div>
+        <div class="sw"><i style="background: #c5cdd4"></i><div><b>描边</b><code>#c5cdd4</code><span>次按钮、输入框</span></div></div>
+      </div></div>
+      <div class="sw-group"><h3>文字</h3><div class="sws">
+        <div class="sw"><i style="background: #1a1f24"></i><div><b>墨黑</b><code>#1a1f24</code><span>正文、浅色底主按钮</span></div></div>
+        <div class="sw"><i style="background: #4e5964"></i><div><b>次要</b><code>#4e5964</code><span>说明文字</span></div></div>
+        <div class="sw"><i style="background: #616c76"></i><div><b>辅助</b><code>#616c76</code><span>标签、提示，最浅只到这里</span></div></div>
+      </div></div>
+      <div class="sw-group"><h3>计划栏（深色）</h3><div class="sws">
+        <div class="sw"><i style="background: #121513"></i><div><b>路牌黑</b><code>#121513</code><span>计划栏、对话框标题条</span></div></div>
+        <div class="sw"><i style="background: #1b201c"></i><div><b>深格</b><code>#1b201c</code><span>计划栏里的清单</span></div></div>
+        <div class="sw"><i style="background: #ecefea"></i><div><b>亮字</b><code>#ecefea</code><span>深色底正文</span></div></div>
+        <div class="sw"><i style="background: #a7afa9"></i><div><b>灰字</b><code>#a7afa9</code><span>深色底说明</span></div></div>
+      </div></div>
+      <div class="sw-group"><h3>强调与状态</h3><div class="sws">
+        <div class="sw"><i style="background: #ffb020"></i><div><b>琥珀</b><code>#ffb020</code><span>点阵、倒计时、深色底主按钮</span></div></div>
+        <div class="sw"><i style="background: #1e5a8c"></i><div><b>路线蓝</b><code>#1e5a8c</code><span>选中、链接、焦点框</span></div></div>
+        <div class="sw"><i style="background: #146c43"></i><div><b>成功绿</b><code>#146c43</code><span>已报名、已校准、已启用</span></div></div>
+        <div class="sw"><i style="background: #8f5600"></i><div><b>提醒棕</b><code>#8f5600</code><span>需要你注意，但不是错误</span></div></div>
+        <div class="sw"><i style="background: #b63227"></i><div><b>错误红</b><code>#b63227</code><span>失败、失效、停止、撤回</span></div></div>
+        <div class="sw"><i style="background: #45dc8a"></i><div><b>信号绿</b><code>#45dc8a</code><span>只在深色底：成功点阵</span></div></div>
+        <div class="sw"><i style="background: #ff5b48"></i><div><b>信号红</b><code>#ff5b48</code><span>只在深色底：最后 10 秒、提交中</span></div></div>
+      </div></div>
+    </section>
+    <section class="card">
+      <h2>用色规则</h2>
+      <ul class="rules">
+        <li><i style="background: #ffb020"></i><div><b>琥珀只在深色底上当按钮</b><br><span>计划栏的“开始报名计划”、手机页底栏和弹层的主按钮。浅色设置和对话框里不用琥珀按钮。</span></div></li>
+        <li><i style="background: #1a1f24"></i><div><b>浅色底上的主按钮用墨黑</b><br><span>每一处最多一个。“同意并继续”“下载并安装”“自动登录”都是这个样式。</span></div></li>
+        <li><i style="background: #1e5a8c"></i><div><b>蓝色不当按钮</b><br><span>只用于选中的行、文字链接和键盘焦点框，让“选中”这个意思不被稀释。</span></div></li>
+        <li><i style="background: #b63227"></i><div><b>红色只给会丢东西的动作</b><br><span>停止计划、退出程序、确认撤回、确认清除。普通取消用描边按钮。</span></div></li>
+        <li><i style="background: #8f5600"></i><div><b>提醒用棕，不用红</b><br><span>登录撑不到开放、条款没同意、出门前保存账号，都只是提醒。</span></div></li>
+      </ul>
+    </section>
+    <section class="card">
+      <h2>按钮层级</h2>
+      <div class="demo">
+        <div class="surf light"><h3>浅色底</h3>
+          <div class="brow"><button class="btn btn-solid" type="button">同意并继续</button><button class="btn btn-line" type="button">暂不使用</button><small>主按钮 + 次按钮</small></div>
+          <div class="brow"><button class="btn btn-stop" type="button">确认撤回</button><button class="btn btn-line" type="button">先不撤回</button><small>会丢东西的确认</small></div>
+          <div class="brow"><button class="link" type="button">打开发布页</button><small>文字链接</small></div>
+        </div>
+        <div class="surf dark"><h3>深色底（计划栏、手机页）</h3>
+          <div class="brow"><button class="bb bb-primary" type="button">开始报名计划</button><small>琥珀主按钮</small></div>
+          <div class="brow"><button class="bb bb-ghost" type="button">修改计划</button><button class="bb bb-ghost" type="button">停止计划</button><small>深色底次按钮</small></div>
+        </div>
+      </div>
+    </section>
+    <section class="card wide">
+      <h2>对比度（WCAG 正文要求至少 4.5:1）</h2>
+      <table class="cr">
+        <tr><td class="smp"><span style="background: #fff; color: #1a1f24; box-shadow: inset 0 0 0 1px #dde3e8">正文</span></td><td>墨黑字 / 纸面</td><td class="ratio">16.6</td><td class="pass">通过</td><td class="smp"><span style="background: #121513; color: #ecefea">亮字</span></td><td>亮字 / 路牌黑</td><td class="ratio">15.8</td><td class="pass">通过</td></tr>
+        <tr><td class="smp"><span style="background: #fff; color: #4e5964; box-shadow: inset 0 0 0 1px #dde3e8">次要</span></td><td>次要字 / 纸面</td><td class="ratio">7.2</td><td class="pass">通过</td><td class="smp"><span style="background: #121513; color: #a7afa9">灰字</span></td><td>灰字 / 路牌黑</td><td class="ratio">8.2</td><td class="pass">通过</td></tr>
+        <tr><td class="smp"><span style="background: #fff; color: #616c76; box-shadow: inset 0 0 0 1px #dde3e8">辅助</span></td><td>辅助字 / 纸面</td><td class="ratio">5.4</td><td class="pass">通过</td><td class="smp"><span style="background: #ffb020; color: #1d1505">开始</span></td><td>深字 / 琥珀按钮</td><td class="ratio">9.9</td><td class="pass">通过</td></tr>
+        <tr><td class="smp"><span style="background: #e8ecef; color: #616c76">辅助</span></td><td>辅助字 / 大厅底</td><td class="ratio">4.5</td><td class="pass edge">刚好及格，别再变浅</td><td class="smp"><span style="background: #121513; color: #ff5b48">提交中</span></td><td>信号红 / 路牌黑</td><td class="ratio">6.0</td><td class="pass">通过</td></tr>
+        <tr><td class="smp"><span style="background: #e3edf6; color: #1e5a8c">选中</span></td><td>蓝字 / 选中行</td><td class="ratio">6.1</td><td class="pass">通过</td><td class="smp"><span style="background: #e1f3e9; color: #146c43">成功</span></td><td>绿字 / 成功底</td><td class="ratio">5.6</td><td class="pass">通过</td></tr>
+        <tr><td class="smp"><span style="background: #fff0d4; color: #8f5600">提醒</span></td><td>棕字 / 提醒底</td><td class="ratio">5.3</td><td class="pass">通过</td><td class="smp"><span style="background: #fbe6e3; color: #b63227">错误</span></td><td>红字 / 错误底</td><td class="ratio">5.0</td><td class="pass">通过</td></tr>
+      </table>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1960}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

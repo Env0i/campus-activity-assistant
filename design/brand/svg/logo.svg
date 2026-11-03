@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="校园活动预报名工具">
+  <!-- 入场券主标志（40 像素及以上用）：琥珀票面、两侧缺口、点状撕线、墨黑的勾 = 报上了 -->
+  <path d="M40 52H216A24 24 0 0 1 240 76V102A26 26 0 0 0 240 154V180A24 24 0 0 1 216 204H40A24 24 0 0 1 16 180V154A26 26 0 0 0 16 102V76A24 24 0 0 1 40 52Z" fill="#FFB020"/>
+  <path d="M178 76V180" fill="none" stroke="#121513" stroke-opacity="0.32" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 17.33"/>
+  <path d="M60 127L88 155L136 103" fill="none" stroke="#121513" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

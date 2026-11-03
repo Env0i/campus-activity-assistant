@@ -8,12 +8,14 @@
 
 | 目录 | 放什么 |
 |---|---|
-| [decisions/](decisions/) | **已敲定的产品决策**：为什么这样定、用户看到什么（10 份记录） |
+| [decisions/](decisions/) | **已敲定的产品决策**：为什么这样定、用户看到什么（篇数与索引见 [decisions/README.md](decisions/README.md)） |
 | [flows/](flows/) | **当前用户流程**：首次使用 → 选活动 → 混合计划运行 → 停止与结果（4 份流程） |
 | [specs/](specs/) | **交互规范**：组件、状态、文案、响应式行为（辅助入口见 [specs/assistance-panels.md](specs/assistance-panels.md)） |
 | [proposals/](proposals/) | **新方案提案**：尚未实现、未进入实现计划的想法 |
 | [archive/](archive/) | **历史原型说明**：prototype/ 与 shots/ 的定位与边界 |
 | [prototype/](prototype/) · [shots/](shots/) | 2026-10-22 视觉原型与截图资产（原路径未动，链接不失效） |
+| [prototype/workbench-2026-11/](prototype/workbench-2026-11/) | 2026-11-02 新工作台原型（已批准、待实现；本机双击 `打开原型.bat` 查看；设计见 [docs/superpowers/specs/2026-11-02-workbench-ui-redesign-design.md](../docs/superpowers/specs/2026-11-02-workbench-ui-redesign-design.md)） |
+| [brand/](brand/) | **Logo 资产**：入场券（2026-11-02 选定）的矢量源文件、各尺寸 PNG、程序图标 .ico 和使用规则；还没接进程序 |
 | [current-ui/](current-ui/) | **当前实现的真实渲染截图**（mock 数据，2026-10-24 生成，待用户验收） |
 | [check_refs.py](check_refs.py) | 校验本页历史基线章节里的代码引用（用法见文末） |
 
@@ -53,6 +55,7 @@
 | 统一帮助、主题对齐与手动检查更新 | confirmed（代码已落地，技术与用户验收分列） | [011](decisions/011-unified-help-and-manual-update.md) · [规范](specs/assistance-panels.md) |
 | 真实报名结果回写与已报名冲突基线 | implemented（2026-10-27；见 [004](decisions/004-multi-activity-and-conflict.md)、`docs/UI_SPEC.md` §5.4） | [004](decisions/004-multi-activity-and-conflict.md) |
 | 详情签到/签退时间段与「同步中/待确认/无需」文案 | implemented（2026-10-27 真实字段契约） | [005](decisions/005-attendance-filters.md) |
+| 报名链路（密钥来源、回包分类、终态核对、登录失效） | confirmed（待实现，计划 `20261103-arch-b-core`）；设计见 [2026-11-03 架构修订设计](../docs/superpowers/specs/2026-11-03-architecture-revision-design.md) | [015](decisions/015-signup-path-and-replies.md) |
 
 状态口径见 [decisions/README.md](decisions/README.md)：confirmed 只表示规则已敲定，
 implemented 另要求代码落地并有证据，proposed 一律放 [proposals/](proposals/)。
