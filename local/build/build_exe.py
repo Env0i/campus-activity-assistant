@@ -26,8 +26,9 @@ import sys
 from pathlib import Path
 
 
-HERE = Path(__file__).resolve().parent
-PROJECT = HERE.parent
+# 脚本在 local/build/：local/（运行模块、ui/、README）是上一级，仓库根再上一级
+LOCAL = Path(__file__).resolve().parent.parent
+PROJECT = LOCAL.parent
 OUT = PROJECT / "dist" / "campus-grab-exe"
 WORK = PROJECT / "dist" / ".pyinstaller-work"
 VERSION_FILE = PROJECT / "VERSION"
@@ -68,13 +69,13 @@ def run_pyinstaller(name: str, source: Path, mode: str, add_ui: bool,
     if name != "grab-worker":
         args += ["--hidden-import", "signup_plan", "--collect-all", "webview"]
         if add_ui:
-            args += ["--add-data", str(HERE / "ui") + os.pathsep + "ui"]
+            args += ["--add-data", str(LOCAL / "ui") + os.pathsep + "ui"]
         # 版本单一来源：同一份根 VERSION 放进冻结资源根，app.py 用 RESOURCE_ROOT 读
         for src, dest in (extra_data or []):
             args += ["--add-data", str(src) + os.pathsep + dest]
     args.append(str(source))
     print("[exe] $ " + " ".join(str(part) for part in args), flush=True)
-    result = subprocess.run(args, cwd=str(HERE), text=True)
+    result = subprocess.run(args, cwd=str(LOCAL), text=True)
     if result.returncode != 0:
         raise SystemExit("PyInstaller 构建失败，退出码 %d" % result.returncode)
     if mode == "onefile":
@@ -107,11 +108,11 @@ def assemble(mode: str) -> Path:
     # 先构建现有 worker（onefile），再把它当普通数据资源随 VERSION 一起进主程序
     # 资源根：不用 --add-binary（那会让 PyInstaller 重新分析 worker 依赖），
     # 主程序冻结态按 RESOURCE_ROOT/grab-worker.exe 解析——单 EXE 与 onedir 同源自足
-    worker = run_pyinstaller("grab-worker", HERE / "grab.py", "onefile", False)
+    worker = run_pyinstaller("grab-worker", LOCAL / "grab.py", "onefile", False)
     # --add-data 对文件源按「dest/源文件名」归档：dest 必须是 "."，
     # 让 worker 以 basename（恰为 grab-worker.exe）落在资源根；
     # 写成 dest="grab-worker.exe" 会解包成同名目录，冻结态解析直接 worker_missing
-    app = run_pyinstaller("campus-activity-watch", HERE / "app.py", mode, True,
+    app = run_pyinstaller("campus-activity-watch", LOCAL / "app.py", mode, True,
                           extra_data=[(worker, "."), (VERSION_FILE, ".")])
     if mode == "onefile":
         shutil.copy2(app, OUT / app.name)
@@ -119,11 +120,11 @@ def assemble(mode: str) -> Path:
         shutil.copytree(app.parent, OUT, dirs_exist_ok=True)
     # worker 已内置进主程序资源根：OUT 不再放置外置 grab-worker.exe，
     # 构建失败会在这里之前直接退出，绝不退回「外置 worker 入口」假称独立
-    shutil.copy2(HERE / "README.md", OUT / "README.md")
+    shutil.copy2(LOCAL / "README.md", OUT / "README.md")
     # 发行说明 / 预览 / 协议：与 Release ZIP 的清单保持同一套来源
     shutil.copy2(PROJECT / "CHANGELOG.md", OUT / "CHANGELOG.md")
-    if (HERE / "gui-preview.png").is_file():
-        shutil.copy2(HERE / "gui-preview.png", OUT / "gui-preview.png")
+    if (LOCAL / "gui-preview.png").is_file():
+        shutil.copy2(LOCAL / "gui-preview.png", OUT / "gui-preview.png")
     if (PROJECT / "LICENSE").is_file():
         shutil.copy2(PROJECT / "LICENSE", OUT / "LICENSE")
     # data 只是占位目录：已有（旧版数据）原样保留，全新构建维持旧布局

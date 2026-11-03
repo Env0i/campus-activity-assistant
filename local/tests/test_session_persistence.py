@@ -366,7 +366,7 @@ class BuildCleanupContractTests(unittest.TestCase):
 
     def test_prune_output_keeps_data_dir(self):
         import tempfile
-        sys.path.insert(0, str(LOCAL))
+        sys.path.insert(0, str(LOCAL / "build"))   # 打包脚本在 local/build/
         try:
             import build_exe
         except Exception as exc:
@@ -392,7 +392,7 @@ class BuildCleanupContractTests(unittest.TestCase):
             self.assertFalse((out / "README.md").exists())
 
     def test_prune_output_missing_dir_is_noop(self):
-        sys.path.insert(0, str(LOCAL))
+        sys.path.insert(0, str(LOCAL / "build"))   # 打包脚本在 local/build/
         try:
             import build_exe
         except Exception as exc:

@@ -125,7 +125,7 @@ class VersionSourceTests(unittest.TestCase):
 
     def test_build_exe_validates_version_before_build(self):
         """build_exe：构建前读 VERSION 并校验；同一份 VERSION 进冻结资源根。"""
-        src = read("local/build_exe.py")
+        src = read("local/build/build_exe.py")
         self.assertIn("def read_version", src, "build_exe 必须读 VERSION")
         self.assertIn("--add-data", src, "必须把 VERSION 打进冻结资源")
         self.assertIn('extra_data=[(worker, "."), (VERSION_FILE, ".")]', src,
@@ -259,7 +259,7 @@ class PortableBundleTests(unittest.TestCase):
     """绿色版清单：runtime_paths.py 与 VERSION 必须带上（历史缺口修复）。"""
 
     def test_app_files_include_runtime_paths(self):
-        src = read("local/make_portable.py")
+        src = read("local/build/make_portable.py")
         self.assertIn('"runtime_paths.py"', src,
                       "APP_FILES 必须包含 runtime_paths.py（缺了 app.py 直接 ImportError）")
         self.assertNotIn('"gui-preview.png"', src, "公开仓库已移除预览图，绿色版不应依赖它")
@@ -319,7 +319,11 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
     VERSION = "1.2.3"
 
     def test_real_component_bridge_uses_builder_accepted_temporary_directory(self):
-        import build_advanced
+        sys.path.insert(0, str(LOCAL / "build"))   # 打包脚本在 local/build/
+        try:
+            import build_advanced
+        finally:
+            sys.path.pop(0)
         rel = load_release()
         seen = []
         def run_builder(args):

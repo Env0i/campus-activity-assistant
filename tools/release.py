@@ -24,7 +24,7 @@
 **不再单独触发发布**——要发布必须显式 --publish。
 
 本机正式资产 = 独立 EXE + 完整 ZIP + **安装版安装器** + 可选手机组件（+manifest 清单），前三者由
-同一次 --prepare 里构建的**同一份冻结 EXE** 派生（安装器经 local/build_installer.py
+同一次 --prepare 里构建的**同一份冻结 EXE** 派生（安装器经 local/build/build_installer.py
 从该 EXE 生成，独立 EXE 与 ZIP 内 EXE 字节一致；安装器自身不与 EXE 比字节——
 它是自解压容器，可比性在安装后哈希核验，见 specs/versioning-and-release）。
 绿色版/服务器版打包（build_portable / zip_portable / zip_server）保留为**另行授权的
@@ -103,14 +103,14 @@ def write_site_build(origin: str) -> None:
 
 
 def _load_build_installer():
-    """按文件路径加载 local/build_installer.py，不污染 sys.path。
+    """按文件路径加载 local/build/build_installer.py，不污染 sys.path。
 
     安装器构建入口必须 import 而非 subprocess：release.py 要把**同一份冻结 EXE**
     显式传给它（同源约束），命令行拼接做不到这个保证。模块导入无副作用。
     """
     import importlib.util
     spec = importlib.util.spec_from_file_location(
-        "release_build_installer", ROOT / "local" / "build_installer.py")
+        "release_build_installer", ROOT / "local" / "build" / "build_installer.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -295,9 +295,9 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
 
 
 def build_exe_onefile() -> Path:
-    """调用 local/build_exe.py 构建 onefile 主 EXE（worker 已内置为数据资源，产物在 dist/campus-grab-exe）。"""
+    """调用 local/build/build_exe.py 构建 onefile 主 EXE（worker 已内置为数据资源，产物在 dist/campus-grab-exe）。"""
     print("[prepare] 构建 onefile EXE（内置 grab-worker）...")
-    run([sys.executable, str(ROOT / "local" / "build_exe.py"), "--mode", "onefile"])
+    run([sys.executable, str(ROOT / "local" / "build" / "build_exe.py"), "--mode", "onefile"])
     out = DIST / "campus-grab-exe"
     main = out / "campus-activity-watch.exe"
     if not main.is_file():
@@ -311,7 +311,7 @@ def _default_cloudflared() -> Path:
 
 def build_phone_component(version: str, work_dir: Path,
                           cloudflared: Path | None = None) -> Path:
-    """调 local/build_advanced.py 打组件包（PyInstaller，耗时几分钟）。
+    """调 local/build/build_advanced.py 打组件包（PyInstaller，耗时几分钟）。
 
     只调脚本、不 import：打包必须在独立进程里跑，且「cloudflared 版本必须等于
     写死值」这条规则只允许有 build_advanced 一个实现，发布侧再核一遍清单即可。
@@ -323,7 +323,7 @@ def build_phone_component(version: str, work_dir: Path,
                          "或用 --cloudflared 指定" % binary)
     work_dir.mkdir(parents=True, exist_ok=True)
     print("[prepare] 构建手机控制组件包（内置 cloudflared）...")
-    run([sys.executable, str(ROOT / "local" / "build_advanced.py"),
+    run([sys.executable, str(ROOT / "local" / "build" / "build_advanced.py"),
          "--feature", COMPONENT_FEATURE,
          "--output-dir", str(work_dir),
          "--cloudflared", str(binary)])
@@ -475,8 +475,8 @@ def check_only(version: str) -> None:
           % (component_asset_name(version),
              "cloudflared 就绪：%s" % cloudflared if cloudflared.is_file()
              else "缺 cloudflared：%s —— prepare 前先放好或用 --cloudflared 指定" % cloudflared))
-    missing = [str(p) for p in (ROOT / "local" / "build_exe.py",
-                                ROOT / "local" / "build_installer.py",
+    missing = [str(p) for p in (ROOT / "local" / "build" / "build_exe.py",
+                                ROOT / "local" / "build" / "build_installer.py",
                                 ROOT / "local" / "installer" / "ChineseSimplified.isl",
                                 ROOT / "local" / "README.md",
                                 ROOT / "local" / "遇到问题先看我.txt",
@@ -510,14 +510,14 @@ def check_only(version: str) -> None:
 def build_portable() -> None:
     """兼容发行流程（另行授权）：绿色版目录构建。publish 不会隐式调用。"""
     print("构建绿色版 ...")
-    run([sys.executable, str(ROOT / "local" / "make_portable.py")])
+    run([sys.executable, str(ROOT / "local" / "build" / "make_portable.py")])
 
 
 def zip_portable(tag: str) -> Path:
     """兼容发行流程（另行授权）：绿色版压缩包。publish 不会隐式调用。"""
     src = DIST / "campus-grab-portable"
     if not src.is_dir():
-        raise SystemExit("没找到 %s，先运行 local/make_portable.py" % src)
+        raise SystemExit("没找到 %s，先运行 local/build/make_portable.py" % src)
     out = DIST / ("campus-grab-portable-%s.zip" % tag)
     out.unlink(missing_ok=True)
     shutil.make_archive(str(out.with_suffix("")), "zip",

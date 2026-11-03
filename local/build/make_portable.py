@@ -4,8 +4,8 @@
 
 用法（在装过 playwright 的机器上跑一次）：
 
-    python make_portable.py            # 产物在 ../dist/campus-grab-portable/
-    python make_portable.py --keep     # 保留上次的 python/ 目录，只换应用文件
+    python local/build/make_portable.py            # 产物在仓库根 dist/campus-grab-portable/
+    python local/build/make_portable.py --keep     # 保留上次的 python/ 目录，只换应用文件
 
 做法：官方嵌入式 Python（含 tkinter 的补齐件）+ 在这台机器上 pip 装 playwright/pillow，
 再把 grab.py / app.py / ui 拷进去。浏览器不打包——Windows 10/11 自带 Edge，
@@ -25,8 +25,9 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-OUT_ROOT = HERE.parent / "dist"
+# 脚本在 local/build/：local/（应用文件、ui/）是上一级，仓库根再上一级
+LOCAL = Path(__file__).resolve().parent.parent
+OUT_ROOT = LOCAL.parent / "dist"
 NAME = "campus-grab-portable"
 
 PY_VERSION = "%d.%d.%d" % sys.version_info[:3]
@@ -209,22 +210,22 @@ def run(cmd: list[str]) -> None:
 def copy_app(out: Path) -> None:
     log("拷贝应用文件")
     for name in APP_FILES:
-        src = HERE / name
+        src = LOCAL / name
         if not src.exists():
             log("  跳过（不存在）：%s" % name)
             continue
         shutil.copy2(src, out / name)
     # ui/ 是界面本体，整目录复制
-    ui_src = HERE / UI_DIR
+    ui_src = LOCAL / UI_DIR
     if ui_src.is_dir():
         shutil.copytree(ui_src, out / UI_DIR, dirs_exist_ok=True)
     # 版本唯一来源：绿色版把根 VERSION 放到 app.py 旁边（app.read_version 的第二候选），
     # 与 app.py 的读取口径一致，不依赖启动 cwd
-    version_src = HERE.parent / "VERSION"
+    version_src = LOCAL.parent / "VERSION"
     if version_src.is_file():
         shutil.copy2(version_src, out / "VERSION")
     # 协议跟仓库同源：绿色版也要能看出"能做什么、不能做什么"
-    lic = HERE.parent / "LICENSE"
+    lic = LOCAL.parent / "LICENSE"
     if lic.exists():
         shutil.copy2(lic, out / "LICENSE")
     # 绿色版的数据目录随程序走（DATA_DIR 就是 out/data），本机试跑过便携版、

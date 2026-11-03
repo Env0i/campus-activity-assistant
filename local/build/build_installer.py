@@ -22,9 +22,9 @@ make_portable.py 的构建能力。
    安装向导、卸载项、安装包文件名必须用同一个名字，不得再引入第二种叫法。
 
 用法：
-    python local/build_installer.py                          # 打 dist/campus-grab-exe
-    python local/build_installer.py --source dist/campus-grab-exe-onedir
-    python local/build_installer.py --iscc "D:/Inno Setup 6/ISCC.exe"
+    python local/build/build_installer.py                    # 打 dist/campus-grab-exe
+    python local/build/build_installer.py --source dist/campus-grab-exe-onedir
+    python local/build/build_installer.py --iscc "D:/Inno Setup 6/ISCC.exe"
 
 @author Author
 """
@@ -37,8 +37,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-PROJECT = HERE.parent
+# 脚本在 local/build/：local/（README、installer/ 语言文件）是上一级，仓库根再上一级
+LOCAL = Path(__file__).resolve().parent.parent
+PROJECT = LOCAL.parent
 VERSION_FILE = PROJECT / "VERSION"
 LICENSE_FILE = PROJECT / "LICENSE"
 DEFAULT_SOURCE = PROJECT / "dist" / "campus-grab-exe"
@@ -49,7 +50,7 @@ EXE_NAME = "campus-activity-watch.exe"
 PRODUCT_NAME = "校园活动预报名工具"
 # 中文向导的语言文件：跟着仓库走，不依赖本机 Inno 安装目录（官方包不带中文）。
 # 来源与 BOM 说明见文件头注释。
-LANGUAGE_FILE = HERE / "installer" / "ChineseSimplified.isl"
+LANGUAGE_FILE = LOCAL / "installer" / "ChineseSimplified.isl"
 
 # 安装目录里**允许出现**的东西：(源文件, 装到 {app} 下的名字, 是否必需)。
 # 这份清单就是「哪些文件该打包」的唯一答案，改它等于改交付形态，写清理由再动：
@@ -59,8 +60,8 @@ LANGUAGE_FILE = HERE / "installer" / "ChineseSimplified.isl"
 # 刻意**不打**：CHANGELOG.md（开发记录，用户不看，还占 32 KB）、
 # gui-preview.png（README 在 GitHub 上的配图，装进本地是个打不开的死文件）。
 INSTALL_FILES = (
-    (HERE / "README.md", "README.md", True),
-    (HERE / "遇到问题先看我.txt", "遇到问题先看我.txt", True),
+    (LOCAL / "README.md", "README.md", True),
+    (LOCAL / "遇到问题先看我.txt", "遇到问题先看我.txt", True),
     (PROJECT / "LICENSE", "LICENSE", False),
 )
 
@@ -110,7 +111,7 @@ def probe_iscc(explicit: str = "") -> Path:
     raise SystemExit(
         "[iss] 没找到 Inno Setup 编译器（ISCC.exe）。\n"
         "      安装后重试：https://jrsoftware.org/isdl.php\n"
-        "      或显式指定：python local/build_installer.py --iscc \"<ISCC.exe 路径>\""
+        "      或显式指定：python local/build/build_installer.py --iscc \"<ISCC.exe 路径>\""
     )
 
 
@@ -141,7 +142,7 @@ def _iscc_from_registry() -> Path | None:
 
 
 ISS_TEMPLATE = """; ============================================================
-; 本文件由 local/build_installer.py 依据 VERSION 渲染生成。
+; 本文件由 local/build/build_installer.py 依据 VERSION 渲染生成。
 ; 请勿手工编辑 —— 下次构建会覆盖，改动请改生成器。
 ; ============================================================
 
@@ -341,7 +342,7 @@ def check_source(exe: Path) -> None:
     if not exe.is_file():
         raise SystemExit(
             "[iss] 打包源 EXE 不存在：%s\n"
-            "      先构建 EXE：python local/build_exe.py [--mode onedir]" % exe)
+            "      先构建 EXE：python local/build/build_exe.py [--mode onedir]" % exe)
     source = exe.parent
     if (source / "data").is_dir():
         stray = [p.name for p in (source / "data").iterdir() if p.is_file()]

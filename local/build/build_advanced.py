@@ -15,9 +15,13 @@ import sys
 import zipfile
 from pathlib import Path
 
-from infrastructure import component_packages as cp
+# 脚本在 local/build/：local/ 是上一级。脚本直接运行时 sys.path[0] 是 build/ 而不是 local/，
+# infrastructure 包在 local/ 下，所以先把 local/ 补进导入路径再导入。
+LOCAL = Path(__file__).resolve().parent.parent
+if str(LOCAL) not in sys.path:
+    sys.path.insert(0, str(LOCAL))
 
-LOCAL = Path(__file__).resolve().parent
+from infrastructure import component_packages as cp  # noqa: E402
 
 
 def output_root(value):

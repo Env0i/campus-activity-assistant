@@ -33,6 +33,8 @@ from unittest import mock
 LOCAL = Path(__file__).resolve().parents[1]
 if str(LOCAL) not in sys.path:
     sys.path.insert(0, str(LOCAL))
+if str(LOCAL / "build") not in sys.path:
+    sys.path.insert(0, str(LOCAL / "build"))   # 打包脚本在 local/build/
 
 import build_installer as bi  # noqa: E402
 
@@ -214,7 +216,7 @@ class DocListTest(unittest.TestCase):
                 self.assertTrue(Path(src).is_file(), "%s 不存在：%s" % (dest_name, src))
 
     def test_trouble_doc_covers_installed_form(self):
-        text = (bi.HERE / "遇到问题先看我.txt").read_text(encoding="utf-8")
+        text = (bi.LOCAL / "遇到问题先看我.txt").read_text(encoding="utf-8")
         for key in ("开始菜单", "%LOCALAPPDATA%", "卸载", "WebView2", "grab.log"):
             self.assertIn(key, text)
         self.assertIn("启动不了点我.txt", text, "要明确告诉绿色版用户去看另一份")
@@ -225,7 +227,7 @@ class TroubleDocCopyTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.text = (bi.HERE / "遇到问题先看我.txt").read_text(encoding="utf-8")
+        cls.text = (bi.LOCAL / "遇到问题先看我.txt").read_text(encoding="utf-8")
 
     def test_no_first_person_or_version_hardcode(self):
         """文档会随包流转到陌生同学手上：没有「我」，也不写死版本号。"""

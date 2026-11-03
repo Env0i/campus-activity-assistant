@@ -1422,7 +1422,7 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
     """构建脚本把 worker 作为数据资源打进主程序（mock 定义，不运行 PyInstaller）。"""
 
     def setUp(self):
-        sys.path.insert(0, str(LOCAL))
+        sys.path.insert(0, str(LOCAL / "build"))   # 打包脚本在 local/build/
         try:
             import build_exe
         except Exception as exc:
@@ -1433,7 +1433,7 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
 
     def test_worker_built_before_main_and_embedded_as_data(self):
         """先构建 worker 再构建主程序；worker 以数据资源进资源根，不用 --add-binary。"""
-        src = read("local/build_exe.py")
+        src = read("local/build/build_exe.py")
         assemble = src[src.index("def assemble"):src.index("def main(")]
         self.assertLess(assemble.index('run_pyinstaller("grab-worker"'),
                         assemble.index('run_pyinstaller("campus-activity-watch"'),
@@ -1491,7 +1491,7 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
                       "app.py 冻结解析 = 资源根/grab-worker.exe")
         self.assertIn("RESOURCE_ROOT = Path(getattr(sys, \"_MEIPASS\", HERE))", app_src,
                       "资源根两种模式都经 _MEIPASS（onedir 6.x 即 _internal）")
-        be_src = read("local/build_exe.py")
+        be_src = read("local/build/build_exe.py")
         self.assertIn('extra_data=[(worker, "."), (VERSION_FILE, ".")]', be_src,
                       "--add-data 落点与 app.py 解析是同一个资源根（dest=\".\" + basename）")
 
