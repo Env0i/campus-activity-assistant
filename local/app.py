@@ -52,13 +52,14 @@ import updater
 
 # 登录态/偏好统一数据根：开发用 local/data，冻结 EXE 用 %LOCALAPPDATA%
 # （CAMPUS_DATA_DIR 可覆盖），与 grab-worker 解析出同一份登录文件
-from runtime_paths import DATA_DIR, SESSION_FILE, UI_STATE_FILE, ensure_data_dir
+from runtime_paths import DATA_DIR, LOG_FILE, SESSION_FILE, UI_STATE_FILE, ensure_data_dir
 
 # 分层依赖（只准向下）：app（interface 外观）→ application → domain 纯规则；
 # 外部副作用统一走 infrastructure 适配器。旧模块级名字保留为兼容包装/再导出，
 # 测试与调用方按原名注入、patch 的语义不变。
 from domain import demo_data as _demo_data
 from domain import lifecycle_rules as _lifecycle_rules
+from domain import log_events as _log_events
 from domain import login_rules as _login_rules
 from domain import plan_rules as _plan_rules
 from domain import retry_rules as _retry_rules
@@ -653,6 +654,8 @@ class Api:
         self._last_check: dict = {}
         # 报名进程发来 login_wait（决策 015）：允许这一次在计划运行中自动登录
         self._login_wait_pending = False
+        # 最近一次自动登录发起时刻（单调钟）：成功/失败落盘日志时算整轮耗时
+        self._auto_relogin_started_at = None
         # 更新检查独立于登录/报名，只由帮助按钮触发；页面重载复用内存中的在途请求。
         # _updating 表示「任一更新动作在途」（检查或下载），单飞共用一个槽位；
         # _update_installer 是检查阶段选好的安装器资产（URL/大小/哈希），
@@ -1447,7 +1450,50 @@ class Api:
         relay["live"] = bool(relay.get("live"))
         return relay
 
+    def _log_event(self, event: str, level: str = "INFO", **fields) -> None:
+        """自动登录的关键动作落盘到 grab.log（行格式与 worker 同源，见 domain.log_events）。
+
+        界面进程不 import grab（冻结主程序里没有它），所以这里自己追加一行；
+        字段先过黑名单（不带账号、密码、验证码）。写失败至少打到 stderr，
+        绝不影响登录流程本身。演示模式完全离线，不写。
+        """
+        if DEMO:
+            return
+        try:
+            stamp = school_time_text(now_fn=self._clock_now)
+        except Exception:
+            stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        line = "%s %s" % (stamp, _log_events.format_event_line(
+            event, "auto_relogin", level=level, fields=fields))
+        try:
+            ensure_data_dir()
+            with open(LOG_FILE, "a", encoding="utf-8") as handle:
+                handle.write(line + "\n")
+        except Exception as exc:  # noqa: BLE001 - 日志写不进去不能拖垮登录
+            if sys.stderr is not None:
+                try:
+                    print("[log] 写日志文件失败（%s）：%s" % (type(exc).__name__, line),
+                          file=sys.stderr, flush=True)
+                except Exception:
+                    pass
+
     def _begin_auto_relogin(self) -> dict:
+        """发起一轮自动登录，并把发起结果写进 grab.log（带耗时和失败分类，不带账号）。
+
+        busy 是「现在不该登」（正在检查、计划在跑等），什么都没尝试，不落盘。
+        """
+        began = time.monotonic()
+        result = self._begin_auto_relogin_once()
+        if result.get("ok"):
+            self._auto_relogin_started_at = began
+            self._log_event("auto_relogin_started", elapsed_s=time.monotonic() - began)
+        elif result.get("error") != "busy":
+            self._log_event("auto_relogin_start_failed", level="WARN",
+                            reason=str(result.get("error") or "unknown"),
+                            elapsed_s=time.monotonic() - began)
+        return result
+
+    def _begin_auto_relogin_once(self) -> dict:
         with self._credential_lock:
             if not self._auto_relogin_eligible():
                 return {"ok": False, "error": "busy"}
@@ -2853,6 +2899,17 @@ class Api:
         with self._lock:
             if self._proc is not None and self._proc.poll() is not None:
                 self._proc = None
+            began = self._auto_relogin_started_at
+        # 自动登录这一轮没成：落盘失败分类（中继给的安全错误码，不含账号和验证码）
+        try:
+            last = self._relay.state()
+        except Exception:
+            last = {}
+        if last.get("origin") == "auto" and last.get("state") in ("failed", "canceled"):
+            self._log_event("auto_relogin_failed", level="WARN",
+                            reason=str(last.get("safe_error") or last.get("state") or "unknown"),
+                            **({"elapsed_s": time.monotonic() - began}
+                               if began is not None else {}))
 
     def open_data(self) -> dict:
         """打开数据目录，并把**真实路径**回给界面。
@@ -3045,6 +3102,11 @@ class Api:
         if origin in ("auto_ocr", "phone_manual"):
             with self._lock:
                 self._last_login_origin = origin
+                began = self._auto_relogin_started_at
+            if origin == "auto_ocr":
+                self._log_event("auto_relogin_ok",
+                                **({"elapsed_s": time.monotonic() - began}
+                                   if began is not None else {}))
             # 重登成功时桌面还停在「登录已过期」：补一次正常的登录检查，
             # 让顶栏状态、活动列表和时间锚点跟着刷新。check 自带忙碌去重，
             # 手动重登、自动重登走的是同一条路。

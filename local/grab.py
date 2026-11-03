@@ -179,8 +179,51 @@ def _school_open(request, timeout=None):
     return build_opener(handler({})).open(request, timeout=timeout)
 
 
+LOG_MAX_BYTES = 5 * 1024 * 1024   # grab.log 超过这个大小就轮转（S2）
+LOG_KEEP = 5                      # 保留 grab.log.1 … grab.log.5，更老的丢掉
+
+
+def rotate_log_file(path, max_bytes=None, keep=None):
+    """日志超过 max_bytes 就轮转：path → path.1，旧的依次后移，path.keep 之后的丢掉。
+
+    只用标准库的重命名。返回是否轮转了；失败（文件被另一个进程占着等）原样抛出，
+    由 log() 兜住——轮转失败不能让这一行日志也丢了。
+    """
+    path = Path(path)
+    limit = LOG_MAX_BYTES if max_bytes is None else max_bytes
+    count = LOG_KEEP if keep is None else keep
+    try:
+        if path.stat().st_size < limit:
+            return False
+    except FileNotFoundError:
+        return False
+    oldest = path.with_name("%s.%d" % (path.name, count))
+    if oldest.exists():
+        oldest.unlink()
+    for index in range(count - 1, 0, -1):
+        older = path.with_name("%s.%d" % (path.name, index))
+        if older.exists():
+            os.replace(older, path.with_name("%s.%d" % (path.name, index + 1)))
+    os.replace(path, path.with_name(path.name + ".1"))
+    return True
+
+
+def _stderr_note(text):
+    """写日志自己出了问题时的出口：至少打到 stderr（无控制台的打包形态里 stderr 可能是 None）。"""
+    stream = sys.stderr
+    if stream is None:
+        return
+    try:
+        print(text, file=stream, flush=True)
+    except Exception:
+        pass
+
+
 def log(msg):
-    ensure_data_dir()
+    try:
+        ensure_data_dir()
+    except Exception as exc:  # noqa: BLE001 - 数据目录建不出来也要把这一行打出去
+        _stderr_note("[log] 数据目录不可用（%s）" % type(exc).__name__)
     try:
         # 日志时间按北京时间（业务时钟）；时钟未配置时保留旧本机戳以免崩溃
         stamp = school_time_text(now_fn=business_now)
@@ -188,11 +231,30 @@ def log(msg):
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = "%s %s" % (stamp, msg)
     try:
+        rotate_log_file(LOG_FILE)
+    except Exception as exc:  # noqa: BLE001 - 轮转失败下次写入再试，不丢这一行
+        _stderr_note("[log] 日志轮转失败（%s）" % type(exc).__name__)
+    try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line + "\n")
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - 不再静默：至少让控制台看到这一行没落盘
+        _stderr_note("[log] 写日志文件失败（%s）：%s" % (type(exc).__name__, line))
     print(line, flush=True)
+
+
+# 事件日志里的活动 ID：cmd_grab 查到目标后设置一次，之后本进程的事件都带上它
+_EVENT_CONTEXT = {"activity_id": ""}
+
+
+def log_event(event, source, level="INFO", activity_id="", **fields):
+    """关键动作写一行结构化日志：北京时间（log() 补）、级别、来源、活动 ID、事件名。
+
+    source 取 cli / gui / auto_relogin / worker。字段名含 token、密码、验证码、
+    密钥等字样的一律丢掉（domain.log_events 里的黑名单），调用方不用自己记着过滤。
+    """
+    log(format_event_line(event, source, level=level,
+                          activity_id=activity_id or _EVENT_CONTEXT["activity_id"],
+                          fields=fields))
 
 
 def read_json(path, default=None):
@@ -949,6 +1011,7 @@ def cmd_login(args):
 
     # login/check/list/grab 共用统一数据根；冻结进程首次会顺带迁移旧 EXE 旁数据
     ensure_data_dir()
+    login_started = time.monotonic()
     print("=" * 64)
     print("即将打开浏览器，请在窗口里完成学生登录（账号 + 密码 + 图形验证码）。")
     print("登录成功会自动保存登录态并关闭窗口；最多等待 %d 秒。" % args.timeout)
@@ -963,6 +1026,8 @@ def cmd_login(args):
         except Exception as exc:
             print("[X] 打不开登录页：%s" % type(exc).__name__)
             browser.close()
+            log_event("login_failed", "cli", level="ERROR", reason="login_page_unreachable",
+                      elapsed_s=time.monotonic() - login_started)
             return 2
 
         deadline = time.time() + args.timeout
@@ -972,6 +1037,8 @@ def cmd_login(args):
                 if page.is_closed():
                     print("[X] 窗口被关掉了，登录未完成。")
                     browser.close()
+                    log_event("login_failed", "cli", level="WARN", reason="window_closed",
+                              elapsed_s=time.monotonic() - login_started)
                     return 1
                 tok = page.evaluate(
                     "() => (localStorage.getItem('xgUniToken') || '').trim()")
@@ -984,6 +1051,8 @@ def cmd_login(args):
         if not tok:
             print("[X] 等了 %d 秒仍未检测到登录成功，请重试。" % args.timeout)
             browser.close()
+            log_event("login_failed", "cli", level="WARN", reason="timeout",
+                      elapsed_s=time.monotonic() - login_started)
             return 1
 
         page.wait_for_timeout(1500)  # 等页面把 user / xm 写进 localStorage
@@ -996,13 +1065,18 @@ def cmd_login(args):
     session["token"] = tok
     if not (save_storage_state(state) and save_session(session)):
         print("[X] 登录成功，但登录态没能写入（另一个进程正在写），请稍后重新登录。")
+        log_event("login_failed", "cli", level="ERROR", reason="session_not_saved",
+                  elapsed_s=time.monotonic() - login_started)
         return 2
 
     ok, msg = check_token()
     if not ok:
         print("[X] 已保存登录态，但接口校验失败：%s" % msg)
+        log_event("login_failed", "cli", level="ERROR", reason="verify_failed",
+                  elapsed_s=time.monotonic() - login_started)
         return 2
-    print("[OK] 登录成功，登录态已保存（有效期约 17 小时，失效后重新运行本步即可）。")
+    print("[OK] 登录成功，登录态已保存（失效后重新运行本步即可）。")
+    log_event("login_ok", "cli", elapsed_s=time.monotonic() - login_started)
     return 0
 
 
@@ -1312,6 +1386,8 @@ from domain.retry_window import (  # noqa: E402
     ADAPTIVE_SECONDS, ADAPTIVE_RETRY, DEFAULT_RETRY_SECONDS,
     initial_deadline, resolve_window,
 )
+# 关键动作的结构化日志行（S2）：格式与黑名单字段是纯函数，界面进程写同一份日志时共用
+from domain.log_events import format_event_line  # noqa: E402
 # 报名回包分类表（决策 015）：click 与直发共用同一套判据
 from domain.signup_reply import (  # noqa: E402
     STALE_TS_LIMIT, TERMINAL_STOP_REASONS, UNKNOWN_REPLY_LIMIT,
@@ -2256,6 +2332,7 @@ def cmd_grab(args):
     if not target:
         return 0
     display = target["name"]
+    _EVENT_CONTEXT["activity_id"] = str(target.get("id") or "")   # 之后的事件日志都带上它
     try:
         at_ts = parse_ts(target["at"])
     except ValueError:
