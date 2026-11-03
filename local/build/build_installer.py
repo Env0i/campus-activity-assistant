@@ -55,13 +55,14 @@ LANGUAGE_FILE = LOCAL / "installer" / "ChineseSimplified.isl"
 # 安装目录里**允许出现**的东西：(源文件, 装到 {app} 下的名字, 是否必需)。
 # 这份清单就是「哪些文件该打包」的唯一答案，改它等于改交付形态，写清理由再动：
 #   README.md          —— 使用说明，和 Release 完整 ZIP 同一份（就是 local/README.md）
-#   遇到问题先看我.txt —— 安装版专属排障（绿色版是包里的「启动不了点我.txt」）
+#   遇到问题先看我.txt —— 安装版专属排障（绿色版是包里的「启动不了点我.txt」）；
+#                          源文件在 local/launchers/，装到 {app} 根目录
 #   LICENSE            —— 协议，跟着分发走
 # 刻意**不打**：CHANGELOG.md（开发记录，用户不看，还占 32 KB）、
 # gui-preview.png（README 在 GitHub 上的配图，装进本地是个打不开的死文件）。
 INSTALL_FILES = (
     (LOCAL / "README.md", "README.md", True),
-    (LOCAL / "遇到问题先看我.txt", "遇到问题先看我.txt", True),
+    (LOCAL / "launchers" / "遇到问题先看我.txt", "遇到问题先看我.txt", True),
     (PROJECT / "LICENSE", "LICENSE", False),
 )
 

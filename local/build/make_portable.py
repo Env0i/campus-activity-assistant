@@ -39,14 +39,21 @@ GET_PIP = "https://bootstrap.pypa.io/get-pip.py"
 PIP_INDEX = "https://pypi.tuna.tsinghua.edu.cn/simple"
 PIP_PACKAGES = ["playwright>=1.40", "pillow>=9.0", "pywebview>=5.0"]
 
-# 应用本体：脚本 + 双击入口 + 说明（runtime_paths.py 是 app/grab 的数据根依赖，漏掉直接 ImportError）
+# 应用本体：脚本 + 依赖清单 + 说明。源文件在 local/ 根目录，包内同名放包根目录
+# （runtime_paths.py 是 app/grab 的数据根依赖，漏掉直接 ImportError）
 APP_FILES = [
     "grab.py", "app.py", "signup_plan.py", "runtime_paths.py",
     # 独立北京时间（决策 012）：业务时钟与其契约必须随绿色版一起分发
     "business_clock.py", "time_contract.py", "update_check.py",
+    "requirements.txt", "config.example.json", "README.md",
+]
+
+# 双击入口与排障说明：源码树里收在 local/launchers/，包内仍放包根目录——同学双击的位置
+# 没变。.bat 里的相对路径按包根目录写，所以它们在源码树里只是模板，不能直接双击。
+LAUNCHERS_DIR = "launchers"
+LAUNCHER_FILES = [
     "install.bat", "_py.bat",
     "1-登录.bat", "2-抢活动.bat", "3-检查登录和活动.bat", "4-图形界面.bat",
-    "requirements.txt", "config.example.json", "README.md",
     "启动不了点我.txt",
 ]
 
@@ -207,10 +214,16 @@ def run(cmd: list[str]) -> None:
         raise SystemExit("命令失败（%d）：\n%s" % (res.returncode, tail))
 
 
+def portable_copy_plan() -> list[tuple[Path, str]]:
+    """便携包的拷贝名单：(源文件, 包内名字)。包内名字一律是包根目录下的文件名。"""
+    plan = [(LOCAL / name, name) for name in APP_FILES]
+    plan += [(LOCAL / LAUNCHERS_DIR / name, name) for name in LAUNCHER_FILES]
+    return plan
+
+
 def copy_app(out: Path) -> None:
     log("拷贝应用文件")
-    for name in APP_FILES:
-        src = LOCAL / name
+    for src, name in portable_copy_plan():
         if not src.exists():
             log("  跳过（不存在）：%s" % name)
             continue

@@ -210,13 +210,21 @@ class DocListTest(unittest.TestCase):
         self.assertIn("a.txt", lines)
         self.assertNotIn("b.lock", lines)
 
+    def test_trouble_doc_installs_to_app_root(self):
+        """排障说明在源码树里收在 local/launchers/，装进安装目录的位置不变（{app} 根目录）。"""
+        entries = {dest: src for src, dest, _ in bi.INSTALL_FILES}
+        self.assertEqual(entries.get("遇到问题先看我.txt"),
+                         bi.LOCAL / "launchers" / "遇到问题先看我.txt")
+        for dest in entries:
+            self.assertEqual(Path(dest).name, dest, "安装目录里的名字不能带子目录：%s" % dest)
+
     def test_repo_docs_exist(self):
         for src, dest_name, required in bi.INSTALL_FILES:
             if required:
                 self.assertTrue(Path(src).is_file(), "%s 不存在：%s" % (dest_name, src))
 
     def test_trouble_doc_covers_installed_form(self):
-        text = (bi.LOCAL / "遇到问题先看我.txt").read_text(encoding="utf-8")
+        text = (bi.LOCAL / "launchers" / "遇到问题先看我.txt").read_text(encoding="utf-8")
         for key in ("开始菜单", "%LOCALAPPDATA%", "卸载", "WebView2", "grab.log"):
             self.assertIn(key, text)
         self.assertIn("启动不了点我.txt", text, "要明确告诉绿色版用户去看另一份")
@@ -227,7 +235,7 @@ class TroubleDocCopyTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.text = (bi.LOCAL / "遇到问题先看我.txt").read_text(encoding="utf-8")
+        cls.text = (bi.LOCAL / "launchers" / "遇到问题先看我.txt").read_text(encoding="utf-8")
 
     def test_no_first_person_or_version_hardcode(self):
         """文档会随包流转到陌生同学手上：没有「我」，也不写死版本号。"""
@@ -336,6 +344,18 @@ class PortableCleanupContractTest(unittest.TestCase):
         found = re.search(r"^LOG_KEEP\s*=\s*(\d+)", grab_src, re.M)
         self.assertIsNotNone(found, "grab.py 里找不到 LOG_KEEP")
         self.assertEqual(mp.LOG_KEEP, int(found.group(1)))
+
+    def test_launchers_land_in_package_root(self):
+        """启动文件在源码树里收在 local/launchers/；便携包里的位置不能变，全在包根目录。"""
+        import make_portable as mp
+        plan = mp.portable_copy_plan()
+        sources = {name: src for src, name in plan}
+        for name in ("install.bat", "_py.bat", "1-登录.bat", "2-抢活动.bat",
+                     "3-检查登录和活动.bat", "4-图形界面.bat", "启动不了点我.txt"):
+            self.assertEqual(sources.get(name), LOCAL / "launchers" / name,
+                             "便携包拷贝名单缺启动文件或源路径不对：%s" % name)
+        for _, name in plan:
+            self.assertEqual(Path(name).name, name, "包内名字必须在包根目录：%s" % name)
 
     def test_cleanup_actually_deletes_by_name(self):
         import make_portable as mp

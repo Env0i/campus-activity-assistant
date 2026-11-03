@@ -4435,7 +4435,7 @@ class TermsConsentContractTests(unittest.TestCase):
         docs = (LOCAL.parent / "docs" / "PRIVACY_POLICY.md").read_text(encoding="utf-8")
         html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
         readme = (LOCAL / "README.md").read_text(encoding="utf-8")
-        tips = (LOCAL / "遇到问题先看我.txt").read_text(encoding="utf-8")
+        tips = (LOCAL / "launchers" / "遇到问题先看我.txt").read_text(encoding="utf-8")
         for label, text in (("docs", docs), ("内嵌全文", html)):
             self.assertIn("CAMPUS_DATA_DIR", text,
                           "%s：必须写明 CAMPUS_DATA_DIR 对数据目录的覆盖" % label)

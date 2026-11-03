@@ -479,7 +479,7 @@ def check_only(version: str) -> None:
                                 ROOT / "local" / "build" / "build_installer.py",
                                 ROOT / "local" / "installer" / "ChineseSimplified.isl",
                                 ROOT / "local" / "README.md",
-                                ROOT / "local" / "遇到问题先看我.txt",
+                                ROOT / "local" / "launchers" / "遇到问题先看我.txt",
                                 ROOT / "LICENSE", VERSION_FILE) if not p.is_file()]
     if missing:
         raise SystemExit("[check] 缺少输入文件：%s" % "、".join(missing))
