@@ -25,6 +25,7 @@
 
 import argparse
 import base64
+import contextlib
 import functools
 import hashlib
 import hmac
@@ -66,6 +67,9 @@ HERE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) el
 # 冻结 worker 默认 %LOCALAPPDATA%（CAMPUS_DATA_DIR 可覆盖），与主程序同一根
 from runtime_paths import DATA_DIR as DATA
 from runtime_paths import LOG_FILE, SESSION_FILE, STATE_FILE, ensure_data_dir
+# 登录态写入的跨进程锁：沿用 ui.json.lock 用的同一对加解锁函数（标准库实现，S5）
+from infrastructure.prefs_store import (PrefsLockTimeout, acquire_file_lock,
+                                        release_file_lock)
 # 学校时间与重试预算只有一份实现（time_contract）：这里不再自己 strptime，
 # 否则同一串学校时间在 CLI、GUI、JS 三处会解析成不同 epoch
 from time_contract import (BudgetExhausted, RetryBudget, parse_school_time,
@@ -192,10 +196,16 @@ def log(msg):
 
 
 def read_json(path, default=None):
+    """读 JSON：文件不存在是常态（还没登录、没配置），静默回 default；
+    存在却读不出（被占用、半截内容、编码坏）写一行日志再回 default，只记异常类别，
+    不记内容（登录态里有 token）。"""
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except FileNotFoundError:
+        return default
+    except Exception as exc:  # noqa: BLE001 - 读失败不抛，但不能装成「文件不存在」
+        log("[!] 读取 %s 失败（%s）" % (Path(path).name, type(exc).__name__))
         return default
 
 
@@ -210,6 +220,70 @@ def write_json_atomic(path, obj):
             os.chmod(path, 0o600)
         except Exception:
             pass
+
+
+# ---- 登录态写入（S5）---------------------------------------------------------
+# 界面进程和命令行/子进程共用 data 下的登录态文件。写入本来就是「临时文件 + 原子替换」，
+# 但临时文件名固定：两个写入者同时落盘会互相踩临时文件。所以所有写登录态的地方
+# 都经过下面这把锁（进程内线程锁 + 跨进程区域锁 session.json.lock）。
+# 读取 token() 不加锁：读到的要么是旧文件要么是新文件，不会是半截。
+SESSION_LOCK_TIMEOUT_S = 5.0
+_SESSION_THREAD_LOCK = threading.Lock()
+
+
+@contextlib.contextmanager
+def _session_write_lock(session_path, timeout_s=SESSION_LOCK_TIMEOUT_S):
+    """登录态写锁：拿不到抛 PrefsLockTimeout，由调用方决定怎么放弃。
+
+    锁文件放在登录态文件旁（session.json.lock）；state 与 session 两个文件
+    共用这一把锁，所以成对落位时不会被另一个写入者插进来。
+    """
+    deadline = time.monotonic() + max(0.0, float(timeout_s))
+    if not _SESSION_THREAD_LOCK.acquire(timeout=max(0.0, deadline - time.monotonic())):
+        raise PrefsLockTimeout("登录态正在被本进程另一线程写入")
+    try:
+        lock_path = Path(str(session_path) + ".lock")
+        try:
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            handle = open(lock_path, "a+b")
+        except OSError:
+            raise PrefsLockTimeout("登录态锁文件不可创建")
+        try:
+            acquire_file_lock(handle, max(0.0, deadline - time.monotonic()))
+            try:
+                yield
+            finally:
+                release_file_lock(handle)
+        finally:
+            handle.close()
+    finally:
+        _SESSION_THREAD_LOCK.release()
+
+
+def _write_login_file(target, obj, session_path, timeout_s):
+    """在登录态写锁内原子写一份 JSON；超时写日志并放弃，返回是否写成。"""
+    try:
+        with _session_write_lock(session_path, timeout_s):
+            write_json_atomic(target, obj)
+        return True
+    except PrefsLockTimeout:
+        log("[X] %s 没写成：%d 秒内没拿到登录态写锁（另一个进程正在写）"
+            % (Path(target).name, int(timeout_s)))
+        return False
+
+
+def save_session(session, path=None, timeout_s=SESSION_LOCK_TIMEOUT_S):
+    """登录态 session.json 的唯一写入口；拿不到锁最多等 timeout_s 秒，
+    超时写日志并放弃这次写入（返回 False，不抛异常）。"""
+    target = SESSION_FILE if path is None else Path(path)
+    return _write_login_file(target, session, target, timeout_s)
+
+
+def save_storage_state(state, path=None, session_path=None, timeout_s=SESSION_LOCK_TIMEOUT_S):
+    """浏览器 cookie 文件（storage_state.json）：和 session.json 共用同一把写锁。"""
+    target = STATE_FILE if path is None else Path(path)
+    lock_for = SESSION_FILE if session_path is None else Path(session_path)
+    return _write_login_file(target, state, lock_for, timeout_s)
 
 
 def _unlink_quiet(path):
@@ -228,8 +302,24 @@ def _snapshot_bytes(path):
         return None
 
 
-def save_verified_files(state, session, state_path=None, session_path=None):
+def save_verified_files(state, session, state_path=None, session_path=None,
+                        timeout_s=SESSION_LOCK_TIMEOUT_S):
     """登录成功后 state+session 双文件事务保存（HTTP 路径 save_verified 端口）。
+
+    整笔事务在登录态写锁内进行（见 save_session）；拿不到锁抛 OSError，
+    调用方（登录中继）按「持久化失败」处理，不会报告成功。
+    """
+    lock_for = SESSION_FILE if session_path is None else Path(session_path)
+    try:
+        with _session_write_lock(lock_for, timeout_s):
+            _save_verified_files_locked(state, session, state_path, session_path)
+    except PrefsLockTimeout:
+        log("[X] 登录态没写成：%d 秒内没拿到写锁（另一个进程正在写）" % int(timeout_s))
+        raise OSError("登录态写入超时")
+
+
+def _save_verified_files_locked(state, session, state_path=None, session_path=None):
+    """save_verified_files 的事务本体（调用方已持有写锁）。
 
     两份内容先写好临时文件再依次替换；第二文件替换失败时把已落位的文件恢复
     到保存前的原始字节或删除回不存在，未落位文件保持原状，两文件最终回到
@@ -833,11 +923,14 @@ def _cmd_login_relay(args):
             return _post(path, payload, tok)
 
         def save_state(self, state):
-            write_json_atomic(STATE_FILE, state)
+            # 拿不到写锁就抛：中继把它当持久化失败，不会报告登录成功
+            if not save_storage_state(state):
+                raise OSError("登录态写入超时")
 
         def save_session(self, session):
             session["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            write_json_atomic(SESSION_FILE, session)
+            if not save_session(session):
+                raise OSError("登录态写入超时")
 
         def save_verified(self, state, session):
             # HTTP 路径的事务端口：两文件一起落位，失败回滚到保存前状态
@@ -899,10 +992,11 @@ def cmd_login(args):
         ctx.close()
         browser.close()
 
-    write_json_atomic(STATE_FILE, state)
     session = session_from_items(items)
     session["token"] = tok
-    write_json_atomic(SESSION_FILE, session)
+    if not (save_storage_state(state) and save_session(session)):
+        print("[X] 登录成功，但登录态没能写入（另一个进程正在写），请稍后重新登录。")
+        return 2
 
     ok, msg = check_token()
     if not ok:
