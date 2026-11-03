@@ -50,9 +50,10 @@
 | 登录态持久化与启动校验（四态 / 4001 / 迁移） | implemented | [006](decisions/006-session-persistence.md) |
 | 运行时间线（真实事件 + 原定参考 + 统一截止） | implemented（真机验收待用户） | [007](decisions/007-runtime-timeline.md) |
 | 应用生命周期、版本单一来源与发布资产 | v1.1.0 已发布（2026-10-26）；1.1.1 为未上传补丁候选，学校真机验收仍待用户 | [008](decisions/008-lifecycle-version-release.md) |
-| 六步可重播功能引导 | implemented（mock 截图说明见 [archive/current-ui-2026-10-25/](archive/current-ui-2026-10-25/)，真机验收待用户） | [009](decisions/009-replayable-product-tour.md) |
+| 五步可重播功能引导（内容版本 3） | confirmed（待实现；旧六步仍在代码里） | [009](decisions/009-replayable-product-tour.md) |
 | 独立可用单EXE | implemented（离线实包通过，用户真机待验收） | [010](decisions/010-standalone-exe-and-settings.md) |
-| 统一帮助、主题对齐与手动检查更新 | confirmed（代码已落地，技术与用户验收分列） | [011](decisions/011-unified-help-and-manual-update.md) · [规范](specs/assistance-panels.md) |
+| 设置 + 帮助分工与手动检查更新 | confirmed（入口分工 2026-11-02 修订，代码未落地） | [011](decisions/011-unified-help-and-manual-update.md) · [规范](specs/assistance-panels.md) |
+| 新工作台（时刻表 + 计划栏、窗口分档、阶段表与提醒） | confirmed（代码未落地，实现见 UI-B/UI-C） | [014](decisions/014-workbench-ui.md) · [设计](../docs/superpowers/specs/2026-11-02-workbench-ui-redesign-design.md) · [状态对照表](../docs/superpowers/specs/2026-11-02-workbench-ui-state-map.md) |
 | 真实报名结果回写与已报名冲突基线 | implemented（2026-10-27；见 [004](decisions/004-multi-activity-and-conflict.md)、`docs/UI_SPEC.md` §5.4） | [004](decisions/004-multi-activity-and-conflict.md) |
 | 详情签到/签退时间段与「同步中/待确认/无需」文案 | implemented（2026-10-27 真实字段契约） | [005](decisions/005-attendance-filters.md) |
 | 报名链路（密钥来源、回包分类、终态核对、登录失效） | confirmed（待实现，计划 `20261103-arch-b-core`）；设计见 [2026-11-03 架构修订设计](../docs/superpowers/specs/2026-11-03-architecture-revision-design.md) | [015](decisions/015-signup-path-and-replies.md) |
@@ -67,9 +68,13 @@ implemented 另要求代码落地并有证据，proposed 一律放 [proposals/](
 | 有效登录下的真机验收（开放前 100 秒真实开页 / 前 5 秒盯按钮 / 混合计划 / 重启恢复 / 停止链路） | 只有用户能做 | [007 已知限制](decisions/007-runtime-timeline.md) |
 | 真实已截止活动视觉（demo 无样本）、真实断网确认 | 只有用户能做 | 同上；断网另有模拟证据 |
 | EXE 重开复用登录态真机确认 | 只有用户能做 | [006 已知限制](decisions/006-session-persistence.md) |
-| 可重播分步功能引导 | 已实现（mock 截图 ≠ 有效登录验收），待用户真机过一遍 | [009 已知限制](decisions/009-replayable-product-tour.md) |
+| 可重播分步功能引导 | 五步规则已定，代码未实现（旧六步在代码里），待 UI-B 替换后由用户真机过一遍 | [009 已知限制](decisions/009-replayable-product-tour.md) |
 | 生命周期提示 / 版本查看 / Release 入口真机确认 | 只有用户能做 | [008 已知限制](decisions/008-lifecycle-version-release.md) |
 | 五项体验缺陷 UX-01～05（空态误导 / 三步缺开始 / 已知零显示破折号 / 运行目标读旧选择 / 单场成功染整屏） | 隔离运行已通过，**用户与学校实测仍分列** | [UI_SPEC §5.14](../docs/UI_SPEC.md) · [辅助入口规范](specs/assistance-panels.md) |
+| 验证码是否区分大小写 | 只有学校回包或用户能确认；界面先按「没见过」处理 | [014 已知限制](decisions/014-workbench-ui.md) |
+| 条款措辞 | 需用户或法务审阅；机制已定，文字未定稿 | [014 已知限制](decisions/014-workbench-ui.md) · [terms-consent.md](specs/terms-consent.md) |
+| 真实异常回包（404 / 429 / 性别不符）与同学首次使用卡点 | 缺材料，界面先按「没见过的回包」处理 | [014 已知限制](decisions/014-workbench-ui.md) · [015](decisions/015-signup-path-and-replies.md) |
+| 新工作台真机验收（窄窗、矮窗、150% 缩放、真实开放瞬间、后台通知） | 只有用户能做；UI 未落地，验收在 UI-B/UI-C 之后 | [014 已知限制](decisions/014-workbench-ui.md) |
 
 ## 历史原型说明
 

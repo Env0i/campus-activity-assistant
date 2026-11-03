@@ -16,18 +16,21 @@
 | [006](006-session-persistence.md) | 登录态持久化与启动校验 | implemented |
 | [007](007-runtime-timeline.md) | 运行时间线：真实事件 + 原定参考 + 统一截止 | implemented（真机验收待用户） |
 | [008](008-lifecycle-version-release.md) | 应用生命周期、版本单一来源与 EXE/ZIP 发布资产 | implemented（隔离技术已通过，用户与正式发行待确认） |
-| [009](009-replayable-product-tour.md) | 六步可重播功能引导（统一帮助内重播，内容版本2） | implemented（用户真机待验收，现行入口见011） |
-| [010](010-standalone-exe-and-settings.md) | 独立可用单EXE与组件诊断 | implemented（离线实包已通过，辅助入口由011取代） |
-| [011](011-unified-help-and-manual-update.md) | 单帮助入口、主题对齐与手动检查更新 | confirmed（代码已落地，技术与用户验收分列） |
+| [009](009-replayable-product-tour.md) | 五步可重播功能引导（帮助内重播，内容版本3；2026-11-02 由六步修订） | confirmed（待实现；旧六步实现待 UI-B 替换） |
+| [010](010-standalone-exe-and-settings.md) | 独立可用单EXE与组件诊断 | implemented（离线实包已通过；辅助入口 2026-11-02 改由 011/014 承担） |
+| [011](011-unified-help-and-manual-update.md) | 设置 + 帮助分工与手动检查更新（2026-11-02 由单帮助入口修订） | confirmed（入口分工待实现，技术与用户验收分列） |
 | [012](012-independent-beijing-clock.md) | 独立北京时间贯穿界面/计划/worker/登录估算（006/007/008 受影响条款就地修订） | confirmed + implemented（隔离验收见 20261026-independent-beijing-clock result；真实学校验收 pending） |
 | [013](013-distribution-and-privacy.md) | 分发形态、隐私边界与条款同意策略 | implemented（三资产已发布；真实学校窗口属用户验收） |
+| [014](014-workbench-ui.md) | 新工作台：时刻表与计划栏、窗口分档、计划阶段与提醒 | confirmed（代码未落地，实现见 UI-B/UI-C） |
 | [015](015-signup-path-and-replies.md) | 报名链路：密钥来源、回包分类、终态核对、登录失效 | implemented（回归测试通过；真实窗口复验待用户） |
 
-> 008/009/010 机制已有隔离运行证据；有效登录真机验收和正式发行仍各自待确认。
+> 008/010 机制已有隔离运行证据；有效登录真机验收和正式发行仍各自待确认。
 > 不应把用户验收未完成混写成代码尚未实现，规则确认与实现验收分列，
 > 不把「accepted 的提案」或「代码已写」当成「用户验收通过」。
 > 010 部分取代 008 的旧资产口径（外置 worker 定位与五成员 ZIP 已标历史）。
 > 2026-10-25 返修轮只取代 010 的**辅助入口名称与视觉**（设置 → 更多），资产形态与组件闭环不变。
+> 2026-11-02 新工作台（014）把 009 改为五步、把 011 改为「设置 + 帮助」分工，并再次取代 010 的辅助入口摆放；
+> 010 的独立 EXE、四成员 ZIP、组件资产形态与组件闭环不变。
 
 ## 每份记录必须包含
 
