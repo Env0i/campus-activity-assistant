@@ -1,0 +1,10 @@
+# 只留本机、不进公开仓库（2026-11-03 用户决定）：
+# 真实登录态截图和学校页面截图可能露出学校名称、地点或学生照片；
+# 学校《隐私协议》原文和 signature-source/ 是学校的原文与页面脚本摘录。
+ui-06-real-empty-state.png
+ui-07-real-list.png
+ui-08-real-plan-selected.png
+ui-09-login-consent.png
+open-*.png
+school-privacy-agreement.txt
+signature-source/
