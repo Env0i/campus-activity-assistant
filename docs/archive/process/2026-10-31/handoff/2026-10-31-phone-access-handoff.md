@@ -1,9 +1,9 @@
 # 手机远程访问：执行结果与返修交接（供 Codex 定稿返修计划）
 
 - 交接日期：2026-10-31
-- 上一个计划：`docs/superpowers/plans/2026-10-30-phone-access-channel.md`（已执行完毕，guard 已释放）
+- 上一个计划：`docs/archive/process/2026-10-30/plans/2026-10-30-phone-access-channel.md`（已执行完毕，guard 已释放）
 - 执行记录：`.claude/results/20261031-phone-access-channel-result.yaml`（13 条 plan_amendments，6 条 post_plan_changes，门禁 PASS）
-- 问题清单：`docs/superpowers/findings/2026-10-31-ui-findings.md`
+- 问题清单：`docs/archive/process/2026-10-31/findings/2026-10-31-ui-findings.md`
 - 证据：`design/evidence/2026-10-30/`（链路验收）、`design/evidence/2026-10-31/`（手机页三态截图）
 - 当前 HEAD：`3cab0d6dfeb2dccbcd5d7ff86d23b49958b368f5`（本轮**零 git 提交**）
 

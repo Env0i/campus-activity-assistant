@@ -19,7 +19,7 @@
 
 ## 写作约定
 
-1. specs 引用现行 `local/ui/` 实现与 `design/prototype/` 视觉原型，不复制全部代码；
-   视觉细节（色彩、字号、点阵）以 [prototype/components.html](../prototype/components.html) 为活样张。
+1. specs 引用现行 `local/ui/` 实现与 `design/archive/prototype-2026-10-22/` 视觉原型，不复制全部代码；
+   视觉细节（色彩、字号、点阵）以 [archive/prototype-2026-10-22/components.html](../archive/prototype-2026-10-22/components.html) 为活样张。
 2. 规范描述的是**现行**行为；新方案的视觉探索放 [../proposals/](../proposals/)。
 3. 改交互不改规则时只动 specs；动规则必须先回 decisions 记录，再同步 specs。

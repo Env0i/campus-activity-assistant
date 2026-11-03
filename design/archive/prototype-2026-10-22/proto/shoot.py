@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """给设计文档截图：用本机 Edge 打开每个场景（freeze=1 会在场景跑完后把原型时钟停住），再截窗口内容。
 
-    python design/prototype/proto/shoot.py            # 全部场景 → design/shots/*.png
-    python design/prototype/proto/shoot.py armed final # 只截指定场景
+    python design/archive/prototype-2026-10-22/proto/shoot.py  # 全部场景 → design/archive/shots/*.png
+    python design/archive/prototype-2026-10-22/proto/shoot.py armed final # 只截指定场景
 
 只依赖 playwright（local/requirements.txt 里已经有）和本机的 Edge / Chrome。
 """

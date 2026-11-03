@@ -27,7 +27,7 @@
 ### Task 1: 发布独立的 phone_control 组件资产
 
 **Files:**
-- Modify: `local/build_advanced.py`
+- Modify: `local/build/build_advanced.py`
 - Modify: `tools/release.py`
 - Modify: `local/update_check.py`
 - Test: `local/tests/test_component_builder.py`
@@ -35,7 +35,7 @@
 - Test: `local/tests/test_lifecycle_release.py`
 
 **Interfaces:**
-- `local/build_advanced.py` 继续以 `phone_control` 为功能键，输出可安装 ZIP；其 manifest 必须声明 `feature=phone_control`、`target=win-x64`、组件版本、应用兼容版本、`bin/cloudflared.exe`、cloudflared 版本和文件 SHA-256。
+- `local/build/build_advanced.py` 继续以 `phone_control` 为功能键，输出可安装 ZIP；其 manifest 必须声明 `feature=phone_control`、`target=win-x64`、组件版本、应用兼容版本、`bin/cloudflared.exe`、cloudflared 版本和文件 SHA-256。
 - `local/update_check.py` 新增 `phone_control_asset_name(version: str) -> str`，命名为 `campus-activity-watch-phone-control-v{version}-win-x64.zip`。
 - `select_release_assets(payload, version)` 返回 `phone_control` 资产的 `name/url/bytes`；只接受本仓库 GitHub Release 的 HTTPS 资产 URL。
 - Release 资产校验必须沿用现有 manifest 版本、大小和 SHA-256 规则，不能接受任意外部下载地址。
@@ -81,7 +81,7 @@ python -X utf8 -m unittest local.tests.test_update_check
 4. 将组件资产的大小限制设为与现有安装器相同的上限，并复用现有版本解析和 manifest 校验。
 5. 缺少组件资产、版本不符、manifest 不符时返回明确的 `no_component`/`manifest_invalid`，不回退到手动下载页。
 
-在 `local/build_advanced.py` 中：
+在 `local/build/build_advanced.py` 中：
 
 1. 保持 `phone_control` 没有 `--cloudflared` 时直接失败。
 2. 生成的 ZIP 内必须有 `bin/cloudflared.exe` 和 manifest。

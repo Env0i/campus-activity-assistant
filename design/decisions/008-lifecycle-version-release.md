@@ -76,8 +76,8 @@
 ## 工程契约链接
 
 - [docs/UI_SPEC.md](../../docs/UI_SPEC.md) §5.11/§5.12；[docs/LOGIN.md](../../docs/LOGIN.md) 生命周期小节
-- `local/app.py`（`read_version` / `AppLifecycle` / `compute_lifecycle`）、`local/build_exe.py`、
-  `local/make_portable.py`、`tools/release.py`
+- `local/app.py`（`read_version` / `AppLifecycle` / `compute_lifecycle`）、`local/build/build_exe.py`、
+  `local/build/make_portable.py`、`tools/release.py`
 - 静态契约：`local/tests/test_lifecycle_release.py`、`local/tests/test_session_persistence.py` 的
   LifecycleContractTests、`local/tests/test_ui_contract.py` 的行为测试（node vm 装置）
 

@@ -188,7 +188,7 @@ whitespace，报 `local/README.md:270-294` 共二十余行。逐字节核对无�
 
 - `cloudflared` 用仓库外的一份本地下载（版本 `2026.10.7`，与
   `component_packages.CLOUDFLARED_VERSION` 一致）；该目录不入库，文档不记路径。
-- 组件包用 `local/build_advanced.py --feature phone_control --cloudflared <cloudflared>`
+- 组件包用 `local/build/build_advanced.py --feature phone_control --cloudflared <cloudflared>`
   现场构建，再用 `component_packages.install(zip, "phone_control", root=...)` 装入，
   与打包版「导入组件包」走同一条代码路径。
 - 驱动方式：源码版 `import app` 直接驱动 `Api`，`DATA_DIR` / `PREFS` / `DEVICE_FILE`
@@ -246,7 +246,7 @@ whitespace，报 `local/README.md:270-294` 共二十余行。逐字节核对无�
 1. 准备与 `CLOUDFLARED_VERSION` 同版本的 `cloudflared.exe`，`cloudflared --version`
    确认版本号；
 2. 构建组件包：
-   `python -X utf8 local/build_advanced.py --feature phone_control --output-dir %TEMP%\phone-control-build --cloudflared <cloudflared.exe>`
+   `python -X utf8 local/build/build_advanced.py --feature phone_control --output-dir %TEMP%\phone-control-build --cloudflared <cloudflared.exe>`
 3. 把 `DATA_DIR` / `PREFS` / `DEVICE_FILE` 指向临时目录后构造 `Api`，用
    `component_packages.install(<zip>, "phone_control", root=<临时 DATA_DIR>)` 装入；
 4. 调 `start_phone_access("cloudflare")`，记录地址与配对码；

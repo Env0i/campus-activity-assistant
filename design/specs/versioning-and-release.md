@@ -119,5 +119,5 @@
 - `dist/release-v3.1.0/` 与 `dist/release-v1.1.0/`（脏预览，manifest `source_dirty=true`）都是
   **旧候选**：前者是草案期产物，后者明确标注来源脏、只能供常用流程人工验收——两者都不能改名
   当正式候选用；正式资产必须在验收、提交合并后从对应干净来源重新构建并逐项核验。
-- 截图等交付物保留其真实生成版本口径（见 [current-ui/README](../current-ui/README.md)），
+- 截图等交付物保留其真实生成版本口径（见 [current-ui/README](../archive/current-ui-2026-10-25/README.md)），
   软件候选收敛到 1.1.0 不改写旧证据的生成事实。

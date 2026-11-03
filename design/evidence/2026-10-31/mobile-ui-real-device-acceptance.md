@@ -532,5 +532,5 @@
 
 - 手机页自适应同步的自动化依据：`mobile-ui-polling-repair.md`。
 - 手机访问返修、通道生命周期和历史真机反馈：`phone-access-repair-acceptance.md`。
-- 手机页代码交接与不变量：`docs/superpowers/handoff/2026-10-31-mobile-ui-handoff.md`。
+- 手机页代码交接与不变量：`docs/archive/process/2026-10-31/handoff/2026-10-31-mobile-ui-handoff.md`。
 - 本文件只记录后续真实验收，不把既有自动化结果改写成用户通过。

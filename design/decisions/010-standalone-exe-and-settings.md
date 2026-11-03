@@ -98,7 +98,7 @@
 
 - `docs/UI_SPEC.md` §5.13（设置入口/组件闭环/探针验收条款）、§5.12.6（四成员资产形态）
 - `local/app.py`（`resolve_worker_path`/`worker_problem`/`_component_error`/`Api.shutdown`/
-  `_runtime_check_main`）、`local/build_exe.py`（worker 先构建、作为 extra_data 进资源根）、
+  `_runtime_check_main`）、`local/build/build_exe.py`（worker 先构建、作为 extra_data 进资源根）、
   `tools/release.py`（`ZIP_MEMBERS` 四成员、内外 EXE 一致性核验、`remote_tag_commit` 双 pattern）
 - `local/tests/test_runtime_bundle.py`（worker 解析/失败收尾/关闭生命周期/探针/构建 mock）、
   `local/tests/test_ui_contract.py`（设置入口静态与 node vm 行为）、
@@ -124,7 +124,7 @@
 
 ## 变更方式
 
-- worker 打包方式调整：`local/build_exe.py` 的 `assemble()` 与 `local/app.py` 的
+- worker 打包方式调整：`local/build/build_exe.py` 的 `assemble()` 与 `local/app.py` 的
   `resolve_worker_path` 必须同改同验（资源落点与解析是同一契约）。
 - 辅助入口增删：`local/ui/index.html` 的 `#settings` + `local/ui/app.js` 的 `replayTourFrom`/`paintReplayButtons`
   + `docs/UI_SPEC.md` §5.13 + `design/specs/assistance-panels.md`；未确认功能不得进入。

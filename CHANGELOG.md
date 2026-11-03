@@ -39,7 +39,7 @@
   ARCHITECTURE / FEISHU_BOT / server README。终端文档话术收敛：统一「报名/登录/
   活动列表/数据文件夹」，反馈入口固定 Issues + 邮箱并要求脱敏，不再出现第一人称
   求助与外发未脱敏日志的表述。规则与待验收清单见决策 013。
-- **安装版与数据落点（2026-10-27）**：新增 `local/build_installer.py`，用 Inno Setup
+- **安装版与数据落点（2026-10-27）**：新增 `local/build/build_installer.py`，用 Inno Setup
   6 把 EXE 打成安装包——开始菜单项、控制面板卸载入口、免管理员（默认装到
   `%LOCALAPPDATA%\Programs\CampusActivityWatch`）；界面「帮助」补「打开数据文件夹」，
   登录态、偏好与运行记录统一留在 `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data`，
@@ -188,7 +188,7 @@
 - **界面首次启动弹「使用说明」**：舍友拿到的是一个 zip，双击后第一眼是空表格——不知道要先登录，
   也不知道点一下会在到点自动提交。改为弹一张三步说明（先登录 / 选活动 / 保持在线）+ 一条账号边界提醒，
   勾「下次启动不再显示」后记进 `data/ui.json`。默认**不勾**，让新用户至少看一次。
-- **补 `local/启动不了点我.txt`**：Windows 11 智能应用控制会把 Release 下载的绿色版
+- **补 `local/launchers/启动不了点我.txt`**：Windows 11 智能应用控制会把 Release 下载的绿色版
   （里面是嵌入式 `pythonw.exe`）拦成"可能不安全的文件"，提示既不像报错也不说怎么解决。
   这份排查卡按"解压前解压后 / 还被拦 / 一闪而过 / 空表格 / 抢不到"分段给命令，跟着做即可；
   也顺带写进 README 常见问题表。
@@ -235,7 +235,7 @@
   `data/ui.json`（筛选词 / 只看还能报 / 日志展开），改动后 400ms 防抖原子写，关窗口时再写一次；删掉该文件即恢复默认。
   不放进 session.json 是因为那份是登录凭据，分开存避免"想重置界面却连 token 一起删"。
 - **绿色版**：舍友里有装不上 Python 的，之前否掉 PyInstaller 是因为捆绑浏览器体积大、易被杀软误报。改成
-  `local/make_portable.py`：官方嵌入式 Python（3.12.9）+ 补齐 tkinter + 在这台机器上 pip 装 playwright/pillow，
+  `local/build/make_portable.py`：官方嵌入式 Python（3.12.9）+ 补齐 tkinter + 在这台机器上 pip 装 playwright/pillow，
   不打包浏览器，产物 150MB / 压缩 59MB，解压双击 `启动.bat` 即用。
   两个坑记一下：`._pth` 必须写 `..`（有 `._pth` 时 Python 不再自动把脚本目录放进 `sys.path`，`gui.py` 就 import 不到
   同目录的 `grab.py`），以及装完要把 pip 本体删掉（省 12MB，运行不需要）。
@@ -314,7 +314,7 @@
 
 ## 2026-10-22（本机版做成开箱即用）
 
-- **一键安装**：新增 `local/install.bat`（查 Python 版本 → 装 playwright → 下浏览器内核 → 自检；源站失败自动换国内镜像，
+- **一键安装**：新增 `local/launchers/install.bat`（查 Python 版本 → 装 playwright → 下浏览器内核 → 自检；源站失败自动换国内镜像，
   内核装不上则回退用系统 Chrome）；三个功能 bat 改走共用 `_py.bat`，缺 Python 或依赖时给中文提示，不再一闪而过。
 - **免抄参数**：`local/grab.py grab` 新增 `--pick N`（按 list 序号选）与 `--name 关键词`，报名开始时间从活动列表自动读取；
   这两种方式不再二次确认，关键词匹配到多个活动时列出来让用户改用序号，不猜。原因：舍友不一定愿意手抄 activityId 和时间。

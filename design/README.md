@@ -12,11 +12,11 @@
 | [flows/](flows/) | **当前用户流程**：首次使用 → 选活动 → 混合计划运行 → 停止与结果（4 份流程） |
 | [specs/](specs/) | **交互规范**：组件、状态、文案、响应式行为（辅助入口见 [specs/assistance-panels.md](specs/assistance-panels.md)） |
 | [proposals/](proposals/) | **新方案提案**：尚未实现、未进入实现计划的想法 |
-| [archive/](archive/) | **历史原型说明**：prototype/ 与 shots/ 的定位与边界 |
-| [prototype/](prototype/) · [shots/](shots/) | 2026-10-22 视觉原型与截图资产（原路径未动，链接不失效） |
+| [archive/](archive/) | **历史资产**：2026-10-22 旧原型与 1.1.0 界面截图说明的定位与边界 |
+| [archive/prototype-2026-10-22/](archive/prototype-2026-10-22/) | 2026-10-22 视觉原型（2026-11-03 起归档；原型状态截图 shots/ 未入库） |
 | [prototype/workbench-2026-11/](prototype/workbench-2026-11/) | 2026-11-02 新工作台原型（已批准、待实现；本机双击 `打开原型.bat` 查看；设计见 [docs/superpowers/specs/2026-11-02-workbench-ui-redesign-design.md](../docs/superpowers/specs/2026-11-02-workbench-ui-redesign-design.md)） |
 | [brand/](brand/) | **Logo 资产**：入场券（2026-11-02 选定）的矢量源文件、各尺寸 PNG、程序图标 .ico 和使用规则；还没接进程序 |
-| [current-ui/](current-ui/) | **当前实现的真实渲染截图**（mock 数据，2026-10-24 生成，待用户验收） |
+| [archive/current-ui-2026-10-25/](archive/current-ui-2026-10-25/) | **1.1.0 候选界面的渲染说明**（mock 数据，2026-10-24 生成，待用户验收；截图未入库，已归档） |
 | [check_refs.py](check_refs.py) | 校验本页历史基线章节里的代码引用（用法见文末） |
 
 ## 三层职责：design / docs / local
@@ -50,7 +50,7 @@
 | 登录态持久化与启动校验（四态 / 4001 / 迁移） | implemented | [006](decisions/006-session-persistence.md) |
 | 运行时间线（真实事件 + 原定参考 + 统一截止） | implemented（真机验收待用户） | [007](decisions/007-runtime-timeline.md) |
 | 应用生命周期、版本单一来源与发布资产 | v1.1.0 已发布（2026-10-26）；1.1.1 为未上传补丁候选，学校真机验收仍待用户 | [008](decisions/008-lifecycle-version-release.md) |
-| 六步可重播功能引导 | implemented（mock 截图见 [current-ui/](current-ui/)，真机验收待用户） | [009](decisions/009-replayable-product-tour.md) |
+| 六步可重播功能引导 | implemented（mock 截图说明见 [archive/current-ui-2026-10-25/](archive/current-ui-2026-10-25/)，真机验收待用户） | [009](decisions/009-replayable-product-tour.md) |
 | 独立可用单EXE | implemented（离线实包通过，用户真机待验收） | [010](decisions/010-standalone-exe-and-settings.md) |
 | 统一帮助、主题对齐与手动检查更新 | confirmed（代码已落地，技术与用户验收分列） | [011](decisions/011-unified-help-and-manual-update.md) · [规范](specs/assistance-panels.md) |
 | 真实报名结果回写与已报名冲突基线 | implemented（2026-10-27；见 [004](decisions/004-multi-activity-and-conflict.md)、`docs/UI_SPEC.md` §5.4） | [004](decisions/004-multi-activity-and-conflict.md) |
@@ -73,7 +73,7 @@ implemented 另要求代码落地并有证据，proposed 一律放 [proposals/](
 
 ## 历史原型说明
 
-`prototype/` 与 `shots/` 是 **2026-10-22 的视觉原型与截图资产**（基线 `main@a66016a`），
+`archive/prototype-2026-10-22/` 与 `shots/` 是 **2026-10-22 的视觉原型与截图资产**（基线 `main@a66016a`），
 保留用于比较视觉来源；其旧业务边界（单活动、无多选、固定 120 秒重试）**不再是当前规则**。
 当前规则跳转 [decisions/](decisions/) 与 `docs/` 技术真源，详见 [archive/README.md](archive/README.md)。
 
@@ -81,7 +81,7 @@ implemented 另要求代码落地并有证据，proposed 一律放 [proposals/](
 
 本章保留旧设计文档的核心视觉事实，供追溯「界面为什么长这样」；
 其中与现行功能冲突的业务表述已逐条标注为「已被取代」。完整交互细节在
-[prototype/](prototype/)（总览 `index.html`、组件规范 `components.html`）与 [shots/](shots/)。
+[archive/prototype-2026-10-22/](archive/prototype-2026-10-22/)（总览 `index.html`、组件规范 `components.html`）与 `shots/`（未入库）。
 
 ### 设计概念：候车厅里的一块大屏
 
@@ -99,7 +99,7 @@ implemented 另要求代码落地并有证据，proposed 一律放 [proposals/](
   顶栏 56 / 大屏 212（窄 190）/ 时刻表占剩余高度 / 运行记录收起 38。
 - 大屏只在等开放转红前的最后阶段用红、成功用绿；琥珀色只属于「正在等的那一场」。
   色彩、字号（微软雅黑 UI + Bahnschrift 时刻数字）、8px 栅格等完整规范见
-  [prototype/components.html](prototype/components.html)。
+  [archive/prototype-2026-10-22/components.html](archive/prototype-2026-10-22/components.html)。
 - 每秒只更新倒计时文字，不重排整表；唯一的刻意动效是点「开始」时点阵点亮。
 - 三个源自基线代码的时序常量，现行实现沿用同值：
   开放前 `local/grab.py:57`「POLL_LEAD = 5.0」秒开始盯按钮；

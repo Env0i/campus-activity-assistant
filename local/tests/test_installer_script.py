@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""安装包脚本（local/build_installer.py）的契约测试。
+"""安装包脚本（local/build/build_installer.py）的契约测试。
 
 这些用例只碰纯函数与渲染出来的文本，**不调用 ISCC、不装软件、不写注册表**，
 所以任何机器上都能跑。

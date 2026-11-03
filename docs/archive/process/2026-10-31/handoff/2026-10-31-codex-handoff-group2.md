@@ -33,7 +33,7 @@
 
 | 轮次 | 主题 | 主要文件 |
 |---|---|---|
-| A | 手机访问返修 6 任务：组件信任边界（`build_advanced.py` 缺 `--cloudflared` 必须失败、`component_packages` 强制声明 cloudflared、`tunnel_manager` 只认组件包）、合法 PNG 夹具、`submit_pending` 对账、隐藏唤回门禁、文档同步 | `local/build_advanced.py`、`local/infrastructure/{component_packages,tunnel_manager}.py`、`local/application/{login_relay_service,phone_service}.py`、`local/app.py`、`local/ui/{m/app.js,controllers/window.js,index.html,views/phone.js}`、`docs/PHONE_ACCESS.md`、`local/README.md` |
+| A | 手机访问返修 6 任务：组件信任边界（`build_advanced.py` 缺 `--cloudflared` 必须失败、`component_packages` 强制声明 cloudflared、`tunnel_manager` 只认组件包）、合法 PNG 夹具、`submit_pending` 对账、隐藏唤回门禁、文档同步 | `local/build/build_advanced.py`、`local/infrastructure/{component_packages,tunnel_manager}.py`、`local/application/{login_relay_service,phone_service}.py`、`local/app.py`、`local/ui/{m/app.js,controllers/window.js,index.html,views/phone.js}`、`docs/PHONE_ACCESS.md`、`local/README.md` |
 | B | 隐藏缺陷返修：隧道异常退出必须同轮收口且不被第二次 `status()` 降级；组件每次启动前重新校验；关闭偏好先做后记 | `local/app.py`、`local/infrastructure/tunnel_manager.py` |
 | C | 真机发现 D1/D2/D3：写请求每次按当前 cookie 取 CSRF；`fetch` 8 秒超时；`idle` 快照不再写成「重登结束」 | `local/ui/m/app.js` |
 | D | 自查 E1/E2：写动作统一 `postAction` 兜底；`401` 与 `403` 分流（403 不再踢回配对页） | `local/ui/m/app.js` |

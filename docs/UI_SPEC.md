@@ -15,7 +15,7 @@
 - ≤560px 视口顶栏整行换行：品牌独占首行、动作组按原 DOM 顺序换行、控件 `max-width:100%`
   且不被 `max-height:720px` 的 50px 顶栏级联裁剪；断点与具体尺寸以
   `design/specs/terms-consent.md` §八 为唯一来源，本文件不复制数值。
-- 「准点」是早期视觉原型（`design/prototype/`）的历史称呼，只允许出现在历史说明与设计资料里，**不得**作为运行时产品名、窗口标题或帮助标题出现。
+- 「准点」是早期视觉原型（`design/archive/prototype-2026-10-22/`）的历史称呼，只允许出现在历史说明与设计资料里，**不得**作为运行时产品名、窗口标题或帮助标题出现。
 - 名称契约由 `local/tests/test_ui_contract.py` 的 NameContractTests 静态守护。
 
 | 可以重写 | 本轮仍不能动 |

@@ -1,22 +1,27 @@
-# 历史原型档案（archive 视角）
+# 历史资产档案（archive 视角）
 
-> 本页说明 `design/prototype/` 与 `design/shots/` 两份历史资产的定位。
+> 本页说明 `design/archive/` 下两份历史资产的定位。
 > 它们**不是现行业务规则的来源**——当前规则一律跳转
 > [design/decisions/](../decisions/)（产品决策）与 `docs/`（工程契约）。
+> 2026-11-03 整理前它们是设计目录下两个独立的目录（旧原型一个、当前界面截图一个）；
+> 新旧路径对照见 [docs/README.md](../../docs/README.md) 的「路径迁移对照表」。
 
-## 这两份资产是什么
+## 这里有什么
 
-| 资产 | 内容 | 时间 |
+| 目录 | 内容 | 时间 |
 |---|---|---|
-| [prototype/](../prototype/) | 2026-10-22 的高保真交互原型：总览 `index.html`、可操作原型 `play.html`、组件规范 `components.html`、以及只给原型用的假后端 | 基线提交 `main@a66016a` |
-| [shots/](../prototype/proto/shoot.py)（目录 [shots/](../shots/)） | 27 张原型状态截图（`board/` 下是大屏特写） | 同上 |
+| [prototype-2026-10-22/](prototype-2026-10-22/) | 高保真交互原型：总览 `index.html`、可操作原型 `play.html`、组件规范 `components.html`、`app.html`，以及只给原型用的假后端（`proto/mock-backend.js`） | 基线提交 `main@a66016a` |
+| [current-ui-2026-10-25/](current-ui-2026-10-25/) | 1.1.0 候选界面的隔离模拟渲染说明（截图本身没有入库，只剩来源与证据边界的文字） | 2026-10-25，基线 `f5bf526` |
+
+原型状态截图（27 张，`board/` 下是大屏特写）原本在 `design/shots/`，早已不在仓库，这里不再有链接。
+现行新工作台原型是 [../prototype/workbench-2026-11/](../prototype/workbench-2026-11/)，不在归档里。
 
 ## 为什么保留
 
 1. **视觉来源**：现行界面的候车厅布局、LED 大屏、色彩字体体系全部脱胎于这套原型，
    以后改视觉时拿它对照「当初为什么长这样」。
-2. **活样张**：`prototype/components.html` 用界面自己的 CSS 渲染组件，仍是视觉规范的活参考。
-3. **可复现**：`python design/prototype/proto/shoot.py` 能重截全部状态图，不依赖运行时数据。
+2. **活样张**：`prototype-2026-10-22/components.html` 用界面自己的 CSS 渲染组件，仍是视觉规范的活参考。
+3. **可复现**：`proto/shoot.py` 当初能重截全部状态图，不依赖运行时数据。
 
 ## 边界（重要）
 
@@ -26,10 +31,14 @@
   `signup_plan.py` 的事件契约已不完全一致；对照接口请看 `docs/UI_SPEC.md` §5。
 - 原型继续用「准点」这个历史视觉名——它是设计稿的称呼，不是产品名（见
   [决策 001](../decisions/001-product-naming.md)）。
+- `current-ui-2026-10-25/` 对应的是 **1.1.0** 候选界面，不是后来版本的现状；
+  引用前以 `local/ui/` 与 `docs/UI_SPEC.md` 为准。
 
 ## 怎么用
 
-- 想看视觉：双击 `prototype/index.html`（总览）或 `prototype/play.html`（交互原型）。
+- 想看视觉：双击 `prototype-2026-10-22/index.html`（总览）或 `prototype-2026-10-22/play.html`（交互原型）。
+  页面里指向 `../shots/` 的截图和 `../README.md` 的「设计文档」链接是挪动前的相对路径，
+  截图本来就没入库，「设计文档」现在落到本档案页。
 - 想核对历史代码引用：`python design/check_refs.py`（校验 `design/README.md` 历史基线章节里的
   `路径:行号`「原文」引用是否仍在基线 `a66016a` 上对得上）。
 - 想改业务规则：**不要改原型**——先在 [decisions/](../decisions/) 立记录，再动 `local/` 代码。

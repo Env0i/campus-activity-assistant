@@ -38,7 +38,7 @@
 | 文件 | 改了什么 | 为什么非改不可 |
 |---|---|---|
 | `local/infrastructure/component_packages.py` | `_manifest()` 要求 `phone_control` **必须**声明 `bin/cloudflared.exe`（版本 + sha256），`relogin_ocr` 不许夹带 | 原来「完全不声明」也算合法，等于组件包里可以没有隧道程序 |
-| `local/build_advanced.py` | `--cloudflared` 缺失直接 `cloudflared_required` 失败，删掉「回退到 PATH」的分支 | 原来自备一个同名 exe 也能过，版本与哈希无从证明 |
+| `local/build/build_advanced.py` | `--cloudflared` 缺失直接 `cloudflared_required` 失败，删掉「回退到 PATH」的分支 | 原来自备一个同名 exe 也能过，版本与哈希无从证明 |
 | `local/infrastructure/tunnel_manager.py` | `resolve_cloudflared()` 只返回组件包路径 | 删除 PATH / 解释器目录 / resource_root 三处回退，堵掉同名伪造 |
 | `local/application/login_relay_service.py` | 公开投影加 `submit_pending` | 手机靠它判断「这一张已发出、还没结论」，否则网络异常会重发 |
 | `local/application/phone_service.py` | 新增 `has_live_session()`（只回布尔） | 隐藏窗口前要确认「还有没有办法叫回来」 |

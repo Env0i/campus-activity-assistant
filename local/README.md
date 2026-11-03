@@ -51,6 +51,16 @@
 
 > 没有 Python？先装：<https://www.python.org/downloads/>，安装第一屏**务必勾选 "Add python.exe to PATH"**，装完重新双击 `install.bat`。
 
+> **从源码目录运行时**：`.bat` 启动文件在 `local/launchers/`，那里只是绿色版包根目录的模板（里面的相对路径按包根目录写），不能在源码树里直接双击。本文写的「双击 xxx.bat」都指绿色版包里的位置；在仓库里直接用下面的命令（在仓库根执行）：
+>
+> | 绿色版里双击 | 源码目录里的等价命令 |
+> | --- | --- |
+> | `install.bat` | `python -m pip install -r local/requirements.txt`，再 `python -m playwright install chromium`，把 `local/config.example.json` 复制成 `local/config.json`，最后 `python local/grab.py selftest` |
+> | `1-登录.bat` | `python local/grab.py login` |
+> | `2-抢活动.bat` | `python local/grab.py grab` |
+> | `3-检查登录和活动.bat` | `python local/grab.py check`，再 `python local/grab.py list` |
+> | `4-图形界面.bat` | `python local/app.py` |
+
 ### 完全不想装 Python：用绿色版
 
 拿到 **`campus-grab-portable.zip`**（约 59 MB，解压后 150 MB）的话，**不用装 Python、不用跑 install.bat**：
@@ -61,7 +71,7 @@
 里面自带解释器和依赖，只借用你电脑上的浏览器（Chrome 或 Edge 都行，Win10/11 一定带 Edge）。
 想用命令行的话，把 `python` 换成 `python\python.exe` 即可，例如 `python\python.exe grab.py list`。
 
-> 绿色版是从 `make_portable.py` 构建出来的：`python make_portable.py`。想自己重新打一份就运行它。
+> 绿色版是从 `local/build/make_portable.py` 构建出来的：在仓库根运行 `python local/build/make_portable.py`。想自己重新打一份就运行它。
 > 打包用的是官方嵌入式 Python + 这台机器上装好的依赖，**不捆绑浏览器内核**，所以比 PyInstaller 小很多、也不容易被杀软误报。
 
 ### 分发形态（用户视角）
@@ -77,7 +87,7 @@
 
 历史形态：**绿色版** `campus-grab-portable-*.zip`（v1.0.2 及以前，**停止新增发布**）。
 它的数据在程序旁边的 `data/`、靠 `启动.bat` 启动，只保留历史下载和构建脚本
-（`make_portable.py`），新用户请用上面两种。已发布的两种形态都需要 Windows WebView2
+（`local/build/make_portable.py`），新用户请用上面两种。已发布的两种形态都需要 Windows WebView2
 与 Chrome/Edge 之一。
 
 **「程序装在哪」和「数据放哪」是两件事**，装到 Program Files 也不会改变数据位置：从 Vista 起
@@ -94,26 +104,26 @@
 
 - **一条命令出全套资产**：`python tools/release.py --prepare` —— 构建一次冻结 onefile EXE
   （grab-worker 已内置，独立可用），再由**同一份 EXE** 派生三资产：独立 EXE、四成员完整 ZIP
-  （EXE + README + 启动说明 + LICENSE）、安装版（内部调用 `build_installer.py`），外加 manifest
+  （EXE + README + 启动说明 + LICENSE）、安装版（内部调用 `local/build/build_installer.py`），外加 manifest
   清单（版本、完整 commit、source_dirty、每个文件的 SHA-256）。旧版「主 EXE 必须与
   `grab-worker.exe` 同目录」是历史旧包口径，已被 2026-10-25 的独立 EXE 决定取代（见
   `design/decisions/010-standalone-exe-and-settings.md`）。构建脚本不读 `data/`、不把登录态
   打进包；`X.Y.Z` 读仓库根 `VERSION`。资产是本地预览，只有 `tools/release.py --publish` 才会上
   GitHub——它要求干净 main、逐项核验三资产与来源一致、人工确认，默认不打 tag 不上传。
-- **单独构建 EXE**：开发机装 PyInstaller 后 `python build_exe.py --mode onefile`；
-- **单独构建安装版**：`python build_installer.py`（或 `--source dist/campus-grab-exe-onedir`），
+- **单独构建 EXE**：开发机装 PyInstaller 后在仓库根运行 `python local/build/build_exe.py --mode onefile`；
+- **单独构建安装版**：`python local/build/build_installer.py`（或 `--source dist/campus-grab-exe-onedir`），
   产物在 `dist/installer/`。本机没装 [Inno Setup](https://jrsoftware.org/isdl.php) 会直接报错
   并给出地址，不会假装成功。**Inno Setup 免费**——个人用、商用、打包闭源软件都不收费，
   官方只接受自愿捐款，源码在 <https://github.com/jrsoftware/issrc>；唯一要求是 **6.3 或更新**
   （脚本用了 `x64compatible` 架构标识，6.3 才引入；本机实测 6.7.3）。
-- **绿色版（历史形态，可自行构建）**：`python make_portable.py`，产物在
+- **绿色版（历史形态，可自行构建）**：`python local/build/make_portable.py`，产物在
   `dist/campus-grab-portable/`。数据在包旁边 `data/`，仅按历史口径维护，不进正式 Release。
 
 **「程序装在哪」和「数据放哪」是两件事**，装到 Program Files 也不会改变数据位置：从 Vista 起 `C:\Program Files` 对普通权限进程**不可写**，非提权程序往里写会被 UAC 拦下或静默重定向到 `%LOCALAPPDATA%\VirtualStore\`。所以安装版默认走「仅为我安装」（免管理员，程序落在 `%LOCALAPPDATA%\Programs\CampusActivityWatch`），登录态一律写 `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data`——这和 Chrome、VS Code 的做法一致，不是「乱放」。
 
 ### 每种形态到底打了哪些文件
 
-安装版的清单写在 `build_installer.py` 的 `INSTALL_FILES` 里，一个文件一行，**不走整目录拷贝**——构建目录里躺着的开发用文件不会跟过去：
+安装版的清单写在 `local/build/build_installer.py` 的 `INSTALL_FILES` 里，一个文件一行，**不走整目录拷贝**——构建目录里躺着的开发用文件不会跟过去：
 
 | 形态 | 用户拿到的文件 |
 | --- | --- |
@@ -335,10 +345,14 @@ WebView2 运行时 Windows 10/11 一般自带；万一窗口是空白，装一�
 
 ## 五、文件说明
 
+**目录分工**（2026-11-03 整理后）：
+
+- `local/` 根目录：运行模块（`grab.py`、`app.py` 等）、`ui/`、依赖清单 `requirements*.txt`、配置模板 `config.example.json` 和本说明。
+- `local/build/`：打包脚本，都在仓库根运行：`python local/build/build_exe.py`（EXE）、`python local/build/build_installer.py`（安装版）、`python local/build/make_portable.py`（绿色版，历史形态）、`python local/build/build_advanced.py --feature … --output-dir …`（可选组件包）。发版一条龙是 `python tools/release.py --prepare`。
+- `local/launchers/`：绿色版包根目录的启动文件模板（6 个 `.bat` 和 2 份排障 `.txt`）。源码树里它们只是模板，不直接双击，开发时用 `python local/grab.py …`；打包时 `make_portable.py` 把它们拷到包根目录，安装器从这里取 `遇到问题先看我.txt`，包里的位置和以前完全一样。
+
 ```
 local/
-├─ install.bat              首次使用双击一次：装依赖 + 内核 + 自检
-├─ _py.bat                  四个 bat 共用的 Python 探测（缺环境时提示去装）
 ├─ grab.py                  主脚本（登录 / 查活动 / 到点自动报名 / 自检）
 ├─ app.py                   图形界面外壳和多活动计划 API（组合入口）
 ├─ domain/                  纯规则层：登录分类、重试策略、计划门禁、时间换算（无 IO）
@@ -356,15 +370,20 @@ local/
 ├─ ui/                      界面源码（README 不再依赖截图文件）
 ├─ requirements.txt         依赖清单：playwright + pillow + pywebview
 ├─ config.example.json      配置模板：复制成 config.json，填写目标学校 site.base（可选再填 webhook）
-├─ 1-登录.bat               双击：手动登录一次
-├─ 2-抢活动.bat             双击：交互式选择并到点自动报名（历史命名）
-├─ 3-检查登录和活动.bat     双击：看登录态 + 列活动
-├─ 4-图形界面.bat           双击：打开图形界面
-├─ 启动不了点我.txt         绿色版打不开时的排查步骤（含智能应用控制拦截怎么解除）
-├─ 遇到问题先看我.txt       安装版/解压版排障：装在哪、数据在哪、怎么卸载、日志在哪
-├─ make_portable.py         打绿色版用（开发者跑一次，产物在 ../dist/）
-├─ build_exe.py             用 PyInstaller 构建 onedir/onefile EXE（不自动安装工具）
-├─ build_installer.py       用 Inno Setup 把 dist 里的 EXE 打成安装版（产物在 ../dist/installer/）
+├─ build/                   打包脚本（开发者在仓库根运行，产物在 ../dist/）
+│  ├─ make_portable.py      打绿色版用（历史形态；产物在 ../dist/campus-grab-portable/）
+│  ├─ build_exe.py          用 PyInstaller 构建 onedir/onefile EXE（不自动安装工具）
+│  ├─ build_installer.py    用 Inno Setup 把 dist 里的 EXE 打成安装版（产物在 ../dist/installer/）
+│  └─ build_advanced.py     构建可选组件包（手机控制 / 验证码识别），输出到显式指定的临时目录
+├─ launchers/               绿色版包根目录的启动文件模板；源码树里不直接双击，开发时用 python local/grab.py …
+│  ├─ install.bat           首次使用双击一次：装依赖 + 内核 + 自检
+│  ├─ _py.bat               四个 bat 共用的 Python 探测（缺环境时提示去装）
+│  ├─ 1-登录.bat            双击：手动登录一次
+│  ├─ 2-抢活动.bat          双击：交互式选择并到点自动报名（历史命名）
+│  ├─ 3-检查登录和活动.bat  双击：看登录态 + 列活动
+│  ├─ 4-图形界面.bat        双击：打开图形界面
+│  ├─ 启动不了点我.txt      绿色版打不开时的排查步骤（含智能应用控制拦截怎么解除）
+│  └─ 遇到问题先看我.txt    安装版/解压版排障：装在哪、数据在哪、怎么卸载、日志在哪
 ├─ installer/
 │  └─ ChineseSimplified.isl 安装向导的简体中文文案（UTF-8 带 BOM，官方 Inno 不带）
 └─ data/                    运行后自动生成（EXE 版对应 %LOCALAPPDATA%\TianSoftActivityPreRegistration\data）

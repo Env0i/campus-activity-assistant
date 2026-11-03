@@ -1,6 +1,6 @@
 # UI_SPEC §9 验收清单标注 + D02–D17 冲突现状（2026-10-31 夜间验收收尾）
 
-- 依据：`docs/acceptance/ACCEPTANCE-20261031.md` 十二切片记录 + `acceptance-evidence/20261031-*/` 证据；分支 wip/ui-acceptance-20261030。
+- 依据：`design/evidence/2026-10-31/ACCEPTANCE-20261031.md` 十二切片记录 + `acceptance-evidence/20261031-*/` 证据；分支 wip/ui-acceptance-20261030。
 - 用途：给后续轮次（真机/实包/专项）划定剩余面。本文是验收记录的附件，不改 UI_SPEC 权威条款本体。
 
 ## A. §9 验收清单 × 今晚切片标注

@@ -6,7 +6,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-20-339933?logo=nodedotjs&logoColor=white)
 
-> 当前版本见 [VERSION](VERSION)。界面说明和交互契约见 [design/current-ui/](design/current-ui/) 与 [docs/UI_SPEC.md](docs/UI_SPEC.md)；公开仓库不再附带本机截图。
+> 当前版本见 [VERSION](VERSION)。界面说明和交互契约见 [design/archive/current-ui-2026-10-25/](design/archive/current-ui-2026-10-25/) 与 [docs/UI_SPEC.md](docs/UI_SPEC.md)；公开仓库不再附带本机截图。
 
 ## 协作主工作区
 
@@ -63,7 +63,7 @@
 - `campus-activity-watch-vX.Y.Z-win-x64.exe`：**独立可用单文件**——程序组件（grab-worker）已内置，拷到任何空目录双击即可。
 
 > **安装版已随正式 Release 提供**：`campus-activity-watch-installer-vX.Y.Z-win-x64.exe`
-> 的构建脚本与文件清单已经就绪（`local/build_installer.py`），会随下一个正式版本并列发布；
+> 的构建脚本与文件清单已经就绪（`local/build/build_installer.py`），会随下一个正式版本并列发布；
 > 在那之前发布页上不会有这个附件，也请不要把它当作已发布资产去找。候选阶段只能
 > 自己在干净工作区构建试用。
 >
@@ -85,10 +85,12 @@ git clone https://github.com/Env0i/campus-activity-assistant.git
 cd campus-activity-assistant
 ```
 
-1. 双击 `install.bat`：安装 Playwright、Pillow、pywebview，并准备浏览器（只第一次）
-2. 双击 `1-登录.bat` 或在图形界面点「登录」：弹出真实 Chrome，手动登录一次，登录态存本地
-3. 双击 `4-图形界面.bat`（窗口名「校园活动预报名工具」）：筛选活动并勾选多场，点「开始报名计划」
+1. 运行 `python -m pip install -r local/requirements.txt` 和 `python -m playwright install chromium`：安装 Playwright、Pillow、pywebview，并准备浏览器（只第一次）；再把 `local/config.example.json` 复制成 `local/config.json`（以前 `install.bat` 替你做的那一步）
+2. 运行 `python local/grab.py login` 或在图形界面点「登录」：弹出真实 Chrome，手动登录一次，登录态存本地
+3. 运行 `python local/app.py`（窗口名「校园活动预报名工具」）：筛选活动并勾选多场，点「开始报名计划」
 4. 计划按报名开放时间分批执行；同一开放时刻的非冲突活动并发提交，每场结果独立显示
+
+> `local/launchers/` 里的 `install.bat`、`4-图形界面.bat` 等是绿色版包根目录的启动文件模板，源码里不直接双击；它们对应的命令见 [local/README.md](local/README.md)。
 
 > 登录只做一次。登录态位置：bat/python 运行在本机 `local/data/`；EXE 版统一在
 > `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data`——同一台电脑上关闭重开、替换或重建 EXE，
@@ -202,10 +204,12 @@ cp server/config.example.json server/config.json   # 再填 webhook / 应用凭�
 ```
 campus-activity-watch/
 ├── server/        # 服务器版：scripts/（生产脚本）bot/（飞书机器人）deploy/（systemd、登录）tests/
-├── local/         # 本机版：app.py + grab.py + signup_plan.py + ui/ + 打包入口
-├── docs/          # 架构、运维、登录、自动报名、时点推导、飞书机器人、配置
-├── tools/         # 发版工具（拆分支、打 zip、发 Release）
-└── README.md / CHANGELOG.md / LICENSE
+├── local/         # 本机版：app.py + grab.py + signup_plan.py + ui/；build/ 是打包脚本，launchers/ 是绿色版启动文件模板
+├── docs/          # 工程文档：架构、运维、登录、自动报名、时点推导、飞书机器人、配置；archive/ 放历史与过程记录
+├── design/        # 产品决策、规格、流程、新工作台原型、验收证据、品牌；archive/ 放旧原型
+├── contracts/     # 学校接口的脱敏样例
+├── tools/         # 发版工具（拆分支、打 zip、发 Release）与 QA 脚本
+└── README.md / CHANGELOG.md / LICENSE / VERSION / AGENTS.md / CLAUDE.md
 ```
 
 运行时生成 `server/data/`（会话、状态、日志）与 `reports/`，不入库；本机版开发/bat 运行在 `local/data/`，EXE 版在 `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data`（重建 EXE 不会删除登录态）。

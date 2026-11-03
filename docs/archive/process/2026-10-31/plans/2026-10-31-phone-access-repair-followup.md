@@ -25,7 +25,7 @@
 
 ## 审计结论与返修目标
 
-1. **amendment-003 是真实范围越界。** `local/build_advanced.py` 是 task-6 的必要实现文件，不能只留在结果说明里；返修计划把它正式纳入 allowed paths，并补上缺失的构建门禁。
+1. **amendment-003 是真实范围越界。** `local/build/build_advanced.py` 是 task-6 的必要实现文件，不能只留在结果说明里；返修计划把它正式纳入 allowed paths，并补上缺失的构建门禁。
 2. **amendment-005 是测试夹具错误，不是生产逻辑错误。** `local/domain/phone_rules.py` 已正确拒绝没有 PNG 魔数的图片；把 `data:image/png;base64,AAAA` 换成合法的一像素 PNG，不能为了让旧断言变绿而放宽生产校验。
 3. **Cloudflare 组件仍有信任边界缺口。** `build_advanced.py` 允许 `phone_control` 不带 `cloudflared`，`resolve_cloudflared()` 还会回退到 PATH 或未经过 manifest/hash/probe 的文件。返修后只有通过组件 manifest、文件哈希和版本探测的二进制才能作为 Cloudflare 执行文件。
 4. **手机重登有两个状态缺陷。** 网络异常只显示“提交结果未知”却不主动对账，可能把提交按钮永久禁用；`verifying` 状态又被当前 UI 当作终态，可能过早隐藏验证码和重新开始入口。返修用显式 `submit_pending` 状态和状态驱动的 UI 收口，既防重复提交，也给丢包后可恢复的重试机会。
@@ -57,7 +57,7 @@
 ### Task 1: 固化 phone_control 与 cloudflared 的组件边界
 
 **Files:**
-- Modify: `local/build_advanced.py`
+- Modify: `local/build/build_advanced.py`
 - Modify: `local/infrastructure/component_packages.py`
 - Modify: `local/infrastructure/tunnel_manager.py`
 - Test: `local/tests/test_component_builder.py`
@@ -255,7 +255,7 @@ python -X utf8 -m unittest local.tests.test_ui_contract -v
 
 ## Self-review
 
-- amendment-003：通过 Task 1 正式纳入 `local/build_advanced.py`。
+- amendment-003：通过 Task 1 正式纳入 `local/build/build_advanced.py`。
 - amendment-005：通过 Task 2 修合法 PNG 夹具，保留生产严格校验。
 - post-plan 隐藏/托盘/对话框：通过 Task 4 正式纳入范围，并修复无唤回路径与默认焦点。
 - Cloudflare 信任缺口：通过 Task 1、Task 5 同时修代码和用户口径。

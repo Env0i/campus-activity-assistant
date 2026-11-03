@@ -88,8 +88,8 @@ node design/brand/tools/export.js
 
 | 位置 | 现在 | 改成 |
 |---|---|---|
-| `local/build_exe.py` | 没给图标，用打包工具默认图标 | 打包时指定 `ico/app.ico` |
-| `local/build_installer.py` | 安装包没设图标 | 安装包和卸载项都用 `ico/app.ico` |
+| `local/build/build_exe.py` | 没给图标，用打包工具默认图标 | 打包时指定 `ico/app.ico` |
+| `local/build/build_installer.py` | 安装包没设图标 | 安装包和卸载项都用 `ico/app.ico` |
 | `local/infrastructure/tray_icon.py` | `SystemIcons.Application`（系统默认图标） | 从 `ico/app.ico` 读图标；读不到再退回系统图标 |
 | `local/ui/index.html` | 顶栏内联的旧标志（深色方块加两颗圆点） | 换成 `svg/logo-small.svg` 的内联图形 |
 | `local/ui/m/index.html` | 没有任何图标 | 加 `favicon.ico` 和 `apple-touch-icon.png` |
