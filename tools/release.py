@@ -66,6 +66,41 @@ GH = Path(os.environ.get("GH_EXE") or shutil.which("gh") or "gh")
 PRODUCT_NAME = "校园活动预报名工具"
 VERSION_FILE = ROOT / "VERSION"
 
+# 构建时注入的站点地址模块：只在构建机 prepare 期间存在（.gitignore 排除），
+# 随 PyInstaller 进资源根；源码态找不到它就当没有（见 local/site_target.py）。
+SITE_BUILD_MODULE = ROOT / "local" / "_site_build.py"
+_SITE_ORIGIN_RE = re.compile(r"^https://[^/\s]+(/[^\s]*)?$")
+
+
+def site_origin_for_build(preview: bool) -> str:
+    """读取构建环境 SCHOOL_ORIGIN 并校验；正式构建缺值或不是 https 直接失败。
+
+    地址只来自构建环境变量，绝不写进仓库任何文件；值本身也不进 manifest。
+    预览构建（来源脏）允许缺席，产物仅供人工验收，manifest 记 site_configured=false。
+    """
+    origin = (os.environ.get("SCHOOL_ORIGIN") or "").strip()
+    if not origin:
+        if preview:
+            print("[prepare] 预览构建：未设 SCHOOL_ORIGIN，发布物不含内置站点地址")
+            return ""
+        raise SystemExit("[prepare] 正式构建缺 SCHOOL_ORIGIN：站点地址必须在构建环境注入，"
+                         "不写进仓库；本次不产出任何资产")
+    if not _SITE_ORIGIN_RE.match(origin):
+        if preview:
+            print("[prepare] 预览构建：SCHOOL_ORIGIN 不是 https 地址，按未注入处理")
+            return ""
+        raise SystemExit("[prepare] SCHOOL_ORIGIN 必须是 https 站点根地址（不带查询或空白）；"
+                         "本次不产出任何资产")
+    return origin.rstrip("/")
+
+
+def write_site_build(origin: str) -> None:
+    """生成 local/_site_build.py（只含 BUILD_BASE 一个字符串常量）。"""
+    SITE_BUILD_MODULE.write_text(
+        "# 构建时由 tools/release.py 生成，含站点地址，绝不入库（见 .gitignore）。\n"
+        "BUILD_BASE = %r\n" % origin,
+        encoding="utf-8")
+
 
 def _load_build_installer():
     """按文件路径加载 local/build_installer.py，不污染 sys.path。
@@ -227,13 +262,15 @@ def sha256_of(path: Path) -> str:
 
 def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
                    build_state: dict | None = None,
-                   component_included: bool | None = None) -> Path:
+                   component_included: bool | None = None,
+                   site_configured: bool | None = None) -> Path:
     """资产证据：版本、tag、来源分支、**完整 HEAD**、来源是否干净、每个文件的 SHA-256 与大小。
 
     source_dirty=true 的产物只能当预览：main 干净不等于资产来自干净提交，
     发布侧会拒绝脏候选，绝不把它说成来源于干净提交。
     component_included 显式记录这次候选有没有手机控制组件包：字段缺失的旧候选
     一律按「没有」处理，publish 会因此拒绝，而不是猜。
+    site_configured 只记有没有把站点地址注入发布物，**不写地址本身**。
     """
     state = build_state or git_state()
     manifest = {
@@ -249,6 +286,8 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
     }
     if component_included is not None:
         manifest["component_included"] = bool(component_included)
+    if site_configured is not None:
+        manifest["site_configured"] = bool(site_configured)
     path = stage_dir / "manifest.json"
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2),
                     encoding="utf-8")
@@ -336,7 +375,19 @@ def stage_local_assets(version: str, *, with_component: bool = True,
     """
     tag = tag_of(version)
     pre = git_state()
-    out = build_exe_onefile()
+    # 来源脏 = 预览构建：允许不注入站点地址；干净来源的正式候选必须注入，
+    # 缺 SCHOOL_ORIGIN 或不是 https 时在构建**之前**直接失败（不产出任何资产）。
+    preview = bool(pre["dirty"])
+    site_origin = site_origin_for_build(preview)
+    if site_origin:
+        write_site_build(site_origin)
+        print("[prepare] 已注入构建环境 SCHOOL_ORIGIN（值只进发布物，不进仓库）")
+    try:
+        out = build_exe_onefile()
+    finally:
+        # 生成文件绝不留在工作区：构建成功/失败都删，避免真实地址落进源码树
+        if site_origin:
+            SITE_BUILD_MODULE.unlink(missing_ok=True)
     post = git_state()
     if (pre["full"], pre["dirty"]) != (post["full"], post["dirty"]):
         raise SystemExit("[prepare] 构建期间源码发生变化（%s%s → %s%s），本次产物不能当候选；"
@@ -399,7 +450,8 @@ def stage_local_assets(version: str, *, with_component: bool = True,
         assets.append(component_path)
     manifest = write_manifest(stage_dir, version, tag, assets,
                               build_state=post,
-                              component_included=component_path is not None)
+                              component_included=component_path is not None,
+                              site_configured=bool(site_origin))
     for path in assets:
         print("   %s  %.1f MB" % (path.name, path.stat().st_size / 1024 / 1024))
     print("[prepare] 资产就绪：%s" % stage_dir)

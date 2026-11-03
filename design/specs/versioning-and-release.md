@@ -45,6 +45,17 @@
 - 引导内容版本 `TOUR_VERSION` 单独管理：软件升版**不**提升它，只有引导内容实质变化才 +1
   （见 [决策 009](../decisions/009-replayable-product-tour.md)）。
 
+## 发版 commit 必须始终可达（2026-11-03）
+
+- **manifest 的 commit 必须能在仓库历史里找到**：发布物的 `manifest.json` 用完整 commit 记录来源，
+  发版 tag 必须绑在同一个 commit 上——tag 就是让那个 commit 一直可达的锚点。
+- **改写历史前先盘点发版 tag**：运行 `git for-each-ref refs/tags` 并逐个
+  `git rev-parse <tag>^{}` 列出所有发版 tag 指向的 commit，确认整理历史（`filter-repo`、`rebase`、
+  `gc --prune=now` 等）之后这些 commit 仍然保留；任何一个会丢失就停下，不执行改写。
+- **已知事实**：v1.2.0 的 manifest 写的 commit 在本仓库历史里查不到（2026-11-03 记录，
+  证据 `design/evidence/2026-11-02/live-check.md` 第二十四节）。这条事实只说明
+  「manifest 写了 commit」不等于「commit 一定可达」：每次发版后都要按上面的命令复核一次。
+
 ## 交付形态（2026-10-27 起现行：三资产同源，详见决策 008/013）
 
 - **三种正式资产**：安装版安装器（推荐下载）、独立可用单 EXE、完整 ZIP 四成员

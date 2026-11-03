@@ -365,9 +365,19 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             self.calls.append((version, _P(work_dir).name, str(cloudflared or "")))
             return make_component_zip(_P(work_dir) / "phone_control-build.zip")
 
+    # 正式构建必须在构建环境注入站点地址（tools/release.py site_origin_for_build）。
+    # 测试只模拟打包、不连学校，用保留域名占位即可；真实地址绝不进测试。
+    FAKE_ORIGIN = "https://school.example.invalid"
+
+    def _site_patches(self, rel, tmp):
+        """注入假站点地址，并把生成的 _site_build.py 落到临时目录，不碰工作区 local/。"""
+        return (mock.patch.dict(os.environ, {"SCHOOL_ORIGIN": self.FAKE_ORIGIN}),
+                mock.patch.object(rel, "SITE_BUILD_MODULE", Path(tmp) / "_site_build.py"))
+
     def _stage(self, tmp):
         """跑一遍 stage_local_assets（构建与安装器都 mock），返回 (结果, 假构建器)。"""
         rel = load_release()
+        env_patch, site_patch = self._site_patches(rel, tmp)
         frozen_body = b"frozen-exe-body-1.2.3"
         out = Path(tmp) / "campus-grab-exe"
         out.mkdir(parents=True)
@@ -378,7 +388,8 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
                 mock.patch.object(rel, "git_state", lambda: state), \
                 mock.patch.object(rel, "build_exe_onefile", lambda: out), \
                 mock.patch.object(rel, "BUILD_INSTALLER", fake), \
-                mock.patch.object(rel, "BUILD_COMPONENT", self._FakeComponent()):
+                mock.patch.object(rel, "BUILD_COMPONENT", self._FakeComponent()), \
+                env_patch, site_patch:
             got = rel.stage_local_assets(self.VERSION)
         return rel, got, fake, frozen_body
 
@@ -468,11 +479,13 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
                     bad.write_bytes(b"not-a-zip")
                     return bad
 
+            env_patch, site_patch = self._site_patches(rel, name)
             with mock.patch.object(rel, "DIST", Path(name)), \
                     mock.patch.object(rel, "git_state", lambda: state), \
                     mock.patch.object(rel, "build_exe_onefile", lambda: out), \
                     mock.patch.object(rel, "BUILD_INSTALLER", self._FakeBuilder()), \
-                    mock.patch.object(rel, "BUILD_COMPONENT", BrokenComponent()):
+                    mock.patch.object(rel, "BUILD_COMPONENT", BrokenComponent()), \
+                    env_patch, site_patch:
                 with self.assertRaises(SystemExit) as refused:
                     rel.stage_local_assets(self.VERSION)
             self.assertIn("组件包", str(refused.exception))

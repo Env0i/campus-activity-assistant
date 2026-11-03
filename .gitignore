@@ -3,6 +3,10 @@ config.json
 server/config.json
 local/config.json
 
+# 构建时生成的站点地址：tools/release.py 在 prepare 阶段按构建环境 SCHOOL_ORIGIN 写出，
+# 含真实域名，绝不入库；源码态没有这个文件属正常。
+local/_site_build.py
+
 # 运行时数据：token、会话、浏览器登录态、抓取结果、机器人去重缓存
 data/
 server/data/
