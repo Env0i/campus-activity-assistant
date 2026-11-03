@@ -63,8 +63,10 @@ class ScriptedApi:
         return {"ok": True, "result": "valid", "request_id": request_id}
 
     # ---- 写 ----
-    def start_plan(self, items, headed=False, retry_policy=None, request_id=""):
+    def start_plan(self, items, headed=False, retry_policy=None, request_id="", source="desktop"):
+        # source 由手机服务端补成 phone（客户端带不进来），替身照收
         self.calls.append(("start_plan", items, request_id))
+        self.last_source = source
         policy = retry_policy or {}
         task = {"task_id": "t1", "name": "篮球赛", "status": "submitting",
                 "retry_for_s": int(policy.get("retry_for_s", 120)),

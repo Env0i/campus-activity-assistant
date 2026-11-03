@@ -25,6 +25,32 @@ from domain.time_text import task_deadline
 from domain.worker_lines import parse_checkpoint_line
 
 
+def plan_done_notice(tasks) -> tuple:
+    """后台结束通知的标题与正文。
+
+    正文按「N 场成功，N 场待核对，N 场名额已满，N 场没成功」写，为 0 的不写；
+    名额已满按 stop_reason=full 单列，待核对按 unconfirmed 单列，其余没成功的归一类。
+    """
+    ok = pending = full = other = 0
+    for task in tasks or []:
+        task = task if isinstance(task, dict) else {}
+        status = str(task.get("status") or "")
+        reason = str(task.get("stop_reason") or "")
+        if status in ("success", "already_signed"):
+            ok += 1
+        elif reason == "unconfirmed":
+            pending += 1
+        elif reason == "full":
+            full += 1
+        else:
+            other += 1
+    parts = [("%d 场成功" % ok) if ok else "", ("%d 场待核对" % pending) if pending else "",
+             ("%d 场名额已满" % full) if full else "", ("%d 场没成功" % other) if other else ""]
+    text = "，".join(part for part in parts if part) or "这次计划没有场次。"
+    title = "报名计划部分完成" if ok and (pending or full or other) else "报名计划已结束"
+    return title, text
+
+
 def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
                   emit, lock, plan_procs: dict, clock_now, is_closing,
                   worker_command, env, spawn, cwd: str, grace_s: float,

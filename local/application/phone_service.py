@@ -392,6 +392,9 @@ class PhoneAccessService:
             # 手机只许改重试策略：terms/路径/任意键一律不进偏好
             return self._call("save_prefs",
                               {"prefs": {"retry_policy": clean.get("retry_policy", {})}})
+        if name == "start_plan":
+            # 计划来源由服务端补：手机请求体里带不进 source（白名单拒绝），这里写死 phone
+            clean = dict(clean, source="phone")
         return self._call(name, clean)
 
     def _call(self, name: str, params: dict) -> dict:

@@ -1322,5 +1322,80 @@ class AdvancedComponentServiceTests(unittest.TestCase):
         self.assertFalse(result["ok"])
 
 
+class PlanDoneNoticeTests(unittest.TestCase):
+    """后台结束的系统通知：计数只写不为 0 的，名额已满、待核对单列。"""
+
+    def test_counts_skip_zero_and_split_full_and_pending(self):
+        from application import plan_service
+
+        title, text = plan_service.plan_done_notice([
+            {"status": "success"}, {"status": "already_signed"},
+            {"status": "failed", "stop_reason": "full"},
+            {"status": "failed", "stop_reason": "unconfirmed"},
+            {"status": "failed", "stop_reason": "login_invalid"},
+        ])
+        self.assertEqual(title, "报名计划部分完成")
+        self.assertEqual(text, "2 场成功，1 场待核对，1 场名额已满，1 场没成功")
+
+    def test_all_success_or_none_success_says_ended(self):
+        from application import plan_service
+
+        self.assertEqual(plan_service.plan_done_notice([{"status": "success"}]),
+                         ("报名计划已结束", "1 场成功"))
+        title, text = plan_service.plan_done_notice([{"status": "failed", "stop_reason": "full"}])
+        self.assertEqual(title, "报名计划已结束")
+        self.assertEqual(text, "1 场名额已满", "为 0 的项不写")
+
+    def test_tray_notify_without_icon_returns_false(self):
+        from infrastructure import tray_icon
+
+        self.assertFalse(tray_icon.TrayIcon().notify("标题", "正文"),
+                         "托盘没起来时返回 False，不抛异常")
+
+
+class LoginExpiredPushTests(unittest.TestCase):
+    """登录失效推飞书：本次运行里有效过、之后变成失效才推，同一次失效只推一次。"""
+
+    def _note(self):
+        import ast
+        import types
+
+        tree = ast.parse((LOCAL / "app.py").read_text(encoding="utf-8"))
+        node = next(item for item in ast.walk(tree)
+                    if isinstance(item, ast.FunctionDef) and item.name == "_note_login_conclusion")
+        module = ast.Module(body=[node], type_ignores=[])
+        ast.fix_missing_locations(module)
+        namespace: dict = {}
+        exec(compile(module, "<note-login>", "exec"), namespace)  # noqa: S102
+        api = types.SimpleNamespace(_lock=threading.RLock(), _login_seen_valid=False,
+                                    _expiry_pushed=False, pushes=[])
+        api._push_login_expired = lambda: api.pushes.append(1)
+        return types.MethodType(namespace["_note_login_conclusion"], api), api
+
+    def test_push_once_after_valid_then_expired(self):
+        note, api = self._note()
+        note("expired")
+        self.assertEqual(api.pushes, [], "启动时就失效（没校验成功过）不推")
+        note("valid")
+        note("expired")
+        note("expired")
+        note("unknown")
+        self.assertEqual(api.pushes, [1], "同一次失效只推一次")
+        note("valid")
+        note("expired")
+        self.assertEqual(api.pushes, [1, 1], "重新有效后再失效，再推一次")
+
+    def test_push_text_has_no_account_fields(self):
+        import ast
+
+        tree = ast.parse((LOCAL / "app.py").read_text(encoding="utf-8"))
+        node = next(item for item in ast.walk(tree)
+                    if isinstance(item, ast.FunctionDef) and item.name == "_push_login_expired")
+        source = ast.unparse(node)
+        for banned in ("username", "student", "token", "CREDENTIAL_FILE", "SESSION_FILE"):
+            self.assertNotIn(banned, source, "飞书消息不得带账号或登录信息")
+        self.assertIn("回电脑或手机上重新登录", source)
+
+
 if __name__ == "__main__":
     unittest.main()

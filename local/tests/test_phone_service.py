@@ -47,8 +47,9 @@ class FakeApi:
         self.calls.append(("check", request_id))
         return {"ok": True, "result": "valid", "request_id": request_id}
 
-    def start_plan(self, items, headed=False, retry_policy=None, request_id=""):
+    def start_plan(self, items, headed=False, retry_policy=None, request_id="", source="desktop"):
         self.calls.append(("start_plan", items, headed, retry_policy, request_id))
+        self.last_source = source
         if self.fail:
             raise RuntimeError("boom")
         return {"ok": True, "plan_id": "p1", "request_id": request_id}
@@ -365,6 +366,11 @@ class DispatchWhitelistTests(PhoneServiceBase):
         self.assertTrue(headed)
         self.assertEqual(policy, {"retry_for_s": 120})
         self.assertEqual(rid, "req-1")
+        self.assertEqual(self.api.last_source, "phone", "手机开始的计划由服务端标成 phone")
+
+    def test_phone_cannot_forge_plan_source(self):
+        bad = self.service.dispatch("start_plan", {"items": [{"id": "a1"}], "source": "desktop"})
+        self.assertEqual(bad["error"], "args_not_allowed", "source 不在手机白名单里")
 
     def test_internal_exception_returns_type_only(self):
         self.api.fail = True

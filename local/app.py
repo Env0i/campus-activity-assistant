@@ -86,6 +86,8 @@ from application import update_service as _update_service
 
 HERE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 RESOURCE_ROOT = Path(getattr(sys, "_MEIPASS", HERE))
+# 和报名进程同一份配置：界面只读其中的 feishu_webhook 一个键
+CONFIG_FILE = HERE / "config.json"
 UI = RESOURCE_ROOT / "ui" / "index.html"
 
 
@@ -225,6 +227,16 @@ def terms_state(prefs: dict) -> dict:
     }
 
 
+def _feishu_webhook() -> str:
+    """只取 config.json 里的 feishu_webhook；没配、读不出或不是 https 都当没配。"""
+    try:
+        data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    hook = str(data.get("feishu_webhook") or "").strip()
+    return hook if hook.startswith("https://") else ""
 
 
 def _component_title(feature: str) -> str:
@@ -719,6 +731,15 @@ class Api:
             log=phone_log)
         # 上一次登录真实成功后由谁完成（auto_ocr / phone_manual）：只用于说明文案
         self._last_login_origin = ""
+        # 登录失效推飞书：本次运行里校验过有效，之后变成失效才推；同一次失效只推一次
+        self._login_seen_valid = False
+        self._expiry_pushed = False
+        # 窗口不在眼前（最小化或隐藏到后台）时，计划结束要发系统通知
+        self._window_hidden = False
+        self._window_minimized = False
+        # 计划来源（desktop / phone）：start_plan 调用前登记，随计划事件和快照带出去
+        self._next_plan_source = "desktop"
+        self._plan_sources: dict[str, str] = {}
         self._cloudflare = _tunnel_manager.CloudflareTunnel(
             _tunnel_manager.resolve_cloudflared(resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR),
             # 每次真正拉起隧道前再核一遍组件：缓存路径可能已被替换或删除
@@ -940,6 +961,7 @@ class Api:
             # 复制一份再补归属字段，不改写共享的 _last_plan。
             boot_plan = dict(snapshot)
             boot_plan["plan_generation"] = generation
+            boot_plan.setdefault("source", self._plan_source_of(boot_plan.get("plan_id")))
             boot_plan.setdefault("request_id",
                                  self._find_request_id(boot_plan.get("plan_id")))
             payload["plan"] = boot_plan
@@ -1752,8 +1774,52 @@ class Api:
                 if again:
                     self._checking = True
             self._auto_relogin.observe_check(conclusion)
+            self._note_login_conclusion(conclusion)
             if again:
                 threading.Thread(target=self._do_check, daemon=True).start()
+
+    def _note_login_conclusion(self, conclusion: str) -> None:
+        """记下登录结论的变化：本次运行里有效过、之后变成失效，推一次飞书。"""
+        with self._lock:
+            if conclusion == "valid":
+                self._login_seen_valid = True
+                self._expiry_pushed = False
+                return
+            if conclusion != "expired" or not self._login_seen_valid or self._expiry_pushed:
+                return
+            self._expiry_pushed = True
+        self._push_login_expired()
+
+    def _push_login_expired(self) -> None:
+        """配了飞书机器人才推；消息只说失效和怎么办，不带账号。在后台线程里发，不拖界面。"""
+        if DEMO:
+            return
+        hook = _feishu_webhook()
+        if not hook:
+            return
+        card = {
+            "config": {"wide_screen_mode": True},
+            "header": {"template": "orange",
+                       "title": {"tag": "plain_text", "content": "登录已失效"}},
+            "elements": [{"tag": "div", "text": {
+                "tag": "lark_md", "content": "登录已失效，回电脑或手机上重新登录。"}}],
+        }
+        body = json.dumps({"msg_type": "interactive", "card": card},
+                          ensure_ascii=False).encode("utf-8")
+
+        def send() -> None:
+            import urllib.request
+
+            request = urllib.request.Request(hook, data=body,
+                                             headers={"Content-Type": "application/json"})
+            try:
+                with urllib.request.urlopen(request, timeout=10) as response:
+                    response.read(4096)
+                self._emit("log", "登录失效已推送到飞书")
+            except Exception as exc:  # noqa: BLE001 - 推送失败只记类别，不影响登录流程
+                self._emit("log", "飞书推送失败：%s" % type(exc).__name__)
+
+        threading.Thread(target=send, name="feishu-login-expired", daemon=True).start()
 
     def _do_check_inner(self) -> None:
         if DEMO:
@@ -2062,7 +2128,8 @@ class Api:
                     "text": "这次开始已经有结论，不能再取消"}
 
     def start_plan(self, items: list[dict], headed: bool = False,
-                   retry_policy: dict | None = None, request_id: str = "") -> dict:
+                   retry_policy: dict | None = None, request_id: str = "",
+                   source: str = "desktop") -> dict:
         """校验并启动计划；带 request_id 时按进程内登记实现幂等（R11）。
 
         UI 的超时不能靠「清掉正在提交」来放行第二次开始——那可能真的重复报名。
@@ -2099,6 +2166,9 @@ class Api:
                     if record.get("state") == "pending":
                         self._remember_start(rid, "rejected", result=rejected)
             return rejected
+        # 来源只认两个值：手机端由 phone_service 在服务端补上，界面传别的一律当电脑
+        with self._lock:
+            self._next_plan_source = "phone" if source == "phone" else "desktop"
         try:
             result = self._start_plan_inner(items, headed, retry_policy, rid)
         except Exception as exc:  # noqa: BLE001 - 本机异常也要留下真实结论
@@ -2130,6 +2200,9 @@ class Api:
 
     def _start_plan_inner(self, items: list[dict], headed: bool,
                           retry_policy: dict | None, request_id: str = "") -> dict:
+        with self._lock:
+            plan_source = getattr(self, "_next_plan_source", "desktop")
+            self._next_plan_source = "desktop"
         if not isinstance(items, list) or not items:
             return {"ok": False, "text": "先至少选择一场活动"}
         # 北京时间门禁（决策 012）：时钟不可用时不新启自动报名（demo 离线豁免）；
@@ -2203,6 +2276,11 @@ class Api:
             return checked
 
         plan_id = uuid.uuid4().hex[:12]
+        with self._lock:
+            self._plan_sources[plan_id] = plan_source
+            # 只留最近几份：页面重载、手机快照只会问到最近的计划
+            for stale in list(self._plan_sources)[:-16]:
+                self._plan_sources.pop(stale, None)
         specs = [TaskSpec.from_activity(item, "task-%02d-%s" % (i + 1, item["id"]), headed,
                                         retry_for_s=retry_for_s, max_attempts=max_attempts,
                                         now=accepted_at)
@@ -2217,6 +2295,7 @@ class Api:
             data = dict(payload) if isinstance(payload, dict) else {}
             data.setdefault("plan_id", plan_id)
             data["plan_generation"] = accepted_generation[0]
+            data["source"] = plan_source
             if "request_id" not in data:
                 rid = next((key for key, value in self._start_requests.items()
                             if value.get("plan_id") == plan_id), "")
@@ -2284,6 +2363,7 @@ class Api:
             # 先提交后发布（顺序保留，FR05）；旧计划的完成事件不广播（P1）
             if forward_done:
                 self._emit("plan_done", forward_payload)
+                self._notify_plan_done(snapshot)
 
         def runner(spec: TaskSpec, cancel_event: threading.Event,
                    status: callable) -> dict:
@@ -2441,6 +2521,7 @@ class Api:
                 self._window.minimize()
             except Exception:
                 return {"ok": False, "error": "no_window", "text": "窗口不可用，没能最小化。"}
+            self._window_minimized = True
             return {"ok": True, "action": "minimize", "remembered": remember}
         self._close_approved = True
         try:
@@ -2476,6 +2557,7 @@ class Api:
         except Exception:
             return {"ok": False, "error": "no_window", "text": "窗口不可用，没能隐藏。"}
         phone_log("窗口已隐藏到后台；进程继续运行，托盘或手机页可以唤回")
+        self._window_hidden = True
         return {"ok": True, "action": "hide", "hidden": True, "tray": self._tray is not None}
 
     def show_window(self) -> dict:
@@ -2484,8 +2566,39 @@ class Api:
             self._window.show()
         except Exception:
             return {"ok": False, "error": "no_window", "text": "窗口不可用，没能显示。"}
+        try:
+            # 从最小化里叫回来也走这里：隐藏和最小化一起清掉
+            self._window.restore()
+        except Exception:
+            pass
+        self._window_hidden = False
+        self._window_minimized = False
         phone_log("窗口已从后台显示出来")
         return {"ok": True, "hidden": False, "tray": self._tray is not None}
+
+    def _on_window_minimized(self) -> None:
+        self._window_minimized = True
+
+    def _on_window_restored(self) -> None:
+        self._window_minimized = False
+
+    def _plan_source_of(self, plan_id) -> str:
+        with self._lock:
+            return self._plan_sources.get(str(plan_id or ""), "desktop")
+
+    def _notify_plan_done(self, snapshot) -> None:
+        """窗口最小化或藏在后台时计划结束：托盘弹一条系统通知，点通知回到窗口。
+
+        窗口就在眼前时不打扰；托盘建不起来就不发，结果仍在窗口里。
+        """
+        if not (self._window_hidden or self._window_minimized):
+            return
+        title, text = _plan_service.plan_done_notice((snapshot or {}).get("tasks") or [])
+        try:
+            if self._ensure_tray() and self._tray is not None:
+                self._tray.notify(title, text)
+        except Exception:
+            pass
 
     def _ensure_tray(self) -> bool:
         """懒建托盘图标；已经建过就直接复用。任何异常都只当作「没有托盘」。"""
@@ -2606,6 +2719,9 @@ class Api:
                 snapshot = None
         if snapshot is None:
             snapshot = last_plan
+        if isinstance(snapshot, dict):
+            snapshot = dict(snapshot)
+            snapshot.setdefault("source", self._plan_source_of(snapshot.get("plan_id")))
         return {
             "activities": activities,
             "login": login_state(self._clock),
@@ -3420,6 +3536,12 @@ def main() -> int:
     except AttributeError:
         # 老版本 pywebview 没有可取消的 closing：退化成「直接关」，
         # 行为与升级前一致，不假装能拦
+        pass
+    try:
+        # 最小化/还原：计划在后台结束时据此决定要不要发系统通知
+        window.events.minimized += api._on_window_minimized
+        window.events.restored += api._on_window_restored
+    except AttributeError:
         pass
     webview.start(debug=False)
     # 窗口已关（正常路径）：先收本实例登记的 worker（计划/登录/单活动/check/list）——

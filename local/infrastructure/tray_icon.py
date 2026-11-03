@@ -48,6 +48,34 @@ class TrayIcon:
         except Exception:
             pass
 
+    def notify(self, title: str, text: str) -> bool:
+        """在托盘图标上弹一条系统通知气泡，点气泡把窗口叫回来。
+
+        用的是同一个 NotifyIcon 的 ShowBalloonTip，不引入新依赖。托盘没建起来时
+        返回 False、不抛异常；真正的显示动作投递回消息循环线程去做。
+        """
+        form = self._form
+        if form is None or self._icon is None:
+            return False
+        try:
+            from System import Action
+
+            form.BeginInvoke(Action(lambda: self._show_balloon(title, text)))
+            return True
+        except Exception:
+            return False
+
+    def _show_balloon(self, title: str, text: str) -> None:
+        try:
+            from System.Windows.Forms import ToolTipIcon
+
+            self._icon.BalloonTipTitle = str(title or "")[:63]
+            self._icon.BalloonTipText = str(text or "")[:255]
+            self._icon.BalloonTipIcon = ToolTipIcon.Info
+            self._icon.ShowBalloonTip(8000)
+        except Exception:
+            pass
+
     def _dispose(self) -> None:
         try:
             if self._icon is not None:
@@ -113,6 +141,8 @@ class TrayIcon:
             menu.Items.Add(exit_item)
             icon.ContextMenuStrip = menu
             icon.DoubleClick += lambda sender, args: self._fire(self._on_show)
+            # 后台结束的通知气泡：点一下等于「显示窗口」
+            icon.BalloonTipClicked += lambda sender, args: self._fire(self._on_show)
             icon.Visible = True
 
             context = ApplicationContext()
