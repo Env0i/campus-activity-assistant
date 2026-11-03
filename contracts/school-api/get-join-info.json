@@ -1,0 +1,25 @@
+[
+  {
+    "case": "not_registered",
+    "response": {
+      "code": 1,
+      "message": "操作成功！",
+      "data": null
+    },
+    "note": "没报过这个活动：code=1 表示查询成功，data 为 null（不是「能报名」的意思）"
+  },
+  {
+    "case": "registered",
+    "response": {
+      "code": 1,
+      "message": "操作成功！",
+      "data": {
+        "sfbm": 1,
+        "bmsj": "2026-11-03 10:00:01",
+        "qdzt": 0,
+        "qtzt": 0
+      }
+    },
+    "note": "已报名：sfbm=1 是是否报名，bmsj 是报名时间；qdzt/qtzt 是签到/签退状态。样例只保留这几个状态字段，其余（rdzt、dzbs 等）按需从实测补齐"
+  }
+]

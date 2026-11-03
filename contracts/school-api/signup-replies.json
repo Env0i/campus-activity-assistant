@@ -1,0 +1,72 @@
+[
+  {
+    "kind": "success",
+    "http_status": 200,
+    "code": 1,
+    "message": "操作成功！",
+    "source": "live-check 第二十八、四十节（两次真实成功）"
+  },
+  {
+    "kind": "not_open",
+    "http_status": 200,
+    "code": 500,
+    "message": "报名未开始！",
+    "source": "live-check 第二十八节（提前 1 秒被拒）"
+  },
+  {
+    "kind": "full",
+    "http_status": 200,
+    "code": 500,
+    "message": "报名人数已满",
+    "source": "live-check 第十四、三十五、三十七、四十节（多次实测一致）"
+  },
+  {
+    "kind": "conflict",
+    "http_status": 200,
+    "code": 500,
+    "message": "活动时间与已参与活动时间冲突：<活动名>",
+    "source": "live-check 第二十八节（成功后再打，活动名已替换）"
+  },
+  {
+    "kind": "closed",
+    "http_status": 200,
+    "code": 500,
+    "message": "报名已结束！",
+    "source": "架构修订设计 3.3；本轮回放未直接观测到，按设计表收录"
+  },
+  {
+    "kind": "version",
+    "http_status": 200,
+    "code": 0,
+    "message": "版本不兼容，请刷新页面或清除缓存后重试",
+    "source": "live-check 第三十九节 B（现有实现按整句精确相等判降级）"
+  },
+  {
+    "kind": "stale_ts",
+    "http_status": 200,
+    "code": 0,
+    "message": "您的请求已超时",
+    "source": "架构修订设计 3.3；hash 里的时间戳超出约 60 秒"
+  },
+  {
+    "kind": "no_activity",
+    "http_status": 200,
+    "code": 0,
+    "message": "Cache 'hd-info' does not allow null",
+    "source": "live-check 第一节回填与签名材料：解密成功但活动 ID 查不到"
+  },
+  {
+    "kind": "login_invalid",
+    "http_status": 200,
+    "code": 4001,
+    "message": "身份验证失败",
+    "source": "live-check 第二十五、三十七节；也可能表现为 HTTP 401，见设计 3.3"
+  },
+  {
+    "kind": "unknown",
+    "http_status": 200,
+    "code": 500,
+    "message": "报名系统维护中，请稍后再试",
+    "source": "示例：不是实测文案，只用来表达「没见过」这一类；同一条连续 3 次才退回点击"
+  }
+]
