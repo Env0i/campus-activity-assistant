@@ -2567,6 +2567,8 @@ class Api:
             "business_clock": self._clock_payload(),
             "retry_options": _retry_options_payload(),
             "terms": terms_state(load_prefs()),
+            # 手机端条款门和电脑同源：没同意当前版本时手机停在缓存，不能开始计划或重新登录
+            "terms_ok": self._terms_gate() is None,
             # relay 公开状态只含阶段/挑战图，不含账号密码、token 或 DPAPI 密文；
             # 电脑自己认图时投影层会把验证码抹掉，手机只看到「重试中」
             "login_relay": self._phone_relay_view(),
@@ -2986,6 +2988,24 @@ class Api:
             return {"ok": False, "error": "prefs_busy",
                     "text": "条款同意状态暂未保存，另一个窗口正在保存数据；请再点一次。"}
         return {"ok": True, "terms": terms_state(load_prefs())}
+
+    def withdraw_terms(self) -> dict:
+        """撤回条款同意：清空已同意版本、记下撤回时刻，学校动作随即回到条款门之后。
+
+        计划在跑或已就绪时拒绝：撤回会让后面的场次登录和提交全被拦住，等于悄悄停掉计划，
+        必须先由用户自己停止。只写 ui.json 的三个条款键——保存的账号密码、登录信息一概
+        不动，重新同意后照常可用；不起线程、不写运行日志。
+        """
+        if self.plan_active_for_close():
+            return {"ok": False, "error": "plan_running",
+                    "text": "计划运行中不能撤回，先停止计划。"}
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        if not update_prefs({"terms_version": "", "terms_accepted_at": "",
+                             "terms_withdrawn_at": stamp}):
+            return {"ok": False, "error": "prefs_busy",
+                    "text": "撤回没有保存，另一个窗口正在保存数据；请再点一次。"}
+        # 撤回时刻只随这次回执给界面显示；terms_state 仍只回报三个键（条款契约不变）
+        return {"ok": True, "terms": dict(terms_state(load_prefs()), withdrawn_at=stamp)}
 
     # ---------- 内部 ----------
     def _is_busy_locked(self) -> bool:

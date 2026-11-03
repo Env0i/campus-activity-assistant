@@ -29,6 +29,8 @@ LOCAL = Path(__file__).resolve().parents[1]
 TEST_TERMS = "2026-11-03-r4"
 
 SCHOOL_METHODS = ("check", "list_activities", "login", "grab", "start_plan")
+# 手机能发起的学校动作：都经同一组 Api 方法，门禁必须在方法里而不是在手机页
+PHONE_SCHOOL_METHODS = ("check", "list_activities", "start_plan", "phone_relogin_begin")
 HELPER_METHODS = ("_terms_gate", "_remember_start", "_start_replay")
 # 明确不在门禁范围内的公开桥接：停止/取消、帮助、数据目录、更新检查、偏好与同意
 NON_SCHOOL_METHODS = ("stop_plan", "cancel_task", "cancel_start_request",
@@ -281,6 +283,15 @@ class NonSchoolActionContractTests(unittest.TestCase):
             self.assertIn("_terms_gate", source,
                           "%s 是学校网络动作，必须有后端授权兜底" % name)
 
+    def test_phone_school_actions_go_through_the_gate(self):
+        for name in PHONE_SCHOOL_METHODS:
+            source = ast.unparse(_function_node(name))
+            self.assertIn("_terms_gate", source,
+                          "手机动作 %s 访问学校，门禁必须在后端方法里" % name)
+        state = ast.unparse(_function_node("_phone_raw_state"))
+        self.assertIn("'terms_ok': self._terms_gate() is None", state,
+                      "手机快照的 terms_ok 必须和电脑门禁同源")
+
 
 def build_accept_api(prefs: dict, *, update_ok: bool = True):
     """抽出真实 accept_terms：注入内存偏好与 update_prefs spy。
@@ -389,6 +400,135 @@ class AcceptTermsWriteTests(unittest.TestCase):
                        "read_text", "_trace", "addLog", "threading", "log"):
             self.assertNotIn(banned, source,
                              "同意不得读写登录文件、写日志或起线程")
+
+
+def build_withdraw_api(prefs: dict, *, plan_running: bool = False, update_ok: bool = True):
+    """抽出真实 withdraw_terms / accept_terms：内存偏好 + update_prefs spy。"""
+    store = dict(prefs or {})
+    writes: list = []
+
+    def update_prefs(patch):
+        if not update_ok:
+            return False
+        writes.append(dict(patch))
+        store.update(patch)
+        return True
+
+    namespace = {
+        "TERMS_VERSION": TEST_TERMS,
+        "load_prefs": lambda: dict(store),
+        "update_prefs": update_prefs,
+        "time": time,
+    }
+    helpers = ast.Module(body=[_function_node("terms_state")], type_ignores=[])
+    ast.fix_missing_locations(helpers)
+    exec(compile(helpers, "<terms-helpers>", "exec"), namespace)  # noqa: S102
+    methods = ast.Module(body=[_function_node("withdraw_terms"), _function_node("accept_terms")],
+                         type_ignores=[])
+    ast.fix_missing_locations(methods)
+    exec(compile(methods, "<withdraw-terms>", "exec"), namespace)  # noqa: S102
+
+    api = _FakeApi()
+    api.plan_active_for_close = lambda: plan_running
+    api.withdraw_terms = types.MethodType(namespace["withdraw_terms"], api)
+    api.accept_terms = types.MethodType(namespace["accept_terms"], api)
+    return api, store, writes, namespace["terms_state"]
+
+
+class WithdrawTermsTests(unittest.TestCase):
+    """撤回同意：学校动作重新被拦；计划运行中拒绝；不删账号密码和登录信息。"""
+
+    ACCEPTED = {"terms_version": TEST_TERMS, "terms_accepted_at": "2026-11-03 09:12:00",
+                "relogin": {"keep": True}}
+
+    def setUp(self):
+        STARTED_TARGETS.clear()
+
+    def test_withdraw_closes_the_gate_for_school_actions(self):
+        api, store, writes, terms_state = build_withdraw_api(dict(self.ACCEPTED))
+        got = api.withdraw_terms()
+        self.assertTrue(got["ok"])
+        self.assertEqual(got["terms"]["accepted_version"], "")
+        self.assertEqual(got["terms"]["accepted_at"], "")
+        self.assertTrue(got["terms"]["withdrawn_at"], "撤回时刻要回给界面显示")
+        self.assertEqual(set(writes[0]), {"terms_version", "terms_accepted_at", "terms_withdrawn_at"},
+                         "只写三个条款键")
+        gated = build_api(dict(store))
+        self.assertEqual(gated.check("c-1")["error"], "terms_required", "撤回后检查登录被拦")
+        self.assertEqual(gated.list_activities("l-1")["error"], "terms_required")
+        self.assertEqual(gated.start_plan([{"id": "a1"}], False, None, "s-1")["error"],
+                         "terms_required")
+        self.assertEqual(STARTED_TARGETS, [], "撤回后不得排上任何学校线程")
+
+    def test_withdraw_refused_while_plan_running_writes_nothing(self):
+        api, store, writes, _ = build_withdraw_api(dict(self.ACCEPTED), plan_running=True)
+        got = api.withdraw_terms()
+        self.assertFalse(got["ok"])
+        self.assertEqual(got["error"], "plan_running")
+        self.assertIn("先停止计划", got["text"])
+        self.assertEqual(writes, [], "计划运行中撤回零写入")
+        self.assertEqual(store, self.ACCEPTED)
+
+    def test_withdraw_keeps_credentials_and_login_files(self):
+        api, store, _, _ = build_withdraw_api(dict(self.ACCEPTED))
+        api.withdraw_terms()
+        self.assertEqual(store["relogin"], {"keep": True}, "其他偏好原样保留")
+        source = ast.unparse(_function_node("withdraw_terms"))
+        for banned in ("_credential_store", "CREDENTIAL_FILE", "SESSION_FILE", "clear_relogin",
+                       "unlink", "threading", "_log_event", "_trace"):
+            self.assertNotIn(banned, source, "撤回不得碰账号密码、登录文件、线程或日志")
+
+    def test_withdraw_prefs_busy_keeps_acceptance(self):
+        api, store, writes, _ = build_withdraw_api(dict(self.ACCEPTED), update_ok=False)
+        got = api.withdraw_terms()
+        self.assertEqual(got["error"], "prefs_busy")
+        self.assertEqual(store, self.ACCEPTED, "没保存成功就仍是已同意")
+
+    def test_accept_again_restores_terms_snapshot(self):
+        api, store, _, terms_state = build_withdraw_api(dict(self.ACCEPTED))
+        api.withdraw_terms()
+        self.assertTrue(api.accept_terms(TEST_TERMS)["ok"])
+        snap = terms_state(store)
+        self.assertEqual(snap["accepted_version"], TEST_TERMS, "重新同意后 bootstrap.terms 恢复")
+        self.assertNotIn("withdrawn_at", snap, "terms_state 仍只回报三个键")
+        self.assertIsNone(build_api(dict(store))._terms_gate())
+
+
+class AutoReloginTermsGateTests(unittest.TestCase):
+    """未同意条款时自动登录不触发：执行真实 _auto_relogin_eligible。"""
+
+    def _eligible(self, prefs):
+        namespace = {
+            "DEMO": False,
+            "TERMS_VERSION": TEST_TERMS,
+            "load_prefs": lambda: dict(prefs),
+            "_advanced_features": types.SimpleNamespace(
+                feature_ready=lambda *args, **kwargs: True, RELOGIN_OCR="relogin_ocr"),
+            "DATA_DIR": None,
+            "_credential_store": types.SimpleNamespace(has_credentials=lambda path: True),
+            "CREDENTIAL_FILE": None,
+        }
+        helpers = ast.Module(body=[_function_node("terms_state"),
+                                   _function_node("terms_unknown_payload")], type_ignores=[])
+        ast.fix_missing_locations(helpers)
+        exec(compile(helpers, "<terms-helpers>", "exec"), namespace)  # noqa: S102
+        methods = ast.Module(body=[_function_node("_terms_gate"),
+                                   _function_node("_auto_relogin_eligible")], type_ignores=[])
+        ast.fix_missing_locations(methods)
+        exec(compile(methods, "<auto-eligible>", "exec"), namespace)  # noqa: S102
+        api = _FakeApi()
+        api._advanced_busy = False
+        api._relogin_blocked_locked = lambda: False
+        api._terms_gate = types.MethodType(namespace["_terms_gate"], api)
+        return types.MethodType(namespace["_auto_relogin_eligible"], api)()
+
+    def test_auto_relogin_blocked_without_current_terms(self):
+        self.assertFalse(self._eligible({}), "没同意过不能自动登录")
+        self.assertFalse(self._eligible({"terms_version": "2026-10-27-r3"}), "旧版同意不能自动登录")
+        self.assertFalse(self._eligible({"terms_version": "", "terms_withdrawn_at": "x"}),
+                         "撤回后不能自动登录")
+        self.assertTrue(self._eligible({"terms_version": TEST_TERMS}),
+                        "同意当前版且账号、识别都就绪才放行")
 
 
 if __name__ == "__main__":
