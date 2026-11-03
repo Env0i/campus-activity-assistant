@@ -51,15 +51,20 @@ APP_FILES = [
 
 UI_DIR = "ui"                    # 界面本体（HTML/CSS/JS）
 
+# grab.log 按 5 MB 切分后保留的旧日志份数，写死成与 local/grab.py 的 LOG_KEEP 一致
+# （make_portable 不 import grab；grab 那边改份数时这里要同步，test_installer_script 会对一遍）。
+LOG_KEEP = 5
+
 # 运行时会落在 data/ 里的文件名（与 runtime_paths.py 的 SESSION_FILE / STATE_FILE /
 # UI_STATE_FILE / LOG_FILE 对齐）。打包前逐个删掉，避免本机残留混进发布包。
 RUNTIME_DATA_FILES = (
     "session.json",        # 登录态
+    "session.json.lock",   # 登录态写锁（save_session 的跨进程锁）
     "storage_state.json",  # 浏览器 cookie
     "ui.json",             # 界面偏好
     "ui.json.lock",        # 偏好文件写锁
     "grab.log",            # 运行日志
-)
+) + tuple("grab.log.%d" % n for n in range(1, LOG_KEEP + 1))  # 日志切分出来的旧日志
 
 PY_DIR_NAME = "python"          # 便携解释器放在这里
 LAUNCHER = "启动.bat"

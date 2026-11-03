@@ -315,14 +315,25 @@ class BuildEntryPointTest(unittest.TestCase):
 
 
 class PortableCleanupContractTest(unittest.TestCase):
-    """绿色版构建的运行期文件清理契约：五个名字一个都不能少。"""
+    """绿色版构建的运行期文件清理契约：登录态、偏好、日志及其锁和切分旧日志一个都不能少。"""
 
     def test_runtime_data_files_cover_all_local_state(self):
         import make_portable as mp
         self.assertEqual(set(mp.RUNTIME_DATA_FILES),
-                         {"session.json", "storage_state.json", "ui.json",
-                          "ui.json.lock", "grab.log"},
+                         {"session.json", "session.json.lock", "storage_state.json",
+                          "ui.json", "ui.json.lock", "grab.log",
+                          "grab.log.1", "grab.log.2", "grab.log.3",
+                          "grab.log.4", "grab.log.5"},
                          "与 runtime_paths.py 的登录态/偏好/日志文件必须一一对齐")
+
+    def test_log_keep_matches_grab(self):
+        """make_portable 不 import grab，切分份数靠这条对齐，防止改了一边漏一边。"""
+        import re
+        import make_portable as mp
+        grab_src = (LOCAL / "grab.py").read_text(encoding="utf-8")
+        found = re.search(r"^LOG_KEEP\s*=\s*(\d+)", grab_src, re.M)
+        self.assertIsNotNone(found, "grab.py 里找不到 LOG_KEEP")
+        self.assertEqual(mp.LOG_KEEP, int(found.group(1)))
 
     def test_cleanup_actually_deletes_by_name(self):
         import make_portable as mp
