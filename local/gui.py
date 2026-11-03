@@ -37,7 +37,6 @@ DATA = HERE / "data"
 PY = sys.executable or "python"
 
 CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
-TOKEN_LIFETIME_H = 17.5     # 实测寿命，仅用于显示「约剩几小时」
 LOG_COLLAPSED = 200         # 日志卡常态高度：够看 6 行、不抢活动表
 LOG_EXPANDED = 380          # 展开态：排障时一次看到十几行
 UI_STATE = DATA / "ui.json"  # 记住筛选词 / 只看还能报的 / 日志展开态
@@ -741,21 +740,9 @@ class App:
         elif not self._token_ok:
             self._pill("登录态失效", BAD, "#FDECEC")
         else:
-            left = self._token_hours_left()
-            if left is None:
-                self._pill("登录态有效", OK, ACCENT_SOFT)
-            elif left <= 0:
-                self._pill("有效 · 可能快过期", SIGNAL_DEEP, SIGNAL_SOFT)
-            else:
-                self._pill("有效 · 约剩 %.0f 小时" % left, OK, ACCENT_SOFT)
-
-    def _token_hours_left(self) -> float | None:
-        try:
-            info = json.loads(SESSION.read_text(encoding="utf-8"))
-            saved = datetime.strptime(info["saved_at"], "%Y-%m-%d %H:%M:%S")
-        except Exception:
-            return None
-        return TOKEN_LIFETIME_H - (datetime.now() - saved).total_seconds() / 3600.0
+            # 不再按写死的寿命倒推剩余小时数（S3）：这个旧 tkinter 预览壳
+            # 没有上次校验时刻，只显示「未知」；正式界面在本机版 app.py。
+            self._pill("登录态有效 · 剩余时间未知", OK, ACCENT_SOFT)
 
     def _set_busy(self, busy: bool, label: str = ""):
         for btn in (self.btn_refresh, self.btn_login, self.btn_grab):

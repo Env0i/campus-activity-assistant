@@ -262,6 +262,31 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
         self.assertFalse(api._listing, "finally 必须清「拉列表」标记")
         self.assertFalse(self.session.exists(), "数据异常路径不得创建/改写会话文件")
 
+    def test_list_with_sign_start_item_keeps_seconds_to_open(self):
+        """回归（M5）：列表里有一场带 sign_start 的活动时，整理函数不抛 TypeError。
+
+        app.py 末尾的兼容别名 `_seconds_until = _time_text.seconds_until` 会覆盖
+        575 行的两参数包装，真活动列表一进来就 missing argument；删掉别名后
+        1785 行的两参数调用必须仍能算出整数秒。
+        """
+        api, events = self._api_with_events()
+        fake = mock.Mock()
+        fake.returncode = 0
+        fake.communicate.return_value = (json.dumps(
+            [{"id": "a1", "name": "活动", "sign_start": "2099-01-01 00:00:00"}],
+            ensure_ascii=False), "")
+        fake.poll.return_value = 0
+        with mock.patch.object(self.app.subprocess, "Popen",
+                               mock.Mock(return_value=fake)):
+            api._do_list()
+        acts = [payload for kind, payload in events if kind == "activities"]
+        self.assertEqual(len(acts), 1, "成功路径也只发一次列表终态")
+        payload = acts[0]
+        self.assertTrue(payload["ok"], "有真实活动时列表不得因整理函数崩溃")
+        item = payload["items"][0]
+        self.assertIsInstance(item["seconds_to_open"], int,
+                              "未来 sign_start 必须算出整数秒，而不是崩掉或 None")
+
     def test_check_data_exception_is_plain_failure_not_component(self):
         """check 数据异常：恰一次检查失败终态、无 runtime_error、技术细节只进日志。"""
         api, events = self._api_with_events()

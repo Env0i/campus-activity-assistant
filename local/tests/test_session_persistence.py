@@ -456,6 +456,11 @@ class PlanRestoreContractTests(unittest.TestCase):
                 api = app.Api(clock=TestWallClock())
                 api._plan = coordinator
                 payload = api.bootstrap()
+        # bootstrap 的 login 快照必须携带 S3 新增的上次校验时刻/结论
+        login = payload.get("login") or {}
+        self.assertIn("last_check_at", login, "bootstrap.login 必须带 last_check_at（S3 新增）")
+        self.assertIn("last_check_state", login,
+                      "bootstrap.login 必须带 last_check_state（S3 新增）")
         plan = payload.get("plan") or {}
         task = (plan.get("tasks") or [{}])[0]
         self.assertEqual(plan.get("plan_id"), "plan-restore")
@@ -471,11 +476,12 @@ class PlanRestoreContractTests(unittest.TestCase):
 
 
 class LifecycleContractTests(unittest.TestCase):
-    """应用生命周期元数据：关闭时长、异常退出、登录估算（ui.json 独占，不碰登录文件）。
+    """应用生命周期元数据：关闭时长、异常退出、登录三态快照（ui.json 独占，不碰登录文件）。
 
     覆盖：compute_lifecycle 纯函数三态（clean/abnormal/unknown）与时钟回拨；
-    AppLifecycle 临时目录闭环（心跳/正常关闭/偏好合并不丢键）；登录估算按
-    saved_at + TOKEN_LIFETIME_H 绝对墙钟计算且不改动 session 文件内容与 mtime。
+    AppLifecycle 临时目录闭环（心跳/正常关闭/偏好合并不丢键）；login_state 的
+    hours_left 恒为 None（S3 起不再推算剩余小时数，只保留锚点与生命周期记录，
+    界面改读 bootstrap 里的 last_check_at / last_check_state）。
     """
 
     def _app(self):
@@ -772,20 +778,20 @@ class LifecycleContractTests(unittest.TestCase):
                 anchor_epoch = old_saved.timestamp()
                 app.save_session_timing_anchor("t-old", anchor_epoch)
                 with_anchor = app.login_state(TestWallClock())
-                self.assertGreater(with_anchor["hours_left"], 0)
-                self.assertAlmostEqual(
-                    with_anchor["estimated_expires_at"],
-                    anchor_epoch + app.TOKEN_LIFETIME_H * 3600.0, delta=5.0)
+                # S3 起 hours_left 恒为 None，锚点不再参与剩余时间推算
+                # （界面改读 bootstrap 的 last_check_at / last_check_state）
+                self.assertIsNone(with_anchor["hours_left"],
+                                  "S3 起 hours_left 恒为 None，锚点不再推算剩余时间")
                 # 复用/刷新不续期：锚点 saved_epoch 不变
                 app.login_state(TestWallClock())
                 self.assertEqual(
                     (app.load_prefs() or {}).get("session_timing_v2", {}).get("saved_epoch"),
                     anchor_epoch, "复查不得刷新锚点延长有效期")
-                # 读取登录估算不得改动会话文件
+                # 读取登录三态快照不得改动会话文件（与旧行为一致）
                 before = (session.read_bytes(), session.stat().st_mtime_ns)
                 app.login_state(TestWallClock())
                 self.assertEqual(before, (session.read_bytes(), session.stat().st_mtime_ns),
-                                 "读取登录估算不得改动会话文件")
+                                 "读取登录快照不得改动会话文件")
                 # 重新登录换凭证：旧锚点立即作废（不匹配 → 不报数）
                 new_saved = datetime.now() - timedelta(minutes=1)
                 session.write_text(json.dumps(
@@ -804,22 +810,26 @@ class LifecycleContractTests(unittest.TestCase):
                              life_src[life_src.index("def snapshot"):life_src.index("def finalize")],
                              "lifecycle 快照不得再内嵌登录估算（避免冻结旧值第二来源）")
 
-    def test_saved_at_estimate_survives_overnight_gap(self):
-        """saved_at 跨关闭间隔继续计算：估算只看绝对墙钟，不看本进程跑了多久。"""
+    def test_lifecycle_close_duration_survives_overnight_gap(self):
+        """生命周期关闭时长跨关机间隔继续计算：只看 ui.json 里的时间戳，不碰登录文件。
+
+        S3 起不再按 saved_at 加写死寿命推算剩余小时数；这个方法
+        只剩 compute_lifecycle 的关闭时长验证，登录推算断言已移除。
+        """
         app = self._app()
-        # 12 小时前保存的会话 + 中间关机 10 小时：剩余仍按 saved_at 起算 ≈ 5.5 小时
-        saved = datetime.now() - timedelta(hours=12)
+        # 中间关机 10 小时：关闭时长必须覆盖整段关机间隔
         life = app.compute_lifecycle({"last_closed_at": self._stamp(datetime.now() - timedelta(hours=10))},
                                      datetime.now())
         self.assertEqual(life["close_quality"], "clean")
         self.assertAlmostEqual(life["closed_for_s"], 36000.0, delta=5.0,
                                msg="关闭时长覆盖整段关机间隔（这里 10 小时）")
-        est = saved.timestamp() + app.TOKEN_LIFETIME_H * 3600.0
-        self.assertAlmostEqual((est - datetime.now().timestamp()) / 3600.0, 5.5, delta=0.01,
-                               msg="登录剩余与进程是否运行无关，按 saved_at 绝对墙钟计算")
 
-    def test_login_estimate_absolute_clock(self):
-        """决策 012：登录估算 = v2 锚点 + 业务时钟（绝对业务时刻，跨关闭继续计算）。"""
+    def test_login_state_hours_left_is_always_none(self):
+        """S3 起 login_state 的 hours_left 恒为 None，不再按锚点或 saved_at 推算剩余时间。
+
+        有效性永远以学校真实校验为准，本机只提供三态快照：session_present / session_expired /
+        saved_at + hours_left=None。界面改读 bootstrap 里的 last_check_at / last_check_state。
+        """
         import tempfile
         app = self._app()
         with tempfile.TemporaryDirectory() as name:
@@ -830,17 +840,20 @@ class LifecycleContractTests(unittest.TestCase):
                 {"token": "t", "saved_at": self._stamp(saved)}), encoding="utf-8")
             with mock.patch.object(app, "SESSION_FILE", session), \
                  mock.patch.object(app, "PREFS", prefs):
-                # 无锚点：不报数（旧 saved_at 是本机墙钟文本）
+                # 无锚点：hours_left 为 None（旧行为本来就是 None）
                 state = app.login_state(TestWallClock())
-                self.assertIsNone(state["hours_left"])
+                self.assertIsNone(state["hours_left"],
+                                  "无锚点时 hours_left 应为 None（旧行为不变）")
                 self.assertEqual(state["saved_at"], self._stamp(saved))
-                # 建立 v2 锚点：按业务时钟算剩余
+                # 建立 v2 锚点：S3 起 hours_left 仍是 None（锚点不再参与剩余时间推算）
                 app.save_session_timing_anchor("t", saved.timestamp())
                 state = app.login_state(TestWallClock())
-                expect = saved.timestamp() + app.TOKEN_LIFETIME_H * 3600.0
-                self.assertAlmostEqual(state["estimated_expires_at"], expect, delta=1.0)
-                self.assertAlmostEqual(state["hours_left"], 7.5, delta=0.01)
-                # 估算到期（25 小时前登录）也不清理会话：有效性只由学校校验决定
+                self.assertIsNone(state["hours_left"],
+                                  "S3 起有锚点时 hours_left 也应为 None")
+                self.assertIsNone(state.get("estimated_expires_at"),
+                                  "S3 起 estimated_expires_at 不再推算")
+                # 过期场景（25 小时前登录）：会话文件不被改写、session_present 仍为 True
+                # （有效性只由学校校验决定，本机不推算到期时间）
                 stale = datetime.now() - timedelta(hours=25)
                 session.write_text(json.dumps(
                     {"token": "t", "saved_at": self._stamp(stale)}), encoding="utf-8")
@@ -850,10 +863,10 @@ class LifecycleContractTests(unittest.TestCase):
                     expired = app.login_state(TestWallClock())
                 self.assertEqual(session.read_text(encoding="utf-8"), body,
                                  "login_state 不得改写 session 文件")
-                self.assertTrue(expired["session_present"])
-                self.assertEqual(expired["hours_left"], 0.0)
-                self.assertLessEqual(expired["estimated_expires_at"],
-                                     datetime.now().timestamp() + 0.001)
+                self.assertTrue(expired["session_present"],
+                                "有 token 时 session_present 仍为 True，本机不推算到期")
+                self.assertIsNone(expired["hours_left"],
+                                  "过期场景 hours_left 也应为 None（S3 起不推算）")
 
 
 class LoginAnchorProductionPathTests(unittest.TestCase):

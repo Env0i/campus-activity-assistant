@@ -99,7 +99,8 @@ def resolve_worker_path(frozen: bool, here: Path, resource_root: Path) -> Path:
 
 GRAB = resolve_worker_path(getattr(sys, "frozen", False), HERE, RESOURCE_ROOT)
 PREFS = UI_STATE_FILE
-TOKEN_LIFETIME_H = 17.5
+# 登录剩余时间不再按写死的寿命常数推算：真实界面只显示「剩余时间未知」，
+# 也没观测到 token 自然过期（2026-11-03 架构修订 S3）。界面改为读上次校验时刻。
 # GitHub 最新版本页：用户点「GitHub 最新版本」时由系统默认浏览器打开，
 # 启动时不自动联网检查，也不在 WebView 里跳转
 RELEASES_LATEST_URL = "https://github.com/Env0i/campus-activity-assistant/releases/latest"
@@ -407,35 +408,6 @@ def _credential_id(token: str) -> str:
     return _login_rules.credential_id(token)
 
 
-def token_hours_left(clock=None) -> "float | None":
-    """登录剩余时间估算（只显示，不参与判断）。
-
-    只有 ui.json 里存在与当前凭证匹配的 session_timing_v2 锚点（新登录且有可信
-    北京时间时建立）且本次读得到可信业务时刻才报数；旧 saved_at 是本机墙钟文本，
-    无法反推真实 UTC，绝不拿系统当前时间减它冒充准确小时数。
-    返回 None = 「暂无法估算」，登录有效性永远由学校真实校验决定。
-    """
-    try:
-        data = json.loads(SESSION_FILE.read_text(encoding="utf-8"))
-        token = str(data.get("token") or "").strip()
-    except Exception:
-        return None
-    if not token:
-        return None
-    timing = {}
-    try:
-        timing = (load_prefs() or {}).get("session_timing_v2") or {}
-    except Exception:
-        timing = {}
-    now = None
-    if clock is not None:
-        try:
-            now = clock.now()
-        except Exception:
-            now = None
-    return _login_rules.hours_left_from_anchor(timing, token, now, TOKEN_LIFETIME_H)
-
-
 def save_session_timing_anchor(token: str, epoch: float, uncertainty_s: float = 0.0) -> None:
     """新登录成功且有可信北京时间时建立 v2 锚点；换凭证必须换新锚点。"""
     if not token:
@@ -536,8 +508,8 @@ def login_state(clock=None) -> dict:
 
     「没有登录」= session.json 不存在、无法解析或缺少 token；只有 token 还在但
     已过期才叫登录态失效。缺 token 时 hours_left 必须是 None——按 saved_at 报
-    一个假的小时数会把空壳会话显示成有效。saved_at / estimated_expires_at 只是
-    估算提醒，登录有效性永远以学校真实校验为准，二者绝不参与放行或拦截。
+    一个假的小时数会把空壳会话显示成有效。登录有效性永远以学校真实校验为准，
+    这些字段绝不参与放行或拦截（S3 起不再输出剩余小时数）。
     分类规则在 domain.login_rules（纯函数）；这里只负责读 session.json 并
     保持旧名兼容（测试按 app.SESSION_FILE 注入）。
     """
@@ -549,15 +521,29 @@ def login_state(clock=None) -> dict:
         return _login_rules.build_session_state("", "", None, None)
     if not token:
         return _login_rules.build_session_state("", "", None, None)
-    # 剩余时间只信 v2 锚点：旧 saved_at 是本机墙钟文本，宁可显示「暂无法估算」
-    hours_left = token_hours_left(clock)
-    now = None
-    if hours_left is not None and clock is not None:
+    # 不再按写死寿命倒推剩余时间（S3）：hours_left 恒为 None，
+    # 界面改读 bootstrap 里的 last_check_at / last_check_state。
+    # 旧字段先保留为 null，待 UI 计划移除。
+    return _login_rules.build_session_state(token, saved_text, None, None)
+
+
+def _last_check_fields(last: dict) -> dict:
+    """上次登录校验的时刻与结论（北京时间文本 + valid/expired/unknown）。
+
+    S3：界面显示「上次校验」而不是按写死的寿命倒推剩余小时数。
+    只有学校明确给出「有效」或「过期」才原样上报；none / checking / demo /
+    认不出的结论一律归 unknown，避免把未确认当成失效或有效。
+    """
+    result = str((last or {}).get("result") or "unknown")
+    state = result if result in ("valid", "expired") else "unknown"
+    checked_at = (last or {}).get("checked_at")
+    text = None
+    if isinstance(checked_at, (int, float)) and checked_at > 0:
         try:
-            now = clock.now()
+            text = school_time_text(float(checked_at))
         except Exception:
-            now = None
-    return _login_rules.build_session_state(token, saved_text, hours_left, now)
+            text = None
+    return {"last_check_at": text, "last_check_state": state}
 
 
 # 时间文本换算已下沉 domain.time_text；旧名字保留为兼容包装（学校时间换算
@@ -878,11 +864,16 @@ class Api:
             # 演示模式不读 session/storage_state，也不碰真实生命周期文件（C07）
             login_info = {"hours_left": None, "session_present": None,
                           "estimated_expires_at": None, "saved_at": None,
+                          "last_check_at": None, "last_check_state": "unknown",
                           "demo": True}
             lifecycle_info = {"close_quality": "unknown", "closed_for_s": None,
                               "last_heartbeat_at": None, "demo": True}
         else:
             login_info = login_state(self._clock)
+            # 上次校验时刻/结论：界面据此显示「上次校验」，不再倒推剩余时间（S3）
+            with self._lock:
+                last_check = dict(self._last_check)
+            login_info.update(_last_check_fields(last_check))
             lifecycle_info = get_lifecycle().snapshot()
         payload = {
             "version": APP_VERSION,
@@ -3064,7 +3055,6 @@ class Api:
 # 实现见 domain.time_text / domain.retry_rules / domain.login_rules /
 # domain.worker_lines / infrastructure.process_tree；旧名字保留供测试与
 # 内部调用按原名注入、patch。
-_seconds_until = _time_text.seconds_until
 _task_deadline = _time_text.task_deadline
 _kill_tree = _process_tree.kill_tree
 _SpawnFailure = _process_tree.SpawnFailure
