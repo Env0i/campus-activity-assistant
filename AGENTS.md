@@ -13,7 +13,7 @@
 | `local/` | 本机图形界面（pywebview），多活动报名计划 | Windows，用户自己电脑 |
 | `server/` | 定时推送、群 @ 查询、私聊预报名、无人值守重登 | Linux + systemd + cron |
 | `docs/` | 架构、运维、登录、自动报名、飞书、配置 | — |
-| `design/` | 决策记录（14 篇）、规格、视觉稿 | — |
+| `design/` | 决策记录（篇数见 `design/decisions/README.md`）、规格、视觉稿 | — |
 | `tools/` | 发版与 QA 脚本 | — |
 
 ## 硬边界
@@ -79,6 +79,6 @@ python -m compileall local server && node --check local/ui/app.js
 
 ## 参考
 
-- 设计口径：`design/decisions/`（14 篇），改动前先读对应那篇
+- 设计口径：`design/decisions/`（篇数与索引见 `design/decisions/README.md`），改动前先读对应那篇
 - 数据流与模块职责：`docs/ARCHITECTURE.md`
 - 版本号真源：`VERSION`
