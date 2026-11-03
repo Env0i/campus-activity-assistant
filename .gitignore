@@ -46,3 +46,6 @@ Thumbs.db
 # 原始视觉证据含验证码或本机临时路径，保留本地，不加入版本库。
 /design/evidence/2026-10-31/3-relogin.png
 /design/evidence/2026-10-31/components-dialog.png
+
+# Trae 导出的原型分享包（本机生成，不入库）
+.trae-html-share-packages/
