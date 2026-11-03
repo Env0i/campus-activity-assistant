@@ -9,8 +9,10 @@ import threading
 
 
 class AutoReloginMonitor:
-    def __init__(self, *, now, check, start, eligible, state, period=60):
+    def __init__(self, *, now, check, start, eligible, state, period=60, paused=None):
         self._now = now
+        # 保存的密码被学校拒绝过就暂停：不再拿同一份密码去撞，等用户写入新密码
+        self._paused = paused
         self._check = check
         self._start_relogin = start
         self._eligible = eligible
@@ -127,6 +129,11 @@ class AutoReloginMonitor:
                         self._failed(now)
                     else:
                         self._phase = str(state.get("state") or "starting")
+                return
+            if self._paused is not None and self._paused():
+                with self._lock:
+                    if generation == self._generation:
+                        self._phase = "paused"
                 return
             if not self._eligible():
                 return

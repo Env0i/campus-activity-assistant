@@ -105,6 +105,19 @@ class ReadAndClearTests(FakeDpapiBase):
         self.assertFalse(credential_store.has_credentials(self.path))
         self.assertFalse(credential_store.clear(self.path))
 
+    def test_bad_marker_is_cleared_by_new_password_and_clear(self):
+        credential_store.save(self.path, "stu-2099", "S3cret-Pass!")
+        self.assertFalse(credential_store.is_bad(self.path))
+        credential_store.mark_bad(self.path)
+        self.assertTrue(credential_store.is_bad(self.path), "学校说密码不对后标记暂停")
+        marker = self.path.with_name(self.path.name + ".bad")
+        self.assertNotIn("S3cret", marker.read_text(encoding="utf-8"), "标记里不含任何秘密")
+        credential_store.save(self.path, "stu-2099", "New-Pass!")
+        self.assertFalse(credential_store.is_bad(self.path), "写入新密码自动解除")
+        credential_store.mark_bad(self.path)
+        credential_store.clear(self.path)
+        self.assertFalse(credential_store.is_bad(self.path), "清除账号连标记一起清")
+
     def test_corrupt_file_reports_not_saved(self):
         self.path.write_text("{broken json", encoding="utf-8")
         self.assertFalse(credential_store.has_credentials(self.path))

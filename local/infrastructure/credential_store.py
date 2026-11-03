@@ -113,8 +113,36 @@ def load_document(path: Path) -> dict:
     return value
 
 
+def _bad_marker(path: Path) -> Path:
+    return path.with_name(path.name + ".bad")
+
+
+def mark_bad(path: Path) -> None:
+    """学校明确说保存的密码不对：在旁边留一个不含任何秘密的标记，自动登录据此暂停。"""
+    marker = _bad_marker(path)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text("1", encoding="utf-8")
+
+
+def clear_bad(path: Path) -> None:
+    try:
+        _bad_marker(path).unlink()
+    except FileNotFoundError:
+        pass
+
+
+def is_bad(path: Path) -> bool:
+    """保存的密码是否已被学校明确拒绝过（写入新密码或清除账号后自动解除）。"""
+    try:
+        return _bad_marker(path).is_file()
+    except OSError:
+        return False
+
+
 def save(path: Path, username: str, password: str) -> None:
     save_document(path, {"username": str(username), "password": str(password)})
+    # 写入新密码就解除「密码不对」的暂停
+    clear_bad(path)
 
 
 def load(path: Path) -> dict:
@@ -143,6 +171,7 @@ def has_credentials(path: Path) -> bool:
 
 
 def clear(path: Path) -> bool:
+    clear_bad(path)
     try:
         path.unlink()
         return True

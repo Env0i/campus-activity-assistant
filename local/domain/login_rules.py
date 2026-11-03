@@ -13,6 +13,41 @@ import hashlib
 from domain.time_text import parse_local_time
 
 
+# 计划运行中「来不及重新登录」的窗口：有场次在提交、或离开放不到这么多秒。
+# 界面「修改计划」的禁用条件用的是同一个数（local/ui 里有同名常量和契约测试盯着）。
+LATE_WINDOW_S = 100
+
+
+def relogin_too_late(tasks, now, open_epoch) -> bool:
+    """计划里还有没有时间让用户重新登录（架构方案 4.3）。
+
+    有场次在提交，或者还没提交的场次离开放不到 LATE_WINDOW_S 秒（含已经过了开放
+    时刻还在排队的立即报名场次），就是来不及：这时只有电脑能自动登录。
+    open_epoch(task) 返回该场开放时刻的 epoch 秒，读不出来返回 None（这一场不参与判断）。
+    """
+    for task in tasks or []:
+        task = task if isinstance(task, dict) else {}
+        status = str(task.get("status") or "")
+        if status == "submitting":
+            return True
+        if status not in ("queued", "waiting"):
+            continue
+        opens = open_epoch(task)
+        if opens is not None and float(opens) - float(now) <= LATE_WINDOW_S:
+            return True
+    return False
+
+
+def mask_account(name) -> str:
+    """账号打码：前两位加后两位，中间四个星号；太短的只留第一位。"""
+    text = str(name or "").strip()
+    if not text:
+        return ""
+    if len(text) >= 5:
+        return text[:2] + "****" + text[-2:]
+    return text[:1] + "****"
+
+
 def credential_id(token: str) -> str:
     """本机内部凭证摘要：只用于把 v2 锚点和具体凭证绑定，不输出到日志。"""
     return hashlib.sha256(str(token or "").encode("utf-8")).hexdigest()[:16]

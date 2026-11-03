@@ -164,7 +164,8 @@ ACTION_PARAMS = {
     # 窗口藏到后台以后，手机上点「显示电脑窗口」把界面叫回来（无参数、无副作用）
     "show_window": set(),
     # relay 三动作（login-relay 任务接入 Api）：白名单先占位，未实现时明确报错
-    "phone_relogin_begin": set(),
+    # 手机上可以输账号密码（save 表示登录成功后保存到电脑）；不传就用电脑上的
+    "phone_relogin_begin": {"username", "password", "save"},
     "phone_relogin_submit": {"flow_id", "challenge_id", "code"},
     "phone_relogin_cancel": {"flow_id"},
 }
@@ -232,6 +233,19 @@ def normalize_action(action, args):
                     return None, "bad_args"
                 policy["max_attempts"] = int(value["max_attempts"])
             clean[key] = policy
+        elif key == "username":
+            if (not isinstance(value, str) or not 0 < len(value.strip()) <= 64
+                    or any(ord(ch) < 32 for ch in value)):
+                return None, "bad_args"
+            clean[key] = value.strip()
+        elif key == "password":
+            if not isinstance(value, str) or not 0 < len(value) <= 128:
+                return None, "bad_args"
+            clean[key] = value
+        elif key == "save":
+            if not isinstance(value, bool):
+                return None, "bad_args"
+            clean[key] = value
         else:
             clean[key] = value
     return clean, ""

@@ -368,6 +368,16 @@ class DispatchWhitelistTests(PhoneServiceBase):
         self.assertEqual(rid, "req-1")
         self.assertEqual(self.api.last_source, "phone", "手机开始的计划由服务端标成 phone")
 
+    def test_phone_relogin_accepts_typed_account_with_strict_shape(self):
+        ok = self.service.dispatch("phone_relogin_begin",
+                                   {"username": " stu01 ", "password": "p@ss", "save": True})
+        self.assertNotEqual(ok.get("error"), "args_not_allowed")
+        self.assertNotEqual(ok.get("error"), "bad_args")
+        for bad in ({"username": "", "password": "x"}, {"username": "a\nb", "password": "x"},
+                    {"username": "u", "password": "x" * 129}, {"username": "u", "password": "x",
+                                                               "save": "yes"}):
+            self.assertEqual(self.service.dispatch("phone_relogin_begin", bad)["error"], "bad_args")
+
     def test_phone_cannot_forge_plan_source(self):
         bad = self.service.dispatch("start_plan", {"items": [{"id": "a1"}], "source": "desktop"})
         self.assertEqual(bad["error"], "args_not_allowed", "source 不在手机白名单里")

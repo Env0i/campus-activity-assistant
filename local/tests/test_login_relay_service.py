@@ -313,6 +313,23 @@ class FlowTests(RelayServiceBase):
         self.assertEqual(sent["kind"], "submit")
         self.assertEqual(sent["code"], "Ab12")
 
+    def test_desktop_submit_marks_origin_desktop(self):
+        tree, flow_id = self._begin()
+        self.service.observe_line("[login] " + json.dumps({"kind": "challenge", "flow_id": flow_id,
+                                  "challenge_id": "chg-1", "image": CAPTCHA_PNG}))
+        self.assertTrue(self.service.submit(flow_id, "chg-1", "Ab12", origin="desktop")["ok"])
+        self.assertEqual(self.service.state()["origin"], "desktop", "电脑上输的码记成 desktop")
+
+    def test_bad_password_is_a_safe_error_code(self):
+        tree, flow_id = self._begin()
+        self._emit(tree, {"kind": "failed", "flow_id": flow_id, "error": "bad_password"})
+        tree.proc.stdout.end()
+        deadline = time.time() + 2
+        while time.time() < deadline and self.service.state().get("live"):
+            time.sleep(0.01)
+        self.assertEqual(self.service.state()["safe_error"], "bad_password",
+                         "学校说密码不对要原样报出来，界面据此停下")
+
     def test_duplicate_submit_is_blocked_until_worker_replies(self):
         tree, flow_id = self._begin()
         self.service.observe_line("[login] " + json.dumps({"kind": "challenge", "flow_id": flow_id,
@@ -529,3 +546,38 @@ class RelayOriginTests(RelayServiceBase):
 
     def test_no_flow_reports_no_origin(self):
         self.assertEqual(public_state(None)["origin"], "")
+
+
+class DesktopReloginWiringTests(unittest.TestCase):
+    """电脑上的重新登录接线：只读源码核对「不保存就不落盘」和 100 秒窗口。"""
+
+    @staticmethod
+    def _source(name):
+        import ast
+        tree = ast.parse((Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8"))
+        node = next(item for item in ast.walk(tree)
+                    if isinstance(item, ast.FunctionDef) and item.name == name)
+        return ast.unparse(node)
+
+    def test_typed_credentials_only_hit_disk_after_success(self):
+        for name in ("prepare_phone_relogin", "_begin_typed_relogin", "relogin_begin",
+                     "phone_relogin_begin"):
+            self.assertNotIn("_credential_store.save", self._source(name),
+                             "%s 不得直接写账号密码；只有登录成功后的 _commit_pending_save 能写" % name)
+        self.assertIn("if typed and save else None", self._source("prepare_phone_relogin"),
+                      "没勾保存时不留待保存的副本")
+        self.assertIn("_credential_store.save", self._source("_commit_pending_save"))
+        self.assertIn("_commit_pending_save", self._source("_anchor_login_success"),
+                      "只在登录真的成功后提交保存")
+
+    def test_bad_password_pauses_only_saved_credentials(self):
+        source = self._source("_relay_finished")
+        self.assertIn("bad_password", source)
+        self.assertIn("if source == 'saved'", source, "只有用的是保存的密码才暂停自动登录")
+        self.assertIn("mark_bad", source)
+
+    def test_relogin_entries_share_one_late_gate(self):
+        for name in ("relogin_begin", "relogin_auto_once", "phone_relogin_begin"):
+            self.assertIn("_relogin_entry_gate", self._source(name),
+                          "%s 要过同一道「来不及」判断" % name)
+        self.assertIn("relogin_too_late", self._source("_relogin_late_answer"))

@@ -207,5 +207,57 @@ class RelayRaceTests(unittest.TestCase):
         self.assertEqual(service.state()["flow_id"], current)
 
 
+class PausedMonitorTests(unittest.TestCase):
+    """保存的密码被学校拒绝过：自动登录暂停，不再拿同一份密码去试。"""
+
+    def test_paused_monitor_never_starts(self):
+        starts = []
+        paused = {"value": True}
+        monitor = AutoReloginMonitor(
+            now=lambda: 0, check=lambda: None,
+            start=lambda: starts.append(1) or {"ok": True, "flow_id": "f"},
+            eligible=lambda: True, state=lambda: {"state": "idle"},
+            paused=lambda: paused["value"])
+        monitor.observe_check("expired")
+        monitor.request_recover()
+        monitor.tick()
+        self.assertEqual(starts, [], "暂停时报名进程请求自动登录也不发起")
+        self.assertEqual(monitor.snapshot()["state"], "paused")
+        paused["value"] = False
+        monitor.tick()
+        self.assertEqual(starts, [1], "写入新密码解除暂停后恢复")
+
+
+class LateWindowRuleTests(unittest.TestCase):
+    """计划运行中「来不及重新登录」：提交中，或离开放不到 100 秒。"""
+
+    def setUp(self):
+        from domain import login_rules
+        self.rules = login_rules
+        self.opens = {"a": 1000.0, "b": 2000.0}
+
+    def _late(self, tasks, now):
+        return self.rules.relogin_too_late(tasks, now, lambda t: self.opens.get(t.get("id")))
+
+    def test_window_is_100_seconds(self):
+        self.assertEqual(self.rules.LATE_WINDOW_S, 100)
+        waiting = [{"id": "a", "status": "waiting"}]
+        self.assertFalse(self._late(waiting, 899), "离开放 101 秒还来得及")
+        self.assertTrue(self._late(waiting, 900), "离开放正好 100 秒就来不及")
+        self.assertTrue(self._late(waiting, 1005), "过了开放还在排队也来不及")
+
+    def test_submitting_is_always_late(self):
+        self.assertTrue(self._late([{"id": "b", "status": "submitting"}], 0))
+
+    def test_finished_and_unknown_open_do_not_block(self):
+        self.assertFalse(self._late([{"id": "a", "status": "success"},
+                                     {"id": "x", "status": "waiting"}], 999))
+
+    def test_mask_account_keeps_two_and_two(self):
+        self.assertEqual(self.rules.mask_account("stu20990001"), "st****01")
+        self.assertEqual(self.rules.mask_account("ab"), "a****")
+        self.assertEqual(self.rules.mask_account(""), "")
+
+
 if __name__ == "__main__":
     unittest.main()

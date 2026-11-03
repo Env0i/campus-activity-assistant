@@ -39,6 +39,8 @@ _SAFE_ERRORS = {
     "spawn_failed", "bad_page", "bad_response", "token_unverified",
     "expired", "canceled", "eof", "timeout", "internal", "demo",
     "max_tries",
+    # 学校明确说账号或密码不对：登录进程报出这个码时，界面停下并暂停自动登录
+    "bad_password",
 }
 
 # 公开投影的终态：结论已定，旧验证码图/挑战号/剩余秒不再对外暴露
@@ -238,7 +240,7 @@ class LoginRelayService:
             self._pump_thread.start()
         return {"ok": True, "flow_id": flow_id}
 
-    def submit(self, flow_id, challenge_id, code) -> dict:
+    def submit(self, flow_id, challenge_id, code, origin="phone") -> dict:
         with self._lock:
             flow = self._flow
             stdin = self._stdin
@@ -250,7 +252,7 @@ class LoginRelayService:
             return {"ok": False, "error": "no_flow", "text": "重登进程已结束"}
         status = self._send_submit(flow, {"kind": "submit", "flow_id": flow.get("flow_id"),
                     "challenge_id": str(challenge_id or ""),
-                    "code": str(code or "")})
+                    "code": str(code or "")}, origin=str(origin or "phone"))
         if status == "duplicate":
             return {"ok": False, "error": "duplicate_submit", "text": "验证码正在提交，请等待结果"}
         return {"ok": status == "sent"}
@@ -326,7 +328,7 @@ class LoginRelayService:
             except Exception:  # noqa: BLE001 - 管道断了由收口逻辑处理
                 return False
 
-    def _send_submit(self, flow, payload: dict, *, automatic=False) -> str:
+    def _send_submit(self, flow, payload: dict, *, automatic=False, origin="phone") -> str:
         """串行化验证码提交，避免同一张图在父进程并发写入多次。"""
         with self._lock:
             if self._flow is not flow or flow.get("stdin") is None:
@@ -344,7 +346,8 @@ class LoginRelayService:
                 flow["stdin"].write(json.dumps(payload, ensure_ascii=False) + "\n")
                 flow["stdin"].flush()
                 if not automatic:
-                    flow["origin"] = "phone"
+                    # 人工输码：记下是谁输的（手机 phone / 电脑 desktop），成功说明据此写
+                    flow["origin"] = origin
                 return "sent"
             except Exception:  # noqa: BLE001 - 管道断了由收口逻辑处理
                 flow["submit_pending"] = False
