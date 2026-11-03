@@ -3550,5 +3550,135 @@ class ReloginHandoffTests(unittest.TestCase):
         self.assertEqual(res.stop_reason, "login_invalid")
         self.assertNotIn("等自动登录，最多", "\n".join(res.logs))
 
+
+class OpenTimingTests(unittest.TestCase):
+    """决策 015 / 设计 3.1、3.4：开抢前预检一次，预检不计次；过了预期开放仍没开门只写一行日志。"""
+
+    FAR = 100.0   # 距开放 100 秒：进场时够得上「开放前 45 秒」预检
+
+    def setUp(self):
+        FakeTransport.reset()
+
+    @staticmethod
+    def _is_pre(ticket):
+        return "-pre" in ticket["request_id"]
+
+    def _run(self, responder, **kwargs):
+        FakeTransport.responder_fn = staticmethod(responder)
+        options = dict(behavior="success", at_offset=self.FAR, retry_for=200.0,
+                       max_attempts=1, button_visible=False,
+                       direct_signer=_RecordingSigner(), direct_transport=FakeTransport)
+        options.update(kwargs)
+        return run_worker(**options)
+
+    def _pre_tickets(self):
+        return [t for t in FakeTransport.instances[0].tickets if self._is_pre(t)]
+
+    def test_precheck_not_open_passes_and_does_not_use_up_attempts(self):
+        # 预检回「报名未开始」= 密钥和格式都对；它不占最大提交次数（只给 1 次也能正式报上）
+        res = self._run(lambda t: (_d_payload(RETRYABLE_REPLY["code"], RETRYABLE_REPLY["message"])
+                                   if self._is_pre(t) else _d_ok()))
+        self.assertEqual(res.stop_reason, "success")
+        self.assertEqual(res.attempts, 1, "预检不进调度账本，正式提交仍有 1 次可用")
+        self.assertIn("预检通过", "\n".join(res.logs))
+        tickets = FakeTransport.instances[0].tickets
+        self.assertEqual(len(tickets), 2)
+        self.assertTrue(self._is_pre(tickets[0]), "预检先于正式提交")
+        self.assertLess(tickets[0]["dispatch_deadline"], 1000.0 + self.FAR,
+                        "预检发在开放之前")
+        self.assertGreaterEqual(tickets[1]["dispatch_deadline"], 1000.0 + self.FAR,
+                                "正式提交到点才发")
+        # 预检和正式提交用同一套四项请求头
+        self.assertEqual(sorted(tickets[0]["headers"]), sorted(tickets[1]["headers"]))
+        self.assertEqual(sorted(tickets[0]["headers"]),
+                         ["Accept", "Referer", "User-Agent", "token"])
+
+    def test_precheck_version_rekeys_once_then_passes(self):
+        # 预检回版本不兼容：先重取密钥再预检一次，这次回报名未开始 → 通过，仍走直发
+        seen = {"n": 0}
+
+        def responder(ticket):
+            if not self._is_pre(ticket):
+                return _d_ok()
+            seen["n"] += 1
+            if seen["n"] == 1:
+                return _d_payload(0, VERSION_MSG)
+            return _d_payload(RETRYABLE_REPLY["code"], RETRYABLE_REPLY["message"])
+
+        res = self._run(responder)
+        logs = "\n".join(res.logs)
+        self.assertEqual(res.stop_reason, "success")
+        self.assertEqual(len(self._pre_tickets()), 2, "预检最多 2 次请求")
+        key_fetches = [p for p in res.posts if p["path"] == grab.RUNTIME_PROFILE_PATH]
+        self.assertEqual(len(key_fetches), 2, "版本不兼容后重取一次运行时密钥")
+        self.assertIn("预检通过", logs)
+        self.assertNotIn("切换为点击兜底", logs)
+
+    def test_precheck_version_twice_downgrades_to_click_before_open(self):
+        # 重取密钥后预检仍版本不兼容：开放前就退回点击，不用等到开抢再发现
+        res = self._run(lambda t: _d_payload(0, VERSION_MSG), button_visible=True)
+        logs = "\n".join(res.logs)
+        self.assertIn("切换为点击兜底", logs)
+        self.assertEqual(len(FakeTransport.instances[0].tickets), 2,
+                         "只有 2 次预检，正式提交没有再走直发")
+        self.assertEqual(res.stop_reason, "success", "点击兜底照常报名")
+        self.assertEqual(len(res.requests), 1)
+
+    def test_precheck_code_one_means_school_opened_early(self):
+        # 学校提前开放而预检真的报上了：按成功收口，不再空等到开放时刻
+        res = self._run(lambda t: _d_ok())
+        self.assertEqual(res.stop_reason, "success")
+        self.assertEqual(res.attempts, 1, "这一笔是真实提交，记 1 次")
+        self.assertEqual(len(FakeTransport.instances[0].tickets), 1)
+        self.assertLess(res.elapsed_s, self.FAR, "不用再等到开放时刻")
+
+    def test_precheck_full_ends_run_before_open(self):
+        res = self._run(lambda t: _d_payload(500, "报名人数已满"))
+        self.assertEqual(res.stop_reason, "full")
+        self.assertEqual(res.attempts, 0, "预检不计次，也没有正式提交")
+        self.assertEqual(len(FakeTransport.instances[0].tickets), 1)
+        self.assertLess(res.elapsed_s, self.FAR)
+
+    def test_precheck_4001_goes_to_login_check_without_idle_wait(self):
+        res = self._run(lambda t: _d_payload(4001, "身份验证失败！"))
+        self.assertEqual(res.stop_reason, "login_invalid")
+        self.assertEqual(len(FakeTransport.instances[0].tickets), 1)
+        self.assertLess(res.elapsed_s, self.FAR, "预检已出登录结论，不再空等到开放")
+
+    def test_precheck_without_reply_still_fires_on_time(self):
+        res = self._run(lambda t: _d_failed() if self._is_pre(t) else _d_ok())
+        self.assertEqual(res.stop_reason, "success")
+        self.assertIn("预检没有拿到学校回包", "\n".join(res.logs))
+        self.assertEqual(res.attempts, 1)
+
+    def test_no_precheck_for_open_or_too_close_or_click_path(self):
+        for label, kwargs in (("已开放", dict(at_offset=0.0)),
+                              ("距开放不足 30 秒", dict(at_offset=OPEN_AHEAD)),
+                              ("没有运行时密钥", dict(runtime_key=None, button_visible=True))):
+            with self.subTest(label):
+                FakeTransport.reset()
+                res = self._run(lambda t: _d_ok(), **kwargs)
+                self.assertEqual(res.stop_reason, "success")
+                self.assertNotIn("预检", "\n".join(res.logs))
+                for instance in FakeTransport.instances:
+                    self.assertEqual([t for t in instance.tickets if self._is_pre(t)], [])
+
+    def test_not_open_after_grace_logs_once(self):
+        # 过了预期开放 3 秒学校仍回「报名未开始」：整场只提示一次，节奏照旧
+        res = self._run(lambda t: _d_payload(RETRYABLE_REPLY["code"], RETRYABLE_REPLY["message"]),
+                        at_offset=OPEN_AHEAD, retry_for=30.0, max_attempts=40)
+        joined = "\n".join(res.logs)
+        self.assertEqual(joined.count("学校还没开门"), 1)
+        self.assertEqual(res.stop_reason, "max_attempts")
+
+    def test_not_open_within_grace_is_silent_and_counted(self):
+        # 开放后 3 秒内的「报名未开始」照常计次（收窄后的口径），也不提示
+        res = self._run(lambda t: _d_payload(RETRYABLE_REPLY["code"], RETRYABLE_REPLY["message"]),
+                        at_offset=OPEN_AHEAD, retry_for=30.0, max_attempts=4)
+        self.assertEqual(res.stop_reason, "max_attempts")
+        self.assertEqual(res.attempts, 4)
+        self.assertNotIn("学校还没开门", "\n".join(res.logs))
+
+
 if __name__ == "__main__":
     unittest.main()

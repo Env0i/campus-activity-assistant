@@ -1304,6 +1304,10 @@ ADAPTIVE_IN_GOLDEN = False       # golden 内默认不进 adaptive（真实 200 
 MAX_INFLIGHT = 2                 # 物理在途请求上限（直发与 click 共用）
 FINAL_CHECK_S = 3.0              # 收尾核对 getJoinInfo 的单独预算：预算用完、截止之后也查这一次
 LOGIN_RECHECK_S = 1.5            # 单次 4001 后隔多久复查一次登录（决策 015）
+PRECHECK_AHEAD_S = 45.0          # 开抢前预检：原定开放前多久发这一次 signUp（设计 3.1 / S1）
+PRECHECK_MIN_LEAD_S = 30.0       # 进场时距开放不足这么久就不预检：来不及改道，反倒挤占开抢
+PRECHECK_WAIT_S = 9.0            # 预检回包最多等多久（传输层单笔硬上限 8 秒，多留 1 秒收事件）
+OPEN_GRACE_S = 3.0               # 过了预期开放这么久学校仍回「报名未开始」，写一行日志（设计 3.4）
 INFLIGHT_TTL_S = 8.0             # 非 lost pending 超过此时长不再占发射名额
 INFLIGHT_WAIT_S = 0.05           # 名额满时原地泵的步长
 CONFIRM_INFLIGHT_WAIT_S = 1.0    # 确认点击前名额满时最多原地等待的秒数
@@ -1810,6 +1814,12 @@ def _probe_list(tok, budget=None):
                   "kssj": "", "jssj": ""}, tok, budget=budget)
 
 
+def _direct_headers(tok):
+    """直发 signUp 的请求头：只带这四项（决策 015）；正式提交与预检共用，免得两处漂移。"""
+    return {"Accept": "application/json, text/plain, */*",
+            "token": tok, "Referer": REFERER, "User-Agent": UA}
+
+
 def fetch_runtime_key(budget=None):
     """向学校取本场的运行时密钥（决策 015）：返回 (密钥字节或 None, 给日志的原因)。
 
@@ -1945,6 +1955,8 @@ def cmd_grab(args):
              # 回包分类（决策 015）：一出现就结束本场的原因、未识别回包与超时回包的连续计数
              "terminal_reason": "", "unknown_raw": "", "unknown_count": 0,
              "stale_count": 0,
+             # 过了预期开放 OPEN_GRACE_S 秒学校仍说「报名未开始」：整场只写一行日志
+             "not_open_logged": False,
              # 提交中收到 4001：先停发、等在途落定再复查，确认失效才记 login_invalid
              "login_suspect": False}
     done = {"value": False}
@@ -2266,8 +2278,6 @@ def cmd_grab(args):
                     log("[i] 活动已开放，立即报名/抢名额")
                 else:
                     log("[i] 开始等待开放")
-                    if now_entry < at_ts - POLL_LEAD:
-                        wait_until(at_ts - POLL_LEAD, budget)
 
                 reload_gap = 2.0
                 last_reload = 0.0
@@ -2331,6 +2341,22 @@ def cmd_grab(args):
                     direct["downgrade"] = True
                     log("[!] 本场切换为点击兜底（原因：%s）" % reason)
                     _retry_event(kind="path", path="click", path_reason=reason)
+
+                def _rekey_after_version():
+                    """收到「版本不兼容」后重取一次运行时密钥（决策 015）；取不到就退回点击。
+
+                    预检与正式提交共用。重取过一次就记 rekeyed：之后再不兼容由
+                    _apply_conclusion 直接退回点击。
+                    """
+                    direct["need_rekey"] = False
+                    new_key, rekey_reason = fetch_runtime_key(budget)
+                    if new_key is None:
+                        _downgrade("版本不兼容且重取运行时密钥失败（%s）" % rekey_reason)
+                    else:
+                        direct["signer"] = functools.partial(direct["build"], key=new_key)
+                        direct["rekeyed"] = True
+                        log("[i] 版本不兼容：已重取运行时密钥，继续直发")
+                    new_key = None
 
                 path_reason = ""
                 if runtime_key is not None:
@@ -2492,7 +2518,18 @@ def cmd_grab(args):
                                            % (UNKNOWN_REPLY_LIMIT, reply.raw))
                             elif not state["terminal_reason"]:
                                 state["terminal_reason"] = "unknown_reply"
-                    # not_open：学校还没开放，照常按节奏继续
+                    elif kind == "not_open":
+                        # 学校还没开放，照常按节奏继续；过了预期开放 OPEN_GRACE_S 秒仍这样，
+                        # 只提示一次（节奏常量不改：第一笔 200 回包后本来就是全速）
+                        if not state["not_open_logged"]:
+                            try:
+                                late_s = business_now() - at_ts
+                            except ClockUnavailable:
+                                late_s = 0.0
+                            if late_s >= OPEN_GRACE_S:
+                                state["not_open_logged"] = True
+                                log("[i] 学校还没开门：已过预期开放 %d 秒仍回「报名未开始」，"
+                                    "按全速节奏继续（%s）" % (int(late_s), reply.raw))
                     return reply.raw
 
                 def _reason_with_raw(reply_raw):
@@ -2771,9 +2808,7 @@ def cmd_grab(args):
                         "request_id": req_id,
                         "attempt_no": burst.attempts + direct["reserved"] + 1,
                         "url": url,
-                        "headers": {"Accept": "application/json, text/plain, */*",
-                                    "token": captured_token,
-                                    "Referer": REFERER, "User-Agent": UA},
+                        "headers": _direct_headers(captured_token),
                         # dispatch 只管最晚启动；request_deadline 是网络预算截止，
                         # timeout_s 为本笔捕获的预算，线程不得延长它们。
                         "dispatch_deadline": mono_now + min(INFLIGHT_WAIT_S, remaining),
@@ -2983,6 +3018,113 @@ def cmd_grab(args):
                         return terminal(fallback)
                     return terminal("sign_end" if state["binding"] == "sign_end" else "retry_duration")
 
+                def _precheck_send(round_no):
+                    """发一笔预检 signUp：返回学校回包的 dict，没拿到业务回包返回 None。
+
+                    不登记进调度账本（不占 attempts、不占在途名额）。此时本场还没有别的
+                    直发票据，事件队列里只会有这一笔的事件，直接在这里收。
+                    """
+                    if direct["transport"] is None or direct["signer"] is None:
+                        return None
+                    try:
+                        tok = token()
+                    except Exception:  # noqa: BLE001 - 读不到登录态只跳过预检
+                        tok = ""
+                    if not tok:
+                        log("[!] 预检跳过：登录态里没有 token")
+                        return None
+                    epoch_ms = int(business_now() * 1000)
+                    try:
+                        sig = direct["signer"](str(target["id"]), epoch_ms)
+                    except Exception as exc:  # noqa: BLE001 - 签名失败不提交，改走点击
+                        _downgrade("签名失败：%s" % type(exc).__name__)
+                        return None
+                    remaining = budget.remaining_s()
+                    if remaining <= 0:
+                        return None
+                    mono_now = time.monotonic()
+                    req_id = "%s-pre%d" % (direct["run_id"], round_no)
+                    ticket = {
+                        "run_id": direct["run_id"],
+                        "request_id": req_id,
+                        "attempt_no": 0,          # 不占正式提交的序号
+                        "url": API + "/rjyHdCyr/signUp/" + sig,
+                        "headers": _direct_headers(tok),
+                        "dispatch_deadline": mono_now + min(INFLIGHT_WAIT_S, remaining),
+                        "request_deadline": mono_now + remaining,
+                        "timeout_s": min(8.0, remaining),
+                    }
+                    if not direct["transport"].try_submit(ticket):
+                        return None
+                    give_up = time.monotonic() + PRECHECK_WAIT_S
+                    while time.monotonic() < give_up:
+                        try:
+                            ev = direct["queue"].get_nowait()
+                        except queue.Empty:
+                            time.sleep(0.02)
+                            continue
+                        if ev.get("request_id") != req_id:
+                            continue
+                        kind = ev.get("kind")
+                        if kind == "completed":
+                            if ev.get("http_status") != 200:
+                                log("[!] 预检回了 HTTP %s，没有业务回包" % (ev.get("http_status"),))
+                                return None
+                            return _decode_body(ev.get("body_bytes"))
+                        if kind in ("failed", "not_started"):
+                            return None
+                    return None
+
+                def _precheck_before_open():
+                    """开抢前预检（设计 3.1 / S1）：开放前约 45 秒直发一次 signUp，最多 2 次请求。
+
+                    只为提前发现密钥或格式不对：学校回「报名未开始」说明两样都对，这一笔
+                    不会写入。预检不进调度账本，所以开抢前的「报名未开始」天然不计次。
+                    只对未来场次做：已开放、直发没启用或已降级、进场时距开放不足
+                    PRECHECK_MIN_LEAD_S 秒的都跳过。回 code=1 是学校提前开放而真的报上了，
+                    那就是用户本来要的结果，按成功收口。其他回包交给 _apply_conclusion
+                    按分类表处理（终态、登录复查、退回点击等），主循环一进来就会接手。
+                    """
+                    if (not direct["enabled"] or direct["downgrade"] or instant_mode
+                            or at_ts - now_entry < PRECHECK_MIN_LEAD_S):
+                        return
+                    wait_until(at_ts - PRECHECK_AHEAD_S, budget)
+                    for round_no in (1, 2):
+                        payload = _precheck_send(round_no)
+                        if payload is None:
+                            if not direct["downgrade"]:
+                                log("[!] 预检没有拿到学校回包：不影响正式提交，到点照常发")
+                            return
+                        reply = classify_signup_reply(payload.get("code"),
+                                                      str(payload.get("message") or ""))
+                        if reply.kind == "not_open":
+                            log("[i] 预检通过：学校回「报名未开始」，密钥和格式都对（%s）" % reply.raw)
+                            return
+                        log("[i] 预检回包：%s｜%s" % (reply.label, reply.raw))
+                        _apply_conclusion(payload)
+                        if reply.kind == "success":
+                            # 学校提前开放而真的报上：记成一笔真实提交，主循环一进来就收口
+                            bid = burst.register_request()
+                            burst.settle(bid, "real", http_status=200)
+                            _sync_pending()
+                            _retry_event(kind="submit", attempts=state["attempts"],
+                                         request_id=bid, phase=burst.phase)
+                            return
+                        if reply.kind == "version" and direct["need_rekey"] and round_no == 1:
+                            _rekey_after_version()
+                            if direct["downgrade"]:
+                                return
+                            continue        # 重取密钥成功：再预检一次
+                        return
+
+                # 未来场次：开放前约 45 秒预检一次，再等到开放前 POLL_LEAD 秒开始盯。
+                # 预检已出结论（成功、终态、待复查登录等）就不用再空等，主循环一进来就处理
+                if now_entry < at_ts:
+                    _precheck_before_open()
+                    if not (state["resp_ok"] or state["terminal_reason"]
+                            or state["login_suspect"] or direct.get("protocol_stop")):
+                        wait_until(at_ts - POLL_LEAD, budget)
+
                 if page_state["ok"]:
                     listeners.append(("request", on_request))
                     listeners.append(("response", on_response))
@@ -3066,15 +3208,7 @@ def cmd_grab(args):
 
                     # 收到「版本不兼容」后的下一笔前重取一次运行时密钥（决策 015）
                     if direct["enabled"] and not direct["downgrade"] and direct["need_rekey"]:
-                        direct["need_rekey"] = False
-                        new_key, rekey_reason = fetch_runtime_key(budget)
-                        if new_key is None:
-                            _downgrade("版本不兼容且重取运行时密钥失败（%s）" % rekey_reason)
-                        else:
-                            direct["signer"] = functools.partial(direct["build"], key=new_key)
-                            direct["rekeyed"] = True
-                            log("[i] 版本不兼容：已重取运行时密钥，继续直发")
-                        new_key = None
+                        _rekey_after_version()
                     # 直发为主：已启用且未降级时用直发，不再等按钮可见；降级后落到点击兜底
                     if direct["enabled"] and not direct["downgrade"]:
                         res = _try_direct_fire()
