@@ -40,6 +40,14 @@ SITE = grab.BASE
 START = 1792000000.0
 OPEN_AHEAD = 20.0
 OPAQUE = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"   # 学校前端算出的 hash，不含活动 ID
+# 学校真实会让本场继续发的业务回包（实测：开放前 1 秒回 code=500「报名未开始！」）。
+# 决策 015 起「报名人数已满」是终态，不能再拿它当「会继续重试的普通失败」夹具。
+RETRYABLE_REPLY = {"code": 500, "message": "报名未开始！"}
+# 测试专用的假运行时密钥：16 个 ASCII 字母数字，明显不是真值（决策 015）
+TEST_RUNTIME_KEY = "TestRuntimeKey00"
+_AUTO_KEY = object()     # run_worker 默认：传了直发替身才给密钥
+# 学校没写进分类表的文案：同一条连续 3 次才触发降级或结束
+UNKNOWN_REPLY = {"code": 0, "message": "系统繁忙，请稍后再试"}
 
 # 回调哨兵（F05）：回调派发期间禁止业务时钟读取、结算刷新与日志；
 # 违例只记录不抛出，由测试断言为空。
@@ -336,7 +344,11 @@ class FakePage:
 
     def fire_from_confirm(self):
         behavior = self.behavior
-        payload = {"code": 0, "message": "报名人数已满"}
+        payload = dict(RETRYABLE_REPLY)
+        if behavior == "unknown_reply":
+            payload = dict(UNKNOWN_REPLY)
+        if behavior == "no_activity":
+            payload = {"code": 0, "message": "Cache 'hd-info' does not allow 'null' values"}
         if behavior in ("success", "slow_success"):
             payload = {"code": 1, "message": "ok"}
         if behavior == "login_expired":
@@ -390,7 +402,7 @@ class FakePage:
             self._notify(first)
             self._notify(second)
             self._enqueue_response(
-                FakeResponse(second, {"code": 0, "message": "报名人数已满"}), delay=0.02)
+                FakeResponse(second, dict(RETRYABLE_REPLY)), delay=0.02)
             self._enqueue_response(
                 FakeResponse(first, b"<html>boom</html>", status=500), delay=0.05)
             return
@@ -405,7 +417,7 @@ class FakePage:
             self._enqueue_response(FakeResponse(third, b"<html>boom</html>", status=500), delay=0.02)
             self._enqueue_response(FakeResponse(first, b"<html>boom</html>", status=500), delay=0.05)
             self._enqueue_response(
-                FakeResponse(second, {"code": 0, "message": "报名人数已满"}), delay=0.08)
+                FakeResponse(second, dict(RETRYABLE_REPLY)), delay=0.08)
             return
         if behavior == "http_404_429":
             # 404/404/429 混合连击：policy/budget/retry_deadline 必须同时扩窗
@@ -473,7 +485,7 @@ class FakePage:
                 FakeResponse(first, {"code": 0, "message": "未就绪"}, status=404),
                 delay=0.05)               # 先发的后到
             self._enqueue_response(
-                FakeResponse(second, {"code": 0, "message": "报名人数已满"}),
+                FakeResponse(second, dict(RETRYABLE_REPLY)),
                 delay=0.02)               # 后发的先到
             return
         if behavior == "double":
@@ -599,7 +611,8 @@ def run_worker(*, behavior="success", at_offset=0.0, retry_for=120.0, max_attemp
                response_delay=0.0, script_srcs=None,
                direct_signer=None, direct_transport=None,
                api_token="test-token",
-               inject_failed_at=None, break_wait_at=None, join_info_data=None):
+               inject_failed_at=None, break_wait_at=None, join_info_data=None,
+               recheck_state="expired", runtime_key=_AUTO_KEY):
     clock = FakeClock()
     page = FakePage(clock, behavior, button_visible, click_delay, foreign,
                     response_delay, script_srcs,
@@ -616,8 +629,20 @@ def run_worker(*, behavior="success", at_offset=0.0, retry_for=120.0, max_attemp
             CALLBACK_GUARD["violations"].append("log")
         logs.append(str(msg))
 
+    probe_calls = {"n": 0}
+    # 默认：传了直发替身就给假密钥（直发启用），否则不给（全程点击）
+    if runtime_key is _AUTO_KEY:
+        key_for_run = (TEST_RUNTIME_KEY
+                       if (direct_signer is not None or direct_transport is not None) else None)
+    else:
+        key_for_run = runtime_key
+
     def fake_probe(budget=None):
         # 假网络必须像真网络一样尊重预算：否则「整流程受限」根本没被检验
+        probe_calls["n"] += 1
+        if probe_calls["n"] > 1:
+            # 入场之后的探测只可能是提交中收到 4001 的复查（决策 015）
+            return recheck_state, "recheck"
         wait = probe_delay
         if budget is not None:
             wait = min(wait, max(0.0, budget.remaining_s()))
@@ -635,6 +660,9 @@ def run_worker(*, behavior="success", at_offset=0.0, retry_for=120.0, max_attemp
             post_hook(len(posts), clock)
         if effective < delay:
             return {"code": -1, "message": "TimeoutError"}
+        if path == grab.RUNTIME_PROFILE_PATH:
+            # 运行时密钥：顶层 code/message/data/version，密钥就是 data（16 个 ASCII 字符）
+            return {"code": 1, "message": "操作成功！", "data": key_for_run, "version": "test"}
         if "/getJoinInfo/" in path:
             # 首次查询是入场预检（必须未报名）；后续查询才按 join_info_data 作答
             join_calls["n"] += 1
@@ -1550,7 +1578,8 @@ class NonBlockingSubmitTimingTests(unittest.TestCase):
         self.assertEqual(res.page.response_handlers, [])
 
     def test_tail_stops_at_sign_end(self):
-        # 报名截止比尾窗更早时必须优先停止，不能在截止后补查
+        # 报名截止比尾窗更早时提交必须优先停止；决策 015 起截止后只允许补一次
+        # getJoinInfo 核对（原规则「截止后不再补查」已改），且落在 FINAL_CHECK_S 小预算内
         deadline = START + 1.0
         res = run_worker(behavior="slow_success", response_delay=2.0,
                          at_offset=0.0, retry_for=10.0, max_attempts=1,
@@ -1561,7 +1590,11 @@ class NonBlockingSubmitTimingTests(unittest.TestCase):
         self.assertIn("pending=1", res.terminal_lines[-1])
         self.assertEqual(len(res.terminal_lines), 1)
         self.assertLessEqual(res.clock.time(), deadline + 0.001 + 1e-6)
-        self.assertTrue(all(post["at"] < deadline for post in res.posts))
+        late = [post for post in res.posts if post["at"] >= deadline]
+        self.assertLessEqual(len(late), 1, "截止后最多补一次核对")
+        self.assertTrue(all("/getJoinInfo/" in post["path"] for post in late),
+                        "截止后只允许核对报名状态，不能再提交")
+        self.assertTrue(all(post["at"] <= deadline + grab.FINAL_CHECK_S for post in late))
         self.assertEqual(res.page.request_handlers, [])
         self.assertEqual(res.page.response_handlers, [])
 
@@ -2245,12 +2278,14 @@ class _RecordingSigner:
 
     def __init__(self):
         self.calls = []
+        self.keys = []
         self.raise_unavailable = False
 
-    def __call__(self, activity_id, epoch_ms):
+    def __call__(self, activity_id, epoch_ms, key=None):
         if self.raise_unavailable:
             raise RuntimeError("SignerUnavailable: native signer 不可用")
         self.calls.append((activity_id, epoch_ms))
+        self.keys.append(key)
         return "sig-%d" % epoch_ms
 
 
@@ -2269,7 +2304,7 @@ class UnifiedDirectLoopTests(unittest.TestCase):
         return [KNOWN_SRC]
 
     def test_known_profile_uses_direct_without_button(self):
-        # 已知直发包 + signer 可用：直发为主，无需按钮可见也能成功。
+        # 取到运行时密钥 + signer 可用：直发为主，无需按钮可见也能成功。
         signer = _RecordingSigner()
         FakeTransport.responder_fn = staticmethod(_d_ok)
         res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=60.0,
@@ -2279,15 +2314,18 @@ class UnifiedDirectLoopTests(unittest.TestCase):
         self.assertTrue(signer.calls, "直发必须经 signer 现算签名")
         self.assertTrue(FakeTransport.instances, "已知 profile 必须构造直发 transport")
 
-    def test_unknown_profile_falls_back_to_click(self):
-        # 未知入口脚本：不构造 transport、不签名，走原 click 路径。
+    def test_no_runtime_key_falls_back_to_click(self):
+        # 取不到运行时密钥（决策 015）：不构造 transport、不签名，走点击，且写明原因。
+        # 入口脚本叫什么不再影响判断（以前按文件名白名单，学校换包就静默失效）。
         signer = _RecordingSigner()
         res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=60.0,
                          max_attempts=1, button_visible=True, script_srcs=[UNKNOWN_SRC],
-                         direct_signer=signer, direct_transport=FakeTransport)
+                         direct_signer=signer, direct_transport=FakeTransport,
+                         runtime_key=None)
         self.assertEqual(res.stop_reason, "success")
-        self.assertEqual(FakeTransport.instances, [], "未知入口不得构造直发 transport")
-        self.assertEqual(signer.calls, [], "未知入口不得签名")
+        self.assertEqual(FakeTransport.instances, [], "没有密钥不得构造直发 transport")
+        self.assertEqual(signer.calls, [], "没有密钥不得签名")
+        self.assertIn("报名路径：点击（原因：取不到运行时密钥", "\n".join(res.logs))
 
     def test_signer_unavailable_falls_back_to_click(self):
         # signer 不可用：直发前降级为 click，签名失败不提交 ticket。
@@ -2316,9 +2354,11 @@ class UnifiedDirectLoopTests(unittest.TestCase):
         self.assertGreaterEqual(epoch_ms, int(START * 1000))
 
     def test_plain_zero_code_does_not_downgrade(self):
-        # 普通 code=0（非版本不兼容）：不降级，直发继续；最终未决。
+        # 普通 code=0（非版本不兼容、未进分类表）：同一文案不到 3 次不降级，直发继续。
+        # 决策 015 前这里用「报名人数已满」，它现在是终态，改用未识别文案。
         signer = _RecordingSigner()
-        FakeTransport.responder_fn = staticmethod(lambda t: _d_payload(0, "报名人数已满"))
+        FakeTransport.responder_fn = staticmethod(
+            lambda t: _d_payload(UNKNOWN_REPLY["code"], UNKNOWN_REPLY["message"]))
         res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=30.0,
                          max_attempts=2, button_visible=True, script_srcs=self._known(),
                          direct_signer=signer, direct_transport=FakeTransport)
@@ -2340,17 +2380,20 @@ class UnifiedDirectLoopTests(unittest.TestCase):
                          "网络失败保持未决，最终应报 unconfirmed")
 
     def test_version_incompatible_downgrades_once(self):
-        # 精确版本不兼容消息：单向降级为 click，只提交一笔直发 ticket，随后点击成功。
+        # 版本不兼容（决策 015）：先重取一次运行时密钥再直发；重取后仍不兼容才单向降级为
+        # click，共两笔直发 ticket，随后点击成功。
         signer = _RecordingSigner()
         FakeTransport.responder_fn = staticmethod(
             lambda t: _d_payload(0, VERSION_MSG))
         res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=60.0,
-                         max_attempts=2, button_visible=True, script_srcs=self._known(),
+                         max_attempts=3, button_visible=True, script_srcs=self._known(),
                          direct_signer=signer, direct_transport=FakeTransport)
         self.assertEqual(res.stop_reason, "success")
-        self.assertIn("切换为点击兜底", "\n".join(res.logs))
-        self.assertEqual(len(FakeTransport.instances[0].tickets), 1,
-                         "降级后不得再提交直发 ticket")
+        logs = "\n".join(res.logs)
+        self.assertIn("已重取运行时密钥", logs)
+        self.assertIn("切换为点击兜底", logs)
+        self.assertEqual(len(FakeTransport.instances[0].tickets), 2,
+                         "重取密钥后只再试一笔，降级后不得再提交直发 ticket")
 
     def test_direct_404_429_500_settle_into_ledger(self):
         # 直发 404/429/5xx：并入同一账本五档分类，不降级、不假造成功。
@@ -2533,7 +2576,7 @@ class UnifiedDirectLoopTests(unittest.TestCase):
         def responder(ticket):
             calls["n"] += 1
             if calls["n"] == 1:
-                return _d_payload(0, "报名人数已满")
+                return _d_payload(RETRYABLE_REPLY["code"], RETRYABLE_REPLY["message"])
             return "started_only"
 
         def extras(ticket):
@@ -2587,7 +2630,7 @@ class UnifiedDirectLoopTests(unittest.TestCase):
         def responder(ticket):
             calls["n"] += 1
             if calls["n"] == 1:
-                return _d_payload(0, "报名人数已满")
+                return _d_payload(RETRYABLE_REPLY["code"], RETRYABLE_REPLY["message"])
             return "started_only"
 
         def extras(ticket):
@@ -2705,15 +2748,16 @@ class UnifiedDirectLoopTests(unittest.TestCase):
 
     def test_downgrade_shares_attempts_with_click(self):
         # 降级后 direct 与 click 共用同一账本：总次数共享，不重置预算/连击。
+        # 决策 015：版本不兼容先重取一次密钥再试一笔，所以直发是 2 笔
         FakeTransport.responder_fn = staticmethod(lambda t: _d_payload(0, VERSION_MSG))
         signer = _RecordingSigner()
         res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=60.0,
-                         max_attempts=2, button_visible=True, script_srcs=self._known(),
+                         max_attempts=3, button_visible=True, script_srcs=self._known(),
                          direct_signer=signer, direct_transport=FakeTransport)
         self.assertEqual(res.stop_reason, "success")
-        self.assertEqual(res.attempts, 2,
-                         "direct 与 click 共享总次数（1+1）")
-        self.assertEqual(len(FakeTransport.instances[0].tickets), 1,
+        self.assertEqual(res.attempts, 3,
+                         "direct 与 click 共享总次数（2+1）")
+        self.assertEqual(len(FakeTransport.instances[0].tickets), 2,
                          "降级后不得再发直发票据")
         self.assertIn("streak_404=0", res.terminal_lines[-1], "不得重置连击")
 
@@ -2801,8 +2845,9 @@ class UnifiedDirectLoopTests(unittest.TestCase):
 
         FakeTransport.responder_fn = staticmethod(responder)
         signer = _RecordingSigner()
+        # 决策 015：版本不兼容先重取密钥多发一笔直发，次数上限相应 +1
         res = run_worker(behavior="open_race", at_offset=OPEN_AHEAD, retry_for=60.0,
-                         max_attempts=4, button_visible=True, response_delay=1.5,
+                         max_attempts=5, button_visible=True, response_delay=1.5,
                          script_srcs=self._known(), direct_signer=signer,
                          direct_transport=FakeTransport)
         btn_clicks = [c for c in res.page.clicks if c[1] == "uni-button"]
@@ -2822,8 +2867,9 @@ class UnifiedDirectLoopTests(unittest.TestCase):
 
         FakeTransport.responder_fn = staticmethod(responder)
         signer = _RecordingSigner()
+        # 决策 015：版本不兼容先重取密钥多发一笔直发，次数上限相应 +1
         res = run_worker(behavior="success_on_open", at_offset=OPEN_AHEAD,
-                         retry_for=60.0, max_attempts=3, button_visible=True,
+                         retry_for=60.0, max_attempts=4, button_visible=True,
                          response_delay=0.5, script_srcs=self._known(),
                          direct_signer=signer, direct_transport=FakeTransport)
         self.assertEqual(res.stop_reason, "success")
@@ -3226,6 +3272,202 @@ class EarlyFailureTests(unittest.TestCase):
         self._assert_clean(res, "clock_unavailable")
         self.assertEqual(len(res.posts), 1, "只有预检一次查询")
 
+
+
+class SignupReplyClassificationTests(unittest.TestCase):
+    """决策 015：回包分类接进 worker（直发与点击同一套判据）。"""
+
+    def setUp(self):
+        FakeTransport.reset()
+
+    def _known(self):
+        return [KNOWN_SRC]
+
+    def _direct(self, reply, **kwargs):
+        FakeTransport.responder_fn = staticmethod(
+            lambda t: _d_payload(reply["code"], reply["message"]))
+        options = dict(behavior="success", at_offset=OPEN_AHEAD, retry_for=30.0,
+                       max_attempts=0, button_visible=False, script_srcs=self._known(),
+                       direct_signer=_RecordingSigner(), direct_transport=FakeTransport)
+        options.update(kwargs)
+        return run_worker(**options)
+
+    def test_full_reply_ends_run_without_retrying(self):
+        res = self._direct({"code": 500, "message": "报名人数已满"})
+        self.assertEqual(res.stop_reason, "full", "名额已满是终态，不再重试")
+        self.assertLessEqual(res.attempts, grab.MAX_INFLIGHT,
+                             "最多只有已经在途的那几笔，不再新发")
+        self.assertIn("code:500 报名人数已满", "\n".join(res.logs),
+                      "日志要写学校完整原文")
+
+    def test_closed_is_terminal(self):
+        res = self._direct({"code": 500, "message": "报名已结束！"})
+        self.assertEqual(res.stop_reason, "closed")
+
+    def test_missing_activity_on_direct_downgrades_to_click(self):
+        # hd-info 空值成因未证实：直发时先退回点击核实，页面点击能报上就算报上
+        res = self._direct({"code": 0, "message": "Cache 'hd-info' does not allow 'null' values"},
+                           button_visible=True, max_attempts=3)
+        self.assertIn("改走点击核实", "\n".join(res.logs))
+        self.assertEqual(res.stop_reason, "success")
+        self.assertEqual(len(FakeTransport.instances[0].tickets), 1, "退回点击后不再直发")
+
+    def test_missing_activity_on_click_is_terminal(self):
+        # 点击路径上学校也说查不到活动：按活动不存在结束，不再重试
+        res = run_worker(behavior="no_activity", at_offset=OPEN_AHEAD, retry_for=30.0,
+                         max_attempts=0, button_visible=True)
+        self.assertEqual(res.stop_reason, "no_activity")
+        self.assertEqual(res.attempts, 1)
+
+    def test_conflict_with_joined_check_counts_as_success(self):
+        # 冲突回包可能是自己刚报上：收尾核对学校说已报名，就记成功
+        res = self._direct({"code": 500, "message": "活动时间与已参与活动时间冲突：<活动名>"},
+                           join_info_data={"sfbm": 1})
+        self.assertEqual(res.stop_reason, "success")
+
+    def test_conflict_without_join_is_conflict(self):
+        res = self._direct({"code": 500, "message": "活动时间与已参与活动时间冲突：<活动名>"})
+        self.assertEqual(res.stop_reason, "conflict")
+
+    def test_not_open_keeps_going_until_limit(self):
+        res = self._direct(RETRYABLE_REPLY, max_attempts=4)
+        self.assertEqual(res.stop_reason, "max_attempts")
+        self.assertEqual(res.attempts, 4)
+
+    def test_stale_timestamp_twice_is_clock_skew(self):
+        res = self._direct({"code": 0, "message": "您的请求已超时，请刷新页面后重新提交"})
+        self.assertEqual(res.stop_reason, "clock_skew")
+
+    def test_unknown_reply_downgrades_then_ends(self):
+        # 直发同一未识别文案 3 次 → 退回点击；点击上同一文案再 3 次 → 结束
+        res = self._direct(UNKNOWN_REPLY, behavior="unknown_reply", button_visible=True)
+        joined = "\n".join(res.logs)
+        self.assertIn("切换为点击兜底", joined)
+        self.assertEqual(res.stop_reason, "unknown_reply")
+
+    def test_4001_rechecked_valid_keeps_sending(self):
+        # 提交中收到 4001：停发复查；复查说登录还有效就继续发，不判失效
+        seen = {"n": 0}
+
+        def responder(ticket):
+            seen["n"] += 1
+            if seen["n"] == 1:
+                return _d_payload(4001, "身份验证失败！")
+            return _d_payload(RETRYABLE_REPLY["code"], RETRYABLE_REPLY["message"])
+
+        FakeTransport.responder_fn = staticmethod(responder)
+        res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=30.0,
+                         max_attempts=3, button_visible=False, script_srcs=self._known(),
+                         direct_signer=_RecordingSigner(), direct_transport=FakeTransport,
+                         recheck_state="valid")
+        joined = "\n".join(res.logs)
+        self.assertIn("停发并复查登录", joined)
+        self.assertIn("继续发送", joined)
+        self.assertEqual(res.stop_reason, "max_attempts")
+        self.assertEqual(res.attempts, 3)
+
+    def test_4001_rechecked_expired_is_login_invalid(self):
+        res = self._direct({"code": 4001, "message": "身份验证失败！"})
+        self.assertEqual(res.stop_reason, "login_invalid")
+
+    def test_login_words_in_business_text_are_not_login_invalid(self):
+        res = self._direct({"code": 500, "message": "请登录后完成身份验证"}, max_attempts=2)
+        self.assertNotEqual(res.stop_reason, "login_invalid",
+                            "只认 code=4001，业务文案里的字眼不算登录失效")
+
+
+class FinalJoinCheckTests(unittest.TestCase):
+    """决策 015：每场结束只要发过提交，就用 getJoinInfo 核对一次，预算用完也查。"""
+
+    def test_expired_budget_still_checks_once_and_counts_join(self):
+        res = run_worker(behavior="fail", at_offset=0.0, retry_for=2.0, max_attempts=0,
+                         join_info_data={"sfbm": 1})
+        self.assertGreater(res.attempts, 0)
+        self.assertEqual(res.stop_reason, "success",
+                         "预算到点后核对学校说已报名，就是报上了")
+        joins = [post for post in res.posts if "/getJoinInfo/" in post["path"]]
+        self.assertEqual(len(joins), 2, "入场预检一次 + 收尾核对一次，不循环")
+
+    def test_unknown_join_result_is_not_success_and_no_resubmit(self):
+        calls = {"n": 0}
+
+        def fake_is_joined(*args, **kwargs):
+            calls["n"] += 1
+            return False if calls["n"] == 1 else None   # 入场预检未报名；收尾查不出
+
+        with patch.object(grab, "is_joined", fake_is_joined):
+            res = run_worker(behavior="fail", at_offset=0.0, retry_for=2.0, max_attempts=3)
+        self.assertEqual(calls["n"], 2, "收尾只核对一次")
+        self.assertNotEqual(res.stop_reason, "success")
+        self.assertEqual(res.attempts, 3, "核对失败不重发")
+
+
+class DirectRuntimeKeyTests(unittest.TestCase):
+    """决策 015：直发密钥来自 runtime/profile，直发不依赖页面。"""
+
+    def setUp(self):
+        FakeTransport.reset()
+
+    def test_signer_gets_runtime_key_bytes(self):
+        signer = _RecordingSigner()
+        FakeTransport.responder_fn = staticmethod(_d_ok)
+        res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=60.0,
+                         max_attempts=1, button_visible=False,
+                         direct_signer=signer, direct_transport=FakeTransport)
+        self.assertEqual(res.stop_reason, "success")
+        self.assertEqual(signer.keys, [TEST_RUNTIME_KEY.encode("utf-8")],
+                         "签名用的是 runtime/profile 取到的 16 字节密钥")
+        logs = "\n".join(res.logs)
+        self.assertIn("报名路径：直发（运行时密钥）", logs)
+        self.assertNotIn(TEST_RUNTIME_KEY, logs, "密钥不得进日志")
+
+    def test_script_name_no_longer_matters(self):
+        # 入口脚本叫什么都行：只要取到运行时密钥就直发
+        signer = _RecordingSigner()
+        FakeTransport.responder_fn = staticmethod(_d_ok)
+        res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=60.0,
+                         max_attempts=1, button_visible=False, script_srcs=[UNKNOWN_SRC],
+                         direct_signer=signer, direct_transport=FakeTransport)
+        self.assertEqual(res.stop_reason, "success")
+        self.assertTrue(signer.calls)
+
+    def test_bad_runtime_key_shape_falls_back_to_click(self):
+        for bad in ("short", "x" * 17, "含中文的十六个字符串啊啊啊啊啊啊", 12345):
+            with self.subTest(bad=bad):
+                FakeTransport.reset()
+                signer = _RecordingSigner()
+                res = run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=60.0,
+                                 max_attempts=1, button_visible=True,
+                                 direct_signer=signer, direct_transport=FakeTransport,
+                                 runtime_key=bad)
+                self.assertEqual(signer.calls, [])
+                self.assertIn("报名路径：点击", "\n".join(res.logs))
+
+    def test_page_timeout_still_sends_direct(self):
+        # 开放那一刻详情页打不开：有密钥就照常直发，成功不受影响
+        signer = _RecordingSigner()
+        FakeTransport.responder_fn = staticmethod(_d_ok)
+        res = run_worker(behavior="goto_fail", at_offset=OPEN_AHEAD, retry_for=60.0,
+                         max_attempts=1, button_visible=False,
+                         direct_signer=signer, direct_transport=FakeTransport)
+        self.assertEqual(res.stop_reason, "success")
+        self.assertIn("详情页打不开", "\n".join(res.logs))
+
+    def test_page_timeout_without_key_is_still_an_error(self):
+        # 没有密钥又打不开页面：和以前一样按流程异常收口
+        res = run_worker(behavior="goto_fail", at_offset=OPEN_AHEAD, retry_for=60.0,
+                         max_attempts=1, button_visible=True)
+        self.assertNotEqual(res.stop_reason, "success")
+        self.assertNotIn("详情页打不开", "\n".join(res.logs))
+
+    def test_downgrade_with_page_down_is_page_unavailable(self):
+        # 页面打不开、直发又要退回点击（重取密钥后仍版本不兼容）：本场结束 page_unavailable
+        signer = _RecordingSigner()
+        FakeTransport.responder_fn = staticmethod(lambda t: _d_payload(0, VERSION_MSG))
+        res = run_worker(behavior="goto_fail", at_offset=OPEN_AHEAD, retry_for=60.0,
+                         max_attempts=5, button_visible=True,
+                         direct_signer=signer, direct_transport=FakeTransport)
+        self.assertEqual(res.stop_reason, "page_unavailable")
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,13 +2,16 @@
 
 仅负责签名计算，不读时钟、不访问网络、不回退自造算法。毫秒时间戳由主循环按
 business_clock 现算后传入（build_signup_hash），保证签名时刻与真实时间一致。
+密钥由调用方传入：worker 每场向学校取运行时密钥（parse_runtime_key 解析），
+本模块不保存、不打印密钥。
 """
 from __future__ import annotations
 
 import sys
 
-# 学校脚本内嵌的 AES-128 key（16 字节），仅用于签名，不写入日志。
-_SIGN_KEY = b"PrWHFY6wDrmtr5TM"
+# 签名密钥不再写在源码里（决策 015）：每场报名前由 worker 向学校
+# runtime/profile 取运行时密钥，只在进程内存里传给 build_signup_hash。
+RUNTIME_KEY_LEN = 16
 
 # CNG 常量
 _BCRYPT_AES = "AES"
@@ -132,16 +135,36 @@ def _encrypt_block_cng(plaintext_padded: bytes, key: bytes) -> bytes:
             bcrypt.BCryptCloseAlgorithmProvider(alg_handle, 0)
 
 
-def build_signup_hash(activity_id: str, epoch_ms: int) -> str:
+def parse_runtime_key(payload) -> "bytes | None":
+    """从 runtime/profile 的返回里取运行时密钥；形状不对一律返回 None。
+
+    实测形状（用户 2026-11-03 核对）：顶层 {code, message, data, version}，密钥就是 data，
+    16 个 ASCII 字母数字字符；UTF-8 字节直接当 AES-128 密钥，不做 hex/base64 二次解码。
+    不看 code（成功码未单独核对），只认 data 的形状；不抛异常、不打印值。
+    """
+    if not isinstance(payload, dict):
+        return None
+    data = payload.get("data")
+    if not isinstance(data, str) or len(data) != RUNTIME_KEY_LEN:
+        return None
+    if not (data.isascii() and data.isalnum()):
+        return None
+    return data.encode("utf-8")
+
+
+def build_signup_hash(activity_id: str, epoch_ms: int, key: bytes) -> str:
     """按学校脚本契约算报名 hash：AES-128-ECB(UTF-8('id,ms'), PKCS7) 的小写 hex。
 
-    activity_id 非空且不含逗号/换行；epoch_ms 为正整数（非 bool）。不读时钟。
+    activity_id 非空且不含逗号/换行；epoch_ms 为正整数（非 bool）；key 是 16 字节运行时密钥。
+    不读时钟。
     """
     if not activity_id or any(ch in activity_id for ch in (",", "\n", "\r")):
         raise ValueError("activity_id 非空且不含逗号/换行")
     if isinstance(epoch_ms, bool) or not isinstance(epoch_ms, int) or epoch_ms <= 0:
         raise ValueError("epoch_ms 为正整数")
+    if not isinstance(key, (bytes, bytearray)) or len(key) != RUNTIME_KEY_LEN:
+        raise ValueError("key 必须是 16 字节运行时密钥")
     plain = f"{activity_id},{epoch_ms}".encode("utf-8")
     padded = pkcs7_pad(plain)
-    ciphertext = _encrypt_block_cng(padded, _SIGN_KEY)
+    ciphertext = _encrypt_block_cng(padded, bytes(key))
     return ciphertext.hex().lower()

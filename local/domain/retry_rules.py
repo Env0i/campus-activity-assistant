@@ -18,6 +18,7 @@ from domain.retry_window import (  # noqa: F401
     DEFAULT_RETRY_SECONDS,
     initial_deadline,
 )
+from domain.signup_reply import stop_reason_label
 
 # worker 每次真正发起 signUp 时打印的行（带 [i] 前缀落日志）；
 # 只匹配这个形状，刷新 / is_joined 查询不会撞上
@@ -83,6 +84,11 @@ def retry_payload(stop: dict, spec, stop_reason: str) -> dict:
     }
     if (stop or {}).get("last_reason"):
         payload["last_reason"] = stop["last_reason"]
+    # 学校明确拒绝类终态（名额已满、报名已截止等，决策 015）附短结论，界面直接用，
+    # 不再拿 last_reason 原文拼文案；旧终态不加这个键
+    label = stop_reason_label(payload["stop_reason"])
+    if label:
+        payload["outcome_label"] = label
     if (stop or {}).get("phase"):
         # 终态行的提交阶段原样转发（golden/full_speed/adaptive_backoff）；
         # 缺失/未知不编造，界面按缺失处理

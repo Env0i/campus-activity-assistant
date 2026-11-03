@@ -15,7 +15,11 @@ if str(LOCAL) not in sys.path:
     sys.path.insert(0, str(LOCAL))
 
 import signup_signing
-from signup_signing import SignerUnavailable, build_signup_hash, pkcs7_pad
+from signup_signing import (SignerUnavailable, build_signup_hash, parse_runtime_key,
+                             pkcs7_pad)
+
+# 测试专用的假运行时密钥（16 个 ASCII 字母数字），不是学校的真值（决策 015）
+TEST_KEY = b"TestRuntimeKey00"
 
 
 class Pkcs7PadTests(unittest.TestCase):
@@ -64,14 +68,14 @@ class MockCipherContractTests(unittest.TestCase):
             return hashlib.sha256(plaintext_padded).digest()
 
         with mock.patch.object(signup_signing, "_encrypt_block_cng", fake):
-            out = build_signup_hash(activity_id, epoch_ms)
+            out = build_signup_hash(activity_id, epoch_ms, TEST_KEY)
         return out, seen
 
     def test_plaintext_is_padded_utf8_of_id_and_ms(self):
         _, seen = self._capture("00000000000000000000000000000000", 1793289600000)
         raw = "00000000000000000000000000000000,1793289600000".encode("utf-8")
         self.assertEqual(seen["padded"], pkcs7_pad(raw))
-        self.assertEqual(seen["key"], signup_signing._SIGN_KEY)
+        self.assertEqual(seen["key"], TEST_KEY, "密钥由调用方传入，模块里不再有静态密钥")
 
     def test_output_is_lowercase_hex(self):
         out, _ = self._capture("act-1", 1793289600000)
@@ -97,32 +101,32 @@ class InputValidationTests(unittest.TestCase):
     def test_empty_activity_id_rejected(self):
         with mock.patch.object(signup_signing, "_encrypt_block_cng", self._boom):
             with self.assertRaises(ValueError):
-                build_signup_hash("", 1793289600000)
+                build_signup_hash("", 1793289600000, TEST_KEY)
 
     def test_comma_in_activity_id_rejected(self):
         with mock.patch.object(signup_signing, "_encrypt_block_cng", self._boom):
             with self.assertRaises(ValueError):
-                build_signup_hash("a,b", 1793289600000)
+                build_signup_hash("a,b", 1793289600000, TEST_KEY)
 
     def test_newline_in_activity_id_rejected(self):
         with mock.patch.object(signup_signing, "_encrypt_block_cng", self._boom):
             with self.assertRaises(ValueError):
-                build_signup_hash("a\nb", 1793289600000)
+                build_signup_hash("a\nb", 1793289600000, TEST_KEY)
 
     def test_non_int_epoch_rejected(self):
         with mock.patch.object(signup_signing, "_encrypt_block_cng", self._boom):
             with self.assertRaises(ValueError):
-                build_signup_hash("act-1", "1793289600000")
+                build_signup_hash("act-1", "1793289600000", TEST_KEY)
 
     def test_bool_epoch_rejected(self):
         with mock.patch.object(signup_signing, "_encrypt_block_cng", self._boom):
             with self.assertRaises(ValueError):
-                build_signup_hash("act-1", True)
+                build_signup_hash("act-1", True, TEST_KEY)
 
     def test_non_positive_epoch_rejected(self):
         with mock.patch.object(signup_signing, "_encrypt_block_cng", self._boom):
             with self.assertRaises(ValueError):
-                build_signup_hash("act-1", 0)
+                build_signup_hash("act-1", 0, TEST_KEY)
 
 
 class NativeFailureTests(unittest.TestCase):
@@ -152,8 +156,42 @@ class NativeFailureTests(unittest.TestCase):
     @unittest.skipIf(sys.platform == "win32", "本机即 Windows，非 Windows 分支无从触发")
     def test_non_windows_raises_signer_unavailable(self):
         with self.assertRaises(SignerUnavailable):
-            build_signup_hash("act-1", 1793289600000)
+            build_signup_hash("act-1", 1793289600000, TEST_KEY)
 
+
+
+class RuntimeKeyTests(unittest.TestCase):
+    """运行时密钥（决策 015）：runtime/profile 顶层 data 就是 16 个 ASCII 字母数字。"""
+
+    def test_parse_takes_data_as_utf8_bytes(self):
+        payload = {"code": 1, "message": "操作成功！", "data": "AbCdEf0123456789", "version": "x"}
+        self.assertEqual(parse_runtime_key(payload), b"AbCdEf0123456789")
+
+    def test_parse_rejects_bad_shapes(self):
+        for payload in (None, "AbCdEf0123456789", {}, {"data": None}, {"data": 1234567890123456},
+                        {"data": "short"}, {"data": "A" * 17}, {"data": "含有中文的十六个字符串密钥值啊"},
+                        {"data": "AbCdEf01234567-9"}, {"data": {"key": "AbCdEf0123456789"}}):
+            with self.subTest(payload=payload):
+                self.assertIsNone(parse_runtime_key(payload))
+
+    def test_build_rejects_wrong_key_length(self):
+        def boom(*a, **k):
+            raise AssertionError("密钥不对不应触达加密器")
+        with mock.patch.object(signup_signing, "_encrypt_block_cng", boom):
+            for key in (b"", b"short", b"A" * 17, "TestRuntimeKey00", None):
+                with self.subTest(key=key):
+                    with self.assertRaises(ValueError):
+                        build_signup_hash("act-1", 1793289600000, key)
+
+    def test_no_static_key_left_in_module(self):
+        self.assertFalse(hasattr(signup_signing, "_SIGN_KEY"), "源码里不得再留静态密钥")
+
+    @unittest.skipUnless(sys.platform == "win32", "需实跑 Windows CNG")
+    def test_real_cng_hash_length_is_96_hex(self):
+        # 32 位活动 ID + 逗号 + 13 位毫秒 = 46 字节 → PKCS7 补到 48 → 96 个 hex（实测 §15）
+        out = build_signup_hash("0" * 32, 1793289600000, TEST_KEY)
+        self.assertEqual(len(out), 96)
+        self.assertRegex(out, r"^[0-9a-f]+$")
 
 if __name__ == "__main__":
     unittest.main()

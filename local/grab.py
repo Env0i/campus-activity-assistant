@@ -25,6 +25,7 @@
 
 import argparse
 import base64
+import functools
 import hashlib
 import hmac
 import json
@@ -52,9 +53,8 @@ API = BASE + "/dr/api"
 REFERER = BASE + "/stu/"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-# 直发白名单：只有页面入口脚本恰好是这个已知打包（签名协议与之绑定）才启用直发；
-# 其它/未知脚本一律点击兜底，不下载脚本、不抽新 key（L1 保守匹配，C01）
-KNOWN_DIRECT_SCRIPT_BASENAME = "index.b489a1d6.js"
+# 直发密钥来源（决策 015）：每场向学校取运行时密钥，不再按页面入口脚本文件名判断要不要直发
+RUNTIME_PROFILE_PATH = "/upms/security/runtime/profile"
 
 # 官网入口脚本公开的请求安全参数。签名只保护请求完整性，不替代登录态 token；
 # 页面脚本更新后若更换 requestSecurityRawKey，必须重新核对并更新这组常量。
@@ -298,6 +298,8 @@ def _encode_x_token(signature_hex: str, path: str, nonce: str) -> str:
     return _xor_base64(encoded, mask)[::-1]
 
 
+# 注意：这套网关签名的 canonical 里方法写死为 POST，只能给 _post 用；
+# 直发 signUp 是 GET、本来就不带这四个头，不能把它原样挪给 GET，否则会静默算错。
 def sign_request_headers(path: str, body: bytes, timestamp_ms: int,
                          nonce: str) -> dict:
     """按官网登录页 Z0 算法生成四个网关请求头。"""
@@ -682,6 +684,9 @@ def fetch_activities(budget=None, with_details=False):
 
 def is_joined(act_id, budget=None):
     """getJoinInfo：未报名时 data 为 null，报名后 data 是对象。
+
+    实测形状（2026-11-03）：未报名 {"code": 1, "message": "操作成功！", "data": null}；
+    已报名 data 带 sfbm=1（是否报名）、bmsj（报名时间）、qdzt/qtzt（签到/签退状态）等。
 
     传入 budget 时返回三态：True 已报名 / False 确认未报名 / None 查询没成功。
     最后一种绝不能被当成「未报名」——把它当未报名会再发一次提交，
@@ -1213,6 +1218,11 @@ from domain.retry_window import (  # noqa: E402
     ADAPTIVE_SECONDS, ADAPTIVE_RETRY, DEFAULT_RETRY_SECONDS,
     initial_deadline, resolve_window,
 )
+# 报名回包分类表（决策 015）：click 与直发共用同一套判据
+from domain.signup_reply import (  # noqa: E402
+    STALE_TS_LIMIT, TERMINAL_STOP_REASONS, UNKNOWN_REPLY_LIMIT,
+    classify_signup_reply, stop_reason_label,
+)
 
 DEFAULT_RETRY_WINDOW_S = DEFAULT_RETRY_SECONDS
 
@@ -1292,6 +1302,8 @@ ADAPTIVE_WINDOW_S = ADAPTIVE_SECONDS   # 自适应扩窗上限（25 分钟）
 SERVER_ERROR_MIN_GAP_S = 0.5     # 5xx 之后的最小间隔地板
 ADAPTIVE_IN_GOLDEN = False       # golden 内默认不进 adaptive（真实 200 才退黄金）
 MAX_INFLIGHT = 2                 # 物理在途请求上限（直发与 click 共用）
+FINAL_CHECK_S = 3.0              # 收尾核对 getJoinInfo 的单独预算：预算用完、截止之后也查这一次
+LOGIN_RECHECK_S = 1.5            # 单次 4001 后隔多久复查一次登录（决策 015）
 INFLIGHT_TTL_S = 8.0             # 非 lost pending 超过此时长不再占发射名额
 INFLIGHT_WAIT_S = 0.05           # 名额满时原地泵的步长
 CONFIRM_INFLIGHT_WAIT_S = 1.0    # 确认点击前名额满时最多原地等待的秒数
@@ -1787,24 +1799,68 @@ class _SubmitAborted(RuntimeError):
     """确认前的本地拦截：条件已不满足，绝不点「确定」。"""
 
 
+def _probe_list(tok, budget=None):
+    """登录探测用的最小列表请求（1 条），只看 code。"""
+    return _post("/rjyHd/listActivity",
+                 {"pageSize": 1, "pageNum": 1, "hdmc": "", "hdzt": None,
+                  "kssj": "", "jssj": ""}, tok, budget=budget)
+
+
+def fetch_runtime_key(budget=None):
+    """向学校取本场的运行时密钥（决策 015）：返回 (密钥字节或 None, 给日志的原因)。
+
+    和页面点击前一样调 runtime/profile，走 _post（带网关签名头）。密钥只在内存：
+    不写盘、不写日志、不进事件；原因里只有 code/message，不含 data。
+    预算耗尽与校时失效照常上抛，交给统一收尾。
+    """
+    from signup_signing import parse_runtime_key
+    try:
+        data = _post(RUNTIME_PROFILE_PATH, {}, token(), budget=budget)
+    except (BudgetExhausted, ClockUnavailable):
+        raise
+    except Exception as exc:  # noqa: BLE001 - 取不到就退回点击，不让异常打断本场
+        return None, "请求异常 %s" % type(exc).__name__
+    key = parse_runtime_key(data)
+    if key is None:
+        code = data.get("code") if isinstance(data, dict) else None
+        message = str(data.get("message") or "") if isinstance(data, dict) else ""
+        return None, "返回里没有可用密钥（code=%s %s）" % (code, message[:40])
+    return key, "已取到"
+
+
 def probe_token(budget=None):
     """登录探测四态：valid / expired / none / unknown。
 
     只有学校明确回 4001 才是 expired；网络不通、超时、5xx、认不出的返回码
     都归 unknown——把接口异常说成“登录失效”会诱导用户重登，而重登解决不了网络。
+    单次 4001 先隔 LOGIN_RECHECK_S 复查一次（决策 015）：实测 13 枚失效 token 里
+    有 1 枚之后又恢复；复查时重读 token，别处刚重新登录写入的新 token 也能接上。
+    预算不够等这一次时按单次结果判。
     """
     tok = token()
     if not tok:
         return "none", "本机还没有登录过（data/session.json 不存在）"
-    data = _post("/rjyHd/listActivity",
-                 {"pageSize": 1, "pageNum": 1, "hdmc": "", "hdzt": None,
-                  "kssj": "", "jssj": ""}, tok, budget=budget)
+    data = _probe_list(tok, budget)
     code = data.get("code")
     if code == 1:
         return "valid", "ok"
-    if str(code) == "4001":
-        return "expired", "登录态已过期（%s）" % (data.get("message") or "身份验证失败")
-    return "unknown", "接口异常：%s" % (data.get("message") or code)
+    if str(code) != "4001":
+        return "unknown", "接口异常：%s" % (data.get("message") or code)
+    expired_detail = "登录态已过期（%s）" % (data.get("message") or "身份验证失败")
+    if budget is not None and budget.remaining_s() <= LOGIN_RECHECK_S:
+        return "expired", expired_detail
+    if budget is not None:
+        budget.sleep(LOGIN_RECHECK_S)
+    else:
+        time.sleep(LOGIN_RECHECK_S)
+    again = _probe_list(token() or tok, budget)
+    again_code = again.get("code")
+    if str(again_code) == "4001":
+        return "expired", expired_detail
+    log("[i] 登录探测：4001 后复查恢复（复查 code=%s）" % (again_code,))
+    if again_code == 1:
+        return "valid", "ok"
+    return "unknown", "接口异常：%s" % (again.get("message") or again_code)
 
 
 def check_token(budget=None):
@@ -1826,6 +1882,18 @@ def _known_policy_start(args):
 def _policy_window(start, sign_end_ts, retry_for):
     _, deadline, binding = compute_retry_window(start, sign_end_ts, retry_for, now=start)
     return deadline, binding
+
+
+# 学校明确拒绝类终态的第二行提示（决策 015）；短结论统一来自 domain.signup_reply
+REPLY_STOP_HINTS = {
+    "full": "学校说名额已满，再提交也不会变，本场已停止。",
+    "closed": "报名窗口已经关闭。",
+    "conflict": "这场和你已报名的活动时间冲突，核对后确认没报上。",
+    "no_activity": "学校查不到这个活动，可能已删除或改期；刷新活动列表后再看。",
+    "clock_skew": "学校连续说请求已超时，本机北京时间可能不准；校时后再试。",
+    "unknown_reply": "学校连续回了同一条无法识别的结果，已停止；完整原文见运行记录。",
+    "page_unavailable": "直发不可用、学校详情页又打不开，本场没法提交；稍后手动打开活动页再试。",
+}
 
 
 def cmd_grab(args):
@@ -1869,7 +1937,12 @@ def cmd_grab(args):
     display = getattr(args, "name", "") or "这一场活动"
     # 已观察事实：attempts 只数真实请求；pending 是「已发出但还没有确定结果」的请求数
     state = {"attempts": 0, "pending": 0, "last_reason": "", "resp_ok": False,
-             "login_invalid": False, "deadline": 0.0, "binding": ""}
+             "login_invalid": False, "deadline": 0.0, "binding": "",
+             # 回包分类（决策 015）：一出现就结束本场的原因、未识别回包与超时回包的连续计数
+             "terminal_reason": "", "unknown_raw": "", "unknown_count": 0,
+             "stale_count": 0,
+             # 提交中收到 4001：先停发、等在途落定再复查，确认失效才记 login_invalid
+             "login_suspect": False}
     done = {"value": False}
 
     def terminal(stop_reason):
@@ -1925,6 +1998,14 @@ def cmd_grab(args):
             print("\n[X] 暂时无法获取可信北京时间，已停止自动报名动作。")
             print("    已发出的提交不受影响，请到活动页核对；不要直接重复提交。")
             return 3
+        if stop_reason in REPLY_STOP_HINTS:
+            # 学校已明确拒绝或回包无法识别：再提交也不会变，本场结束（决策 015）
+            label = stop_reason_label(stop_reason)
+            log("[X] 本场结束：%s（尝试 %d 次）" % (label, attempts))
+            print("\n[X] 没报上：%s" % label)
+            print("    " + REPLY_STOP_HINTS[stop_reason])
+            notify("自动报名结束", ["**%s**" % display, "原因：%s" % label], "orange")
+            return 2
         if stop_reason == "process_error":
             log("[X] 本机流程异常结束（%s）" % (last or "未知异常"))
             print("\n[X] 本机流程异常结束：%s" % (last or "未知异常"))
@@ -2076,13 +2157,29 @@ def cmd_grab(args):
             try:
                 ctx = new_context(browser)
                 page = ctx.new_page()
+                # 直发密钥先于开页面取（决策 015）：直发不依赖页面，开放那一刻
+                # 页面打不开（实测 45–90 秒）也照常发；dry-run 只看页面，不取
+                runtime_key, key_reason = None, "dry-run 不取"
+                if not args.dry_run:
+                    runtime_key, key_reason = fetch_runtime_key(budget)
+                    log("[i] 运行时密钥：%s" % key_reason)
+                page_state = {"ok": True}
                 url = BASE + "/stu/" + DETAIL_HASH.format(aid=target["id"])
-                page.goto(url, wait_until="domcontentloaded",
-                          timeout=budget.timeout_ms(60000))
-                # 页面渲染稳定最多等 1.5 秒，但绝不把短窗口整个吃掉
-                budget.sleep(min(1.5, max(0.2, budget.remaining_s() * 0.25)))
-                _checkpoint_event("page_opened")
-                log("[i] 详情页已加载")
+                try:
+                    page.goto(url, wait_until="domcontentloaded",
+                              timeout=budget.timeout_ms(60000))
+                except (ClockUnavailable, BudgetExhausted):
+                    raise
+                except Exception as exc:  # noqa: BLE001 - 有密钥时页面失败只关掉点击兜底
+                    if runtime_key is None or args.dry_run:
+                        raise
+                    page_state["ok"] = False
+                    log("[!] 详情页打不开（%s）：直发照常，点击兜底不可用" % type(exc).__name__)
+                if page_state["ok"]:
+                    # 页面渲染稳定最多等 1.5 秒，但绝不把短窗口整个吃掉
+                    budget.sleep(min(1.5, max(0.2, budget.remaining_s() * 0.25)))
+                    _checkpoint_event("page_opened")
+                    log("[i] 详情页已加载")
 
                 if args.dry_run:
                     btns = page.eval_on_selector_all(
@@ -2141,7 +2238,7 @@ def cmd_grab(args):
                                  or retry_for == ADAPTIVE_RETRY,
                 )
                 # 受控提交窗口：只承认本场盯按钮期间发出的 signUp 请求。
-                # 学校真实接口是 GET signUp/<opaque-hash>，hash 不含活动 ID，
+                # 学校真实接口是 GET signUp/<opaque-hash>，URL 里不含活动 ID（活动 ID 在加密明文里），
                 # 因此不能再用「URL 里有 id」来认领（C01）。请求事件的派发可能
                 # 晚于网络发起，窗口覆盖整个提交阶段才不会漏计真实请求；
                 # 页面加载阶段的别家请求在监听注册之前，天然不入账。
@@ -2151,14 +2248,17 @@ def cmd_grab(args):
                 request_to_bid = {}
                 response_queue = []
 
-                # 直发（主）+ 点击（单向兜底）同一调度账本：直发仅当入口脚本为
-                # 已知打包且 signer 可用时启用；否则全程点击。direct 字典始终存在，
+                # 直发（主）+ 点击（单向兜底）同一调度账本：取到运行时密钥且签名、
+                # 传输模块可用时启用直发；否则全程点击。direct 字典始终存在，
                 # 未启用时 downgrade=False 且 transport=None，对点击路径零影响。
                 direct = {
                     "enabled": False,
                     "downgrade": False,
                     "protocol_stop": False,   # 通道/协议异常：停止新发，统一收尾
                     "signer": None,
+                    "build": None,            # 原始签名函数：重取密钥后重新绑定
+                    "need_rekey": False,      # 收到「版本不兼容」：下一笔前重取一次密钥
+                    "rekeyed": False,         # 本场已重取过：再不兼容就退回点击
                     "transport": None,
                     "run_id": os.urandom(8).hex(),
                     "seq": 0,
@@ -2173,36 +2273,39 @@ def cmd_grab(args):
                 # frozen 冻结响应接纳，不在核对期间放行迟到应答
                 finalize_state = {"tail_deadline": None, "frozen": False}
 
-                def _detect_direct_signer():
-                    """入口脚本恰为已知直发包且 signer 可用才返回 build_signup_hash。
+                def _downgrade(reason):
+                    """本场单向切到点击兜底；写一行日志并上报路径事件（决策 015：退回点击必须可见）。"""
+                    if direct["downgrade"]:
+                        return
+                    direct["downgrade"] = True
+                    log("[!] 本场切换为点击兜底（原因：%s）" % reason)
+                    _retry_event(kind="path", path="click", path_reason=reason)
 
-                    只读已加载页面 script src，不下载脚本、不在热路径额外请求学校；
-                    任何异常一律返回 None（点击兜底），不扰动既有流程。
-                    """
+                path_reason = ""
+                if runtime_key is not None:
                     try:
                         from signup_signing import build_signup_hash
-                        srcs = page.eval_on_selector_all(
-                            "script", "els => els.map(e => e.getAttribute('src') || '')")
-                        for s in (srcs or []):
-                            base = str(s).split("?")[0].rstrip("/").rsplit("/", 1)[-1]
-                            if base == KNOWN_DIRECT_SCRIPT_BASENAME:
-                                return build_signup_hash
-                    except Exception:
-                        return None
-                    return None
-
-                _signer = _detect_direct_signer()
-                if _signer is not None:
-                    try:
                         from signup_transport import DirectTransport
-                    except Exception:
-                        DirectTransport = None
-                    if DirectTransport is not None:
-                        direct["signer"] = _signer
+                    except Exception:  # noqa: BLE001 - 模块缺失只影响直发，点击照常
+                        build_signup_hash = DirectTransport = None
+                    if build_signup_hash is not None and DirectTransport is not None:
+                        # 密钥只绑进签名函数，不另存、不打印
+                        direct["build"] = build_signup_hash
+                        direct["signer"] = functools.partial(build_signup_hash, key=runtime_key)
                         direct["queue"] = queue.Queue()
                         direct["transport"] = DirectTransport(direct["queue"])
                         direct["enabled"] = True
-                        log("[i] 入口脚本为已知直发包：启用直发（点击兜底保留）")
+                    else:
+                        path_reason = "直发模块不可用"
+                else:
+                    path_reason = "取不到运行时密钥（%s）" % key_reason
+                runtime_key = None     # 之后只经 direct["signer"] 使用
+                if direct["enabled"]:
+                    log("[i] 报名路径：直发（运行时密钥）")
+                    _retry_event(kind="path", path="direct", path_reason="")
+                else:
+                    log("[i] 报名路径：点击（原因：%s）" % path_reason)
+                    _retry_event(kind="path", path="click", path_reason=path_reason)
 
                 def _is_signup_url(url_text):
                     return url_text.startswith(BASE) and "/rjyHdCyr/signUp/" in url_text
@@ -2278,29 +2381,74 @@ def cmd_grab(args):
                                      sign_end=int(sign_end_ts or 0))
 
                 def _apply_conclusion(payload):
-                    """对一笔 real 应答的 body 结论：成功粘性 / 只认 str(code)==4001 / 版本不兼容单向降级。
+                    """对一笔 real 应答的 body 按回包分类表下结论（决策 015），返回学校原文。
 
-                    click 与直发共用同一套结论语义，避免两条通道判据漂移。
+                    click 与直发共用同一套分类，避免两条通道判据漂移。成功粘性；
+                    名额已满 / 报名已截止 / 时间冲突 / 活动不存在一出现就结束本场；
+                    版本不兼容单向降级点击；「请求已超时」连续 STALE_TS_LIMIT 次判时钟问题；
+                    同一未识别回包连续 UNKNOWN_REPLY_LIMIT 次：直发先退回点击，点击时再出现就结束。
+                    last_reason 只存给界面的短结论，学校原文由调用方写进日志，不截断。
                     """
                     code = payload.get("code") if isinstance(payload, dict) else None
                     message = ""
                     if isinstance(payload, dict):
                         message = str(payload.get("message") or "")
-                    state["last_reason"] = "code:%s %s" % (code, message[:30])
-                    # 成功结论粘性：只要有一笔 code=1 就是成功，后续失败响应不改写
-                    if code == 1:
+                    reply = classify_signup_reply(code, message)
+                    state["last_reason"] = reply.label
+                    kind = reply.kind
+                    if kind != "stale_ts":
+                        state["stale_count"] = 0
+                    if kind != "unknown":
+                        state["unknown_raw"], state["unknown_count"] = "", 0
+                    if kind == "success":
+                        # 成功结论粘性：只要有一笔 code=1 就是成功，后续失败响应不改写
                         state["resp_ok"] = True
-                    # 只认 str(code)=='4001'：message 子串/关键词不作数（避免误判）
-                    if code is not None and str(code) == "4001":
-                        state["login_invalid"] = True
-                    # 版本不兼容：code 规范化'0'且 message 去末尾句号后精确匹配才降级（本场单向 click）
-                    if code is not None and str(code).strip() == "0":
-                        norm = message.strip()
-                        if norm.endswith("。"):
-                            norm = norm[:-1]
-                        if norm == "版本不兼容，请刷新页面或清除缓存后重试" and not direct["downgrade"]:
-                            direct["downgrade"] = True
-                            log("[!] 版本不兼容：本场切换为点击兜底")
+                    elif kind == "login_invalid":
+                        # 只认 code=4001：业务文案里的「登录/身份验证」字眼不作数（避免误判）。
+                        # 先记待确认：停发、等在途落定后由主循环复查一次（决策 015）
+                        if not state["login_invalid"]:
+                            state["login_suspect"] = True
+                            log("[!] 提交中收到 4001（%s），停发并复查登录" % reply.raw)
+                    elif kind == "no_activity" and direct["enabled"] and not direct["downgrade"]:
+                        # hd-info 空值成因未证实（活动不存在 / 少了页面自己的前置请求等）：
+                        # 直发时先退回点击，让学校页面自己走一遍核实；点击上也这样才判活动不存在
+                        _downgrade("学校查不到活动信息（hd-info 空值），改走点击核实")
+                    elif kind in TERMINAL_STOP_REASONS:
+                        # 时间冲突也先记成终态：收尾的 getJoinInfo 核对确认已报名时改判成功
+                        if not state["terminal_reason"]:
+                            state["terminal_reason"] = TERMINAL_STOP_REASONS[kind]
+                    elif kind == "version":
+                        # 直发时先重取一次运行时密钥（下一笔前由主循环做）；重取过还不兼容就退回点击
+                        if direct["enabled"] and not direct["downgrade"]:
+                            if direct["rekeyed"]:
+                                _downgrade("重取运行时密钥后仍版本不兼容")
+                            else:
+                                direct["need_rekey"] = True
+                    elif kind == "stale_ts":
+                        state["stale_count"] += 1
+                        if state["stale_count"] >= STALE_TS_LIMIT and not state["terminal_reason"]:
+                            state["terminal_reason"] = "clock_skew"
+                    elif kind == "unknown":
+                        if reply.raw == state["unknown_raw"]:
+                            state["unknown_count"] += 1
+                        else:
+                            state["unknown_raw"], state["unknown_count"] = reply.raw, 1
+                        if state["unknown_count"] >= UNKNOWN_REPLY_LIMIT:
+                            if direct["enabled"] and not direct["downgrade"]:
+                                # 降级后重新计数：点击路径上同一文案再连续出现才结束
+                                state["unknown_count"] = 0
+                                _downgrade("同一未识别回包连续 %d 次：%s"
+                                           % (UNKNOWN_REPLY_LIMIT, reply.raw))
+                            elif not state["terminal_reason"]:
+                                state["terminal_reason"] = "unknown_reply"
+                    # not_open：学校还没开放，照常按节奏继续
+                    return reply.raw
+
+                def _reason_with_raw(reply_raw):
+                    """日志用：短结论后面附学校原文（完整、不截断）；没有业务回包时只给短结论。"""
+                    if reply_raw:
+                        return "%s｜%s" % (state["last_reason"], reply_raw)
+                    return state["last_reason"]
 
                 def _settle_one(response):
                     """按 request_id 结算一笔在途响应；乱序合法，别家响应不改本场结论。
@@ -2324,6 +2472,7 @@ def cmd_grab(args):
                     except (TypeError, ValueError):
                         http_status = None
                     payload = None
+                    reply_raw = ""
                     if raw_kind == "real":
                         # 已得 HTTP 应答按 real 结算：200+HTML（学校错误页）不伪装
                         # lost；仅响应体完全读不出才降为 lost（保持未决，不假造结论）。
@@ -2354,9 +2503,10 @@ def cmd_grab(args):
                         _retry_event(kind="server_error", request_id=bid,
                                      http_status=http_status, phase=burst.phase)
                     else:
-                        _apply_conclusion(payload)
+                        reply_raw = _apply_conclusion(payload)
                     _sync_pending()
-                    log("[i] 第 %d 次提交：%s" % (state["attempts"], state["last_reason"]))
+                    log("[i] 第 %d 次提交：%s" % (state["attempts"],
+                                                 _reason_with_raw(reply_raw)))
 
                 def _settle_failed(request):
                     """requestfailed：按既有 request_id 结算为 lost，立即释放名额。
@@ -2468,6 +2618,7 @@ def cmd_grab(args):
                         elif isinstance(http_status, int) and http_status >= 500:
                             raw_kind = "server_error"
                         payload = None
+                        reply_raw = ""
                         if raw_kind == "real":
                             payload = _decode_body(body)
                         applied = burst.settle(bid, raw_kind, http_status=http_status)
@@ -2512,9 +2663,10 @@ def cmd_grab(args):
                                          http_status=http_status, phase=burst.phase)
                         else:
                             reg["state"] = "settled"
-                            _apply_conclusion(payload)
+                            reply_raw = _apply_conclusion(payload)
                         _sync_pending()
-                        log("[i] 第 %d 次提交：%s" % (state["attempts"], state["last_reason"]))
+                        log("[i] 第 %d 次提交：%s" % (state["attempts"],
+                                                     _reason_with_raw(reply_raw)))
 
                 def _drain_direct():
                     if burst is None or direct["queue"] is None:
@@ -2534,7 +2686,7 @@ def cmd_grab(args):
                     token 只取本场内存：缺失不建 ticket、不转 click，安全停发（F01）。
                     """
                     if direct["transport"] is None or direct["signer"] is None:
-                        direct["downgrade"] = True
+                        _downgrade("直发模块不可用")
                         return "downgrade"
                     try:
                         captured_token = token()
@@ -2551,8 +2703,8 @@ def cmd_grab(args):
                         raise
                     try:
                         sig = direct["signer"](str(target["id"]), epoch_ms)
-                    except Exception:
-                        direct["downgrade"] = True
+                    except Exception as exc:  # noqa: BLE001 - 签名失败不提交，改走点击
+                        _downgrade("签名失败：%s" % type(exc).__name__)
                         return "downgrade"
                     # 签名耗时后重新过预算闸门（F02）：remaining 已含 sign_end
                     # 硬截；不足不建 ticket、不发送，也不后台读业务时钟迁就。
@@ -2613,11 +2765,17 @@ def cmd_grab(args):
                         if left_ms <= 0:
                             break
                         try:
-                            page.wait_for_timeout(min(left_ms, 50))  # 50ms 一片
+                            if page_state["ok"]:
+                                page.wait_for_timeout(min(left_ms, 50))  # 50ms 一片
+                            else:
+                                # 页面打不开时只剩直发：按时间片等，直发事件照常由
+                                # _settle_pending 结算（直发不依赖页面派发事件）
+                                time.sleep(min(left_ms, 50) / 1000.0)
                         except Exception:
                             return False    # 页面不可用：立即停泵
                         _settle_pending()
-                        if state["resp_ok"] or state["login_invalid"]:
+                        if (state["resp_ok"] or state["login_invalid"]
+                                or state["login_suspect"] or state["terminal_reason"]):
                             return True
                     return True
 
@@ -2632,6 +2790,10 @@ def cmd_grab(args):
                         return "success"
                     if state["login_invalid"]:
                         return "login_invalid"
+                    if state["login_suspect"]:
+                        return "login_check"   # 提交中收到 4001：先复查，确认前不发
+                    if state["terminal_reason"]:
+                        return "terminal"      # 学校已明确拒绝（名额满等）：本场不再发
                     if direct.get("protocol_stop"):
                         return "protocol_stop"
                     if not burst.can_attempt():
@@ -2736,18 +2898,27 @@ def cmd_grab(args):
                     # 成功粘性最优先：已到 code=1 就是成功，不被 False/异常覆盖（F01）
                     if state["resp_ok"]:
                         return terminal("success")
-                    if state["login_invalid"]:
+                    if state["login_invalid"] or state["login_suspect"]:
+                        # 4001 待确认但预算已到、来不及复查：按登录失效收口（与原行为一致）
                         stop_reason = "login_invalid"
-                    # 单次最终核对（F07）：仅原预算允许开始才查；不引入 not_joined
-                    try:
-                        can_check = bool(state["attempts"]) and not budget.expired()
-                    except ClockUnavailable:
-                        can_check = False
-                    if can_check:
+                    elif state["terminal_reason"]:
+                        stop_reason = state["terminal_reason"]
+                    # 单次最终核对（F07 / 决策 015）：只要发过提交就查一次学校的报名状态，
+                    # 原预算用完、报名截止之后也查；用单独的 FINAL_CHECK_S 小预算，
+                    # 只查这一次、不循环，不引入 not_joined。没有可信北京时间就不查。
+                    check_budget = None
+                    if state["attempts"]:
+                        try:
+                            check_budget = RetryBudget(business_now() + FINAL_CHECK_S,
+                                                       business_clock=clock)
+                        except ClockUnavailable:
+                            check_budget = None
+                    if check_budget is not None:
                         # 最终核对失败走统一退路优先级（F06）：不重入、
                         # 不因异常再做学校请求；成功已粘住时上面已 return（F01）。
+                        # 时间冲突回包也在这里改判：学校说已报名就是自己刚报上。
                         try:
-                            joined_now = is_joined(target["id"], budget=budget)
+                            joined_now = is_joined(target["id"], budget=check_budget)
                         except Exception as exc:
                             return _fallback_terminal(exc)
                         if joined_now is True:
@@ -2761,12 +2932,13 @@ def cmd_grab(args):
                         return terminal(fallback)
                     return terminal("sign_end" if state["binding"] == "sign_end" else "retry_duration")
 
-                listeners.append(("request", on_request))
-                listeners.append(("response", on_response))
-                listeners.append(("requestfailed", on_requestfailed))
-                page.on("request", on_request)
-                page.on("response", on_response)
-                page.on("requestfailed", on_requestfailed)
+                if page_state["ok"]:
+                    listeners.append(("request", on_request))
+                    listeners.append(("response", on_response))
+                    listeners.append(("requestfailed", on_requestfailed))
+                    page.on("request", on_request)
+                    page.on("response", on_response)
+                    page.on("requestfailed", on_requestfailed)
                 armed["on"] = True    # 整个提交阶段受控：在途响应按 request_id 结算
                 _checkpoint_event("watch_started")
                 log("[i] 开始盯按钮")
@@ -2779,6 +2951,22 @@ def cmd_grab(args):
                     if verdict == "login_invalid":
                         stop_reason = "login_invalid"
                         break
+                    if verdict == "terminal":
+                        stop_reason = state["terminal_reason"]
+                        break
+                    if verdict == "login_check":
+                        # 等在途请求落定再复查：在途里可能还有成功回包
+                        if state["pending"] > 0 or direct["reserved"] > 0:
+                            _pump_wait(INFLIGHT_WAIT_S)
+                            continue
+                        recheck, _detail = probe_token(budget)
+                        if recheck == "expired":
+                            state["login_invalid"] = True
+                            stop_reason = "login_invalid"
+                            break
+                        state["login_suspect"] = False
+                        log("[i] 复查登录结论 %s：不判失效，继续发送" % recheck)
+                        continue
                     if verdict == "protocol_stop":
                         # 通道/协议异常或 token 缺失：停止新发，统一收尾解析
                         # process_error / unconfirmed（不新增公开终态）
@@ -2814,6 +3002,17 @@ def cmd_grab(args):
                         _pump_wait(INFLIGHT_WAIT_S)
                         continue
 
+                    # 收到「版本不兼容」后的下一笔前重取一次运行时密钥（决策 015）
+                    if direct["enabled"] and not direct["downgrade"] and direct["need_rekey"]:
+                        direct["need_rekey"] = False
+                        new_key, rekey_reason = fetch_runtime_key(budget)
+                        if new_key is None:
+                            _downgrade("版本不兼容且重取运行时密钥失败（%s）" % rekey_reason)
+                        else:
+                            direct["signer"] = functools.partial(direct["build"], key=new_key)
+                            direct["rekeyed"] = True
+                            log("[i] 版本不兼容：已重取运行时密钥，继续直发")
+                        new_key = None
                     # 直发为主：已启用且未降级时用直发，不再等按钮可见；降级后落到点击兜底
                     if direct["enabled"] and not direct["downgrade"]:
                         res = _try_direct_fire()
@@ -2830,6 +3029,11 @@ def cmd_grab(args):
                             stop_reason = "process_error"
                             break
                         # res == "downgrade"：本场单向切到下方点击兜底
+
+                    # 要走点击但详情页打不开：点击兜底不可用，本场结束（决策 015）
+                    if not page_state["ok"]:
+                        stop_reason = "page_unavailable"
+                        break
 
                     # F07 超时重入：确认框已开且「确定」可见时直接复用，不再点
                     # 「立即报名」；弹窗消失才回普通入口重新开框。
@@ -2863,7 +3067,7 @@ def cmd_grab(args):
                                 _pump_wait(INFLIGHT_WAIT_S)
                                 waited += INFLIGHT_WAIT_S
                                 gate2 = _may_fire()
-                        if gate2 in ("success", "login_invalid"):
+                        if gate2 in ("success", "login_invalid", "terminal"):
                             # 在途已出结论：不点确定，交给收尾解析唯一终态
                             aborted = True
                             state["last_reason"] = "确认前已出结论，取消本次确认"
@@ -2907,6 +3111,10 @@ def cmd_grab(args):
                     # 登录失效是终态：继续刷新只会白跑
                     if state["login_invalid"]:
                         stop_reason = "login_invalid"
+                        break
+                    # 学校已明确拒绝（名额满、已截止等）：再点也不会变
+                    if state["terminal_reason"]:
+                        stop_reason = state["terminal_reason"]
                         break
                     if not burst.can_attempt():
                         if state["attempts"] >= args.max_attempts > 0:
