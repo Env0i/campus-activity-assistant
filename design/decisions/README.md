@@ -21,7 +21,7 @@
 | [011](011-unified-help-and-manual-update.md) | 单帮助入口、主题对齐与手动检查更新 | confirmed（代码已落地，技术与用户验收分列） |
 | [012](012-independent-beijing-clock.md) | 独立北京时间贯穿界面/计划/worker/登录估算（006/007/008 受影响条款就地修订） | confirmed + implemented（隔离验收见 20261026-independent-beijing-clock result；真实学校验收 pending） |
 | [013](013-distribution-and-privacy.md) | 分发形态、隐私边界与条款同意策略 | implemented（三资产已发布；真实学校窗口属用户验收） |
-| [015](015-signup-path-and-replies.md) | 报名链路：密钥来源、回包分类、终态核对、登录失效 | confirmed（待实现，见 20261103-arch-b-core） |
+| [015](015-signup-path-and-replies.md) | 报名链路：密钥来源、回包分类、终态核对、登录失效 | implemented（回归测试通过；真实窗口复验待用户） |
 
 > 008/009/010 机制已有隔离运行证据；有效登录真机验收和正式发行仍各自待确认。
 > 不应把用户验收未完成混写成代码尚未实现，规则确认与实现验收分列，

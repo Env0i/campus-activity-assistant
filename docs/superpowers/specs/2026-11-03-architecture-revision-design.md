@@ -278,6 +278,42 @@
 - 顶栏登录卡不再显示剩余时间。
 - 候补入口排在最后，等第 6 节开工再画。
 
+### 实现后的字段（A / B 两份 result 落地后，2026-11-03）
+
+**终态 `stop_reason` 与界面短结论**（`local/domain/signup_reply.py` 的 `stop_reason_label`，
+经 `domain/retry_rules.retry_payload` 以 `outcome_label` 送到界面）
+
+| stop_reason | 界面短结论 | 来源 |
+|---|---|---|
+| `full` | 名额已满 | 学校回「报名人数已满」 |
+| `closed` | 报名已截止 | 学校回「报名已结束」 |
+| `conflict` | 时间冲突 | 学校回时间冲突且终态核对未报名 |
+| `no_activity` | 活动不存在 | 点击路径上回 `Cache 'hd-info'`（直发时先退回点击核实） |
+| `clock_skew` | 本机时钟不准 | 「请求已超时」连续 2 次 |
+| `unknown_reply` | 学校回了无法识别的结果 | 同一条未识别文案连续 3 次 |
+| `page_unavailable` | 学校页面打不开 | 需要退回点击但详情页打不开 |
+
+旧终态（`success`、已报名、`max_attempts`、时长到、`sign_end`、登录失效、取消、异常）文案不变；
+`last_reason` 现在是短结论，不再是 `code:xxx` 原文片段。
+
+**路径字段**：任务快照新增 `path`（`direct` / `click`）与 `path_reason`（退回点击的原因）；
+新增 `kind=path` 的 `[retry]` 事件，日志行「报名路径：直发 / 点击（原因）」。
+
+**登录等待与快照字段**：任务快照新增 `login_wait`（`waiting` 或空）与
+`login_wait_until`（epoch 秒或空）；事件 `kind=login_wait`（等自动登录）、
+`kind=login_resumed`（换上新登录态继续）。
+
+**上次校验**：`bootstrap().login` 新增 `last_check_at`（文本或空）与
+`last_check_state`（`valid` / `expired` / `unknown` 三态），替代旧的剩余小时数展示；
+`hours_left` / `estimated_expires_at` 恒为 `null`（本机不再推算剩余时间）。
+
+**条款版本**：`2026-11-03-r4`（`local/app.py` 的 `TERMS_VERSION`、两份 docs 版本行、
+`local/ui/index.html` 版本标签与内嵌全文版本标签）。
+
+**其它交给 UI 计划的点**：`board.js` 的 `stop_reason` 文案表缺上述新终态；
+`grab.log` 会轮转成 `grab.log.1…5`，只读 `grab.log` 的日志面板/导出会漏掉历史；
+登录态目录多一个 `session.json.lock`（一字节，可忽略）。
+
 ## 14. 放弃了什么
 
 | 放弃的做法 | 为什么 |

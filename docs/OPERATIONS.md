@@ -53,6 +53,10 @@ journalctl -u campus-bot -n 100 --no-pager
 `PRIVATE_OWNER_OPEN_ID` 放在 `campus-bot.service.d/owner.conf` drop-in 里，
 `campus-autologin.service` 里也单独配了一份——两个必须一致，否则私聊静默关闭。
 
+> **注记（2026-11-03）**：线上服务器当前的 systemd 单元名、`grab_signup.py` 的存放位置
+> 与本文不一致。本文记录的是目标状态；计划在 server 同步（设计第 11 节 L1）时改线上配置
+> 来对齐本文，不反过来改文档。
+
 ## 3. crontab
 
 ```cron

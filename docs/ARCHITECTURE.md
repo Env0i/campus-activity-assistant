@@ -88,7 +88,8 @@
 | `/dr/api/rjyHd/listActivity` | POST | 活动列表（分页，`pageSize` 最大 500） |
 | `/dr/api/rjyHd/getInfo/<id>` | GET | 活动详情 |
 | `/dr/api/rjyHdCyr/getJoinInfo/<id>` | POST | 我是否报名（`data` 非 null 即已报） |
-| `/dr/api/rjyHdCyr/signUp/<hash>` | GET | 报名（hash 由前端计算，必须走页面点击） |
+| `/dr/api/rjyHdCyr/signUp/<hash>` | GET | 报名（hash 用运行时密钥现算；直发为主，点击兜底，见下节） |
+| `/dr/api/upms/security/runtime/profile` | POST | 取 16 位运行时密钥（开抢前每场一次，只放内存，不落盘、不写日志） |
 | `/dr/api/auth/captcha` | POST | 登录验证码（`{client,userType}` → `{key,image}`） |
 | `/dr/api/auth/login` | POST | 登录（带签名头，只能用真实页面提交） |
 
@@ -173,7 +174,7 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 | infrastructure | `prefs_store` | ui.json 跨进程锁 + 原子读-合并-写 | app 外观、lifecycle_store | 无 |
 | infrastructure | `process_tree` | Windows Job Object 进程树所有权、taskkill 整树终止 | app 外观（spawn 端口） | 无 |
 | infrastructure | `lifecycle_store` | 启动冻结/心跳/正常关闭的 ui.json 记账 | app.get_lifecycle | prefs_store + domain |
-| interface | `app.py` | Api 24 个公开方法、条款门禁、事件发射、worker 命令装配、main；composition root：向 domain/application 注入 signup_plan 纯函数、time_contract 换算、business_clock 异常类型 | pywebview / 测试 | 全部下层（裸名注入缝保持 app.X 可替换） |
+| interface | `app.py` | Api 49 个公开方法、条款门禁、事件发射、worker 命令装配、main；composition root：向 domain/application 注入 signup_plan 纯函数、time_contract 换算、business_clock 异常类型 | pywebview / 测试 | 全部下层（裸名注入缝保持 app.X 可替换） |
 | interface | `ui/state/**` | 状态仓库 S 与纯投影（clock/plan/login/filters/labels/time/task-display） | controllers/views | 无（store.js 仅 `$` 选择器工具；login.js 一处 body 就绪守卫） |
 | interface | `ui/controllers/**` | 用例编排与桥接（bridge/refresh/plan/plan-events/clock/terms/update/prefs/tick） | app.js 事件绑定 | state + api()；terms/update 两个 controller 零 DOM（结构契约测试守护） |
 | interface | `ui/views/**` | DOM 呈现（list/board/login/clock/clock-pop/log/selection/terms/help/update/tour） | render/tick 与 controller 调用 | state 投影（不发桥接请求）；terms/update 的 DOM 查询与呈现全部在此 |
@@ -190,3 +191,23 @@ node 沙箱按同一加载序回放。
 controller 已零 DOM（结构契约测试 `LayerBoundaryContractTests` 守护），但
 `controllers/tick.js` 仍做每秒增量 DOM 更新、`app.js` 事件绑定直接触 DOM——全局
 controller/view DOM 分离不在本轮范围。
+
+### 报名链路（决策 015）
+
+- **直发为主、点击兜底**：开抢前调 `runtime/profile` 取运行时密钥（`fetch_runtime_key`），
+  经 `parse_runtime_key` 校验形状后交给 `build_signup_hash` 现算签名；只有三种情况退回点击
+  ——取不到密钥、重取后仍「版本不兼容」、同一条未识别回包连续 3 次。每场写
+  「报名路径：直发 / 点击（原因）」并发出 `kind=path` 事件。
+- **回包分类**：`local/domain/signup_reply.py` 的 `classify_signup_reply` 把 `code` 与 `message`
+  关键短语归一成一种 kind；日志记学校完整原文，界面只看 `stop_reason_label` 给出的短结论。
+- **终态核对**：每场结束都用 `getJoinInfo` 查一次，单独 3 秒预算（`FINAL_CHECK_S`）；
+  原预算用完、报名截止之后也查，核对失败不重发。
+- **登录失效先复查**：只读检查收到一次 4001 时，隔 `LOGIN_RECHECK_S`（1.5 秒）复查，
+  两次都是 4001 才算失效；提交中确认失效后停发、等在途落定，再复查决定继续或收口。
+- **登录失效后交接**：worker 用 `--relogin-wait`（45 秒）等界面换上新登录态；
+  期间发 `kind=login_wait`，换到新 token 且复查有效后发 `kind=login_resumed`，
+  重取运行时密钥继续；等待不计提交次数。
+- **登录态单一写入口**：`grab.py` 的 `save_session` 用进程内锁 + `session.json.lock`
+  跨进程锁；命令行登录、手机重登中继、`storage_state.json` 双文件事务都走它。
+- **日志**：`log_event` 每行带北京时间、级别、来源、活动 ID、事件名；`grab.log`
+  超过 5 MB 轮转成 `grab.log.1…5`；界面进程的自动登录事件也追加到同一份日志。

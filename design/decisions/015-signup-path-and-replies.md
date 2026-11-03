@@ -1,6 +1,6 @@
 # 015 · 报名链路：密钥来源、回包分类、终态核对、登录失效
 
-- **状态**：confirmed（待实现，见计划 `20261103-arch-b-core`；规则 2026-11-03 敲定）
+- **状态**：implemented（B 计划 `20261103-arch-b-core` 已落地，回归测试通过；真实报名窗口复验由用户本人执行）
 - **日期**：2026-11-03
 - **上游**：[架构修订设计](../../docs/superpowers/specs/2026-11-03-architecture-revision-design.md) 3.1、3.3、3.5、4.2、4.3、6 节；
   [决策 002](002-signup-modes.md)（直发为主、点击兜底）、[决策 003](003-retry-policy.md)（终态与重试）、
@@ -38,7 +38,7 @@
 6. **登录失效先复查、再决定**：
    - 只读检查收到一次 4001：隔 1.5 秒复查，连续两次才算失效；
    - 计划在等开放时失效：原地重新登录（能自动登录就自动登录），计划不停；
-   - 提交中确认失效：能自动登录就登录一次（限时约 20 秒），成功后重取运行时密钥继续；
+   - 提交中确认失效：能自动登录就登录一次（限时 45 秒，`RELOGIN_WAIT_S`；设计稿原写约 20 秒，本机登录要开浏览器、认验证码，2026-11-03 定为 45 秒），成功后重取运行时密钥继续；
      不能自动登录则本场以「登录失效」结束；
    - 报名子进程与界面靠「等待新登录态」交接，登录态只由一个带锁的入口写盘。
 
@@ -54,16 +54,36 @@
 
 - 规则与回包分类表：`docs/superpowers/specs/2026-11-03-architecture-revision-design.md`
   3.1（密钥与直发）、3.3（回包分类）、3.4（开抢时机与时钟）、3.5（终态核对）、4.2/4.3（失效判定与恢复）。
-- 实现落点与符号名由计划 `20261103-arch-b-core` 完成后补到本节；符号名以代码与
-  `docs/ARCHITECTURE.md` 为准，本记录不复制第二套契约。
+- 实现落点（B 计划 2026-11-03 完成）：
+  - 回包分类：`local/domain/signup_reply.py` 的 `classify_signup_reply`（kind 与短结论）、
+    `stop_reason_label`（终态文案）；
+  - 运行时密钥：`local/grab.py` 的 `fetch_runtime_key`（`POST runtime/profile`）、
+    `local/signup_signing.py` 的 `parse_runtime_key`（形状校验）与 `build_signup_hash`（必传 16 字节密钥）；
+  - 终态核对：`grab.py` 的 `_finalize_once` 走 `FINAL_CHECK_S`（3 秒）单独预算；
+  - 登录态写入口：`grab.py` 的 `save_session`（进程内锁 + `session.json.lock` 跨进程锁）；
+  - 登录交接：worker 的 `--relogin-wait`（45 秒），事件 `kind=login_wait` / `kind=login_resumed`；
+  - 日志：`grab.py` 的 `log_event`（结构化事件行），字段黑名单在 `local/domain/log_events.py`。
 - 重试与终态口径同时受 [决策 003](003-retry-policy.md) 约束（2026-11-03 已修订）。
 
 ## 已知限制
 
+- 运行时密钥接口的请求体（`POST runtime/profile` 空 JSON）与成功码没有样本，只按返回形状判断
+  （B 计划 amendment-007，material）；取不到时日志留 `code` / `message`，退回点击。
+- 预检只在进场时距开放至少 30 秒才做；不足 30 秒不预检（B 计划 amendment-014）。
+- 开放后 3 秒内收到「报名未开始」仍计提交次数，只有开抢前的不计（B 计划 amendment-015）；
+  「开放后 3 秒内也不计次」若要做，需先改测试夹具的含义，由用户定。
+- 直发的「Cache 'hd-info'」不直接判活动不存在：先退回点击核实，点击上也这样才结束
+  （B 计划 amendment-010，成因未证实）。
+- 执行「等开放」判定用「有没有报名进程在跑」；报名进程在跑时只按它的 `login_wait` 放行一轮
+  自动登录（B 计划 amendment-012）。
 - HTTP 404 / 429 / 5xx 没有真实样本，沿用现有规则，文档标「未验证」；
 - 性别不符时学校返回什么码，没有样本，先走「未知文案」规则；
 - 报名开放那一秒页面打不开（45–90 秒），页面是否自发 `signUp` 仍未观测——由终态核对兜住；
-- 运行时密钥与旧静态密钥是否同源、换一次登录是否变化，尚未确认（只影响公开历史的风险评估）。
+  RISK-001 已按「直发不记账、点击一次一条」关闭（2026-11-03），这一秒是剩下的唯一缺口。
+- 运行时密钥与旧静态密钥同源（live-check 第 41 节已更正），换登录也不变（同一节）；公开仓库历史里的旧常量因此仍然可用，
+  是否改写历史由用户定（设计文档 L3）。
+- `session.json.lock` 是新增的跨进程锁文件；便携包打包名单（`make_portable.py` 的
+  `RUNTIME_DATA_FILES`）尚未补它和 `grab.log.1…5`，属 B 计划的 manual followup。
 
 ## 变更方式
 
