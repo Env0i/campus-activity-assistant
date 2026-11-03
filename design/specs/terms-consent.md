@@ -86,7 +86,7 @@ DOM 桩与单元测试不能证明排版，demo 豁免也不能证明首次同�
      [aria-live=polite][hidden]` + `#btn-terms-recheck`「重新确认状态」（默认 hidden）。
      非空反馈把本区 `scrollTop` 归零让消息立即可见，**不移动焦点**；清空分支提前 return，
      不动滚动。
-   - `p#dlg-terms-sub`（双版本不丢失）— `本份条款 <b id="dlg-terms-document-version">2026-10-27-r3</b>`
+   - `p#dlg-terms-sub`（双版本不丢失）— `本份条款 <b id="dlg-terms-document-version">2026-11-03-r4</b>`
      与 `程序要求版本 <b id="dlg-terms-version">—</b>`（未知时 `paintTerms` 写「尚未确认」）。
    - `.terms-toolbar` — h3 `#dlg-terms-view-title`「条款要点」⇄「完整条款」+ `#btn-terms-full`
      （「查看完整条款」⇄「返回条款要点」，`aria-expanded`/`aria-controls` 对应全文）。
@@ -129,8 +129,10 @@ DOM 桩与单元测试不能证明排版，demo 豁免也不能证明首次同�
 - **排除项**：①「本份条款可离线阅读」是独立 UI 包装，位于比较容器之外，不属于条款正文；
   ②前言中「本文件是随源码分发的可审阅规范来源……」的规范来源维护说明句是已知排除
   （计划 task4 clarify 记录，内嵌前言不呈现该句）。
-- 两份 docs 为唯一只读真源，当前条款版本为 r3；若发现规范本身含歧义或错误，
-  停下另报，不自行改源、不升版本。
+- 两份 docs 为唯一只读真源，当前条款版本为 **2026-11-03-r4**（升版原因见
+  `docs/superpowers/specs/2026-11-03-architecture-revision-design.md` 第 8 节：披露报名默认直发、
+  运行时密钥只在内存、自动登录代勾学校登录页《隐私协议》、用本工具登录会顶掉同一账号在其他地方的登录）；
+  若发现规范本身含歧义或错误，停下另报，不自行改源、不升版本。
 
 ### 本轮返修与审阅边界（计划 20261028-terms-rendering-contract-repair，2026-10-28）
 

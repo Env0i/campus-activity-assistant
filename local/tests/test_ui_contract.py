@@ -3097,7 +3097,7 @@ out.push({ phases });
 class AcceptanceDefectRegressionTests(unittest.TestCase):
     """验收时实测出来的三个真缺陷，各留一条能复现的回归。"""
 
-    LOCKED = ('S.terms = { version: "2026-10-27-r3", acceptedVersion: "", acceptedAt: "",'
+    LOCKED = ('S.terms = { version: "2026-11-03-r4", acceptedVersion: "", acceptedAt: "",'
               ' declined: false, prompted: true, unknown: false }; \n')
 
     def test_retry_for_accepts_adaptive_choice(self):
@@ -4190,7 +4190,7 @@ out.push({ opened: opened, closed: closed, prevented: event.defaultPrevented,
 class TermsConsentContractTests(unittest.TestCase):
     """决策 013 / 条款同意门：后端快照、ui.json 落盘与版本同源契约。"""
 
-    # 版本形如 2026-10-27 或 2026-10-27-r3：修订版必须能被解析，否则
+    # 版本形如 2026-10-27 或 2026-11-03-r4：修订版必须能被解析，否则
     # 「已同意版本 != 当前版本」的判定会被旧同意记录静默绕过
     DOCS_VERSION_RE = r"版本：\*\*(\d{4}-\d{2}-\d{2}(?:-r\d+)?)\*\*"
 
@@ -4414,7 +4414,7 @@ class TermsConsentContractTests(unittest.TestCase):
         self.assertIn("不适用于法律不允许排除的情形", agreement)
 
     def test_terms_version_is_shared_by_docs_html_and_backend(self):
-        """2026-10-27-r3 必须在文档、内嵌全文与后端常量里同时出现。"""
+        """2026-11-03-r4 必须在文档、内嵌全文与后端常量里同时出现。"""
         html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
         version = self._app_terms_version()
         for pane, rel, _count in self.TERMS_DOCS:
@@ -5125,8 +5125,8 @@ let calls = [], saved = [], accepted = 0;
 window.pywebview = { api: {
   accept_terms: () => {
     accepted += 1;
-    return Promise.resolve({ ok: true, terms: { version: "2026-10-27-r3",
-      accepted_version: "2026-10-27-r3", accepted_at: "2026-10-27 12:00:00" } });
+    return Promise.resolve({ ok: true, terms: { version: "2026-11-03-r4",
+      accepted_version: "2026-11-03-r4", accepted_at: "2026-10-27 12:00:00" } });
   },
   save_prefs: (patch) => { saved.push(JSON.parse(JSON.stringify(patch))); return Promise.resolve({ ok: true }); },
   check: (id) => { calls.push("check"); return new Promise(() => {}); },
@@ -5142,7 +5142,7 @@ const autoOpenBefore = document.querySelector("#dlg-terms").open;
 const bannerBefore = document.querySelector("#banners").innerHTML;
 openTerms();
 /* 内嵌全文版本（生产取自 index.html）：harness 的 DOM 桩不解析 HTML */
-document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27-r3";
+document.querySelector("#dlg-terms-document-version").textContent = "2026-11-03-r4";
 document.querySelector("#chk-terms-agree").checked = true; /* 方案 A：先勾选再点同意 */
 document.querySelector("#btn-terms-accept").click();
 await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
@@ -5163,8 +5163,8 @@ out.push({ lockedBefore, autoOpenBefore, bannerBefore, after });
         after = case["after"]
         self.assertFalse(after["unknown"], "回执校验通过后才允许清 unknown")
         self.assertFalse(after["locked"], "确认成功必须解锁门禁")
-        self.assertEqual(after["version"], "2026-10-27-r3", "要写入回执里的条款版本")
-        self.assertEqual(after["acceptedVersion"], "2026-10-27-r3")
+        self.assertEqual(after["version"], "2026-11-03-r4", "要写入回执里的条款版本")
+        self.assertEqual(after["acceptedVersion"], "2026-11-03-r4")
         self.assertEqual(after["acceptedAt"], "2026-10-27 12:00:00")
         self.assertTrue(after["prompted"])
         self.assertFalse(after["dialogOpen"], "确认成功必须关掉条款弹窗")
@@ -5185,8 +5185,8 @@ window.pywebview = { api: {
   accept_terms: () => {
     if (mode === "reject") return Promise.reject(new Error("桥接断了"));
     if (mode === "prefs_busy") return Promise.resolve({ ok: false, text: "条款同意状态暂未保存，另一个窗口正在保存数据；请再点一次。" });
-    if (mode === "missing_at") return Promise.resolve({ ok: true, terms: { version: "2026-10-27-r3", accepted_version: "2026-10-27-r3" } });
-    if (mode === "version_mismatch") return Promise.resolve({ ok: true, terms: { version: "2026-10-27-r3", accepted_version: "2026-10-27", accepted_at: "2026-10-27 12:00:00" } });
+    if (mode === "missing_at") return Promise.resolve({ ok: true, terms: { version: "2026-11-03-r4", accepted_version: "2026-11-03-r4" } });
+    if (mode === "version_mismatch") return Promise.resolve({ ok: true, terms: { version: "2026-11-03-r4", accepted_version: "2026-10-27", accepted_at: "2026-10-27 12:00:00" } });
     if (mode === "doc_mismatch") return Promise.resolve({ ok: true, terms: { version: "2026-11-05-r1", accepted_version: "2026-11-05-r1", accepted_at: "2026-11-05 09:00:00" } });
   },
   save_prefs: (patch) => { saved.push(JSON.parse(JSON.stringify(patch))); return Promise.resolve({ ok: true }); },
@@ -5216,11 +5216,11 @@ async function probe(m, docVersion) {
   startPlan();
   return state;
 }
-const missingAt = await probe("missing_at", "2026-10-27-r3");
-const versionMismatch = await probe("version_mismatch", "2026-10-27-r3");
-const docMismatch = await probe("doc_mismatch", "2026-10-27-r3");
-const prefsBusy = await probe("prefs_busy", "2026-10-27-r3");
-const bridgeReject = await probe("reject", "2026-10-27-r3");
+const missingAt = await probe("missing_at", "2026-11-03-r4");
+const versionMismatch = await probe("version_mismatch", "2026-11-03-r4");
+const docMismatch = await probe("doc_mismatch", "2026-11-03-r4");
+const prefsBusy = await probe("prefs_busy", "2026-11-03-r4");
+const bridgeReject = await probe("reject", "2026-11-03-r4");
 out.push({ missingAt, versionMismatch, docMismatch, prefsBusy, bridgeReject,
   calls, saved });
 """)
@@ -5343,13 +5343,13 @@ window.pywebview = { api: {
 } };
 S.demo = false;
 S.prefs = {};
-ingestTerms({ version: "2026-10-27-r3", accepted_version: "", accepted_at: "" });
+ingestTerms({ version: "2026-11-03-r4", accepted_version: "", accepted_at: "" });
 document.querySelector("#btn-terms-decline").click();
 await Promise.resolve(); await Promise.resolve();
 /* 模拟重启：全新会话状态 + prefs 带回上次拒绝过的版本 */
 S.terms = { version: "", acceptedVersion: "", acceptedAt: "", declined: false,
             prompted: false, unknown: false };
-ingestTerms({ version: "2026-10-27-r3", accepted_version: "" });
+ingestTerms({ version: "2026-11-03-r4", accepted_version: "" });
 const afterRestart = { open: document.querySelector("#dlg-terms").open,
   declined: S.terms.declined };
 refresh(false);
@@ -5417,17 +5417,17 @@ out.push({ nullPayload, missing, emptyObject, badType, calls });
         res = run_js(r"""
 S.demo = false;
 S.prefs = { terms_declined_version: "2026-10-27" };
-ingestTerms({ version: "2026-10-27-r3", accepted_version: "" });
+ingestTerms({ version: "2026-11-03-r4", accepted_version: "" });
 const firstOpen = document.querySelector("#dlg-terms").open;
 document.querySelector("#dlg-terms").close();
-ingestTerms({ version: "2026-10-27-r3", accepted_version: "" });
+ingestTerms({ version: "2026-11-03-r4", accepted_version: "" });
 const againOpen = document.querySelector("#dlg-terms").open;
 document.querySelector("#dlg-terms").close();
 /* 已拒绝过当前版本：不再弹 */
-S.prefs.terms_declined_version = "2026-10-27-r3";
+S.prefs.terms_declined_version = "2026-11-03-r4";
 S.terms = { version: "", acceptedVersion: "", acceptedAt: "", declined: false,
             prompted: false, unknown: false };
-ingestTerms({ version: "2026-10-27-r3", accepted_version: "" });
+ingestTerms({ version: "2026-11-03-r4", accepted_version: "" });
 const declinedOpen = document.querySelector("#dlg-terms").open;
 out.push({ firstOpen, againOpen, declinedOpen });
 """)
@@ -5796,7 +5796,7 @@ out.push({ helpClosedByTerms, calls, declined: S.terms.declined,
         res = run_js(r"""
 S.demo = false;
 S.prefs = {};
-ingestTerms({ version: "2026-10-27-r3", accepted_version: "2026-10-27-r3",
+ingestTerms({ version: "2026-11-03-r4", accepted_version: "2026-11-03-r4",
   accepted_at: "2026-10-27 12:00:00" });
 document.querySelector("#btn-help-terms").click();
 const sub = document.querySelector("#dlg-terms-sub");
@@ -5804,7 +5804,7 @@ out.push({
   subHidden: sub.hidden,
   /* vm 假元素不聚合 innerHTML：合并行文案用纯函数 builder 直接断言，
      渲染态（data-tone/computed color/按钮可点）由浏览器场景钉 */
-  line: termsViewOnlyLineHtml("2026-10-27-r3", "2026-10-27 12:00:00"),
+  line: termsViewOnlyLineHtml("2026-11-03-r4", "2026-10-27 12:00:00"),
 });
 """)
         case = res[0]
@@ -5815,7 +5815,7 @@ out.push({
         self.assertIn("《用户协议》与《隐私政策》", text, "书名号整句进状态行")
         self.assertEqual(line.count('class="doc-link" data-doc='), 2,
                          "两处书名号仍是可点的 doc-link 蓝链")
-        self.assertIn("<b>2026-10-27-r3</b>", line, "版本号用 <b> 保留")
+        self.assertIn("<b>2026-11-03-r4</b>", line, "版本号用 <b> 保留")
         self.assertIn("（10-27 12:00 同意）", text,
                       "当年内时间省略年份：月-日 时:分")
         self.assertIn("更新后会再次展示并要求重新同意", text)
