@@ -425,6 +425,83 @@ class NameContractTests(unittest.TestCase):
         self.assertIn("校园预报名工具", html, "窄窗口短标签「校园预报名工具」必须存在")
 
 
+class BrandIconContractTests(unittest.TestCase):
+    """入场券标志契约：旧深色方块加圆点已替换，head link 与 brand 文件齐备。"""
+
+    def test_old_brand_dot_group_gone(self):
+        """旧标志：28×28 深色方块 + cy=9.5 / cy=18.5、r=2.6 两个圆点。
+        入场券版（UI-C）后，local/ui 下任何页面、脚本、样式都不得再出现这组图形。"""
+        hits = []
+        for path in sorted((LOCAL / "ui").rglob("*")):
+            if path.suffix not in (".html", ".js", ".css", ".svg"):
+                continue
+            text = path.read_text(encoding="utf-8")
+            for needle in ('cy="9.5" r="2.6"', 'cy="18.5" r="2.6"', 'viewBox="0 0 28 28"'):
+                if needle in text:
+                    hits.append("%s：%s" % (path.relative_to(LOCAL / "ui"), needle))
+        self.assertEqual(hits, [], "旧标志不得残留")
+
+    def test_logo_paths_match_the_brand_source(self):
+        """顶栏和手机页的内联图形必须和真源 design/brand/svg/logo-small.svg 的三条 path 一字不差，
+        改标志只改真源再同步，界面不得自己画一份。"""
+        import re as _re
+        source = (LOCAL.parent / "design" / "brand" / "svg" / "logo-small.svg").read_text(encoding="utf-8")
+        want = _re.findall(r'<path [^>]*/>', source)
+        self.assertEqual(len(want), 3, "真源小尺寸版应是三条 path")
+        for rel, cls in (("ui/index.html", "brand-mark"), ("ui/m/index.html", "bar-logo")):
+            html = read(rel)
+            start = html.index('<svg class="%s"' % cls)
+            svg = html[start:html.index("</svg>", start)]
+            self.assertEqual(_re.findall(r'<path [^>]*/>', svg), want,
+                             "%s 的 .%s 必须是真源的三条 path" % (rel, cls))
+
+    def test_copied_icons_are_byte_identical_to_the_brand_source(self):
+        """local/ui 里的图标是从 design/brand 原样复制的：字节必须一致，防止只改一边。"""
+        brand = LOCAL.parent / "design" / "brand"
+        for copy, source in (("ui/brand/app.ico", "ico/app.ico"),
+                             ("ui/brand/favicon.ico", "ico/favicon.ico"),
+                             ("ui/m/favicon.ico", "ico/favicon.ico"),
+                             ("ui/m/apple-touch-icon.png", "png/apple-touch-icon.png")):
+            self.assertEqual((LOCAL / copy).read_bytes(), (brand / source).read_bytes(),
+                             "%s 必须与 design/brand/%s 字节一致" % (copy, source))
+
+    def test_desktop_page_has_favicon_link(self):
+        """桌面版 head 必须声明 brand/favicon.ico。"""
+        html = read("ui/index.html")
+        self.assertIn('rel="icon"', html, "必须有 favicon link")
+        self.assertIn('brand/favicon.ico', html, "favicon 必须指向 brand/favicon.ico")
+
+    def test_desktop_page_uses_new_logo_mark(self):
+        """顶栏 brand-mark 的 SVG 必须是 64×64 入场券三条 path，
+        不是原来的 28×28 深色方块。"""
+        html = read("ui/index.html")
+        self.assertIn('viewBox="0 0 64 64"', html,
+                      "brand-mark 必须换入场券 64×64 viewBox")
+        # 三条 path 的特征：琥珀色外圈 #B98319 + 浅琥珀内圈 + 深墨黑勾
+        self.assertIn("#B98319", html, "入场券外圈琥珀色 #B98319 必须在 index.html")
+        self.assertIn("#FFB020", html, "入场券内圈浅琥珀 #FFB020 必须在 index.html")
+
+    def test_mobile_page_has_two_icon_links(self):
+        """手机页 head 必须声明 favicon.ico 和 apple-touch-icon.png。"""
+        html = read("ui/m/index.html")
+        self.assertIn('rel="icon"', html, "手机页必须有 favicon link")
+        self.assertIn('href="favicon.ico"', html, "favicon 必须指向 favicon.ico")
+        self.assertIn('rel="apple-touch-icon"', html,
+                      "手机页必须有 apple-touch-icon link")
+        self.assertIn('apple-touch-icon.png', html,
+                      "apple-touch-icon 必须指向 apple-touch-icon.png")
+
+    def test_mobile_page_has_bar_logo(self):
+        """手机页顶栏必须有入场券小尺寸版 SVG（带 bar-logo 类）。"""
+        html = read("ui/m/index.html")
+        self.assertIn('class="bar-logo"', html, "手机页顶栏必须有 .bar-logo")
+        # 没写尺寸的内联 svg 会按 300×150 撑开手机顶栏；手机页样式表里没有它，尺寸写在标签上
+        self.assertIn('<svg class="bar-logo" width="24" height="24"', html,
+                      "手机页 logo 必须自带尺寸")
+        self.assertIn('viewBox="0 0 64 64"', html,
+                      "手机页入场券 logo 必须是 64×64 viewBox")
+
+
 class LedAndStopContractTests(unittest.TestCase):
     """LED 点阵与停止二次确认的契约。"""
 

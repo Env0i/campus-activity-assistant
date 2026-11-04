@@ -166,6 +166,38 @@ class RoundTripTests(PhoneHttpBase):
         status, _, _ = self._request("GET", "/app.js")
         self.assertEqual(status, 200)
 
+    def test_static_brand_icons_are_served(self):
+        """PHONE_STATIC 白名单里新增的 favicon.ico 和 apple-touch-icon.png
+        必须能取到、Content-Type 正确。"""
+        # setUp 只写了 html/css/js 假文件；这里补写假图标再请求，
+        # 避免测试依赖真实 design/brand/ 资源（测试应该在任何机器上都能跑）
+        (self.ui_dir / "favicon.ico").write_bytes(b"\x00\x00\x01\x00")
+        (self.ui_dir / "apple-touch-icon.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        status, headers, body = self._request("GET", "/favicon.ico")
+        self.assertEqual(status, 200, "favicon.ico 必须在白名单里")
+        ctype = headers.get("Content-Type", headers.get("content-type", ""))
+        self.assertIn("image/x-icon", ctype,
+                      "favicon Content-Type 应为 image/x-icon，实际 %s" % ctype)
+        self.assertEqual(body, b"\x00\x00\x01\x00")
+
+        status, headers, body = self._request("GET", "/apple-touch-icon.png")
+        self.assertEqual(status, 200, "apple-touch-icon.png 必须在白名单里")
+        ctype = headers.get("Content-Type", headers.get("content-type", ""))
+        self.assertIn("image/png", ctype,
+                      "apple-touch-icon Content-Type 应为 image/png，实际 %s" % ctype)
+        self.assertEqual(body, b"\x89PNG\r\n\x1a\n")
+
+    def test_static_icon_paths_still_block_traversal(self):
+        """白名单只放开 /favicon.ico 和 /apple-touch-icon.png 两个精确路径，
+        目录穿越或变体路径仍应拒绝（不因为多了两个条目就放松安全边界）。"""
+        for path in ("/favicon.ico/secret", "/../favicon.ico",
+                     "/apple-touch-icon.png%00.png", "/FAVICON.ICO"):
+            with self.subTest(path=path):
+                status, _, _ = self._request("GET", path)
+                self.assertIn(status, (403, 404),
+                              "白名单变体路径 %s 必须被拒（got %d）" % (path, status))
+
     def test_state_carries_no_school_traffic(self):
         _, _, cookie = self._pair()
         self.api.calls.clear()

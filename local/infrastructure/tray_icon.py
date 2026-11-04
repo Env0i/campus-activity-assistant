@@ -2,15 +2,49 @@
 
 为什么自己用 WinForms 画：pywebview 6.2.1 没有托盘 API（包内 grep 不到 tray），
 而 pythonnet 本来就是 pywebview 在 Windows 上的依赖，NotifyIcon 可以直接用，
-不必新增 pip 依赖。仓库里没有 .ico 资源，先用系统图标顶上。
+不必新增 pip 依赖。
+
+托盘图标优先从打包资源里的 ui/brand/app.ico 读：资源根和 app.RESOURCE_ROOT 同一推导
+（冻结时 sys._MEIPASS，源码运行时 local/）。runtime_paths 只管数据目录、没有资源根函数，
+本模块又不能反向 import app，所以在这里按同一规则算一次。读不到或加载失败时退回
+SystemIcons.Application，不抛异常。.NET Icon
+读不了 256 的 PNG 帧会自动退到 64，托盘只用 16～32，不影响显示。
 
 失败不要紧：start() 返回 False 就当没有托盘，主程序照常跑；窗口藏起来之后
 还能从手机页的「显示电脑窗口」叫回来。
 """
 
 import threading
+from pathlib import Path
 
 TOOLTIP = "校园活动预报名工具（后台运行中）"
+
+
+def _load_brand_icon() -> "object | None":
+    """从打包资源里读入场券 ico：先找 ui/brand/app.ico，
+    读不到或加载失败都返回 None——让调用方退回系统默认图标，
+    托盘图标断了不该让整个程序挂掉。
+    """
+    try:
+        import sys as _sys
+        if getattr(_sys, "frozen", False):
+            # PyInstaller onefile/onedir 都把资源解到 sys._MEIPASS
+            base = Path(getattr(_sys, "_MEIPASS", ""))
+        else:
+            base = Path(__file__).resolve().parents[1]
+        ico_path = base / "ui" / "brand" / "app.ico"
+        if not ico_path.is_file():
+            return None
+        import clr  # noqa: PLC0415
+        clr.AddReference("System.Drawing")
+        from System.Drawing import Icon as SysIcon, SystemIcons  # noqa: PLC0415
+        try:
+            # .NET Icon 会自动选最小帧（托盘只需 16/32）
+            return SysIcon(str(ico_path))
+        except Exception:
+            return SystemIcons.Application
+    except Exception:
+        return None
 
 
 class TrayIcon:
@@ -129,7 +163,9 @@ class TrayIcon:
             _ = form.Handle  # 强制建句柄，BeginInvoke 才有目标
 
             icon = NotifyIcon()
-            icon.Icon = SystemIcons.Application
+            # 优先入场券 ico；读不到退回系统默认图标（_load_brand_icon 内部处理失败）
+            brand = _load_brand_icon()
+            icon.Icon = brand if brand is not None else SystemIcons.Application
             icon.Text = self._tooltip[:63]  # WinForms 上限 63 个字符
             menu = ContextMenuStrip()
             show_item = ToolStripMenuItem("显示窗口")

@@ -42,6 +42,7 @@ LOCAL = Path(__file__).resolve().parent.parent
 PROJECT = LOCAL.parent
 VERSION_FILE = PROJECT / "VERSION"
 LICENSE_FILE = PROJECT / "LICENSE"
+ICON_FILE = LOCAL / "ui" / "brand" / "app.ico"
 DEFAULT_SOURCE = PROJECT / "dist" / "campus-grab-exe"
 DEFAULT_OUT = PROJECT / "dist" / "installer"
 EXE_NAME = "campus-activity-watch.exe"
@@ -172,6 +173,10 @@ DisableProgramGroupPage=auto
 OutputBaseFilename=@@PRODUCT_NAME@@-安装版-@@VERSION@@
 UninstallDisplayName={#MyAppName} @@VERSION@@
 UninstallDisplayIcon={app}\\{#MyAppExeName}
+; 安装包图标：SetupIconFile 是安装程序 exe 自己的图标；控制面板「卸载」条目
+; 用 UninstallDisplayIcon（指向已带图标的 EXE），桌面快捷方式也取 EXE 的图标；
+; 图标文件缺失时构建直接报错（build_exe.py 已检查，这里兜底再校验一次）
+SetupIconFile=@@ICON_FILE@@
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -311,6 +316,9 @@ def render_iss(version: str, exe: Path, out_dir: Path) -> str:
     license_line = ""
     if LICENSE_FILE.is_file():
         license_line = "LicenseFile=%s\n" % LICENSE_FILE
+    # 图标缺失必须明确报错：安装向导图标不能凭空来，兜底 PyInstaller 那边同样会拦
+    if not ICON_FILE.is_file():
+        raise SystemExit("[iss] 品牌图标不存在：%s\n      先把 design/brand/ico/app.ico 复制到 local/ui/brand/" % ICON_FILE)
     mapping = {
         "@@VERSION@@": version,
         "@@PRODUCT_NAME@@": PRODUCT_NAME,
@@ -322,6 +330,7 @@ def render_iss(version: str, exe: Path, out_dir: Path) -> str:
         "@@OUT_DIR@@": str(out_dir),
         "@@LICENSE_LINE@@": license_line,
         "@@LANGUAGES@@": languages_block(out_dir),
+        "@@ICON_FILE@@": str(ICON_FILE),
     }
     text = ISS_TEMPLATE
     for key, value in mapping.items():

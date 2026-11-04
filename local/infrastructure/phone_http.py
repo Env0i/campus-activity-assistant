@@ -26,6 +26,10 @@ PHONE_STATIC = {
     "/index.html": ("index.html", "text/html; charset=utf-8"),
     "/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+    # 品牌图标：head link rel="icon" 和 apple-touch-icon
+    # 走同一个白名单映射，不新开路由、不放宽其他路径
+    "/favicon.ico": ("favicon.ico", "image/x-icon"),
+    "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
 }
 SECURITY_HEADERS = (
     # 页面只能用本地资源；验证码图用 data: 内联，不放开外域
