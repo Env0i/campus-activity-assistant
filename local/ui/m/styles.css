@@ -83,6 +83,8 @@ h3 { font-size: 14px; margin: 0 0 8px; color: var(--ink-2); }
 button.wide { width: 100%; }
 /* 连不上电脑时顶部的固定说明：它是「为什么点了没反应」的唯一答案 */
 #offline-note { position: sticky; top: 52px; z-index: 2; }
+/* 原型 PhoneOffline：连不上电脑是红条（比条款、登录问题都优先），不是琥珀色的提醒 */
+#offline-note.warn { color: var(--bad); background: var(--bad-tint); border-color: #e6bdb8; }
 #stale-note { color: var(--warn); }
 button {
   min-height: 44px;
@@ -156,3 +158,8 @@ details.card[open] > summary::before { content: "▾"; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* 核对计划与开始前提醒（与电脑同一套说法）；重新登录的账号密码输入 */
+.warns { margin: 6px 0 0; padding: 0; list-style: none; }
+.warns li { margin-top: 4px; padding: 8px 10px; border-radius: 8px; background: #fff0d4; color: #8f5600; font-size: 13px; }
+.field.check { display: flex; align-items: center; gap: 8px; min-height: 44px; }

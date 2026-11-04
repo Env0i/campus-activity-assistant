@@ -983,7 +983,8 @@ out.push([$("relogin-note").textContent, $("btn-relogin").hidden,
 ui.ingest({state:{login_relay:{state:"failed", safe_error:"eof", live:true}}});
 out.push($("relogin-note").textContent);
 ''')
-        self.assertEqual(values, [["还不能开始：bad_csrf", False, True], "重登结束：eof"])
+        # 用语统一：「重登」→「重新登录」（设计第 12 节用词表），行为不变
+        self.assertEqual(values, [["还不能开始：bad_csrf", False, True], "重新登录结束：eof"])
 
     def test_the_archived_success_is_not_replayed_as_this_round(self):
         """中继空闲时会回上一场的结论：历史成功不能在每次打开页面时重播。"""
@@ -991,12 +992,13 @@ out.push($("relogin-note").textContent);
 const ui = PhoneUI;
 ui.model.lastOkAt = Date.now();
 ui.ingest({state:{login_relay:{state:"success", flow_id:"old-1", live:false}}});
-out.push([$("relogin-note").textContent.indexOf("重登成功") === -1,
-          $("relogin-note").textContent.indexOf("上次重登已完成") === 0]);
+out.push([$("relogin-note").textContent.indexOf("重新登录成功") === -1,
+          $("relogin-note").textContent.indexOf("上次重新登录已完成") === 0]);
 ui.ingest({state:{login_relay:{state:"success", flow_id:"now-1", live:true}}});
 out.push($("relogin-note").textContent);
 ''')
-        self.assertEqual(values, [[True, True], "重登成功，正在刷新列表"])
+        # 用语统一：「重登」→「重新登录」，历史成功仍只说「上次……已完成」，不重播
+        self.assertEqual(values, [[True, True], "重新登录成功，正在刷新列表"])
 
     def test_the_archived_failure_is_reported_as_last_time(self):
         values = run_phone_js('''
@@ -1005,7 +1007,7 @@ ui.model.lastOkAt = Date.now();
 ui.ingest({state:{login_relay:{state:"failed", safe_error:"eof", live:false}}});
 out.push($("relogin-note").textContent);
 ''')
-        self.assertEqual(values, ["上次重登未完成：eof"])
+        self.assertEqual(values, ["上次重新登录未完成：eof"])
 
     def test_hung_request_cannot_latch_the_refresh_button(self):
         """断网时 fetch 可能永不返回：失败后单飞锁必须放开，刷新还能再发。"""
@@ -1041,7 +1043,8 @@ out.push([$("captcha").hidden, $("btn-relogin-submit").hidden,
           ui.model.challenge, $("relogin-note").textContent]);
 ''' % CAPTCHA_PNG)
         self.assertEqual(values[0][:3], [True, True, None])
-        self.assertIn("电脑正在自动重登", values[0][3])
+        # 用语统一：「自动重登」→「自动登录」
+        self.assertIn("电脑正在自动登录", values[0][3])
         self.assertIn("第 2 次", values[0][3], "第几次要照尝试次数报，不能含糊")
 
     def test_auto_mode_idle_explains_who_will_solve_the_captcha(self):
@@ -1075,7 +1078,7 @@ await ui.beginRelogin();
 out.push([$("relogin-note").textContent, $("captcha").hidden,
           $("btn-relogin").disabled, ui.model.reloginStarting]);
 ''')
-        self.assertIn("电脑正在自动重登", values[0][0])
+        self.assertIn("电脑正在自动登录", values[0][0])
         self.assertFalse(values[0][1])
         self.assertFalse(values[0][2])
         self.assertFalse(values[0][3])
@@ -1652,6 +1655,167 @@ await first;
 out.push([calls, __timers.size]);
 """)
         self.assertEqual(values, [[1, 1]], "单飞 + 只留一个定时器")
+
+
+
+class WorkbenchPhoneTests(unittest.TestCase):
+    """新手机页（设计第 10 节 / 原型 Phone*）：账号密码默认不保存、条款未同意只读、连不上电脑红条、核对计划提醒。"""
+
+    def test_account_password_is_used_once_unless_save_is_ticked(self):
+        """电脑上没保存账号时手机露出账号密码：默认只用这一次，勾选才保存；发出后密码框清空；保存过就不再要。"""
+        html = (PHONE_DIR / "index.html").read_text(encoding="utf-8")
+        at = html.index('id="relogin-save"')
+        tag = html[html.rindex("<input", 0, at):html.index(">", at)]
+        self.assertNotIn("checked", tag, "「保存到这台电脑」默认不勾")
+        values = run_phone_js('''
+const ui = PhoneUI;
+const posts = [];
+globalThis.__fetch = async (path, opts) => {
+  if (opts && opts.body) posts.push(JSON.parse(opts.body));
+  return {status: 200, json: async () => ({ok: true, mode: "manual"})};
+};
+ui.model.lastOkAt = Date.now();
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: false, account_hint: "", ocr_ready: false, paused: false}}});
+ui.refreshControls();
+const shown = !$("relogin-account").hidden;
+$("relogin-user").value = "u1"; $("relogin-pass").value = "p1";
+await ui.beginRelogin();
+const once = posts[posts.length - 1];
+const cleared = $("relogin-pass").value;
+ui.model.reloginStarting = false;
+$("relogin-pass").value = "p2"; $("relogin-save").checked = true;
+await ui.beginRelogin();
+const saved = posts[posts.length - 1];
+ui.ingest({state: {relogin_setup: {saved: true, account_hint: "u*", ocr_ready: true, paused: false}}});
+ui.refreshControls();
+const hidden = $("relogin-account").hidden;
+ui.model.reloginStarting = false;
+await ui.beginRelogin();
+const fromComputer = posts[posts.length - 1];
+ui.ingest({state: {relogin_setup: {saved: true, account_hint: "u*", ocr_ready: true, paused: true}}});
+ui.refreshControls();
+out.push({shown, once, cleared, saved, hidden, fromComputer, pausedShown: !$("relogin-account").hidden});
+''')
+        r = values[0]
+        self.assertTrue(r["shown"], "电脑上没保存账号：手机露出账号密码")
+        self.assertEqual(r["once"]["action"], "phone_relogin_begin")
+        self.assertEqual(r["once"]["args"], {"username": "u1", "password": "p1", "save": False},
+                         "默认只用这一次，不保存")
+        self.assertEqual(r["cleared"], "", "发出后密码框立刻清空")
+        self.assertTrue(r["saved"]["args"]["save"], "勾选才保存到电脑")
+        self.assertTrue(r["hidden"], "电脑上保存过账号就不再要")
+        self.assertEqual(r["fromComputer"]["args"], {}, "用电脑上保存的账号时不带账号密码")
+        self.assertTrue(r["pausedShown"], "保存的密码学校不认：重新露出输入")
+
+    def test_terms_not_accepted_keeps_the_phone_read_only(self):
+        """电脑没同意条款：手机停在缓存，不能开始也不能重新登录，顶部说明原因；同意后提示收起。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now();
+ui.ingest({state: {terms_ok: false, busy: false, activities: [{id: "a1", name: "甲"}]}});
+ui.model.selected = ["a1"];
+ui.refreshControls();
+const locked = {start: $("btn-start").disabled, relogin: $("btn-relogin").disabled,
+  banner: $("banner").textContent, bannerHidden: $("banner").hidden};
+ui.ingest({state: {terms_ok: true}});
+ui.refreshControls();
+out.push({locked, start: $("btn-start").disabled, relogin: $("btn-relogin").disabled,
+  bannerHidden: $("banner").hidden});
+''')
+        r = values[0]
+        self.assertTrue(r["locked"]["start"], "没同意条款不能开始")
+        self.assertTrue(r["locked"]["relogin"], "没同意条款不能重新登录")
+        self.assertFalse(r["locked"]["bannerHidden"])
+        self.assertIn("还没同意使用条款", r["locked"]["banner"])
+        self.assertIn("停在上次的结果", r["locked"]["banner"], "说明现在看到的是缓存")
+        self.assertFalse(r["start"], "同意后恢复")
+        self.assertFalse(r["relogin"])
+        self.assertTrue(r["bannerHidden"], "同意后条款提示收起")
+
+    def test_offline_bar_is_red(self):
+        """连不上电脑是红条（原型 PhoneOffline 的 tone bad），比琥珀色提醒更显眼。"""
+        css = (PHONE_DIR / "styles.css").read_text(encoding="utf-8")
+        self.assertIn("#offline-note.warn { color: var(--bad); background: var(--bad-tint);", css)
+        html = (PHONE_DIR / "index.html").read_text(encoding="utf-8")
+        self.assertIn('id="offline-note" class="warn" role="alert"', html)
+
+    def test_review_lists_the_plan_and_the_same_reminders(self):
+        """点「开始」先核对：列出已选场次、尝试设置和与电脑同一套的提醒；有提醒按钮叫「仍然开始」；确认后才真的开始。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const posts = [];
+globalThis.__fetch = async (path, opts) => {
+  if (opts && opts.body) posts.push(JSON.parse(opts.body).action);
+  return {status: 200, json: async () => ({ok: true, plan_id: "p1"})};
+};
+ui.model.lastOkAt = Date.now();
+ui.ingest({state: {terms_ok: true, busy: false, business_clock: {state: "holdover"},
+  relogin_setup: {saved: false, ocr_ready: false, paused: false},
+  activities: [{id: "a1", name: "甲活动", seconds_to_open: 2 * 86400}]}});
+ui.model.selected = ["a1"];
+ui.refreshControls();
+$("btn-start").click();
+const review = {hidden: $("review-panel").hidden, items: $("review-items").innerHTML,
+  warns: $("review-warns").innerHTML, label: $("btn-review-start").textContent, posts: posts.slice()};
+$("btn-review-back").click();
+const back = {hidden: $("review-panel").hidden, posts: posts.slice()};
+const quiet = PhoneModel.preStartWarnings({clockState: "ready", retry: {retry_for_s: 120},
+  reloginSetup: {saved: true, ocr_ready: true, paused: false}}, [{id: "b1", seconds_to_open: 600, sign_end_ts: 1}]);
+out.push({review, back, quiet});
+''')
+        r = values[0]
+        self.assertFalse(r["review"]["hidden"], "点开始先出核对面板")
+        self.assertIn("甲活动", r["review"]["items"])
+        self.assertIn("上次的校准结果", r["review"]["warns"], "沿用上次校准要提醒")
+        self.assertIn("自动登录没开全", r["review"]["warns"], "等 1 小时以上又没开全自动登录要提醒")
+        self.assertIn("24 小时以后", r["review"]["warns"], "24 小时以后要提醒")
+        self.assertEqual(r["review"]["label"], "仍然开始报名计划", "有提醒只改名，不拦")
+        self.assertEqual(r["review"]["posts"], [], "核对时还没开始")
+        self.assertTrue(r["back"]["hidden"], "「返回」收起核对")
+        self.assertEqual(r["back"]["posts"], [], "返回不开始")
+        self.assertEqual(r["quiet"], [], "都正常时没有提醒")
+        js = (PHONE_DIR / "app.js").read_text(encoding="utf-8")
+        self.assertIn("seconds_to_open", js, "开放时间用后端给的秒数，不读手机时钟")
+
+    def test_running_plan_says_keep_going_and_edit_on_the_computer(self):
+        """运行中：重新登录成功写「报名计划照常继续」；手机只能停止，修改要回电脑。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now();
+const running = {busy: true, plan: {plan_id: "p1", status: "running", source: "phone",
+  tasks: [{task_id: "t1", name: "甲活动", status: "waiting", path: "direct"}]}, activities: []};
+/* 走真实轮询：poll 把快照交给 ingest 再画计划行 */
+globalThis.__fetch = async () => ({status: 200, json: async () => ({state: running, events: []})});
+await ui.poll(true);
+ui.ingest({state: {login_relay: {state: "success", flow_id: "f1", live: true}}});
+out.push([$("relogin-note").textContent, $("plan-line").textContent]);
+''')
+        note, line = values[0]
+        self.assertEqual(note, "重新登录成功，报名计划照常继续")
+        self.assertIn("要修改计划，回电脑上改", line)
+        self.assertIn("（从手机开始）", line)
+
+    def test_task_lines_use_the_computer_vocabulary(self):
+        """每场一句话与电脑同一套说法：名额已满不是工具出错、待核对不自动重发、等自动登录、改用页面点击。"""
+        values = run_phone_js('''
+out.push([
+  PhoneModel.taskText({status: "failed", stop_reason: "full"}),
+  PhoneModel.taskText({status: "failed", stop_reason: "unconfirmed"}),
+  PhoneModel.taskText({status: "waiting", login_wait: "waiting"}),
+  PhoneModel.taskText({status: "submitting", path: "click", path_reason: "接口不可用"}),
+  PhoneModel.taskText({status: "already_signed"}),
+  PhoneModel.taskText({status: "failed", outcome_label: "学校拒绝"}),
+]);
+''')
+        full, unconfirmed, waiting, click, signed, failed = values[0]
+        self.assertIn("名额已满", full)
+        self.assertIn("不是工具出错", full)
+        self.assertIn("待核对", unconfirmed)
+        self.assertIn("不会再自动重发", unconfirmed)
+        self.assertIn("自动登录", waiting)
+        self.assertIn("改用页面点击：接口不可用", click)
+        self.assertEqual(signed, "已报名")
+        self.assertEqual(failed, "报名未成功：学校拒绝")
 
 
 if __name__ == "__main__":

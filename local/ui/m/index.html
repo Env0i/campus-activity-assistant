@@ -37,7 +37,7 @@
     <p id="offline-note" class="warn" role="alert" hidden></p>
     <p id="stale-note" class="hint" hidden>状态已过时：先点右上角「刷新」，拿到最新状态后才能开始报名。</p>
     <p id="banner" class="error" role="alert" hidden></p>
-    <p id="login-expired-banner" class="warn" role="alert" hidden>电脑上的登录已失效：可以在下面「更多 → 重新登录」里处理，也能回电脑上点重登。</p>
+    <p id="login-expired-banner" class="warn" role="alert" hidden>电脑上的登录已失效：可以在下面「更多 → 重新登录」里处理，也能回电脑上点重新登录。</p>
 
     <section class="card today" id="today-items">
       <h2>今天要参加</h2>
@@ -112,7 +112,7 @@
              不留一个空白输入框让人以为「该我输了」。 -->
         <div id="relogin-captcha-group" hidden>
           <img id="captcha" alt="验证码" hidden>
-          <label class="field"><span>验证码（只对这场重登有效，不过期计时）</span>
+          <label class="field"><span>验证码（只对这场重新登录有效，不过期计时）</span>
             <input id="code" inputmode="text" autocomplete="off" maxlength="4"
                    placeholder="4 位字母数字" aria-label="验证码"></label>
           <div class="row">
@@ -121,8 +121,28 @@
             <button id="btn-relogin-cancel" class="ghost" type="button" hidden>取消</button>
           </div>
         </div>
+        <!-- 电脑上没保存账号（或保存的密码学校不认）时，手机上可以输账号密码：默认只用这一次，
+             勾选才在登录成功后保存到电脑（设计 9.3）；电脑正在自动登录时这里只显示进度 -->
+        <div id="relogin-account" hidden>
+          <label class="field"><span>账号</span><input id="relogin-user" autocomplete="username" aria-label="账号"></label>
+          <label class="field"><span>密码</span><input id="relogin-pass" type="password" autocomplete="current-password" aria-label="密码"></label>
+          <label class="field check"><input id="relogin-save" type="checkbox"> 登录成功后保存到这台电脑</label>
+        </div>
+        <p class="hint">登录时，工具会替你勾选学校登录页上的《隐私协议》。</p>
         <div class="row">
-          <button id="btn-relogin" class="primary" type="button">在手机上重登</button>
+          <button id="btn-relogin" class="primary" type="button">重新登录</button>
+        </div>
+      </section>
+
+      <!-- 开始前核对计划：已选场次、尝试设置和与电脑同一套的开始前提醒（只提醒不拦） -->
+      <section id="review-panel" class="sub" hidden>
+        <h3>核对计划</h3>
+        <ul id="review-items" class="hint"></ul>
+        <p id="review-policy" class="hint"></p>
+        <ul id="review-warns" class="warns"></ul>
+        <div class="row">
+          <button id="btn-review-start" class="primary" type="button">开始报名计划</button>
+          <button id="btn-review-back" class="ghost" type="button">返回</button>
         </div>
       </section>
     </details>

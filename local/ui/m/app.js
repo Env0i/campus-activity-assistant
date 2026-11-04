@@ -71,14 +71,14 @@ const PhoneModel = {
   IDLE_SYNC_MS: 15000,
   ACTIVE_SYNC_MS: 2000,
 
-  /* 重登是不是「正在进行」：这几个状态里界面上的数字每秒都在变，同步要跟上 */
+  /* 重新登录是不是「正在进行」：这几个状态里界面上的数字每秒都在变，同步要跟上 */
   reloginBusy(flow) {
     if (!flow) return false;
     if (flow.submit_pending) return true;
     return flow.state === "starting" || flow.state === "waiting_code"
       || flow.state === "verifying";
   },
-  /* 有没有正在进行的事：报名计划、待对账的开始请求、重登开始/提交/验证中 */
+  /* 有没有正在进行的事：报名计划、待对账的开始请求、重新登录开始/提交/验证中 */
   isActive(model) {
     if (!model) return false;
     if (model.busy) return true;
@@ -166,6 +166,43 @@ const PhoneModel = {
     if (item.closed) return false;                            // 已截止不可执行
     return true;
   },
+  /* 每场一句话（与电脑同一套说法，设计第 10 节）：提交方式、等自动登录、名额已满等结束结论 */
+  taskText(task) {
+    const t = task || {};
+    const st = String(t.status || "");
+    const stop = String(t.stop_reason || "");
+    if (st === "success" || st === "already_signed") return "已报名";
+    if (stop === "full") return "名额已满（学校说满了，不再提交，不是工具出错）";
+    if (stop === "unconfirmed") return "待核对（去活动页看一眼，工具不会再自动重发）";
+    if (st === "failed" || st === "canceled") {
+      return "报名未成功" + (t.outcome_label ? "：" + t.outcome_label : (st === "canceled" ? "：已取消" : ""));
+    }
+    if (String(t.login_wait || "") === "waiting") return "电脑正在自动登录，换上新登录态后接着提交";
+    const via = t.path === "click" ? "；改用页面点击" + (t.path_reason ? "：" + t.path_reason : "")
+      : (t.path === "direct" ? "；直接提交" : "");
+    return (st === "submitting" ? "提交中" : "等开放") + via;
+  },
+  escape(text) {
+    return String(text == null ? "" : text).replace(/[&<>"']/g, (c) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c]);
+  },
+  /* 开始前提醒（与电脑同一套，只提醒不拦）：开放时间用后端给的 seconds_to_open，不读手机时钟 */
+  preStartWarnings(model, picked) {
+    const list = [];
+    if (model && model.clockState === "holdover") list.push("北京时间在用上次的校准结果，电脑会自动重新校准。");
+    const secs = (picked || []).map((i) => Number(i.seconds_to_open)).filter((n) => Number.isFinite(n));
+    const latest = secs.length ? Math.max.apply(null, secs) : null;
+    const setup = (model && model.reloginSetup) || {};
+    if (latest !== null && latest > 3600 && !(setup.saved && setup.ocr_ready && !setup.paused)) {
+      list.push("最晚一场要等 1 小时以上，电脑的自动登录没开全：中途登录失效要你重新登录；开放前 100 秒内失效的那场会直接结束。");
+    }
+    if (model && model.retry && Number(model.retry.retry_for_s) === 0
+        && (picked || []).some((i) => !i.sign_end && !i.sign_end_ts)) {
+      list.push("尝试时长选了「直到报名截止」，但有场次没给截止时间：这些场次最多试 2 分钟。");
+    }
+    if (latest !== null && latest > 86400) list.push("最晚一场 24 小时以后才开放：这段时间别关电脑上的工具，也别让电脑睡眠。");
+    return list;
+  },
   connText(model) {
     if (!model || PhoneModel.isStale(model.lastOkAt, model.nowMs)) return "离线/未知";
     return "已连接";
@@ -250,11 +287,16 @@ if (typeof document !== "undefined") {
     const refresh = $("btn-refresh");
     refresh.disabled = Boolean(model.flying);
     refresh.textContent = model.flying ? "刷新中…" : "刷新";
-    $("btn-start").disabled = !PhoneModel.canStart(model);
+    /* 电脑没同意条款：手机停在缓存，不能开始也不能重新登录（与电脑同一道门，后端也会拦） */
+    $("btn-start").disabled = !PhoneModel.canStart(model) || model.termsOk === false;
     $("btn-stop").hidden = !model.busy;
     $("btn-cancel-task").hidden = !model.busy;
     $("btn-relogin-submit").disabled = !PhoneModel.canSubmitRelogin(model, model.challenge);
-    $("btn-relogin").disabled = Boolean(model.reloginStarting);
+    $("btn-relogin").disabled = Boolean(model.reloginStarting) || model.termsOk === false;
+    /* 电脑上没保存账号或保存的密码不对：手机上露出账号密码输入 */
+    const setup = model.reloginSetup || {};
+    const account = $("relogin-account");
+    if (account) account.hidden = !(model.reloginSetup && (!setup.saved || setup.paused));
     $("pending-note").hidden = !(model.pending && !model.pending.done);
     $("btn-cancel-start").hidden = !(model.pending && !model.pending.done);
     $("retry-hint").textContent = PhoneModel.retryHint(
@@ -318,11 +360,10 @@ if (typeof document !== "undefined") {
       return;
     }
     const tasks = plan.tasks || [];
-    const lines = tasks.map((task) => {
-      const left = PhoneModel.taskDeadline(task, model.nowMs / 1000);
-      return PhoneModel.itemTitle(task) + "：" + String(task.status || "");
-    });
-    $("plan-line").textContent = lines.join("；") || "计划进行中";
+    const lines = tasks.map((task) => PhoneModel.itemTitle(task) + "：" + PhoneModel.taskText(task));
+    const source = String(plan.source || "") === "phone" ? "（从手机开始）" : "";
+    /* 手机上运行中只能停止；修改计划要回电脑（设计第 10 节） */
+    $("plan-line").textContent = (lines.join("；") || "计划进行中") + source + "。要修改计划，回电脑上改。";
   }
 
   function addLog(text) {
@@ -487,12 +528,15 @@ if (typeof document !== "undefined") {
       if (logs) logs.textContent = "";
     }
     const state = payload.state || {};
-    // 服务端把当前重登现场放在 state.login_relay：先按快照重建，再叠加增量事件
+    // 服务端把当前重新登录现场放在 state.login_relay：先按快照重建，再叠加增量事件
     if (state.login_relay && typeof state.login_relay === "object") {
       ingestRelogin(state.login_relay);
     }
     if (Array.isArray(state.activities)) model.items = state.activities;
     if (state.plan) model.plan = state.plan;
+    if (typeof state.terms_ok === "boolean") model.termsOk = state.terms_ok;
+    if (state.relogin_setup && typeof state.relogin_setup === "object") model.reloginSetup = state.relogin_setup;
+    if (state.business_clock && typeof state.business_clock === "object") model.clockState = String(state.business_clock.state || "");
     if (typeof state.busy === "boolean") model.busy = state.busy;
     if (state.retry_options && Array.isArray(state.retry_options.choices)) {
       model.retryOptions = state.retry_options;
@@ -504,6 +548,12 @@ if (typeof document !== "undefined") {
       if (event.kind === "phone_relogin" && !state.login_relay) ingestRelogin(event.payload || {});
     });
     if (payload.seq) model.seq = Math.max(model.seq, Number(payload.seq));
+    if (model.termsOk === false) {
+      setBanner("电脑上还没同意使用条款：这里停在上次的结果，不能开始报名，也不能重新登录。", "terms");
+    } else if (model.bannerKind === "terms") {
+      /* 电脑上同意了：只收条款这一条，别的错误提示留着等明确覆盖 */
+      setBanner("", "");
+    }
     // 登录失效要在最上面说清楚：手机能看列表不代表电脑还能报名
     if (state.login && typeof state.login === "object") {
       const expired = !!state.login.session_expired || !state.login.session_present;
@@ -637,8 +687,19 @@ if (typeof document !== "undefined") {
     sel.value = String(model.retry.retry_for_s);
   }
 
-  /* ---- 重登 ---- */
+  /* ---- 重新登录 ---- */
   /* 流程结束（成功或中断）：收起整组验证码输入，只留"重新开始"入口 */
+  function openReview() {
+    if ($("btn-start").disabled) return;
+    const picked = (model.items || []).filter((item) => model.selected.indexOf(item.id) >= 0);
+    $("review-items").innerHTML = picked.map((item) => "<li>" + PhoneModel.escape(PhoneModel.itemTitle(item)) + "</li>").join("");
+    $("review-policy").textContent = PhoneModel.retryHint(model.retry.retry_for_s, picked.some((i) => i.sign_end_ts));
+    const warns = PhoneModel.preStartWarnings(model, picked);
+    $("review-warns").innerHTML = warns.map((text) => "<li>" + PhoneModel.escape(text) + "</li>").join("");
+    $("btn-review-start").textContent = warns.length ? "仍然开始报名计划" : "开始报名计划";
+    $("review-panel").hidden = false;
+  }
+
   function endReloginControls() {
     $("relogin-captcha-group").hidden = true;
     $("btn-relogin-submit").hidden = true;
@@ -654,7 +715,7 @@ if (typeof document !== "undefined") {
       // 这里只报进度；连续失败到阈值后服务端会把 mode 换成 manual，图自然会来。
       const rounds = Math.max(Number(info.attempts || 0), Number(info.auto_failures || 0));
       if (info.retrying) {
-        $("relogin-note").textContent = "电脑正在自动重登" +
+        $("relogin-note").textContent = "电脑正在自动登录" +
           (rounds > 0 ? "（第 " + (rounds + 1) + " 次）" : "") + "…";
       } else {
         $("relogin-note").textContent =
@@ -715,12 +776,13 @@ if (typeof document !== "undefined") {
       model.reloginSubmitting = false;
       endReloginControls();
       if (info.live) {
-        $("relogin-note").textContent = "重登成功，正在刷新列表";
+        /* 计划在跑：成功的意义是计划照常往下走（设计 9.3，与电脑同一句） */
+        $("relogin-note").textContent = model.busy ? "重新登录成功，报名计划照常继续" : "重新登录成功，正在刷新列表";
         void poll(true);
       } else {
         // 中继在空闲时会回上一场的结论：那是历史，不是这一次。只按 live 播报，
         // 否则每次打开手机页都会把很早以前那一次成功再演一遍。
-        $("relogin-note").textContent = "上次重登已完成；需要时点「在手机上重登」再试";
+        $("relogin-note").textContent = "上次重新登录已完成；需要时点「重新登录」再试";
       }
     } else if (info.state === "failed" || info.state === "canceled") {
       model.challenge = null;
@@ -728,10 +790,10 @@ if (typeof document !== "undefined") {
       endReloginControls();
       const reason = String(info.safe_error || info.state);
       $("relogin-note").textContent = info.live
-        ? "重登结束：" + reason
-        : "上次重登未完成：" + reason;
+        ? "重新登录结束：" + reason
+        : "上次重新登录未完成：" + reason;
     } else if (info.state && info.state !== "waiting_code") {
-      // idle 表示「本来就没有在进行的重登」，不是一次结束：写成「重登结束：idle」
+      // idle 表示「本来就没有在进行的重新登录」，不是一次结束：写成「重新登录结束：idle」
       // 会把上一次真正的原因（比如 bad_csrf、凭据没准备好）盖成一句空话。
       model.challenge = null;
       model.reloginSubmitting = false;
@@ -742,20 +804,38 @@ if (typeof document !== "undefined") {
   async function beginRelogin() {
     // 单飞：连点两下也只是同一次开始，不会发出第二个 POST
     if (model.reloginStarting) return;
-    if (!canWrite()) { setBanner("状态已过时，先刷新再重登", "stale_action"); return; }
+    if (!canWrite()) { setBanner("状态已过时，先刷新再重新登录", "stale_action"); return; }
     model.reloginStarting = true;
     refreshControls();
-    const { body } = await postAction({ action: "phone_relogin_begin", args: {} });
+    /* 手机上输了账号密码就带上（默认不保存，勾选才保存到电脑）；没输就用电脑上保存的 */
+    const args = {};
+    const account = $("relogin-account");
+    if (account && !account.hidden) {
+      const user = String(($("relogin-user") || {}).value || "").trim();
+      const pass = String(($("relogin-pass") || {}).value || "");
+      if (!user || !pass) {
+        model.reloginStarting = false;
+        $("relogin-note").textContent = "账号和密码都要填。";
+        refreshControls();
+        return;
+      }
+      args.username = user;
+      args.password = pass;
+      args.save = !!($("relogin-save") || {}).checked;
+      $("relogin-pass").value = "";
+    }
+    const { body } = await postAction({ action: "phone_relogin_begin", args: args });
     model.reloginStarting = false;
     if (!body || !body.ok) {
-      $("relogin-note").textContent = "还不能开始：" + String(
-        (body && body.text) || (body && body.error) || "请到电脑上准备账号");
+      $("relogin-note").textContent = body && body.error === "plan_late"
+        ? "现在来不及重新登录：" + String(body.text || "有场次正在提交，或者离开放不到 100 秒。")
+        : "还不能开始：" + String((body && body.text) || (body && body.error) || "请到电脑上准备账号");
       refreshControls();
       return;
     }
     if (String(body.mode || "") === "auto") {
       // 电脑接手了：手机不进入验证码流程，只等快照回报进度
-      $("relogin-note").textContent = "电脑正在自动重登，手机上不用再操作";
+      $("relogin-note").textContent = "电脑正在自动登录，手机上不用再操作";
       refreshControls();
       void poll(true);
       return;
@@ -813,7 +893,7 @@ if (typeof document !== "undefined") {
       action: "phone_relogin_cancel", args: { flow_id: flowId || "" } });
     if (body && body.error) {
       // 取消没发出去就不能假装已经取消：留着旧图，让用户重试
-      addLog("没能取消这次重登：" + String(body.text || body.error));
+      addLog("没能取消这次重新登录：" + String(body.text || body.error));
       return false;
     }
     model.challenge = null;
@@ -832,7 +912,10 @@ if (typeof document !== "undefined") {
   function wire() {
     $("btn-pair").addEventListener("click", () => void pair());
     $("btn-refresh").addEventListener("click", () => void poll(true));
-    $("btn-start").addEventListener("click", () => void startPlan());
+    /* 开始前先核对计划：列出已选场次、尝试设置和开始前提醒，确认后才真的开始 */
+    $("btn-start").addEventListener("click", () => openReview());
+    $("btn-review-start").addEventListener("click", () => { $("review-panel").hidden = true; void startPlan(); });
+    $("btn-review-back").addEventListener("click", () => { $("review-panel").hidden = true; });
     $("btn-stop").addEventListener("click", () => void stopPlan());
     $("btn-cancel-start").addEventListener("click", () => void cancelPendingStart());
     $("btn-cancel-task").addEventListener("click", () => void cancelTask());
