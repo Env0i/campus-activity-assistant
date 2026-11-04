@@ -27,7 +27,7 @@ if str(LOCAL) not in sys.path:
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
 
-from time_contract import configure_time_source, school_time_text  # noqa: E402
+from time_contract import configure_time_source, school_time_text, SCHOOL_TZ  # noqa: E402
 configure_time_source(time.time)   # 旧用例显式注入本机时钟；新用例改注 FakeBusinessClock
 from unittest import mock
 
@@ -741,8 +741,8 @@ class SignupModeClassificationTests(unittest.TestCase):
 
     def test_mixed_plan_groups_open_batch_first(self):
         """混合计划：已开放批次排最前立即执行，未来批次按原定时刻等待。"""
-        future_at = datetime.fromtimestamp(self.NOW + 3600).strftime("%Y-%m-%d %H:%M:%S")
-        past_at = datetime.fromtimestamp(self.NOW - 3600).strftime("%Y-%m-%d %H:%M:%S")
+        future_at = datetime.fromtimestamp(self.NOW + 3600, SCHOOL_TZ).strftime("%Y-%m-%d %H:%M:%S")
+        past_at = datetime.fromtimestamp(self.NOW - 3600, SCHOOL_TZ).strftime("%Y-%m-%d %H:%M:%S")
         act_s, act_e = "2099-01-03 09:00:00", "2099-01-03 11:00:00"
         specs = [
             TaskSpec.from_activity({"id": "f", "name": "未来场", "sign_start": future_at,
@@ -894,7 +894,7 @@ class PreopenSchedulerTests(unittest.TestCase):
 
     @staticmethod
     def _fmt(ts):
-        return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.fromtimestamp(ts, SCHOOL_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
     def _activity_row(self, aid, sign_start_ts):
         return {"id": aid, "name": aid, "sign_start": self._fmt(sign_start_ts),

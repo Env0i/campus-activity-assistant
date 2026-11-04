@@ -400,7 +400,7 @@ function handleDone(payload) {
       S.login.preLoginSnapshot = null;
       setLogin(null, true, true, { estimated_expires_at: null, saved_at: null });
       syncLoginDependentView();
-      setResult({ ok: true, title: "登录成功", text: "正在加载活动列表。登录剩余时间以学校校验为准。", autoClose: Date.now() + 6000 });
+      setResult({ ok: true, title: "登录成功", text: "正在加载活动列表。", autoClose: Date.now() + 6000 });
       doCheck();
       refresh(true);
     } else {

@@ -918,6 +918,10 @@ class HttpRelayTests(unittest.TestCase):
                 fallback.assert_not_called()
                 self.assertNotIn("success", [e["kind"] for e in events])
                 self.assertNotIn("secret-y", output)
+                # 这些都不在官网实测的「账号或密码错误！」清单里：不得误报成密码错，
+                # 否则会替用户把自动登录停掉
+                self.assertEqual({e.get("error") for e in events if e["kind"] == "failed"},
+                                 {"bad_response"}, "原因不明的拒绝不得报成密码错")
 
     def test_verified_captcha_message_refreshes_with_new_uuid(self):
         deps = HttpDeps()
@@ -954,6 +958,10 @@ class HttpRelayTests(unittest.TestCase):
         self.assertEqual([path for path, _payload, _tok in deps.posts], [
             login_relay.AUTH_LOGIN_PATH,
         ])
+        # 官网实测文案要单独报 bad_password：界面据此暂停自动登录，
+        # 不能和「原因不明的拒绝」共用 bad_response
+        self.assertIn('"error": "bad_password"', output.getvalue())
+        self.assertNotIn('"bad_response"', output.getvalue())
 
     def test_verify_and_save_errors_never_emit_success(self):
         for failure in ("verify", "save"):

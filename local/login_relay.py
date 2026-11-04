@@ -75,6 +75,11 @@ _CAPTCHA_REFUSED = "refused"
 # 官网实测的精确业务消息：验证码错才换图继续；密码错不能自动重试。
 CAPTCHA_ERROR_MESSAGES = frozenset({"登录失败，验证码不正确！"})
 
+# 官网实测的「账号或密码错」回包：{"code": 0, "message": "账号或密码错误！", "data": []}。
+# 认出它才报 bad_password、让界面暂停自动登录；不在清单里的拒绝一律按原因不明处理，
+# 绝不拿「像不像密码错」去猜——猜错会替用户把自动登录停掉。
+PASSWORD_ERROR_MESSAGES = frozenset({"账号或密码错误！"})
+
 
 # ---- 纯规则 ---------------------------------------------------------------
 def valid_code(code) -> bool:
@@ -636,9 +641,11 @@ def _http_login(deps, stdout, book, flow_id, username, password, sess, code,
                 deadline):
     """提交登录并结算：本场新 token 校验通过才保存；失败不碰旧会话。
 
-    code=-1/超时/传输异常/非 dict/密码错误/原因不明的业务拒绝一律安全终止：
-    不换图、不切浏览器、不重复提交密码。只有 CAPTCHA_ERROR_MESSAGES 里明确
-    「验证码输错」的拒绝才换图继续；验证码提交没有次数上限。
+    code=-1/超时/传输异常/非 dict/原因不明的业务拒绝一律安全终止：不换图、
+    不切浏览器、不重复提交密码。只有 CAPTCHA_ERROR_MESSAGES 里明确「验证码
+    输错」的拒绝才换图继续；验证码提交没有次数上限。PASSWORD_ERROR_MESSAGES
+    里明确的「账号或密码错」报 bad_password（界面据此暂停自动登录），同样
+    不换图、不重试；不在清单里的拒绝不猜。
     """
     _emit_line(stdout, flow_id, kind="verifying", challenge_id=book.challenge_id)
     body = {"userName": str(username), "pwd": str(password), "code": str(code),
@@ -659,9 +666,13 @@ def _http_login(deps, stdout, book, flow_id, username, password, sess, code,
         # code=1 却没有 token：成功契约变了；code=-1：传输异常/超时。人工
         # 尝试已消费，只安全失败，不二次切换、不重复提交同一份凭据
         return _http_fail(stdout, flow_id, "bad_response", 2)
-    if str(result.get("message") or "") in CAPTCHA_ERROR_MESSAGES:
+    message = str(result.get("message") or "")
+    if message in CAPTCHA_ERROR_MESSAGES:
         return _http_refresh_challenge(deps, stdout, book, flow_id, sess, deadline)
-    # 密码错误或原因不明的业务拒绝：安全终止
+    if message in PASSWORD_ERROR_MESSAGES:
+        # 学校明确说账号或密码错：界面据此暂停自动登录。同样不换图、不重试
+        return _http_fail(stdout, flow_id, "bad_password", 2)
+    # 原因不明的业务拒绝：安全终止，不猜是不是密码错
     return _http_fail(stdout, flow_id, "bad_response", 2)
 
 

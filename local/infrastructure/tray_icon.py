@@ -4,10 +4,8 @@
 而 pythonnet 本来就是 pywebview 在 Windows 上的依赖，NotifyIcon 可以直接用，
 不必新增 pip 依赖。
 
-托盘图标优先从打包资源里的 ui/brand/app.ico 读：资源根和 app.RESOURCE_ROOT 同一推导
-（冻结时 sys._MEIPASS，源码运行时 local/）。runtime_paths 只管数据目录、没有资源根函数，
-本模块又不能反向 import app，所以在这里按同一规则算一次。读不到或加载失败时退回
-SystemIcons.Application，不抛异常。.NET Icon
+托盘图标优先从打包资源里的 ui/brand/app.ico 读（runtime_paths 现有函数给路径，
+不写死）；读不到或加载失败时退回 SystemIcons.Application，不抛异常。.NET Icon
 读不了 256 的 PNG 帧会自动退到 64，托盘只用 16～32，不影响显示。
 
 失败不要紧：start() 返回 False 就当没有托盘，主程序照常跑；窗口藏起来之后

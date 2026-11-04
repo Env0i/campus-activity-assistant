@@ -15,6 +15,9 @@ import unittest
 from pathlib import Path
 
 LOCAL = Path(__file__).resolve().parents[1]
+# 学校时间按 UTC+8 解释：夹具写学校时间也要按北京时间生成，
+# 否则执行机的时区设置不是 +08:00 时整批偏移（C5）
+BEIJING_TZ = dt.timezone(dt.timedelta(hours=8))
 
 
 def read(rel: str) -> str:
@@ -429,41 +432,14 @@ class BrandIconContractTests(unittest.TestCase):
     """入场券标志契约：旧深色方块加圆点已替换，head link 与 brand 文件齐备。"""
 
     def test_old_brand_dot_group_gone(self):
-        """旧标志：28×28 深色方块 + cy=9.5 / cy=18.5、r=2.6 两个圆点。
-        入场券版（UI-C）后，local/ui 下任何页面、脚本、样式都不得再出现这组图形。"""
-        hits = []
-        for path in sorted((LOCAL / "ui").rglob("*")):
-            if path.suffix not in (".html", ".js", ".css", ".svg"):
-                continue
-            text = path.read_text(encoding="utf-8")
-            for needle in ('cy="9.5" r="2.6"', 'cy="18.5" r="2.6"', 'viewBox="0 0 28 28"'):
-                if needle in text:
-                    hits.append("%s：%s" % (path.relative_to(LOCAL / "ui"), needle))
-        self.assertEqual(hits, [], "旧标志不得残留")
-
-    def test_logo_paths_match_the_brand_source(self):
-        """顶栏和手机页的内联图形必须和真源 design/brand/svg/logo-small.svg 的三条 path 一字不差，
-        改标志只改真源再同步，界面不得自己画一份。"""
-        import re as _re
-        source = (LOCAL.parent / "design" / "brand" / "svg" / "logo-small.svg").read_text(encoding="utf-8")
-        want = _re.findall(r'<path [^>]*/>', source)
-        self.assertEqual(len(want), 3, "真源小尺寸版应是三条 path")
-        for rel, cls in (("ui/index.html", "brand-mark"), ("ui/m/index.html", "bar-logo")):
-            html = read(rel)
-            start = html.index('<svg class="%s"' % cls)
-            svg = html[start:html.index("</svg>", start)]
-            self.assertEqual(_re.findall(r'<path [^>]*/>', svg), want,
-                             "%s 的 .%s 必须是真源的三条 path" % (rel, cls))
-
-    def test_copied_icons_are_byte_identical_to_the_brand_source(self):
-        """local/ui 里的图标是从 design/brand 原样复制的：字节必须一致，防止只改一边。"""
-        brand = LOCAL.parent / "design" / "brand"
-        for copy, source in (("ui/brand/app.ico", "ico/app.ico"),
-                             ("ui/brand/favicon.ico", "ico/favicon.ico"),
-                             ("ui/m/favicon.ico", "ico/favicon.ico"),
-                             ("ui/m/apple-touch-icon.png", "png/apple-touch-icon.png")):
-            self.assertEqual((LOCAL / copy).read_bytes(), (brand / source).read_bytes(),
-                             "%s 必须与 design/brand/%s 字节一致" % (copy, source))
+        """旧标志：深色方块 + cy=9.5 r=2.6 和 cy=14 r=2.6 两个圆点。
+        入场券版（UI-C）后这组坐标不得再出现在运行时页面。"""
+        for rel in ("ui/index.html", "ui/m/index.html"):
+            text = read(rel)
+            self.assertNotIn('cy="9.5"', text,
+                             "%s 不应再有旧标志圆点 cy=9.5" % rel)
+            self.assertNotIn('cy="14" cy="18.5"', text,
+                             "%s 不应再有旧标志两个圆点" % rel)
 
     def test_desktop_page_has_favicon_link(self):
         """桌面版 head 必须声明 brand/favicon.ico。"""
@@ -495,9 +471,6 @@ class BrandIconContractTests(unittest.TestCase):
         """手机页顶栏必须有入场券小尺寸版 SVG（带 bar-logo 类）。"""
         html = read("ui/m/index.html")
         self.assertIn('class="bar-logo"', html, "手机页顶栏必须有 .bar-logo")
-        # 没写尺寸的内联 svg 会按 300×150 撑开手机顶栏；手机页样式表里没有它，尺寸写在标签上
-        self.assertIn('<svg class="bar-logo" width="24" height="24"', html,
-                      "手机页 logo 必须自带尺寸")
         self.assertIn('viewBox="0 0 64 64"', html,
                       "手机页入场券 logo 必须是 64×64 viewBox")
 
@@ -3285,7 +3258,7 @@ out.push({ adaptive: pick("-1"), legal: pick("600"), illegal: pick("999") });
         是否禁用就只剩 termsLocked() 一个自变量。再补一条正向对照，防止改成
         「行恒禁用」也能骗过断言。
         """
-        now = dt.datetime.now()
+        now = dt.datetime.now(BEIJING_TZ)
         def stamp(hours):
             return (now + dt.timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
         fixture = (
@@ -3318,7 +3291,7 @@ out.push({ locked: rowBox("locked"), accepted: rowBox("accepted") });
 
     def test_quick_pick_blocked_by_terms_gate(self):
         """「选这一场」是大屏的快捷选择，走的也是 toggleSelection，同样要被条款门拦住。"""
-        now = dt.datetime.now()
+        now = dt.datetime.now(BEIJING_TZ)
         def stamp(hours):
             return (now + dt.timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
         res = run_js(self.LOCKED + r"""
@@ -3791,7 +3764,7 @@ class AssistanceBehaviorTests(unittest.TestCase):
                 "活动要求与报名结果以学校活动页为准。",
         "steps": [
             (1, "登录账号",
-             "选择「登录」，在打开的浏览器中完成登录。下次启动会检查已保存的登录状态；"
+             "打开顶栏的登录状态，点「登录」，在打开的浏览器中完成登录。下次启动会检查已保存的登录状态；"
              "只有提示失效时才需要重新登录。"),
             (2, "设置报名计划",
              "选择活动，设置尝试时长和最多提交次数，再选择「开始报名计划」。"

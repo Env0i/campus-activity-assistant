@@ -59,7 +59,7 @@ def run_pyinstaller(name: str, source: Path, mode: str, add_ui: bool,
     if stage.exists():
         shutil.rmtree(stage)
     stage.mkdir(parents=True, exist_ok=True)
-    # EXE 图标：图形界面程序带入场券图标；grab-worker 是后台控制台进程，用户看不到它，不加。
+    # EXE 图标：PyInstaller --icon 只对 windowed 程序有效，
     # 文件不存在就直接报错退出——绝不静默退回系统默认图标，
     # 免得发出去的包看起来像漏了品牌资源
     icon_path = LOCAL / "ui" / "brand" / "app.ico"

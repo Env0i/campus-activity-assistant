@@ -173,8 +173,8 @@ DisableProgramGroupPage=auto
 OutputBaseFilename=@@PRODUCT_NAME@@-安装版-@@VERSION@@
 UninstallDisplayName={#MyAppName} @@VERSION@@
 UninstallDisplayIcon={app}\\{#MyAppExeName}
-; 安装包图标：SetupIconFile 是安装程序 exe 自己的图标；控制面板「卸载」条目
-; 用 UninstallDisplayIcon（指向已带图标的 EXE），桌面快捷方式也取 EXE 的图标；
+; 安装包图标：SetupIconFile 只决定安装向导左上角和控制面板条目，
+; 桌面快捷方式和 EXE 自身的图标由 PyInstaller --icon 打包进 EXE；
 ; 图标文件缺失时构建直接报错（build_exe.py 已检查，这里兜底再校验一次）
 SetupIconFile=@@ICON_FILE@@
 Compression=lzma2/ultra64

@@ -291,13 +291,13 @@ function paintEmpty(rows) {
   }
   if (login === "none") {
     title.textContent = "登录后查看活动";
-    text.innerHTML = '<span style="white-space:nowrap">点右上角「登录」，</span>在打开的浏览器中完成登录，<span style="white-space:nowrap">然后点「刷新」。</span>';
+    text.innerHTML = '<span style="white-space:nowrap">打开顶栏的登录状态，点「登录」，</span>在打开的浏览器中完成登录，<span style="white-space:nowrap">然后点「刷新」。</span>';
     action.textContent = "刷新";
     return;
   }
   if (login === "expired") {
     title.textContent = "登录状态失效，先重新登录";
-    text.innerHTML = '<span style="white-space:nowrap">点右上角「重新登录」，完成后点「刷新」。</span>';
+    text.innerHTML = '<span style="white-space:nowrap">打开顶栏的登录状态，点「重新登录」，完成后点「刷新」。</span>';
     action.textContent = "刷新";
     return;
   }

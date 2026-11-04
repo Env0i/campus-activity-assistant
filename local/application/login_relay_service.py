@@ -167,15 +167,15 @@ class LoginRelayService:
                 return {"ok": False, "error": "canceled"}
             if demo:
                 return {"ok": False, "error": "demo",
-                        "text": "演示模式不联网，不会启动重登。"}
+                        "text": "演示模式不联网，不会启动重新登录。"}
             if self._flow is not None:
-                return {"ok": False, "error": "busy", "text": "已有一次重登在进行"}
+                return {"ok": False, "error": "busy", "text": "已有一次重新登录在进行"}
             if not terms_ok:
                 return {"ok": False, "error": "terms_required",
                         "text": "请先在电脑上同意使用条款"}
             if plan_active:
                 return {"ok": False, "error": "plan_active",
-                        "text": "报名计划仍在运行：先停止并等终态，再重登"}
+                        "text": "报名计划仍在运行：先停止并等终态，再重新登录"}
             if self._staged is None:
                 return {"ok": False, "error": "needs_local_setup",
                         "text": "请先在电脑上准备账号密码"}
@@ -200,7 +200,7 @@ class LoginRelayService:
             creds.clear()
             self._finish(flow)
             return {"ok": False, "error": "spawn_failed",
-                    "text": "重登进程没能启动：%s" % type(exc).__name__}
+                    "text": "重新登录进程没能启动：%s" % type(exc).__name__}
         proc = getattr(tree, "proc", tree)
         stdin = getattr(proc, "stdin", None)
         if stdin is None:
@@ -210,7 +210,7 @@ class LoginRelayService:
             except Exception:  # noqa: BLE001
                 pass
             self._finish(flow)
-            return {"ok": False, "error": "spawn_failed", "text": "重登进程没有输入管道"}
+            return {"ok": False, "error": "spawn_failed", "text": "重新登录进程没有输入管道"}
         with self._lock:
             canceled = self._flow is not flow or self._closed
             if not canceled:
@@ -245,11 +245,11 @@ class LoginRelayService:
             flow = self._flow
             stdin = self._stdin
         if flow is None:
-            return {"ok": False, "error": "no_flow", "text": "当前没有进行中的重登"}
+            return {"ok": False, "error": "no_flow", "text": "当前没有进行中的重新登录"}
         if str(flow_id or "") != str(flow.get("flow_id") or ""):
-            return {"ok": False, "error": "stale_flow", "text": "这次重登已经结束"}
+            return {"ok": False, "error": "stale_flow", "text": "这次重新登录已经结束"}
         if stdin is None:
-            return {"ok": False, "error": "no_flow", "text": "重登进程已结束"}
+            return {"ok": False, "error": "no_flow", "text": "重新登录进程已结束"}
         status = self._send_submit(flow, {"kind": "submit", "flow_id": flow.get("flow_id"),
                     "challenge_id": str(challenge_id or ""),
                     "code": str(code or "")}, origin=str(origin or "phone"))

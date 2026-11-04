@@ -1016,7 +1016,7 @@ class Api:
             # 三步只讲「怎么操作」：选中不等于开始，开始按钮必须点，结果逐场看
             "steps": [
                 {"no": 1, "title": "登录账号",
-                 "text": "选择「登录」，在打开的浏览器中完成登录。下次启动会检查已保存的登录状态；"
+                 "text": "打开顶栏的登录状态，点「登录」，在打开的浏览器中完成登录。下次启动会检查已保存的登录状态；"
                          "只有提示失效时才需要重新登录。"},
                 {"no": 2, "title": "设置报名计划",
                  "text": "选择活动，设置尝试时长和最多提交次数，再选择「开始报名计划」。"
@@ -2255,9 +2255,9 @@ class Api:
             if result == "valid":
                 pass                     # 学校接口确认有效：唯一放行形态
             elif result == "none":
-                return {"ok": False, "text": "还没有登录：点右上角「登录」先登录一次"}
+                return {"ok": False, "text": "还没有登录：打开顶栏的登录状态，点「登录」先登录一次"}
             elif result == "expired":
-                return {"ok": False, "text": "登录态已失效：点右上角「重新登录」后再开始"}
+                return {"ok": False, "text": "登录态已失效：打开顶栏的登录状态，点「重新登录」后再开始"}
             else:
                 return {"ok": False,
                         "text": "暂时无法确认登录态：点「刷新」重试，确认登录有效后再开始"}
@@ -3054,7 +3054,7 @@ class Api:
         user = ""
         secret = ""
         if result.get("ok"):
-            self._emit("log", "已为手机重登准备好账号（只在本工具内存里）")
+            self._emit("log", "已为手机重新登录准备好账号（只在本工具内存里）")
         return result
 
     def _commit_pending_save(self) -> None:
@@ -3099,13 +3099,13 @@ class Api:
     def _relogin_entry_gate(self) -> "dict | None":
         """电脑和手机重新登录共同的前置门：演示、条款、关闭、来不及。"""
         if DEMO:
-            return {"ok": False, "error": "demo", "text": "演示模式不联网，不会启动重登。"}
+            return {"ok": False, "error": "demo", "text": "演示模式不联网，不会启动重新登录。"}
         gate = self._terms_gate()
         if gate is not None:
             return {"ok": False, "error": "terms_required", "text": "请先在电脑上同意使用条款"}
         with self._lock:
             if self._closing:
-                return {"ok": False, "text": "程序正在关闭，已取消本次重登"}
+                return {"ok": False, "text": "程序正在关闭，已取消本次重新登录"}
         return self._relogin_late_answer()
 
     def _begin_typed_relogin(self, username: str, password: str, save: bool,
@@ -3159,7 +3159,7 @@ class Api:
         state = self._relay.state()
         if (flow_id and state.get("live") and state.get("flow_id")
                 and flow_id != state.get("flow_id")):
-            return {"ok": False, "error": "stale_flow", "text": "这次重登已经结束"}
+            return {"ok": False, "error": "stale_flow", "text": "这次重新登录已经结束"}
         return self._relay.cancel()
 
     def relogin_auto_once(self) -> dict:
@@ -3205,7 +3205,7 @@ class Api:
                 if not started.get("ok") and started.get("error") != "busy":
                     return started
             return {"ok": True, "mode": "auto",
-                    "text": "电脑正在自动重登，手机上不用再操作"}
+                    "text": "电脑正在自动登录，手机上不用再操作"}
         if not self._relay.prepared():
             self.prepare_phone_relogin()
         # 能走到这里说明计划来得及（_relogin_entry_gate 已判过 100 秒窗口）
@@ -3222,7 +3222,7 @@ class Api:
         if (flow_id and state.get("live") and state.get("flow_id")
                 and flow_id != state.get("flow_id")):
             return {"ok": False, "error": "stale_flow",
-                    "text": "这次重登已经结束"}
+                    "text": "这次重新登录已经结束"}
         return self._relay.cancel(origin=None if state.get("mode") == "manual" else "phone")
 
     def _spawn_relay_worker(self, args: list[str]):

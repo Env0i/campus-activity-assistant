@@ -8,7 +8,7 @@ function paintLogin() {
   let cls = "pill";
   let text = "未登录";
   let sub = "";
-  let note = "点右上角「登录」开始使用";
+  let note = "打开顶栏的登录状态，点「登录」开始使用";
   let state = "none";
   if (S.busy && !S.login.loginPending) {
     cls += " is-busy";
@@ -47,7 +47,7 @@ function paintLogin() {
     /* 从没登录过（session.json 缺失/解析不了/没有 token）：引导首次登录，
      * 不算失效。check 失败也是「还没登录」，不是「登录状态坏了」。 */
     cls += " is-none";
-    note = "点右上角「登录」，在打开的浏览器中完成登录";
+    note = "打开顶栏的登录状态，点「登录」，在打开的浏览器中完成登录";
   } else if (S.login.result === "unknown" && ok === false) {
     /* 学校接口没应答/网络异常：不能误报成「重新登录」，会话原样保留 */
     cls += " is-none";
