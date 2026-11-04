@@ -78,54 +78,48 @@
 
 ### 中档（720–1039）
 
-- 时刻表和计划栏二选一：平时只显示时刻表，底部**计划条**写已选几场 + 「查看计划」+「开始」；
-  「查看计划」打开计划栏（时刻表收起），计划栏顶部「返回列表」再换回来；单栏时点阵屏限宽 22rem
-- 顶栏刷新 / 设置 / 帮助只留图标（文字留在可访问名称里）
-- 有开始前提醒时计划条不给「开始」，先让用户看计划
+- 只显示时刻表（左），右侧计划栏换成**底部计划条**：已选 N 场 + 查看计划 + 开始/禁用
+- 顶栏按钮只留图标（刷新/设置/帮助）
+- 有计划条且有开始前提醒时，底部不给直接"开始"，只给"查看计划"并写提醒原因
 
 ### 窄档（< 720）
 
-- 同中档，再收起「北京时间」字样
-- 顶栏详情卡左右各留 12px 铺满宽度；完整条款收起左侧章节目录
+- 同中档，再收起北京时间字样、搜索框缩短
+- 详情卡铺满并去掉指示箭头
 
 ### 矮档（高 < 660）
 
-- 点阵屏限宽 13rem、高度压缩
-- 计划栏正文区内部滚动，底部按钮区始终可见
+- 点阵屏缩到 13rem
+- 计划栏内部可滚动，主按钮固定底部
 
-窗口分档由 `views/plan-panel.js` 的 `bandOf()` 按视口宽高计算，阈值和 `styles.css` 的断点同一组，改一处要一起改。
+### 手机页（独立流程）
 
-### 手机页（`local/ui/m/`，独立页面）
-
-- 配对成功后：顶栏「这次报名」+ 连接状态 + 刷新；连不上电脑时顶部红条写重试次数与自救办法
-- 点「开始报名计划」先出「核对计划」：已选场次、尝试设置、和电脑同一套开始前提醒；有提醒时按钮改「仍然开始报名计划」
-- 重新登录与电脑同一套四种情况（见 §5.1 `relogin_begin`）；电脑没保存账号或保存的密码学校不认时，
-  手机上可输账号密码，「登录成功后保存到这台电脑」默认不勾
-- 电脑没同意条款时停在缓存：开始和重新登录停用，顶部说明原因
-- 每场一句话与电脑同一套说法（直接提交 / 改用页面点击 / 名额已满 / 待核对 / 等自动登录）；运行中只能停止，修改要回电脑
-- 第 10 节的整页视觉重排没做（见下方「已知未落地」）
+- 配对成功后显示"这次报名"顶栏 + 连接状态 + 刷新按钮
+- 核对计划（电脑同意过条款 → 手机只读）
+- 开始前四种重新登录路径（见 §5.9）
+- 说法与电脑同一套（"重新登录"/"直接提交"/"页面点击"）
 
 ### 组件与状态矩阵（UI-B 已落地）
 
 | 组件 | 状态 |
 |---|---|
-| 登录胶囊 | 未登录 / 检查登录… / 登录中… / 已登录（旁边小字「HH:MM 校验」，不写剩余时间）/ 自动登录中… / 登录已失效 / 登录待确认 / 等同意条款 / 演示模式；悬停或点击出登录状态卡，「登录 / 重新登录」按钮在卡里 |
-| 时刻表行 | 默认 / 已勾选 / 与已选冲突（写明和哪一场重叠）/ 与已报名冲突（禁选并写明冲突对象）/ 已报名 / 已截止 / 错过了（电脑睡眠窗口里到点没提交，可重新勾选） |
-| 空态 | 筛选后为空「没有符合筛选的活动」+ 清除筛选 / 学校返回 0 场「学校当前没有返回活动」（写明这不是登录问题）+ 重新加载 / 列表没加载（写原因 + 对应的一个动作）/ 程序组件缺失「活动列表未加载」（不放第二个按钮，看横幅） |
-| 计划栏 | 草稿（已选场次成票、尝试设置一行概括、开始前提醒、开始不了时写「还差一步」）/ 运行中（倒计时、五站路线图、每场进度、修改计划、停止计划）/ 结果（只显示不为 0 的大数字） |
-| 结果分类 | 已报名 / 名额已满（中性色，单列，不放回「重新选择未成功的场次」）/ 未成功（加原因，例如登录失效、报名已截止）/ 待核对（琥珀，给「刷新核对」）；全部名额已满时标题「这次没报上：名额满了」，不用红色 |
-| 设置抽屉 | 高级功能 / 登录 / 程序三组，见 `design/specs/assistance-panels.md` |
-| 帮助 | 三步说明 + 快捷键 + 重看引导 + 查看条款（只读） |
-| 横幅 | 一次只显示一条，优先级：程序组件缺失 > 条款未同意 > 断网 > 电脑刚睡眠过 > 登录问题（失效 / 待确认）> 北京时间没校准 |
-| 关窗对话框 | 先列出正在运行的计划和手机访问；四个出口：先不关 / 隐藏到后台运行 / 最小化到任务栏（默认焦点，计划运行时标推荐）/ 直接退出（计划运行中要再确认「仍然退出」）；托盘建不起来且手机没连时「隐藏到后台运行」禁用并写原因 |
+| 登录胶囊 | 未登录 / 检查中 / 已登录 · 上次校验 HH:MM / 自动登录中 / 登录已失效 / 暂时无法确认 / 等同意条款 |
+| 时刻表行 | 默认 / 已勾选 / 活动时段冲突 / 已报名(灰) / 错过了 / 空列表 |
+| 空态 | 筛选后空 / 学校返回 0 场 / 列表没加载 / 程序组件缺失（横幅优先） |
+| 计划栏阶段 | 草稿·没选(禁用开始) / 草稿·已选 / 草稿·有提醒 / 等开放(琥珀倒计时) / 修改中 / 提交中(红色倒计时) / 结果(大数字) |
+| 结果分类 | 已报名(绿) / 名额已满(中性) / 待核对(中性) / 未成功(红) / 登录失效(红) |
+| 设置抽屉 | 三组导航：高级功能 / 登录 / 程序；程序组含撤回同意入口 |
+| 帮助面板 | 三步说明 + 快捷键 + 重看引导 + 查看条款(只读) |
+| 横幅 | 单次只一条，优先级：组件缺失 > 条款未同意 > 断网 > 刚睡眠 > 登录问题 > 时间问题 |
+| 窗口出口 | 最小化(默认焦点) / 直接关闭 / 隐藏到后台；计划运行中退出要二次确认 |
 
-**已知未落地**（UI-B result 的 plan_amendments）：
-- b-amendment-009：手机页第 10 节整页视觉重排（顶栏菜单、点阵屏卡、页签、底部操作条、弹层化、配对码点阵输入与锁定、结果分类计数、手机上的刷新核对按钮）
-- b-amendment-007：待核对卡片没有「打开活动页」（后端没有按活动打开学校页面的接口）
-- 刷新核对只刷新活动列表看该场 `signed`（ui-amendment-001 选项 A），没走架构结论 3 的单场 getJoinInfo
-- b-amendment-005：「学校说密码错一次就停」只部分落地（登录进程把密码错也报成 `bad_response`）
-- b-amendment-011：筛选空态标题沿用「没有符合筛选的活动」
-- b-amendment-008：内嵌条款正文里还有 3 处「直发」（条款正文必须与 docs 一致，等条款升版）
+**已知未落地**（UI-B b-amendment）：
+- 手机页第 10 节整页视觉重排（顶栏菜单、点阵屏卡、页签、弹层化、结果分类计数）
+- 待核对卡片"打开活动页"按钮（后端无接口）
+- 刷新核对只刷新列表看 signed，不走 getJoinInfo（架构方案定）
+- 密码错一次就停只部分落地（login_relay.py 禁改）
+- 筛选空态标题沿用旧说法（测试已钉住）
+- 条款正文里 3 处"直发"（条款正文必须与 docs 一致）
 
 ## 5. 接口契约（权威，按此实现）
 
@@ -150,18 +144,19 @@
 | `open_data()` | — | `{ok:true}` | 直接返回 |
 | `save_prefs(patch)` | 对象，浅合并写入统一数据根下的 `ui.json`（先确保数据目录存在） | `{ok:true}` | 直接返回 |
 | `accept_terms(document_version)` | `document_version` = 用户实际读到的内嵌全文版本（`#dlg-terms-document-version`，如 `2026-11-03-r4`） | `{ok:true, terms:{version, accepted_version, accepted_at}}` 或 `{ok:false, error:"terms_version_mismatch", text, terms}` / `{ok:false, text}`（如 prefs 锁竞争） | 直接返回（本机桥接，不进学校 API） |
-| `withdraw_terms()` | — | `{ok:true, terms:{version, accepted_version:"", accepted_at:"", withdrawn_at}}`；计划运行或已就绪时 `{ok:false, error:"plan_running", text}`，偏好正被另一处保存时 `{ok:false, error:"prefs_busy", text}`（都零写入） | 直接返回。只清条款同意，不动保存的账号密码和登录文件；`withdrawn_at` 只随这次回执返回，`terms` 平时仍是三个键 |
-| `relogin_begin(username?, password?, save?)` | 都不传：用电脑上保存的账号；传账号密码：只用这一次，`save=true` 时登录成功后才保存到电脑 | `{ok:true, flow_id, mode:"auto"\|"manual", …}`；拒绝时 `{ok:false, error, text}`，`error` 可能是 `plan_late`（有场次在提交或离开放不到 100 秒）、`needs_local_setup`（没保存账号）、`bad_password`（保存的密码学校不认，自动登录已暂停）、`terms_required`、`demo` | `onBackend.phone_relogin`（与手机共用同一场中继流程，同一时间只有一场） |
-| `relogin_submit(flow_id, challenge_id, code)` | 用户在电脑上输的 4 位验证码 | `{ok:bool, error?, text?}` | `onBackend.phone_relogin` |
-| `relogin_cancel(flow_id)` | 当前这一场的 `flow_id` | `{ok:bool}`；`flow_id` 不是正在进行的那一场时 `{ok:false, error:"stale_flow"}`（旧场不取消新场） | `onBackend.phone_relogin` |
-| `relogin_auto_once()` | — | `{ok:true, mode:"auto", flow_id}`；已经在登录时返回同一场；拒绝同 `relogin_begin`（另有 `busy`：电脑正在检查登录或加载活动） | `onBackend.phone_relogin`。前提：保存了账号且装了验证码识别，用户在对话框里确认后才调 |
-| `ask_window_close()` | — | `{ok:true, plan_running, default_action, tray_ok, phone_running, phone_live}` | 同时推 `onBackend.window_close_ask`（同一份载荷）；更新流程的「关闭本工具…」走这里 |
-| `request_window_close(action)` | `hide` / `minimize` / `exit`，前缀 `remember_` 表示「以后都这样」（写 `ui.json` 的 `window.close_action`） | `{ok:bool, error?, text?}`；`hide` 在托盘和手机都不通时拒绝 | 直接返回 |
-| `download_advanced_feature(key)` / `cancel_advanced_feature_download(key)` | `key ∈ {"phone_control", "relogin_ocr"}` | `{ok:bool, …}` | 高级功能面板刷新（`PhonePanel`）；验证码识别与手机控制走同一条下载、校验、启用事务 |
-| `start_plan(…, source)` | 末尾新增 `source`，默认 `"desktop"`；手机发起的由服务端写死 `"phone"`，手机页传不进来 | 同上 | 计划事件、`bootstrap` 和手机快照都带 `source` |
+| `withdraw_terms()` | — | `{ok:true, terms:{version, accepted_version:null, accepted_at:null, withdrawn_at}}` 或 `{ok:false, text}` | 直接返回；后端会检查 `terms_withdrawn_eligible()`（计划 running/ready 时拒绝） |
+| `relogin_begin(source)` | `source ∈ {"manual", "auto", "phone"}` | `{ok:true}` / `{ok:false, text}` | `onBackend.done`（`kind:"login"`），`source` 会附在 done 事件里 |
+| `relogin_cancel()` | — | `{ok:true}` / `{ok:false, text}` | 停止当前自动登录尝试 |
+| `check_update()` | — | `{ok:true, queued:true}` | `onBackend.update_status` |
+| `open_release_page()` | — | `{ok:true}` | 直接返回（打开固定 Release 网页） |
+| `set_close_action(action)` | `action ∈ {"minimize", "quit", "hide"}` | `{ok:true}` / `{ok:false, text}` | 直接返回，写 ui.json `close_action` 字段 |
+| `set_hide_window(value)` | `value: bool` | `{ok:true}` / `{ok:false, text}` | 直接返回，写 ui.json `hide_window_on_start` |
+| `get_update_status()` | — | `{state, version, checked_at}` | 直接返回（读后端内存快照，不触发新检查） |
+| `get_terms_status()` | — | `{version, accepted_version, accepted_at, withdrawn_at}` | 直接返回（只读查询，不进学校 API） |
 
-> 更新相关的 `check_update(request_id)` / `update_download` / `update_cancel` / `update_launch` 与事件 `onBackend.update` 见 §5.18；
-> 发布页只由 `open_latest_release()` 打开。
+> `bootstrap()`/`help()`/`get_*()` 系列是唯一可以同步返回的；其余异步。
+> `relogin_begin` 仅在 `login.result ∈ {valid, expired}` 时可用（有真实会话才自动登录）；`source="auto"` 由后端自动发起（等开放前 100 秒内或开放时），前端只显示胶囊"自动登录中"，不弹浏览器。
+> `withdraw_terms()` 在计划 running/ready 时必须拒绝并返回明确原因（计划运行中不可撤回同意）。
 
 ### 5.2 事件
 
@@ -174,10 +169,10 @@
 | `onBackend.plan(payload)` | `{plan_id, status, tasks:[{task_id,activity_id,name,sign_start,sign_end,act_start,act_end,signup_mode,retry_for_s,max_attempts,status,…运行时 detail}]}`；任务快照携带模式、策略与真实 checkpoint（见 §5.10） |
 | `onBackend.task(payload)` | `{plan_id, task_id, activity_id, name, sign_start, sign_end, signup_mode, retry_for_s, max_attempts, status, ok?, code?, reason?, detail?}`；提交中/终态另带 `run_started_at/page_opened_at/watch_started_at/retry_deadline/attempts/last_reason/stop_reason` |
 | `onBackend.plan_done(payload)` | `{plan_id, status, ok, summary}`；`status` 为 `completed` / `partial` / `failed` / `stopped` |
-| `onBackend.phone_relogin(payload)` | 重新登录这一场的进度（电脑和手机共用）：`{state ∈ {"idle", "starting", "waiting_code", "verifying", "success", "failed", "canceled"}, live, origin ∈ {"desktop", "phone", "auto"}, mode ∈ {"auto", "manual"}, flow_id, challenge_id, image, attempts, safe_error, submit_pending, …}`。`mode:"auto"` 时验证码由电脑认，界面不显示验证码图；`origin:"auto"` 且 `live` 时登录胶囊显示「自动登录中…」；`safe_error` 只会是白名单里的码（例如 `bad_password`、`timeout`、`max_tries`） |
-| `onBackend.window_close_ask(payload)` | 点右上角 X 时后端取消关闭并推这份载荷：`{plan_running, default_action, tray_ok, phone_running, phone_live}`，界面据此出关窗对话框 |
-| `onBackend.update(payload)` | 更新七态，见 §5.18 |
-| `onBackend.business_clock(payload)` | 独立北京时间快照，见 §5.16 |
+| `onBackend.relogin(payload)` | `{source, state ∈ {"begin", "done", "auto_done"}, ok?, text?}`；`source ∈ {"manual", "auto", "phone"}`，`state="auto_done"` 时带 `auto_success:bool` 和失败原因 |
+| `onBackend.update_status(payload)` | `{state ∈ {"idle", "checking", "up_to_date", "outdated", "prerelease", "no_release", "error"}, latest_version?, current_version, checked_at?, download_url?, text?}`；前端七态推进按钮据此渲染 |
+| `onBackend.terms_changed(payload)` | `{version, accepted_version, accepted_at, withdrawn_at}`；撤回同意或同意同版后发出，前端据此更新横幅和所有条款门禁 |
+| `onBackend.phone_state(payload)` | `{mode ∈ {"active", "inactive"}, paired?, url?, error?, message?}`；手机页独立流程状态（配对/核对/重新登录） |
 
 约定：
 - **条款同意门**（验收条款，版本 `2026-11-03-r4`；界面规范见 `design/specs/terms-consent.md`）：`bootstrap.terms` 缺 `version` 即状态未知（fail closed，本地不许乐观解锁）；未同意或未知时登录、活动列表与报名计划的学校动作停用——后端 `_terms_gate` 与前端横幅双重拦截，demo 豁免不变。`accept_terms(document_version)` 只接受与 `TERMS_VERSION` 严格相等的字符串，校验发生在写入之前：无参、空值、非法类型或不同版本返回 `error:"terms_version_mismatch"` 且**零写入**；prefs 锁竞争沿用 `prefs_busy`。条款决定先于首次欢迎与六步引导（延后到同意后只继续一次，绝不写 `tour_version`）；条款弹窗打开时 document 级 Enter/Esc/Ctrl+F/斜杠/F5 不穿透背景（原生 Tab 与重载保留），保存中的 Esc 被 `cancel` 拦下；已同意同版从帮助打开为只读查看（只有「关闭」，零写入、零学校加载）。条款弹窗排版为三层 DOM：固定标题区、唯一滚动阅读区（反馈与「重新确认状态」在阅读区内，非空反馈回顶不移焦点）、固定底栏三选择动作（可点盒 ≥36px）；窄窗顶栏换行不越界同属本契约——**结构与具体尺寸只写在 `design/specs/terms-consent.md`**，本文件不复制数值。
@@ -293,7 +288,7 @@
 2. **旧数据一次性迁移**：冻结进程首次使用新数据根时，只把旧 EXE 旁 `data/` 中目标缺失的 `session.json` / `storage_state.json` / `ui.json` / `grab.log` 以「临时文件 + `os.replace`」原子搬入，**不覆盖已有新文件**；迁移失败不阻断启动。会话文件不含账号密码。
 3. **构建不删登录态**：`build_exe.py` 清理输出目录时保留 `OUT/data`（旧版 EXE 旁数据留给迁移），`rmtree` 不得作用于整个输出目录。
 4. **启动校验状态**（界面验收）：无 session → 「未登录 + 登录」；有 session → 先显示「正在检查登录状态」，不得提前写成「已登录」；真实校验（`check_token` 访问学校接口）成功 → 「已登录 · 上次校验 HH:MM」，**不显示剩余时间**；接口返回 4001 → 「登录已失效 + 重新登录」；网络/接口异常 → 「暂时无法确认登录状态」，保留已有会话与「刷新」重试，**不得**误报成首次未登录或强制重新登录。`check` 事件附 `result ∈ {valid, expired, unknown, none}` 附加字段。
-5. **寿命口径**（界面里的剩余时间常量已删）：`saved_at` 仍存本机，但**顶栏胶囊不再显示"约剩 N 小时"或"临近失效"**——只显示上次校验时刻（决策 014 修订）。不得用估算剩余时间作为放行或拦截依据；登录有效性只由学校接口真实校验决定。
+5. **寿命口径**（架构计划已删剩余时间常量）：`saved_at` 仍存本机，但**顶栏胶囊不再显示"约剩 N 小时"或"临近失效"**——只显示上次校验时刻（决策 014 修订）。不得用估算剩余时间作为放行或拦截依据；登录有效性只由学校接口真实校验决定。
 6. **开始按钮门禁**（验收条款）：`updateControls()` 只有 `S.login.result === "valid"` 或 demo 模式（`bootstrap` 带 `demo:true`）允许「开始报名计划」；checking / unknown / none / expired 一律禁用开始，刷新与登录按钮保持可用。`refresh()` 的 check 调用失败（桥接/脚本异常）必须清除「检查中」、落 `unknown` 并更新胶囊与按钮，不得停留在「正在检查登录态」。后端 `start_plan` 是最终防线：非 demo 且最近一次 check 结论不是 `valid`（含尚未检查、checking、unknown、none、expired）一律拒绝并返回下一步提示；demo 模式继续可运行演示计划。
 7. **取消/失败的重新登录不清旧状态**（验收条款，2026-10-28 收口轮）：点「登录 / 重新登录」只是开始一次异步尝试，`doLogin()` 必须先存下完整登录结论快照（`S.login.preLoginSnapshot`：`hours/ok/present/expireAt/savedAt/result`）。取消、窗口被关掉、10 分钟超时或登录校验失败时，`handleDone` 必须把整份快照回滚——胶囊、剩余时间、锚点与按钮文字保持尝试前原样，只多一条这次失败的说明；**不得**把仍有效的旧会话画成「登录已失效」（旧实现的缺陷就是失败分支 `setLogin(null, false)` 把「这次没登成」写成了「登录结论失效」），也不得清掉旧锚点。`session_timing_v2` 只在登录 worker 真实成功路径换新，失败/取消零写入；成功后旧锚点立即作废，等随后的校验事件带新锚点回来。
 8. **登录结论的统一收口**（验收条款，2026-10-28 收口轮）：一次 check 终态（成功、100 秒超时、桥接/脚本异常、条款回绝、旧轮迟到被拒）必须同时刷新登录胶囊、剩余时间、时钟、大屏、路线、列表倒计时/空态与按钮，统一走 `syncLoginDependentView()`（= `paintLogin` + `paintClockStatus` + `refreshLoginEmptyState` + `render`），不允许只更新胶囊而留下旧倒计时。收口只重画、不改结论，且只在 `request_id` 代次校验之后执行：旧轮迟到事件不得覆盖新一轮的登录状态。
@@ -339,7 +334,7 @@
 1. **辅助入口**（验收条款，2026-10-25 返修轮现行口径）：顶栏并列两个入口——「说明」（三步快速帮助 + 「重看引导」快捷入口）与「更多」（内联省略号 SVG + 文字，`aria-label` 写全用途）。两者在未登录、组件出错、列表失败、计划运行中都**可打开**，且**不得同时以模态叠开**（打开一个即关闭另一个）。「更多」dialog 复用现有 `dlg` 样式与 `#settings` 内部 id，只有一块浅琥珀引导区（左 3px 琥珀短线）承载「重看引导」，版本（`bootstrap.version` **唯一**显示位 + 「查看发布页」走既有 `open_latest_release`）与本机数据（「打开数据目录」复用既有 `open_data`）是普通行 + 细分隔；**不得**新增清凭证/重置/自动更新等未确认功能，也不得扩成设置页/侧栏/标签页。计划运行中两处「重看引导」都禁用，并在按钮上写明「计划结束后可重看引导」（不只靠 title），点击不得打断计划；重播先关当前弹窗、把焦点还给对应顶栏入口再 `startTour(0)`，退出引导时焦点回到该入口。版本位不再写在各处旧 id 上，旧引用不得残留。
 2. **弹窗键盘隔离**（验收条款）：任意 `dialog`（说明/更多/停止确认）打开时，全局 Enter/Esc 不穿透到背景——不开始计划、不清空选择、不误触引导；停止确认弹窗的 Esc/「继续等待」=不停止 的原生语义不变，引导可见时的焦点循环不变。
 3. **worker 唯一来源**：`resolve_worker_path` 集中解析——源码态 `HERE/grab.py`、冻结态 `RESOURCE_ROOT/grab-worker.exe`（onefile 为运行期 `_MEIPASS`，onedir 为 `<exe>/_internal`）；**不依赖 cwd、绝不静默借用 EXE 旁旧 worker**。启动与每次 worker 动作前过 `worker_problem()` 三码自检：`worker_missing` / `worker_permission` / `spawn_failed`；`Popen`/`run` 异常经 `_component_error` 归类。主文案固定人话「程序组件缺失，请重新下载完整版本」，技术细节只进运行记录。
-4. **组件失败收尾**（验收条款）：`check` 捕获启动异常后发**恰一次**终态事件——`result` 强制 `unknown` 并附 `runtime_error` 字段（运行完整性失败与登录四态分离：不清会话、不指导重新登录）；`_do_list` 任何异常（含 `FileNotFoundError`）也必须发恰一次 `activities` 失败终态——此前异常从线程泄出导致前端骨架永远加载（WinError 2 的真相）；`login` 同步组件失败返回 `{ok:false, text, error}`，不留 busy/子进程占位；`start_plan` 保留真实登录门禁并新增组件门禁（demo 模式不起 worker，跳过组件检查）。所有异步路径 `finally` 清 `_checking`/`_listing`。
+4. **组件失败收尾**（验收条款）：`check` 捕获启动异常后发**恰一次**终态事件——`result` 强制 `unknown` 并附 `runtime_error` 字段（运行完整性失败与登录四态分离：不清会话、不指导重登）；`_do_list` 任何异常（含 `FileNotFoundError`）也必须发恰一次 `activities` 失败终态——此前异常从线程泄出导致前端骨架永远加载（WinError 2 的真相）；`login` 同步组件失败返回 `{ok:false, text, error}`，不留 busy/子进程占位；`start_plan` 保留真实登录门禁并新增组件门禁（demo 模式不起 worker，跳过组件检查）。所有异步路径 `finally` 清 `_checking`/`_listing`。
 5. **前端消费**（验收条款）：`runtime_error` 优先于登录/网络文案——一条坏色横幅（标题 + 恢复动作「重新检查」= 完整刷新），不满屏重复；缺组件时禁用登录与开始、隐藏快捷登录，「更多」与「说明」始终可用；列表异常必定退出骨架，数据未加载时**不得**把「近期没有要开放的活动」当事实显示（加载中显示加载中文案）；正常登录四态、已加载列表、任务结果与停止链不改，不得用无限重试掩盖缺组件；check 事件字段缺席即视为组件恢复。
 6. **关闭收尾**（验收条款）：窗口正常关闭先停本实例协调器，再按既有树终止机制（`taskkill /F /T /PID`）结束**仅本 Api 登记**的 worker（登录/单活动 `_proc`、计划任务 `_plan_procs`、check/list `_aux_procs`），然后才 finalize 生命周期；禁止按映像名扫杀或终止其他实例的进程。
 7. **`--runtime-check` 离线探针**（验收条款）：`app.py --runtime-check --report <绝对JSON路径>` 在 `ensure_data_dir`/生命周期/GUI **之前**分发；缺 `CAMPUS_DATA_DIR` 拒绝运行（验收必须显式指定临时数据根）；只按真实解析路径启动内置 `worker --help`，限时（`RUNTIME_CHECK_TIMEOUT_S`，60 秒）树终止收尾；写脱敏 JSON（`version/frozen/worker/ok/exit_code/error/component`），退出码 成功 0 / 失败 1 / 报告写不出 2；窗口版无控制台也必须可读 JSON 与退出码；不访问学校、不读凭证。
@@ -676,6 +671,8 @@
      前端也必须按事件驱动写，不能假设方法直接返回数据。
    - 不要给 `Api` 实例挂公开属性；也不要试图 `import` `app.py` 里的东西到页面。
 
+**不改的**（架构计划管理，UI 计划不动）：RISK-001 那一行已关闭，保留历史登记。
+
 ## 9. 验收清单
 
 > 2026-10-26 最终收口轮补充：新增条目对应 §5.17，旧条目已就地改为五视口口径。
@@ -713,7 +710,7 @@
 - [ ] `--runtime-check --report` 在仅含单 EXE 的空目录实跑：JSON ok=true、worker --help 退出 0、主进程退出 0（实包验收必需证据，mock 不能替代）
 - [ ] 关闭窗口时：正在创建/已登记的 worker 全部被收走，排队请求得到「正在关闭」取消结论而非组件错误；重复/并发关闭不挂起；外部实例进程不受影响
 - [ ] 组件错误时：完整说明与「重新检查」只在顶部横幅出现一次；大屏/列表空态/结果框不再复读；普通列表失败的完整原因与「重试」只在列表空态出现一次；真实报名结果不被清掉
-- [ ] 列表/检查的数据异常：得到「没跑完/没能加载」人话终态，不显示「程序组件…请重新下载」、不带 runtime_error、不解禁重新登录指引
+- [ ] 列表/检查的数据异常：得到「没跑完/没能加载」人话终态，不显示「程序组件…请重新下载」、不带 runtime_error、不解禁重登指引
 - [ ] 连续两次「开始报名计划」至多创建一个计划（后端最终接纳点原子）；启动异常释放预留后可重试；「正在提交…」有即时反馈且各路径释放
 - [ ] 并发/后到 shutdown 等首次收尾完成才返回（锁外等待），每个登记 PID 恰收一次
 - [ ] check 外层兜底异常后：前端 unknown、后端判定同步 unknown、开始按钮被拒；随后正常校验恢复 valid 可开始
@@ -782,7 +779,7 @@ python app.py --demo     :: 假数据，调样式用
 | 「ack 整表替换已收任务」 | ack 快照按 plan_id 合并，提交次数只增不减 | `local/ui/app.js` `adoptPlan` | `test_new_plan_events_before_ack_are_adopted_and_ack_keeps_telemetry`；QA `early-events-before-ack` |
 | 「已接纳 = 此刻仍在运行」（终态早于 ack 时置忙复活已结束计划） | 终态先到则 ack 只清开始请求，保持 busy=false 与终态呈现 | `local/ui/app.js` `startPlan` 成功回执 / `adoptPlan` | `TerminalBeforeAckTests`（红 5 → 绿）；QA `early-terminal-before-ack` |
 | 「顶栏显示本机时间」「按本机时间执行/建议同步系统时间」 | 独立北京时间：NTP 锚点 + 经过时长；粗测只作诊断；现在线每秒重绘也只认业务时钟 | `local/business_clock.py` / `local/ui/app.js` `businessNowMs`、`tick` | 返修轮 `test_business_clock` 全绿 + `test_business_clock_wiring`；QA `clock-skew-boot-8h`（先红：现在线显示本机时刻 → 修 `tick` 后绿）/ `clock-skew-boot-30d` / `wall-jump-during-plan` / `clock-skew-runtime-minus8h` / `clock-unavailable-start` / `clock-holdover-expiry` / `clock-first-sync-delay` / `clock-status-after-reload` / `clock-sync-failure-feedback` |
-| 「登录剩余按 saved_at 墙钟估算」「关闭时长按本机文本」 | v2 可信锚点才报数；未知不判失效不诱导重新登录 | `local/app.py` `token_hours_left` / `compute_lifecycle_v2` | `test_session_persistence` v2 用例（红 → 绿）；QA `legacy-session-valid-no-estimate` |
+| 「登录剩余按 saved_at 墙钟估算」「关闭时长按本机文本」 | v2 可信锚点才报数；未知不判失效不诱导重登 | `local/app.py` `token_hours_left` / `compute_lifecycle_v2` | `test_session_persistence` v2 用例（红 → 绿）；QA `legacy-session-valid-no-estimate` |
 
 ### 10.2 本轮边界缺陷（CB01–CB06）验收映射（2026-10-26 最终边界轮）
 
