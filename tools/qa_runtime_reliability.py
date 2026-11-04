@@ -6,7 +6,7 @@
 
     python -X utf8 tools/qa_runtime_reliability.py \\
         --host 127.0.0.1 --port 8388 \\
-        --evidence-root <tmp>/campus-beijing-clock-contract-repair-20261026/browser --run
+        --evidence-root %TEMP%/campus-qa/browser --run
 
 覆盖面（决策 012 返修后的全量场景）：
 - 顶栏唯一时间入口与独立北京时间：boot 前 / 运行中注入 ±8 小时 / ±30 天的
@@ -20,6 +20,10 @@
   忙时胶囊保持登录结论、已报名移出计划不调用学校取消；
 - 五视口 980/1120/1280/746/680：正式名称单行、唯一入口、焦点归还、
   详情不越界、未知状态不挤掉帮助与登录操作；
+- 新工作台（决策 014）五视口 1280×800 / 1120×800 / 980×720 / 746×512 / 680×480：
+  草稿、计划栏打开、计划运行、设置抽屉打开四个时刻都无横向滚动，刷新、设置、帮助、
+  开始 / 停止都在视口内且中心点真的点得到；登录按钮在登录状态卡里，浏览器登录走
+  重新登录对话框的「改用浏览器登录」；胶囊只写上次校验时刻，不写剩余时间；
 - pageerror / console 错误 / 外部请求一律 0，违例直接判失败。
 
 约束：
@@ -351,7 +355,10 @@ class Session:
             return el ? el.getBoundingClientRect() : { width: 0, right: 0, left: 0 };
           };
           const help = rect('#btn-help');
-          const login = rect('#btn-login');
+          /* 新工作台：登录按钮收进登录状态卡，顶栏的登录入口是状态胶囊 #pill */
+          const login = rect('#pill');
+          const settings = rect('#btn-settings');
+          const refresh = rect('#btn-refresh');
           const clock = rect('#clock');
           return {
             brandLines: Math.round(shown.getBoundingClientRect().height / (fs * 1.35)),
@@ -359,6 +366,8 @@ class Session:
               ((parseFloat(getComputedStyle(label).fontSize) || 12) * 1.35)) : 0,
             clockText: document.querySelector('#clock-time').textContent.trim(),
             helpReachable: help.width > 0 && help.right <= window.innerWidth + 1,
+            settingsReachable: settings.width > 0 && settings.right <= window.innerWidth + 1,
+            refreshReachable: refresh.width > 0 && refresh.right <= window.innerWidth + 1,
             loginReachable: login.width > 0 && login.left < window.innerWidth,
             clockReachable: clock.width > 0 && clock.right <= window.innerWidth + 1,
             noHScroll: document.documentElement.scrollWidth
@@ -368,10 +377,33 @@ class Session:
         self.check("%s：正式名称单行" % tag, data["brandLines"] <= 1, data)
         self.check("%s：时钟标签单行" % tag, data["clockLabelLines"] <= 1, data)
         self.check("%s：帮助仍可达" % tag, data["helpReachable"], data)
-        self.check("%s：登录仍可达" % tag, data["loginReachable"], data)
+        self.check("%s：设置仍可达" % tag, data["settingsReachable"], data)
+        self.check("%s：刷新仍可达" % tag, data["refreshReachable"], data)
+        self.check("%s：登录状态胶囊仍可达" % tag, data["loginReachable"], data)
         self.check("%s：时钟仍可达" % tag, data["clockReachable"], data)
         self.check("%s：无横向滚动" % tag, data["noHScroll"], data)
         return data
+
+    def check_last_check_pill(self) -> None:
+        """已登录时胶囊旁只写上次向学校校验的时刻（架构方案 4.5），不写剩余时间。
+
+        取代旧的「#pill-sub 含约剩」：学校不公布有效期，工具不估算；桥在 check 事件里
+        带 last_check_at（与 app._last_check_fields 同形），胶囊显示成「HH:MM 校验」。"""
+        sub = self.text("#pill-sub").strip()
+        self.check("#pill-sub 写上次校验时刻", sub.endswith(" 校验") and len(sub) == len("14:20 校验"), sub)
+        self.check("#pill-sub 不写剩余时间", "约剩" not in sub and "小时" not in sub, sub)
+
+    def browser_login(self, label: str = "login") -> dict:
+        """新工作台的浏览器登录路径：点胶囊固定登录卡 → 「登录 / 重新登录」→ 对话框里「改用浏览器登录」。
+
+        登录按钮不在顶栏了，在登录状态卡里；点了先开重新登录对话框（设计 9.3 四种情况）。
+        QA 不输账号密码，只走浏览器登录这条路，后端收到的仍是一次 login 调用。"""
+        self.pointer("#pill", label + ":open-card")
+        self.wait("!document.querySelector('#login-pop').hidden", 4000)
+        rec = self.pointer("#btn-login", label)
+        self.wait("document.querySelector('#dlg-relogin').open === true", 4000)
+        self.pointer("#btn-rl-browser", label + ":browser")
+        return rec
 
     def emit_clock(self, bump: bool = True, **patch) -> None:
         """改桥注入并按生产语义重发权威快照；generation 不前进会被 UI 拒收。"""
@@ -792,9 +824,10 @@ def _(s: Session):
     断言按行为级「≠ var(--bad) rgb」作守护；两行合并（用户拍板）是真改动，
     断言整行不再出现「程序要求版本」版本句。"""
     s.settle()
+    # 新工作台：帮助里的「查看条款」是 #btn-help-terms-view（#btn-help-terms 在「设置 → 程序」）
     s.click("#btn-help")
     s.wait("document.querySelector('#help').open === true")
-    s.click("#btn-help-terms")
+    s.click("#btn-help-terms-view")
     s.wait("document.querySelector('#dlg-terms').open === true")
     s.wait("document.querySelector('#dlg-terms-status').hidden === false")
     d = s.js("""() => {
@@ -1039,7 +1072,7 @@ def _(s: Session):
     s.shot("checking")
     s.wait("document.querySelector('#pill-text').textContent.includes('已登录')", 12000)
     s.check("#pill 已离开检查中", "检查" not in s.text("#pill-text"))
-    s.check_contains("#pill-sub", "约剩")
+    s.check_last_check_pill()
 
 
 @scenario("unknown-network", "网络未知不诱导重登", (1120, 800), "unknown")
@@ -1592,9 +1625,11 @@ def _(s: Session):
 
 @scenario("update-five-states", "更新检查五态端到端（G-02）", (1120, 800), "valid")
 def _(s: Session):
-    """检查更新走真实按钮与真实事件：current/available/preview/unavailable/error。"""
-    s.click("#btn-help")
-    s.wait("document.querySelector('#help').open")
+    """检查更新走真实按钮与真实事件：current/available/preview/unavailable/error。
+
+    新工作台：版本与更新在「设置 → 程序」，从设置抽屉进，不再从帮助进。"""
+    s.click("#btn-settings")
+    s.wait("document.querySelector('#settings').hidden === false")
     s.click("#btn-update-check")
     s.wait("S.update.state === 'current'")
     s.check_contains("#update-status", "当前为最新正式版")
@@ -1777,7 +1812,7 @@ def _(s: Session):
     s.wait("document.querySelector('#help').open === true")
     s.click("#btn-help-tour")
     s.wait("document.querySelector('#tour').hidden === false")
-    s.check_contains("#tour-card", "第 1/6 步")
+    s.check_contains("#tour-card", "第 1/5 步")
     s.shot("tour")
     s.click("#tour-skip")
     s.wait("document.querySelector('#tour').hidden === true")
@@ -2043,7 +2078,7 @@ def _(s: Session):
     s.check_unique_clock()
     s.wait("document.querySelectorAll('#rows .row').length >= 5")
     s.check_nowline("现在线 = 权威北京时间（本机 +8h）")
-    s.check_contains("#pill-sub", "约剩")
+    s.check_last_check_pill()
     # 等待 LED 与任务卡：等待倒计时按业务时钟推进，不因错时显示待校准
     s.pick("a-future")
     s.click("#btn-plan")
@@ -2523,32 +2558,23 @@ def _(s: Session):
     s.settle()
     s.wait("document.querySelector('#pill-text').textContent.includes('已登录')", 10000)
     s.check_contains("#pill-text", "已登录")
-    sub = s.text("#pill-sub")
-    s.check("旧会话剩余时间明说未知", "未知" in sub, sub)
-    s.check("旧会话给下一步：建议重新登录", "重新登录" in sub, sub)
-    s.check("旧会话不编造剩余小时数", "约剩" not in sub and "小时" not in sub, sub)
+    # 旧断言「剩余时间明说未知、建议重新登录恢复估算」随剩余时间一起退场（架构方案 4.5）：
+    # 现在胶囊只写上次校验时刻，说明里讲清有效期学校不公布、工具不估算。
+    s.check_last_check_pill()
     s.check_not_contains("#status-detail", "约剩")
     note = s.text("#status-detail")
     s.check("详情说明登录本身有效", "登录有效" in note, note)
-    s.check("详情解释重新登录能恢复估算", "重新登录" in note, note)
+    s.check("详情说明有效期不估算", "学校不公布" in note, note)
     s.wait("document.querySelectorAll('#rows .row').length >= 5")
-    # 时间详情里的登录剩余：未知（以学校校验为准），不拿旧 saved_at 冒充。
-    # 浮层每秒重绘会把 dd 短暂换新：原子读 + 短重试，避免抓到重建瞬间。
+    # 时间详情不再有登录剩余那一行（登录看登录状态卡），旧 saved_at 更不会被拿来冒充。
     s.pointer("#clock", "open-pop-legacy")
     s.wait("!document.querySelector('#clock-pop').hidden", 4000)
-    pop_ok = False
-    pop_state = {}
-    for _ in range(6):
-        pop_state = s.js(
-            "() => ({ hidden: document.querySelector('#clock-pop').hidden,"
-            " left: document.querySelector('#clock-pop-left')"
-            " ? document.querySelector('#clock-pop-left').textContent : 'NO-NODE' })")
-        if (not pop_state["hidden"]) and "未知" in pop_state["left"] \
-                and "约剩" not in pop_state["left"]:
-            pop_ok = True
-            break
-        s.page.wait_for_timeout(400)
-    s.check("详情登录剩余显示未知", pop_ok, pop_state)
+    pop_state = s.js(
+        "() => ({ hidden: document.querySelector('#clock-pop').hidden,"
+        " left: document.querySelector('#clock-pop-left') ? 'HAS-NODE' : 'NO-NODE',"
+        " text: document.querySelector('#clock-pop').textContent })")
+    s.check("时间详情不显示登录剩余", pop_state["left"] == "NO-NODE"
+            and "登录预计剩余" not in pop_state["text"], pop_state)
     s.page.keyboard.press("Escape")
     s.wait("document.querySelector('#clock-pop').hidden === true", 4000)
     s.shot("legacy-session")
@@ -2559,7 +2585,7 @@ def _(s: Session):
     s.settle()
     s.check_contains("#pill-text", "未登录")
     s.set_state(loginDone=True, loginOk=True, check="valid")
-    rec = s.pointer("#btn-login", "login")
+    rec = s.browser_login("login")
     s.check("#登录按钮真实命中", s.hit_in(rec, "#btn-login"), rec.get("hit"))
     s.wait("document.querySelector('#result').textContent.includes('登录成功')", 8000)
     s.check_contains("#result strong", "登录成功")
@@ -2567,7 +2593,7 @@ def _(s: Session):
             s.attr("#result", "class"))
     s.wait("S.login.checking === false", 12000)
     s.check_contains("#pill-text", "已登录")
-    s.check_contains("#pill-sub", "约剩")
+    s.check_last_check_pill()
     s.check("#只发起一次登录", s.calls_count("login") == 1, s.calls_count("login"))
     s.check("#登录后排队校验登录态", s.calls_count("check") >= 1, s.calls_count("check"))
     red_lines = s.js("""() => Array.from(document.querySelectorAll('#log .lg'))
@@ -2598,10 +2624,10 @@ def _(s: Session):
     s.settle()
     # 1) 有效：已登录 + 估算小时数
     s.wait("document.querySelector('#pill-text').textContent.includes('已登录')")
-    s.check_contains("#pill-sub", "约剩")
+    s.check_last_check_pill()
     s.check("有效时按钮叫重新登录", s.text("#btn-login-text").strip() == "重新登录")
     # 已选择 × 四态矩阵：真实勾选一场可报名活动，checking/unknown/none/expired
-    # 下开始一律禁用（board.js loginReady），登录/刷新保持可用，选择不丢；
+    # 下开始一律禁用（plan-panel.js loginReady），登录/刷新保持可用，选择不丢；
     # 回到 valid 恢复可用。
     s.pick("a-future")
     s.wait("!document.querySelector('#btn-plan').disabled")
@@ -2655,7 +2681,7 @@ def _(s: Session):
     """浏览器级复刻 B02 契约：取消/超时/失败都整份回滚到尝试前，旧会话仍有效。"""
     s.settle()
     s.wait("document.querySelector('#pill-text').textContent.includes('已登录')")
-    s.check_contains("#pill-sub", "约剩")
+    s.check_last_check_pill()
     before = s.js("""() => ({
         pill: document.querySelector('#pill-text').textContent.trim(),
         sub: document.querySelector('#pill-sub').textContent.trim(),
@@ -2669,7 +2695,7 @@ def _(s: Session):
         s.check("%s：不画登录已失效" % tag,
                 s.js("!document.querySelector('#pill-text').textContent.includes('登录已失效')"),
                 s.js("document.querySelector('#pill-text').textContent"))
-        s.check("%s：约剩数值不变" % tag,
+        s.check("%s：上次校验时刻不变" % tag,
                 s.js("document.querySelector('#pill-sub').textContent.trim() === %s"
                      % json.dumps(before["sub"])),
                 s.js("document.querySelector('#pill-sub').textContent.trim()"))
@@ -2693,7 +2719,7 @@ def _(s: Session):
     # 不得提前报失败；终态后整份回滚
     s.set_state(loginDone=True, loginOk=False,
                 loginReason="仍未检测到登录成功", loginDelayMs=1500)
-    s.click("#btn-login")
+    s.browser_login("relogin-fail")
     s.wait("S.login.loginPending === true && S.busy === true", 8000)
     s.check("挂起期大屏进入登录中",
             s.js("document.querySelector('#board-tag-text').textContent") == "登录中",
@@ -2708,7 +2734,7 @@ def _(s: Session):
     # (b) 取消路径：登录窗口被关掉——同样整份回滚，且零锚点写入
     s.wait("!document.querySelector('#btn-login').disabled")
     s.set_state(loginOk=False, loginReason="窗口被关掉", loginDelayMs=300)
-    s.click("#btn-login")
+    s.browser_login("relogin-cancel")
     s.wait("S.login.loginPending === false", 12000)
     _rollback("取消终态", "登录窗口被关掉了")
     s.shot("relogin-cancel-rollback")
@@ -3090,6 +3116,95 @@ def _(s: Session):
     s.check("新成功清除旧错误", s.js("S.businessClock.syncError === ''"))
     s.check_clock_text("恢复成功后北京时间准确")
     s.shot("retry-success")
+
+
+# ------------------------------------------------------------ 新工作台五视口
+# 计划 test-ui-contract：五视口（含 746×512、680×480）都无横向滚动，刷新、设置、帮助、
+# 开始 / 停止可见可点。分档与 CSS 同一套阈值：宽 ≥1040、中 720–1039、窄 <720、矮 高 <660。
+WORKBENCH_VIEWPORTS = [(1280, 800), (1120, 800), (980, 720), (746, 512), (680, 480)]
+
+
+def _no_hscroll(s: Session, tag: str) -> None:
+    data = s.js("() => ({ sw: document.documentElement.scrollWidth,"
+                " cw: document.documentElement.clientWidth })")
+    s.check("%s：无横向滚动" % tag, data["sw"] <= data["cw"] + 1, data)
+
+
+def _reachable(s: Session, selector: str, tag: str) -> dict:
+    """可见、整块落在视口里、没被禁用，而且中心点 elementFromPoint 命中它自己或子节点。
+
+    只看 is_visible() 不够：被计划条、抽屉或滚动容器盖住的按钮同样「可见」。"""
+    data = s.js("""(sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return { ok: false, why: 'missing' };
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      const shown = r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+      const inside = r.left >= -1 && r.top >= -1
+        && r.right <= window.innerWidth + 1 && r.bottom <= window.innerHeight + 1;
+      return { ok: shown && inside && !!hit && (hit === el || el.contains(hit)),
+               disabled: !!el.disabled, hit: hit ? (hit.id || hit.tagName) : '',
+               box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] };
+    }""", selector)
+    s.check("%s：%s 可见可点" % (tag, selector), bool(data.get("ok")) and not data.get("disabled"), data)
+    return data
+
+
+def _open_plan_panel(s: Session, tag: str) -> None:
+    """中、窄档计划栏和时刻表二选一：经计划条「查看计划」打开（宽档本来就在）。"""
+    if s.js("S.band") == "wide":
+        return
+    _reachable(s, "#btn-dock-open", tag + " 计划条")
+    s.pointer("#btn-dock-open", "open-plan:" + tag)
+    s.wait("S.planOpen === true", 4000)
+
+
+def _register_workbench_viewport(width: int, height: int) -> None:
+    tag = "%d×%d" % (width, height)
+
+    @scenario("workbench-%dx%d" % (width, height),
+              "新工作台 %s：无横向滚动，刷新/设置/帮助/开始/停止可见可点" % tag,
+              (width, height), "valid")
+    def _(s: Session):
+        s.settle()
+        s.wait_business_ready()
+        s.wait("document.querySelectorAll('#rows .row').length >= 5")
+        band = s.js("({ band: S.band, short: S.short })")
+        expect = "wide" if width >= 1040 else ("medium" if width >= 720 else "narrow")
+        s.check("%s：分档 %s" % (tag, expect), band.get("band") == expect
+                and bool(band.get("short")) == (height < 660), band)
+        _no_hscroll(s, tag + " 草稿")
+        for selector in ("#btn-refresh", "#btn-settings", "#btn-help"):
+            _reachable(s, selector, tag + " 顶栏")
+        s.shot("draft")
+        s.pick("a-future")
+        _open_plan_panel(s, tag)
+        s.wait("!document.querySelector('#btn-plan').disabled", 8000)
+        _no_hscroll(s, tag + " 计划栏")
+        _reachable(s, "#btn-plan", tag + " 开始")
+        s.shot("plan")
+        rec = s.pointer("#btn-plan", "start:" + tag)
+        s.check("%s：开始按钮真实命中" % tag, s.hit_in(rec, "#btn-plan"), rec.get("hit"))
+        s.wait("S.busy === true && S.plan.id === 'qa-plan'", 8000)
+        if s.js("S.band") != "wide" and not s.js("S.planOpen"):
+            _open_plan_panel(s, tag + " 运行中")
+        _no_hscroll(s, tag + " 运行中")
+        _reachable(s, "#btn-stop", tag + " 停止")
+        for selector in ("#btn-refresh", "#btn-settings", "#btn-help"):
+            _reachable(s, selector, tag + " 运行中顶栏")
+        s.shot("running")
+        s.pointer("#btn-settings", "settings:" + tag)
+        s.wait("document.querySelector('#settings').hidden === false", 4000)
+        _no_hscroll(s, tag + " 设置抽屉")
+        _reachable(s, "#btn-settings-close", tag + " 设置抽屉")
+        s.shot("settings")
+        s.page.keyboard.press("Escape")
+        s.wait("document.querySelector('#settings').hidden === true", 4000)
+
+
+for _w, _h in WORKBENCH_VIEWPORTS:
+    _register_workbench_viewport(_w, _h)
 
 
 def main(argv=None) -> int:
