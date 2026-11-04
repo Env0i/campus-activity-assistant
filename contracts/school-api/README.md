@@ -11,10 +11,30 @@
 
 | 文件 | 对应接口 | 取得日期与证据 |
 |---|---|---|
-| `list-activity.items.json` | `POST /dr/api/rjyHd/listActivity` 的条目数组（每条 18 字段） | 2026-11-03，`design/evidence/2026-11-02/live-check.md` 第三十一节 |
+| `list-activity.items.json` | `POST /dr/api/rjyHd/listActivity` 的条目数组，**映射后**形状（每条 18 字段，字段名是程序内部的 `sign_start` 等） | 2026-11-03，`design/evidence/2026-11-02/live-check.md` 第三十一节 |
+| `list-activity.raw-item.json` | 同一接口的**单条原始条目**（11 字段，字段名是学校的 `bmkssj` 等） | 2026-11-04，用户实测 `listActivity` 响应 |
 | `get-info.data.json` | `GET /rjyHd/getInfo/<活动ID>` 返回的 `data`（49 字段） | 2026-11-03，同上第三十一节 |
 | `get-join-info.json` | `POST /rjyHdCyr/getJoinInfo/<活动ID>`：未报名与已报名两种 | 2026-11-03，同上第三十四节 |
 | `signup-replies.json` | `GET /rjyHdCyr/signUp/<hash>` 的业务回包分类 | 2026-11-02～03，同上第十四、二十八、三十九、四十节；规则见架构修订设计 3.3 |
+
+### 原始 vs 映射后
+
+`listActivity` 的条目有两层形态，两份都留，不要只留一份：
+
+| 形态 | 文件 | 字段名 | 用途 |
+|---|---|---|---|
+| 学校原样 | `list-activity.raw-item.json` | `bmkssj`、`bmjssj`、`hdkssj`、`hdjssj`、`hdmc`、`hddd`、`hdlx`、`bmzt`、`cyrId`、`hbzj`、`id` | 验「学校真这么返回时，映射还对得上」；学校改字段名时这里先红 |
+| 程序映射后 | `list-activity.items.json` | `sign_start`、`sign_end`、`act_start`、`act_end`、`name`、`place`、`type`、`signed` 等 18 个 | 验下游（计划、界面、测试替身）读到的形状 |
+
+映射在 `local/grab.py` 的 `fetch_activities()`：
+`bmkssj → sign_start`、`bmjssj → sign_end`、`hdkssj → act_start`、`hdjssj → act_end`、
+`hdmc → name`、`hddd → place`、`hdlx → type`、`bmzt == 1 → signed`。
+
+响应外壳（2026-11-04 实测）：
+`{"code": 1, "message": "操作成功！", "data": {"count": N, "list": [...]}, "version": "1.0"}`。
+`code=1` 成功；`code=4001` 登录失效；`code=0` 是业务拒绝（例：「账号或密码错误！」）。
+
+`cyrId`、`hbzj` 程序目前没用到，但学校会返回，样例里保留形状。
 
 ## 脱敏规则
 
