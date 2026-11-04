@@ -1884,6 +1884,8 @@ class Api:
             state, code, out, err_code)
         self._last_check = {"result": result, "checked_at": time.time(),
                             "runtime_error": err_code}
+        # 上次校验时刻随 check 事件一起给界面（与 bootstrap.login 同一口径），胶囊和登录卡据此显示
+        payload = dict(payload, **_last_check_fields(self._last_check))
         self._emit("check", payload)
 
     def _do_list(self) -> None:
@@ -2490,12 +2492,26 @@ class Api:
             return False
 
     def ask_window_close(self) -> dict:
-        """把「要关了，你想怎样」推给界面去选；返回本次判定依据。"""
+        """把「要关了，你想怎样」推给界面去选；返回本次判定依据。
+
+        tray_ok / phone_running / phone_live 让对话框先列出正在运行的东西，并说清
+        「隐藏到后台」能不能用：托盘建不起来、手机又没连时隐藏就叫不回来（与 hide_window 同一道门）。
+        """
         plan_running = self.plan_active_for_close()
         action = resolve_close_action(load_prefs(), plan_running)
-        self._emit("window_close_ask", {"plan_running": plan_running,
-                                        "default_action": action})
-        return {"ok": True, "plan_running": plan_running, "default_action": action}
+        try:
+            tray_ok = bool(self._ensure_tray())
+        except Exception:
+            tray_ok = False
+        try:
+            phone_running = bool(self._phone.is_running())
+            phone_live = bool(self._phone.has_live_session())
+        except Exception:
+            phone_running = phone_live = False
+        payload = {"plan_running": plan_running, "default_action": action,
+                   "tray_ok": tray_ok, "phone_running": phone_running, "phone_live": phone_live}
+        self._emit("window_close_ask", payload)
+        return dict(payload, ok=True)
 
     def request_window_close(self, action: str = "") -> dict:
         """界面四选的结果：hide 藏到后台 / minimize / exit / 先不关，remember_ 表示「以后都这样」。
@@ -2736,9 +2752,14 @@ class Api:
         if isinstance(snapshot, dict):
             snapshot = dict(snapshot)
             snapshot.setdefault("source", self._plan_source_of(snapshot.get("plan_id")))
+        login = login_state(self._clock)
+        # 手机页也写上次校验时刻（与 bootstrap.login 同一口径，ui-amendment-002）
+        with self._lock:
+            last_check = dict(self._last_check)
+        login.update(_last_check_fields(last_check))
         return {
             "activities": activities,
-            "login": login_state(self._clock),
+            "login": login,
             "plan": snapshot,
             "busy": busy,
             "business_clock": self._clock_payload(),

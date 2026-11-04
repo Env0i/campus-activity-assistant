@@ -26,6 +26,8 @@ async function boot() {
     /* 三种重试模式的权威选项与默认值：桌面/手机共用 bootstrap 口径，
      * 覆盖 store.js 的离线兜底副本（两者由用例对照，不各写一套） */
     if (info.retry_options && info.retry_options.choices) S.retryOptions = info.retry_options;
+    /* 高级功能快照（含保存的账号、验证码识别）：开始前提醒据此判断「自动登录开没开」 */
+    S.advanced = info.advanced_features || null;
     applyPrefs(info.prefs || {});
     /* 条款快照（bootstrap.terms）：未同意时拦下后面的首轮自动加载；
      * 首次（且本版本从未拒绝过）弹一次条款，之后只留横幅入口不强弹 */
@@ -38,7 +40,7 @@ async function boot() {
              loginPresent(info.login, !!info.demo), info.login);
     setBusy(!!info.busy);
     ingestBootstrapPlan(info);
-    /* 首次使用：六步引导代替一次性静态弹窗——但条款决定更早：未同意/未知
+    /* 首次使用：五步引导代替一次性静态弹窗——但条款决定更早：未同意/未知
      * 时欢迎与引导都延后到同意后只继续一次；「暂不使用」过（declined）本
      * 会话不再自动开引导；绝不写 tour_version（看过与否只由引导自己落盘）。 */
     const tourWillAuto = tourShouldAutoStart();
@@ -51,7 +53,7 @@ async function boot() {
       };
     } else {
       if (firstRun && !tourWillAuto) showHelp();
-      if (tourWillAuto) startTour(0);
+      if (tourWillAuto) requestAutoTour();
     }
   } else {
     /* 拿不到 bootstrap：条款状态也无从而知，按未知处理（fail closed），
@@ -120,7 +122,8 @@ window.onBackend = {
      * 一起刷新，不留「胶囊更新了、倒计时还是旧的」混合态（上面的 request_id
      * 代次校验已保证只有本轮结果能走到这里）。 */
     syncLoginDependentView();
-    /* 重登成功也会走这条 check 事件：顶栏换了，右侧「电脑续登录」卡片还是旧
+    maybeStartTour();   /* 登录确认有效后，等着的首次引导看看能不能开始 */
+    /* 重新登录成功也会走这条 check 事件：顶栏换了，右侧「电脑续登录」卡片还是旧
      * 记录（最近一次登录/账号状态）。顺手让手机面板重取一次自己的快照，
      * 失败就静默——卡片陈旧不该影响登录结论本身。 */
     if (window.PhonePanel && typeof window.PhonePanel.refresh === "function") {
@@ -138,6 +141,8 @@ window.onBackend = {
   task: (payload) => handleTask(payload),
   plan_done: (payload) => handlePlanDone(payload),
   update: (payload) => receiveUpdate(payload),
+  /* 重新登录这一场的进度（电脑和手机共用的中继流程）：对话框开着时接管画面 */
+  phone_relogin: (payload) => receiveReloginState(payload),
 };
 
 bindPlaceToggle();
@@ -174,7 +179,9 @@ $("#rows").addEventListener("keydown", (event) => {
   togglePlace(place);
 });
 $("#btn-refresh").addEventListener("click", () => refresh(false));
-$("#btn-login").addEventListener("click", doLogin);
+/* 「登录 / 重新登录」先走重新登录对话框（四种情况）；对话框里保留「改用浏览器登录」 */
+$("#btn-login").addEventListener("click", openRelogin);
+wireRelogin();
 $("#btn-help").addEventListener("click", showHelp);
 /* 条款弹窗：展开完整条款 / 同意 / 暂不使用 / 只读关闭 / 重新确认。未同意时
  * Esc、右上角 X、暂不使用都算「暂不使用」（close 监听统一收口）；保存中 Esc
@@ -202,9 +209,18 @@ $("#chk-terms-agree").addEventListener("change", applyTermsFooter);
     if (doc === "license") ensureLicenseText();
   });
   $("#btn-license-retry").addEventListener("click", () => ensureLicenseText(true));
+$("#terms-toc").addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-toc]");
+  if (!btn) return;
+  const doc = document.querySelector(".terms-doc:not([hidden])");
+  const heads = doc ? Array.from(doc.querySelectorAll(".terms-section > h3, .terms-section > h4")) : [];
+  const head = heads[Number(btn.dataset.toc)];
+  if (head && head.scrollIntoView) head.scrollIntoView({ block: "start" });
+});
 $("#btn-terms-accept").addEventListener("click", acceptTerms);
 $("#btn-terms-decline").addEventListener("click", declineTerms);
-$("#btn-help-terms").addEventListener("click", () => openTerms("help"));
+/* 「设置 → 程序」里的查看条款：关闭后焦点回到这里，不把帮助弹出来 */
+$("#btn-help-terms").addEventListener("click", () => openTerms("settings"));
 $("#btn-terms-recheck").addEventListener("click", recheckTerms);
 $("#btn-terms-close").addEventListener("click", () => {
   /* 只读查看的「关闭」：走原生关闭，由下面的 close 监听恢复来源焦点 */
@@ -233,10 +249,47 @@ if (termsDialog) {
     resumeTermsTour();
   });
 }
-$("#clock").addEventListener("click", (event) => { event.stopPropagation(); toggleClockPop(); });
-document.addEventListener("mousedown", (event) => {
-  if (!event.target.closest("#clock-pop") && !event.target.closest("#clock")) closeClockPop(false);
+/* 顶栏三张详情卡（时间 / 登录 / 手机）：悬停预览、点击固定、Esc 关闭 */
+wireStatusCards();
+$("#btn-settings").addEventListener("click", () => {
+  /* 设置抽屉（views/settings.js）；没有抽屉的旧资源回退到帮助，不让按钮点了没反应 */
+  if (typeof openSettings === "function") openSettings();
+  else showHelp();
 });
+/* 中、窄档：计划条的「查看计划」打开计划栏，「返回列表」收起；「开始」与计划栏主按钮同一路径 */
+$("#btn-dock-open").addEventListener("click", () => setPlanOpen(true));
+$("#btn-plan-back").addEventListener("click", () => setPlanOpen(false));
+$("#btn-dock-start").addEventListener("click", startPlan);
+$("#btn-policy").addEventListener("click", () => {
+  const box = $("#policy-edit");
+  const open = !!box.hidden;
+  box.hidden = !open;
+  $("#btn-policy").setAttribute("aria-expanded", open ? "true" : "false");
+  $("#btn-policy").textContent = open ? "收起" : "改设置";
+});
+window.addEventListener("resize", applyBand);
+applyBand();
+/* 计划栏里的就地动作：移除一场、开始前提醒的「去保存 / 去安装」、「还差一步」和运行中提醒的按钮 */
+$("#plan-tickets").addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-remove]");
+  if (btn) toggleSelection(btn.dataset.remove, false);
+});
+$("#board").addEventListener("click", (event) => {
+  const btn = event.target.closest("#plan-prewarn [data-act], #plan-why [data-act], #run-warn [data-act]");
+  if (!btn) return;
+  const act = btn.dataset.act;
+  if (act === "go-cred") openSettingsSection("login");
+  else if (act === "go-ocr") openSettingsSection("adv");
+  else if (act === "login") openRelogin();
+  else if (act === "refresh") refresh(false);
+  else if (act === "clock-open") openStatusCard("clock", true);
+  else if (act === "terms-open") openTerms("banner", btn);
+});
+wireSettings();
+$("#btn-modify").addEventListener("click", modifyPlan);
+$("#btn-edit-restore").addEventListener("click", startPlan);
+$("#btn-reselect").addEventListener("click", reselectFailed);
+$("#btn-finish").addEventListener("click", finishResult);
 $("#btn-log-folder").addEventListener("click", () => api("open_data")
   .then((res) => addLog("数据目录：" + ((res && res.path) || "已打开")))
   .catch((err) => addLog("[X] 打不开数据目录：" + msg(err))));
@@ -263,6 +316,8 @@ $("#btn-clear-plan").addEventListener("click", clearSelection);
 $("#plan-tasks").addEventListener("click", (event) => {
   const button = event.target.closest(".task-cancel");
   if (button) cancelTask(button.dataset.taskId);
+  const verify = event.target.closest(".task-verify");
+  if (verify) verifyTask(verify.dataset.taskId);
 });
 $("#banners").addEventListener("click", (event) => {
   if (event.target.closest('[data-act="sleep-ok"]')) {
@@ -273,6 +328,8 @@ $("#banners").addEventListener("click", (event) => {
     /* 横幅上的「重新检查」= 一次完整刷新：check 事件带回组件结论，恢复即撤横幅 */
     refresh(false);
   }
+  if (event.target.closest('[data-act="login"]')) openRelogin();
+  if (event.target.closest('[data-act="clock-open"]')) openStatusCard("clock", true);
   const termsBtn = event.target.closest('[data-act="terms-open"]');
   if (termsBtn) {
     /* 条款横幅的「查看条款」：拒绝后的再同意入口，也是唯一入口；记住被点
@@ -308,7 +365,7 @@ $("#max-attempts").addEventListener("change", (event) => {
 });
 $("#btn-log-toggle").addEventListener("click", () => setLogOpen(!S.logOpen));
 $("#btn-log-clear").addEventListener("click", () => { $("#log").textContent = ""; $("#log-last").textContent = "还没有记录"; });
-/* 六步引导：跳过/上一步/下一步；说明页重播入口；GitHub 最新版本外链（点击才打开） */
+/* 五步引导：跳过/上一步/下一步；说明页重播入口；GitHub 最新版本外链（点击才打开） */
 $("#tour-skip").addEventListener("click", tourSkip);
 $("#tour-prev").addEventListener("click", () => {
   if (S.tour.step > 0) { S.tour.step -= 1; paintTour(); }
@@ -326,6 +383,8 @@ $("#btn-update-install").addEventListener("click", startDownload);
 $("#btn-update-confirm").addEventListener("click", confirmDownload);
 $("#btn-update-launch").addEventListener("click", launchInstaller);
 $("#btn-update-cancel").addEventListener("click", cancelDownload);
+/* 启动安装程序以后：「关闭本工具…」接到关窗对话框，由用户自己决定怎么退 */
+$("#btn-update-close").addEventListener("click", () => api("ask_window_close").catch(() => {}));
 $("#btn-help-latest").addEventListener("click", () => {
   /* 用户点击才打开外链：后端用系统默认浏览器打开固定的 releases/latest 地址；
    * 打不开时把地址摆成可选文本（局部反馈），不在 WebView 里跳转 */
@@ -354,6 +413,7 @@ $("#btn-help-data").addEventListener("click", () => {
 });
 /* 窗口尺寸或内部滚动变化时重新定位高亮与卡片 */
 window.addEventListener("resize", () => { if (S.tour.open && !S.tour.paused) paintTour(); });
+document.addEventListener("click", tourGuardClick, true);
 document.addEventListener("scroll", () => { if (S.tour.open && !S.tour.paused) paintTour(); }, true);
 $("#empty-action").addEventListener("click", () => {
   /* 只按 paintEmpty 写下的动作意图分派：
@@ -403,7 +463,9 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     /* 依次：关引导 → 关浮层 → 退输入 → 收起结论 → 清空选择；弹窗由浏览器自己收 */
     if (tourVisible()) { tourSkip(); return; }
-    if (clockPopOpenNow()) { closeClockPop(true); return; }
+    /* 逐层关闭：详情卡 → 对话框（浏览器自己收）→ 设置抽屉 */
+    if (statusCardOpen() || clockPopOpenNow()) { closeStatusCards(true); return; }
+    if (typeof settingsOpen === "function" && settingsOpen()) { closeSettings(true); return; }
     if (typing) { event.target.blur(); return; }
     if (!$("#result").hidden) { setResult(null); return; }
     if (S.selected.size && !S.busy) { clearSelection(); return; }

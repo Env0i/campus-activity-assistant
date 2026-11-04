@@ -57,6 +57,9 @@ function taskDisplayLabel(task) {
     /* 结果没确认 / 登录状态未知都不是「失败」：标签必须留出核对空间 */
     if (task.stop_reason === "unconfirmed") return "待核对";
     if (task.stop_reason === "auth_unavailable") return "未提交";
+    /* 名额已满是学校给的结束结论，不是工具失败（架构方案 3.3） */
+    if (task.stop_reason === "full") return "名额已满";
+    if (typeof verifiedSigned === "function" && verifiedSigned(task)) return "已报名";
   }
   return taskLabel(state);
 }

@@ -196,6 +196,45 @@ function validateSelection() {
   return { errors: uniqueErrors(errors), conflicts: conflicts };
 }
 
+/* 与已报名活动举办时间重叠的那一场（没有返回 null）：和 validateSelection 同一套半开区间比较。
+ * 时刻表据此直接禁选并写明冲突对象，不等勾上以后再报错。 */
+function signedClash(item) {
+  if (!item || item.signed) return null;
+  const start = toTs(item.act_start);
+  const end = toTs(item.act_end);
+  if (!start || !end || end <= start) return null;
+  return S.items.find((other) => {
+    if (!other.signed || String(other.id) === String(item.id)) return false;
+    const otherStart = toTs(other.act_start);
+    const otherEnd = toTs(other.act_end);
+    return otherStart && otherEnd && otherEnd > otherStart && start < otherEnd && otherStart < end;
+  }) || null;
+}
+
+/* 已选场次里和它时间重叠的另一场（没有返回 null），只用于行内说明 */
+function selectedClash(item) {
+  const id = String(item && item.id);
+  const hit = validateSelection().conflicts.find((c) => String(c.left.id) === id || String(c.right.id) === id);
+  if (!hit) return null;
+  return String(hit.left.id) === id ? hit.right : hit.left;
+}
+
+/* 电脑睡眠期间到点、没提交过的场次：时刻表标「错过了」，仍可重新勾选（还开着就能立即报名）。
+ * 睡眠窗口来自心跳间隔（controllers/tick.js），场次必须是上一份计划里的、而且没成功。 */
+function missedBySleep(item) {
+  const win = S.sleepWindow;
+  if (!win || !item || item.signed) return false;
+  const open = toTs(item.sign_start);
+  if (open === null || open < win.from || open > win.to) return false;
+  let missed = false;
+  S.plan.tasks.forEach((task) => {
+    if (String(task.activity_id) !== String(item.id)) return;
+    const status = String(task.status || "");
+    if (status !== "success" && status !== "already_signed" && !(Number(task.attempts) > 0)) missed = true;
+  });
+  return missed;
+}
+
 function conflictIds() {
   const ids = new Set();
   validateSelection().conflicts.forEach((conflict) => { ids.add(String(conflict.left.id)); ids.add(String(conflict.right.id)); });
@@ -273,6 +312,7 @@ function clearSelection() {
   S.selected.clear();
   S.selectionNotice = "";
   S.plan = { id: null, status: "idle", tasks: new Map() };
+  S.editing = null;
   setResult(null);
   render();
 }

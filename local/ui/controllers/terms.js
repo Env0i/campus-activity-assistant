@@ -96,6 +96,9 @@ function openTerms(source, focusBack) {
   /* 任何时刻都不叠两个 open dialog：帮助入口先关帮助（关闭后按来源重开） */
   closeHelpIfOpen();
   resetTermsFullView();
+  /* 之前同意过旧版：先列出这一版改了什么，正文对应的节标「本版新增」（设计文档 9.4） */
+  paintTermsUpdate();
+  paintTermsToc();
   /* 方案 A：每次打开都回到未勾选，勾选不跨弹窗复用——上一轮勾过不等于这一轮读过 */
   resetTermsAgree();
   /* 只读查看：已同意同版只显示「关闭」——不写时间、不写 declined、不刷新 */
@@ -144,7 +147,7 @@ function runDeferredIntro() {
   S.terms.deferredIntro = null;
   if (!deferred || termsLocked()) return;
   if (deferred.tour && tourShouldAutoStart()) {
-    startTour(0);
+    requestAutoTour();
     return;
   }
   if (deferred.welcome) showHelp();

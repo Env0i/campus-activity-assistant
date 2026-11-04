@@ -80,6 +80,13 @@ function componentCopy(download, ready) {
 }
 
 /* 「多久以前」的人话：秒/分/小时/天四档，超过一天不再精确到分钟。 */
+/* 账号打码：前两位加后两位，中间四个星号（与后端 domain/login_rules.mask_account 同一规则） */
+function maskAccount(name) {
+  const text = String(name || "").trim();
+  if (!text) return "已保存";
+  return text.length >= 5 ? text.slice(0, 2) + "****" + text.slice(-2) : text.slice(0, 1) + "****";
+}
+
 function agoText(seconds) {
   const s = Math.max(0, Math.floor(Number(seconds) || 0));
   if (s < 60) return s + " 秒前";
@@ -147,6 +154,8 @@ const PhonePanel = {
   },
 
   paint() {
+    /* 顶栏手机标识与手机详情卡跟着同一份快照刷新（views/status-cards.js） */
+    if (typeof paintStatusCards === "function") paintStatusCards();
     const st = PhonePanel.state;
     const busy = !!PhonePanel.busy;
     const pending = String(PhonePanel.pending || "");
@@ -205,6 +214,7 @@ const PhonePanel = {
       status.dataset.state = String(phoneRow.status || "missing");
     }
     if (ocrStatus) {
+      /* 下载中 / 失败 / 停用时设置抽屉再按下载事务覆盖（views/settings.js paintOcrDownload） */
       ocrStatus.textContent = ocrCopy.status;
       ocrStatus.dataset.state = String(ocrRow.status || "missing");
     }
@@ -223,7 +233,7 @@ const PhonePanel = {
     }
     if (phoneRemove) phoneRemove.disabled = busy;
     if (ocrInstall) {
-      ocrInstall.hidden = !!ocrRow.ready;
+      /* 「导入已下载的组件包」只在一键下载失败、加载失败或停用时露出（显隐由设置抽屉决定） */
       ocrInstall.disabled = busy;
       ocrInstall.textContent = ocrCopy.action;
     }
@@ -246,14 +256,16 @@ const PhonePanel = {
     }
     if (ocrLine) {
       ocrLine.textContent = ocrReady
-        ? "无人值守重登：已启用，验证码自动识别；识别不出来时仍可在手机上人工输入。"
-        : "无人值守重登：未启用，验证码由手机人工输入。";
+        ? "验证码识别：已装好，登录失效时电脑会自己认验证码；连续认错 3 次才转人工。"
+        : "验证码识别：没装，验证码要人工输入（电脑或手机上都行）。";
     }
     if (credLine) {
       if (!storeOk) {
         credLine.textContent = "账号：本机加密存储不可用，输入后只在本次运行期间有效。";
+      } else if (cred.saved && cred.paused) {
+        credLine.textContent = "账号：" + maskAccount(cred.username) + "；学校说保存的密码不对，自动登录已暂停，换成新密码就恢复。";
       } else if (cred.saved) {
-        credLine.textContent = "账号：" + String(cred.username || "已保存") + "；密码只在本机加密保存。";
+        credLine.textContent = "账号：" + maskAccount(cred.username) + "；密码只在本机加密保存。";
       } else {
         credLine.textContent = "账号：未保存。";
       }
@@ -267,16 +279,17 @@ const PhonePanel = {
       else lastLine.textContent = "最近一次登录：暂无记录。";
     }
     if (autoPath) {
-      autoPath.textContent = (cred.saved && ocrReady && storeOk)
-        ? "电脑上自动恢复：登录失效时自动在电脑上重登，不需要你动手。"
-        : "电脑上自动恢复：未启用"
-          + (cred.saved ? "（还缺 ddddocr，验证码要改成人工输入）" : "（还没保存账号）") + "。";
+      autoPath.textContent = (cred.saved && ocrReady && storeOk && !cred.paused)
+        ? "失效后自动登录：已开启，登录失效时电脑自己登录，不需要你动手。"
+        : "失效后自动登录：没开"
+          + (cred.paused ? "（保存的密码不对，已暂停）" : (cred.saved ? "（还缺验证码识别，验证码要你输入）" : "（还没保存账号）")) + "。";
     }
     if (phonePath) {
       phonePath.textContent = ocrReady
-        ? "手机上重登：验证码先由 ddddocr 自动识别，识别失败就由你人工输入。"
-        : "手机上重登：验证码由你人工输入；账号只在本次运行期间点过「填写账号密码」时可用。";
+        ? "手机上重新登录：验证码先由电脑自动识别，认不出来再由你输入。"
+        : "手机上重新登录：验证码由你输入；手机上也可以输账号密码，默认不保存。";
     }
+    if (typeof paintOcrDownload === "function") paintOcrDownload();
     if (clearBox) clearBox.hidden = !PhonePanel.clearConfirm;
     if (detail) detail.hidden = !phoneReady;
     if (channelLabel) channelLabel.textContent = copy.label;
@@ -384,7 +397,7 @@ const PhonePanel = {
     if (credNote) {
       credNote.textContent = cred.saved
         ? "已保存账号：" + String(cred.username || "（未显示）") + "；密码只在本机加密保存。"
-        : "账号密码使用本机 Windows 加密保存，只供电脑上的重登流程使用。";
+        : "账号密码使用本机 Windows 加密保存，只供电脑上的重新登录流程使用。";
     }
     if (credClear) { credClear.hidden = !cred.saved; credClear.disabled = busy; }
     if (credSave) {
@@ -605,30 +618,36 @@ const PhonePanel = {
                done ? "info" : "warn");
   },
 
-  /* 组件下载：一次点击就走完「取地址 → 下载 → 校验 → 安装」，用户不用选文件 */
-  async downloadComponent() {
+  /* 组件下载：一次点击就走完「取地址 → 下载 → 校验 → 安装」，用户不用选文件。
+   * key 为 phone_control（手机控制）或 relogin_ocr（验证码识别），两者同一条后端事务。 */
+  async downloadComponent(key) {
+    const feature = key === "relogin_ocr" ? "relogin_ocr" : "phone_control";
+    const title = feature === "relogin_ocr" ? "验证码识别" : "手机控制";
     if (PhonePanel.busy) return;
     PhonePanel.busy = true;
     PhonePanel.paint();
     let result = null;
     try {
-      result = await api("download_advanced_feature", "phone_control");
+      result = await api("download_advanced_feature", feature);
     } catch (err) {
       result = { ok: false, text: "组件下载没有开始，请稍后重试。" };
     } finally {
       PhonePanel.busy = false;
     }
     helpStatus(result && result.ok
-      ? "开始下载手机控制组件，下载完会自动校验并安装。"
+      ? "开始下载" + title + "组件，下载完会自动校验并安装。"
       : String((result && result.text) || "组件下载没有开始。"),
       result && result.ok ? "info" : "warn");
     await PhonePanel.refresh();
+    /* 下载在后台进行：没开手机访问时也要轮询，进度和结论才能更新 */
+    if (result && result.ok) PhonePanel.startPolling();
   },
 
-  async cancelComponent() {
+  async cancelComponent(key) {
+    const feature = key === "relogin_ocr" ? "relogin_ocr" : "phone_control";
     let result = null;
     try {
-      result = await api("cancel_advanced_feature_download", "phone_control");
+      result = await api("cancel_advanced_feature_download", feature);
     } catch (err) {
       result = { ok: false, text: "取消没有生效，请稍后重试。" };
     }
@@ -764,6 +783,6 @@ if (typeof document !== "undefined") {
   else document.addEventListener("DOMContentLoaded", PhonePanel.wire);
 }
 
-/* app.js 的 check 事件要顺手刷新这张卡片（重登成功会走 check）。跨文件只能靠
+/* app.js 的 check 事件要顺手刷新这张卡片（重新登录成功会走 check）。跨文件只能靠
  * 一个显式挂载点：顶层 const 不会自动变成 window 属性。 */
 if (typeof window !== "undefined") window.PhonePanel = PhonePanel;

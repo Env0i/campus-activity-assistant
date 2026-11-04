@@ -37,8 +37,23 @@ function presentPlanDone(payload, autoRefresh) {
   if (outcome.auth_unavailable) {
     unknownTail.push(outcome.auth_unavailable + " 场因登录状态无法确认而没有提交，检查网络后刷新重试");
   }
-  if (S.plan.status === "completed") {
-    setResult({ ok: true, title: "报名计划完成", text: "已报名 " + successTotal + " 场，建议去学校活动页确认一眼。" });
+  const tasksNow = Array.from(S.plan.tasks.values());
+  const allFull = tasksNow.length > 0 && tasksNow.every((task) => String(task.stop_reason || "") === "full");
+  if (S.editing && S.plan.status === "stopped") {
+    /* 修改计划：停下以后把没提交的场次放回选择，等用户改完重新开始（不弹停止结论） */
+    S.selected.clear();
+    (S.editing.ids || []).forEach((id) => {
+      const item = findItem(id);
+      if (item && isEligibleForPlan(item)) S.selected.add(String(id));
+    });
+    S.plan = { id: null, status: "idle", tasks: new Map() };
+    setResult(null);
+  } else if (S.plan.status === "completed") {
+    setResult({ ok: true, title: "报名计划完成", text: "已报名 " + successTotal + " 场。每场结束时都向学校核对过。" });
+  } else if (allFull) {
+    /* 全部名额已满：学校的结论，不是工具失败，不用红色（决策 014 第 9 条） */
+    setResult({ ok: "neutral", title: "这次没报上：名额满了",
+                text: "学校说这 " + tasksNow.length + " 场报名人数都已满，工具没有出错，也不会再提交。" });
   } else if (S.plan.status === "stopped") {
     /* 用户停止是主结论；停止前已提交却没回应的场次并列说清，不并进「取消」 */
     const extra = outcome.unknown ? "其中 " + unknownLabel(outcome).replace(/^有 /, "")

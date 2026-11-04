@@ -45,7 +45,8 @@ function paintUpdate() {
   } else if (state === "verifying") {
     progressText = "正在比对大小与 SHA-256…";
   } else if (state === "ready_to_install") {
-    progressText = "已通过大小与 SHA-256 校验";
+    /* 计划运行中校验通过：先提醒，按钮改成「仍然启动安装程序」 */
+    progressText = "已通过大小与 SHA-256 校验" + (S.busy ? "。报名计划还在运行：安装要先关闭本工具，会中断计划" : "");
   }
   progress.hidden = !progressText;
   progress.textContent = progressText;
@@ -58,12 +59,32 @@ function paintUpdate() {
   const showConfirm = state === "confirm";
   const showLaunch = state === "ready_to_install";
   const showCancel = state === "confirm" || state === "downloading";
+  const showClose = state === "launching";
   install.hidden = !showInstall;
   confirm.hidden = !showConfirm;
   launch.hidden = !showLaunch;
+  launch.textContent = S.busy ? "仍然启动安装程序" : "启动安装程序";
   cancel.hidden = !showCancel;
-  $("#update-flow").hidden = !(showInstall || showConfirm || showLaunch || showCancel);
+  const close = $("#btn-update-close");
+  if (close) close.hidden = !showClose;
+  const pushing = showInstall || showConfirm || showLaunch || showClose;
+  $("#update-flow").hidden = !(pushing || showCancel);
+  /* 标题行右侧每步只留一个推进动作：流程按钮出现时收起「检查更新」 */
+  button.hidden = pushing;
+  /* 状态自己变了（不是用户刚点的那一下）：新出现的推进按钮先停 0.8 秒，防止连点误触 */
+  if (S.update.paintedState !== state) {
+    S.update.paintedState = state;
+    if (pushing) {
+      S.update.guardUntil = Date.now() + UPDATE_GUARD_MS;
+      clearTimeout(S.update.guardTimer);
+      S.update.guardTimer = setTimeout(paintUpdate, UPDATE_GUARD_MS + 20);
+    }
+  }
+  const guarded = Date.now() < (Number(S.update.guardUntil) || 0);
+  [install, confirm, launch, close].forEach((el) => { if (el) el.disabled = guarded; });
 }
+
+const UPDATE_GUARD_MS = 800;
 
 /* 帮助面板里的更新状态单元格：新结论到达时展开（呈现入口由更新用例与 help 共用）。 */
 function revealUpdateStatus() {

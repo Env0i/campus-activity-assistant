@@ -397,6 +397,8 @@ function applyActivities(payload, quiet) {
   S.byId = new Map(S.items.map((item) => [String(item.id), item]));
   Array.from(S.selected).forEach((id) => { if (!S.byId.has(String(id))) S.selected.delete(id); });
   S.listState = "ready";
+  S.listAtMono = _monoMs();   /* 时刻表上方的「N 分钟前更新」从这一刻算 */
   render();
+  maybeStartTour();   /* 列表到了：等着的首次引导看看能不能开始 */
   settleRefreshBranch("list");
 }

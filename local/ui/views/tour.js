@@ -13,6 +13,42 @@ function tourShouldAutoStart() {
   return !S.busy;
 }
 
+/* 首次自动引导的时机（决策 009 修订）：登录成功、活动列表加载后、条款已同意才开始。
+ * boot / 同意条款只登记「想自动开始」，真正开始等这三件事都到位（check 与列表到达时各问一次）。 */
+function requestAutoTour() {
+  S.tour.autoPending = true;
+  maybeStartTour();
+}
+
+function maybeStartTour() {
+  if (!S.tour.autoPending || S.tour.open || S.busy) return;
+  if (typeof termsLocked === "function" && termsLocked()) return;
+  if (!S.demo && S.login.result !== "valid") return;
+  if (S.listState !== "ready") return;
+  S.tour.autoPending = false;
+  startTour(0);
+}
+
+/* 「勾选」那一步的目标：时刻表里第一行可以勾选的活动（不代替用户勾） */
+function tourRowTarget() {
+  const check = document.querySelector("#rows .row-check:not([disabled])");
+  return check && check.closest ? check.closest(".row") : null;
+}
+
+/* 可操作那一步只放行高亮的那一行和引导卡片：其余背景点了不算数 */
+function tourGuardClick(event) {
+  if (!S.tour.open || S.tour.paused) return;
+  const step = TOUR_STEPS[S.tour.step] || {};
+  if (!step.interactive) return;
+  const target = event.target;
+  if (!target || !target.closest) return;
+  if (target.closest("#tour-card")) return;
+  const row = S.tour.rowEl;
+  if (row && row.contains && row.contains(target)) return;
+  event.preventDefault();
+  event.stopPropagation();
+}
+
 function startTour(at) {
   if (S.busy) return;                 /* 计划运行中优先，引导不启动 */
   /* 记住引导开始前焦点在哪，关闭/跳过/完成后还回去（元素还在页面上才还） */
@@ -88,7 +124,11 @@ function paintTour() {
     '<i class="' + (i === S.tour.step ? "on" : "") + '"></i>').join("");
   /* 目标缺失/隐藏/窄窗（≤980）时不做高亮，退回底部静态说明条——
    * 不伪造定位，也不挡运行中的操作 */
-  const target = document.querySelector('[data-tour-target="' + step.target + '"]');
+  const target = step.target === "row" ? tourRowTarget()
+    : document.querySelector('[data-tour-target="' + step.target + '"]');
+  S.tour.rowEl = step.target === "row" ? target : null;
+  /* 可操作那一步：遮罩不挡点击，改由 tourGuardClick 只放行那一行 */
+  if (box.classList) box.classList.toggle("is-interactive", !!step.interactive);
   const usable = !!target && window.innerWidth > 980 &&
                  target.offsetWidth > 0 && target.getClientRects().length > 0;
   box.classList.toggle("is-bottom", !usable);

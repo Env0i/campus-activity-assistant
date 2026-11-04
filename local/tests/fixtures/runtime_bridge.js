@@ -296,22 +296,30 @@
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  /* 生产 check 事件带上次校验时刻（app._last_check_fields）：胶囊写「HH:MM 校验」，不写剩余时间。
+   * 失败的几种也带（结论归 expired / unknown），与后端同形。固定文本只供显示，不参与任何计时。 */
+  const QA_LAST_CHECK_AT = "2026-11-03 14:20:03";
+
   function checkPayload(rid, mode) {
     if (mode === "none") {
       return { ok: false, result: "none", session_present: false, hours_left: null,
+               last_check_at: QA_LAST_CHECK_AT, last_check_state: "unknown",
                request_id: rid, text: "本机还没有登录" };
     }
     if (mode === "expired") {
       return { ok: false, result: "expired", session_present: true, hours_left: 0,
+               last_check_at: QA_LAST_CHECK_AT, last_check_state: "expired",
                request_id: rid, text: "登录态已过期（4001）" };
     }
     if (mode === "unknown") {
       return { ok: false, result: "unknown", session_present: true, hours_left: null,
+               last_check_at: QA_LAST_CHECK_AT, last_check_state: "unknown",
                request_id: rid, text: "接口异常：URLError" };
     }
     return { ok: true, result: "valid", session_present: true,
              hours_left: mode === "valid_no_estimate" ? null : 5.5,
              estimated_expires_at: null, saved_at: null,
+             last_check_at: QA_LAST_CHECK_AT, last_check_state: "valid",
              request_id: rid, clock: clockPayload() };
   }
 
@@ -584,6 +592,54 @@
     request_window_close: (action) => {
       record("request_window_close", [action]);
       return Promise.resolve({ ok: true, action: String(action || "") });
+    },
+    /* 生产 Api.ask_window_close：推 window_close_ask 事件让界面出三选，回执带同一份判定依据。
+     * state.trayOk / phoneRunning / phoneLive 控制「隐藏到后台」能不能用。 */
+    ask_window_close: () => {
+      record("ask_window_close", []);
+      const payload = { plan_running: !!state.busy, default_action: "ask",
+                        tray_ok: state.trayOk !== false, phone_running: !!state.phoneRunning,
+                        phone_live: !!state.phoneLive };
+      setTimeout(() => window.onBackend.window_close_ask(payload), 0);
+      return Promise.resolve(Object.assign({ ok: true }, payload));
+    },
+    /* 生产 Api.withdraw_terms：计划在跑就拒绝（plan_running）；否则清空同意版本，回执带撤回时刻 */
+    withdraw_terms: () => {
+      record("withdraw_terms", []);
+      if (state.busy) {
+        return Promise.resolve({ ok: false, error: "plan_running",
+                                 text: "报名计划正在运行，结束后再撤回。" });
+      }
+      state.termsMode = "unaccepted";
+      return Promise.resolve({ ok: true, terms: Object.assign(termsInfo(),
+        { withdrawn_at: "2026-11-03 10:00:00" }) });
+    },
+    /* 生产 Api.relogin_*（设计 9.3）：QA 不连学校，只回执「已开始」；进度由场景自己发 phone_relogin 事件。
+     * state.reloginRefuse 为字符串时按该错误码拒绝（例如 plan_late）。 */
+    relogin_begin: (username, password, save) => {
+      /* 账号密码不进调用记录：QA 证据里不留输入值，只留有没有带、保不保存 */
+      record("relogin_begin", [username ? "typed" : "saved", !!save]);
+      if (state.reloginRefuse) {
+        return Promise.resolve({ ok: false, error: String(state.reloginRefuse),
+                                 text: "QA：按场景拒绝这次重新登录。" });
+      }
+      return Promise.resolve({ ok: true, flow_id: "qa-flow-1", mode: state.reloginMode || "manual" });
+    },
+    relogin_submit: (flowId, challengeId, code) => {
+      record("relogin_submit", [flowId, challengeId, code ? "code" : ""]);
+      return Promise.resolve({ ok: true, accepted: true });
+    },
+    relogin_cancel: (flowId) => {
+      record("relogin_cancel", [flowId]);
+      return Promise.resolve({ ok: true });
+    },
+    relogin_auto_once: () => {
+      record("relogin_auto_once", []);
+      if (state.reloginRefuse) {
+        return Promise.resolve({ ok: false, error: String(state.reloginRefuse),
+                                 text: "QA：按场景拒绝这次重新登录。" });
+      }
+      return Promise.resolve({ ok: true, flow_id: "qa-flow-auto", mode: "auto" });
     },
     set_phone_access_preferences: (channel) => {
       record("set_phone_access_preferences", [channel]);

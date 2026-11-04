@@ -135,7 +135,9 @@ function rowHtml(item) {
   const leftText = leftTextOf(item);
   /* 已截止活动保留在列表里查看，但复选框禁用；已报名同理 */
   /* 条款未同意时与登录/刷新/开始同一道门：勾选也算学校动作的前置，不能漏拦。 */
-  const checkDisabled = S.busy || termsLocked() || !isEligibleForPlan(item);
+  /* 与已报名活动时间重叠的直接禁选（决策 004 的外部占用基线），并写明和哪一场冲突 */
+  const clash = signedClash(item);
+  const checkDisabled = S.busy || termsLocked() || !isEligibleForPlan(item) || !!clash;
   /* 学校常把开放时间定在 00:59:59 这种点：有秒就把秒写成小号 */
   let timeHtml = '<span class="t">--:--</span>';
   if (toTs(item.sign_start) !== null) {
@@ -160,7 +162,10 @@ function rowHtml(item) {
   if (item.sync_pending && state === "signed") {
     sub.push('<span class="sync-note">报名已确认，学校列表正在同步</span>');
   }
-  const flags = requirementFlags(item);
+  const partner = clash || (conflict ? selectedClash(item) : null);
+  const warn = clash ? "与已报名的「" + clash.name + "」时间冲突，不能再选"
+    : (partner ? "与已选的「" + partner.name + "」举办时间重叠，只能选其中一场" : "");
+  const flags = requirementFlags(item) + (warn ? '<span class="row-warn">' + esc(warn) + "</span>" : "");
   return "<div class=\"" + classes.join(" ") + "\" data-id=\"" + esc(id) + "\" aria-label=\"" + esc(item.name) + "\">" +
     "<div class=\"c-sel\"><input class=\"row-check\" type=\"checkbox\" data-id=\"" + esc(id) + "\"" + (selected ? " checked" : "") + (checkDisabled ? " disabled" : "") + " aria-label=\"选择" + esc(item.name) + "\"></div>" +
     "<div class=\"c-time\">" + timeHtml + "</div>" +
@@ -173,6 +178,10 @@ function rowHtml(item) {
 function stateCellHtml(item, state, leftText, armed) {
   const nextId = nextOpen().bestId;
   if (armed) return '<span class="state-tag state-armed">' + esc(taskDisplayLabel(armed)) + "</span>";
+  if (missedBySleep(item)) {
+    return '<span class="state-tag state-missed">错过了</span><span class="small">'
+      + (state === "open" ? "还开着，可以重新勾选" : "电脑睡眠期间到点") + "</span>";
+  }
   if (state === "waiting") {
     const isNext = String(item.id) === String(nextId);
     return "<span class=\"left" + (leftText !== "待公布" && parseLeft(item) <= 600 ? " is-soon" : "") + "\">" + esc(leftText) + "</span>" +
@@ -224,7 +233,7 @@ function paintEmpty(rows) {
    * 不按 items.length 猜（有缓存时的失败重试会被猜成清筛选）。 */
   action.dataset.action = "refresh";
   if (S.runtime.error) {
-    /* 缺组件不许显示成「登录后查看活动」：重登解决不了缺组件。
+    /* 缺组件不许显示成「登录后查看活动」：重新登录解决不了缺组件。
      * 完整原因与恢复动作只在顶部横幅——这里只放未加载占位，
      * 不复读长说明，也不重复恢复按钮。 */
     title.textContent = "活动列表未加载";
@@ -274,7 +283,7 @@ function paintEmpty(rows) {
   /* 以下都是「学校成功返回了 0 场」：按登录状态给各自下一步 */
   const login = loginEmptyState();
   if (login === "checking") {
-    /* 校验还没回来：不提前说有效，也不逼用户重登 */
+    /* 校验还没回来：不提前说有效，也不逼用户重新登录 */
     title.textContent = "正在检查登录状态";
     text.innerHTML = '正在核对已保存的登录，稍等一下；<span style="white-space:nowrap">这段时间先不用重新登录。</span>';
     action.textContent = "刷新";
@@ -299,13 +308,38 @@ function paintEmpty(rows) {
     return;
   }
   title.textContent = "学校当前没有返回活动";
-  text.innerHTML = '登录是有效的，学校当前没有返回可报名活动；<span style="white-space:nowrap">稍后点「刷新」再看。</span>';
+  text.innerHTML = '这不是登录问题。<span style="white-space:nowrap">稍后点「刷新」再看，</span>学校发布新活动后会出现在这里。';
   /* 按钮叫「重新加载」与顶栏「刷新」区分；dataset.action 仍是 refresh，分派逻辑不动 */
   action.textContent = "重新加载";
 }
 
 function paintCount(rows) {
-  $("#count").textContent = S.listState === "loading" ? "正在刷新…" : (rows.length + " / " + S.items.length + " 场");
+  /* 列表还没加载过时不显示场数和新鲜度：不能把「还没拿到」说成「0 场」 */
+  const known = S.listState === "ready" || S.items.length > 0;
+  $("#count").textContent = S.listState === "loading" ? "正在刷新…"
+    : (known ? rows.length + " / " + S.items.length + " 场" : "");
+  paintFreshness();
+}
+
+/* 列表新鲜度：刚刚更新 / N 分钟前更新，超过 10 分钟转警告色（时刻来自本机单调钟，只算间隔） */
+function paintFreshness() {
+  const fresh = $("#fresh");
+  if (!fresh) return;
+  const known = S.listState === "ready" || S.items.length > 0;
+  if (!known || !S.listAtMono || S.listState === "loading") {
+    fresh.hidden = true;
+    return;
+  }
+  const minutes = Math.floor(Math.max(0, _monoMs() - S.listAtMono) / 60000);
+  fresh.hidden = false;
+  if (termsLocked()) {
+    /* 没同意条款：不刷新，列表只读停在上次结果，明说可能过时 */
+    fresh.textContent = "没同意条款，停在上次的结果，可能过时";
+    fresh.dataset.tone = "warn";
+    return;
+  }
+  fresh.textContent = minutes < 1 ? "刚刚更新" : minutes + " 分钟前更新";
+  fresh.dataset.tone = minutes > 10 ? "warn" : "";
 }
 
 /* ---------------------------------------------------------------- 大屏 */

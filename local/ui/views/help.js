@@ -63,6 +63,6 @@ function paintReplayButtons() {
     if (!btn) return;
     btn.disabled = !!S.busy;
     btn.textContent = S.busy ? "计划结束后可重看引导" : pair[1];
-    btn.title = S.busy ? "计划结束后可重看引导" : "重新看一遍六步引导";
+    btn.title = S.busy ? "计划结束后可重看引导" : "重新看一遍五步引导";
   });
 }

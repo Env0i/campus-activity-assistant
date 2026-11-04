@@ -1,4 +1,6 @@
-/* 计划板与任务呈现：选中面板、路线/倒计时/LED/横幅、任务卡。 */
+/* 计划栏（新工作台右栏，决策 014）与任务呈现：阶段标题、路线/倒计时/LED、横幅、任务卡、
+ * 窗口分档与中窄档计划条。由旧大屏 views/board.js 改名演进而来，元素 id 沿用，
+ * 其他脚本按原函数名调用。 */
 function paintSelected() {
   const box = $("#selected");
   const meta = $("#selected-meta");
@@ -214,7 +216,8 @@ function paintBoardActions() {
   const policyMax = $("#max-attempts") ? $("#max-attempts").closest(".policy-select") : null;
   const grow = actions.querySelector(".grow");
   if (!actions || !quickLogin || !quickPick) return;
-  if (S.busy) {
+  /* 结果页（计划结束、选择没变）只留「重新选择 / 完成」，不再摆开始按钮 */
+  if (S.busy || resultMode()) {
     actions.hidden = true;
     quickLogin.hidden = true;
     quickPick.hidden = true;
@@ -232,7 +235,19 @@ function paintBoardActions() {
   quickLogin.hidden = !needLogin;
   quickPick.hidden = !showPick;
   if (grow) grow.hidden = needLogin || showPick;
-  [checks, headed, clear, start, policyFor, policyMax].forEach((el) => { if (el) el.hidden = needLogin || showPick; });
+  /* 新计划栏：主按钮一直在（禁用时下面写「还差一步」），快捷登录 / 选这一场是就地解决的动作 */
+  [checks, clear].forEach((el) => { if (el) el.hidden = needLogin || showPick; });
+  [headed, policyFor, policyMax, start].forEach((el) => { if (el) el.hidden = false; });
+  const restore = $("#btn-edit-restore");
+  if (restore) restore.hidden = !S.editing;
+  const note = $("#edit-note");
+  if (note) note.hidden = !S.editing;
+}
+
+/* 结果页：计划已结束，且选择集合和结束时一样（改了选择就回到草稿） */
+function resultMode() {
+  return !S.busy && S.plan.tasks.size > 0 && PLAN_TERMINAL.indexOf(String(S.plan.status || "")) >= 0
+    && S.plan.doneSelection === selectionSignature() && !S.editing;
 }
 
 /* 空选状态优先展示当前开放场次；没有开放场次时再展示最近的未来场次。 */
@@ -243,43 +258,280 @@ function boardTargetItem() {
   return null;
 }
 
-/* 加入计划前的检查条：只提醒、不硬挡（登录到期与 24 小时提醒都按原型规则） */
+/* 加入计划前的检查与开始前提醒（决策 014 第 7 条）：检查条只放已满足的事实（✓），
+ * 需要用户留意的进「开始前提醒」——只提醒不拦，有提醒时主按钮改叫「仍然开始报名计划」。 */
 function paintChecks() {
   const box = $("#plan-checks");
   const items = selectedItems();
+  const warns = preStartWarnings();
+  S.preWarnCount = warns.length;
+  paintPrewarn(warns);
   if (!items.length || S.busy) {
     box.innerHTML = "";
     return;
   }
   const checks = [];
-  if (!S.online) checks.push({ tone: "bad", text: "网络断开了" });
-  const expireAt = S.login.expireAt;
-  /* 登录到期按「这次报名窗口」判断：未来场次等原定开放，已开放场次
-   * 用本次执行窗口（现在起算的策略时长，sign_end 截断），
-   * 不能拿历史 sign_start 误判「登录撑得到开放」。 */
-  const executionEnd = earliestSelectedExecutionEnd();
-  if (expireAt && executionEnd !== null) {
-    /* 登录剩余是 saved_at + 17.5h 的估算，不是学校给的到期时刻：
-     * 只能说「预计」，不能保证一定撑得到（R15） */
-    if (expireAt < executionEnd * 1000) checks.push({ tone: "warn", text: "登录估算约 " + whenText(expireAt) + " 过期，可能赶不上这次报名窗口，建议先重新登录" });
-    else checks.push({ tone: "ok", text: "预计可覆盖本次窗口；临近开放建议再确认" });
+  if (S.login.result === "valid") checks.push("学校确认登录有效");
+  if (!S.demo && clockUiState() === "ready") checks.push("报名时间按北京时间执行");
+  box.innerHTML = checks.map((text) => '<span class="chk" data-tone="ok">' + esc(text) + "</span>").join("");
+}
+
+/* 电脑自动登录要用到的三件事：保存了账号、装了验证码识别、保存的密码没被学校拒绝过。
+ * 读 advanced_features_state.credential（bootstrap 与手机面板刷新都带）；读不到就当没开。 */
+function autoLoginCredential() {
+  const phone = window.PhonePanel && window.PhonePanel.state && window.PhonePanel.state.advanced;
+  const adv = phone || S.advanced || {};
+  const cred = adv.credential || {};
+  return { saved: !!cred.saved, ocr: !!cred.ocr_ready, paused: !!cred.paused };
+}
+
+function latestSelectedOpen() {
+  let best = null;
+  selectedItems().forEach((item) => {
+    const ts = toTs(item.sign_start);
+    if (ts !== null && (best === null || ts > best)) best = ts;
+  });
+  return best;
+}
+
+/* 开始前提醒五条：断网 / 沿用上次校准 / 最晚一场要等 1 小时以上又没开全自动登录 /
+ * 直到报名截止但缺截止时间 / 最晚一场 24 小时以后（按最晚一场算，旧界面按最早一场，有意改的） */
+function preStartWarnings() {
+  const items = selectedItems();
+  if (!items.length || S.busy) return [];
+  const list = [];
+  if (!S.online) list.push({ tone: "bad", text: "网络断开了；到点还没恢复，这次报名会失败。" });
+  if (!S.demo && clockUiState() === "holdover") {
+    list.push({ tone: "warn", text: "北京时间在用上次的校准结果，工具会自动重新校准。" });
   }
-  /* 时间检查只表达能否开始：误差、来源和返校粗测都放时间详情，不进这里 */
-  if (!S.demo) {
-    const ui = clockUiState();
-    if (ui === "unavailable") checks.push({ tone: "warn", text: "北京时间待校准，校准后才能开始计划" });
-    else if (ui === "holdover") checks.push({ tone: "warn", text: "正在使用上次校准结果，工具会自动重新校准" });
-    else checks.push({ tone: "ok", text: "报名时间按北京时间执行" });
+  const now = bnowS();
+  const latest = latestSelectedOpen();
+  const cred = autoLoginCredential();
+  if (now !== null && latest !== null && latest - now > 3600 && !(cred.saved && cred.ocr && !cred.paused)) {
+    const needCred = !cred.saved || cred.paused;
+    const missing = !cred.saved ? "自动登录没开" : (cred.paused ? "保存的密码学校不认" : "验证码识别没装");
+    list.push({
+      tone: "warn",
+      text: "要等到 " + whenText(latest * 1000) + "，" + missing + "。中途登录失效要你重新登录"
+        + (needCred ? "" : "并输验证码") + "；开放前 100 秒内失效的那场会直接结束。",
+      act: needCred ? "go-cred" : "go-ocr", label: needCred ? "去保存" : "去安装",
+    });
   }
-  /* 「直到报名截止」但选中场次没给报名截止：老实提示 2 分钟兜底，不假装能一直试 */
-  if (S.retryPolicy.retry_for_s === 0) {
-    const missing = items.some((item) => !toTs(item.sign_end));
-    if (missing) checks.push({ tone: "warn", text: "有场次没提供报名截止：本次最多 2 分钟" });
+  if (S.retryPolicy.retry_for_s === 0 && items.some((item) => !toTs(item.sign_end))) {
+    list.push({ tone: "warn", text: "尝试时长选了「直到报名截止」，但有场次没给截止时间：这些场次最多试 2 分钟。" });
   }
-  const earliest = earliestSelectedOpen();
-  const bnLeft = bnLeftSec(earliest);
-  if (bnLeft !== null && bnLeft > 86400) checks.push({ tone: "warn", text: "开放在 24 小时以后" });
-  box.innerHTML = checks.map((chk) => '<span class="chk" data-tone="' + chk.tone + '">' + esc(chk.text) + "</span>").join("");
+  if (now !== null && latest !== null && latest - now > 86400) {
+    list.push({ tone: "warn", text: "最晚一场 24 小时以后才开放：这段时间别关工具，也别让电脑睡眠。" });
+  }
+  return list;
+}
+
+function paintPrewarn(warns) {
+  const box = $("#plan-prewarn");
+  if (!box) return;
+  box.hidden = !warns.length;
+  box.innerHTML = warns.map((w) => '<li data-tone="' + w.tone + '"><span>' + esc(w.text) + "</span>"
+    + (w.act ? '<button type="button" data-act="' + w.act + '">' + esc(w.label) + "</button>" : "") + "</li>").join("");
+}
+
+/* 「还差一步」：开始按钮禁用时写清缺什么，能就地解决的给一个动作 */
+function startBlocker() {
+  if (S.busy) return null;
+  if (termsLocked()) return { text: "先同意使用条款", act: "terms-open", label: "查看条款" };
+  if (S.runtime.error) return { text: "程序组件有问题，处理办法看页面顶部" };
+  const login = (S.login.view || {}).state;
+  if (S.login.present === false && !S.demo) return { text: "先登录" };
+  if (login === "bad") return { text: "登录已失效，先重新登录", act: "login", label: "重新登录" };
+  if (login === "checking" || login === "pending") return { text: "正在确认登录状态，稍等一下" };
+  if (login === "unknown") return { text: "暂时无法确认登录，检查网络后点「刷新」", act: "refresh", label: "刷新" };
+  if (businessNowMs() === null && !S.demo) return { text: "北京时间还没校准", act: "clock-open", label: "查看时间" };
+  if (S.listState !== "ready") return { text: "活动列表还没加载", act: "refresh", label: "刷新" };
+  if (!S.selected.size) return { text: "先在时刻表勾选活动" };
+  const validation = validateSelection();
+  if (validation.errors.length || validation.conflicts.length) return { text: "已选场次有问题，看上面的提醒" };
+  return null;
+}
+
+function paintWhy() {
+  const box = $("#plan-why");
+  if (!box) return;
+  const plan = $("#btn-plan");
+  const blocker = plan && plan.disabled && !S.starting ? startBlocker() : null;
+  box.hidden = !blocker;
+  box.innerHTML = blocker ? "<span>还差一步：" + esc(blocker.text) + "</span>"
+    + (blocker.act ? '<button type="button" data-act="' + blocker.act + '">' + esc(blocker.label) + "</button>" : "") : "";
+}
+
+/* 草稿里的已选场次：按开放批次分组，每场一张票，可逐场移除 */
+function paintTickets() {
+  const box = $("#plan-tickets");
+  if (!box) return;
+  const items = S.busy ? [] : selectedItems();
+  if (!items.length || S.plan.tasks.size) {
+    box.innerHTML = "";
+    return;
+  }
+  box.innerHTML = groupSelected(items).map((group) => {
+    const mode = modeText(modeOf(group.items[0]));
+    return '<div class="bh"><b>' + esc(shortTime(group.key)) + "</b><span>" + group.items.length + " 场"
+      + (mode ? " · " + esc(mode) : "") + "</span></div>"
+      + group.items.map((item) => '<div class="tk"><div><b title="' + esc(item.name) + '">' + esc(item.name)
+        + "</b><small>" + esc(activityTimeText(item)) + '</small></div><button type="button" data-remove="'
+        + esc(String(item.id)) + '" aria-label="' + esc("从计划移除「" + item.name + "」") + '">'
+        + '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>').join("");
+  }).join("");
+}
+
+/* 尝试设置一行概括：「尝试 2 分钟，不限次数」，点「改设置」才展开三个控件 */
+function paintPolicyLine() {
+  const line = $("#policy-line");
+  if (!line) return;
+  line.hidden = S.busy;
+  if (S.busy) {
+    const edit = $("#policy-edit");
+    if (edit) edit.hidden = true;
+  }
+  const choices = (S.retryOptions && S.retryOptions.choices) || [];
+  const picked = choices.filter((c) => Number(c.value) === Number(S.retryPolicy.retry_for_s))[0];
+  const cap = Number(S.retryPolicy.max_attempts) || 0;
+  $("#policy-text").innerHTML = "尝试 <b>" + esc(picked ? picked.label : "2 分钟") + "</b>，<b>"
+    + (cap > 0 ? "最多 " + cap + " 次" : "不限次数") + "</b>";
+}
+
+/* 运行中「来不及」的判断（架构方案 4.3）：有场次在提交，或还没提交的场次离开放不到 100 秒。
+ * 与后端 local/domain/login_rules.py 的 LATE_WINDOW_S 同一个数；修改计划的禁用条件也用它。 */
+const LATE_WINDOW_S = 100;
+function planLate() {
+  const now = bnowS();
+  if (now === null) return true;
+  let late = false;
+  S.plan.tasks.forEach((task) => {
+    const st = String(task.status || "");
+    if (st === "submitting") late = true;
+    else if (st === "queued" || st === "waiting") {
+      const open = toTs(task.sign_start);
+      if (open !== null && open - now <= LATE_WINDOW_S) late = true;
+    }
+  });
+  return late;
+}
+
+/* 最早一场还没提交的开放时刻：运行中登录失效时，「HH:MM:SS 前重新登录」按它减 100 秒算 */
+function earliestWaitingOpen() {
+  let best = null;
+  S.plan.tasks.forEach((task) => {
+    if (["queued", "waiting"].indexOf(String(task.status || "")) < 0) return;
+    const open = toTs(task.sign_start);
+    if (open !== null && (best === null || open < best)) best = open;
+  });
+  return best;
+}
+
+function paintRunPanel() {
+  const warn = $("#run-warn");
+  const hint = $("#plan-hint");
+  const modify = $("#btn-modify");
+  const why = $("#modify-why");
+  if (!warn || !hint) return;
+  if (!S.busy || !S.plan.id) {
+    warn.hidden = true;
+    hint.hidden = true;
+    if (why) why.hidden = true;
+    return;
+  }
+  const late = planLate();
+  /* 运行中登录失效（决策 014 第 8 条）：电脑在自动登录时只写一行说明；来得及就给「重新登录」 */
+  const waitingAuto = Array.from(S.plan.tasks.values()).some((t) => String(t.login_wait || "") === "waiting");
+  const login = (S.login.view || {}).state;
+  let text = "";
+  let tone = "";
+  let act = null;
+  if (waitingAuto) {
+    tone = "info";
+    text = "学校说登录失效了，电脑正在自动登录；换上新登录态后接着提交。";
+  } else if (login === "bad") {
+    const open = earliestWaitingOpen();
+    if (late || open === null) {
+      text = "登录失效了。有场次正在提交或离开放不到 100 秒，现在来不及重新登录；电脑能自动登录就自动登录，不能的场次会以「登录失效」结束。";
+    } else {
+      text = "登录失效了，计划还在等。" + fmtClock(open - LATE_WINDOW_S) + " 前重新登录，计划照常继续；来不及的话，"
+        + fmtClock(open) + " 开放的那批会以「登录失效」结束。";
+      act = { act: "login", label: "重新登录" };
+    }
+  }
+  warn.hidden = !text;
+  warn.dataset.tone = tone;
+  warn.innerHTML = text ? "<span>" + esc(text) + "</span>"
+    + (act ? '<button type="button" data-act="' + act.act + '">' + esc(act.label) + "</button>" : "") : "";
+  const fromPhone = String(S.plan.source || "") === "phone";
+  hint.hidden = false;
+  hint.textContent = "可以最小化窗口，但不要关闭工具或让电脑睡眠。"
+    + (fromPhone ? "这个计划是从手机开始的，在电脑和手机上都能看进度、停止。" : "");
+  if (modify) modify.disabled = late || S.stopping;
+  if (why) {
+    why.hidden = false;
+    why.textContent = late ? "有场次在提交或离开放不到 100 秒，现在不能修改计划。"
+      : "修改会先停下计划，改完要重新开始。";
+  }
+}
+
+/* 刷新核对确认过的待核对场次：结束时没拿到结论，事后学校列表显示已报名 */
+function verifiedSigned(task) {
+  if (!task || String(task.stop_reason || "") !== "unconfirmed") return false;
+  const item = findItem(task.activity_id);
+  return !!(item && item.signed);
+}
+
+/* 「刷新核对」：只刷新活动列表（不新增学校接口、不重发报名），结果由列表的 signed 决定 */
+function verifyTask(taskId) {
+  if (!S.verifyAsked) S.verifyAsked = new Set();
+  S.verifyAsked.add(String(taskId));
+  refresh(false);
+}
+
+/* 结果页：只显示不为 0 的大数字；名额已满单列、中性色，不放回「重新选择未成功的场次」 */
+function resultCounts() {
+  const counts = { ok: 0, full: 0, pending: 0, bad: 0 };
+  S.plan.tasks.forEach((task) => {
+    const st = String(task.status || "");
+    const stop = String(task.stop_reason || "");
+    if (st === "success" || st === "already_signed" || verifiedSigned(task)) counts.ok += 1;
+    else if (stop === "full") counts.full += 1;
+    else if (stop === "unconfirmed") counts.pending += 1;
+    else if (st === "failed") counts.bad += 1;
+  });
+  return counts;
+}
+
+/* 可以重新选的场次：没成功、不是名额已满、还能加入计划（没截止、没报上） */
+function reselectableIds() {
+  const ids = [];
+  S.plan.tasks.forEach((task) => {
+    const st = String(task.status || "");
+    if (["failed", "canceled"].indexOf(st) < 0 || String(task.stop_reason || "") === "full") return;
+    const item = findItem(task.activity_id);
+    if (item && isEligibleForPlan(item) && !signedClash(item)) ids.push(String(item.id));
+  });
+  return ids;
+}
+
+function paintResultPanel() {
+  const stats = $("#plan-stats");
+  const actions = $("#result-actions");
+  const done = !S.busy && S.plan.tasks.size > 0 && PLAN_TERMINAL.indexOf(String(S.plan.status || "")) >= 0;
+  if (stats) {
+    const c = resultCounts();
+    const cells = [[c.ok, "已报名", "ok"], [c.full, "名额已满", "wait"], [c.bad, "未成功", "bad"], [c.pending, "待核对", "warn"]]
+      .filter((cell) => cell[0] > 0);
+    stats.hidden = !done || !cells.length;
+    stats.innerHTML = done ? cells.map((cell) => '<div data-tone="' + cell[2] + '"><strong>' + cell[0]
+      + "</strong><span>" + cell[1] + "</span></div>").join("") : "";
+  }
+  if (actions) {
+    actions.hidden = !done;
+    const reselect = $("#btn-reselect");
+    if (reselect) reselect.hidden = !done || !reselectableIds().length;
+  }
 }
 
 function earliestSelectedOpen() {
@@ -287,30 +539,6 @@ function earliestSelectedOpen() {
   selectedItems().forEach((item) => {
     const ts = toTs(item.sign_start);
     if (ts !== null && (best === null || ts < best)) best = ts;
-  });
-  return best;
-}
-
-/* 登录到期检查用的统一时点：未来场次取「原定开放 + 重试窗口」，
- * 已开放场次取「本次执行窗口」（现在起算的策略时长，sign_end 截断）；
- * 取全计划最早的一个，与 effectiveRetryDeadline 同一套推导口径。 */
-function earliestSelectedExecutionEnd() {
-  const now = bnowS();
-  if (now === null) return null;   /* 时钟未知：不编执行窗口，登录到期检查跳过 */
-  let best = null;
-  selectedItems().forEach((item) => {
-    const open = toTs(item.sign_start);
-    if (open === null) return;
-    const rawFor = Number(S.retryPolicy.retry_for_s);
-    /* -1 自动延长的初始预算就是 120 秒；0 才是「直到报名截止」；非法值回默认 */
-    const retryFor = rawFor === -1 ? RETRY_WINDOW_S
-      : (Number.isFinite(rawFor) ? rawFor : RETRY_WINDOW_S);
-    const signEnd = toTs(item.sign_end);
-    const base = open > now ? open : now;
-    let end = Number.isFinite(retryFor) && retryFor > 0 ? base + retryFor
-      : (retryFor === 0 && signEnd !== null ? signEnd : base + RETRY_WINDOW_S);
-    if (signEnd !== null) end = Math.min(end, signEnd);
-    if (best === null || end < best) best = end;
   });
   return best;
 }
@@ -331,6 +559,10 @@ function paintPlan() {
   const now = bnowS();
   tasksBox.innerHTML = tasks.length ? tasks.map((task) => taskHtml(task, now)).join("") : "";
   paintCountdown();
+  paintTickets();
+  paintPolicyLine();
+  paintRunPanel();
+  paintResultPanel();
 }
 
 /* 原型中的报名线路图：同时表达学校原定开放时间和本次实际执行窗口，
@@ -361,14 +593,18 @@ function paintRoute() {
   const terminal = ["success", "already_signed", "failed", "canceled"].indexOf(String(task.status)) >= 0;
   const deadlineKnown = deadline.time !== null;
   const openDone = now !== null && now >= open;
+  /* 五站（决策 014）：本次启动 → 准备好提交（改用页面点击时叫「活动页已打开」）→ 原定开放 →
+   * 本次尝试截止 → 向学校核对（每场结束时用 getJoinInfo 核对一次，终态才算到站） */
+  const clickPath = String(task.path || "") === "click";
+  const ready = clickPath ? pageOpened : (watchStarted || pageOpened);
   const stations = [
     { name: "本次启动", time: runStarted ? routeTime(runStarted) : "待启动", done: runStarted !== null },
-    { name: "活动页已打开", time: pageOpened ? routeTime(pageOpened) : "待打开", done: pageOpened !== null },
-    { name: "开始监测", time: watchStarted ? routeTime(watchStarted) : "待开始", done: watchStarted !== null, hot: true },
+    { name: clickPath ? "活动页已打开" : "准备好提交", time: ready ? routeTime(ready) : "待准备", done: ready !== null },
     { name: "原定开放", time: routeTime(open), done: openDone, hot: true },
     /* 截止未知时显示「待定」，不能因为 null 参与比较而被标成已发生 */
     { name: deadline.name, time: deadlineKnown ? routeTime(deadline.time) : "待定",
       done: terminal || (deadlineKnown && now !== null && now >= deadline.time) },
+    { name: "向学校核对", time: terminal ? "已核对" : "结束时", done: terminal },
   ];
   const currentIndex = terminal ? stations.length : stations.findIndex((station) => !station.done);
   box.innerHTML = '<div class="route" style="--n:' + stations.length + '" aria-label="这次报名的时间点">' +
@@ -612,7 +848,27 @@ function stopReasonText(reason) {
     unconfirmed: "报名结果待核对",
     user_stopped: "已停止",
     process_error: "程序流程异常结束",
+    /* 回包分类后的结束结论（架构方案 3.3）：后端另给 outcome_label，这里是兜底同义词 */
+    full: "名额已满",
+    closed: "报名已截止",
+    conflict: "时间冲突",
+    no_activity: "活动不存在",
+    clock_skew: "本机时钟不准",
+    unknown_reply: "学校回了无法识别的结果",
+    page_unavailable: "学校页面打不开",
   }[reason] || "";
+}
+
+/* 每场准备好以后写明提交方式（架构方案 3.1）：直接提交，或改用页面点击并写原因 */
+function taskViaHtml(task) {
+  const path = String(task && task.path || "");
+  if (path === "direct") return '<small class="t-via">直接提交，不经过活动页</small>';
+  if (path === "click") {
+    const why = String(task.path_reason || "").trim();
+    return '<small class="t-via" data-tone="warn">改用页面点击' + (why ? "：" + esc(why) : "")
+      + "。活动页已提前打开</small>";
+  }
+  return "";
 }
 
 /* telemetry 的 retry_deadline 是 epoch 秒（后端结构化行）；空串/0 表示没有 */
@@ -674,8 +930,21 @@ function taskHtml(task, now) {
     /* 等待 / 准备 / 提交共用一份解释；typing 的等待文案只在没有阶段说明时兜底 */
     detail = taskDisplayDetail(task, now)
       || (state === "waiting" ? (mode === "pre_register" ? "等待报名开放" : "报名已开放，马上开始") : detail);
+    if (String(task.login_wait || "") === "waiting") {
+      /* 报名进程确认登录失效、在等电脑自动登录（架构方案 4.3）：换上新登录态后接着提交 */
+      detail = "电脑正在自动登录，换上新登录态后接着提交";
+    }
+  } else if (state === "failed" && task.stop_reason === "full") {
+    detail = "学校说报名人数已满，这一场到此结束，不再提交。不是工具出错"
+      + (task.attempts ? "。已提交 " + task.attempts + " 次" : "");
+  } else if (verifiedSigned(task)) {
+    /* 刷新核对：学校列表显示这场已报名，就按成功说，不再让用户去核对 */
+    detail = "刷新核对：学校列表显示已报名";
   } else if (["failed", "canceled"].indexOf(state) >= 0) {
-    if (task.stop_reason === "unconfirmed") {
+    if (task.stop_reason === "unconfirmed" && S.verifyAsked && S.verifyAsked.has(String(task.task_id))
+        && S.listState === "ready") {
+      detail = "刷新核对：学校列表还没显示已报名，可能有延迟，去活动页看一眼；本工具不会再自动重发";
+    } else if (task.stop_reason === "unconfirmed") {
       /* 已发出的请求撤不回来：只陈述「发过几次、没拿到回应」，不下失败结论 */
       const tried = Math.max(0, Math.floor(Number(task.attempts) || 0));
       detail = "已提交 " + tried + " 次，没有拿到确定回应 · 去活动页核对，本工具不会再自动重发";
@@ -684,13 +953,17 @@ function taskHtml(task, now) {
     } else {
       const bits = [];
       if (task.attempts) bits.push("提交了 " + task.attempts + " 次");
-      const stopNote = stopReasonText(task.stop_reason);
+      const stopNote = String(task.outcome_label || "") || stopReasonText(task.stop_reason);
       if (stopNote && task.stop_reason !== "success" && task.stop_reason !== "already_signed") bits.push(stopNote);
       if (bits.length) detail = (detail ? detail + "（" : "") + bits.join("，") + (detail ? "）" : "");
     }
+  } else if (state === "success" && !detail) {
+    detail = "结束时向学校核对过：已报名";
   }
   const canCancel = ["queued", "waiting"].indexOf(state) >= 0 && S.busy;
-  return "<div class=\"task-row\" data-task-id=\"" + esc(task.task_id) + "\"><div><strong class=\"task-name\" title=\"" + esc(task.name) + "\">" + esc(task.name) + "</strong><span class=\"task-detail\">" + esc(modePrefix + detail) + "</span></div><div class=\"task-actions\"><span class=\"task-state " + cls + "\">" + esc(label) + "</span>" + (canCancel ? "<button class=\"task-cancel\" type=\"button\" data-task-id=\"" + esc(task.task_id) + "\">取消</button>" : "") + "</div></div>";
+  /* 待核对场次给「刷新核对」：刷新活动列表看这一场是否已报名（ui-amendment-001 选项 A），不自动重发 */
+  const canVerify = !S.busy && task.stop_reason === "unconfirmed" && !verifiedSigned(task);
+  return "<div class=\"task-row\" data-task-id=\"" + esc(task.task_id) + "\"><div><strong class=\"task-name\" title=\"" + esc(task.name) + "\">" + esc(task.name) + "</strong><span class=\"task-detail\">" + esc(modePrefix + detail) + "</span>" + taskViaHtml(task) + "</div><div class=\"task-actions\"><span class=\"task-state " + cls + "\">" + esc(label) + "</span>" + (canCancel ? "<button class=\"task-cancel\" type=\"button\" data-task-id=\"" + esc(task.task_id) + "\">取消</button>" : "") + (canVerify ? "<button class=\"task-cancel task-verify\" type=\"button\" data-task-id=\"" + esc(task.task_id) + "\">刷新核对</button>" : "") + "</div></div>";
 }
 
 /* 统一的有效重试截止（路线图、任务卡、LED、终态文案共用唯一来源）：
@@ -766,24 +1039,99 @@ function updateControls() {
   /* 独立北京时间门禁（决策 012）：时钟不可读或不在 ready/holdover 时开始禁用 */
   const clockDown = businessNowMs() === null && !S.demo;
   $("#btn-plan").disabled = !canStart || clockDown;
+  /* 有开始前提醒时主按钮改叫「仍然开始报名计划」：只提醒不拦 */
+  const warned = (Number(S.preWarnCount) || 0) > 0;
   $("#btn-plan").textContent = S.busy ? "计划运行中"
     : (S.startRequest.state === "reconciling" ? "正在确认是否启动…"
       : (S.starting ? "正在提交…"
-        : (clockDown ? "北京时间未校准" : "开始报名计划")));
+        : (clockDown ? "北京时间未校准" : (S.editing ? "重新开始计划"
+          : (warned ? "仍然开始报名计划" : "开始报名计划")))));
+  paintWhy();
   $("#btn-stop").disabled = !S.busy || !S.plan.id || S.stopping;
-  $("#btn-stop").textContent = S.stopping ? "正在停止…" : "停止";
+  $("#btn-stop").textContent = S.stopping ? "正在停止…" : "停止计划";
+  /* 运行中底部换成「修改计划 / 停止计划」；草稿时是开始前提醒、检查和主按钮 */
+  const runActions = $("#run-actions");
+  if (runActions) runActions.hidden = !S.busy;
   $("#btn-clear-plan").disabled = S.busy || (!S.selected.size && !S.plan.tasks.size);
   document.querySelectorAll(".row-check").forEach((check) => {
     const item = findItem(check.dataset.id);
     /* 与行渲染同一份判据：已报名/已截止/忙碌都禁用，已截止仍可查看 */
-    check.disabled = S.busy || termsLocked() || !isEligibleForPlan(item);
+    check.disabled = S.busy || termsLocked() || !isEligibleForPlan(item) || !!signedClash(item);
   });
   paintBoardActions();
+  paintDock();
+}
+
+/* ---------------------------------------------------------------- 窗口分档与计划条 */
+/* 与 styles.css 的断点是同一组阈值：宽 ≥1040 双栏；中 720–1039、窄 <720 单栏 + 底部计划条；
+ * 高 <660 为矮窗。只看视口宽高，不读 UA。 */
+function bandOf(width, height) {
+  const w = Number(width) || 1280;
+  const h = Number(height) || 800;
+  return { band: w >= 1040 ? "wide" : (w >= 720 ? "medium" : "narrow"), short: h < 660 };
+}
+
+function applyBand() {
+  const got = bandOf(window.innerWidth, window.innerHeight);
+  S.band = got.band;
+  S.short = got.short;
+  const zd = $("#zd");
+  if (zd && zd.dataset) {
+    zd.dataset.band = got.band;
+    zd.dataset.short = got.short ? "1" : "0";
+  }
+  if (got.band === "wide" && S.planOpen) setPlanOpen(false);
+  else paintDock();
+}
+
+/* 中、窄档里计划栏和时刻表二选一：查看计划时收起时刻表，「返回列表」再换回来 */
+function setPlanOpen(open) {
+  S.planOpen = !!open && S.band !== undefined && S.band !== "wide";
+  const zd = $("#zd");
+  if (zd && zd.dataset) zd.dataset.planOpen = S.planOpen ? "1" : "0";
+  const back = $("#btn-plan-back");
+  if (back) back.hidden = !S.planOpen;
+  paintDock();
+}
+
+/* 计划条：已选几场 + 查看计划 + 开始；有开始前提醒时不给「开始」，先让用户看计划 */
+function paintDock() {
+  const dock = $("#plan-dock");
+  if (!dock) return;
+  const narrow = !!S.band && S.band !== "wide";
+  dock.hidden = !narrow || !!S.planOpen;
+  if (dock.hidden) return;
+  const items = selectedItems();
+  let title = "还没选活动";
+  let sub = "在时刻表里勾选想报的活动";
+  if (S.busy) {
+    title = "报名计划运行中";
+    sub = $("#countdown") ? String($("#countdown").textContent || "") : "";
+  } else if (items.length) {
+    title = "已选 " + items.length + " 场";
+    sub = $("#countdown") ? String($("#countdown").textContent || "") : "";
+  }
+  const warns = S.busy ? 0 : Number(S.preWarnCount) || 0;
+  if (warns > 0) sub = "有 " + warns + " 条提醒，开始前先看一眼";
+  const plan = $("#btn-plan");
+  const start = $("#btn-dock-start");
+  if (start) start.hidden = S.busy || warns > 0 || !plan || !!plan.disabled;
+  $("#dock-title").textContent = title;
+  $("#dock-sub").textContent = sub;
 }
 
 /* ---------------------------------------------------------------- 横幅 */
+/* 一次只显示一条，按优先级取最前面那条（决策 014 第 12 条）：
+ * 程序组件缺失 > 条款未同意 > 断网 > 电脑刚睡眠过 > 登录问题 > 北京时间问题。 */
 function paintBanners() {
   const parts = [];
+  if (S.runtime.error) {
+    /* 组件问题只挂一条横幅（一个主要提示 + 恢复动作），不在满屏重复 */
+    const copy = runtimeErrorCopy();
+    parts.push('<div class="banner" data-tone="bad" role="alert"><span class="grow"><b>' + esc(copy.title) + "。</b>" +
+      esc(copy.hint) + "</span>" +
+      '<button class="btn btn-ghost" type="button" data-act="runtime-refresh">重新检查</button></div>');
+  }
   if (S.terms.unknown) {
     /* 条款状态没读到（bootstrap 失败/缺 terms/版本非法）：停用学校动作并给
      * 唯一的重试入口；不自动弹窗——用户点开的才是可确认的同意动作 */
@@ -797,13 +1145,6 @@ function paintBanners() {
       "</span>" +
       '<button class="btn btn-ghost" type="button" data-act="terms-open">查看条款</button></div>');
   }
-  if (S.runtime.error) {
-    /* 组件问题只挂一条横幅（一个主要提示 + 恢复动作），不在满屏重复 */
-    const copy = runtimeErrorCopy();
-    parts.push('<div class="banner" data-tone="bad" role="alert"><span class="grow"><b>' + esc(copy.title) + "。</b>" +
-      esc(copy.hint) + "</span>" +
-      '<button class="btn btn-ghost" type="button" data-act="runtime-refresh">重新检查</button></div>');
-  }
   if (!S.online) {
     parts.push('<div class="banner" data-tone="bad" role="alert"><span class="grow"><b>网络断开了。</b>' +
       (S.busy ? "到点时还没恢复，这次报名会失败。恢复以后看一眼计划结果。" : "恢复以后点「刷新」。") + "</span></div>");
@@ -813,7 +1154,22 @@ function paintBanners() {
       " 界面没动静，电脑可能睡眠了。</b>要是睡过了开放时间，就赶不上了。看看计划和运行记录。</span>" +
       '<button class="btn btn-ghost" type="button" data-act="sleep-ok">知道了</button></div>');
   }
-  $("#banners").innerHTML = parts.join("");
+  const loginView = S.login.view || {};
+  if (loginView.state === "bad") {
+    parts.push('<div class="banner" data-tone="bad" role="alert"><span class="grow"><b>登录已失效。</b>' +
+      (S.busy ? "报名计划还在等，开放前 100 秒以前重新登录就照常继续。" : "重新登录后可以继续刷新和报名。") +
+      "</span>" + '<button class="btn btn-ghost" type="button" data-act="login">重新登录</button></div>');
+  } else if (loginView.state === "unknown") {
+    parts.push('<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>暂时无法确认登录状态。</b>' +
+      "检查网络后点「刷新」，先不用重新登录。</span>" +
+      '<button class="btn btn-ghost" type="button" data-act="runtime-refresh">刷新</button></div>');
+  }
+  if (!S.demo && typeof clockUiState === "function" && clockUiState() === "unavailable") {
+    parts.push('<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>北京时间还没校准。</b>' +
+      "校准后才能开始报名计划；已保存的登录不受影响。</span>" +
+      '<button class="btn btn-ghost" type="button" data-act="clock-open">查看时间</button></div>');
+  }
+  $("#banners").innerHTML = parts.slice(0, 1).join("");
 }
 
 /* ---------------------------------------------------------------- 动作 */

@@ -279,6 +279,37 @@ function stopPlan() {
   if (dialog && !dialog.open) dialog.showModal();
 }
 
+/* 等开放时「修改计划」（决策 014 第 6 条）：复用停止和重选，不改报名调度。
+ * 提交中或开放前 100 秒内不可用；停下以后把还没提交的场次放回选择，提示「改完要重新开始」。 */
+function modifyPlan() {
+  if (!S.busy || !S.plan.id || S.stopping || planLate()) return;
+  const keep = [];
+  S.plan.tasks.forEach((task) => {
+    if (["queued", "waiting"].indexOf(String(task.status || "")) >= 0) keep.push(String(task.activity_id));
+  });
+  S.editing = { ids: keep };
+  addLog("修改计划：先停下，改完要重新开始");
+  doStopPlan();
+}
+
+/* 结果页「重新选择未成功的场次」：只放回能重报的（不含名额已满、已截止、已报名冲突） */
+function reselectFailed() {
+  if (S.busy) return;
+  const ids = reselectableIds();
+  S.selected.clear();
+  ids.forEach((id) => S.selected.add(id));
+  S.plan = { id: null, status: "idle", tasks: new Map() };
+  S.selectionNotice = "";
+  setResult(null);
+  render();
+}
+
+/* 结果页「完成，回到活动列表」：收起结果，回到空草稿；中、窄档顺便回到时刻表 */
+function finishResult() {
+  clearSelection();
+  if (typeof setPlanOpen === "function") setPlanOpen(false);
+}
+
 function doStopPlan() {
   if (!S.plan.id) return;
   /* 立刻给「正在停止」的反馈：后端在按进程树终止 worker，

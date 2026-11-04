@@ -579,10 +579,15 @@ out.push({overall: $("#relogin-overall-status").textContent,
 """, files=["views/phone.js"])
         row = values[0]
         self.assertEqual(row["overall"], "已配置")
-        self.assertIn("20230001", row["cred"])
+        # 旧断言「卡片写出完整账号」改为只露首尾各两位（设计 9.3：界面上的账号一律打码）
+        self.assertIn("20****01", row["cred"])
+        self.assertNotIn("20230001", row["cred"], "完整账号不得出现在界面上")
         self.assertIn("电脑自动恢复", row["last"])
         self.assertIn("不需要你动手", row["auto"])
-        self.assertIn("ddddocr", row["phone"])
+        # 旧断言要求写出库名 ddddocr：界面统一叫「验证码识别」/「电脑自动识别」，不露技术名（设计第 12 节）
+        self.assertIn("先由电脑自动识别", row["phone"])
+        self.assertIn("再由你输入", row["phone"], "认不出来时的人工兜底要写清")
+        self.assertNotIn("ddddocr", row["phone"], "界面不露组件技术名")
 
     def test_closing_access_requires_confirmation(self):
         values = run_phone_js('''

@@ -57,11 +57,14 @@ function handlePlan(payload) {
   const gen = admitPlanEvent(data);
   if (!S.plan.id || S.plan.id !== String(data.plan_id)) {
     S.plan = { id: String(data.plan_id || ""), gen: gen, status: String(data.status || "ready"), tasks: new Map(), armedAt: Date.now() / 1000 };
+    S.editing = null;   /* 新计划已接纳：修改流程到此结束 */
     setBusy(["ready", "running"].indexOf(S.plan.status) >= 0);
   } else {
     if (gen > (Number(S.plan.gen) || 0)) S.plan.gen = gen;
     advancePlanStatus(data.status);
   }
+  /* 计划来源（desktop / phone）由后端写进计划事件：从手机开始的计划在计划栏底部注明 */
+  if (data.source) S.plan.source = String(data.source);
   /* 晚到 plan 事件经 mergeTask 合并，不抹已收到的提交次数等 telemetry */
   (data.tasks || []).forEach((task) => {
     S.plan.tasks.set(String(task.task_id),

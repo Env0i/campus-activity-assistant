@@ -99,7 +99,11 @@ function relDayText(ms) {
   return p.mo + "月" + p.d + "日 " + weekday;
 }
 
+/* 时刻表分组标题（决策 014 第 4 条）：今天 / 明天 / 后天 / N 天后；行内日期仍用 relDayText */
 function dayLabel(ms) {
+  const bnMs = businessNowMs();
+  const diff = bnMs == null ? NaN : Math.round((startOfDay(ms) - startOfDay(bnMs)) / 86400000);
+  if (diff > 2) return diff + " 天后";
   return relDayText(ms);
 }
 
@@ -124,5 +128,5 @@ function cssEscape(value) {
   return String(value).replace(/(["\\])/g, "\\$1");
 }
 
-/* ---------------------------------------------------------------- 六步可重播引导 */
+/* ---------------------------------------------------------------- 五步可重播引导 */
 /* 引导「可见」= 遮罩在场且没被计划运行暂停：只有可见时才约束键盘焦点 */

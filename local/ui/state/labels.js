@@ -53,7 +53,9 @@ function taskClass(state, task) {
   if (state === "failed") {
     /* 未知结论用中性色：不能给用户一个「确定失败」的红标 */
     const stop = String(task && task.stop_reason || "");
+    if (typeof verifiedSigned === "function" && verifiedSigned(task)) return "is-ok";
     if (stop === "unconfirmed" || stop === "auth_unavailable") return "is-warn";
+    if (stop === "full") return "is-neutral";
     return "is-bad";
   }
   if (state === "canceled") return "is-warn";

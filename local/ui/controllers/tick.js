@@ -8,8 +8,12 @@ function tick() {
   lastBeat = monoMs;
   if (gap > SLEEP_GAP_MS && !S.sleepGap) {
     S.sleepGap = gap;
+    /* 记下睡眠窗口：这段时间里到点、没提交的场次在时刻表标「错过了」 */
+    const nowS = bnowS();
+    if (nowS !== null) S.sleepWindow = { from: nowS - gap / 1000, to: nowS };
     paintBanners();
   }
+  paintFreshness();
   /* 顶栏时间只认业务北京时间：未知显示待校准，绝不拿系统时间顶上 */
   paintClockStatus();
   const popTime = $("#clock-pop-time");
@@ -17,9 +21,8 @@ function tick() {
     const bn = businessNowMs();
     popTime.textContent = (bn === null ? "--:--:--" : clockParts(bn).time);
   }
-  /* 登录剩余按绝对锚点走字：胶囊「约剩」与打开中的时钟浮层每秒重算显示 */
+  /* 胶囊每秒重画一次（自动登录中、条款门等状态随事件变化；不再显示剩余时间） */
   paintLogin();
-  paintClockPopLeft();
   /* 某一行跨过边界（开放了、截止了）才整表重画；平时只改倒计时文字 */
   let dirty = false;
   S.rowStates.forEach((state, id) => {

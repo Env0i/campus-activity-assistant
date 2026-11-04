@@ -2,9 +2,8 @@
 function paintLogin() {
   const pill = $("#pill");
   const detail = $("#status-detail");
-  /* 显示用的剩余小时每次按锚点现算：胶囊里的「约剩」随每秒走字递减，
-   * 不再用事件带回的静态小时数。 */
-  const h = loginHoursLeft();
+  /* 不显示剩余时间（学校不公布有效期，工具不估算，架构方案 4.5）：
+   * 已登录时胶囊旁写上次校验时刻，详情卡写「有效多久：学校不公布」。 */
   const ok = S.login.ok;
   let cls = "pill";
   let text = "未登录";
@@ -26,13 +25,19 @@ function paintLogin() {
     sub = "内存样例";
     note = "不读取登录信息、不访问学校，只演示界面与流程";
     state = "demo";
+  } else if (S.autoLogin) {
+    /* 电脑正在用保存的账号自动登录（中继进度事件 origin=auto）：只说明在做什么，不出横幅 */
+    cls += " is-busy";
+    text = "自动登录中…";
+    note = "学校说登录失效了，电脑正在用保存的账号自动登录";
+    state = "pending";
   } else if (S.login.loginPending) {
     /* 登录窗口仍在等待用户完成；不能把旧的有效/失效结论伪装成成功。 */
     cls += " is-busy";
     text = "登录中…";
     note = "请在弹出的浏览器中完成登录；取消或关闭窗口后会保留原状态";
     state = "pending";
-  } else if (S.login.checking || (ok === null && S.login.present === true && h !== null)) {
+  } else if (S.login.checking || (ok === null && S.login.present === true)) {
     /* 正在真实校验：本机有会话也不提前宣布「已登录」，等学校接口结论 */
     cls += " is-busy";
     text = "检查登录…";
@@ -49,45 +54,30 @@ function paintLogin() {
     text = "登录待确认";
     note = "暂时无法确认登录状态；检查网络后点「刷新」，先不用重新登录";
     state = "unknown";
-  } else if (S.login.result === "valid" && typeof h === "number" && h <= 0) {
-    /* 学校校验有效但估算已到点：仍显示有效，估算只作提醒，不得显示成失效 */
-    cls += " is-ok";
-    text = "已登录";
-    sub = "估算已到点，以学校校验为准";
-    note = "已使用保存的登录信息；估算时间只是提醒，不代表失效";
-    state = "ok";
-  } else if ((ok === false || (typeof h === "number" && h <= 0))
-             && S.login.present !== false) {
+  } else if (ok === false && S.login.present !== false) {
     /* 登录过且确认失败/过期，才叫登录已失效；hours_left=0 单独出现
      * 不代表首次未登录。present 未知（老载荷）时维持保守判失效。 */
     cls += " is-bad";
     text = "登录已失效";
     note = "重新登录后可继续使用";
     state = "bad";
-  } else if (typeof h === "number") {
-    if (h <= EXPIRING_H) {
-      cls += " is-warn";
-      text = "已登录";
-      sub = "约剩 " + leftText(h);
-      note = "不到 2 小时，建议现在先重新登录一次";
-      state = "warn";
-    } else {
-      cls += " is-ok";
-      text = "已登录";
-      sub = "约剩 " + leftText(h);
-      note = S.login.result === "valid" ? "已使用保存的登录信息" : "登录状态可用，过期后重新登录一次";
-      state = "ok";
-    }
   } else if (ok === true) {
     cls += " is-ok";
     text = "已登录";
-    /* 有会话但没有与当前凭证匹配的锚点（换过 token 或登录时没拿到可信时钟）：
-     * 必须明说「未知」并给出可执行的下一步——重新登录会重建锚点，
-     * 但不能说成失效：学校校验已经确认这次会话有效。 */
-    sub = "剩余时间未知，建议重新登录";
-    note = "已确认登录有效；重新登录一次会重建时间锚点、恢复剩余小时数估算";
+    /* 只报事实：上次向学校校验的时刻；在别处登录（比如手机上的学校页面）会让这里失效 */
+    sub = lastCheckText() ? lastCheckText() + " 校验" : "";
+    note = "学校确认登录有效；有效多久学校不公布，工具不估算";
     state = "ok";
   }
+  if (termsLocked() && !S.demo && state !== "pending") {
+    /* 没同意条款时登录、登录检查都停用：胶囊明说在等条款，不报旧结论 */
+    cls = "pill is-none";
+    text = "等同意条款";
+    sub = "";
+    note = "同意使用条款后才会检查登录";
+    state = "terms";
+  }
+  S.login.view = { state: state, text: text, sub: sub, note: note };
   pill.className = cls;
   pill.dataset.state = state;
   pill.setAttribute("aria-label", text + (sub ? "，" + sub : ""));
@@ -102,6 +92,7 @@ function paintLogin() {
   const solid = state === "none" || state === "bad";
   loginBtn.classList.toggle("btn-solid", solid);
   loginBtn.classList.toggle("btn-line", !solid);
+  if (typeof paintStatusCards === "function") paintStatusCards();
 }
 
 function setBusy(busy) {
@@ -126,7 +117,8 @@ function setResult(result) {
     return;
   }
   el.hidden = false;
-  const cls = result.ok === true ? "is-ok" : (result.ok === "partial" ? "is-partial" : "is-bad");
+  const cls = result.ok === true ? "is-ok" : (result.ok === "partial" ? "is-partial"
+    : (result.ok === "neutral" ? "is-neutral" : "is-bad"));
   el.className = "result " + cls;
   el.innerHTML = "<strong>" + esc(result.title || "") + "</strong><span>" + esc(result.text || "") + "</span>" +
     (result.action ? "<button class=\"result-action\" type=\"button\" id=\"result-action\">" + esc(result.action.label) + "</button>" : "");

@@ -524,7 +524,7 @@ def _run_js(snippet: str):
 
 
 class DesktopProjectionTests(unittest.TestCase):
-    """三种模式 worker / 父监督 / 桌面投影同值对照（node vm 跑真实 board.js）。"""
+    """三种模式 worker / 父监督 / 桌面投影同值对照（node vm 跑真实 plan-panel.js，原 board.js）。"""
 
     ANCHOR = 1792000000.0
     SIGN_END = ANCHOR + 4000.0

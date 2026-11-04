@@ -84,6 +84,66 @@ function switchTermsDoc(which) {
   if (agreeDoc) agreeDoc.hidden = which !== "agreement";
   if (privDoc) privDoc.hidden = which !== "privacy";
   if (licDoc) licDoc.hidden = which !== "license";
+  paintTermsToc();
+}
+
+/* 升版改动摘要（设计文档 9.4，按 r4 正文第 8 节变更记录归纳成 6 条）。
+ * 正文文字不改（全文与 docs 逐字一致的契约），「本版新增」用节标题上的 data-new 标出。 */
+const TERMS_CHANGES = [
+  "报名默认直接调用学校的报名接口提交，不经过学校页面；页面点击只在直接提交不可用时兜底。",
+  "报名前会向学校获取运行时密钥，只放在本次运行的内存里，不写磁盘、不写日志。",
+  "程序替你登录时，会替你勾选学校登录页上的《隐私协议》。",
+  "开抢时会在短时间内多次提交报名；登录失效时能自动登录就自动登录一次后继续。",
+  "用本工具登录，会让同一账号在别处的登录失效（包括手机上的学校页面）。",
+  "只找到学校登录页的《隐私协议》，不声称合规；只服务本人账号，不代他人报名。",
+];
+const TERMS_NEW_SECTIONS = {
+  agreement: ["1.", "3.", "5.", "8."],
+  privacy: ["1.", "3.", "5."],
+};
+
+function termsUpdateMode() {
+  const t = S.terms || {};
+  return !t.unknown && !!t.acceptedVersion && !!t.version && t.acceptedVersion !== t.version;
+}
+
+/* 打开条款时：之前同意过旧版，就先列出这一版改了什么，并在正文里标出对应的节 */
+function paintTermsUpdate() {
+  const box = $("#terms-update");
+  const update = termsUpdateMode();
+  if (box) {
+    box.hidden = !update;
+    const from = $("#terms-update-from");
+    if (from) from.textContent = (S.terms && S.terms.acceptedVersion) || "—";
+    const list = $("#terms-update-list");
+    if (list) list.innerHTML = update ? TERMS_CHANGES.map((text) => "<li>" + esc(text) + "</li>").join("") : "";
+  }
+  Object.keys(TERMS_NEW_SECTIONS).forEach((doc) => {
+    const heads = document.querySelectorAll('.terms-doc[data-doc="' + doc + '"] .terms-section > h3') || [];
+    Array.from(heads).forEach((head) => {
+      if (!head || !head.dataset) return;
+      const text = String(head.textContent || "");
+      const isNew = update && TERMS_NEW_SECTIONS[doc].some((prefix) => text.indexOf(prefix) === 0);
+      if (isNew) head.dataset.new = "1";
+      else delete head.dataset.new;
+    });
+  });
+}
+
+/* 完整条款左侧的章节目录：跟着当前页签重画，点一下滚到那一节 */
+function paintTermsToc() {
+  const toc = $("#terms-toc");
+  if (!toc) return;
+  const full = $("#dlg-terms-full-text");
+  const open = !!full && full.hidden === false;
+  const body = $(".terms-body");
+  if (body && body.classList) body.classList.toggle("has-toc", open);
+  toc.hidden = !open;
+  if (!open) { toc.innerHTML = ""; return; }
+  const doc = document.querySelector(".terms-doc:not([hidden])");
+  const heads = doc ? Array.from(doc.querySelectorAll(".terms-section > h3, .terms-section > h4") || []) : [];
+  toc.innerHTML = heads.map((head, i) => '<button type="button" data-toc="' + i + '">'
+    + esc(String(head.textContent || "")) + "</button>").join("");
 }
 
 /* MIT 页签的就地渲染：只读 S.licenseText，不发桥接（加载走 controllers）。
@@ -137,6 +197,7 @@ function toggleTermsFull() {
   if (title) title.textContent = full.hidden ? "条款要点" : "完整条款";
   const body = $(".terms-body");
   if (body) body.scrollTop = 0;
+  paintTermsToc();
 }
 
 /* 条款弹窗里的局部反馈：保存失败只在这里说下一步，不刷大屏 */
@@ -280,12 +341,17 @@ function resetTermsAgree() {
   if (box) box.checked = false;
 }
 
-/* 关闭后按来源恢复焦点：帮助入口重开帮助并聚焦「查看条款」；横幅入口回
- * 被点的按钮（入口已消失就落回 #btn-help）；自动弹与同意成功回 #btn-help。 */
+/* 关闭后按来源恢复焦点：帮助入口重开帮助并聚焦帮助里的「查看条款」；
+ * 设置入口回设置抽屉里的「查看条款」（抽屉不是模态，一直开着，不重开帮助）；
+ * 横幅入口回被点的按钮（入口已消失就落回 #btn-help）；自动弹与同意成功回 #btn-help。 */
 function restoreTermsFocusTo(source, back) {
   if (source === "help") {
     const help = $("#help");
     if (help && !help.open) help.showModal();
+    const entry = $("#btn-help-terms-view");
+    if (entry) { try { entry.focus(); } catch (err) { /* 入口不可聚焦就算了 */ } return; }
+  }
+  if (source === "settings") {
     const entry = $("#btn-help-terms");
     if (entry) { try { entry.focus(); } catch (err) { /* 入口不可聚焦就算了 */ } return; }
   }

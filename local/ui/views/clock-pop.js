@@ -38,7 +38,8 @@ function closeClockPop(restoreFocus) {
   if (restoreFocus) $("#clock").focus();
 }
 
-function toggleClockPop() {
+/* quiet=true：悬停打开，不把焦点挪进卡片（views/status-cards.js） */
+function toggleClockPop(quiet) {
   const pop = $("#clock-pop");
   if (!pop) return;
   if (clockPopOpenNow()) { closeClockPop(true); return; }
@@ -48,7 +49,7 @@ function toggleClockPop() {
   $("#clock").setAttribute("aria-expanded", "true");
   placeClockPop();
   const close = pop.querySelector("#clock-pop-close");
-  if (close) close.focus();
+  if (close && !quiet) close.focus();
 }
 
 function placeClockPop() {
@@ -95,8 +96,6 @@ function renderClockPop() {
   } else if (life.close_quality === "unknown") {
     lifeText = "未知（上次没有可信的关闭记录）";
   }
-  const loginRow = S.login.present === false ? '<dd>未登录</dd>'
-    : '<dd id="clock-pop-left">' + (S.login.expireAt ? "" : "未知（以学校校验为准）") + "</dd>";
   const syncing = c.syncState === "syncing";
   pop.innerHTML =
     '<div class="pop-head"><h2 id="clock-pop-title">' + title + '</h2>' +
@@ -116,12 +115,7 @@ function renderClockPop() {
     '<div><dt>最近失败原因</dt><dd>' + esc(ui === "demo" ? "不适用"
       : (clockFailureReasonText() || "暂无记录")) + '</dd></div>' +
     '<div><dt>上次退出</dt><dd>' + esc(lifeText) + '</dd></div>' +
-    '<div><dt>登录预计剩余</dt>' + loginRow + '</div>' +
     '</dl>' +
-    '<details class="records"><summary>使用记录</summary><dl class="facts">' +
-    '<div><dt>上次退出至本次启动</dt><dd>' + esc(lifeText) + '</dd></div>' +
-    '<div><dt>登录预计剩余时间</dt>' + loginRow + '</div>' +
-    '</dl><p>登录剩余时间仅供参考，以学校校验为准。</p></details>' +
     '<details class="records"><summary>时间来源</summary><dl class="facts">' +
     '<div><dt>校准来源</dt><dd>' + esc(ui === "demo" ? "演示模式"
       : (c.source || "网络时间服务")) + '</dd></div>' +
@@ -143,7 +137,6 @@ function renderClockPop() {
   const sync = pop.querySelector("#clock-pop-sync");
   if (sync) sync.addEventListener("click", resyncClock);
   paintClockPopFeedback();
-  paintClockPopLeft();
 }
 
 function paintClockPopFeedback() {
@@ -159,18 +152,4 @@ function paintClockPopFeedback() {
   else if (c.syncError) cell.textContent = c.syncError;
   else if (c.reason && c.state === "unavailable") cell.textContent = String(c.reason);
   else cell.textContent = "";
-}
-
-/* 浮层里的「登录预计还剩」随每秒走字递减：打开时与 tick() 都会重写这一个 dd。 */
-function paintClockPopLeft() {
-  const cell = document.querySelector("#clock-pop-left");
-  if (!cell) return;
-  const anchor = S.login.expireAt;
-  if (!anchor) { cell.textContent = "未知（以学校校验为准）"; return; }
-  const nowMs = businessNowMs();
-  if (nowMs === null) { cell.textContent = "待校准（先校准时间再估算）"; return; }
-  const leftS = (anchor - nowMs) / 1000;
-  cell.textContent = leftS > 0
-    ? "约 " + durText(leftS) + "（估算，以学校校验为准）"
-    : "估算已到点，以学校校验为准";
 }

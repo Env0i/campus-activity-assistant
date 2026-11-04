@@ -13,34 +13,30 @@ const DEFAULT_HELP = {
 };
 
 /* 与 grab.py / app.py 对齐的常量 */
-const EXPIRING_H = 2;        // 登录剩余不到 2 小时转橙色提醒
-const TOKEN_LIFETIME_H = 17.5; // app.py TOKEN_LIFETIME_H：登录状态寿命估算
 const RETRY_WINDOW_S = 120;  // grab.py --window：开放后最多再试 120 秒
 const SLEEP_GAP_MS = 120e3;  // 两次心跳间隔超过 2 分钟：多半是电脑睡过去了
 const WEEK = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
 /* 引导内容版本：与软件版本（VERSION 文件）独立，内容有实质变化时 +1，
  * 完成或跳过过旧版的用户会在新版再自动弹一次；同版绝不重复自动弹。
- * 2：六步顺序与高亮目标都没变，只纠正「选中即执行」的误导并补清次数口径。 */
-const TOUR_VERSION = 2;
+ * 3：新工作台（决策 009 修订）由六步改为五步，启动时机改为登录成功且列表加载后。 */
+const TOUR_VERSION = 3;
 /* GitHub 最新版本页：只有用户点按钮时才由后端用系统浏览器打开，启动时不联网检查 */
 const RELEASES_LATEST_URL = "https://github.com/Env0i/campus-activity-assistant/releases/latest";
-/* 六步主线：登录状态 → 活动与模式 → 筛选 → 选择与冲突 → 重试与开始 → 运行与结果。
- * target 对应 index.html 的 data-tour-target；目标隐藏/窄窗时退回底部静态说明，
- * 引导本身从不代替用户点登录、选活动或开始报名。 */
+/* 五步主线（设计文档第 7 节）：时刻表 → 动手勾选 → 核对计划 → 开始以后 → 顶部状态。
+ * target 对应 index.html 的 data-tour-target；「row」由 views/tour.js 现找一行可勾选的活动。
+ * 只有勾选那一步可以真的点一行（interactive），其余步骤背景不可点；引导从不代替用户点任何东西。 */
 const TOUR_STEPS = [
-  { target: "login", title: "登录账号",
-    text: "这里是登录状态和「登录 / 刷新」入口。选择「登录」后，在打开的浏览器中完成登录。下次启动会检查已保存的登录状态；只有提示失效时才需要重新登录。" },
-  { target: "list", title: "查看活动",
-    text: "「预报名」等待学校开放，「立即报名」在计划启动后尝试提交。选择活动不会自动开始报名。" },
-  { target: "filters", title: "筛选活动",
-    text: "按名称、地点或时间查找活动，也可筛选签到和签退要求。未说明的要求以学校活动页为准。" },
-  { target: "select", title: "选择活动",
-    text: "勾选要报名的活动。举办时间重叠的活动不能同时加入计划。" },
-  { target: "start", title: "设置并开始",
-    text: "设置尝试时长和最多提交次数，再选择「开始报名计划」。达到尝试时长、提交次数上限或报名截止中的任一条件后，工具停止尝试。" },
-  { target: "run", title: "查看结果",
-    text: "可最小化窗口，但不要关闭工具或让电脑睡眠。任务卡显示每场结果，整块大屏的结论要等整个计划结束；显示「待核对」时，到学校活动页确认。" },
+  { target: "list", title: "这是活动时刻表",
+    text: "活动按开放时间排好。「预报名」等开放后自动提交，「立即报名」点开始后马上提交。上面可以搜索和筛选。" },
+  { target: "row", interactive: true, title: "勾选想报的活动",
+    text: "点这一行试试。勾选只是加入计划，不会开始报名；举办时间重叠的活动不能同时选。" },
+  { target: "select", title: "核对计划，再点开始",
+    text: "选好的活动都列在这里，可以逐场移除，也能修改尝试时长。开始不了时，按钮下面会写还差什么。" },
+  { target: "run", title: "开始以后看这里",
+    text: "这里显示倒计时，下面是每场进度。可以最小化窗口，但不要关闭工具或让电脑睡眠。看到「待核对」时，到学校活动页确认。" },
+  { target: "login", title: "出问题先看顶部",
+    text: "登录和北京时间的状态都在这里，有问题会写下一步。想再看一遍引导，点「帮助」。" },
 ];
 
 const S = {
@@ -112,7 +108,7 @@ const S = {
   licenseText: null,
   /* 后端 bootstrap 的 lifecycle 快照：上次关闭时长/质量 + 登录估算（只提示，不参与门禁） */
   lifecycle: null,
-  /* 六步引导运行态：open=遮罩在场；paused=计划运行中暂停；restoreFocus=结束后要还的焦点 */
+  /* 五步引导运行态：open=遮罩在场；paused=计划运行中暂停；restoreFocus=结束后要还的焦点 */
   tour: { open: false, step: 0, paused: false, restoreFocus: null },
   /* 计划级重试策略：-1=自动延长（最多25分钟）；时长 0=直到报名截止（缺截止回退 120 秒）；次数 0=不限 */
   retryPolicy: { retry_for_s: 120, max_attempts: 0 },

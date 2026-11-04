@@ -26,6 +26,11 @@ function setLogin(hours, ok, present, anchor) {
    * estimated_expires_at（epoch 秒）。收到就整份替换（重新登录=新锚点），
    * 显式 null 且本机无会话时清掉旧锚点；事件没带（undefined）保持现状。
    * 绝不按「本次收到事件的时刻 + hours」重算——那会把每次刷新都变成续期。 */
+  /* 上次校验时刻与结论（架构方案 4.5）：bootstrap.login 与 check 事件都带；没带就保留上一次 */
+  if (anchor && typeof anchor === "object" && "last_check_at" in anchor) {
+    S.login.lastCheckAt = anchor.last_check_at ? String(anchor.last_check_at) : "";
+    S.login.lastCheckState = String(anchor.last_check_state || "unknown");
+  }
   if (anchor && typeof anchor === "object" && "estimated_expires_at" in anchor) {
     const at = numOrNull(anchor.estimated_expires_at);
     S.login.expireAt = at === null ? null : at * 1000;   /* 统一存 epoch 毫秒 */

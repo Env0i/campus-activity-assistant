@@ -30,17 +30,43 @@ function focusSafestClose(dlg) {
   }
 }
 
-/* 打开三选。payload.plan_running 为真时把话说重一点：这时候退出会带走计划。 */
+/* 打开三选（决策 014 设计 9.1）。先列出正在运行的计划和手机访问，再给三个出口：
+ * 最小化默认获得焦点，计划运行时标「推荐」；计划运行中选退出要再确认一次；
+ * 托盘不可用且手机没连时「隐藏到后台」禁用并写原因（叫不回来）。 */
 function openWindowCloseDialog(payload) {
   const data = payload || {};
   const dlg = closeDialogEl();
   if (!dlg) return;
+  S.closeAsk = { planRunning: !!data.plan_running };
   const body = document.getElementById("dlg-close-body");
   if (body) {
     body.textContent = data.plan_running
-      ? "报名计划正在运行：退出会停掉计划，手机立刻失去访问。建议隐藏到后台，让它继续跑。"
+      ? "报名计划正在运行：退出会停掉计划，手机立刻失去访问。建议最小化或隐藏到后台，让它继续跑。"
       : "退出后手机访问和电脑端的推送、自动报名都会停。想让它继续干活就选「隐藏到后台运行」。";
   }
+  const running = document.getElementById("dlg-close-running");
+  if (running) {
+    const lines = [];
+    if (data.plan_running) lines.push("报名计划正在运行");
+    if (data.phone_running) lines.push(data.phone_live ? "手机访问开着，手机已连接" : "手机访问开着");
+    running.innerHTML = lines.map((line) => "<li>" + esc(line) + "</li>").join("");
+    running.hidden = !lines.length;
+  }
+  const hide = document.getElementById("btn-close-hide");
+  const hideWhy = document.getElementById("close-hide-why");
+  /* 老载荷没有 tray_ok 字段：按可用处理，交给后端 hide_window 再把一次门 */
+  const cannotHide = data.tray_ok === false && !data.phone_live;
+  if (hide) hide.disabled = cannotHide;
+  if (hideWhy) {
+    hideWhy.hidden = !cannotHide;
+    hideWhy.textContent = cannotHide ? "现在不能隐藏：托盘图标没建起来，手机也没连，藏起来就叫不回来。" : "";
+  }
+  const rec = document.getElementById("close-rec");
+  if (rec) rec.hidden = !data.plan_running;
+  const confirmBox = document.getElementById("dlg-close-confirm");
+  if (confirmBox) confirmBox.hidden = true;
+  const choices = document.getElementById("dlg-close-choices");
+  if (choices) choices.hidden = false;
   const remember = document.getElementById("dlg-close-remember");
   if (remember) remember.checked = false;
   const minimize = document.getElementById("btn-close-minimize");
@@ -83,7 +109,33 @@ function wireWindowClose() {
   const minimize = document.getElementById("btn-close-minimize");
   if (minimize) minimize.addEventListener("click", () => { void submitWindowClose("minimize"); });
   const exit = document.getElementById("btn-close-exit");
-  if (exit) exit.addEventListener("click", () => { void submitWindowClose("exit"); });
+  if (exit) {
+    exit.addEventListener("click", () => {
+      /* 计划运行中退出要二次确认：先换成确认区，用户点「仍然退出」才真的退 */
+      if (S.closeAsk && S.closeAsk.planRunning) {
+        const box = document.getElementById("dlg-close-confirm");
+        const choices = document.getElementById("dlg-close-choices");
+        if (box) box.hidden = false;
+        if (choices) choices.hidden = true;
+        const back = document.getElementById("btn-close-exit-back");
+        if (back && typeof back.focus === "function") back.focus();
+        return;
+      }
+      void submitWindowClose("exit");
+    });
+  }
+  const exitConfirm = document.getElementById("btn-close-exit-confirm");
+  if (exitConfirm) exitConfirm.addEventListener("click", () => { void submitWindowClose("exit"); });
+  const exitBack = document.getElementById("btn-close-exit-back");
+  if (exitBack) {
+    exitBack.addEventListener("click", () => {
+      const box = document.getElementById("dlg-close-confirm");
+      const choices = document.getElementById("dlg-close-choices");
+      if (box) box.hidden = true;
+      if (choices) choices.hidden = false;
+      focusSafestClose(closeDialogEl());
+    });
+  }
 }
 
 /* 测试替身里的 document 只有一部分接口：取不到元素就跳过接线，
