@@ -1,0 +1,63 @@
+diff --git a/local/application/advanced_component_service.py b/local/application/advanced_component_service.py
+index 0efc1ba..d8b4a2b 100644
+--- a/local/application/advanced_component_service.py
++++ b/local/application/advanced_component_service.py
+@@ -284,8 +284,8 @@ class AdvancedComponentService:
+             if self._on_finished is not None:
+                 try:
+                     self._on_finished()
+-                except Exception:
+-                    pass
++                except Exception as exc:      # 收尾回调失败不影响安装结论与状态位复位
++                    self._note("组件收尾回调失败:%s" % type(exc).__name__)
+             with self._lock:
+                 self._installing = False
+                 self._active = False
+@@ -349,5 +349,5 @@ class AdvancedComponentService:
+         if self._log is not None:
+             try:
+                 self._log(message)
+-            except Exception:
++            except Exception:      # 日志回调失败必须吞：_note 多在 except/finally 链上，上抛会掩盖原始异常或打断状态复位
+                 pass
+diff --git a/local/business_clock.py b/local/business_clock.py
+index f66964f..c836445 100644
+--- a/local/business_clock.py
++++ b/local/business_clock.py
+@@ -662,7 +662,7 @@ class BusinessClock:
+         try:
+             self.sync()
+         except Exception:
+-            pass
++            pass  # 启动首同步失败由 sync 的 finally 排退避重试：界面显示「时间校准失败/正在重试校准」，到点自动再来一轮
+         while True:
+             with self._lock:
+                 wait = self._resync_interval_s
+@@ -683,7 +683,7 @@ class BusinessClock:
+             try:
+                 self.sync()
+             except Exception:
+-                pass
++                pass  # 单轮重校失败由退避门控排期：快照保持上次已知时刻，不中断线程
+             with self._lock:
+                 if self._closed:
+                     return
+diff --git a/local/infrastructure/lifecycle_store.py b/local/infrastructure/lifecycle_store.py
+index 62ac7d9..a7a4971 100644
+--- a/local/infrastructure/lifecycle_store.py
++++ b/local/infrastructure/lifecycle_store.py
+@@ -138,7 +138,7 @@ class AppLifecycle:
+             try:
+                 self._beat_once()
+             except Exception:
+-                pass   # 单次心跳失败不影响界面，下一分钟再试
++                pass   # 单次心跳失败不影响界面，下一分钟再试；限窄涉行为留待后续（线程死亡即记账全停）
+ 
+     def _beat_once(self) -> bool:
+         """一次心跳：心跳时刻在锁外读取，读-核验-合并-写在偏好事务内完成。"""
+@@ -261,4 +261,4 @@ class AppLifecycle:
+         try:
+             self._write_merged(patch, force=True)
+         except Exception:
+-            pass
++            pass  # 收尾记账失败不阻断窗口关闭：finalize 是本周期最后一次写，失败多为偏好文件被占用/权限/盘错误，已无下一次心跳可补写

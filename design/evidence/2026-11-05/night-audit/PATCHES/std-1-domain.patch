@@ -1,0 +1,13 @@
+diff --git a/local/domain/login_rules.py b/local/domain/login_rules.py
+index 43be407..138de2c 100644
+--- a/local/domain/login_rules.py
++++ b/local/domain/login_rules.py
+@@ -88,7 +88,7 @@ def build_session_state(token, saved_text, hours_left, now=None) -> dict:
+     if hours_left is not None and now is not None:
+         try:
+             state["estimated_expires_at"] = now + hours_left * 3600.0
+-        except Exception:
++        except (TypeError, ValueError):  # 调用方传了非数值小时数/时刻,估算落空不猜
+             state["estimated_expires_at"] = None
+     state["session_expired"] = hours_left is not None and hours_left <= 0
+     return state

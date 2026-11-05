@@ -1,0 +1,55 @@
+diff --git a/local/app.py b/local/app.py
+index e655ddb..28cda32 100644
+--- a/local/app.py
++++ b/local/app.py
+@@ -1008,25 +1008,21 @@ class Api:
+     def help(self) -> dict:
+         return {
+             "title": "使用帮助",
+-            "subtitle": "使用说明、版本更新与本机数据",
++            "subtitle": "三步完成一次报名",
+             # 版本与最新版本入口：界面据此显示「版本 1.1.0」和 GitHub 外链按钮
+             # （APP_VERSION 恒来自 read_version()，这里只是示例注释，不写死实现）
+             "version": APP_VERSION,
+             "latest_url": RELEASES_LATEST_URL,
+-            # 三步只讲「怎么操作」：选中不等于开始，开始按钮必须点，结果逐场看
++            # 三步只讲「怎么操作」：选中不等于开始，开始按钮必须点，结果逐场看。
++            # 与 DEFAULT_HELP 逐字一致（test_ui_contract 比对两端），照抄原型 :745。
+             "steps": [
+-                {"no": 1, "title": "登录账号",
+-                 "text": "打开顶栏的登录状态，点「登录」，在打开的浏览器中完成登录。下次启动会检查已保存的登录状态；"
+-                         "只有提示失效时才需要重新登录。"},
+-                {"no": 2, "title": "设置报名计划",
+-                 "text": "选择活动，设置尝试时长和最多提交次数，再选择「开始报名计划」。"
+-                         "预报名会在开放后尝试提交，已开放活动会在计划启动后尝试提交。"},
+-                {"no": 3, "title": "查看报名结果",
+-                 "text": "运行期间可最小化窗口，但需保持电脑唤醒与联网。结束后查看各活动的报名结果；"
+-                         "开始计划不代表报名成功。"},
++                {"no": 1, "title": "确认登录",
++                 "text": "顶部显示“已登录”就可以继续。只有提示失效时才需要重新登录。"},
++                {"no": 2, "title": "选活动并开始",
++                 "text": "在时刻表勾选活动，核对右边的计划，再点「开始报名计划」。勾选不会自动开始。"},
++                {"no": 3, "title": "看结果",
++                 "text": "每场结果单独显示。看到“待核对”时，到学校活动页确认。"},
+             ],
+-            "note": "适用于目标学校（校园）专升本学生使用的活动中心。"
+-                    "活动要求与报名结果以学校活动页为准。",
+         }
+ 
+     # ---------- 可选高级功能与本机凭据 ------------------------------------
+@@ -1124,8 +1120,13 @@ class Api:
+ 
+     def _component_service_for(self, key: str):
+         """功能键 → 对应的下载事务；不认识的键返回 None。"""
+-        return {_advanced_features.PHONE_CONTROL: self._component_service,
+-                _advanced_features.RELOGIN_OCR: self._ocr_component_service}.get(key)
++        mapping = {_advanced_features.PHONE_CONTROL: "_component_service",
++                   _advanced_features.RELOGIN_OCR: "_ocr_component_service"}
++        name = mapping.get(key)
++        # 按 key 惰性取属性：字典急切求值会在查 phone_control 时也碰
++        # _ocr_component_service，属性缺失就炸（与 shutdown 收口的
++        # getattr(self, name, None) 防御风格对齐）。
++        return getattr(self, name) if name else None
+ 
+     def download_advanced_feature(self, key: str = "") -> dict:
+         """用户主动下载组件包（手机控制或验证码识别）：单飞，重复点击直接回 busy。"""

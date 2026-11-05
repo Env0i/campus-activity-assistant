@@ -1,0 +1,57 @@
+diff --git a/docs/GRAB.md b/docs/GRAB.md
+index aa3bcdc..e07fdea 100644
+--- a/docs/GRAB.md
++++ b/docs/GRAB.md
+@@ -1,4 +1,4 @@
+-# 预报名与到点抢报名
++# 预报名与到点报名
+ 
+ ## 1. 为什么做成「清单 + 每分钟对齐」
+ 
+@@ -35,9 +35,9 @@
+ | 状态 | 含义 | 谁写 |
+ |------|------|------|
+ | `queued` | 已点按钮，等开放 | bot / CLI |
+-| `running` | runner 已拉起抢报名进程 | runner |
++| `running` | runner 已拉起报名进程 | runner |
+ | `done` | 报名成功（exit 0） | runner |
+-| `failed` | 抢报名失败（非 0 退出） | runner |
++| `failed` | 报名失败（非 0 退出） | runner |
+ | `missed` | 过了允许窗口还没跑成 | runner |
+ 
+ `ACTIVE = ("queued", "running")`——只有这两种状态会出现在卡片的"已排队"里。
+@@ -52,7 +52,7 @@ python3 server/scripts/watchlist.py remove --id 2ae75dd103654543b1a8b97053adf4a6
+ 
+ `add` 对同一个 id 幂等（重复 add 覆盖，不会出现两条）。
+ 
+-## 4. 抢报名时间线（`grab_signup.py`）
++## 4. 报名时间线（`grab_signup.py`）
+ 
+ ```
+ open_at − lead(默认 100s)   打开详情页
+diff --git a/docs/LOGIN.md b/docs/LOGIN.md
+index 148acfd..4c5300a 100644
+--- a/docs/LOGIN.md
++++ b/docs/LOGIN.md
+@@ -7,7 +7,7 @@
+ 
+ | 运行形态 | 登录态目录 | 说明 |
+ |------|------|------|
+-| 本机版开发/绿色版（bat、python） | `local/data/`（绿色版为便携目录 `data/`） | 与历史行为一致，关掉重开直接复用 |
++| 本机版开发（bat、python） | `local/data/` | 与历史行为一致，关掉重开直接复用 |
+ | 本机版 EXE（onedir/onefile） | `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data` | 同一台机器共享：关闭重开、替换或重建 EXE 后仍复用；旧版 EXE 旁 `data/` 的文件在首次启动时自动原子迁移（只补缺失，不覆盖新文件） |
+ | 环境变量覆盖 | `CAMPUS_DATA_DIR` | 开发与 EXE 版都认；相对路径按当前工作目录 resolve |
+ | 服务器版 | `/root/campus-activity-watch/data` + `/root/campus-login/` | 见下文守护与重登章节 |
+diff --git a/docs/README.md b/docs/README.md
+index 1276d3e..d26884e 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -10,7 +10,7 @@
+ | [ARCHITECTURE.md](ARCHITECTURE.md) | 要改代码的人 | 数据流、模块职责、接口清单、去重与推送节奏、告警链路 |
+ | [OPERATIONS.md](OPERATIONS.md) | 日常运维 | 服务器布局、systemd、crontab、日志、部署更新、回滚、故障处理、迁移记录 |
+ | [LOGIN.md](LOGIN.md) | 处理登录态问题 | token 寿命实测、守护进程续期、验证码 OCR 无人值守登录、凭据管理、人工兜底 |
+-| [GRAB.md](GRAB.md) | 预报名/抢报名 | 状态机、时间线、卡片快照、边界 |
++| [GRAB.md](GRAB.md) | 预报名/报名 | 状态机、时间线、卡片快照、边界 |
+ | [RETRY_POLICY_GUIDE.md](RETRY_POLICY_GUIDE.md) | 普通使用者（图解） | 报名截止硬上限、重试时长/次数怎么选、「第 N 次提交」计数、八种终态，Mermaid 时间线一看就懂 |
+ | [TIMING_AND_DEDUP_ANALYSIS.md](TIMING_AND_DEDUP_ANALYSIS.md) | 想理解"为什么是这个时点/这套去重" | 完整推导与请求量账本 |
+ | [UI_SPEC.md](UI_SPEC.md) | 改界面、接界面的人 | 本机版界面任务书与实现契约（§5 是事件与字段契约） |

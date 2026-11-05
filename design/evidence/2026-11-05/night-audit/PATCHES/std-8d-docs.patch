@@ -1,0 +1,32 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index f4ac166..1334f16 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -18,6 +18,8 @@
+   空态入口也保持停用。条款版本升为 `2026-10-27-r3`，条款正文、内嵌全文与离线契约测试保持同源。
+ - **条款弹窗与离线验收**：正文改为文档列排版，补齐版本/生效日期/许可信息和随包 MIT 许可证
+   的懒加载阅读入口；离线验收工具支持拆分后的 UI 文件，桥替身补齐条款与许可证场景。
++- **条款文本 2026-11-03-r4**：使用条款与隐私政策正文按 r4 更新，内嵌全文与离线契约测试
++  保持同源；同意/撤回契约与弹窗排版契约不变。
+ - **计划与反馈修复**：修正重试终态行字段解析、无终态退出时的提交次数、任务阶段显示、自动延长
+   选项回写、空态文案与非冲突失败提示。
+ 
+diff --git a/design/specs/terms-consent.md b/design/specs/terms-consent.md
+index e6cab0a..4944f0c 100644
+--- a/design/specs/terms-consent.md
++++ b/design/specs/terms-consent.md
+@@ -185,12 +185,12 @@ DOM 桩与单元测试不能证明排版，demo 豁免也不能证明首次同
+ 
+ ## 七、引导、模态与键盘
+ 
+-- **条款先于欢迎/引导**：boot 时 `termsLocked()` → 首次欢迎与六步引导都存入
++- **条款先于欢迎/引导**：boot 时 `termsLocked()` → 首次欢迎与五步引导都存入
+   `S.terms.deferredIntro` 延后；同意成功后只继续一次（引导适用性再判定一次）；
+   拒绝后本会话不自动开引导；绝不写 `tour_version` 伪装完成；未知态不让引导覆盖提示。
+ - 帮助入口：打开条款先关帮助（不叠两个 open dialog）；关闭后重开帮助并聚焦
+   `#btn-help-terms`。横幅入口关闭回被点按钮，按钮消失（同意成功）回 `#btn-help`；
+-  自动打开回 `#btn-help`。打开时六步引导让位（`tourPauseNow`），关闭回原步骤，
++  自动打开回 `#btn-help`。打开时五步引导让位（`tourPauseNow`），关闭回原步骤，
+   不标完成、不改 `TOUR_VERSION`、不主动开始报名。
+ - document 级快捷键**第一道判断**是条款 dialog 打开即 return（位于 tour/搜索处理之前）：
+   Enter/Esc/Ctrl+F/「/」/F5 不穿透背景，原生 Tab、按钮 Enter/Space 与正常重载保持可用。

@@ -1,0 +1,63 @@
+diff --git a/local/application/advanced_component_service.py b/local/application/advanced_component_service.py
+index 0efc1ba..a905abd 100644
+--- a/local/application/advanced_component_service.py
++++ b/local/application/advanced_component_service.py
+@@ -284,8 +284,8 @@ class AdvancedComponentService:
+             if self._on_finished is not None:
+                 try:
+                     self._on_finished()
+-                except Exception:
+-                    pass
++                except Exception as exc:      # 收尾回调失败不影响安装结论与状态位复位
++                    self._note("组件收尾回调失败:%s" % type(exc).__name__)
+             with self._lock:
+                 self._installing = False
+                 self._active = False
+@@ -349,5 +349,5 @@ class AdvancedComponentService:
+         if self._log is not None:
+             try:
+                 self._log(message)
+-            except Exception:
++            except Exception:      # 日志回调失败不再递归打扰：_note 自身就在通知链上
+                 pass
+diff --git a/local/application/login_relay_service.py b/local/application/login_relay_service.py
+index 6844866..4b402fe 100644
+--- a/local/application/login_relay_service.py
++++ b/local/application/login_relay_service.py
+@@ -476,9 +476,9 @@ class LoginRelayService:
+             # 兜底：签名判断猜错时也别把「登录成功」这个事实丢掉
+             try:
+                 self._on_success()
+-            except Exception:
++            except Exception:      # 零参兜底也失败即回调侧坏了：登录成功的事实不由回调承载
+                 pass
+-        except Exception:
++        except Exception:      # 回调失败不推翻登录成功：flow 已置 SUCCESS、快照照发、tick 轮询兜底
+             pass
+ 
+     def _finish(self, flow) -> None:
+diff --git a/local/application/plan_service.py b/local/application/plan_service.py
+index 7442ab9..a1b8bd8 100644
+--- a/local/application/plan_service.py
++++ b/local/application/plan_service.py
+@@ -375,17 +375,17 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
+             watchdog.join(timeout=2.0)
+         try:
+             tree.terminate()
+-        except Exception:
++        except Exception:      # 清理失败不得掩盖真实退出码：进程多半已死，终止失败无信息量
+             pass
+         reader.join(timeout=2.0)     # 有界 join：不在另一线程持读锁时同步 close
+         if reader_done.is_set() and proc.stdout:
+             try:
+                 proc.stdout.close()
+-            except Exception:
++            except Exception:      # 管道可能已被对端关闭：关闭失败不改变已读到的终态
+                 pass
+         try:
+             tree.close()
+-        except Exception:
++        except Exception:      # 同上：资源回收失败不影响本轮结论与进程表登记
+             pass
+         with lock:
+             plan_procs.pop(spec.task_id, None)

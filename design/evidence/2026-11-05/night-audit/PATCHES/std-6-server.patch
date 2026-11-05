@@ -1,0 +1,43 @@
+diff --git a/server/deploy/sync_token.sh b/server/deploy/sync_token.sh
+index 2135263..03faa4a 100644
+--- a/server/deploy/sync_token.sh
++++ b/server/deploy/sync_token.sh
+@@ -25,7 +25,8 @@ if [ -n "${SSH_PORT:-}" ]; then
+   SCP_ARGS+=(-P "$SSH_PORT")
+ fi
+ 
+-PY="<用户目录>/.workbuddy/binaries/python/envs/default/Scripts/python.exe"
++# 机器特定路径已移除：默认用 PATH 里的 python，或用 CAMPUS_PY 指定本机解释器
++PY="${CAMPUS_PY:-python}"
+ [ -f data/session.json ] || { echo "✗ 本地没有 data/session.json，先跑： python scripts/login.py"; exit 1; }
+ 
+ echo "[1/3] 本机先验证 token 是否可用"
+diff --git a/server/tests/test_activity_watch.py b/server/tests/test_activity_watch.py
+index b033918..1853e51 100644
+--- a/server/tests/test_activity_watch.py
++++ b/server/tests/test_activity_watch.py
+@@ -1,7 +1,7 @@
+ """公共活动动态发现（activity_watch）的离线边界测试。
+ 
+ 只跑纯函数与状态文件读写，不联网、不读 server/data、不发任何消息。
+-所有 fixture 都落在 <tmp>（可用 CAMPUS_TEST_ROOT 覆盖）的临时目录里。
++所有 fixture 都落在系统临时目录（tempfile.gettempdir()，可用 CAMPUS_TEST_ROOT 覆盖）里。
+ 
+ 覆盖的场景就是计划里点名的那些：
+ 首次发现未来活动 / 首次发现已开放活动 / 已截止过滤 / 未来转开放 / 开放时间变化 /
+diff --git a/server/tests/test_runtime_safety.py b/server/tests/test_runtime_safety.py
+index 922f53c..8ce50f6 100644
+--- a/server/tests/test_runtime_safety.py
++++ b/server/tests/test_runtime_safety.py
+@@ -5,8 +5,9 @@
+ 真正调用的是 notify / run / scan 里的生产函数，而不是复写的纯函数。
+ 
+ 隔离约定：
+-- 任何 fixture 只写 <tmp>/campus-runtime-hardening-20261020/（可用
+-  CAMPUS_TEST_ROOT 覆盖），不碰仓库里的 config.json 与 data/；
++- 任何 fixture 只写系统临时目录（tempfile.gettempdir()）下的
++  campus-runtime-hardening-20261020/（可用 CAMPUS_TEST_ROOT 覆盖），
++  不碰仓库里的 config.json 与 data/；
+ - urllib 的 urlopen 在进程内被替换成直接抛错，漏出的网络调用会让测试失败；
+ - 测试结束恢复所有环境变量与 mock。
+ 

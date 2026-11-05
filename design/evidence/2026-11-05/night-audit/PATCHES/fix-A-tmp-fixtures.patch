@@ -1,0 +1,292 @@
+diff --git a/local/tests/test_application_services.py b/local/tests/test_application_services.py
+index 34856b6..9e35928 100644
+--- a/local/tests/test_application_services.py
++++ b/local/tests/test_application_services.py
+@@ -9,6 +9,7 @@
+ from __future__ import annotations
+ 
+ import sys
++import tempfile
+ import threading
+ import time
+ import unittest
+@@ -35,7 +36,7 @@ class FakeState:
+         self._updating = True
+         self._update_result = {"state": "old"}
+         self._update_installer = {"name": "stale.exe"}
+-        self._update_installer_path = "<tmp>/stale.exe"
++        self._update_installer_path = str(Path(tempfile.gettempdir()) / "stale.exe")
+         self._update_cancelled = False
+         self.events = []
+ 
+@@ -690,15 +691,20 @@ class AdvancedComponentDialogTests(unittest.TestCase):
+         self.assertTrue(result["ok"])
+         self.assertIn("没有", result["text"])
+ 
+-    def test_state_exposes_download_snapshot_for_phone_control_only(self):
++    def test_state_exposes_download_snapshot_for_both_components(self):
++        """两个组件都能一键下载（f9442ad 起验证码识别也有下载事务）。
++
++        旧断言认为 ddddocr 走已装依赖、不需要下载，组件包上线后不再成立；
++        新断言改成两行都带 download 快照、状态值取自同一集合。
++        """
+         state = self.api.advanced_features_state()
+-        phone = state["features"]["phone_control"]
+-        self.assertIn("download", phone)
+-        self.assertIn(phone["download"]["state"],
+-                      {"available", "installed", "missing", "cancelled", "failed",
+-                       "downloading", "verifying", "removing"})
+-        self.assertNotIn("download", state["features"]["relogin_ocr"],
+-                         "ddddocr 走已装依赖，没有下载概念")
++        for key in ("phone_control", "relogin_ocr"):
++            with self.subTest(feature=key):
++                feature = state["features"][key]
++                self.assertIn("download", feature)
++                self.assertIn(feature["download"]["state"],
++                              {"available", "installed", "missing", "cancelled", "failed",
++                               "downloading", "verifying", "removing"})
+ 
+     def _version_text(self, text):
+         return mock.patch.object(
+diff --git a/local/tests/test_component_builder.py b/local/tests/test_component_builder.py
+index 18c21a2..c34100d 100644
+--- a/local/tests/test_component_builder.py
++++ b/local/tests/test_component_builder.py
+@@ -17,6 +17,8 @@ sys.path.insert(0, str(LOCAL / "build"))   # 打包脚本在 local/build/
+ import advanced_helper
+ import build_advanced as builder
+ 
++TMP_ROOT = tempfile.gettempdir()
++
+ 
+ class BuilderTests(unittest.TestCase):
+     def test_output_is_restricted_to_explicit_temp_subdirectory(self):
+@@ -26,7 +28,7 @@ class BuilderTests(unittest.TestCase):
+ 
+     def test_phone_control_without_cloudflared_is_refused(self):
+         """不给 --cloudflared 就直接失败：不许产出没有远程通道的组件包。"""
+-        with tempfile.TemporaryDirectory(dir="<tmp>") as tmp:
++        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
+             with mock.patch.object(builder.importlib.util, "find_spec", return_value=object()), \
+                     mock.patch.object(builder.subprocess, "run") as run:
+                 with self.assertRaises(ValueError) as refused:
+@@ -35,7 +37,7 @@ class BuilderTests(unittest.TestCase):
+             run.assert_not_called()
+ 
+     def test_manifest_and_separate_dependencies(self):
+-        with tempfile.TemporaryDirectory(dir="<tmp>") as tmp:
++        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
+             root = Path(tmp)
+             binary = root / "cloudflared.exe"
+             binary.write_bytes(b"MZcloudflared")
+diff --git a/local/tests/test_component_packages.py b/local/tests/test_component_packages.py
+index e992170..352d2c9 100644
+--- a/local/tests/test_component_packages.py
++++ b/local/tests/test_component_packages.py
+@@ -21,13 +21,14 @@ from infrastructure import component_packages as cp
+ 
+ # phone_control 组件必须内置 cloudflared，所以默认夹具自带一份；
+ # AUTO 表示「按 names 里的二进制自动算出声明」，None 才是「刻意不声明」。
++TMP_ROOT = tempfile.gettempdir()
+ AUTO = object()
+ BINARY = b"MZcloudflared"
+ 
+ 
+ class PackageTests(unittest.TestCase):
+     def setUp(self):
+-        self.temp = tempfile.TemporaryDirectory(dir="<tmp>")
++        self.temp = tempfile.TemporaryDirectory(dir=TMP_ROOT)
+         self.addCleanup(self.temp.cleanup)
+         self.root = Path(self.temp.name)
+         self.key = "phone_control"
+diff --git a/local/tests/test_login_relay.py b/local/tests/test_login_relay.py
+index fb053c0..484bdac 100644
+--- a/local/tests/test_login_relay.py
++++ b/local/tests/test_login_relay.py
+@@ -36,6 +36,8 @@ from login_relay import (  # noqa: E402
+     run_http_relay, run_relay, valid_code,
+ )
+ 
++TMP_ROOT = tempfile.gettempdir()
++
+ PNG_B64 = ("data:image/png;base64,"
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8"
+            "z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+@@ -997,7 +999,7 @@ class VerifiedFilesTests(unittest.TestCase):
+         for state_exists in (False, True):
+             for session_exists in (False, True):
+                 with self.subTest(state=state_exists, session=session_exists):
+-                    with tempfile.TemporaryDirectory(dir="<tmp>") as directory:
++                    with tempfile.TemporaryDirectory(dir=TMP_ROOT) as directory:
+                         root = Path(directory)
+                         state, session = root / "state.json", root / "session.json"
+                         originals = {state: b"original state\r\n", session: b"original session"}
+@@ -1023,7 +1025,7 @@ class VerifiedFilesTests(unittest.TestCase):
+                         self.assertEqual(list(root.glob("*.tmp")), [])
+ 
+     def test_success_replaces_both_documents(self):
+-        with tempfile.TemporaryDirectory(dir="<tmp>") as directory:
++        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as directory:
+             root = Path(directory)
+             state, session = root / "state.json", root / "session.json"
+             save_verified_files({"new": 1}, {"new": 2}, state, session)
+diff --git a/local/tests/test_phone_ui.py b/local/tests/test_phone_ui.py
+index df75a34..a530875 100644
+--- a/local/tests/test_phone_ui.py
++++ b/local/tests/test_phone_ui.py
+@@ -184,6 +184,24 @@ out.push(PhoneModel.filterItems(items, { time: "week" }, nowS).map((i) => i.id))
+         self.assertEqual(values[3], ["a1", "a2"])
+         self.assertEqual(values[4], ["a1", "a2", "a3"])
+ 
++    def test_bucket_uses_beijing_sign_start_without_open_ts(self):
++        """真实手机快照只有 sign_start：按 UTC+8 解析，24 小时内算「今天」（M7）。"""
++        values = run_phone_js("""
++const nowS = Math.floor(Date.UTC(2026, 10, 4, 4, 0, 0) / 1000);  /* 北京时间 12:00 */
++out.push(Math.floor(Date.UTC(2026, 10, 4, 12, 0, 0) / 1000));
++out.push(PhoneModel.openEpochOf({ sign_start: "2026-11-04 20:00:00" }));
++out.push(PhoneModel.bucketOf({ signed: false, sign_start: "2026-11-04 20:00:00" }, nowS));
++out.push(PhoneModel.bucketOf({ signed: false, sign_start: "2026-11-06 09:00:00" }, nowS));
++out.push(PhoneModel.bucketOf({ signed: false, sign_start: "2026/11/04 20:00:00" }, nowS));
++out.push(PhoneModel.bucketOf({ signed: false, open_ts: nowS + 600,
++  sign_start: "2026-12-31 20:00:00" }, nowS));
++""")
++        self.assertEqual(values[1], values[0], "20:00 北京时间必须换算成 12:00 UTC（UTC+8）")
++        self.assertEqual(values[2], "today", "24 小时内开放要进「今天」")
++        self.assertEqual(values[3], "upcoming", "更远的进「即将开放」")
++        self.assertEqual(values[4], "upcoming", "解析不了的文本不猜，按「以后」")
++        self.assertEqual(values[5], "today", "有 open_ts 时以它为准")
++
+     def test_backoff_is_exponential_and_capped_at_15s(self):
+         values = run_phone_js("""
+ let cur = 1000;
+@@ -1404,7 +1422,8 @@ class LayoutStaticTests(unittest.TestCase):
+         self.assertIn("min-height: 44px", css)
+         self.assertNotIn("display: grid", css, "单栏布局不引入多列网格")
+         self.assertIn("inputmode=", html, "数字键盘只给配对码/次数")
+-        report = Path("<tmp>/night-run-B-20261030/evidence/phone-ui-layout-375-430.txt")
++        report = Path(tempfile.gettempdir()) / "night-run-B-20261030" / "evidence" / "phone-ui-layout-375-430.txt"
++        report.parent.mkdir(parents=True, exist_ok=True)
+         report.write_text(
+             "375/430 布局静态检查（无截图、无像素断言）\n"
+             "viewport=%s\nmax-width430=%s\noverflow-x-hidden=%s\nmin-tap-44px=%s\n"
+diff --git a/local/tests/test_update_check.py b/local/tests/test_update_check.py
+index e56d0d0..0029db0 100644
+--- a/local/tests/test_update_check.py
++++ b/local/tests/test_update_check.py
+@@ -6,6 +6,7 @@ import io
+ import json
+ from pathlib import Path
+ import sys
++import tempfile
+ import unittest
+ from unittest.mock import Mock, patch
+ from urllib.error import HTTPError, URLError
+@@ -439,7 +440,7 @@ class UpdateBridgeTests(unittest.TestCase):
+     def test_check_stores_installer_and_clears_old_download(self):
+         self.api._updating = True
+         self.api._update_request_id = "request"
+-        self.api._update_installer_path = str(Path("<tmp>/stale.exe"))
++        self.api._update_installer_path = str(Path(tempfile.gettempdir()) / "stale.exe")
+         picked = updates.evaluate_latest_release("1.0.0", stable())
+         picked = dict(picked, installer={"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
+                                          "bytes": 1024, "sha256": "ab" * 32})
+@@ -516,7 +517,7 @@ class UpdateBridgeTests(unittest.TestCase):
+         def fake_download(url, **kwargs):
+             kwargs["progress"](2, 4)
+             kwargs["progress"](4, 4)
+-            return {"ok": True, "path": str(Path("<tmp>/campus-update-x") / INSTALLER),
++            return {"ok": True, "path": str(Path(tempfile.gettempdir()) / "campus-update-x" / INSTALLER),
+                     "bytes": 4, "sha256": "ab" * 32}
+         with patch.object(local_app.updater, "download_installer", side_effect=fake_download):
+             self.api._do_update_download("dl-1", installer)
+@@ -562,7 +563,7 @@ class UpdateBridgeTests(unittest.TestCase):
+         installer = {"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
+                      "bytes": 4, "sha256": "ab" * 32}
+         self.api._update_installer = installer
+-        self.api._update_installer_path = str(Path("<tmp>/campus-update-x") / INSTALLER)
++        self.api._update_installer_path = str(Path(tempfile.gettempdir()) / "campus-update-x" / INSTALLER)
+         self.api._update_result = {"request_id": "dl-1", "state": "ready_to_install",
+                                    "installer": installer}
+         with patch.object(local_app.updater, "launch_installer",
+@@ -574,7 +575,7 @@ class UpdateBridgeTests(unittest.TestCase):
+         self.assertIn("关闭本工具", result["text"])
+ 
+     def test_launch_failure_goes_to_failed(self):
+-        self.api._update_installer_path = str(Path("<tmp>/campus-update-x") / INSTALLER)
++        self.api._update_installer_path = str(Path(tempfile.gettempdir()) / "campus-update-x" / INSTALLER)
+         with patch.object(local_app.updater, "launch_installer",
+                           return_value={"ok": False, "error_code": "launch_failed", "text": "没能启动"}):
+             result = self.api.update_launch("launch-1")
+diff --git a/local/tests/test_updater.py b/local/tests/test_updater.py
+index a76fccd..5233fb7 100644
+--- a/local/tests/test_updater.py
++++ b/local/tests/test_updater.py
+@@ -6,6 +6,7 @@ from hashlib import sha256
+ from pathlib import Path
+ import shutil
+ import sys
++import tempfile
+ import unittest
+ import uuid
+ from unittest.mock import patch
+@@ -19,7 +20,7 @@ NAME = "campus-activity-watch-installer-v1.1.1-win-x64.exe"
+ URL = "https://github.com/Env0i/campus-activity-assistant/releases/download/v1.1.1/" + NAME
+ BODY = b"installer-bytes-0123456789"
+ DIGEST = sha256(BODY).hexdigest()
+-TEMP_BASE = Path("<tmp>")
++TEMP_BASE = Path(tempfile.gettempdir())
+ OLD_FILES = ("data/session.json", "program/campus-activity-watch.exe")
+ 
+ 
+diff --git a/server/tests/test_activity_watch.py b/server/tests/test_activity_watch.py
+index 98a65a6..b033918 100644
+--- a/server/tests/test_activity_watch.py
++++ b/server/tests/test_activity_watch.py
+@@ -32,7 +32,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
+ import activity_watch as aw   # noqa: E402
+ import fetch as fetch_mod     # noqa: E402
+ 
+-PREFERRED_ROOT = "<tmp>/campus-activity-watch-20261027"
++PREFERRED_ROOT = os.path.join(tempfile.gettempdir(), "campus-activity-watch-20261027")
+ 
+ # 测试用轮询配置：与 common 默认值一致，避免读真实 config.json
+ SETTINGS = {"enabled": True, "day_seconds": 180, "night_seconds": 600}
+diff --git a/server/tests/test_grab_signup_retry.py b/server/tests/test_grab_signup_retry.py
+index 887c02d..e1bf639 100644
+--- a/server/tests/test_grab_signup_retry.py
++++ b/server/tests/test_grab_signup_retry.py
+@@ -569,7 +569,7 @@ class NotifyOwnerBoundaryTests(unittest.TestCase):
+ 
+ def _test_root() -> Path:
+     root = Path(os.environ.get("CAMPUS_TEST_ROOT")
+-                or "<tmp>/campus-grab-signup-retry-20261028")
++                or (Path(tempfile.gettempdir()) / "campus-grab-signup-retry-20261028"))
+     if os.name != "nt" and not os.environ.get("CAMPUS_TEST_ROOT"):
+         root = Path(tempfile.gettempdir()) / "campus-grab-signup-retry-20261028"
+     root.mkdir(parents=True, exist_ok=True)
+diff --git a/server/tests/test_runtime_safety.py b/server/tests/test_runtime_safety.py
+index 6edb27c..922f53c 100644
+--- a/server/tests/test_runtime_safety.py
++++ b/server/tests/test_runtime_safety.py
+@@ -37,7 +37,7 @@ import render  # noqa: E402
+ import run  # noqa: E402
+ import scan  # noqa: E402
+ 
+-PREFERRED_ROOT = "<tmp>/campus-runtime-hardening-20261020"
++PREFERRED_ROOT = os.path.join(tempfile.gettempdir(), "campus-runtime-hardening-20261020")
+ OWNER = "ou_owner_fixture"
+ STRANGER = "ou_stranger_fixture"
+ 
+diff --git a/server/tests/test_watchlist_safety.py b/server/tests/test_watchlist_safety.py
+index bc2cd41..e0965a3 100644
+--- a/server/tests/test_watchlist_safety.py
++++ b/server/tests/test_watchlist_safety.py
+@@ -40,7 +40,7 @@ import watchlist_runner as runner  # noqa: E402
+ 
+ def _test_root() -> Path:
+     root = Path(os.environ.get("CAMPUS_TEST_ROOT")
+-                or "<tmp>/campus-watchlist-safety-20261027")
++                or (Path(tempfile.gettempdir()) / "campus-watchlist-safety-20261027"))
+     if os.name != "nt" and not os.environ.get("CAMPUS_TEST_ROOT"):
+         root = Path(tempfile.gettempdir()) / "campus-watchlist-safety-20261027"
+     root.mkdir(parents=True, exist_ok=True)

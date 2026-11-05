@@ -1,0 +1,108 @@
+diff --git a/local/infrastructure/process_tree.py b/local/infrastructure/process_tree.py
+index bdc7a58..d782d57 100644
+--- a/local/infrastructure/process_tree.py
++++ b/local/infrastructure/process_tree.py
+@@ -138,7 +138,7 @@ def close_handle(handle) -> None:
+     try:
+         win_kernel32().CloseHandle(handle)
+     except Exception:
+-        pass
++        pass  # 句柄已失效/被系统回收时 Close 重复调用会报错：清理路径不制造新异常
+ 
+ 
+ def open_primary_thread(pid: int):
+@@ -289,7 +289,7 @@ def kill_tree(proc: subprocess.Popen) -> bool:
+             proc.kill()
+             killed = True
+         except Exception:
+-            pass
++            pass  # 直接子进程 kill 也失败：由返回值里的 poll 复核兜底，不再抛
+     return killed or proc.poll() is not None
+ 
+ 
+@@ -327,15 +327,15 @@ def spawn_owned_worker(args: list[str], *, cwd: str, env: dict) -> ProcessTree:
+         try:
+             proc.kill()
+         except Exception:
+-            pass
++            pass  # 失败路径杀进程失败也继续收尾：下方 raise 保证真实异常不被吞
+         try:
+             proc.wait(timeout=5)
+         except Exception:
+-            pass
++            pass  # 等待退出超时不再等：管道与 Job 句柄随后统一关闭回收
+         if proc.stdout:
+             try:
+                 proc.stdout.close()
+             except Exception:
+-                pass
++                pass  # 管道关闭失败交给解释器回收：不阻断上方 raise
+         raise
+     return ProcessTree(proc, job)
+diff --git a/local/infrastructure/tray_icon.py b/local/infrastructure/tray_icon.py
+index 06479c7..4e7d711 100644
+--- a/local/infrastructure/tray_icon.py
++++ b/local/infrastructure/tray_icon.py
+@@ -78,7 +78,7 @@ class TrayIcon:
+ 
+             form.BeginInvoke(Action(self._dispose))
+         except Exception:
+-            pass
++            pass  # BeginInvoke 失败说明消息循环已不可用：图标残留随进程退出回收
+ 
+     def notify(self, title: str, text: str) -> bool:
+         """在托盘图标上弹一条系统通知气泡，点气泡把窗口叫回来。
+@@ -106,20 +106,20 @@ class TrayIcon:
+             self._icon.BalloonTipIcon = ToolTipIcon.Info
+             self._icon.ShowBalloonTip(8000)
+         except Exception:
+-            pass
++            pass  # 气泡失败不影响托盘存在本身：提醒只是锦上添花，结果仍在窗口里
+ 
+     def _dispose(self) -> None:
+         try:
+             if self._icon is not None:
+                 self._icon.Visible = False
+         except Exception:
+-            pass
++            pass  # 图标已不在托盘时再隐藏会报错：后续 Dispose/ExitThread 照常
+         try:
+             if self._context is not None:
+                 # ApplicationContext.ExitThread 只结束消息循环，不留任何窗口
+                 self._context.ExitThread()
+         except Exception:
+-            pass
++            pass  # ExitThread 失败不重试：消息循环线程随进程退出结束
+ 
+     # ---------- 消息循环 ----------
+     def _run(self) -> None:
+@@ -193,7 +193,7 @@ class TrayIcon:
+                     self._icon.Visible = False
+                     self._icon.Dispose()
+             except Exception:
+-                pass
++                pass  # Dispose 失败交给系统回收：_icon 已置 None，不再引用
+             self._icon = None
+ 
+     # ---------- 菜单回调 ----------
+@@ -205,6 +205,6 @@ class TrayIcon:
+                 if callback is not None:
+                     callback()
+             except Exception:
+-                pass
++                pass  # 菜单回调异常不反传给系统托盘线程：失败只影响该次动作本身
+ 
+         threading.Thread(target=_run, name="tray-action", daemon=True).start()
+diff --git a/local/infrastructure/tunnel_manager.py b/local/infrastructure/tunnel_manager.py
+index b7f1181..22118b5 100644
+--- a/local/infrastructure/tunnel_manager.py
++++ b/local/infrastructure/tunnel_manager.py
+@@ -301,7 +301,7 @@ class CloudflareTunnel:
+                 proc.kill()
+                 proc.wait(timeout=2)
+             except Exception:
+-                pass
++                pass  # kill 也不成多半是进程刚自行退出：目标只是让它消失，随父进程回收
+         return {"ok": True}
+ 
+ 

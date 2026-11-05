@@ -1,0 +1,579 @@
+# COVERAGE — 覆盖账(逐文件,分母 = 469)
+
+生成方式:脚本从 `git -c core.quotepath=false ls-files` 出表(reports/_tools/coverage_gen.py),
+判定证据列包含全量规则扫描结果(reports/_tools/static_scan.tsv,7 条规则族)。
+
+## 分母核对(用户给定硬数字 vs 脚本复算)
+
+| 口径 | 用户给定 | 脚本复算 | 状态 |
+|---|---|---|---|
+| 受跟踪文件总数 | 469 | 469 | 一致 |
+| 代码(仅源码 .py/.js/.css/.html) | 291 / 92,061 行 | 289 / 91,935 行(local 140/65,687 ✓、server 44/12,188 ✓、tools 5/4,895 ✓) | 差 2 文件/126 行:有两对候选(get-info.data.json 51 行+启动不了点我.txt 75 行;或 _py.bat 45+install.bat 81),口径无法唯一还原,如实记录 |
+| 其中 design 原型 | 100 / 9,165 行 | 100 / 9,165 行(prototype html 85 + archive 源码 12 + brand js 2 + check_refs.py 1)| 一致(子集反推唯一命中) |
+| 文档(.md) | 102 / 19,055 行 | 103 / 19,531 行(剔除 contracts/school-api README 得 102 文件,但行数 19,477,差 476 行无单文件解) | 文件数可对齐,行数不可规约,如实记录 |
+
+说明:代码余量 2 文件/126 行与文档行数差 476 行两处口径差异**不影响判定**:逐文件表覆盖全部 469 个文件,每一行都有判定与证据;差异只出现在汇总口径的归类边界,已在上面如实标注,不作为审计结论使用。
+
+## 判定统计
+
+| 判定 | 文件数 |
+|---|---|
+| 全审 | 25 |
+| 关键路径 | 143 |
+| 静态比对 | 229 |
+| 未审 | 72 |
+
+## 逐文件清单(共 469 行,每行一个受跟踪文件)
+
+| 路径 | 类别 | 判定 | 谁审 | 证据 |
+|---|---|---|---|---|
+| .gitattributes | 产物 | 关键路径 | 主代理+密钥治理 | 规则扫描:二进制/未扫;L5 发布口径 + ignore 覆盖核对 |
+| .gitignore | 产物 | 关键路径 | 主代理+密钥治理 | 规则扫描:二进制/未扫;L5 发布口径 + ignore 覆盖核对 |
+| AGENTS.md | 文档 | 关键路径 | 多层引用 | 规则扫描:二进制/未扫;作为契约/口径基准被 L1/L3/L4/L5 引用核对 |
+| CHANGELOG.md | 文档 | 关键路径 | 多层引用 | 规则扫描:二进制/未扫;作为契约/口径基准被 L1/L3/L4/L5 引用核对 |
+| CLAUDE.md | 文档 | 关键路径 | 多层引用 | 规则扫描:二进制/未扫;作为契约/口径基准被 L1/L3/L4/L5 引用核对 |
+| LICENSE | 产物 | 关键路径 | 主代理+密钥治理 | 规则扫描:二进制/未扫;L5 发布口径 + ignore 覆盖核对 |
+| README.md | 文档 | 静态比对 | 主代理(L5) | 规则扫描:二进制/未扫;版本口径漂移证据(README.md:77/:256 与 VERSION=1.2.0 矛盾) |
+| VERSION | 产物 | 关键路径 | 多层引用 | 规则扫描:二进制/未扫;作为契约/口径基准被 L1/L3/L4/L5 引用核对 |
+| contracts/school-api/README.md | 文档 | 关键路径 | 密钥与凭据治理工程师+L4/B3 | 规则扫描:二进制/未扫;5 个样例 JSON 脱敏逐字段核对 + B3 落地核对 |
+| contracts/school-api/get-info.data.json | 产物 | 关键路径 | 密钥与凭据治理工程师+L4/B3 | 规则扫描:二进制/未扫;5 个样例 JSON 脱敏逐字段核对 + B3 落地核对 |
+| contracts/school-api/get-join-info.json | 代码 | 关键路径 | 密钥与凭据治理工程师+L4/B3 | 规则扫描:二进制/未扫;5 个样例 JSON 脱敏逐字段核对 + B3 落地核对 |
+| contracts/school-api/list-activity.items.json | 代码 | 关键路径 | 密钥与凭据治理工程师+L4/B3 | 规则扫描:二进制/未扫;5 个样例 JSON 脱敏逐字段核对 + B3 落地核对 |
+| contracts/school-api/list-activity.raw-item.json | 代码 | 关键路径 | 密钥与凭据治理工程师+L4/B3 | 规则扫描:二进制/未扫;5 个样例 JSON 脱敏逐字段核对 + B3 落地核对 |
+| contracts/school-api/signup-replies.json | 代码 | 关键路径 | 密钥与凭据治理工程师+L4/B3 | 规则扫描:二进制/未扫;5 个样例 JSON 脱敏逐字段核对 + B3 落地核对 |
+| design/README.md | 文档 | 静态比对 | L4 索引核对 | 规则扫描:二进制/未扫;流程/提案文档,经决策索引覆盖;仅规则扫描 |
+| design/archive/README.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/current-ui-2026-10-25/README.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/app.html | 原型 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/app/app.css | 原型 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/app/app.js | 原型 | 未审 | - | 规则扫描:R3_eval_exec×8;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/app/led.js | 原型 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/components.html | 原型 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/index.html | 原型 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/play.html | 原型 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/proto/mock-backend.js | 原型 | 未审 | - | 规则扫描:R3_eval_exec×1;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/proto/play.css | 原型 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/proto/play.js | 原型 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/proto/sheet.css | 原型 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/archive/prototype-2026-10-22/proto/shoot.py | 原型 | 未审 | - | 规则扫描:二进制/未扫;归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描 |
+| design/brand/README.md | 文档 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/ico/app.ico | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/ico/favicon.ico | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/apple-touch-icon.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/lockup-dark.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/lockup-dark@2x.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/lockup.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/lockup@2x.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/logo-1024.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/logo-128.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/logo-16.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/logo-20.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/logo-24.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/logo-256.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/logo-32.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/logo-40.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/logo-48.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/logo-512.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/logo-64.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/maskable-512.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/tile-192.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/png/tile-512.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/preview.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/svg/lockup-dark.svg | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/svg/lockup.svg | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/svg/logo-mono-white.svg | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/svg/logo-mono.svg | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/svg/logo-small.svg | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/svg/logo-tile-square.svg | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/svg/logo-tile.svg | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/svg/logo.svg | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;图标/图像资产;二进制扫描不适用,敏感信息不适用 |
+| design/brand/tools/export.js | 原型 | 未审 | - | 规则扫描:二进制/未扫;品牌资产脚本(2 个,152 行),范围外;仅规则扫描 |
+| design/brand/tools/pngkit.js | 原型 | 未审 | - | 规则扫描:二进制/未扫;品牌资产脚本(2 个,152 行),范围外;仅规则扫描 |
+| design/check_refs.py | 原型 | 未审 | - | 规则扫描:二进制/未扫;引用一致性校验工具,今晚未运行该工具本身;仅规则扫描 |
+| design/decisions/001-product-naming.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/002-signup-modes.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/003-retry-policy.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/004-multi-activity-and-conflict.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/005-attendance-filters.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/006-session-persistence.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/007-runtime-timeline.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/008-lifecycle-version-release.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/009-replayable-product-tour.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/010-standalone-exe-and-settings.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/011-unified-help-and-manual-update.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/012-independent-beijing-clock.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/013-distribution-and-privacy.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/014-workbench-ui.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/015-signup-path-and-replies.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/decisions/README.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;003/006/010/013/014/015 逐条引用核对;其余经 decisions 索引覆盖 |
+| design/evidence/2026-10-30/README.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-10-30/UI-ACCEPTANCE.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-10-30/phone-access-acceptance.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-10-30/tailscale-probe.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-10-30/本机版核心操作流程-交互说明.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-10-31/ACCEPTANCE-20261031.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-10-31/UI-SPEC9-AND-D-STATUS-20261031.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-10-31/mobile-ui-polling-repair.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-10-31/mobile-ui-real-device-acceptance.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-10-31/phone-access-channel-redesign-acceptance.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-10-31/phone-access-repair-acceptance.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-02/.gitignore | 产物 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-02/README.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-02/doc-consistency-check.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-02/live-check.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:R1_except_pass×2;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-02/patches-for-capture.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-02/server-and-token-check.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-02/server-live-check.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-02/signup-direct-log-audit.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-02/signup-idle-open.txt | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;证据资产;敏感信息扫描通过 |
+| design/evidence/2026-11-02/ui-01-list-demo.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;证据资产;敏感信息扫描通过 |
+| design/evidence/2026-11-02/ui-02-plan-selected-demo.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;证据资产;敏感信息扫描通过 |
+| design/evidence/2026-11-02/ui-03-plan-running-demo.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;证据资产;敏感信息扫描通过 |
+| design/evidence/2026-11-02/ui-04-plan-partial-demo.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;证据资产;敏感信息扫描通过 |
+| design/evidence/2026-11-02/ui-05-short-window-demo.png | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;证据资产;敏感信息扫描通过 |
+| design/evidence/2026-11-02/ui-screenshots.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-04/README.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-04/a5-manual-check.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-04/decision-agenda.md | 文档 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| design/evidence/2026-11-04/prototype-gap.md | 文档 | 全审 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;99 条逐条独立重核;台账自身错误 10 处已纠 |
+| design/evidence/2026-11-04/prototype-missing-states.md | 文档 | 静态比对 | L1/L4 抽查 | 规则扫描:二进制/未扫;证据文档抽查(脱敏、口径) |
+| design/evidence/2026-11-04/school-frontend-analysis.md | 文档 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| design/flows/README.md | 文档 | 静态比对 | L4 索引核对 | 规则扫描:二进制/未扫;流程/提案文档,经决策索引覆盖;仅规则扫描 |
+| design/flows/activity-selection-and-plan.md | 文档 | 静态比对 | L4 索引核对 | 规则扫描:二进制/未扫;流程/提案文档,经决策索引覆盖;仅规则扫描 |
+| design/flows/first-use-and-login.md | 文档 | 静态比对 | L4 索引核对 | 规则扫描:二进制/未扫;流程/提案文档,经决策索引覆盖;仅规则扫描 |
+| design/flows/mixed-plan-runtime.md | 文档 | 静态比对 | L4 索引核对 | 规则扫描:二进制/未扫;流程/提案文档,经决策索引覆盖;仅规则扫描 |
+| design/flows/stop-and-result.md | 文档 | 静态比对 | L4 索引核对 | 规则扫描:二进制/未扫;流程/提案文档,经决策索引覆盖;仅规则扫描 |
+| design/proposals/README.md | 文档 | 静态比对 | L4 索引核对 | 规则扫描:二进制/未扫;流程/提案文档,经决策索引覆盖;仅规则扫描 |
+| design/proposals/replayable-product-tour.md | 文档 | 静态比对 | L4 索引核对 | 规则扫描:二进制/未扫;流程/提案文档,经决策索引覆盖;仅规则扫描 |
+| design/prototype/workbench-2026-11/.gitignore | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库配套文件(index/json/脚本)普查 |
+| design/prototype/workbench-2026-11/Attention.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/Broken.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/ClockHold.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/CloseAsk.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/CloseConfirm.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/CloseHidden.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/CloseIdle.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/CloseLive.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/CompFail.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/CompLive.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/CompOk.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/CompWrong.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/CredForm.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/CredSaved.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/DesignSpec.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/Editing.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/FirstUse.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/HelpKeys.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/ImplNotes.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/LoginShort.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/LongName.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/Main.dc.html | 原型 | 全审 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;硬基准主画板逐段核对(99 条原型侧证据来源) |
+| design/prototype/workbench-2026-11/Medium.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/MediumRun.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/Narrow.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/NarrowPop.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/NarrowWarn.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/NetOff.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/Phone.dc.html | 原型 | 全审 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;硬基准主画板逐段核对(99 条原型侧证据来源) |
+| design/prototype/workbench-2026-11/PhoneApp.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneAuto.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneCaptcha.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneCheck.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneExpired.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneLinked.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneLock.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneOffline.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhonePick.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneRelAcct.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneRelAll.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneRelBad.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneRelConfirm.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneResult.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneReview.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneReviewWarn.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneRun.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneSetup.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneTerms.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneTs.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PhoneWait.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PopClock.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PopDown.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PopLogin.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/PopPhone.dc.html | 原型 | 全审 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;硬基准主画板逐段核对(99 条原型侧证据来源) |
+| design/prototype/workbench-2026-11/PreWarn.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/README.md | 文档 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库配套文件(index/json/脚本)普查 |
+| design/prototype/workbench-2026-11/Relogin.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/Result.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/RlBad.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/RlCap.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/RlConfirm.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/RunAuto.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/RunClick.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/RunExpired.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/RunPhone.dc.html | 原型 | 全审 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;硬基准主画板逐段核对(99 条原型侧证据来源) |
+| design/prototype/workbench-2026-11/Running.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/Settings.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/Short.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/Slept.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/TermsDoc.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/TermsOff.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/TermsPrivacy.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/TermsUpdate.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/TermsWithdraw.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/ToastMin.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/TourPick.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/TourRun.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/TourTable.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/UpdateAvail.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/UpdateDown.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/UpdateFail.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/UpdateLive.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/UpdateReady.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/Waiting.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/ZeroAct.dc.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/canvas.json | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库配套文件(index/json/脚本)普查 |
+| design/prototype/workbench-2026-11/index.html | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库,「演示」控件普查与按需引用 |
+| design/prototype/workbench-2026-11/打开原型.bat | 原型 | 静态比对 | UI 视觉验收设计师 | 规则扫描:二进制/未扫;基准库配套文件(index/json/脚本)普查 |
+| design/specs/README.md | 文档 | 全审 | 技术文档工程师 | 规则扫描:二进制/未扫;L3 逐篇一致性核验(漂移点见 FINDINGS) |
+| design/specs/assistance-panels.md | 文档 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| design/specs/copywriting.md | 文档 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| design/specs/terms-consent.md | 文档 | 全审 | 技术文档工程师 | 规则扫描:二进制/未扫;L3 逐篇一致性核验(漂移点见 FINDINGS) |
+| design/specs/versioning-and-release.md | 文档 | 全审 | 技术文档工程师 | 规则扫描:二进制/未扫;L3 逐篇一致性核验(漂移点见 FINDINGS) |
+| docs/ARCHITECTURE.md | 文档 | 关键路径 | 多层引用 | 规则扫描:二进制/未扫;作为契约/口径基准被 L1/L3/L4/L5 引用核对 |
+| docs/CONFIG.md | 文档 | 关键路径 | 多层引用 | 规则扫描:二进制/未扫;作为契约/口径基准被 L1/L3/L4/L5 引用核对 |
+| docs/FEISHU_BOT.md | 文档 | 关键路径 | 多层引用 | 规则扫描:二进制/未扫;作为契约/口径基准被 L1/L3/L4/L5 引用核对 |
+| docs/GRAB.md | 文档 | 关键路径 | 多层引用 | 规则扫描:二进制/未扫;作为契约/口径基准被 L1/L3/L4/L5 引用核对 |
+| docs/LOGIN.md | 文档 | 关键路径 | 多层引用 | 规则扫描:二进制/未扫;作为契约/口径基准被 L1/L3/L4/L5 引用核对 |
+| docs/OPERATIONS.md | 文档 | 关键路径 | 多层引用 | 规则扫描:二进制/未扫;作为契约/口径基准被 L1/L3/L4/L5 引用核对 |
+| docs/PHONE_ACCESS.md | 文档 | 静态比对 | L1/L3/L4 抽查 | 规则扫描:二进制/未扫;按条目引用核对(时区前提/发布口径/脱敏),未逐篇全审 |
+| docs/PRIVACY_POLICY.md | 文档 | 静态比对 | L1/L3/L4 抽查 | 规则扫描:二进制/未扫;按条目引用核对(时区前提/发布口径/脱敏),未逐篇全审 |
+| docs/README.md | 文档 | 静态比对 | L1/L3/L4 抽查 | 规则扫描:二进制/未扫;按条目引用核对(时区前提/发布口径/脱敏),未逐篇全审 |
+| docs/RETRY_POLICY_GUIDE.md | 文档 | 关键路径 | 多层引用 | 规则扫描:二进制/未扫;作为契约/口径基准被 L1/L3/L4/L5 引用核对 |
+| docs/TIMING_AND_DEDUP_ANALYSIS.md | 文档 | 静态比对 | L1/L3/L4 抽查 | 规则扫描:二进制/未扫;按条目引用核对(时区前提/发布口径/脱敏),未逐篇全审 |
+| docs/UI_SPEC.md | 文档 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| docs/USER_AGREEMENT.md | 文档 | 静态比对 | L1/L3/L4 抽查 | 规则扫描:二进制/未扫;按条目引用核对(时区前提/发布口径/脱敏),未逐篇全审 |
+| docs/archive/ASK_CODEX_REVIEW.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/BUILD_FROM_SCRATCH.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/README-full-20261022.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/REVIEW_PROMPT.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/UI_DESIGN.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/WORKBUDDY_LOGIN_PROMPT.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/2026-10-30/discuss/2026-10-30-phone-access-channel.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/2026-10-30/plans/2026-10-30-phone-access-channel.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/2026-10-30/plans/2026-10-30-phone-ui-failure-repair.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/2026-10-31/findings/2026-10-31-ui-findings.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/2026-10-31/handoff/2026-10-31-codex-handoff-group2.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/2026-10-31/handoff/2026-10-31-mobile-ui-handoff.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/2026-10-31/handoff/2026-10-31-phone-access-handoff.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/2026-10-31/plans/2026-10-31-phone-access-channel-redesign.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/2026-10-31/plans/2026-10-31-phone-access-repair-followup.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/2026-10-31/plans/2026-10-31-phone-access-repair.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/2026-10-31/plans/2026-10-31-phone-control-release-publication-repair.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/archive/process/README.md | 文档 | 未审 | - | 规则扫描:二进制/未扫;归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep |
+| docs/superpowers/specs/2026-10-31-phone-access-channel-design.md | 文档 | 关键路径 | 代码审查员(L4) | 规则扫描:二进制/未扫;Plan-B 所在目录,specs 全文核对,plans 目录盘点 |
+| docs/superpowers/specs/2026-11-02-workbench-ui-redesign-design.md | 文档 | 关键路径 | 代码审查员(L4) | 规则扫描:二进制/未扫;Plan-B 所在目录,specs 全文核对,plans 目录盘点 |
+| docs/superpowers/specs/2026-11-02-workbench-ui-state-map.md | 文档 | 关键路径 | 代码审查员(L4) | 规则扫描:二进制/未扫;Plan-B 所在目录,specs 全文核对,plans 目录盘点 |
+| docs/superpowers/specs/2026-11-03-architecture-revision-design.md | 文档 | 全审 | 代码审查员(L4) | 规则扫描:二进制/未扫;D1–D9/B 组/plan 逐条落地核对 |
+| local/README.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;L4 抽查(local/README.md:369 gui.py 条目/B7 核对;部署口径抽查) |
+| local/advanced_helper.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;薄壳/路径工具,未被任何层引用;仅规则扫描 |
+| local/app.py | 代码 | 全审 | 代码审查员(diff hunk)+后端架构师(全文函数级) | 规则扫描:R7_naive_dt×5;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05);后端架构师大文件函数级全审清单 |
+| local/application/__init__.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;包声明空壳,无逻辑;仅规则扫描 |
+| local/application/advanced_component_service.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描 |
+| local/application/auto_relogin.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/application/login_relay_service.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/application/login_service.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/application/phone_service.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描 |
+| local/application/plan_service.py | 代码 | 关键路径 | 代码执行者(Fix A–E 红绿+反向对照) | 规则扫描:二进制/未扫;审计修复切片:改前红/改后绿/反向对照齐备,patch 见 reports/PATCHES/ |
+| local/application/update_service.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描 |
+| local/build/build_advanced.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;打包构建链,今晚审计焦点(报名时序/登录态/推送/UI 契约)之外;仅规则扫描 |
+| local/build/build_exe.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;打包构建链,今晚审计焦点(报名时序/登录态/推送/UI 契约)之外;仅规则扫描 |
+| local/build/build_installer.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;打包构建链,今晚审计焦点(报名时序/登录态/推送/UI 契约)之外;仅规则扫描 |
+| local/build/make_portable.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;打包构建链,今晚审计焦点(报名时序/登录态/推送/UI 契约)之外;仅规则扫描 |
+| local/business_clock.py | 代码 | 全审 | 后端架构师 | 规则扫描:二进制/未扫;报名时序/登录态关键件全审,结论合格 |
+| local/config.example.json | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/domain/__init__.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;包声明空壳,无逻辑;仅规则扫描 |
+| local/domain/demo_data.py | 代码 | 静态比对 | L1/L3/L4 引用 | 规则扫描:二进制/未扫;L3/§9#16 证据(demo_data.py:22-60 场景齐备) |
+| local/domain/errors.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描 |
+| local/domain/lifecycle_rules.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描 |
+| local/domain/log_events.py | 代码 | 静态比对 | L1/L3/L4 引用 | 规则扫描:二进制/未扫;L4/D9+密钥治理证据(log_events.py:18 SOURCES、:25 敏感词黑名单) |
+| local/domain/login_rules.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/domain/phone_rules.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描 |
+| local/domain/plan_rules.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/domain/retry_rules.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/domain/retry_window.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/domain/signup_reply.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/domain/time_text.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/domain/worker_lines.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/grab.py | 代码 | 全审 | 代码审查员(diff hunk)+后端架构师(全文函数级) | 规则扫描:R6_open_no_with×1,R7_naive_dt×4;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05);后端架构师大文件函数级全审清单 |
+| local/gui.py | 代码 | 全审 | 后端架构师 | 规则扫描:R7_naive_dt×1;大文件函数级全审(app.py 145 定义/grab.py 110/gui.py 37,清单见 FINDINGS) |
+| local/infrastructure/__init__.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;包声明空壳,无逻辑;仅规则扫描 |
+| local/infrastructure/advanced_features.py | 代码 | 静态比对 | L1/L3/L4 引用 | 规则扫描:二进制/未扫;L1 证据(app.py 组件键引用) |
+| local/infrastructure/component_packages.py | 代码 | 静态比对 | L1/L3/L4 引用 | 规则扫描:二进制/未扫;L4/D4 证据(component_packages.py:72-75 同一数据目录) |
+| local/infrastructure/credential_store.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/infrastructure/lifecycle_store.py | 代码 | 静态比对 | L1/L3/L4 引用 | 规则扫描:R7_naive_dt×2;静态扫描 R7 命中(展示戳,分诊良性) |
+| local/infrastructure/phone_http.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描 |
+| local/infrastructure/phone_qr.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描 |
+| local/infrastructure/phone_session_store.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描 |
+| local/infrastructure/prefs_store.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R6_open_no_with×1;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格 |
+| local/infrastructure/process_tree.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;分层抽样(依据:与报名时序/登录态直接耦合)全读,结论合格;process_tree 前 120 行 Job Object 核心 |
+| local/infrastructure/tray_icon.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描 |
+| local/infrastructure/tunnel_manager.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描 |
+| local/installer/ChineseSimplified.isl | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/launchers/1-登录.bat | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/launchers/2-抢活动.bat | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/launchers/3-检查登录和活动.bat | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/launchers/4-图形界面.bat | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/launchers/_py.bat | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/launchers/install.bat | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/launchers/启动不了点我.txt | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/launchers/遇到问题先看我.txt | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/login_relay.py | 代码 | 全审 | 后端架构师 | 规则扫描:二进制/未扫;报名时序/登录态关键件全审,结论合格 |
+| local/requirements-advanced-ocr.txt | 代码 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/requirements-advanced-phone.txt | 代码 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/requirements.txt | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| local/runtime_paths.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;薄壳/路径工具,未被任何层引用;仅规则扫描 |
+| local/signup_plan.py | 代码 | 全审 | 后端架构师 | 规则扫描:二进制/未扫;报名时序/登录态关键件全审,结论合格 |
+| local/signup_signing.py | 代码 | 全审 | 后端架构师 | 规则扫描:二进制/未扫;报名时序/登录态关键件全审,结论合格 |
+| local/signup_transport.py | 代码 | 全审 | 后端架构师 | 规则扫描:二进制/未扫;报名时序/登录态关键件全审,结论合格 |
+| local/site_target.py | 代码 | 静态比对 | L1/L3/L4 引用 | 规则扫描:二进制/未扫;L4/M8 证据(site_target.py 存在+构建时注入,提交 6ee013c) |
+| local/tests/fixtures/business_clock.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/fixtures/runtime_bridge.js | 代码 | 关键路径 | 测试自动化工程师 | 规则扫描:二进制/未扫;QA 桥夹具,经 test_qa_bridge_contract 执行间接覆盖 |
+| local/tests/test_advanced_features.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_application_services.py | 代码 | 关键路径 | 代码审查员 | 规则扫描:R3_eval_exec×1;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/tests/test_auto_relogin.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_business_clock.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_business_clock_wiring.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_clock_tail.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_component_builder.py | 代码 | 关键路径 | 代码执行者(Fix A–E 红绿+反向对照) | 规则扫描:二进制/未扫;审计修复切片:改前红/改后绿/反向对照齐备,patch 见 reports/PATCHES/ |
+| local/tests/test_component_packages.py | 代码 | 关键路径 | 代码执行者(Fix A–E 红绿+反向对照) | 规则扫描:二进制/未扫;审计修复切片:改前红/改后绿/反向对照齐备,patch 见 reports/PATCHES/ |
+| local/tests/test_credential_store.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_grab_log.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:R5_secret_lit×1;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_installer_script.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_layer_boundaries.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_lifecycle_release.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_login_probe.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_login_relay.py | 代码 | 关键路径 | 代码执行者(Fix A–E 红绿+反向对照) | 规则扫描:R5_secret_lit×1;审计修复切片:改前红/改后绿/反向对照齐备,patch 见 reports/PATCHES/ |
+| local/tests/test_login_relay_service.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_network_policy.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_phone_http.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_phone_rules.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_phone_service.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_phone_session_store.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_phone_ui.py | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/tests/test_qa_bridge_contract.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_real_data_contract.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_release_audit.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_retry_events.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_retry_phone_integration.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_retry_phone_policy.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_retry_policy.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:R7_naive_dt×5;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_runtime_bundle.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_school_contract.py | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/tests/test_session_persistence.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:R7_naive_dt×37;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_session_writer.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:R6_open_no_with×3;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_signup_plan.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:R7_naive_dt×8;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_signup_reply.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_signup_signing.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_signup_transport.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_site_target.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_terms_consent.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:R3_eval_exec×8;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_time_contract.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_tunnel_manager.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_ui_contract.py | 代码 | 关键路径 | 代码审查员 | 规则扫描:R3_eval_exec×8,R7_naive_dt×2;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/tests/test_ui_reliability.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/tests/test_update_check.py | 代码 | 关键路径 | 代码执行者(Fix A–E 红绿+反向对照) | 规则扫描:二进制/未扫;审计修复切片:改前红/改后绿/反向对照齐备,patch 见 reports/PATCHES/ |
+| local/tests/test_updater.py | 代码 | 关键路径 | 代码执行者(Fix A–E 红绿+反向对照) | 规则扫描:二进制/未扫;审计修复切片:改前红/改后绿/反向对照齐备,patch 见 reports/PATCHES/ |
+| local/tests/test_worker_boundaries.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:R5_secret_lit×1;本机套件 1696 例执行;Fix A 夹具映射(若含 <tmp>);契约测试为 L3 证据源 |
+| local/time_contract.py | 代码 | 全审 | 后端架构师 | 规则扫描:二进制/未扫;报名时序/登录态关键件全审,结论合格 |
+| local/ui/app.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/brand/app.ico | 产物 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/brand/favicon.ico | 产物 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/controllers/bridge.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/controllers/clock.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/controllers/plan-events.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/controllers/plan.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/controllers/prefs.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/controllers/refresh.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/controllers/terms.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/controllers/tick.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/controllers/update.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/controllers/window.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/index.html | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/led.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/m/app.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:R3_eval_exec×1;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/m/apple-touch-icon.png | 产物 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/m/favicon.ico | 产物 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/m/index.html | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/m/styles.css | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/state/clock.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/state/filters.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/state/labels.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/state/login.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/state/plan.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/state/rounds.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/state/store.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/state/task-display.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/state/time.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/styles.css | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/views/clock-pop.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/views/clock.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/views/help.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/views/list.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/views/log.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/views/login.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/views/phone.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:R3_eval_exec×1;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/views/plan-panel.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/views/relogin.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/views/selection.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/views/settings.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/views/status-cards.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/views/terms.js | 代码 | 静态比对 | UI 视觉验收设计师(L2 99 条双侧证据) | 规则扫描:二进制/未扫;L2 原型一致性交叉引用 |
+| local/ui/views/tour.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/ui/views/update.js | 代码 | 关键路径 | 代码审查员 | 规则扫描:二进制/未扫;开工时 27 项未提交 diff 逐 hunk 审查(代码审查员,2026-11-05) |
+| local/update_check.py | 代码 | 静态比对 | L1/L3/L4 引用 | 规则扫描:二进制/未扫;L1/#4 证据(update_check.py:219-231 no_installer 三分类) |
+| local/updater.py | 代码 | 静态比对 | 代码审查员 | 规则扫描:二进制/未扫;updater.py:33-36 <tmp> 死分支证据;Fix A 决定不动生产代码 |
+| server/README.md | 文档 | 静态比对 | 代码审查员(L4) | 规则扫描:二进制/未扫;L4 抽查(local/README.md:369 gui.py 条目/B7 核对;部署口径抽查) |
+| server/bot/bot.js | 代码 | 全审 | 后端架构师 | 规则扫描:二进制/未扫;server 无人值守链逐文件审,结论见 FINDINGS |
+| server/bot/handled_messages.js | 代码 | 全审 | 后端架构师 | 规则扫描:二进制/未扫;server 无人值守链逐文件审,结论见 FINDINGS |
+| server/bot/package.json | 代码 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;config.example 占位符核对,非真密钥 |
+| server/bot/test_bot_runtime.js | 代码 | 关键路径 | 测试自动化工程师+后端架构师 | 规则扫描:二进制/未扫;node 执行 37+8 通过;头部与 resolveRoot 已读,未逐行审全部用例(抽样) |
+| server/bot/test_handled_messages.js | 代码 | 关键路径 | 测试自动化工程师+后端架构师 | 规则扫描:二进制/未扫;node 执行 37+8 通过;头部与 resolveRoot 已读,未逐行审全部用例(抽样) |
+| server/config.example.json | 产物 | 静态比对 | 密钥与凭据治理工程师 | 规则扫描:二进制/未扫;config.example 占位符核对,非真密钥 |
+| server/deploy/README.md | 文档 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:二进制/未扫;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/atomic_json.js | 代码 | 全审 | 后端架构师 | 规则扫描:二进制/未扫;server 无人值守链逐文件审,结论见 FINDINGS |
+| server/deploy/auto_login.py | 代码 | 全审 | 后端架构师 | 规则扫描:R6_open_no_with×1,R7_naive_dt×4;server 无人值守链逐文件审,结论见 FINDINGS |
+| server/deploy/campus-autologin.service | 产物 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:二进制/未扫;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/campus-autologin.timer | 产物 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:二进制/未扫;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/campus-login.service | 产物 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:二进制/未扫;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/deploy.sh | 产物 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:二进制/未扫;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/grab_signup.py | 代码 | 全审 | 后端架构师 | 规则扫描:R7_naive_dt×2;server 无人值守链逐文件审,结论见 FINDINGS |
+| server/deploy/legacy/README.md | 文档 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:二进制/未扫;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/legacy/install_nginx_http_route.py | 代码 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:R6_open_no_with×1;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/legacy/install_nginx_route.py | 代码 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:R6_open_no_with×1;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/logrotate/campus | 代码 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:二进制/未扫;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/make_template.sh | 产物 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:二进制/未扫;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/remote_install.sh | 产物 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:二进制/未扫;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/server_refresh.js | 代码 | 全审 | 后端架构师 | 规则扫描:二进制/未扫;server 无人值守链逐文件审,结论见 FINDINGS |
+| server/deploy/set_credentials.py | 代码 | 全审 | 后端架构师 | 规则扫描:二进制/未扫;server 无人值守链逐文件审,结论见 FINDINGS |
+| server/deploy/sync_token.sh | 产物 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:二进制/未扫;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/deploy/test_atomic_json.js | 代码 | 静态比对 | 后端架构师+密钥治理 | 规则扫描:二进制/未扫;部署配置/脚本抽样(密钥治理 env 注入核对、时区依赖另记) |
+| server/requirements.txt | 产物 | 未审 | - | 规则扫描:二进制/未扫;启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审 |
+| server/scripts/activity_watch.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/card.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/common.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R6_open_no_with×2,R7_naive_dt×1;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/dev/README.md | 文档 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/dev/explore.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/dev/probe_login.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/dev/push_card.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R7_naive_dt×1;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/fetch.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/grab_card.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R7_naive_dt×3;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/login.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/net_probe.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R7_naive_dt×1;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/notify.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/query.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R7_naive_dt×1;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/regress.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/remind.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R7_naive_dt×1;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/render.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/run.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R7_naive_dt×4;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/scan.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/selfcheck.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R7_naive_dt×3;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/site_target.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/token_probe.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R5_secret_lit×1,R7_naive_dt×2;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/token_report.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R7_naive_dt×1;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/trigger_server.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:二进制/未扫;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/watchlist.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R7_naive_dt×2;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/scripts/watchlist_runner.py | 代码 | 关键路径 | 后端架构师 | 规则扫描:R7_naive_dt×1;server/scripts 21+3 逐文件一行结论(全部合格,TZ 依赖另记) |
+| server/tests/test_activity_watch.py | 代码 | 关键路径 | 代码执行者(Fix A–E 红绿+反向对照) | 规则扫描:二进制/未扫;审计修复切片:改前红/改后绿/反向对照齐备,patch 见 reports/PATCHES/ |
+| server/tests/test_dedup.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:R7_naive_dt×1;server 套件 122 例执行(66 红转绿);Fix A 夹具映射 |
+| server/tests/test_endpoints.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;server 套件 122 例执行(66 红转绿);Fix A 夹具映射 |
+| server/tests/test_grab_signup_retry.py | 代码 | 关键路径 | 代码执行者(Fix A–E 红绿+反向对照) | 规则扫描:二进制/未扫;审计修复切片:改前红/改后绿/反向对照齐备,patch 见 reports/PATCHES/ |
+| server/tests/test_login_resilience.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:R7_naive_dt×2;server 套件 122 例执行(66 红转绿);Fix A 夹具映射 |
+| server/tests/test_notify.py | 代码 | 关键路径 | 测试自动化工程师+Fix A | 规则扫描:二进制/未扫;server 套件 122 例执行(66 红转绿);Fix A 夹具映射 |
+| server/tests/test_runtime_safety.py | 代码 | 关键路径 | 代码执行者(Fix A–E 红绿+反向对照) | 规则扫描:R7_naive_dt×1;审计修复切片:改前红/改后绿/反向对照齐备,patch 见 reports/PATCHES/ |
+| server/tests/test_watchlist_safety.py | 代码 | 关键路径 | 代码执行者(Fix A–E 红绿+反向对照) | 规则扫描:R7_naive_dt×1;审计修复切片:改前红/改后绿/反向对照齐备,patch 见 reports/PATCHES/ |
+| tools/qa_business_clock_worker.py | 代码 | 未审 | - | 规则扫描:二进制/未扫;辅助工具(split_branches/verify_autologin_loop/qa_business_clock_worker),今晚范围外;仅规则扫描,R7 命中为时间戳用途 |
+| tools/qa_runtime_reliability.py | 代码 | 关键路径 | 技术文档工程师(L3) | 规则扫描:R3_eval_exec×1;QA 场景(五视口/680×480/外呼 0)作为 §9 #14/#15/#57 证据引用 |
+| tools/release.py | 代码 | 关键路径 | 技术文档工程师(L3/#40) | 规则扫描:R7_naive_dt×2;check/prepare/publish 契约经 test_lifecycle_release 钉住;R7 时间戳为构建元数据,分诊良性 |
+| tools/split_branches.py | 代码 | 未审 | - | 规则扫描:R7_naive_dt×1;辅助工具(split_branches/verify_autologin_loop/qa_business_clock_worker),今晚范围外;仅规则扫描,R7 命中为时间戳用途 |
+| tools/verify_autologin_loop.py | 代码 | 未审 | - | 规则扫描:R7_naive_dt×2;辅助工具(split_branches/verify_autologin_loop/qa_business_clock_worker),今晚范围外;仅规则扫描,R7 命中为时间戳用途 |
+
+## 未审清单(每条含理由,共 72 条)
+
+- design/archive/README.md — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/current-ui-2026-10-25/README.md — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/app.html — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/app/app.css — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/app/app.js — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/app/led.js — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/components.html — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/index.html — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/play.html — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/proto/mock-backend.js — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/proto/play.css — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/proto/play.js — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/proto/sheet.css — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/archive/prototype-2026-10-22/proto/shoot.py — 归档旧原型(2026-10-22),今晚硬基准是 workbench-2026-11;仅规则扫描
+- design/brand/tools/export.js — 品牌资产脚本(2 个,152 行),范围外;仅规则扫描
+- design/brand/tools/pngkit.js — 品牌资产脚本(2 个,152 行),范围外;仅规则扫描
+- design/check_refs.py — 引用一致性校验工具,今晚未运行该工具本身;仅规则扫描
+- docs/archive/ASK_CODEX_REVIEW.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/BUILD_FROM_SCRATCH.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/README-full-20261022.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/REVIEW_PROMPT.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/UI_DESIGN.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/WORKBUDDY_LOGIN_PROMPT.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/2026-10-30/discuss/2026-10-30-phone-access-channel.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/2026-10-30/plans/2026-10-30-phone-access-channel.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/2026-10-30/plans/2026-10-30-phone-ui-failure-repair.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/2026-10-31/findings/2026-10-31-ui-findings.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/2026-10-31/handoff/2026-10-31-codex-handoff-group2.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/2026-10-31/handoff/2026-10-31-mobile-ui-handoff.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/2026-10-31/handoff/2026-10-31-phone-access-handoff.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/2026-10-31/plans/2026-10-31-phone-access-channel-redesign.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/2026-10-31/plans/2026-10-31-phone-access-repair-followup.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/2026-10-31/plans/2026-10-31-phone-access-repair.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/2026-10-31/plans/2026-10-31-phone-control-release-publication-repair.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- docs/archive/process/README.md — 归档文档(18 篇),今晚范围外;仅规则扫描+密钥 grep
+- local/advanced_helper.py — 薄壳/路径工具,未被任何层引用;仅规则扫描
+- local/application/__init__.py — 包声明空壳,无逻辑;仅规则扫描
+- local/application/advanced_component_service.py — 后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描
+- local/application/phone_service.py — 后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描
+- local/application/update_service.py — 后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描
+- local/build/build_advanced.py — 打包构建链,今晚审计焦点(报名时序/登录态/推送/UI 契约)之外;仅规则扫描
+- local/build/build_exe.py — 打包构建链,今晚审计焦点(报名时序/登录态/推送/UI 契约)之外;仅规则扫描
+- local/build/build_installer.py — 打包构建链,今晚审计焦点(报名时序/登录态/推送/UI 契约)之外;仅规则扫描
+- local/build/make_portable.py — 打包构建链,今晚审计焦点(报名时序/登录态/推送/UI 契约)之外;仅规则扫描
+- local/config.example.json — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/domain/__init__.py — 包声明空壳,无逻辑;仅规则扫描
+- local/domain/errors.py — 后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描
+- local/domain/lifecycle_rules.py — 后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描
+- local/domain/phone_rules.py — 后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描
+- local/infrastructure/__init__.py — 包声明空壳,无逻辑;仅规则扫描
+- local/infrastructure/phone_http.py — 后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描
+- local/infrastructure/phone_qr.py — 后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描
+- local/infrastructure/phone_session_store.py — 后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描
+- local/infrastructure/tray_icon.py — 后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描
+- local/infrastructure/tunnel_manager.py — 后端抽样声明未抽:与今晚焦点(报名时序/登录态/推送/UI 契约)无直接耦合;仅规则扫描
+- local/installer/ChineseSimplified.isl — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/launchers/1-登录.bat — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/launchers/2-抢活动.bat — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/launchers/3-检查登录和活动.bat — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/launchers/4-图形界面.bat — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/launchers/_py.bat — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/launchers/install.bat — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/launchers/启动不了点我.txt — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/launchers/遇到问题先看我.txt — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/requirements-advanced-ocr.txt — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/requirements-advanced-phone.txt — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/requirements.txt — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- local/runtime_paths.py — 薄壳/路径工具,未被任何层引用;仅规则扫描
+- server/requirements.txt — 启动器/打包资产/依赖清单;密钥治理 grep 通过(无真实凭据),未深审
+- tools/qa_business_clock_worker.py — 辅助工具(split_branches/verify_autologin_loop/qa_business_clock_worker),今晚范围外;仅规则扫描,R7 命中为时间戳用途
+- tools/split_branches.py — 辅助工具(split_branches/verify_autologin_loop/qa_business_clock_worker),今晚范围外;仅规则扫描,R7 命中为时间戳用途
+- tools/verify_autologin_loop.py — 辅助工具(split_branches/verify_autologin_loop/qa_business_clock_worker),今晚范围外;仅规则扫描,R7 命中为时间戳用途
+
+## 抽样声明
+
+- 近 7 天 66 笔提交(用户口径 68 笔=测量时刻早于 2026-11-04 23:20 +0800,滚动窗口边界两笔 caa9f8c/918a2a2):深读 11 笔(动 app.py/grab.py/server/signup/登录态/推送者),其余 55 笔仅 --stat 与提交信息核对——依据与未抽清单见 FINDINGS.md L1 节。
+- local/infrastructure、application、domain 抽样依据=与报名时序/登录态直接耦合;未抽清单见本表「未审」条目。
+- server/bot 两个 node 测试文件:头部与 resolveRoot 已读,用例未逐行(执行通过 37+8)。

@@ -1,0 +1,176 @@
+................................................................................................................................................................................................................................................................{
+  "archive": "<临时目录>\\phone_control-1.2.0-windows-x64.zip",
+  "sha256": "70ebf4ad439235365fa1dfe6fb05179f31905d7f3b87ba8c710bafe58ac0ddf6",
+  "compressed_bytes": 642,
+  "extracted_bytes": 554,
+  "files": 3,
+  "version": "1.2.0",
+  "feature": "phone_control"
+}
+[iss] 已渲染：<临时目录>\installer\installer.generated.iss
+[iss] 版本（VERSION 唯一来源）：9.9.9　源 EXE：<临时目录>\campus-activity-watch-v9.9.9-win-x64.exe
+[iss] 编译器：<临时目录>\ISCC.exe
+[iss] 安装包：<临时目录>\installer\校园活动预报名工具-安装版-9.9.9.exe　0.0 MB
+[iss] 提示：安装后有开始菜单项，卸载时可选择是否删除登录数据。
+.......................................................................................sss..............................................................................................................................................................................................................................................................................................................................................................................................................Exception in thread signup-output:
+Traceback (most recent call last):
+  File "<Python 安装目录>\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "<Python 安装目录>\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "<审计副本>\local\application\plan_service.py", line 165, in read_output
+    for line in proc.stdout or []:
+                ^^^^^^^^^^^^^^^^^
+ValueError: I/O operation on closed file.
+FException in thread signup-output:
+Traceback (most recent call last):
+  File "<Python 安装目录>\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "<Python 安装目录>\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "<审计副本>\local\application\plan_service.py", line 165, in read_output
+    for line in proc.stdout or []:
+                ^^^^^^^^^^^^^^^^^
+ValueError: I/O operation on closed file.
+FException in thread signup-output:
+Traceback (most recent call last):
+  File "<Python 安装目录>\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "<Python 安装目录>\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "<审计副本>\local\application\plan_service.py", line 165, in read_output
+    for line in proc.stdout or []:
+                ^^^^^^^^^^^^^^^^^
+ValueError: I/O operation on closed file.
+FException in thread signup-output:
+Traceback (most recent call last):
+  File "<Python 安装目录>\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "<Python 安装目录>\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "<审计副本>\local\application\plan_service.py", line 165, in read_output
+    for line in proc.stdout or []:
+                ^^^^^^^^^^^^^^^^^
+ValueError: I/O operation on closed file.
+FException in thread signup-output:
+Traceback (most recent call last):
+  File "<Python 安装目录>\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "<Python 安装目录>\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "<审计副本>\local\application\plan_service.py", line 165, in read_output
+    for line in proc.stdout or []:
+                ^^^^^^^^^^^^^^^^^
+ValueError: I/O operation on closed file.
+F....................................[X] runtime-check 缺少 --report <绝对JSON路径>
+...........................................................[i] 已把 3 个旧数据文件搬到统一数据目录：<临时目录>\target-data
+.[!] 旧登录数据迁移失败（不影响启动，可手动拷贝）：locked
+.[i] 已把 2 个旧数据文件搬到统一数据目录：<临时目录>\target-data
+...................................................................................................................................s.....................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_spawn_reports_ownership_failure_and_runs_no_body (test_retry_policy.WorkerOwnershipTests.test_spawn_reports_ownership_failure_and_runs_no_body) (阶段='创建 Job 失败')
+归属失败必须报错、零主体动作、零进程残留。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<审计副本>\local\tests\test_retry_policy.py", line 879, in test_spawn_reports_ownership_failure_and_runs_no_body
+    api, _result, _events, _elapsed, _pid, mark, _seen = self._run_task(
+                                                         ^^^^^^^^^^^^^^^
+  File "<审计副本>\local\tests\test_retry_policy.py", line 709, in _run_task
+    self.assertIsNotNone(error, "归属失败必须以 _SpawnFailure 结束这一场")
+AssertionError: unexpectedly None : 归属失败必须以 _SpawnFailure 结束这一场
+
+======================================================================
+FAIL: test_spawn_reports_ownership_failure_and_runs_no_body (test_retry_policy.WorkerOwnershipTests.test_spawn_reports_ownership_failure_and_runs_no_body) (阶段='设置 Job 失败')
+归属失败必须报错、零主体动作、零进程残留。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<审计副本>\local\tests\test_retry_policy.py", line 879, in test_spawn_reports_ownership_failure_and_runs_no_body
+    api, _result, _events, _elapsed, _pid, mark, _seen = self._run_task(
+                                                         ^^^^^^^^^^^^^^^
+  File "<审计副本>\local\tests\test_retry_policy.py", line 709, in _run_task
+    self.assertIsNotNone(error, "归属失败必须以 _SpawnFailure 结束这一场")
+AssertionError: unexpectedly None : 归属失败必须以 _SpawnFailure 结束这一场
+
+======================================================================
+FAIL: test_spawn_reports_ownership_failure_and_runs_no_body (test_retry_policy.WorkerOwnershipTests.test_spawn_reports_ownership_failure_and_runs_no_body) (阶段='归属 Job 失败')
+归属失败必须报错、零主体动作、零进程残留。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<审计副本>\local\tests\test_retry_policy.py", line 879, in test_spawn_reports_ownership_failure_and_runs_no_body
+    api, _result, _events, _elapsed, _pid, mark, _seen = self._run_task(
+                                                         ^^^^^^^^^^^^^^^
+  File "<审计副本>\local\tests\test_retry_policy.py", line 709, in _run_task
+    self.assertIsNotNone(error, "归属失败必须以 _SpawnFailure 结束这一场")
+AssertionError: unexpectedly None : 归属失败必须以 _SpawnFailure 结束这一场
+
+======================================================================
+FAIL: test_spawn_reports_ownership_failure_and_runs_no_body (test_retry_policy.WorkerOwnershipTests.test_spawn_reports_ownership_failure_and_runs_no_body) (阶段='恢复线程失败')
+归属失败必须报错、零主体动作、零进程残留。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<审计副本>\local\tests\test_retry_policy.py", line 879, in test_spawn_reports_ownership_failure_and_runs_no_body
+    api, _result, _events, _elapsed, _pid, mark, _seen = self._run_task(
+                                                         ^^^^^^^^^^^^^^^
+  File "<审计副本>\local\tests\test_retry_policy.py", line 709, in _run_task
+    self.assertIsNotNone(error, "归属失败必须以 _SpawnFailure 结束这一场")
+AssertionError: unexpectedly None : 归属失败必须以 _SpawnFailure 结束这一场
+
+======================================================================
+FAIL: test_spawn_reports_ownership_failure_and_runs_no_body (test_retry_policy.WorkerOwnershipTests.test_spawn_reports_ownership_failure_and_runs_no_body) (阶段='找不到主线程')
+归属失败必须报错、零主体动作、零进程残留。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<审计副本>\local\tests\test_retry_policy.py", line 879, in test_spawn_reports_ownership_failure_and_runs_no_body
+    api, _result, _events, _elapsed, _pid, mark, _seen = self._run_task(
+                                                         ^^^^^^^^^^^^^^^
+  File "<审计副本>\local\tests\test_retry_policy.py", line 709, in _run_task
+    self.assertIsNotNone(error, "归属失败必须以 _SpawnFailure 结束这一场")
+AssertionError: unexpectedly None : 归属失败必须以 _SpawnFailure 结束这一场
+
+----------------------------------------------------------------------
+Ran 1699 tests in 125.750s
+
+FAILED (failures=5, skipped=4)
+[publish] 来源：main@ffffffffffff；目标 tag：v1.2.3
+[1/2] tag ...
+[2/2] 上传 Release ...
+
+完成：https://github.com/Env0i/campus-activity-assistant/releases/tag/v1.2.3
+[提示] 绿色版/服务器版打包与 local/server 分发分支同步属兼容发行流程，需另行授权执行。
+   Release v1 已存在，按 --clobber 覆盖附件
+[publish] 来源：main@ffffffffffff；目标 tag：v1.2.3
+[1/2] tag ...
+[2/2] 上传 Release ...
+
+完成：https://github.com/Env0i/campus-activity-assistant/releases/tag/v1.2.3
+[提示] 绿色版/服务器版打包与 local/server 分发分支同步属兼容发行流程，需另行授权执行。
+[publish] 来源：main@ffffffffffff；目标 tag：v1.2.3
+[1/2] tag ...
+[2/2] 上传 Release ...
+
+完成：https://github.com/Env0i/campus-activity-assistant/releases/tag/v1.2.3
+[提示] 绿色版/服务器版打包与 local/server 分发分支同步属兼容发行流程，需另行授权执行。
+[publish] 来源：main@ffffffffffff；目标 tag：v1.2.3
+[1/2] tag ...
+[prepare] 已注入构建环境 SCHOOL_ORIGIN（值只进发布物，不进仓库）
+[prepare] 已注入构建环境 SCHOOL_ORIGIN（值只进发布物，不进仓库）
+   campus-activity-watch-v1.2.3-win-x64.zip  0.0 MB
+   campus-activity-watch-v1.2.3-win-x64.exe  0.0 MB
+   campus-activity-watch-installer-v1.2.3-win-x64.exe  0.0 MB
+   campus-activity-watch-phone-control-v1.2.3-win-x64.zip  0.0 MB
+   campus-activity-watch-relogin-ocr-v1.2.3-win-x64.zip  0.0 MB
+[prepare] 资产就绪：<临时目录>\release-v1.2.3
+[prepare] 清单：<临时目录>\release-v1.2.3\manifest.json（版本/完整 HEAD/来源干净/SHA-256）
+[prepare] 已注入构建环境 SCHOOL_ORIGIN（值只进发布物，不进仓库）
+[prepare] 已注入构建环境 SCHOOL_ORIGIN（值只进发布物，不进仓库）
+   campus-activity-watch-v1.2.3-win-x64.zip  0.0 MB
+   campus-activity-watch-v1.2.3-win-x64.exe  0.0 MB
+   campus-activity-watch-installer-v1.2.3-win-x64.exe  0.0 MB
+   campus-activity-watch-phone-control-v1.2.3-win-x64.zip  0.0 MB
+   campus-activity-watch-relogin-ocr-v1.2.3-win-x64.zip  0.0 MB
+[prepare] 资产就绪：<临时目录>\release-v1.2.3
+[prepare] 清单：<临时目录>\release-v1.2.3\manifest.json（版本/完整 HEAD/来源干净/SHA-256）
+[prepare] 构建手机控制组件包（内置 cloudflared）...
+   已创建并推送 tag v1.1.0 → ffffffffffff
+   已创建并推送 tag v1.1.0 → ffffffffffff
+   tag v1.1.0 已存在且远端指向本次提交，复用

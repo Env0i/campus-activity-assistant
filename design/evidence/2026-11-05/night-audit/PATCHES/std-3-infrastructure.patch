@@ -1,0 +1,21 @@
+diff --git a/local/infrastructure/lifecycle_store.py b/local/infrastructure/lifecycle_store.py
+index 62ac7d9..824eb90 100644
+--- a/local/infrastructure/lifecycle_store.py
++++ b/local/infrastructure/lifecycle_store.py
+@@ -138,7 +138,7 @@ class AppLifecycle:
+             try:
+                 self._beat_once()
+             except Exception:
+-                pass   # 单次心跳失败不影响界面，下一分钟再试
++                pass   # 单次心跳失败不影响界面，下一分钟再试；限窄涉行为留待后续（线程死亡即记账全停）
+ 
+     def _beat_once(self) -> bool:
+         """一次心跳：心跳时刻在锁外读取，读-核验-合并-写在偏好事务内完成。"""
+@@ -260,5 +260,5 @@ class AppLifecycle:
+                     "quality": "unknown"}
+         try:
+             self._write_merged(patch, force=True)
+-        except Exception:
+-            pass
++        except Exception as exc:
++            pass  # 收尾记账失败不阻断窗口关闭：此时已无下一次心跳可补写，原因多为句柄已被系统回收

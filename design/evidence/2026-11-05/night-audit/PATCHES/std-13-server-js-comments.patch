@@ -1,0 +1,29 @@
+diff --git a/server/bot/bot.js b/server/bot/bot.js
+index 1cb321f..b0f5e72 100644
+--- a/server/bot/bot.js
++++ b/server/bot/bot.js
+@@ -112,6 +112,7 @@ function rememberUser(openId, chatType, chatId) {
+     try {
+       db = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+     } catch (e) {
++      // users.json 损坏/不可读时清空重建：与 handled_messages 的「显式抛错」策略不同，此处选择降级
+       db = {};
+     }
+     db[openId] = {
+diff --git a/server/deploy/server_refresh.js b/server/deploy/server_refresh.js
+index a1d4049..f7d20ca 100644
+--- a/server/deploy/server_refresh.js
++++ b/server/deploy/server_refresh.js
+@@ -84,10 +84,10 @@ function browserOptions(savedState) {
+ async function readStore(page) {
+   return page.evaluate(() => {
+     const get = (k) => {
+-      try { return localStorage.getItem(k) || ''; } catch (e) { return ''; }
++      try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } /* evaluate 内无法走 node 日志：localStorage 拒访时保底空串，主流程 tokenWorks 会核验 */
+     };
+     let user = {};
+-    try { user = JSON.parse(get('user') || '{}'); } catch (e) { user = {}; }
++    try { user = JSON.parse(get('user') || '{}'); } catch (e) { user = {}; } /* user 字段损坏按空对象处理：不否定 store 其余内容 */
+     const store = {};
+     try {
+       for (const k of Object.keys(localStorage)) store[k] = localStorage.getItem(k);

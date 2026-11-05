@@ -1,0 +1,156 @@
+diff --git a/local/app.py b/local/app.py
+index 422b650..6c181e7 100644
+--- a/local/app.py
++++ b/local/app.py
+@@ -483,7 +483,7 @@ def defer_close_action(callback, delay: float = 0.25) -> None:
+         try:
+             callback()
+         except Exception:
+-            pass
++            pass  # 这次关闭已在 closing 回调取消：弹问/隐藏/最小化任一失败都留在原界面，用户再关一次即可
+ 
+     timer = threading.Timer(max(0.0, float(delay)), _run)
+     timer.daemon = True
+@@ -888,7 +888,7 @@ class Api:
+         try:
+             self._window.evaluate_js(js)
+         except Exception:
+-            pass
++            pass  # 事件没送达不重试：窗口未就绪/销毁时，前端下次 bootstrap（启动、重新可见、计划/更新挂接）会重拉权威状态
+ 
+     # ---------- 条款授权（学校动作的最终防线） ----------
+     def _terms_gate(self, request_id: str = "") -> "dict | None":
+@@ -1008,25 +1008,21 @@ class Api:
+     def help(self) -> dict:
+         return {
+             "title": "使用帮助",
+-            "subtitle": "使用说明、版本更新与本机数据",
++            "subtitle": "三步完成一次报名",
+             # 版本与最新版本入口：界面据此显示「版本 1.1.0」和 GitHub 外链按钮
+             # （APP_VERSION 恒来自 read_version()，这里只是示例注释，不写死实现）
+             "version": APP_VERSION,
+             "latest_url": RELEASES_LATEST_URL,
+-            # 三步只讲「怎么操作」：选中不等于开始，开始按钮必须点，结果逐场看
++            # 三步只讲「怎么操作」：选中不等于开始，开始按钮必须点，结果逐场看。
++            # 与 DEFAULT_HELP 逐字一致（test_ui_contract 比对两端），照抄原型 :745。
+             "steps": [
+-                {"no": 1, "title": "登录账号",
+-                 "text": "打开顶栏的登录状态，点「登录」，在打开的浏览器中完成登录。下次启动会检查已保存的登录状态；"
+-                         "只有提示失效时才需要重新登录。"},
+-                {"no": 2, "title": "设置报名计划",
+-                 "text": "选择活动，设置尝试时长和最多提交次数，再选择「开始报名计划」。"
+-                         "预报名会在开放后尝试提交，已开放活动会在计划启动后尝试提交。"},
+-                {"no": 3, "title": "查看报名结果",
+-                 "text": "运行期间可最小化窗口，但需保持电脑唤醒与联网。结束后查看各活动的报名结果；"
+-                         "开始计划不代表报名成功。"},
++                {"no": 1, "title": "确认登录",
++                 "text": "顶部显示“已登录”就可以继续。只有提示失效时才需要重新登录。"},
++                {"no": 2, "title": "选活动并开始",
++                 "text": "在时刻表勾选活动，核对右边的计划，再点「开始报名计划」。勾选不会自动开始。"},
++                {"no": 3, "title": "看结果",
++                 "text": "每场结果单独显示。看到“待核对”时，到学校活动页确认。"},
+             ],
+-            "note": "适用于目标学校（校园）专升本学生使用的活动中心。"
+-                    "活动要求与报名结果以学校活动页为准。",
+         }
+ 
+     # ---------- 可选高级功能与本机凭据 ------------------------------------
+@@ -1557,7 +1553,7 @@ class Api:
+                     print("[log] 写日志文件失败（%s）：%s" % (type(exc).__name__, line),
+                           file=sys.stderr, flush=True)
+                 except Exception:
+-                    pass
++                    pass  # stderr 兜底也失败就放弃这条日志：已在日志异常处理内，不得二次抛出
+ 
+     def _begin_auto_relogin(self) -> dict:
+         """发起一轮自动登录，并把发起结果写进 grab.log（带耗时和失败分类，不带账号）。
+@@ -2605,7 +2601,7 @@ class Api:
+             # 从最小化里叫回来也走这里：隐藏和最小化一起清掉
+             self._window.restore()
+         except Exception:
+-            pass
++            pass  # restore 失败不折返：show 已成功，最多仍最小化，用户点任务栏即可
+         self._window_hidden = False
+         self._window_minimized = False
+         phone_log("窗口已从后台显示出来")
+@@ -2633,7 +2629,7 @@ class Api:
+             if self._ensure_tray() and self._tray is not None:
+                 self._tray.notify(title, text)
+         except Exception:
+-            pass
++            pass  # 托盘通知失败不补发：结果本就在窗口里，通知只是提醒
+ 
+     def _ensure_tray(self) -> bool:
+         """懒建托盘图标；已经建过就直接复用。任何异常都只当作「没有托盘」。"""
+@@ -2658,7 +2654,7 @@ class Api:
+             try:
+                 tray.stop()
+             except Exception:
+-                pass
++                pass  # 托盘停止失败不阻断关窗：残留图标随进程退出被系统回收
+ 
+     def shutdown(self) -> None:
+         """窗口正常关闭的进程收尾：先同锁置关闭屏障并取快照，再停协调器、树终止**仅本 Api 登记**的 worker。
+@@ -2703,7 +2699,7 @@ class Api:
+             try:
+                 self._relay.shutdown()
+             except Exception:
+-                pass
++                pass  # 中继收尾失败不补救：进程退出即释放端口与线程，不得挡住后续收尾
+             try:
+                 self._cloudflare.stop()
+                 # 正常退出只是关程序：保留设备信任，下次恢复入口不用重新配对；
+@@ -2711,7 +2707,7 @@ class Api:
+                 self._phone.shutdown(preserve_devices=True)
+                 self._phone_channel = ""
+             except Exception:
+-                pass
++                pass  # 隧道/手机会话收尾失败不补救：进程退出即回收，设备信任保留不受影响
+             if plan:
+                 try:
+                     plan.stop()
+@@ -3003,7 +2999,7 @@ class Api:
+                 if event is not None:
+                     event.wait(15)
+             except Exception:
+-                pass
++                pass  # 等窗口加载失败不拦恢复：下一步 restore 失败要么返回分类结论按设计静默，要么抛出并被此处捕获写日志
+             try:
+                 result = self.restore_phone_access()
+             except Exception as exc:
+@@ -3421,7 +3417,7 @@ class Api:
+             with open(path, "a", encoding="utf-8") as f:
+                 f.write(str(msg) + "\n")
+         except Exception:
+-            pass
++            pass  # trace 写失败就丢这条调试行：诊断手段不得影响主流程
+ 
+     def _run(self, args: list[str], timeout: int) -> dict:
+         """同步跑一个短命 worker（check/list）：创建、登记与关闭屏障同锁。
+@@ -3447,7 +3443,7 @@ class Api:
+                 try:
+                     proc.communicate(timeout=5)
+                 except Exception:
+-                    pass
++                    pass  # 超时收割失败不重试：树已终止，统一走「执行超时」结构化结论
+                 return {"code": -1, "out": "[X] 执行超时（%d 秒）" % timeout}
+         finally:
+             with self._lock:
+@@ -3702,7 +3698,7 @@ def main() -> int:
+             import ctypes
+             ctypes.windll.shcore.SetProcessDpiAwareness(1)
+         except Exception:
+-            pass
++            pass  # DPI 感知失败只影响缩放清晰度，不挡启动
+     # 启动即确保统一数据根可用；冻结进程首次启动会顺带迁移旧 EXE 旁数据
+     ensure_data_dir()
+     global DEMO
+@@ -3723,7 +3719,7 @@ def main() -> int:
+             _CLOCK_ENV["path"] = clock._snapshot_path()
+             _CLOCK_ENV["owner"] = str(snap.get("owner_id"))
+     except Exception:
+-        pass
++        pass  # 快照读不到就少设 _CLOCK_ENV：时钟侧自带 unavailable 分类兜底
+     lifecycle = get_lifecycle(now_fn=clock.now)
+     api = Api(clock=clock)
+     api._start_clock_monitor()

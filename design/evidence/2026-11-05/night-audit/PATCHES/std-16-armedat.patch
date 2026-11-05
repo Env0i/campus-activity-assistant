@@ -1,0 +1,80 @@
+diff --git a/local/ui/controllers/plan.js b/local/ui/controllers/plan.js
+index 2e822ad..a0b4c59 100644
+--- a/local/ui/controllers/plan.js
++++ b/local/ui/controllers/plan.js
+@@ -81,7 +81,7 @@ function startPlan() {
+     const ackGen = notePlanGeneration(res.plan_generation);
+     if (!S.plan.id || S.plan.id !== String(res.plan_id || "")) {
+       S.plan = { id: String(res.plan_id || ""), gen: ackGen,
+-                 status: "ready", tasks: new Map(), armedAt: Date.now() / 1000 };
++                 status: "ready", tasks: new Map() };
+     } else if (ackGen > (Number(S.plan.gen) || 0)) {
+       S.plan.gen = ackGen;
+     }
+@@ -216,8 +216,7 @@ function adoptPlan(requestId, planId, snapshot, finished, generation) {
+   const terminal = ["completed", "partial", "failed", "stopped"].indexOf(status) >= 0;
+   const gen = notePlanGeneration(generation);
+   if (id && (!S.plan.id || S.plan.id !== id)) {
+-    S.plan = { id: id, gen: gen, status: terminal ? status : "running", tasks: new Map(),
+-               armedAt: Date.now() / 1000 };
++    S.plan = { id: id, gen: gen, status: terminal ? status : "running", tasks: new Map() };
+   } else if (gen > (Number(S.plan.gen) || 0)) {
+     S.plan.gen = gen;
+   }
+@@ -262,7 +261,7 @@ function adoptPlan(requestId, planId, snapshot, finished, generation) {
+   render();
+   api("bootstrap").then((info) => {
+     if (info && info.plan) ingestBootstrapPlan({ plan: info.plan });
+-  }).catch(() => {});
++  }).catch(() => { /* 轮询容错：失败等下一轮 */ });
+ }
+ 
+ function cancelTask(taskId) {
+diff --git a/local/ui/controllers/refresh.js b/local/ui/controllers/refresh.js
+index a5f6c73..6b55daa 100644
+--- a/local/ui/controllers/refresh.js
++++ b/local/ui/controllers/refresh.js
+@@ -66,7 +66,7 @@ function ingestBootstrapPlan(info) {
+   const tasks = plan.tasks || [];
+   const gen = notePlanGeneration(plan.plan_generation);   /* 权威快照定归属（P1） */
+   if (S.plan.id !== id) {
+-    S.plan = { id: id, gen: gen, status: status, tasks: new Map(), armedAt: Date.now() / 1000 };
++    S.plan = { id: id, gen: gen, status: status, tasks: new Map() };
+   } else {
+     /* 同 plan_id 也要推进：状态可能已从 running 走到终态（FR05） */
+     if (gen > (Number(S.plan.gen) || 0)) S.plan.gen = gen;
+@@ -124,6 +124,12 @@ function refresh(quiet) {
+     if (!S.terms.declined && !S.terms.unknown) openTerms();
+     return;
+   }
++  /* 已经知道断网就不要再发学校请求：结果只会是失败，用户看到的反馈是横幅
++   * （原型 Main.dc.html:1849）。网络恢复后由用户自己点刷新。 */
++  if (!S.online) {
++    paintBanners();
++    return;
++  }
+   const checkId = newRoundId("check");
+   const listId = newRoundId("list");
+   /* 每轮各自一个消费代次：这一轮的 ack/catch/终态只能收口这一轮，
+diff --git a/local/ui/state/plan.js b/local/ui/state/plan.js
+index a8a3cc6..87744ae 100644
+--- a/local/ui/state/plan.js
++++ b/local/ui/state/plan.js
+@@ -56,7 +56,7 @@ function handlePlan(payload) {
+   if (!planEventOwns(data)) return;      /* 旧计划迟到事件不替换当前计划（P1） */
+   const gen = admitPlanEvent(data);
+   if (!S.plan.id || S.plan.id !== String(data.plan_id)) {
+-    S.plan = { id: String(data.plan_id || ""), gen: gen, status: String(data.status || "ready"), tasks: new Map(), armedAt: Date.now() / 1000 };
++    S.plan = { id: String(data.plan_id || ""), gen: gen, status: String(data.status || "ready"), tasks: new Map() };
+     S.editing = null;   /* 新计划已接纳：修改流程到此结束 */
+     setBusy(["ready", "running"].indexOf(S.plan.status) >= 0);
+   } else {
+@@ -78,7 +78,7 @@ function handleTask(payload) {
+   if (!planEventOwns(data)) return;           // 旧计划的场次事件：不改当前计划（P1）
+   const gen = admitPlanEvent(data);
+   if (!S.plan.id || S.plan.id !== String(data.plan_id)) {
+-    S.plan = { id: String(data.plan_id || ""), gen: gen, status: "running", tasks: new Map(), armedAt: Date.now() / 1000 };
++    S.plan = { id: String(data.plan_id || ""), gen: gen, status: "running", tasks: new Map() };
+   } else if (gen > (Number(S.plan.gen) || 0)) {
+     S.plan.gen = gen;
+   }

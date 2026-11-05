@@ -1,0 +1,26 @@
+diff --git a/local/application/plan_service.py b/local/application/plan_service.py
+index d0fe0aa..7442ab9 100644
+--- a/local/application/plan_service.py
++++ b/local/application/plan_service.py
+@@ -299,11 +299,16 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
+                 # UI_SPEC 5.8 要求任务卡显示当前阶段，未知/缺失不转发
+                 payload["phase"] = str(parsed["phase"])
+             if not parsed.get("stop_reason"):
+-                # 走直发还是点击、是否在等自动登录（决策 015）：上屏给计划栏
+-                try:
+-                    event_now = clock_now()
+-                except clock_unavailable:
+-                    event_now = None
++                # 走直发还是点击、是否在等自动登录（决策 015）：上屏给计划栏。
++                # progress_event_status 只有 login_wait 的 until 换算消费业务
++                # 时刻，读钟收进该分支：扩窗等其余进度事件不再读钟，保持
++                # 「clock_now 只在入口取一次」的不变量。
++                event_now = None
++                if parsed.get("kind") == "login_wait":
++                    try:
++                        event_now = clock_now()
++                    except clock_unavailable:
++                        event_now = None
+                 payload.update(progress_event_status(parsed, event_now))
+             if payload:
+                 status("submitting", payload)

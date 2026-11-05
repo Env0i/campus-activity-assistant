@@ -1,0 +1,48 @@
+diff --git a/tools/qa_business_clock_worker.py b/tools/qa_business_clock_worker.py
+index f737124..ccd7836 100644
+--- a/tools/qa_business_clock_worker.py
++++ b/tools/qa_business_clock_worker.py
+@@ -11,7 +11,7 @@ ClockClient 进入生产 RetryBudget，并在「重试窗口在启动前已结
+ 
+     python -X utf8 tools/qa_business_clock_worker.py \
+         --exe dist/release-v1.1.1/campus-activity-watch-v1.1.1-win-x64.exe \
+-        --evidence-root <tmp>/campus-beijing-clock-contract-repair-20261026/worker-probe
++        --evidence-root %TEMP%/campus-beijing-clock-contract-repair-20261026/worker-probe
+ 
+ 流程与边界：
+ 1) 计算 exe SHA-256；若发现同目录/上级 manifest.json 则与其中 EXE 指纹核对；
+diff --git a/tools/qa_runtime_reliability.py b/tools/qa_runtime_reliability.py
+index d0c16a1..da8ad53 100644
+--- a/tools/qa_runtime_reliability.py
++++ b/tools/qa_runtime_reliability.py
+@@ -308,7 +308,7 @@ class Session:
+         try:
+             self.context.close()
+         except Exception:
+-            pass
++            pass  # 清理路径：关闭失败不影响断言结论
+ 
+     # ---- 独立北京时间断言（对照测试桥的固定权威 epoch，不硬编码日期）----
+     def qa_now(self) -> float:
+@@ -2983,7 +2983,7 @@ def run_scenarios(base: str, evidence: Path, only: str | None) -> dict:
+                         try:
+                             session.shot("failure")
+                         except Exception:
+-                            pass
++                            pass  # 诊断路径：失败现场截图尽力而为
+                         scenario_report["screenshots"] = session.screenshots
+                         scenario_report["assertions"] = session.assertions
+                         scenario_report["actions"] = session.actions
+diff --git a/tools/verify_autologin_loop.py b/tools/verify_autologin_loop.py
+index 438b36d..f3b518f 100644
+--- a/tools/verify_autologin_loop.py
++++ b/tools/verify_autologin_loop.py
+@@ -79,7 +79,7 @@ def _owner_env() -> dict:
+         m = re.search(r"PRIVATE_OWNER_OPEN_ID=(\S+)", out)
+         if m:
+             env.setdefault("PRIVATE_OWNER_OPEN_ID", m.group(1))
+-    except Exception:
++    except (OSError, subprocess.SubprocessError):  # crontab 缺失/不可读时放弃 owner 探测，env 原样返回
+         pass
+     return env
+ 

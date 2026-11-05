@@ -1,0 +1,35 @@
+diff --git a/local/ui/controllers/plan.js b/local/ui/controllers/plan.js
+index 2e822ad..45b5333 100644
+--- a/local/ui/controllers/plan.js
++++ b/local/ui/controllers/plan.js
+@@ -262,7 +262,7 @@ function adoptPlan(requestId, planId, snapshot, finished, generation) {
+   render();
+   api("bootstrap").then((info) => {
+     if (info && info.plan) ingestBootstrapPlan({ plan: info.plan });
+-  }).catch(() => {});
++  }).catch(() => { /* 轮询容错：失败等下一轮 */ });
+ }
+ 
+ function cancelTask(taskId) {
+diff --git a/local/ui/controllers/update.js b/local/ui/controllers/update.js
+index 71ba534..8cb0450 100644
+--- a/local/ui/controllers/update.js
++++ b/local/ui/controllers/update.js
+@@ -62,7 +62,7 @@ function checkUpdate() {
+       api("bootstrap").then((info) => {
+         /* 快照晚到时用户可能已开新查询；只有仍在接管同一请求才允许恢复。 */
+         if (S.update.requestId === attachedId) restoreUpdate(info && info.update_check);
+-      }).catch(() => {});
++      }).catch(() => { /* 可选路径：恢复失败保持现状 */ });
+     }
+   }).catch((err) => {
+     if (S.update.requestId === requestId && S.update.state === "checking") {
+@@ -115,7 +115,7 @@ function cancelDownload() {
+     return;
+   }
+   if (S.update.state !== "downloading") return;
+-  api("update_cancel").then(() => {}).catch(() => {});
++  api("update_cancel").then(() => {}).catch(() => { /* 取消失败有状态轮询兜底 */ });
+ }
+ 
+ /* 启动安装器是最后一个用户确认动作；关闭主程序由用户自己控制，不自动退出或重启。 */

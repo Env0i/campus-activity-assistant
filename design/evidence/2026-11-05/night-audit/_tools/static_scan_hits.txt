@@ -1,0 +1,146 @@
+R3_eval_exec	design/archive/prototype-2026-10-22/app/app.js:33	const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/.exec(String(s || ""));
+R3_eval_exec	design/archive/prototype-2026-10-22/app/app.js:182	const sk = /相差\s*([+-]?\d+)\s*秒/.exec(p.text || "");
+R3_eval_exec	design/archive/prototype-2026-10-22/app/app.js:237	const m = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (.*)$/.exec(raw);
+R3_eval_exec	design/archive/prototype-2026-10-22/app/app.js:246	else if ((hit = /第\s*(\d+)\s*次提交：(.*)$/.exec(text))) sl.attempts.push({ n: +hit[1], reason: hit[2].trim(), at });
+R3_eval_exec	design/archive/prototype-2026-10-22/app/app.js:248	else if ((hit = /本机时钟与服务器相差\s*([+-]?\d+)\s*秒/.exec(text))) { S.clock.skew = parseInt(hit[1], 10); S.clock.checked = true; }
+R3_eval_exec	design/archive/prototype-2026-10-22/app/app.js:314	const m = /^code:(\S*)\s*(.*)$/.exec(src);
+R3_eval_exec	design/archive/prototype-2026-10-22/app/app.js:822	const m = /^code:(\S*)\s*(.*)$/.exec(reason || "");
+R3_eval_exec	design/archive/prototype-2026-10-22/app/app.js:1219	const m = /^\d{4}-\d{2}-\d{2} (\d{2}:\d{2}:\d{2}) (.*)$/.exec(text);
+R3_eval_exec	design/archive/prototype-2026-10-22/proto/mock-backend.js:46	const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(String(s || ""));
+R1_except_pass	design/evidence/2026-11-02/live-check.md:492	- `local/grab.py:178` `def log(msg)`：每行 `open(LOG_FILE, "a")` 写一条后立即关闭；没有 `RotatingFileHandler`、没有大小上限、没有按天切分，写失败是 `except Exception: pass`（静默）。
+R1_except_pass	design/evidence/2026-11-02/live-check.md:572	| 6 | 写失败静默 | `except Exception: pass` | 日志丢了你也不会知道 |
+R7_naive_dt	local/app.py:157	fp.write("%s %s" % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+R7_naive_dt	local/app.py:583	return _time_text.format_local_text(datetime.now())
+R7_naive_dt	local/app.py:1538	stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/app.py:3347	stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+R7_naive_dt	local/app.py:3364	stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+R7_naive_dt	local/grab.py:231	stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+R6_open_no_with	local/grab.py:310	handle = open(lock_path, "a+b")
+R7_naive_dt	local/grab.py:966	"saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+R7_naive_dt	local/grab.py:1026	session["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/grab.py:1032	session["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/gui.py:701	stamp = datetime.now().strftime("%H:%M:%S")
+R7_naive_dt	local/infrastructure/lifecycle_store.py:33	return format_local_text(datetime.now())
+R7_naive_dt	local/infrastructure/lifecycle_store.py:79	self._prev = compute_lifecycle(raw, datetime.now())
+R6_open_no_with	local/infrastructure/prefs_store.py:111	handle = open(lock_path, "a+b")
+R3_eval_exec	local/tests/test_application_services.py:1374	exec(compile(module, "<note-login>", "exec"), namespace)  # noqa: S102
+R5_secret_lit	local/tests/test_grab_log.py:126	token="abc123SECRET", password="p@ss", captcha_text="ab12",
+R5_secret_lit	local/tests/test_login_relay.py:334	page.token = "old-token"          # 开页前就有旧 token
+R7_naive_dt	local/tests/test_retry_policy.py:242	at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_retry_policy.py:270	sign_end = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_retry_policy.py:419	sign_end = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_retry_policy.py:777	at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_retry_policy.py:778	sign_end = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_session_persistence.py:184	{"saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
+R7_naive_dt	local/tests/test_session_persistence.py:190	{"token": "t", "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
+R7_naive_dt	local/tests/test_session_persistence.py:198	stale = (datetime.now() - timedelta(hours=25)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_session_persistence.py:333	past_end = (datetime.now() - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_session_persistence.py:437	at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_session_persistence.py:504	closed = datetime.now() - timedelta(hours=1)
+R7_naive_dt	local/tests/test_session_persistence.py:507	life = app.compute_lifecycle(prev, datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:514	beat = datetime.now() - timedelta(hours=2)
+R7_naive_dt	local/tests/test_session_persistence.py:516	datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:520	closed = datetime.now() - timedelta(hours=3)
+R7_naive_dt	local/tests/test_session_persistence.py:524	datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:530	life = app.compute_lifecycle({}, datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:533	bad = app.compute_lifecycle({"last_closed_at": "not-a-time"}, datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:539	future = datetime.now() + timedelta(hours=2)
+R7_naive_dt	local/tests/test_session_persistence.py:541	datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:593	life._write_merged({"last_heartbeat_at": self._stamp(datetime.now())})
+R7_naive_dt	local/tests/test_session_persistence.py:641	past = datetime.now() - timedelta(hours=2)
+R7_naive_dt	local/tests/test_session_persistence.py:671	closed_a = datetime.now() - timedelta(hours=3)
+R7_naive_dt	local/tests/test_session_persistence.py:672	started_b = datetime.now() - timedelta(minutes=10)
+R7_naive_dt	local/tests/test_session_persistence.py:677	life = app.compute_lifecycle(prev, datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:686	started = datetime.now() - timedelta(minutes=5)
+R7_naive_dt	local/tests/test_session_persistence.py:690	datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:697	at = datetime.now() - timedelta(minutes=1)
+R7_naive_dt	local/tests/test_session_persistence.py:701	clean = app.compute_lifecycle(dict(base, run_open=False), datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:703	crash = app.compute_lifecycle(dict(base, run_open=True), datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:709	prev = {"last_closed_at": self._stamp(datetime.now() - timedelta(hours=3)),
+R7_naive_dt	local/tests/test_session_persistence.py:710	"last_started_at": self._stamp(datetime.now() - timedelta(minutes=10)),
+R7_naive_dt	local/tests/test_session_persistence.py:711	"last_heartbeat_at": self._stamp(datetime.now() - timedelta(minutes=11))}
+R7_naive_dt	local/tests/test_session_persistence.py:712	life = app.compute_lifecycle(prev, datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:731	self._stamp(datetime.now() + timedelta(hours=1))})
+R7_naive_dt	local/tests/test_session_persistence.py:768	old_saved = datetime.now() - timedelta(hours=12)
+R7_naive_dt	local/tests/test_session_persistence.py:796	new_saved = datetime.now() - timedelta(minutes=1)
+R7_naive_dt	local/tests/test_session_persistence.py:821	life = app.compute_lifecycle({"last_closed_at": self._stamp(datetime.now() - timedelta(hours=10))},
+R7_naive_dt	local/tests/test_session_persistence.py:822	datetime.now())
+R7_naive_dt	local/tests/test_session_persistence.py:838	saved = datetime.now() - timedelta(hours=10)
+R7_naive_dt	local/tests/test_session_persistence.py:857	stale = datetime.now() - timedelta(hours=25)
+R7_naive_dt	local/tests/test_session_persistence.py:1269	now = datetime.now()
+R6_open_no_with	local/tests/test_session_writer.py:88	holder = open(str(self.session) + ".lock", "a+b")
+R6_open_no_with	local/tests/test_session_writer.py:137	holder = open(str(self.session) + ".lock", "a+b")
+R6_open_no_with	local/tests/test_session_writer.py:157	holder = open(str(self.session) + ".lock", "a+b")
+R7_naive_dt	local/tests/test_signup_plan.py:296	now = datetime.now().replace(microsecond=0)
+R7_naive_dt	local/tests/test_signup_plan.py:593	at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_signup_plan.py:774	at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_signup_plan.py:814	at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_signup_plan.py:840	past_at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_signup_plan.py:1081	now = datetime.now().replace(microsecond=0)
+R7_naive_dt	local/tests/test_signup_plan.py:1127	now = datetime.now().replace(microsecond=0)
+R7_naive_dt	local/tests/test_signup_plan.py:1169	now = datetime.now().replace(microsecond=0)
+R3_eval_exec	local/tests/test_terms_consent.py:132	exec(compile(helpers, "<terms-helpers>", "exec"), namespace)  # noqa: S102
+R3_eval_exec	local/tests/test_terms_consent.py:138	exec(compile(methods, "<terms-gate>", "exec"), namespace)  # noqa: S102
+R3_eval_exec	local/tests/test_terms_consent.py:322	exec(compile(helpers, "<terms-helpers>", "exec"), namespace)  # noqa: S102
+R3_eval_exec	local/tests/test_terms_consent.py:326	exec(compile(method, "<accept-terms>", "exec"), namespace)  # noqa: S102
+R3_eval_exec	local/tests/test_terms_consent.py:425	exec(compile(helpers, "<terms-helpers>", "exec"), namespace)  # noqa: S102
+R3_eval_exec	local/tests/test_terms_consent.py:429	exec(compile(methods, "<withdraw-terms>", "exec"), namespace)  # noqa: S102
+R3_eval_exec	local/tests/test_terms_consent.py:514	exec(compile(helpers, "<terms-helpers>", "exec"), namespace)  # noqa: S102
+R3_eval_exec	local/tests/test_terms_consent.py:518	exec(compile(methods, "<auto-eligible>", "exec"), namespace)  # noqa: S102
+R3_eval_exec	local/tests/test_ui_contract.py:74	exec(compile(module, "<Api.help>", "exec"), namespace)  # noqa: S102 - 只编译受控片段
+R7_naive_dt	local/tests/test_ui_contract.py:247	fresh = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	local/tests/test_ui_contract.py:262	stale = (datetime.now() - timedelta(hours=25)).strftime("%Y-%m-%d %H:%M:%S")
+R3_eval_exec	local/tests/test_ui_contract.py:1908	const real = window[name] || eval(name);
+R3_eval_exec	local/tests/test_ui_contract.py:1910	if (name in window) window[name] = spy; else eval(name + " = spy");
+R3_eval_exec	local/tests/test_ui_contract.py:4073	exec(compile(module, "<Api.open_data>", "exec"), namespace)  # noqa: S102 - 只编译受控片段
+R3_eval_exec	local/tests/test_ui_contract.py:4408	exec(compile(module, "<terms_state>", "exec"), namespace)  # noqa: S102
+R3_eval_exec	local/tests/test_ui_contract.py:4480	exec(compile(module, "<accept_terms>", "exec"), namespace)  # noqa: S102
+R3_eval_exec	local/tests/test_ui_contract.py:4545	exec(compile(module, "<accept_terms>", "exec"), namespace)  # noqa: S102
+R3_eval_exec	local/tests/test_ui_contract.py:6445	exec(compile(module, "<Api.get_license_text>", "exec"), ns)  # noqa: S102
+R5_secret_lit	local/tests/test_worker_boundaries.py:613	api_token="test-token",
+R3_eval_exec	local/ui/m/app.js:48	.exec(String(item.sign_start || "").trim());
+R3_eval_exec	local/ui/views/phone.js:307	const portMatch = /:(\d+)\//.exec(String(st.address || ""));
+R7_naive_dt	server/deploy/auto_login.py:132	return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	server/deploy/auto_login.py:507	if (datetime.now() - when).total_seconds() > PROBE_STALE_SEC:
+R7_naive_dt	server/deploy/auto_login.py:540	return (datetime.now() - when).total_seconds() < seconds
+R7_naive_dt	server/deploy/auto_login.py:612	out_dir = os.path.join(DRY_RUN_DIR, datetime.now().strftime("%Y%m%d-%H%M%S"))
+R6_open_no_with	server/deploy/auto_login.py:667	self.handle = open(self.path, "w")
+R7_naive_dt	server/deploy/grab_signup.py:62	line = "%s %s" % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), msg)
+R7_naive_dt	server/deploy/grab_signup.py:582	"报名时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+R6_open_no_with	server/deploy/legacy/install_nginx_http_route.py:33	src = open(CONF, encoding="utf-8").read()
+R6_open_no_with	server/deploy/legacy/install_nginx_route.py:20	src = open(CONF, encoding="utf-8").read()
+R7_naive_dt	server/scripts/common.py:140	Asia/Shanghai，用 datetime.now() 分类会整体错位几小时：活动会被判成
+R6_open_no_with	server/scripts/common.py:221	handle = open(str(lock_path), "a+b")
+R6_open_no_with	server/scripts/common.py:263	handle = open(str(lock_path), "a+b")
+R7_naive_dt	server/scripts/dev/push_card.py:39	card = build(view, datetime.now())
+R7_naive_dt	server/scripts/grab_card.py:39	"sent_at": (sent_at or datetime.now()).strftime(FMT),
+R7_naive_dt	server/scripts/grab_card.py:64	now = now or datetime.now()
+R7_naive_dt	server/scripts/grab_card.py:108	now = now or datetime.now()
+R7_naive_dt	server/scripts/net_probe.py:170	ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	server/scripts/query.py:115	now = datetime.now()
+R7_naive_dt	server/scripts/remind.py:40	now = datetime.now()
+R7_naive_dt	server/scripts/run.py:48	lines += digest_lines(digest_items(summary), datetime.now())
+R7_naive_dt	server/scripts/run.py:62	today = datetime.now().strftime("%Y-%m-%d")
+R7_naive_dt	server/scripts/run.py:63	cutoff = (datetime.now() - timedelta(days=120)).strftime("%Y-%m-%d")
+R7_naive_dt	server/scripts/run.py:110	mid = send_private_card(grab_pending_card(pending, datetime.now(), queued))
+R7_naive_dt	server/scripts/selfcheck.py:50	now = datetime.now()
+R7_naive_dt	server/scripts/selfcheck.py:77	now = datetime.now()
+R7_naive_dt	server/scripts/selfcheck.py:126	now = datetime.now()
+R7_naive_dt	server/scripts/token_probe.py:62	secs = int((datetime.now() - started).total_seconds())
+R5_secret_lit	server/scripts/token_probe.py:72	"token=" + (fp or "-"),
+R7_naive_dt	server/scripts/token_probe.py:178	ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	server/scripts/token_report.py:143	now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	server/scripts/watchlist.py:44	return datetime.now().strftime(FMT)
+R7_naive_dt	server/scripts/watchlist.py:126	if datetime.now() > start + timedelta(seconds=float(window)):
+R7_naive_dt	server/scripts/watchlist_runner.py:137	now = datetime.now()
+R7_naive_dt	server/tests/test_dedup.py:138	print(f"[i] 已还原 state.json（{datetime.now():%H:%M:%S}）")
+R7_naive_dt	server/tests/test_login_resilience.py:132	base = base or datetime.now()
+R7_naive_dt	server/tests/test_login_resilience.py:159	self._write(["fail"], base=datetime.now() - timedelta(hours=2))
+R7_naive_dt	server/tests/test_runtime_safety.py:452	base = datetime.now() + timedelta(minutes=5)
+R7_naive_dt	server/tests/test_watchlist_safety.py:164	return (datetime.now() + timedelta(seconds=seconds)).strftime(wl.FMT)
+R3_eval_exec	tools/qa_runtime_reliability.py:929	const m = /(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px/.exec(shadow || "");
+R7_naive_dt	tools/release.py:294	"built_at": datetime.now().isoformat(timespec="seconds"),
+R7_naive_dt	tools/release.py:641	"created": datetime.now().astimezone().isoformat(timespec="seconds"),
+R7_naive_dt	tools/split_branches.py:112	% (subdir, SOURCE_COMMIT, datetime.now().isoformat(timespec="seconds")), encoding="utf-8")
+R7_naive_dt	tools/verify_autologin_loop.py:50	return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+R7_naive_dt	tools/verify_autologin_loop.py:110	stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")

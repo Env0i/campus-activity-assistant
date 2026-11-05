@@ -1,0 +1,48 @@
+diff --git a/server/deploy/grab_signup.py b/server/deploy/grab_signup.py
+index ce40497..bd66971 100644
+--- a/server/deploy/grab_signup.py
++++ b/server/deploy/grab_signup.py
+@@ -744,7 +744,7 @@ def run_submit_loop(page, *, activity_id, at_ts, window_s, sign_end_ts=None,
+             try:
+                 page.remove_listener(event_name, handler)
+             except Exception:
+-                pass
++                pass  # 解除监听失败不阻断收尾：页面随浏览器退出销毁，监听随之消失
+ 
+ 
+ def main():
+diff --git a/server/scripts/login.py b/server/scripts/login.py
+index fdb14c0..7b2f90b 100644
+--- a/server/scripts/login.py
++++ b/server/scripts/login.py
+@@ -87,7 +87,7 @@ def interactive_login() -> dict | None:
+                 page.screenshot(path=str(PROFILE.parent / "login-ok.png"),
+                                 full_page=False)
+             except Exception:
+-                pass
++                pass  # 截图只是登录成功的留档：失败不影响返回已拿到的会话
+         ctx.close()
+         return session
+ 
+diff --git a/server/scripts/notify.py b/server/scripts/notify.py
+index 943635d..b27fe4f 100644
+--- a/server/scripts/notify.py
++++ b/server/scripts/notify.py
+@@ -323,7 +323,7 @@ def _tenant_token(app: dict, force: bool = False) -> str:
+                     and float(cached.get("expire_at") or 0) - 300 > now):
+                 return cached["token"]
+         except Exception:
+-            pass
++            pass  # 缓存读不出（缺失/损坏/解析异常）就当无缓存：下方回源重取
+ 
+     url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+     ok, body = _post(url, {"app_id": app.get("app_id", ""),
+@@ -348,7 +348,7 @@ def _tenant_token(app: dict, force: bool = False) -> str:
+         }, ensure_ascii=False, indent=2), encoding="utf-8")
+         os.chmod(str(cache_file), 0o600)
+     except Exception:
+-        pass
++        pass  # 缓存写失败只损失下次加速：token 本身已在手，直接返回使用
+     return token
+ 
+ 

@@ -1,0 +1,58 @@
+diff --git a/server/deploy/auto_login.py b/server/deploy/auto_login.py
+index d90e7af..cd5ff4c 100644
+--- a/server/deploy/auto_login.py
++++ b/server/deploy/auto_login.py
+@@ -139,7 +139,7 @@ def log(msg):
+         with open(LOG_FILE, "a", encoding="utf-8") as f:
+             f.write(line + "\n")
+     except Exception:
+-        pass
++        pass  # 日志文件写失败已有下方 print 兜底，不再重复处理
+     print(line, flush=True)
+ 
+ 
+@@ -381,7 +381,7 @@ def _submit_once(ctx, creds, persist=True, dummy_code=None):
+             if cb.count():
+                 cb.click(timeout=3000)
+         except Exception:
+-            pass
++            pass  # 复选框可能不存在于当前页面形态（count 为 0 已跳过）：点击失败不挡提交
+ 
+         try:
+             with page.expect_response(
+@@ -436,7 +436,7 @@ def _submit_once(ctx, creds, persist=True, dummy_code=None):
+         try:
+             page.close()
+         except Exception:
+-            pass
++            pass  # close 失败交给浏览器进程退出回收：不得掩盖上方已分类的返回结论
+ 
+ 
+ # ------------------------------------------------------------ 告警
+@@ -550,7 +550,7 @@ def _clear_alert_state():
+         st["last_alert_ts"] = 0
+         atomic_write_json(ALERT_STATE_FILE, st, 0o600)
+     except Exception:
+-        pass
++        pass  # 冷却重置失败下轮仍走冷却，只是可能晚发一次告警；不影响登录态判定
+ 
+ 
+ def _fp_age_hours(token):
+@@ -578,7 +578,7 @@ def _fp_age_hours(token):
+         try:
+             atomic_write_json(ALERT_STATE_FILE, st, 0o600)
+         except Exception:
+-            pass
++            pass  # 指纹落盘失败下次仍按首见计 0 小时：只影响排障时长估计，不影响登录
+         return 0.0
+     return (time.time() - float(ts)) / 3600.0
+ 
+@@ -805,7 +805,7 @@ def main():
+                         try:
+                             ctx.close()
+                         except Exception:
+-                            pass
++                            pass  # close 失败交给浏览器进程退出回收：不影响重试循环与告警收尾
+                     if ok:
+                         atomic_write_json(ALERT_STATE_FILE, {"last_alert_ts": 0}, 0o600)
+                         return 0

@@ -1,0 +1,211 @@
+diff --git a/local/business_clock.py b/local/business_clock.py
+index f66964f..6c58144 100644
+--- a/local/business_clock.py
++++ b/local/business_clock.py
+@@ -662,7 +662,7 @@ class BusinessClock:
+         try:
+             self.sync()
+         except Exception:
+-            pass
++            pass  # 启动首同步失败走下方退避节奏重试：界面停在「正在获取」等下一轮
+         while True:
+             with self._lock:
+                 wait = self._resync_interval_s
+@@ -683,7 +683,7 @@ class BusinessClock:
+             try:
+                 self.sync()
+             except Exception:
+-                pass
++                pass  # 单轮重校失败由退避门控排期：快照保持上次已知时刻，不中断线程
+             with self._lock:
+                 if self._closed:
+                     return
+diff --git a/local/grab.py b/local/grab.py
+index ac141bc..ef0f2c6 100644
+--- a/local/grab.py
++++ b/local/grab.py
+@@ -159,7 +159,7 @@ def setup_console():
+         try:
+             stream.reconfigure(encoding="utf-8", errors="replace")
+         except Exception:
+-            pass
++            pass  # 个别流不支持 reconfigure 就保持原样：编码优化尽力而为，不挡启动
+ 
+ 
+ def _school_open(request, timeout=None):
+@@ -216,7 +216,7 @@ def _stderr_note(text):
+     try:
+         print(text, file=stream, flush=True)
+     except Exception:
+-        pass
++        pass  # stderr 是日志最后出口：自己再失败不能抛，否则拖垮调用它的异常处理
+ 
+ 
+ def log(msg):
+@@ -281,7 +281,7 @@ def write_json_atomic(path, obj):
+         try:
+             os.chmod(path, 0o600)
+         except Exception:
+-            pass
++            pass  # chmod 收紧失败不回滚写入：文件已原子落盘，权限按系统默认保留
+ 
+ 
+ # ---- 登录态写入（S5）---------------------------------------------------------
+@@ -352,7 +352,7 @@ def _unlink_quiet(path):
+     try:
+         Path(path).unlink(missing_ok=True)
+     except Exception:
+-        pass
++        pass  # 本函数专做尽力清理：删不掉保持安静，残留不影响调用方流程
+ 
+ 
+ def _snapshot_bytes(path):
+@@ -785,6 +785,34 @@ def enrich_attendance_items(items, max_workers=DETAIL_CONCURRENCY):
+     return rows
+ 
+ 
++def _map_activity(raw):
++    """学校列表接口的一条活动 → 本地字段结构（纯映射，不发请求、不读全局状态）。
++
++    字段名换成好读的名字；规则与顺序跟原来写在 fetch_activities 循环里的一字不差，
++    契约测试用 contracts/school-api/list-activity.*.json 逐键比对。
++    """
++    return {
++        "id": raw.get("id", ""),
++        "name": (raw.get("hdmc") or "").strip(),
++        "type": raw.get("hdlx") or "其他",
++        "place": raw.get("hddd") or "",
++        "sign_start": raw.get("bmkssj") or "",
++        "sign_end": raw.get("bmjssj") or "",
++        "act_start": raw.get("hdkssj") or "",
++        "act_end": raw.get("hdjssj") or "",
++        "signed": raw.get("bmzt") == 1,
++        "checkin_required": _activity_flag(raw, CHECKIN_FLAG_NAMES),
++        "checkout_required": _activity_flag(raw, CHECKOUT_FLAG_NAMES),
++        # 列表若已带回时间段就直接用；没有则留空，等详情补充
++        "checkin_start": _activity_time(raw, CHECKIN_START_NAMES),
++        "checkin_end": _activity_time(raw, CHECKIN_END_NAMES),
++        "checkout_start": _activity_time(raw, CHECKOUT_START_NAMES),
++        "checkout_end": _activity_time(raw, CHECKOUT_END_NAMES),
++        "attendance_source": "list",
++        "attendance_state": "unknown",
++    }
++
++
+ def fetch_activities(budget=None, with_details=False):
+     """分页拉活动列表；返回本地字段结构（字段名已换成好读的名字）。
+ 
+@@ -806,26 +834,7 @@ def fetch_activities(budget=None, with_details=False):
+         for raw in chunk:
+             if not raw.get("hdmc"):
+                 continue
+-            out.append({
+-                "id": raw.get("id", ""),
+-                "name": (raw.get("hdmc") or "").strip(),
+-                "type": raw.get("hdlx") or "其他",
+-                "place": raw.get("hddd") or "",
+-                "sign_start": raw.get("bmkssj") or "",
+-                "sign_end": raw.get("bmjssj") or "",
+-                "act_start": raw.get("hdkssj") or "",
+-                "act_end": raw.get("hdjssj") or "",
+-                "signed": raw.get("bmzt") == 1,
+-                "checkin_required": _activity_flag(raw, CHECKIN_FLAG_NAMES),
+-                "checkout_required": _activity_flag(raw, CHECKOUT_FLAG_NAMES),
+-                # 列表若已带回时间段就直接用；没有则留空，等详情补充
+-                "checkin_start": _activity_time(raw, CHECKIN_START_NAMES),
+-                "checkin_end": _activity_time(raw, CHECKIN_END_NAMES),
+-                "checkout_start": _activity_time(raw, CHECKOUT_START_NAMES),
+-                "checkout_end": _activity_time(raw, CHECKOUT_END_NAMES),
+-                "attendance_source": "list",
+-                "attendance_state": "unknown",
+-            })
++            out.append(_map_activity(raw))
+         if not chunk or len(out) >= total:
+             break
+         page += 1
+@@ -834,11 +843,35 @@ def fetch_activities(budget=None, with_details=False):
+     return out
+ 
+ 
++def _join_state(payload):
++    """getJoinInfo 的 data → 是否已报名（与学校前端同口径）。
++
++    出处：school-frontend-analysis.md 9.2/9.3/9.8（学校前端静态分析）：
++    - data 为 null（顺带容忍空对象/空数组）：从没报过 → 未报名；
++    - sfcx（是否撤销）为 1：学校把「已撤销」当成可以再报，列表里也退回可报名 →
++      未报名。只判 data 非空会把撤销过的活动永远钉在「已报名」；
++    - sfbm（是否报名）明确为假：学校自己说没报上 → 未报名；
++    - 其余（含缺 sfbm 字段、形状认不出）：按已报名处理。宁可漏报一次，
++      也不要因为读不懂回包就再提交一遍，把「结果未知」变成重复报名。
++    """
++    if payload in (None, {}, []):
++        return False
++    if not isinstance(payload, dict):
++        return True
++    if payload.get("sfcx") in (1, "1", True):
++        return False
++    if payload.get("sfbm") in (0, "0", False):
++        return False
++    return True
++
++
+ def is_joined(act_id, budget=None):
+     """getJoinInfo：未报名时 data 为 null，报名后 data 是对象。
+ 
+     实测形状（2026-11-03）：未报名 {"code": 1, "message": "操作成功！", "data": null}；
+     已报名 data 带 sfbm=1（是否报名）、bmsj（报名时间）、qdzt/qtzt（签到/签退状态）等。
++    报名后又撤销的 data 不回到 null，而是留在对象里并带 sfcx=1，所以判据交给
++    _join_state()（见那里的三条口径与出处）。
+ 
+     传入 budget 时返回三态：True 已报名 / False 确认未报名 / None 查询没成功。
+     最后一种绝不能被当成「未报名」——把它当未报名会再发一次提交，
+@@ -850,7 +883,7 @@ def is_joined(act_id, budget=None):
+                  timeout=None if budget is None else budget.timeout_s(15))
+     if not isinstance(data, dict) or data.get("code") != 1:
+         return False if budget is None else None
+-    return data.get("data") not in (None, {}, [])
++    return _join_state(data.get("data"))
+ 
+ 
+ def parse_ts(text):
+@@ -3115,7 +3148,7 @@ def cmd_grab(args):
+                         try:
+                             direct["transport"].close()
+                         except Exception:
+-                            pass
++                            pass  # 直发通道收尾失败不补救：结算只认已入队的提交事实
+                     # 再 drain 提交点已入队的 started/completed，然后取消未跨点
+                     # 预留：不得因 reserved 尚未转 pending 而误报零次/失败
+                     _settle_pending()
+@@ -3527,17 +3560,17 @@ def cmd_grab(args):
+                     try:
+                         page.remove_listener(event_name, handler)
+                     except Exception:
+-                        pass
++                        pass  # 解除监听失败不阻断收尾：页面随 browser.close 销毁，监听随之消失
+                 # 直发通道：关新发射（不等待在途线程，不假装取消学校处理）
+                 if direct is not None and direct.get("transport") is not None:
+                     try:
+                         direct["transport"].close()
+                     except Exception:
+-                        pass
++                        pass  # 直发通道在 finally 再关一次：失败不掩盖上方真实终态
+                 try:
+                     browser.close()
+                 except Exception:
+-                    pass
++                    pass  # 浏览器关闭失败不掩盖真实终态：进程退出回收浏览器子进程
+     except ClockUnavailable:
+         # 校时在浏览器阶段失效：已发出的提交保持未决事实，零提交不算失败
+         return _clock_stop()
+diff --git a/local/signup_transport.py b/local/signup_transport.py
+index 05b4c69..9e04ff2 100644
+--- a/local/signup_transport.py
++++ b/local/signup_transport.py
+@@ -168,5 +168,5 @@ class DirectTransport:
+                 try:
+                     close()
+                 except Exception:
+-                    pass
++                    pass  # 响应体已读/失败已分类：关闭失败交给运行时回收，不得掩盖已定结论
+         self._emit(ticket, "completed", http_status=status, body_bytes=body)

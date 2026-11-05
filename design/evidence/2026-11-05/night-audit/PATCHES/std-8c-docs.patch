@@ -1,0 +1,53 @@
+diff --git a/design/README.md b/design/README.md
+index 3ea5cf1..6a1cd65 100644
+--- a/design/README.md
++++ b/design/README.md
+@@ -49,8 +49,8 @@
+ | 签到 / 签退三态筛选 | implemented | [005](decisions/005-attendance-filters.md) |
+ | 登录态持久化与启动校验（四态 / 4001 / 迁移） | implemented | [006](decisions/006-session-persistence.md) |
+ | 运行时间线（真实事件 + 原定参考 + 统一截止） | implemented（真机验收待用户） | [007](decisions/007-runtime-timeline.md) |
+-| 应用生命周期、版本单一来源与发布资产 | v1.1.0 已发布（2026-10-26）；1.1.1 为未上传补丁候选，学校真机验收仍待用户 | [008](decisions/008-lifecycle-version-release.md) |
+-| 五步可重播功能引导（内容版本 3） | confirmed（待实现；旧六步仍在代码里） | [009](decisions/009-replayable-product-tour.md) |
++| 应用生命周期、版本单一来源与发布资产 | v1.1.1 已发布到 GitHub Release；当前候选 1.2.0（VERSION），学校真机验收仍待用户 | [008](decisions/008-lifecycle-version-release.md) |
++| 五步可重播功能引导（内容版本 3） | implemented（TOUR_VERSION=3）；真机验收待用户 | [009](decisions/009-replayable-product-tour.md) |
+ | 独立可用单EXE | implemented（离线实包通过，用户真机待验收） | [010](decisions/010-standalone-exe-and-settings.md) |
+ | 设置 + 帮助分工与手动检查更新 | confirmed（入口分工 2026-11-02 修订，代码未落地） | [011](decisions/011-unified-help-and-manual-update.md) · [规范](specs/assistance-panels.md) |
+ | 新工作台（时刻表 + 计划栏、窗口分档、阶段表与提醒） | confirmed（代码未落地，实现见 UI-B/UI-C） | [014](decisions/014-workbench-ui.md) · [设计](../docs/superpowers/specs/2026-11-02-workbench-ui-redesign-design.md) · [状态对照表](../docs/superpowers/specs/2026-11-02-workbench-ui-state-map.md) |
+@@ -68,7 +68,7 @@ implemented 另要求代码落地并有证据，proposed 一律放 [proposals/](
+ | 有效登录下的真机验收（开放前 100 秒真实开页 / 前 5 秒盯按钮 / 混合计划 / 重启恢复 / 停止链路） | 只有用户能做 | [007 已知限制](decisions/007-runtime-timeline.md) |
+ | 真实已截止活动视觉（demo 无样本）、真实断网确认 | 只有用户能做 | 同上；断网另有模拟证据 |
+ | EXE 重开复用登录态真机确认 | 只有用户能做 | [006 已知限制](decisions/006-session-persistence.md) |
+-| 可重播分步功能引导 | 五步规则已定，代码未实现（旧六步在代码里），待 UI-B 替换后由用户真机过一遍 | [009 已知限制](decisions/009-replayable-product-tour.md) |
++| 可重播分步功能引导 | 已实现（五步，TOUR_VERSION=3）；真机验收待补 | [009 已知限制](decisions/009-replayable-product-tour.md) |
+ | 生命周期提示 / 版本查看 / Release 入口真机确认 | 只有用户能做 | [008 已知限制](decisions/008-lifecycle-version-release.md) |
+ | 五项体验缺陷 UX-01～05（空态误导 / 三步缺开始 / 已知零显示破折号 / 运行目标读旧选择 / 单场成功染整屏） | 隔离运行已通过，**用户与学校实测仍分列** | [UI_SPEC §5.14](../docs/UI_SPEC.md) · [辅助入口规范](specs/assistance-panels.md) |
+ | 验证码是否区分大小写 | 只有学校回包或用户能确认；界面先按「没见过」处理 | [014 已知限制](decisions/014-workbench-ui.md) |
+diff --git a/design/specs/README.md b/design/specs/README.md
+index 278c9cd..709c799 100644
+--- a/design/specs/README.md
++++ b/design/specs/README.md
+@@ -14,8 +14,9 @@
+ | 规范 | 覆盖 |
+ |---|---|
+ | [copywriting.md](copywriting.md) | 全界面短文案规则与现行用词表 |
+-| [versioning-and-release.md](versioning-and-release.md) | 版本线（已发布 v1.0.2 → 候选 v1.1.0）、升版口径与资产绑定 |
+-| [assistance-panels.md](assistance-panels.md) | 辅助入口：说明 / 更多 / 六步引导的职责、线框、文案与状态矩阵 |
++| [versioning-and-release.md](versioning-and-release.md) | 版本线（已发布 v1.1.1 → 候选 1.2.0，以 VERSION 为准）、升版口径与资产绑定 |
++| [assistance-panels.md](assistance-panels.md) | 辅助入口：设置抽屉 + 帮助面板 + 五步引导的职责、线框、文案与状态矩阵 |
++| [terms-consent.md](terms-consent.md) | 条款三层结构与同意/撤回契约 |
+ 
+ ## 写作约定
+ 
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+index af5545c..4f440af 100644
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -174,7 +174,7 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（
+ | infrastructure | `prefs_store` | ui.json 跨进程锁 + 原子读-合并-写 | app 外观、lifecycle_store | 无 |
+ | infrastructure | `process_tree` | Windows Job Object 进程树所有权、taskkill 整树终止 | app 外观（spawn 端口） | 无 |
+ | infrastructure | `lifecycle_store` | 启动冻结/心跳/正常关闭的 ui.json 记账 | app.get_lifecycle | prefs_store + domain |
+-| interface | `app.py` | Api 49 个公开方法、条款门禁、事件发射、worker 命令装配、main；composition root：向 domain/application 注入 signup_plan 纯函数、time_contract 换算、business_clock 异常类型 | pywebview / 测试 | 全部下层（裸名注入缝保持 app.X 可替换） |
++| interface | `app.py` | Api 54 个公开方法、条款门禁、事件发射、worker 命令装配、main；composition root：向 domain/application 注入 signup_plan 纯函数、time_contract 换算、business_clock 异常类型 | pywebview / 测试 | 全部下层（裸名注入缝保持 app.X 可替换） |
+ | interface | `ui/state/**` | 状态仓库 S 与纯投影（clock/plan/login/filters/labels/time/task-display） | controllers/views | 无（store.js 仅 `$` 选择器工具；login.js 一处 body 就绪守卫） |
+ | interface | `ui/controllers/**` | 用例编排与桥接（bridge/refresh/plan/plan-events/clock/terms/update/prefs/tick） | app.js 事件绑定 | state + api()；terms/update 两个 controller 零 DOM（结构契约测试守护） |
+ | interface | `ui/views/**` | DOM 呈现（list/board/login/clock/clock-pop/log/selection/terms/help/update/tour） | render/tick 与 controller 调用 | state 投影（不发桥接请求）；terms/update 的 DOM 查询与呈现全部在此 |

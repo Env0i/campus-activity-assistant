@@ -1,0 +1,202 @@
+diff --git a/local/tests/test_retry_phone_policy.py b/local/tests/test_retry_phone_policy.py
+index a4f56bf..8f09b1c 100644
+--- a/local/tests/test_retry_phone_policy.py
++++ b/local/tests/test_retry_phone_policy.py
+@@ -42,7 +42,7 @@ from domain.retry_window import (  # noqa: E402
+ from domain.time_text import task_deadline  # noqa: E402
+ from grab import BurstPolicy, compute_retry_window  # noqa: E402
+ from signup_plan import TaskSpec  # noqa: E402
+-from fixtures.business_clock import TestWallClock  # noqa: E402
++from fixtures.business_clock import WallClockStub  # noqa: E402
+ 
+ 
+ # ---- 学校时间文本换算（与 ui/state/time.js 的 toTs 同一公式）------------
+@@ -136,7 +136,7 @@ class _ServiceCase(unittest.TestCase):
+              sign_end: str = "", cancel_after: float | None = None,
+              announce_deadline: "float | None" = None, clock_spy=None):
+         """跑一场 fake worker；返回 (result, elapsed, events, captured_args)。"""
+-        api = self.app.Api(clock=TestWallClock())
++        api = self.app.Api(clock=WallClockStub())
+         events = []
+         api._emit = lambda kind, payload: events.append((kind, payload))
+         cancel = threading.Event()
+@@ -372,7 +372,7 @@ class PlanServiceModeTests(_ServiceCase):
+         now = time.time()
+         anchor = now - (DEFAULT_RETRY_SECONDS - 1.0)   # 初始截止 ≈ 1 秒后
+         candidate = anchor + DEFAULT_RETRY_SECONDS + 4.0
+-        api = self.app.Api(clock=TestWallClock())
++        api = self.app.Api(clock=WallClockStub())
+         api._emit = lambda kind, payload: None
+         cancel = threading.Event()
+         original_env = self.app._env
+@@ -404,7 +404,7 @@ class PlanServiceModeTests(_ServiceCase):
+         now = time.time()
+         anchor = now - (DEFAULT_RETRY_SECONDS - 1.0)
+         candidate = anchor + DEFAULT_RETRY_SECONDS + 8.0
+-        api = self.app.Api(clock=TestWallClock())
++        api = self.app.Api(clock=WallClockStub())
+         api._emit = lambda kind, payload: None
+         cancel = threading.Event()
+         original_env = self.app._env
+@@ -433,7 +433,7 @@ class PlanServiceModeTests(_ServiceCase):
+         now = time.time()
+         anchor = now - (DEFAULT_RETRY_SECONDS - 1.0)
+         candidate = anchor + DEFAULT_RETRY_SECONDS + 8.0
+-        api = self.app.Api(clock=TestWallClock())
++        api = self.app.Api(clock=WallClockStub())
+         api._emit = lambda kind, payload: None
+         cancel = threading.Event()
+         original_env = self.app._env
+@@ -461,7 +461,7 @@ class PlanServiceModeTests(_ServiceCase):
+         now = time.time()
+         anchor = now - (DEFAULT_RETRY_SECONDS - 1.0)
+         candidate = anchor + DEFAULT_RETRY_SECONDS + 4.0
+-        api = self.app.Api(clock=TestWallClock())
++        api = self.app.Api(clock=WallClockStub())
+         api._emit = lambda kind, payload: None
+         cancel = threading.Event()
+         original_env = self.app._env
+@@ -608,7 +608,7 @@ class CanonicalOptionsTests(unittest.TestCase):
+         self.addCleanup(shutil.rmtree, tmp, True)
+         with mock.patch.object(local_app, "PREFS", Path(tmp) / "ui.json"), \
+                 mock.patch.object(local_app, "DEMO", True):
+-            payload = local_app.Api(clock=TestWallClock()).bootstrap()
++            payload = local_app.Api(clock=WallClockStub()).bootstrap()
+         return payload["retry_options"]
+ 
+     def test_desktop_select_options_match_bootstrap_canonical_choices(self):
+diff --git a/local/tests/test_retry_policy.py b/local/tests/test_retry_policy.py
+index 729f912..9741120 100644
+--- a/local/tests/test_retry_policy.py
++++ b/local/tests/test_retry_policy.py
+@@ -2,7 +2,8 @@
+ # -*- coding: utf-8 -*-
+ """重试策略契约测试：窗口计算、次数上限、结构化解析与 fake worker 全链路。
+ 
+-时间用例对应 <tmp>/campus-retry-policy-20261024/timeline-cases.json；
++时间用例（2026-10-24 固定时间线）内嵌于本文件 test_timeline_cases_table_driven
++的表驱动样例（仓库内无独立 json）；复现：python -m unittest local.tests.test_retry_policy。
+ fake worker 场景不连学校站点，只验证 worker 输出 → task 事件的载荷链路。
+ 
+ @author Author
+@@ -36,7 +37,7 @@ configure_time_source(time.time)   # 旧用例显式注入本机时钟；新用
+ 
+ from grab import attempts_allowed, compute_retry_window, retry_anchor
+ from signup_plan import TaskSpec
+-from fixtures.business_clock import TestWallClock  # noqa: E402
++from fixtures.business_clock import WallClockStub  # noqa: E402
+ 
+ NOW = 1000.0
+ 
+@@ -214,7 +215,7 @@ class WorkerTelemetryFlowTests(unittest.TestCase):
+         finally:
+             sys.path.pop(0)
+         self._app_module = local_app
+-        return local_app.Api(clock=TestWallClock())
++        return local_app.Api(clock=WallClockStub())
+ 
+     def _run_worker(self, api, source, policy=None, sign_end=""):
+         """启动单任务计划等到 plan_done，返回 (事件, plan_id, task_id, worker 参数)。"""
+@@ -653,7 +654,7 @@ class _WorkerCase(unittest.TestCase):
+     def _run_task(self, scenario: str, *, retry_for: int = 5,
+                   cancel_after: float | None = None, cancel_on_attempts: int | None = None,
+                   expect_spawn_failure: bool = False, deadline_past: bool = True):
+-        api = self.app.Api(clock=TestWallClock())
++        api = self.app.Api(clock=WallClockStub())
+         events = []
+         api._emit = lambda kind, payload: events.append((kind, payload))
+         cancel = threading.Event()
+@@ -770,7 +771,7 @@ class WorkerLifecycleTests(_WorkerCase):
+ 
+     def test_plan_done_once_and_busy_released(self):
+         """整计划跑一遍：监督收走后 plan_done 恰一次、busy 解除。"""
+-        api = self.app.Api(clock=TestWallClock())
++        api = self.app.Api(clock=WallClockStub())
+         events = []
+         api._emit = lambda kind, payload: events.append((kind, payload))
+         api._last_check = {"result": "valid", "checked_at": 0.0}
+diff --git a/local/tests/test_signup_plan.py b/local/tests/test_signup_plan.py
+index 91abfb0..03f29c1 100644
+--- a/local/tests/test_signup_plan.py
++++ b/local/tests/test_signup_plan.py
+@@ -40,7 +40,7 @@ from local.signup_plan import (
+     parse_timestamp,
+     validate_plan,
+ )
+-from fixtures.business_clock import TestWallClock  # noqa: E402
++from fixtures.business_clock import WallClockStub  # noqa: E402
+ from business_clock import ClockUnavailable  # noqa: E402
+ 
+ 
+@@ -379,7 +379,7 @@ class ApiBusyLockTests(unittest.TestCase):
+         finally:
+             sys.path.pop(0)
+         self._app_module = local_app
+-        return local_app.Api(clock=TestWallClock())
++        return local_app.Api(clock=WallClockStub())
+ 
+     def test_busy_lock_blocks_login_and_start_plan_until_stopped(self):
+         api = self._api()
+@@ -573,7 +573,7 @@ class WorkerStopLifecycleTests(unittest.TestCase):
+         finally:
+             sys.path.pop(0)
+         self._app_module = local_app
+-        return local_app.Api(clock=TestWallClock())
++        return local_app.Api(clock=WallClockStub())
+ 
+     def _start_and_wait_worker(self, api, source, needs_grandchild=True):
+         """启动单任务计划并等到 worker 进程（含孙进程）真的跑起来。"""
+@@ -1210,7 +1210,7 @@ class PlanAdmissionTests(unittest.TestCase):
+         finally:
+             sys.path.pop(0)
+         self._app = local_app
+-        return local_app.Api(clock=TestWallClock())
++        return local_app.Api(clock=WallClockStub())
+ 
+     def _seed(self, api, **override):
+         item = {"id": "a1", "name": "活动", "sign_start": "2026-01-01 09:00:00",
+@@ -1346,7 +1346,7 @@ class StartAdmissionConcurrencyTests(unittest.TestCase):
+         finally:
+             sys.path.pop(0)
+         self._app = local_app
+-        return local_app.Api(clock=TestWallClock())
++        return local_app.Api(clock=WallClockStub())
+ 
+     def _seed(self, api):
+         item = {"id": "a1", "name": "活动", "sign_start": "2026-01-01 09:00:00",
+@@ -1483,7 +1483,7 @@ class SignedBaselineValidationTests(unittest.TestCase):
+     冲突只看举办时段 act_start/act_end；报名开放时间不参与。
+     """
+ 
+-    NOW = TestWallClock().now()
++    NOW = WallClockStub().now()
+ 
+     def test_selected_overlapping_signed_activity_is_rejected(self):
+         rows = [activity("new", "2026-10-23 10:00:00",
+@@ -1545,7 +1545,7 @@ class SignedResultReconciliationTests(unittest.TestCase):
+         finally:
+             sys.path.pop(0)
+         self._app = local_app
+-        return local_app.Api(clock=TestWallClock())
++        return local_app.Api(clock=WallClockStub())
+ 
+     def _seed(self, api, aid="a1", start="2099-01-03 19:00:00",
+               end="2099-01-03 20:00:00", **override):
+@@ -1699,7 +1699,7 @@ class CoordinatorLockOrderTests(unittest.TestCase):
+         finally:
+             sys.path.pop(0)
+         self._app = local_app
+-        return local_app.Api(clock=TestWallClock())
++        return local_app.Api(clock=WallClockStub())
+ 
+     def _start_real_plan(self, api):
+         app = self._app
+@@ -1782,7 +1782,7 @@ class CoordinatorLockOrderTests(unittest.TestCase):
+             "id": "a1", "name": "活动", "sign_start": "2026-10-23 10:00:00",
+             "sign_end": "2099-01-02 09:00:00",
+             "act_start": "2099-01-03 09:00:00", "act_end": "2099-01-03 11:00:00"},
+-            "task-01-a1", now=TestWallClock().now())
++            "task-01-a1", now=WallClockStub().now())
+         coord = PlanCoordinator("p1", [spec],
+                                 lambda s, e, status: {"status": "success"},
+                                 emit)

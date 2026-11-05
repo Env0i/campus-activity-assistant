@@ -1,0 +1,75 @@
+diff --git a/local/tests/fixtures/business_clock.py b/local/tests/fixtures/business_clock.py
+index 069f69e..6bc0058 100644
+--- a/local/tests/fixtures/business_clock.py
++++ b/local/tests/fixtures/business_clock.py
+@@ -149,7 +149,7 @@ class FakeBusinessClock:
+         return self._effective()[2]
+ 
+ 
+-class TestWallClock:
++class WallClockStub:
+     """测试专用本机时钟：由测试显式注入，生产代码里不再有任何墙钟替身。
+ 
+     语义刻意保持简单：now 就是本机 time.time()，bounds 零误差，
+@@ -162,7 +162,7 @@ class TestWallClock:
+ 
+     def __init__(self, quality="ready"):
+         if quality not in ("ready", "holdover"):
+-            raise ValueError("TestWallClock 只支持 ready/holdover")
++            raise ValueError("WallClockStub 只支持 ready/holdover")
+         self._quality = quality
+ 
+     def now(self) -> float:
+diff --git a/local/tests/test_real_data_contract.py b/local/tests/test_real_data_contract.py
+index 8ee5c3c..a5bc38a 100644
+--- a/local/tests/test_real_data_contract.py
++++ b/local/tests/test_real_data_contract.py
+@@ -25,7 +25,7 @@ for _path in (str(LOCAL), str(TESTS)):
+     if _path not in sys.path:
+         sys.path.insert(0, _path)
+ 
+-from fixtures.business_clock import TestWallClock  # noqa: E402
++from fixtures.business_clock import WallClockStub  # noqa: E402
+ from local.signup_plan import TaskSpec, parse_timestamp, validate_plan  # noqa: E402
+ 
+ 
+@@ -52,7 +52,7 @@ class SignedLagContractTests(unittest.TestCase):
+         finally:
+             sys.path.pop(0)
+         self._app = local_app
+-        return local_app.Api(clock=TestWallClock())
++        return local_app.Api(clock=WallClockStub())
+ 
+     def test_success_then_school_list_still_false(self):
+         api = self._api()
+@@ -214,7 +214,7 @@ class TaskSpecSnapshotContractTests(unittest.TestCase):
+     def test_spec_has_no_credential_fields(self):
+         row = list_row("act-0001", "脱敏活动甲", "2026-10-27 09:00:00",
+                        "2026-10-27 23:59:59", "2026-10-28 19:00:00", "2026-10-28 20:30:00")
+-        payload = TaskSpec.from_activity(row, "task-01", now=TestWallClock().now()).as_dict()
++        payload = TaskSpec.from_activity(row, "task-01", now=WallClockStub().now()).as_dict()
+         for forbidden in ("token", "cookie", "storage_state", "password", "account"):
+             self.assertNotIn(forbidden, payload)
+ 
+diff --git a/local/tests/test_update_check.py b/local/tests/test_update_check.py
+index 0029db0..df6d2d7 100644
+--- a/local/tests/test_update_check.py
++++ b/local/tests/test_update_check.py
+@@ -19,7 +19,7 @@ if str(TESTS_DIR) not in sys.path:
+     sys.path.insert(0, str(TESTS_DIR))
+ import update_check as updates
+ import app as local_app
+-from fixtures.business_clock import TestWallClock  # noqa: E402
++from fixtures.business_clock import WallClockStub  # noqa: E402
+ 
+ INSTALLER = "campus-activity-watch-installer-v1.1.1-win-x64.exe"
+ DOWNLOAD = "https://github.com/Env0i/campus-activity-assistant/releases/download/v1.1.1/"
+@@ -403,7 +403,7 @@ class UpdateNetworkTests(unittest.TestCase):
+ 
+ class UpdateBridgeTests(unittest.TestCase):
+     def setUp(self):
+-        self.api = local_app.Api(clock=TestWallClock())
++        self.api = local_app.Api(clock=WallClockStub())
+         self.api._emit = Mock()
+ 
+     def test_constructor_and_bootstrap_do_not_query(self):

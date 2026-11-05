@@ -1,0 +1,27 @@
+diff --git a/local/tests/test_retry_policy.py b/local/tests/test_retry_policy.py
+index 729f912..c5be260 100644
+--- a/local/tests/test_retry_policy.py
++++ b/local/tests/test_retry_policy.py
+@@ -2,7 +2,8 @@
+ # -*- coding: utf-8 -*-
+ """重试策略契约测试：窗口计算、次数上限、结构化解析与 fake worker 全链路。
+ 
+-时间用例对应 <tmp>/campus-retry-policy-20261024/timeline-cases.json；
++时间用例（2026-10-24 固定时间线）内嵌于本文件 test_timeline_cases_table_driven
++的表驱动样例（仓库内无独立 json）；复现：python -m unittest local.tests.test_retry_policy。
+ fake worker 场景不连学校站点，只验证 worker 输出 → task 事件的载荷链路。
+ 
+ @author Author
+diff --git a/local/tests/test_updater.py b/local/tests/test_updater.py
+index 5233fb7..f9e6dac 100644
+--- a/local/tests/test_updater.py
++++ b/local/tests/test_updater.py
+@@ -48,7 +48,7 @@ class FakeStream:
+ 
+ 
+ class UpdaterDirTests(unittest.TestCase):
+-    """隔离目录基类：只在 <tmp> 下开目录，不写程序目录和数据目录。"""
++    """隔离目录基类：只在系统临时目录（tempfile.gettempdir()）下开目录，不写程序目录和数据目录。"""
+ 
+     def setUp(self):
+         self.root = TEMP_BASE / ("campus-updater-test-" + uuid.uuid4().hex[:12])

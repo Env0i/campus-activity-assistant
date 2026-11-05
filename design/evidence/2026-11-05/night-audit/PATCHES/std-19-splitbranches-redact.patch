@@ -1,0 +1,33 @@
+diff --git a/tools/split_branches.py b/tools/split_branches.py
+index f79f369..ae6dcee 100644
+--- a/tools/split_branches.py
++++ b/tools/split_branches.py
+@@ -20,6 +20,7 @@ main 上是两版并存（server/ 与 local/），这里生成两条根目录即
+ from __future__ import annotations
+ 
+ import argparse
++import re
+ import shutil
+ import subprocess
+ import sys
+@@ -39,6 +40,11 @@ SNAPSHOTS = {
+ }
+ 
+ 
++def _redact(text: str) -> str:
++    """失败输出脱敏：REMOTE 可能是 https://<token>@host 形态，凭证段打码后再落 stderr。"""
++    return re.sub(r"(https?://)([^/@\s]+)@", r"\1***@", text)
++
++
+ def run(cmd: list[str], cwd: Path) -> str:
+     # Windows 上 git 的输出是 UTF-8，默认按 GBK 解会抛 UnicodeDecodeError（线程里静默丢掉输出），
+     # 所以显式指定编码并容错——我们要的只是退出码。
+@@ -46,7 +52,7 @@ def run(cmd: list[str], cwd: Path) -> str:
+                          encoding="utf-8", errors="replace")
+     if res.returncode != 0:
+         raise SystemExit("命令失败：%s\n%s\n%s"
+-                         % (" ".join(cmd), res.stdout[-1200:], res.stderr[-1200:]))
++                         % (_redact(" ".join(cmd)), res.stdout[-1200:], res.stderr[-1200:]))
+     return res.stdout
+ 
+ 
