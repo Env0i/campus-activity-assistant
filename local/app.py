@@ -1120,8 +1120,13 @@ class Api:
 
     def _component_service_for(self, key: str):
         """功能键 → 对应的下载事务；不认识的键返回 None。"""
-        return {_advanced_features.PHONE_CONTROL: self._component_service,
-                _advanced_features.RELOGIN_OCR: self._ocr_component_service}.get(key)
+        mapping = {_advanced_features.PHONE_CONTROL: "_component_service",
+                   _advanced_features.RELOGIN_OCR: "_ocr_component_service"}
+        name = mapping.get(key)
+        # 按 key 惰性取属性：字典急切求值会在查 phone_control 时也碰
+        # _ocr_component_service，属性缺失就炸（与 shutdown 收口的
+        # getattr(self, name, None) 防御风格对齐）。
+        return getattr(self, name) if name else None
 
     def download_advanced_feature(self, key: str = "") -> dict:
         """用户主动下载组件包（手机控制或验证码识别）：单飞，重复点击直接回 busy。"""
