@@ -2077,7 +2077,7 @@ class SettingsEntryContractTests(unittest.TestCase):
         """顶栏有「设置」「帮助」两个入口；设置抽屉三组，版本更新与本机数据在「程序」组。"""
         html = read("ui/index.html")
         for btn, name, label in (("btn-settings", "设置：高级功能、登录、程序", "设置"),
-                                 ("btn-help", "帮助：使用说明、快捷键、重看引导、查看条款", "帮助")):
+                                 ("btn-help", "帮助：使用说明、快捷键、重看引导", "帮助")):
             at = html.index('id="%s"' % btn)
             tag = html[at:html.index("</button>", at)]
             self.assertIn('aria-label="%s"' % name, tag, "入口必须有可读的无障碍名（不能只靠图标）")
@@ -2107,24 +2107,28 @@ class SettingsEntryContractTests(unittest.TestCase):
             self.assertNotIn(banned, dialog + drawer, "设置和帮助都不得出现未确认功能「%s」" % banned)
 
     def test_help_dialog_keeps_quick_help_only(self):
-        """帮助只留三步说明、快捷键、重看引导和查看条款；版本更新与数据目录不在帮助里。"""
+        """帮助只留三步说明、快捷键、重看引导与「知道了」；版本更新、数据目录与条款不在帮助里。
+
+        原型 Main.dc.html:744-746 是 1:1 基准：帮助里没有条款入口，条款只在「设置 → 条款与隐私」。"""
         html = read("ui/index.html")
         help_body = help_dialog(html)
         for component in ("help-version", "btn-update-check", "update-status", "btn-help-data",
                           "btn-terms-withdraw", "phone-feature-status"):
             self.assertNotIn('id="%s"' % component, help_body,
                              "#%s 属于「设置」，帮助里不得保留第二份" % component)
-        for text in ("三步使用说明", "键盘快捷键", "重看引导", "Esc 关闭"):
+        for text in ("三步使用说明", "键盘快捷键", "重看引导", "知道了"):
             self.assertIn(text, help_body, "帮助缺「%s」" % text)
-        self.assertIn('id="btn-help-terms-view"', help_body, "帮助里能直接查看条款全文")
+        self.assertNotIn('id="btn-help-terms-view"', help_body,
+                         "帮助里不再有条款入口（原型 :744-746）")
+        self.assertNotIn("使用条款与隐私", help_body, "条款入口只留在设置里")
         self.assertIn("关闭", help_body, "帮助弹窗保留关闭按钮")
         self.assertIn('id="btn-help-tour"', help_body,
                       "说明底部保留重播快捷入口（学习入口就近可重播）")
         self.assertIn('id="help-steps"', help_body, "说明弹窗保留三步快速帮助容器")
         js = read("ui/app.js")
-        for step_title in ("登录账号", "设置报名计划", "查看报名结果"):
+        for step_title in ("确认登录", "选活动并开始", "看结果"):
             self.assertIn(step_title, js, "三步快速帮助必须保留（%s）" % step_title)
-        self.assertIn("再选择「开始报名计划」", js, "三步说明必须写出真正的开始动作")
+        self.assertIn("再点「开始报名计划」", js, "三步说明必须写出真正的开始动作")
 
     def test_app_js_wires_settings_actions(self):
         """两处重播共用 replayTourFrom；版本/目录仍走既有接口；忙时禁用有可见原因。"""
@@ -3792,21 +3796,18 @@ class AssistanceBehaviorTests(unittest.TestCase):
     """说明/更多/重播：文案同源、全状态可开、焦点归还、外链与目录一次一点击。"""
 
     # 已确认的文案基线：两端一起漂移时，这一份仍然能挡住
+    # 原型 Main.dc.html:745 是 1:1 基准：副标题与三步逐字照抄，也不再带适用范围 note
+    # （那两句在首次使用的条款摘要里，原型 :750）。
     _EXPECTED_COPY = {
         "title": "使用帮助",
-        "subtitle": "使用说明、版本更新与本机数据",
-        "note": "适用于目标学校（校园）专升本学生使用的活动中心。"
-                "活动要求与报名结果以学校活动页为准。",
+        "subtitle": "三步完成一次报名",
         "steps": [
-            (1, "登录账号",
-             "打开顶栏的登录状态，点「登录」，在打开的浏览器中完成登录。下次启动会检查已保存的登录状态；"
-             "只有提示失效时才需要重新登录。"),
-            (2, "设置报名计划",
-             "选择活动，设置尝试时长和最多提交次数，再选择「开始报名计划」。"
-             "预报名会在开放后尝试提交，已开放活动会在计划启动后尝试提交。"),
-            (3, "查看报名结果",
-             "运行期间可最小化窗口，但需保持电脑唤醒与联网。结束后查看各活动的报名结果；"
-             "开始计划不代表报名成功。"),
+            (1, "确认登录",
+             "顶部显示“已登录”就可以继续。只有提示失效时才需要重新登录。"),
+            (2, "选活动并开始",
+             "在时刻表勾选活动，核对右边的计划，再点「开始报名计划」。勾选不会自动开始。"),
+            (3, "看结果",
+             "每场结果单独显示。看到“待核对”时，到学校活动页确认。"),
         ],
     }
 
@@ -3822,8 +3823,8 @@ class AssistanceBehaviorTests(unittest.TestCase):
 
         # 后端载荷结构：字段齐全、步骤编号有序、版本/外链来自注入常量
         self.assertEqual(sorted(backend),
-                         ["latest_url", "note", "steps", "subtitle", "title", "version"],
-                         "help 载荷字段发生变化")
+                         ["latest_url", "steps", "subtitle", "title", "version"],
+                         "help 载荷字段发生变化（原型帮助没有 note）")
         self.assertEqual(backend["version"], HELP_TEST_VERSION,
                          "版本必须来自 APP_VERSION，不能写死")
         self.assertEqual(backend["latest_url"], HELP_TEST_URL,
@@ -3835,13 +3836,12 @@ class AssistanceBehaviorTests(unittest.TestCase):
                              "步骤字段结构变化")
 
         # 前端对象不带第二套版本来源
-        self.assertEqual(sorted(frontend), ["note", "steps", "subtitle", "title"],
-                         "DEFAULT_HELP 不得自带版本/地址字段")
+        self.assertEqual(sorted(frontend), ["steps", "subtitle", "title"],
+                         "DEFAULT_HELP 不得自带版本/地址字段，也不再带 note")
 
         # 逐字段深比较（含中文全角标点）
         self.assertEqual(frontend["title"], backend["title"])
         self.assertEqual(frontend["subtitle"], backend["subtitle"])
-        self.assertEqual(frontend["note"], backend["note"])
         self.assertEqual(len(frontend["steps"]), len(backend["steps"]))
         for got, want in zip(frontend["steps"], backend["steps"]):
             self.assertEqual((got["no"], got["title"], got["text"]),
@@ -3851,7 +3851,6 @@ class AssistanceBehaviorTests(unittest.TestCase):
         # 与已确认文案独立比对：防止前后端一起漂移而深比较仍然通过
         self.assertEqual(backend["title"], expected["title"])
         self.assertEqual(backend["subtitle"], expected["subtitle"])
-        self.assertEqual(backend["note"], expected["note"])
         self.assertEqual([(step["no"], step["title"], step["text"])
                           for step in backend["steps"]], expected["steps"])
 
@@ -5906,13 +5905,12 @@ out.push({ open: document.querySelector("#dlg-terms").open,
         self.assertIn("未确认", case["status"])
         self.assertEqual(case["accepted"], 1)
 
-    def test_readonly_view_makes_no_writes_and_restores_help_focus(self):
+    def test_readonly_view_makes_no_writes_and_restores_settings_focus(self):
         """已同意查看：只读（只显示关闭），关闭零 accept/save/学校调用；
-        来源是帮助时打开期间先关帮助、关闭后重开并聚焦「查看条款」，不叠弹窗。
+        关闭后不把帮助弹出来，焦点回设置里的「查看条款」入口。
 
-        入口迁移：帮助里的入口改为 #btn-help-terms-view，#btn-help-terms 搬进「设置 → 程序」。
-        旧断言「点 #btn-help-terms 关闭后帮助重开、焦点回 #btn-help-terms」拆成两条：
-        帮助入口重开帮助并聚焦帮助里的入口；设置入口不重开帮助，焦点回设置里的入口。"""
+        帮助里的条款入口已按原型 :744-746 删除，条款只剩「设置 → 条款与隐私」；
+        terms.js 里 source=help 的归还分支保留为兜底（入口找不到时落到 #btn-help）。"""
         res = run_js(r"""
 let calls = [];
 window.pywebview = { api: {
@@ -5926,32 +5924,23 @@ S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "2026-10-27",
   accepted_at: "2026-10-27 12:00:00" });
 const help = document.querySelector("#help");
-help.showModal();
-document.querySelector("#btn-help-terms-view").click();
-const helpClosedByTerms = !help.open;
 const dlg = document.querySelector("#dlg-terms");
 const accept = document.querySelector("#btn-terms-accept");
 const decline = document.querySelector("#btn-terms-decline");
+/* 设置抽屉里的入口：打开后先取只读态底部的 Esc 文案，再关闭验证焦点归还 */
+document.querySelector("#btn-help-terms").click();
 const escBefore = dlg.querySelector(".help-esc").textContent;
 dlg.close();
 (dlg.listeners.close || []).forEach((fn) => fn());
-const fromHelp = { open: help.open, focus: document.activeElement && document.activeElement.__sel };
-/* 设置抽屉里的入口：关闭后不把帮助弹出来，焦点回设置里的「查看条款」 */
-help.close();
-document.querySelector("#btn-help-terms").click();
-dlg.close();
-(dlg.listeners.close || []).forEach((fn) => fn());
-const fromSettings = { open: help.open, focus: document.activeElement && document.activeElement.__sel };
-out.push({ helpClosedByTerms, calls, declined: S.terms.declined,
+const fromSettings = { helpOpen: help.open, focus: document.activeElement && document.activeElement.__sel };
+out.push({ calls, declined: S.terms.declined,
   acceptHidden: accept.hidden, declineHidden: decline.hidden,
   closeHidden: document.querySelector("#btn-terms-close").hidden,
   recheckHidden: document.querySelector("#btn-terms-recheck").hidden,
   xDisabled: dlg.querySelector(".dlg-x").disabled, escBefore,
-  helpOpen: fromHelp.open, focus: fromHelp.focus, fromSettings,
-  lockedAfter: termsLocked() });
+  fromSettings, lockedAfter: termsLocked() });
 """)
         case = res[0]
-        self.assertTrue(case["helpClosedByTerms"], "打开条款时帮助先关掉，不叠两个弹窗")
         self.assertEqual(case["calls"], [], "只读查看零 accept/save/学校调用")
         self.assertFalse(case["declined"], "只读关闭不记拒绝")
         self.assertTrue(case["acceptHidden"])
@@ -5960,9 +5949,7 @@ out.push({ helpClosedByTerms, calls, declined: S.terms.declined,
         self.assertTrue(case["recheckHidden"])
         self.assertFalse(case["xDisabled"])
         self.assertEqual(case["escBefore"], "Esc 关闭")
-        self.assertTrue(case["helpOpen"], "关闭后帮助重开")
-        self.assertEqual(case["focus"], "#btn-help-terms-view", "焦点回帮助里的「查看条款」入口")
-        self.assertFalse(case["fromSettings"]["open"], "从设置打开的，关闭后不把帮助弹出来")
+        self.assertFalse(case["fromSettings"]["helpOpen"], "从设置打开的，关闭后不把帮助弹出来")
         self.assertEqual(case["fromSettings"]["focus"], "#btn-help-terms", "焦点回设置里的「查看条款」")
         self.assertFalse(case["lockedAfter"])
 

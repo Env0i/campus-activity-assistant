@@ -3,7 +3,6 @@ function fillHelp(help) {
   const data = help || DEFAULT_HELP;
   $("#help-title").textContent = data.title || DEFAULT_HELP.title;
   $("#help-sub").textContent = data.subtitle || "";
-  $("#help-note").textContent = data.note || "";
   $("#help-steps").innerHTML = (data.steps || []).map((step) => "<li><span class=\"no\">" + esc(step.no) + "</span><div><div class=\"t\">" + esc(step.title) + "</div><div class=\"d\">" + esc(step.text) + "</div></div></li>").join("");
 }
 

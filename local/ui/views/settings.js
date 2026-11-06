@@ -186,6 +186,4 @@ function wireSettings() {
   if (ocrCancel && window.PhonePanel) {
     ocrCancel.addEventListener("click", () => void window.PhonePanel.cancelComponent("relogin_ocr"));
   }
-  const helpTerms = $("#btn-help-terms-view");
-  if (helpTerms) helpTerms.addEventListener("click", () => openTerms("help"));
 }
