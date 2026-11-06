@@ -22,8 +22,10 @@ function paintList() {
   const box = $("#rows");
   const listEl = $("#list");
   S.rowEls = new Map();
-  listEl.classList.toggle("is-loading", S.listState === "loading" && S.items.length > 0);
-  if (S.listState === "loading" && !S.items.length) {
+  listEl.classList.toggle("is-loading", S.listState === "loading");
+  /* 加载态一律换成骨架行，手上有旧列表也一样（原型 Main.dc.html:2138）：
+   * 点刷新后必须马上看得见「在动」，否则请求挂着不回来时用户只会觉得没反应。 */
+  if (S.listState === "loading") {
     box.innerHTML = skeletonHtml();
     S.rowStates = new Map();
     $("#empty").hidden = true;

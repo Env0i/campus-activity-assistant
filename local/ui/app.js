@@ -328,6 +328,16 @@ $("#banners").addEventListener("click", (event) => {
     /* 横幅上的「重新检查」= 一次完整刷新：check 事件带回组件结论，恢复即撤横幅 */
     refresh(false);
   }
+  if (event.target.closest('[data-act="net-recheck"]')) {
+    /* 断网横幅的「重新检测」：重读 navigator.onLine（原型 Main.dc.html:1702 的
+     * netRecheck 只改网络状态并写运行记录，不自动刷新 —— 刷新由用户自己点）。 */
+    if (navigator.onLine) {
+      S.online = true;
+      addLog("[OK] 网络已恢复");
+      paintBanners();
+      paintChecks();
+    }
+  }
   if (event.target.closest('[data-act="login"]')) openRelogin();
   if (event.target.closest('[data-act="clock-open"]')) openStatusCard("clock", true);
   const termsBtn = event.target.closest('[data-act="terms-open"]');

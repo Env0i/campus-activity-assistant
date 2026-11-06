@@ -124,6 +124,12 @@ function refresh(quiet) {
     if (!S.terms.declined && !S.terms.unknown) openTerms();
     return;
   }
+  /* 已经知道断网就不要再发学校请求：结果只会是失败，用户看到的反馈是横幅
+   * （原型 Main.dc.html:1849）。网络恢复后由用户自己点刷新。 */
+  if (!S.online) {
+    paintBanners();
+    return;
+  }
   const checkId = newRoundId("check");
   const listId = newRoundId("list");
   /* 每轮各自一个消费代次：这一轮的 ack/catch/终态只能收口这一轮，

@@ -38,14 +38,16 @@ function paintSelected() {
     /* 列表失败只留短状态：完整原因与「重试」在列表空态 */
     setBoardTag("需重试", "red", true);
     box.textContent = "活动暂时没加载";
-    boardText.textContent = "具体原因看下面列表的提示。";
+    boardText.textContent = "具体原因看左边列表的提示。";
     return;
   }
-  if (!S.busy && S.listState === "loading" && !S.items.length) {
+  /* 加载态与「有没有选中」无关（原型 Main.dc.html:2006 只看 !sel.length）：
+   * 手上有旧列表时点刷新同样要立刻显示在加载，否则界面像没反应。 */
+  if (!S.busy && S.listState === "loading" && !items.length) {
     /* 列表还在拉：不得把「近期没有要开放的活动」当事实说出口 */
     setBoardTag("加载中", "off", true);
     box.textContent = "活动列表正在加载";
-    boardText.textContent = "正在加载活动，先等这一次加载结束。";
+    boardText.textContent = "先等这一次加载结束。";
     return;
   }
   if (S.busy) {
@@ -789,6 +791,13 @@ function paintLed() {
     paintLedLabel({ completed: "计划完成", failed: "计划失败", stopped: "计划已停止", partial: "部分完成" }[S.plan.status], null);
     return;
   }
+  /* 有旧列表时点刷新：点阵屏先报「正在加载」（原型 Main.dc.html:1993），
+   * 不拿旧的「最近开放」倒计时冒充当前状态。计划结论已经留在屏上时不覆盖。 */
+  if (S.listState === "loading") {
+    ledSet("--:--:--", "off");
+    paintLedLabel("正在加载", "");
+    return;
+  }
   const selected = selectedItems();
   if (selected.length) {
     const groups = groupSelected(selected);
@@ -1146,8 +1155,11 @@ function paintBanners() {
       '<button class="btn btn-ghost" type="button" data-act="terms-open">查看条款</button></div>');
   }
   if (!S.online) {
+    /* 断网横幅照原型 Main.dc.html:1849：给一句下一步，并让用户自己重新检测 ——
+     * 网络事件不可靠（系统仍认为联网时请求会一直挂着），所以不能只等 online 事件。 */
     parts.push('<div class="banner" data-tone="bad" role="alert"><span class="grow"><b>网络断开了。</b>' +
-      (S.busy ? "到点时还没恢复，这次报名会失败。恢复以后看一眼计划结果。" : "恢复以后点「刷新」。") + "</span></div>");
+      (S.busy ? "到点时还没恢复，这次报名会失败。恢复以后看一眼计划结果。" : "恢复以后点“刷新”。") + "</span>" +
+      '<button class="btn btn-ghost" type="button" data-act="net-recheck">重新检测</button></div>');
   }
   if (S.sleepGap) {
     parts.push('<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>刚才有 ' + durText(S.sleepGap / 1000) +

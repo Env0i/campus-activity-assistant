@@ -118,11 +118,13 @@ function listErrorCopy(raw) {
     const copy = runtimeErrorCopy();
     return { title: copy.title, text: copy.hint };
   }
-  const text = failHint(raw);
-  if (S.login.present === false || S.login.result === "none") return { title: "还没登录", text };
-  if (S.login.result === "expired") return { title: "登录已过期", text };
-  if (S.login.result === "unknown") return { title: "暂时无法加载", text };
-  return { title: "活动暂时没加载", text };
+  /* 登录本身有问题时仍按登录分支给下一步：重新登录能修好，说成「连不上」是误判 */
+  if (S.login.present === false || S.login.result === "none") return { title: "还没登录", text: failHint(raw) };
+  if (S.login.result === "expired") return { title: "登录已过期", text: failHint(raw) };
+  if (S.login.result === "unknown") return { title: "暂时无法加载", text: failHint(raw) };
+  /* 已登录仍然拉不到列表：用原型 Main.dc.html:2095 的失败态原话。
+   * 登录是有效的，重新登录修不好网络，所以不把失败归因成登录问题。 */
+  return { title: "活动暂时没加载", text: "连不上学校站点。检查网络后再试一次，已保存的登录不受影响。" };
 }
 
 function needLogin(text) { return /登录状态|登录状态|未登录|请先登录|session|401|403|token/i.test(String(text || "")); }

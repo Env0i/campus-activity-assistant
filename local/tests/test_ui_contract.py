@@ -6740,6 +6740,110 @@ out.push({ first, replay });
                          "空 flow_id 的重放视为同一事件：不得再次 doCheck + refresh 打回加载态")
 
 
+class RefreshFeedbackTests(unittest.TestCase):
+    """N2：点刷新立刻看得见加载，失败落原型失败态，断网时不发请求并给「重新检测」。"""
+
+    def test_loading_replaces_old_rows_with_skeleton(self):
+        """有旧列表时点刷新同样立刻进加载态：列表骨架、计划栏与点阵屏都改口。
+
+        取代「只有空列表才显示骨架」：请求挂着不回来时，旧行原样留着看起来就是没反应
+        （原型 Main.dc.html:2138 / :2006 / :1993）。"""
+        res = run_js(r"""
+S.items = [{ id: "a1", name: "旧活动", sign_start: "2026-11-05 10:00:00",
+  sign_end: "2026-11-05 12:00:00", act_start: "2026-11-06 10:00:00",
+  act_end: "2026-11-06 12:00:00" }];
+S.byId = new Map(S.items.map((it) => [String(it.id), it]));
+S.listState = "loading";
+S.login.present = true; S.login.result = "valid"; S.login.ok = true; S.login.checking = false;
+S.selected = new Set();
+render();
+out.push({
+  rows: document.querySelector("#rows").innerHTML,
+  planTitle: document.querySelector("#selected").textContent,
+  planText: document.querySelector("#board-text").textContent,
+  /* 桩的 textContent 不聚合子节点：paintLedLabel 把前缀写进文本节点，
+   * 读 firstChild 才拿得到「正在加载」，等价于真实 DOM 的 label.textContent。 */
+  led: (document.querySelector("#led-label").firstChild || {}).textContent || "",
+  loading: document.querySelector("#list").classList.contains("is-loading"),
+});
+""")
+        row = res[0]
+        self.assertIn("skel-row", row["rows"], "加载态必须换成骨架行，旧行不能继续显示")
+        self.assertNotIn("旧活动", row["rows"], "旧行在加载期间先收起，避免看起来没反应")
+        self.assertTrue(row["loading"], "列表容器要带 is-loading，样式才进加载态")
+        self.assertEqual(row["planTitle"], "活动列表正在加载")
+        self.assertEqual(row["planText"], "先等这一次加载结束。")
+        self.assertIn("正在加载", row["led"], "点阵屏同步报「正在加载」（原型 :1993）")
+
+    def test_list_failure_uses_prototype_copy(self):
+        """已登录仍拉不到列表：空态与计划栏用原型失败态原话，并给「重试」。"""
+        res = run_js(r"""
+S.items = [];
+S.byId = new Map();
+S.selected = new Set();
+S.listState = "error";
+S.listError = "活动列表超过 130 秒没有回应";
+S.login.present = true; S.login.result = "valid"; S.login.ok = true; S.login.checking = false;
+render();
+out.push({
+  title: document.querySelector("#empty-title").textContent,
+  text: document.querySelector("#empty-text").textContent,
+  action: document.querySelector("#empty-action").textContent,
+  planTitle: document.querySelector("#selected").textContent,
+  planText: document.querySelector("#board-text").textContent,
+});
+""")
+        row = res[0]
+        self.assertEqual(row["title"], "活动暂时没加载")
+        self.assertEqual(row["text"], "连不上学校站点。检查网络后再试一次，已保存的登录不受影响。")
+        self.assertEqual(row["action"], "重试")
+        self.assertEqual(row["planTitle"], "活动暂时没加载")
+        self.assertEqual(row["planText"], "具体原因看左边列表的提示。")
+
+    def test_offline_refresh_sends_nothing_and_keeps_the_banner(self):
+        """已知断网：refresh 不发 check/list，反馈就是横幅本身（原型 :1849）。"""
+        res = run_js(r"""
+const calls = [];
+window.pywebview = { api: {
+  check: () => { calls.push("check"); return Promise.resolve({ ok: true }); },
+  list_activities: () => { calls.push("list"); return Promise.resolve({ ok: true, items: [] }); },
+} };
+S.online = false;
+refresh(false);
+out.push({ calls: calls.slice(),
+  banner: document.querySelector("#banners").innerHTML,
+  hidden: document.querySelector("#banners").hidden });
+""")
+        row = res[0]
+        self.assertEqual(row["calls"], [], "断网时不发学校请求，避免请求一直挂着")
+        self.assertFalse(row["hidden"], "断网横幅要一直挂着")
+        self.assertIn("网络断开了。", row["banner"])
+        self.assertIn("恢复以后点“刷新”。", row["banner"])
+        self.assertIn("重新检测", row["banner"])
+
+    def test_net_recheck_restores_banner_without_refreshing(self):
+        """「重新检测」只重读网络状态：恢复后收起横幅、写「网络已恢复」，不自动刷新。"""
+        res = run_js(r"""
+const calls = [];
+window.pywebview = { api: {
+  check: () => { calls.push("check"); return Promise.resolve({ ok: true }); },
+  list_activities: () => { calls.push("list"); return Promise.resolve({ ok: true, items: [] }); },
+} };
+S.online = false;
+paintBanners();
+const evt = { target: { closest: (sel) => (sel === '[data-act="net-recheck"]' ? {} : null) },
+  preventDefault() {} };
+__els.get("#banners").listeners.click.forEach((fn) => fn(evt));
+out.push({ online: S.online, banner: document.querySelector("#banners").innerHTML,
+  calls: calls.slice(), logs: S.recentLogs.slice() });
+""")
+        row = res[0]
+        self.assertTrue(row["online"], "重新检测到联网后要把状态改回来")
+        self.assertEqual(row["banner"], "", "网络恢复后横幅内容清空（容器本身不设 hidden）")
+        self.assertEqual(row["calls"], [], "原型让用户自己点刷新，重新检测不自动加载")
+        self.assertIn("[OK] 网络已恢复", row["logs"])
+
+
 class DocAndCopySyncTests(unittest.TestCase):
     """文档和提示文案必须跟真实能力对得上：cloudflared 只从组件包来。"""
 
