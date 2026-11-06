@@ -89,6 +89,23 @@ class ListActivityContractTests(unittest.TestCase):
                          "act_start", "act_end", "signed"):
                 self.assertEqual(got[name], want[name], name)
 
+    def test_map_activity_is_a_pure_mapping_of_the_raw_item(self):
+        """E3：列表字段映射抽成纯函数后，键集与取值仍跟契约样例对得上。"""
+        raw = _load("list-activity.raw-item.json")
+        mapped = grab._map_activity(raw)
+        item = self.items[0]
+        # 契约条目多两个展示列（index、state），映射多一个 type（学校 hdlx）：
+        # 去掉这两组后键集必须完全一致，新增字段不会悄悄漏进契约。
+        self.assertEqual(set(mapped) - {"type"}, set(item) - {"index", "state"})
+        for ours, theirs in (("name", "hdmc"), ("place", "hddd"),
+                             ("sign_start", "bmkssj"), ("sign_end", "bmjssj"),
+                             ("act_start", "hdkssj"), ("act_end", "hdjssj"),
+                             ("type", "hdlx")):
+            self.assertEqual(mapped[ours], raw[theirs], ours)
+        self.assertIs(mapped["signed"], True)
+        self.assertEqual(mapped["attendance_source"], "list")
+        self.assertEqual(mapped["attendance_state"], "unknown")
+
 
 class GetInfoContractTests(unittest.TestCase):
     def test_attendance_fields_are_read_from_the_detail_sample(self):

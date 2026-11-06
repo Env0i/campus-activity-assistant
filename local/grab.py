@@ -785,6 +785,34 @@ def enrich_attendance_items(items, max_workers=DETAIL_CONCURRENCY):
     return rows
 
 
+def _map_activity(raw):
+    """学校列表接口的一条活动 → 本地字段结构（纯映射，不发请求、不读全局状态）。
+
+    字段名换成好读的名字；规则与顺序跟原来写在 fetch_activities 循环里的一字不差，
+    契约测试用 contracts/school-api/list-activity.*.json 逐键比对。
+    """
+    return {
+        "id": raw.get("id", ""),
+        "name": (raw.get("hdmc") or "").strip(),
+        "type": raw.get("hdlx") or "其他",
+        "place": raw.get("hddd") or "",
+        "sign_start": raw.get("bmkssj") or "",
+        "sign_end": raw.get("bmjssj") or "",
+        "act_start": raw.get("hdkssj") or "",
+        "act_end": raw.get("hdjssj") or "",
+        "signed": raw.get("bmzt") == 1,
+        "checkin_required": _activity_flag(raw, CHECKIN_FLAG_NAMES),
+        "checkout_required": _activity_flag(raw, CHECKOUT_FLAG_NAMES),
+        # 列表若已带回时间段就直接用；没有则留空，等详情补充
+        "checkin_start": _activity_time(raw, CHECKIN_START_NAMES),
+        "checkin_end": _activity_time(raw, CHECKIN_END_NAMES),
+        "checkout_start": _activity_time(raw, CHECKOUT_START_NAMES),
+        "checkout_end": _activity_time(raw, CHECKOUT_END_NAMES),
+        "attendance_source": "list",
+        "attendance_state": "unknown",
+    }
+
+
 def fetch_activities(budget=None, with_details=False):
     """分页拉活动列表；返回本地字段结构（字段名已换成好读的名字）。
 
@@ -806,26 +834,7 @@ def fetch_activities(budget=None, with_details=False):
         for raw in chunk:
             if not raw.get("hdmc"):
                 continue
-            out.append({
-                "id": raw.get("id", ""),
-                "name": (raw.get("hdmc") or "").strip(),
-                "type": raw.get("hdlx") or "其他",
-                "place": raw.get("hddd") or "",
-                "sign_start": raw.get("bmkssj") or "",
-                "sign_end": raw.get("bmjssj") or "",
-                "act_start": raw.get("hdkssj") or "",
-                "act_end": raw.get("hdjssj") or "",
-                "signed": raw.get("bmzt") == 1,
-                "checkin_required": _activity_flag(raw, CHECKIN_FLAG_NAMES),
-                "checkout_required": _activity_flag(raw, CHECKOUT_FLAG_NAMES),
-                # 列表若已带回时间段就直接用；没有则留空，等详情补充
-                "checkin_start": _activity_time(raw, CHECKIN_START_NAMES),
-                "checkin_end": _activity_time(raw, CHECKIN_END_NAMES),
-                "checkout_start": _activity_time(raw, CHECKOUT_START_NAMES),
-                "checkout_end": _activity_time(raw, CHECKOUT_END_NAMES),
-                "attendance_source": "list",
-                "attendance_state": "unknown",
-            })
+            out.append(_map_activity(raw))
         if not chunk or len(out) >= total:
             break
         page += 1
