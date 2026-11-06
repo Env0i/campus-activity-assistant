@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -35,7 +36,7 @@ class FakeState:
         self._updating = True
         self._update_result = {"state": "old"}
         self._update_installer = {"name": "stale.exe"}
-        self._update_installer_path = "<tmp>/stale.exe"
+        self._update_installer_path = str(Path(tempfile.gettempdir()) / "stale.exe")
         self._update_cancelled = False
         self.events = []
 

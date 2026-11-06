@@ -1422,7 +1422,8 @@ class LayoutStaticTests(unittest.TestCase):
         self.assertIn("min-height: 44px", css)
         self.assertNotIn("display: grid", css, "单栏布局不引入多列网格")
         self.assertIn("inputmode=", html, "数字键盘只给配对码/次数")
-        report = Path("<tmp>/night-run-B-20261030/evidence/phone-ui-layout-375-430.txt")
+        report = Path(tempfile.gettempdir()) / "night-run-B-20261030" / "evidence" / "phone-ui-layout-375-430.txt"
+        report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text(
             "375/430 布局静态检查（无截图、无像素断言）\n"
             "viewport=%s\nmax-width430=%s\noverflow-x-hidden=%s\nmin-tap-44px=%s\n"

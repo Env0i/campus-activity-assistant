@@ -6,6 +6,7 @@ import io
 import json
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 from urllib.error import HTTPError, URLError
@@ -439,7 +440,7 @@ class UpdateBridgeTests(unittest.TestCase):
     def test_check_stores_installer_and_clears_old_download(self):
         self.api._updating = True
         self.api._update_request_id = "request"
-        self.api._update_installer_path = str(Path("<tmp>/stale.exe"))
+        self.api._update_installer_path = str(Path(tempfile.gettempdir()) / "stale.exe")
         picked = updates.evaluate_latest_release("1.0.0", stable())
         picked = dict(picked, installer={"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
                                          "bytes": 1024, "sha256": "ab" * 32})
@@ -516,7 +517,7 @@ class UpdateBridgeTests(unittest.TestCase):
         def fake_download(url, **kwargs):
             kwargs["progress"](2, 4)
             kwargs["progress"](4, 4)
-            return {"ok": True, "path": str(Path("<tmp>/campus-update-x") / INSTALLER),
+            return {"ok": True, "path": str(Path(tempfile.gettempdir()) / "campus-update-x" / INSTALLER),
                     "bytes": 4, "sha256": "ab" * 32}
         with patch.object(local_app.updater, "download_installer", side_effect=fake_download):
             self.api._do_update_download("dl-1", installer)
@@ -562,7 +563,7 @@ class UpdateBridgeTests(unittest.TestCase):
         installer = {"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
                      "bytes": 4, "sha256": "ab" * 32}
         self.api._update_installer = installer
-        self.api._update_installer_path = str(Path("<tmp>/campus-update-x") / INSTALLER)
+        self.api._update_installer_path = str(Path(tempfile.gettempdir()) / "campus-update-x" / INSTALLER)
         self.api._update_result = {"request_id": "dl-1", "state": "ready_to_install",
                                    "installer": installer}
         with patch.object(local_app.updater, "launch_installer",
@@ -574,7 +575,7 @@ class UpdateBridgeTests(unittest.TestCase):
         self.assertIn("关闭本工具", result["text"])
 
     def test_launch_failure_goes_to_failed(self):
-        self.api._update_installer_path = str(Path("<tmp>/campus-update-x") / INSTALLER)
+        self.api._update_installer_path = str(Path(tempfile.gettempdir()) / "campus-update-x" / INSTALLER)
         with patch.object(local_app.updater, "launch_installer",
                           return_value={"ok": False, "error_code": "launch_failed", "text": "没能启动"}):
             result = self.api.update_launch("launch-1")

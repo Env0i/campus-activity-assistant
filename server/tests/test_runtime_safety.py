@@ -37,7 +37,7 @@ import render  # noqa: E402
 import run  # noqa: E402
 import scan  # noqa: E402
 
-PREFERRED_ROOT = "<tmp>/campus-runtime-hardening-20261020"
+PREFERRED_ROOT = os.path.join(tempfile.gettempdir(), "campus-runtime-hardening-20261020")
 OWNER = "ou_owner_fixture"
 STRANGER = "ou_stranger_fixture"
 

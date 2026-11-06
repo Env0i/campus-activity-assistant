@@ -6,6 +6,7 @@ from hashlib import sha256
 from pathlib import Path
 import shutil
 import sys
+import tempfile
 import unittest
 import uuid
 from unittest.mock import patch
@@ -19,7 +20,7 @@ NAME = "campus-activity-watch-installer-v1.1.1-win-x64.exe"
 URL = "https://github.com/Env0i/campus-activity-assistant/releases/download/v1.1.1/" + NAME
 BODY = b"installer-bytes-0123456789"
 DIGEST = sha256(BODY).hexdigest()
-TEMP_BASE = Path("<tmp>")
+TEMP_BASE = Path(tempfile.gettempdir())
 OLD_FILES = ("data/session.json", "program/campus-activity-watch.exe")
 
 

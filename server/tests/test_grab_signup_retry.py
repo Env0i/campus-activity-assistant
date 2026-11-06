@@ -569,7 +569,7 @@ class NotifyOwnerBoundaryTests(unittest.TestCase):
 
 def _test_root() -> Path:
     root = Path(os.environ.get("CAMPUS_TEST_ROOT")
-                or "<tmp>/campus-grab-signup-retry-20261028")
+                or (Path(tempfile.gettempdir()) / "campus-grab-signup-retry-20261028"))
     if os.name != "nt" and not os.environ.get("CAMPUS_TEST_ROOT"):
         root = Path(tempfile.gettempdir()) / "campus-grab-signup-retry-20261028"
     root.mkdir(parents=True, exist_ok=True)

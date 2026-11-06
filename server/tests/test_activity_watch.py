@@ -32,7 +32,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import activity_watch as aw   # noqa: E402
 import fetch as fetch_mod     # noqa: E402
 
-PREFERRED_ROOT = "<tmp>/campus-activity-watch-20261027"
+PREFERRED_ROOT = os.path.join(tempfile.gettempdir(), "campus-activity-watch-20261027")
 
 # 测试用轮询配置：与 common 默认值一致，避免读真实 config.json
 SETTINGS = {"enabled": True, "day_seconds": 180, "night_seconds": 600}

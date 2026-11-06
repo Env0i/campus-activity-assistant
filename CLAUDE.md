@@ -49,7 +49,9 @@ python -m unittest discover -s local/tests -p "test_*.py" -v
 python -m pytest server/tests
 ```
 
-部分测试把临时目录硬编码成某个固定盘符（见 `local/tests/`），机器上没有该盘符时会在建目录处报错。这是环境问题，不是你的改动引起的——如实写进报告，**不要**为了变绿去改断言、加 skip 或改测试路径。
+测试临时目录一律放在 `tempfile.gettempdir()` 下面（server 测试也可以用环境变量 `CAMPUS_TEST_ROOT` 指定）。`<tmp>` 只是文档里的占位符，不是路径：夹具里出现 `<tmp>` 字面量就是缺陷，改成 `tempfile.gettempdir()` 不算「改测试路径凑绿」（用户 2026-11-06 定）。
+
+除此之外，**不要**为了变绿去改断言、加 skip 或改测试路径。测试因为环境原因跳过或报错（例如没装 webview 被跳过）时，如实写进报告。
 
 ## 收尾
 

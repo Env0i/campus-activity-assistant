@@ -21,13 +21,14 @@ from infrastructure import component_packages as cp
 
 # phone_control 组件必须内置 cloudflared，所以默认夹具自带一份；
 # AUTO 表示「按 names 里的二进制自动算出声明」，None 才是「刻意不声明」。
+TMP_ROOT = tempfile.gettempdir()
 AUTO = object()
 BINARY = b"MZcloudflared"
 
 
 class PackageTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(dir="<tmp>")
+        self.temp = tempfile.TemporaryDirectory(dir=TMP_ROOT)
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.key = "phone_control"

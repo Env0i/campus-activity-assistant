@@ -17,6 +17,8 @@ sys.path.insert(0, str(LOCAL / "build"))   # 打包脚本在 local/build/
 import advanced_helper
 import build_advanced as builder
 
+TMP_ROOT = tempfile.gettempdir()
+
 
 class BuilderTests(unittest.TestCase):
     def test_output_is_restricted_to_explicit_temp_subdirectory(self):
@@ -26,7 +28,7 @@ class BuilderTests(unittest.TestCase):
 
     def test_phone_control_without_cloudflared_is_refused(self):
         """不给 --cloudflared 就直接失败：不许产出没有远程通道的组件包。"""
-        with tempfile.TemporaryDirectory(dir="<tmp>") as tmp:
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
             with mock.patch.object(builder.importlib.util, "find_spec", return_value=object()), \
                     mock.patch.object(builder.subprocess, "run") as run:
                 with self.assertRaises(ValueError) as refused:
@@ -35,7 +37,7 @@ class BuilderTests(unittest.TestCase):
             run.assert_not_called()
 
     def test_manifest_and_separate_dependencies(self):
-        with tempfile.TemporaryDirectory(dir="<tmp>") as tmp:
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
             root = Path(tmp)
             binary = root / "cloudflared.exe"
             binary.write_bytes(b"MZcloudflared")

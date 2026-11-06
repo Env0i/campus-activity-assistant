@@ -40,7 +40,7 @@ import watchlist_runner as runner  # noqa: E402
 
 def _test_root() -> Path:
     root = Path(os.environ.get("CAMPUS_TEST_ROOT")
-                or "<tmp>/campus-watchlist-safety-20261027")
+                or (Path(tempfile.gettempdir()) / "campus-watchlist-safety-20261027"))
     if os.name != "nt" and not os.environ.get("CAMPUS_TEST_ROOT"):
         root = Path(tempfile.gettempdir()) / "campus-watchlist-safety-20261027"
     root.mkdir(parents=True, exist_ok=True)

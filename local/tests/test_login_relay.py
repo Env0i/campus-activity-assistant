@@ -36,6 +36,8 @@ from login_relay import (  # noqa: E402
     run_http_relay, run_relay, valid_code,
 )
 
+TMP_ROOT = tempfile.gettempdir()
+
 PNG_B64 = ("data:image/png;base64,"
            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8"
            "z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
@@ -997,7 +999,7 @@ class VerifiedFilesTests(unittest.TestCase):
         for state_exists in (False, True):
             for session_exists in (False, True):
                 with self.subTest(state=state_exists, session=session_exists):
-                    with tempfile.TemporaryDirectory(dir="<tmp>") as directory:
+                    with tempfile.TemporaryDirectory(dir=TMP_ROOT) as directory:
                         root = Path(directory)
                         state, session = root / "state.json", root / "session.json"
                         originals = {state: b"original state\r\n", session: b"original session"}
@@ -1023,7 +1025,7 @@ class VerifiedFilesTests(unittest.TestCase):
                         self.assertEqual(list(root.glob("*.tmp")), [])
 
     def test_success_replaces_both_documents(self):
-        with tempfile.TemporaryDirectory(dir="<tmp>") as directory:
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as directory:
             root = Path(directory)
             state, session = root / "state.json", root / "session.json"
             save_verified_files({"new": 1}, {"new": 2}, state, session)
