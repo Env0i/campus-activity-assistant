@@ -185,6 +185,32 @@ class GetJoinInfoContractTests(unittest.TestCase):
         self.assertIsNone(self._joined(failed, budget=_Budget()))
         self.assertIs(self._joined(failed), False)
 
+    def test_failed_query_none_dict_or_bad_code_all_return_none_with_budget(self):
+        """None 绝不能被当成未报名——否则会在结果未知时再提交一次。
+
+        三种查询没成功的回包形状都必须：带 budget 回 None（三态），
+        不带 budget 回 False（旧调用方的两态口径不变）。
+        """
+        # 1) 回包本身是 null（_post 解析出 None）
+        with self.subTest(source="exception_none"):
+            self.assertIsNone(self._joined(None, budget=_Budget()),
+                              "带 budget：查询异常回 None")
+            self.assertIs(self._joined(None), False,
+                          "不带 budget：查询异常回落 False")
+        # 2) 非 dict（如字符串）
+        with self.subTest(source="non_dict"):
+            self.assertIsNone(self._joined("oops", budget=_Budget()),
+                              "带 budget：非 dict 回 None")
+            self.assertIs(self._joined("oops"), False,
+                          "不带 budget：非 dict 回落 False")
+        # 3) code 不是 1（如 500 系统繁忙；_post 遇到网络异常也回 code=-1，走的是这一种）
+        with self.subTest(source="bad_code"):
+            failed = {"code": 500, "message": "系统繁忙", "data": None}
+            self.assertIsNone(self._joined(failed, budget=_Budget()),
+                              "带 budget：code!=1 回 None")
+            self.assertIs(self._joined(failed), False,
+                          "不带 budget：code!=1 回落 False")
+
 
 class SignupReplyContractTests(unittest.TestCase):
     def setUp(self):
