@@ -840,6 +840,120 @@ out.push(taskHtml({ ...task }));
                 self.assertNotIn(label, card, "未知/缺失 phase 不显示阶段，不编造文案")
 
 
+class TimetableGroupingBehaviorTests(unittest.TestCase):
+    """M4/M5：groupTimetable 五场活动各归其位，不依赖本机时区。
+
+    钉住 open.push / closed.push / signed.push 不串槽：改坏其中一个，这条用例必须变红。
+    """
+
+    def test_group_timetable_places_each_activity_in_its_correct_group(self):
+        """五场活动：正在开放 / 等开放 / 报名时间待公布 / 已截止 / 已报名，各归其位。"""
+        res = run_js(r"""
+// 北京时间 2026-11-06 10:00:00（UTC+8）
+const nowMs = new Date(Date.UTC(2026, 10, 6, 2, 0, 0)).getTime();
+setBusinessNow(nowMs);
+
+const openAct = {
+  id: "open-1", name: "正在开放活动",
+  sign_start: "2026-11-06 09:00:00", sign_end: "2026-11-06 11:00:00",
+  act_start: "2026-11-07 09:00:00", act_end: "2026-11-07 11:00:00",
+  signed: false, place: "地点 A"
+};
+const waitingAct = {
+  id: "wait-1", name: "等开放活动",
+  sign_start: "2026-11-07 09:00:00", sign_end: "2026-11-07 11:00:00",
+  act_start: "2026-11-08 09:00:00", act_end: "2026-11-08 11:00:00",
+  signed: false, place: "地点 B"
+};
+const unknownAct = {
+  id: "unk-1", name: "时间待公布活动",
+  sign_start: "", sign_end: "",
+  act_start: "", act_end: "",
+  signed: false, place: "地点 C"
+};
+const closedAct = {
+  id: "closed-1", name: "已截止活动",
+  sign_start: "2026-11-05 09:00:00", sign_end: "2026-11-05 11:00:00",
+  act_start: "2026-11-06 09:00:00", act_end: "2026-11-06 11:00:00",
+  signed: false, place: "地点 D"
+};
+const signedAct = {
+  id: "signed-1", name: "已报名活动",
+  sign_start: "2026-11-06 08:00:00", sign_end: "2026-11-06 10:00:00",
+  act_start: "2026-11-07 08:00:00", act_end: "2026-11-07 10:00:00",
+  signed: true, place: "地点 E"
+};
+
+const rows = [openAct, waitingAct, unknownAct, closedAct, signedAct];
+const html = groupTimetable(rows);
+
+// 提取每组内容做断言：每个活动名恰好出现在一个组里
+function sectionContent(label) {
+  const idx = html.indexOf("<b>" + label + "</b>");
+  if (idx < 0) return "";
+  // 找下一个 section.gsec 或结尾
+  const nextSec = html.indexOf('<section class="gsec"', idx + 1);
+  const end = nextSec >= 0 ? nextSec : html.length;
+  return html.substring(idx, end);
+}
+
+const openHtml = sectionContent("正在开放");
+const unknownHtml = sectionContent("报名时间待公布");
+const closedHtml = sectionContent("已截止");
+const signedHtml = sectionContent("已报名");
+
+out.push({
+  openHasOpen: openHtml.includes("正在开放活动"),
+  openHasNotWaiting: !openHtml.includes("等开放活动"),
+  openHasNotUnknown: !openHtml.includes("时间待公布活动"),
+  openHasNotClosed: !openHtml.includes("已截止活动"),
+  openHasNotSigned: !openHtml.includes("已报名活动"),
+
+  unknownHasUnknown: unknownHtml.includes("时间待公布活动"),
+  closedHasClosed: closedHtml.includes("已截止活动"),
+  signedHasSigned: signedHtml.includes("已报名活动"),
+
+  unknownOnly: unknownHtml.includes("时间待公布活动") && !unknownHtml.includes("正在开放活动") && !unknownHtml.includes("等开放活动") && !unknownHtml.includes("已截止活动") && !unknownHtml.includes("已报名活动"),
+  closedOnly: closedHtml.includes("已截止活动") && !closedHtml.includes("正在开放活动") && !closedHtml.includes("等开放活动") && !closedHtml.includes("时间待公布活动") && !closedHtml.includes("已报名活动"),
+  signedOnly: signedHtml.includes("已报名活动") && !signedHtml.includes("正在开放活动") && !signedHtml.includes("等开放活动") && !signedHtml.includes("时间待公布活动") && !signedHtml.includes("已截止活动"),
+
+  // 等开放活动应该在日期分组里（不在以上四个固定组）
+  waitingInDayGroup: html.includes("等开放活动") && !openHtml.includes("等开放活动")
+    && !unknownHtml.includes("等开放活动") && !closedHtml.includes("等开放活动")
+    && !signedHtml.includes("等开放活动"),
+
+  groupCount: (html.match(/<section class="gsec"/g) || []).length,
+});
+""")
+        row = res[0]
+        self.assertTrue(row["openHasOpen"],
+                        "「正在开放」组应含 open 活动")
+        self.assertTrue(row["openHasNotWaiting"],
+                        "「正在开放」组不得含 waiting 活动")
+        self.assertTrue(row["openHasNotUnknown"],
+                        "「正在开放」组不得含 unknown 活动")
+        self.assertTrue(row["openHasNotClosed"],
+                        "「正在开放」组不得含 closed 活动")
+        self.assertTrue(row["openHasNotSigned"],
+                        "「正在开放」组不得含 signed 活动")
+        self.assertTrue(row["unknownHasUnknown"],
+                        "「报名时间待公布」组应含 unknown 活动")
+        self.assertTrue(row["closedHasClosed"],
+                        "「已截止」组应含 closed 活动")
+        self.assertTrue(row["signedHasSigned"],
+                        "「已报名」组应含 signed 活动")
+        self.assertTrue(row["unknownOnly"],
+                        "「报名时间待公布」组只能含 unknown 那一场")
+        self.assertTrue(row["closedOnly"],
+                        "「已截止」组只能含 closed 那一场")
+        self.assertTrue(row["signedOnly"],
+                        "「已报名」组只能含 signed 那一场")
+        self.assertTrue(row["waitingInDayGroup"],
+                        "waiting 活动应在日期分组里，不在四个固定组")
+        self.assertEqual(row["groupCount"], 5,
+                         "恰好五个分组：正在开放、一个日期组、待公布、已截止、已报名")
+
+
 class PreopenRouteContractTests(unittest.TestCase):
     """预报名提前准备与真实 checkpoint 的静态契约（反修门禁）。"""
 
