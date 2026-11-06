@@ -964,6 +964,12 @@ class TourAndLifecycleContractTests(unittest.TestCase):
                       "自动开始只按已看过的内容版本判定（旧时间戳不得拦截新版）")
         self.assertIn("window.innerWidth > 980", js, "窄窗（≤980）必须退回底部说明条")
         self.assertIn('classList.toggle("is-bottom"', js, "回退态必须挂 is-bottom 类")
+        self.assertIn('classList.toggle("no-target"', js, "没有目标时才挂 no-target 类")
+        css = read("ui/styles.css")
+        self.assertIn(".tour.no-target .tour-spot", css,
+                      "隐藏高亮框只挂在「没有目标」上（R1）")
+        self.assertNotIn(".tour.is-bottom .tour-spot", css,
+                         "is-bottom 现在只表示卡片位置，不能再顺手藏高亮框")
         self.assertIn("tourPauseNow", js, "计划运行中必须暂停引导")
         self.assertIn("tourResumeNow", js, "计划结束后必须可恢复引导")
         # Esc 等同跳过
@@ -2023,6 +2029,35 @@ tourSkip();
         self.assertEqual(res[0]["step"], 1, "重定位不得改变当前步骤")
         self.assertTrue(res[0]["open"], "render 不得重开或关闭引导")
         self.assertTrue(res[0]["repositioned"], "render 后必须重新定位高亮框")
+
+    def test_spot_stays_visible_when_card_falls_to_bottom(self):
+        """卡片放不下改放底部时目标框仍在；只有目标缺失/不可见才藏（R1）。"""
+        res = run_js(r"""
+startTour(0);
+const box = document.querySelector("#tour");
+const spot = document.querySelector("#tour-spot");
+const target = document.querySelector('[data-tour-target="list"]');
+window.innerHeight = 200;        /* 卡片下方放不下，回退到底部 */
+document.querySelector("#tour-card").offsetHeight = 400;
+target.offsetWidth = 360;
+paintTour();
+const fallback = { isBottom: box.classList.contains("is-bottom"),
+  noTarget: box.classList.contains("no-target"), spotTop: String(spot.style.top) };
+target.offsetWidth = 0;          /* 目标不可见：这时才隐藏框 */
+paintTour();
+const missing = { isBottom: box.classList.contains("is-bottom"),
+  noTarget: box.classList.contains("no-target"), spotTop: String(spot.style.top) };
+out.push({ fallback, missing });
+tourSkip();
+""")
+        row = res[0]
+        self.assertTrue(row["fallback"]["isBottom"], "卡片放不下要落到底部")
+        self.assertFalse(row["fallback"]["noTarget"], "目标还在，不能挂 no-target")
+        self.assertNotEqual(row["fallback"]["spotTop"], "", "目标在就必须看得见高亮框")
+        self.assertTrue(row["missing"]["noTarget"], "目标不可见时才挂 no-target")
+        self.assertEqual(row["missing"]["spotTop"], "", "没有目标时不画高亮框")
+
+
 
 
 def settings_drawer(html):

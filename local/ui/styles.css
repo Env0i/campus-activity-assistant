@@ -644,8 +644,10 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .tour-dots i.on { background: var(--amber); }
 .tour-foot { display: flex; align-items: center; gap: 8px; }
 .tour-foot .btn { height: 30px; }
-/* 窄窗口（≤980）或目标缺失：不做高亮，卡片落到底部居中的说明条 */
-.tour.is-bottom .tour-spot { display: none; }
+/* 窄窗口（≤980）或目标缺失：不做高亮，卡片落到底部居中的说明条。
+ * 只按 no-target 隐藏高亮框：is-bottom 还表示「卡片放不下改放底部」，
+ * 那时目标本身可见，高亮框必须留着（R1）。 */
+.tour.no-target .tour-spot { display: none; }
 /* 「勾选」那一步：遮罩不吃点击，背景点击由脚本拦下，只有高亮那一行能点 */
 .tour.is-interactive { pointer-events: none; }
 .tour.is-interactive .tour-card { pointer-events: auto; }

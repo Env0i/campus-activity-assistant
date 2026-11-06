@@ -131,7 +131,11 @@ function paintTour() {
   if (box.classList) box.classList.toggle("is-interactive", !!step.interactive);
   const usable = !!target && window.innerWidth > 980 &&
                  target.offsetWidth > 0 && target.getClientRects().length > 0;
+  /* 两个类各管一件事：is-bottom 只管卡片落到页面底部（目标不可用或卡片放不下），
+   * no-target 只在根本没有可高亮目标时用。原来把「隐藏高亮框」挂在 is-bottom 上，
+   * 卡片一放到底部就把目标框也藏了，目标明明在也看不见（R1）。 */
   box.classList.toggle("is-bottom", !usable);
+  box.classList.toggle("no-target", !usable);
   const spot = $("#tour-spot");
   const card = $("#tour-card");
   card.style.top = "";
