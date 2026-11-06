@@ -6667,6 +6667,79 @@ class WindowCloseChoiceContractTests(unittest.TestCase):
                          "能不能唤回由后端判定，界面不自己猜")
 
 
+class ReloginRefreshTests(unittest.TestCase):
+    """N1：重新登录成功后自动加载活动列表（与浏览器登录成功同一条路）。"""
+
+    def test_success_fires_one_refresh_and_replays_do_not(self):
+        """空闲时收到 success → 走一次 check + list；同一 flow 的重放不再刷；
+        计划运行中不刷新（后端照常继续计划）。"""
+        res = run_js(r"""
+const calls = [];
+window.pywebview = { api: {
+  check: () => { calls.push("check"); return Promise.resolve({ ok: true }); },
+  list_activities: () => { calls.push("list"); return Promise.resolve({ ok: true, items: [] }); },
+} };
+receiveReloginState({ state: "success", flow_id: "f1" });
+const once = calls.slice();
+receiveReloginState({ state: "success", flow_id: "f1" });
+const replay = calls.slice();
+S.busy = true;
+receiveReloginState({ state: "success", flow_id: "f2" });
+const busy = calls.slice();
+out.push({ once, replay, busy });
+""")
+        row = res[0]
+        self.assertEqual(row["once"].count("list"), 1,
+                         "登录成功要立刻拉一次活动列表，用户不必再手点「刷新」")
+        self.assertGreaterEqual(row["once"].count("check"), 1,
+                                "与浏览器登录成功同一条路：先查一次登录状态")
+        self.assertEqual(row["replay"], row["once"],
+                         "中继会重放快照：同一 flow 的 success 只能刷新一次")
+        self.assertEqual(row["busy"], row["replay"],
+                         "计划运行中不刷新：界面只说明「计划照常继续」")
+
+    def test_open_dialog_success_also_loads_the_list(self):
+        """对话框开着时登录成功同样立刻加载：走完「登录成功」提示再刷新。"""
+        res = run_js(r"""
+const calls = [];
+window.pywebview = { api: {
+  check: () => { calls.push("check"); return Promise.resolve({ ok: true }); },
+  list_activities: () => { calls.push("list"); return Promise.resolve({ ok: true, items: [] }); },
+} };
+S.relogin = { open: true, step: "wait", flowId: "f1", challengeId: "" };
+receiveReloginState({ state: "success", flow_id: "f1" });
+out.push({ calls: calls.slice(), step: S.relogin.step, flowId: S.relogin.flowId,
+  msg: document.querySelector("#rl-msg-text").textContent });
+""")
+        row = res[0]
+        self.assertEqual(row["calls"].count("list"), 1, "对话框确认成功后也要加载列表")
+        self.assertEqual(row["step"], "msg", "仍然停在「重新登录成功」这一屏")
+        self.assertEqual(row["flowId"], "", "本场 flow 收口后清空")
+        self.assertEqual(row["msg"], "重新登录成功。", "空闲时的成功提示保持原话")
+
+    def test_relogin_success_without_flow_id_refreshes_only_once(self):
+        """无 flow_id 的 success 快照视为同一事件只放行一次：中继重放不再打回加载态。"""
+        res = run_js(r"""
+const calls = [];
+window.pywebview = { api: {
+  check: () => { calls.push("check"); return Promise.resolve({ ok: true }); },
+  list_activities: () => { calls.push("list"); return Promise.resolve({ ok: true, items: [] }); },
+} };
+receiveReloginState({ state: "success", flow_id: "" });
+const first = calls.slice();
+receiveReloginState({ state: "success", flow_id: "" });
+const replay = calls.slice();
+out.push({ first, replay });
+""")
+        row = res[0]
+        self.assertEqual(row["first"].count("list"), 1,
+                         "无 flow_id 的成功快照同样要立刻拉一次活动列表")
+        self.assertGreaterEqual(row["first"].count("check"), 1,
+                                "与浏览器登录成功同一条路：先查一次登录状态")
+        self.assertEqual(row["replay"], row["first"],
+                         "空 flow_id 的重放视为同一事件：不得再次 doCheck + refresh 打回加载态")
+
+
 class DocAndCopySyncTests(unittest.TestCase):
     """文档和提示文案必须跟真实能力对得上：cloudflared 只从组件包来。"""
 

@@ -7,6 +7,11 @@
  * 验证码图与进度来自后端 phone_relogin 事件（与手机同一场流程），界面不自己编状态。 */
 const RELOGIN_PRIVACY_NOTE = "登录时，工具会替你勾选学校登录页上的《隐私协议》。";
 
+/* 已经因「登录成功」触发过刷新的 flow_id：中继会重放快照，同一场不能刷新两次，
+ * 否则列表会被反复打回加载态。空 flow_id 视为同一事件，也只放行一次（初始 null
+ * 与哨兵空串区分「还没刷新过」）。 */
+let reloginRefreshedFlow = null;
+
 function reloginDialog() {
   return $("#dlg-relogin");
 }
@@ -145,6 +150,19 @@ const RELOGIN_FAIL_TEXT = {
   canceled: "这次登录已取消。",
 };
 
+/* 登录成功的收尾：与浏览器登录成功走同一条路（controllers/plan.js handleDone 的
+ * doCheck + refresh），让活动列表立刻加载，用户不必再手点一次「刷新」（N1）。
+ * 计划运行中不刷新：后端照常继续计划，界面只说明这一句。 */
+function reloginSucceeded(flowId) {
+  if (S.busy) return;
+  const flow = String(flowId || "");
+  /* 空 flow_id 视为同一事件：首次放行后记下哨兵空串，重放一律去重。 */
+  if (flow === reloginRefreshedFlow) return;
+  reloginRefreshedFlow = flow;
+  if (typeof doCheck === "function") doCheck();
+  if (typeof refresh === "function") refresh(true);
+}
+
 /* 后端推来的这一场进度（与手机同一份 public_state）：只在对话框开着时接管画面 */
 function receiveReloginState(payload) {
   const data = payload || {};
@@ -155,7 +173,10 @@ function receiveReloginState(payload) {
     paintLogin();
   }
   if (!S.relogin || !S.relogin.open) {
-    if (data.state === "success" && S.busy) addLog("重新登录成功，报名计划照常继续");
+    if (data.state === "success") {
+      if (S.busy) addLog("重新登录成功，报名计划照常继续");
+      else reloginSucceeded(data.flow_id);
+    }
     return;
   }
   if (S.relogin.flowId && data.flow_id && String(data.flow_id) !== S.relogin.flowId) return;
@@ -179,6 +200,7 @@ function receiveReloginState(payload) {
     return;
   }
   if (state === "success") {
+    reloginSucceeded(data.flow_id);   /* 先按本场 flow 记账，再把 flowId 清空 */
     addLog(S.busy ? "重新登录成功，报名计划照常继续" : "重新登录成功");
     reloginStep("msg", S.busy ? "重新登录成功，报名计划照常继续。" : "重新登录成功。");
     S.relogin.flowId = "";
