@@ -184,6 +184,24 @@ out.push(PhoneModel.filterItems(items, { time: "week" }, nowS).map((i) => i.id))
         self.assertEqual(values[3], ["a1", "a2"])
         self.assertEqual(values[4], ["a1", "a2", "a3"])
 
+    def test_bucket_uses_beijing_sign_start_without_open_ts(self):
+        """真实手机快照只有 sign_start：按 UTC+8 解析，24 小时内算「今天」（M7）。"""
+        values = run_phone_js("""
+const nowS = Math.floor(Date.UTC(2026, 10, 4, 4, 0, 0) / 1000);  /* 北京时间 12:00 */
+out.push(Math.floor(Date.UTC(2026, 10, 4, 12, 0, 0) / 1000));
+out.push(PhoneModel.openEpochOf({ sign_start: "2026-11-04 20:00:00" }));
+out.push(PhoneModel.bucketOf({ signed: false, sign_start: "2026-11-04 20:00:00" }, nowS));
+out.push(PhoneModel.bucketOf({ signed: false, sign_start: "2026-11-06 09:00:00" }, nowS));
+out.push(PhoneModel.bucketOf({ signed: false, sign_start: "2026/11/04 20:00:00" }, nowS));
+out.push(PhoneModel.bucketOf({ signed: false, open_ts: nowS + 600,
+  sign_start: "2026-12-31 20:00:00" }, nowS));
+""")
+        self.assertEqual(values[1], values[0], "20:00 北京时间必须换算成 12:00 UTC（UTC+8）")
+        self.assertEqual(values[2], "today", "24 小时内开放要进「今天」")
+        self.assertEqual(values[3], "upcoming", "更远的进「即将开放」")
+        self.assertEqual(values[4], "upcoming", "解析不了的文本不猜，按「以后」")
+        self.assertEqual(values[5], "today", "有 open_ts 时以它为准")
+
     def test_backoff_is_exponential_and_capped_at_15s(self):
         values = run_phone_js("""
 let cur = 1000;

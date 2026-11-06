@@ -38,12 +38,26 @@ const PhoneModel = {
     });
   },
 
+  /* 开放时刻的 epoch 秒：优先 open_ts；真实手机快照里没有 open_ts，
+     只有 sign_start 文本，按北京时间（UTC+8）解析，和运行机器的时区无关。 */
+  openEpochOf(item) {
+    if (!item) return 0;
+    const direct = Number(item.open_ts || 0);
+    if (direct > 0) return direct;
+    const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/
+      .exec(String(item.sign_start || "").trim());
+    if (!m) return 0;
+    const ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]),
+      Number(m[4]) - 8, Number(m[5]), Number(m[6] || 0));
+    return Math.floor(ms / 1000);
+  },
+
   /* 分区：手机上先看「今天」，再看「即将开放」，已报名的折起来。
    * 24 小时内开放（或已经在报）的算今天：手机上真正要动手的就是这些。 */
   bucketOf(item, nowS) {
     if (!item) return "upcoming";
     if (item.signed) return "signed";
-    const open = Number(item.open_ts || 0);
+    const open = PhoneModel.openEpochOf(item);
     if (!(open > 0)) {
       // 缺开放时间的只能算「以后」，但截止还没到的仍然可勾选
       return item.closed ? "signed" : "upcoming";
