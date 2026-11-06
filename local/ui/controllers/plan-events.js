@@ -59,7 +59,7 @@ function presentPlanDone(payload, autoRefresh) {
     const extra = outcome.unknown ? "其中 " + unknownLabel(outcome).replace(/^有 /, "")
       + "，请去活动页核对。" : "";
     setResult({ ok: "partial", title: "报名计划已停止",
-                text: "已提交的场次保留原状态，尚未提交的场次已取消。" + extra
+                text: "已提交的场次保留原状态，还没提交的场次已取消。" + extra
                   + (outcome.unknown ? "（" + splitText + "）" : ""),
                 action: { label: "重新选择活动", run: restartStoppedPlan } });
   } else if (S.plan.status === "partial") {

@@ -117,9 +117,9 @@ function paintSelected() {
   else if (S.plan.status === "failed" && plannedUnknown > 0) {
     setBoardTag(unknownLabel(planOutcome()).replace(/^有 /, ""), "amber", true);
   } else if (S.plan.status === "stopped" && plannedUnknown > 0) {
-    /* 停止是主结论，未知并列：不亮红灯，也不说成全部取消 */
-    setBoardTag("已停止 · " + unknownLabel(planOutcome()).replace(/^有 /, ""), "amber", true);
-  } else if (S.plan.status === "stopped") setBoardTag("计划已停止", "off", true);
+    /* 停止是主结论；还有没核对的场次要用户去活动页确认（原型 :2069） */
+    setBoardTag("已停止，需确认", "amber", true);
+  } else if (S.plan.status === "stopped") setBoardTag("已停止", "off", true);
   else setBoardTag("报名计划", "amber", true);
   const groups = groupSelected(items);
   /* 混合计划摘要按场显示模式：预报名场次等开放，立即报名/抢名额场次马上执行 */
@@ -374,9 +374,12 @@ function paintTickets() {
     return;
   }
   box.innerHTML = groupSelected(items).map((group) => {
-    const mode = modeText(modeOf(group.items[0]));
-    return '<div class="bh"><b>' + esc(shortTime(group.key)) + "</b><span>" + group.items.length + " 场"
-      + (mode ? " · " + esc(mode) : "") + "</span></div>"
+    /* 批次头照原型 Main.dc.html:1956-1959：已开放的批次写「现在」，预报名写同时提交几场。 */
+    const instant = modeOf(group.items[0]) === "instant_signup";
+    const count = group.items.length;
+    const note = instant ? "立即报名 " + count + " 场"
+      : (count > 1 ? "预报名，同时提交 " + count + " 场" : "预报名 1 场");
+    return '<div class="bh"><b>' + esc(instant ? "现在" : shortTime(group.key)) + "</b><span>" + esc(note) + "</span></div>"
       + group.items.map((item) => '<div class="tk"><div><b title="' + esc(item.name) + '">' + esc(item.name)
         + "</b><small>" + esc(activityTimeText(item)) + '</small></div><button type="button" data-remove="'
         + esc(String(item.id)) + '" aria-label="' + esc("从计划移除「" + item.name + "」") + '">'
@@ -738,14 +741,14 @@ function paintLed() {
       if (view.retryUntil === null) {
         /* 截止未知：点阵只有数字，不拿 00:00:00 冒充已到点 */
         ledSet("--:--:--", "amber");
-        paintLedLabel("正在提交 " + view.count + " 场，本次尝试截止", "待定");
+        paintLedLabel("本次尝试到", "待定");
         return;
       }
       {
         const l = bnLeftSec(view.retryUntil);
         ledSet(l == null ? "--:--" : fmtLed(Math.max(0, l)), "amber");
       }
-      paintLedLabel("正在提交 " + view.count + " 场，本次尝试截止", fmtClock(view.retryUntil));
+      paintLedLabel("本次尝试到", fmtClock(view.retryUntil));
       return;
     }
     if (view.phase === "arming") {
@@ -757,18 +760,18 @@ function paintLed() {
     if (view.phase === "waiting") {
       if (view.openAt === null) {
         ledSet("--:--:--", "off");
-        paintLedLabel("同时开放 " + view.count + " 场，开放", "待公布");
+        paintLedLabel("开放时间", "待公布");
         return;
       }
       const left = bnLeftSec(view.openAt);
       if (left === null) {
         ledSet("--:--:--", "off");
-        paintLedLabel("同时开放 " + view.count + " 场，开放", "待校准");
+        paintLedLabel("开放时间", "待校准");
         return;
       }
       ledSet(fmtLed(left), left <= 10 ? "red" : "amber");
       /* 直接格式化真实开放时刻：不再用 now + 已取整 left 重拼，避免 1 秒偏差 */
-      paintLedLabel("同时开放 " + view.count + " 场，开放", fmtClock(view.openAt));
+      paintLedLabel("开放时间", fmtClock(view.openAt));
       return;
     }
     /* 准备中/汇总中：屏上不给假倒计时，也不提前点亮成功 */
@@ -829,9 +832,13 @@ function paintLed() {
     return;
   }
   ledSet("--:--:--", "off");
-  /* 时钟未知时「最近开放」是判断不出的结论，不能写成「待公布」 */
-  paintLedLabel("最近开放", (bnowS() === null && S.items.some(signStartKnown))
-    ? "待校准" : "待公布");
+  /* 时钟不可信时先报「待校准」（原型 :1992），不能把算不出的时间说成没有目标 */
+  if (bnowS() === null && S.items.some(signStartKnown)) {
+    paintLedLabel("最近开放", "待校准");
+    return;
+  }
+  /* 没有任何可报目标：屏下就写原型 Main.dc.html:1988 的结论，不拿「待公布」冒充 */
+  paintLedLabel("暂时没有目标", "");
 }
 
 /* 秒级时间戳 → 学校时区 HH:MM:SS（LED 标注与点阵同款数字口径） */

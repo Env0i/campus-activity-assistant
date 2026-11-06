@@ -209,7 +209,7 @@
     <div class="draw-b" id="settings-body">
       <h3 class="set-g" id="set-adv" tabindex="-1">高级功能<small>可选，用到时点一下就装</small></h3>
       <section class="help-tools help-advanced" aria-label="手机访问">
-        <div class="help-section-head"><h3>跨设备访问</h3><span class="help-feature-status" id="phone-feature-status">未安装</span></div>
+        <div class="help-section-head"><h3>手机访问</h3><span class="help-feature-status" id="phone-feature-status">未安装</span></div>
         <div class="help-tool-row help-tool-row-phone">
           <div class="help-tool-text"><h3>手机控制</h3><p id="phone-feature-note">从外面查看活动和控制报名计划；只提供 Tailscale 与 Cloudflare 两种远程通道。</p></div>
           <div class="help-actions"><button class="btn btn-line" id="btn-phone-feature-install" type="button">安装手机控制</button></div>
@@ -218,6 +218,7 @@
           <div class="phone-component" id="phone-component">
             <p class="phone-line" id="phone-component-state" aria-live="polite">手机控制组件：未安装</p>
             <progress class="phone-component-progress" id="phone-component-progress" max="100" value="0" hidden></progress>
+            <p class="phone-line phone-code-note" id="phone-download-note" hidden>下载和报名计划互不影响，可以关掉设置继续用。</p>
             <p class="phone-component-error" id="phone-component-error" hidden></p>
             <div class="help-actions">
               <button class="btn btn-line" id="btn-phone-component-install" type="button">一键安装组件包</button>
@@ -286,19 +287,19 @@
       <h3 class="set-g" id="set-prog" tabindex="-1">程序</h3>
       <section class="help-tools" aria-label="程序">
         <div class="help-tool-row">
-          <div class="help-tool-text"><h3>关闭窗口时</h3><p>点右上角关闭按钮时怎么做；计划运行中选「直接退出」仍会先问一次。</p></div>
-          <label class="filter-select"><span class="sr-only">关闭窗口时</span><select id="close-pref" aria-label="关闭窗口时"><option value="ask">每次询问</option><option value="minimize">最小化</option><option value="hide">隐藏到后台</option><option value="exit">直接退出</option></select></label>
+          <div class="help-tool-text"><h3>关闭窗口时</h3><p>选了直接退出也一样：报名计划运行中，关窗口前会先问你</p></div>
+          <label class="filter-select"><span class="sr-only">关闭窗口时</span><select id="close-pref" aria-label="关闭窗口时"><option value="ask">每次询问</option><option value="hide">隐藏到后台</option><option value="minimize">最小化到任务栏</option><option value="exit">直接退出</option></select></label>
         </div>
         <div class="help-tool-row set-update">
-          <div class="help-tool-text"><h3>版本与更新 <span class="help-current">当前 <b id="help-version">—</b></span></h3><p id="update-status" role="status" aria-live="polite">尚未检查</p><p class="help-checked" id="update-checked-at" hidden></p><p class="help-checked" id="update-progress" hidden></p></div>
+          <div class="help-tool-text"><h3>版本与更新 <span class="help-current">当前 <b id="help-version">—</b></span></h3><p id="update-status" role="status" aria-live="polite">只有点“检查更新”时才联网，下载前还会再确认。</p><p class="help-checked" id="update-checked-at" hidden></p><p class="help-checked" id="update-progress" hidden></p><p class="help-checked" id="update-download-note" hidden>下载不影响报名计划，可以关掉设置继续用。</p></div>
           <div class="help-actions update-actions"><span class="update-flow" id="update-flow" hidden><button class="btn btn-solid" id="btn-update-install" type="button" hidden>下载并安装</button><button class="btn btn-solid" id="btn-update-confirm" type="button" hidden>确认下载</button><button class="btn btn-line" id="btn-update-launch" type="button" hidden>启动安装程序</button><button class="btn btn-line" id="btn-update-cancel" type="button" hidden>取消</button><button class="btn btn-solid" id="btn-update-close" type="button" hidden>关闭本工具…</button></span><button class="btn btn-line" id="btn-update-check" type="button">检查更新</button><button class="btn btn-line" id="btn-help-latest" type="button">前往下载页</button></div>
         </div>
         <div class="help-tool-row">
-          <div class="help-tool-text"><h3>本机数据</h3><p id="help-data-path">登录信息、工具设置和运行记录保存在这台电脑。</p></div>
+          <div class="help-tool-text"><h3>本机数据</h3><p id="help-data-path">登录信息、设置和运行记录都只保存在这台电脑。</p></div>
           <button class="btn btn-line" id="btn-help-data" type="button">打开数据目录</button>
         </div>
         <div class="help-tool-row">
-          <div class="help-tool-text"><h3>使用条款与隐私</h3><p>当前条款版本 <b id="help-terms-version">—</b>；<span id="settings-terms-state">同意记录保存在本机设置里。</span></p></div>
+          <div class="help-tool-text"><h3>条款与隐私</h3><p>当前条款版本 <b id="help-terms-version">—</b>；<span id="settings-terms-state">同意记录保存在本机设置里。</span></p></div>
           <div class="help-actions"><button class="btn btn-line" id="btn-help-terms" type="button">查看条款</button><button class="btn btn-line" id="btn-terms-withdraw" type="button">撤回同意</button></div>
         </div>
         <!-- 计划运行中不能撤回：原因写在按钮下方，不只放在悬停提示里（原型 :738） -->
@@ -344,7 +345,7 @@
   </div>
   <!-- 停止计划二次确认：Esc / 继续计划 都不会触发停止 -->
   <dialog class="dlg dlg-sm" id="dlg-stop" aria-labelledby="dlg-stop-title">
-    <div class="dlg-head"><h2 id="dlg-stop-title">停止报名计划？</h2><p id="dlg-stop-body">工具将停止后续尝试。已提交的请求仍可能成功，停止计划不会取消已成功的报名。</p></div>
+    <div class="dlg-head"><h2 id="dlg-stop-title">停止报名计划？</h2><p id="dlg-stop-body">工具会停止后续尝试。已发出的提交仍可能成功，停止不会取消已成功的报名。</p></div>
     <div class="dlg-foot"><form method="dialog"><button class="btn btn-line" type="submit" value="no">继续计划</button><button class="btn btn-solid btn-stop-confirm" type="submit" value="yes">停止计划</button></form></div>
   </dialog>
   <!-- 重新登录（设计 9.3）：四种情况各走一步；验证码图与进度来自后端 phone_relogin 事件，和手机同一场流程 -->

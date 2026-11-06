@@ -942,7 +942,8 @@ class TourAndLifecycleContractTests(unittest.TestCase):
         self.assertIn("不要关闭工具或让电脑睡眠", steps, "开始以后那一步要讲清运行期间的前提")
         self.assertIn("看到「待核对」时，到学校活动页确认", steps,
                       "开始以后那一步要讲清待核对的下一步（工具不自动重发）")
-        self.assertIn("停止计划不会取消已成功的报名", read("ui/index.html"),
+        # 原型 :631 原话是「停止不会取消已成功的报名」，旧断言多了「计划」二字
+        self.assertIn("停止不会取消已成功的报名", read("ui/index.html"),
                       "停止确认要说明不撤销学校报名")
 
     def test_tour_never_triggers_backend_actions(self):
@@ -3434,7 +3435,9 @@ out.push({ title: document.querySelector("#empty-title").textContent,
         self.assertNotIn("点右上角", case["text"], "登录有效时不得再给登录下一步")
         self.assertEqual(case["total"], "0", "已知零条必须写 0，不是破折号")
         self.assertEqual(case["free"], "0")
-        self.assertIn("重新加载", case["action"])
+        # 原型 Main.dc.html:2096 的按钮就叫「刷新」：刷新本身已是统一入口，
+        # 「重新加载」是自造词（计划 desktop-copy 的 W8）。
+        self.assertEqual(case["action"], "刷新")
         self.assertEqual(case["boardTitle"], "学校当前没有返回活动")
         self.assertNotIn("还没公布", case["boardText"], "大屏不得把已知零说成还没公布")
 
@@ -4141,7 +4144,8 @@ document.querySelector("#btn-help").click();
 out.push({ calls, open: document.querySelector("#help").open,
   state: document.querySelector("#update-status").textContent });
 """)
-        self.assertEqual(res[0], {"calls": 0, "open": True, "state": "尚未检查"})
+        # 文案跟原型 Main.dc.html:1262 走：空闲态也要说清什么时候才联网
+        self.assertEqual(res[0], {"calls": 0, "open": True, "state": "只有点“检查更新”时才联网，下载前还会再确认。"})
 
     def test_double_click_is_single_flight(self):
         res = run_js(r"""
@@ -4192,8 +4196,30 @@ for (const state of ["available","current","preview","unavailable","error"]) {
         self.assertIn("发现新版本", res[0]["text"])
         self.assertIn("最新正式版", res[1]["text"])
         self.assertIn("预览", res[2]["text"])
-        self.assertEqual(res[3]["text"], "暂无正式发布")
+        self.assertEqual(res[3]["text"], "还没有正式发布的版本。")
         self.assertIn("暂时无法检查", res[4]["text"])
+
+    def test_launching_shows_backend_text(self):
+        """启动成功的二段文案由后端下发，前端固定「正在启动安装程序…」只是兜底。"""
+        res = run_js(r"""
+S.update.requestId = "request";
+window.onBackend.update({request_id:"request",state:"launching",
+  text:"安装程序已启动。请先关闭本工具，再按向导完成安装。"});
+out.push({state:S.update.state,text:document.querySelector("#update-status").textContent});
+""")
+        self.assertEqual(res[0]["state"], "launching")
+        self.assertEqual(res[0]["text"], "安装程序已启动。请先关闭本工具，再按向导完成安装。")
+
+    def test_no_installer_shows_backend_reason(self):
+        """no_installer 的三类原因由后端区分下发（update_check.py），前端不得一律说「没有可校验的安装包」。"""
+        res = run_js(r"""
+S.update.requestId = "request";
+window.onBackend.update({request_id:"request",state:"no_installer",latest_version:"1.2.0",
+  text:"发现新版本 1.2.0，但安装包大小与校验信息不一致，请前往下载页手动下载。"});
+out.push({state:S.update.state,text:document.querySelector("#update-status").textContent});
+""")
+        self.assertEqual(res[0]["state"], "no_installer")
+        self.assertEqual(res[0]["text"], "发现新版本 1.2.0，但安装包大小与校验信息不一致，请前往下载页手动下载。")
 
     def test_bridge_reject_is_local_and_recoverable(self):
         res = run_js(r"""

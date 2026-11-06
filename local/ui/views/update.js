@@ -17,18 +17,23 @@ function paintUpdate() {
   const inFlight = ["checking", "downloading", "verifying", "launching"].indexOf(state) >= 0;
   button.disabled = inFlight;
   button.textContent = state === "checking" ? "检查中…" : (state === "error" || state === "failed") ? "重试检查" : "检查更新";
-  const copy = { idle: "尚未检查", checking: "正在检查…", current: "当前为最新正式版",
-    available: "发现新版本 " + (result.latest_version || ""),
-    no_installer: result.text || "发现新版本，请前往下载页手动下载。",
-    preview: "当前为预览版本，最新正式版 " + (result.latest_version || ""),
-    unavailable: "暂无正式发布",
-    confirm: "确认下载并安装 " + (result.latest_version || "") + "？",
+  /* 文案照原型 Main.dc.html:1261-1276；版本号仍来自后端，不写死。 */
+  const copy = { idle: "只有点“检查更新”时才联网，下载前还会再确认。", checking: "正在检查…", current: "已是最新正式版。",
+    available: "发现新版本 " + (result.latest_version || "") + "。",
+    no_installer: "发现新版本 " + (result.latest_version || "") + "，但没有可校验的安装包，只能到发布页手动下载。",
+    preview: "当前是预览版本，最新正式版是 " + (result.latest_version || "") + "，不建议换回旧版本。",
+    unavailable: "还没有正式发布的版本。",
+    confirm: "发现新版本 " + (result.latest_version || "") + "。",
     downloading: "正在下载安装包…",
-    verifying: "正在校验安装包…",
-    ready_to_install: "安装包已校验通过，可以启动安装程序。",
-    launching: result.text || "正在启动安装程序…" };
+    verifying: "正在比对大小和 SHA-256…",
+    ready_to_install: "安装包已通过大小和 SHA-256 校验。",
+    launching: "正在启动安装程序…" };
+  /* launching 与 no_installer 的具体文案由后端按真实原因下发（app.py 启动收口 /
+     update_check.py 三类安装器缺失），固定文案只是后端没带 text 时的兜底；
+     原型 Main.dc.html:1261-1276 的状态表保留不删。 */
   box.textContent = state === "error" ? "暂时无法检查更新。" + (result.text || "请重试或前往下载页。")
-    : state === "failed" ? (result.text || "更新没能完成，请重试。")
+    : state === "failed" ? "更新没有完成。" + (result.text || "")
+    : state === "launching" || state === "no_installer" ? (result.text || copy[state])
     : copy[state] || copy.idle;
   /* 手动检查的结论带发生时间，避免把很久以前的结果误当成实时状态。 */
   const checked = $("#update-checked-at");
@@ -43,13 +48,16 @@ function paintUpdate() {
     const total = Number(result.total_bytes) || 0;
     progressText = "已下载 " + fmtBytes(done) + " / " + fmtBytes(total) + "（" + (total > 0 ? Math.floor(done / total * 100) : 0) + "%）";
   } else if (state === "verifying") {
-    progressText = "正在比对大小与 SHA-256…";
+    progressText = "正在比对大小和 SHA-256…";
   } else if (state === "ready_to_install") {
     /* 计划运行中校验通过：先提醒，按钮改成「仍然启动安装程序」 */
-    progressText = "已通过大小与 SHA-256 校验" + (S.busy ? "。报名计划还在运行：安装要先关闭本工具，会中断计划" : "");
+    progressText = "已通过大小和 SHA-256 校验" + (S.busy ? "。报名计划还在运行：安装要先关闭本工具，会中断计划" : "");
   }
   progress.hidden = !progressText;
   progress.textContent = progressText;
+  /* 下载中说明照原型 Main.dc.html:728：下载不影响正在跑的报名计划。 */
+  const downloadNote = $("#update-download-note");
+  if (downloadNote) downloadNote.hidden = state !== "downloading";
   const install = $("#btn-update-install");
   const confirm = $("#btn-update-confirm");
   const launch = $("#btn-update-launch");

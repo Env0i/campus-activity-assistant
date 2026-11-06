@@ -104,7 +104,8 @@ function groupTimetable(rows) {
     html += groupHtml(dayLabel(dayMs), days.get(key).sort(byStart), "day");
   });
   if (unknown.length) html += groupHtml("报名时间待公布", unknown.sort(byStart), "unknown", "公布以后才能到点报名");
-  if (closed.length) html += groupHtml("刚截止", closed.sort(byStart), "closed", "截止一小时内的还留着");
+  /* 组名与旁注照原型 Main.dc.html:1922：已截止的场次只能查看 */
+  if (closed.length) html += groupHtml("已截止", closed.sort(byStart), "closed", "只能查看");
   if (signed.length) html += groupHtml("已报名", signed.sort(byStart), "signed");
   return html;
 }
@@ -141,7 +142,8 @@ function rowHtml(item) {
   const clash = signedClash(item);
   const checkDisabled = S.busy || termsLocked() || !isEligibleForPlan(item) || !!clash;
   /* 学校常把开放时间定在 00:59:59 这种点：有秒就把秒写成小号 */
-  let timeHtml = '<span class="t">--:--</span>';
+  /* 还不知道开放时刻就写「待公布」（原型 Main.dc.html:1944），不拿 --:-- 冒充一个时刻 */
+  let timeHtml = '<span class="t">待公布</span>';
   if (toTs(item.sign_start) !== null) {
     const text = String(item.sign_start || "");
     const mm = text.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?/);
@@ -165,8 +167,9 @@ function rowHtml(item) {
     sub.push('<span class="sync-note">报名已确认，学校列表正在同步</span>');
   }
   const partner = clash || (conflict ? selectedClash(item) : null);
-  const warn = clash ? "与已报名的「" + clash.name + "」时间冲突，不能再选"
-    : (partner ? "与已选的「" + partner.name + "」举办时间重叠，只能选其中一场" : "");
+  /* 冲突提示照原型 Main.dc.html:1928 的两句：与已报名的说「不能加入」，与已选的只说重叠 */
+  const warn = clash ? "与已报名的「" + clash.name + "」时间重叠，不能加入"
+    : (partner ? "与已选的「" + partner.name + "」时间重叠" : "");
   const flags = requirementFlags(item) + (warn ? '<span class="row-warn">' + esc(warn) + "</span>" : "");
   return "<div class=\"" + classes.join(" ") + "\" data-id=\"" + esc(id) + "\" aria-label=\"" + esc(item.name) + "\">" +
     "<div class=\"c-sel\"><input class=\"row-check\" type=\"checkbox\" data-id=\"" + esc(id) + "\"" + (selected ? " checked" : "") + (checkDisabled ? " disabled" : "") + " aria-label=\"选择" + esc(item.name) + "\"></div>" +
@@ -310,9 +313,9 @@ function paintEmpty(rows) {
     return;
   }
   title.textContent = "学校当前没有返回活动";
-  text.innerHTML = '这不是登录问题。<span style="white-space:nowrap">稍后点「刷新」再看，</span>学校发布新活动后会出现在这里。';
-  /* 按钮叫「重新加载」与顶栏「刷新」区分；dataset.action 仍是 refresh，分派逻辑不动 */
-  action.textContent = "重新加载";
+  text.innerHTML = '这不是登录问题。<span style="white-space:nowrap">稍后点“刷新”再看，</span>学校发布新活动后会出现在这里。';
+  /* 按钮照原型 Main.dc.html:2096 就叫「刷新」；dataset.action 仍是 refresh，分派逻辑不动 */
+  action.textContent = "刷新";
 }
 
 function paintCount(rows) {

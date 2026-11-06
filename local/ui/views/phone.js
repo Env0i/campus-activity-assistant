@@ -324,6 +324,9 @@ const PhonePanel = {
     const downloading = String(download.state || "") === "downloading"
       || String(download.state || "") === "verifying";
     if (compState) compState.textContent = comp.text;
+    /* 下载中说明照原型 Main.dc.html:663：下载和报名计划互不影响。 */
+    const downloadNote = $("#phone-download-note");
+    if (downloadNote) downloadNote.hidden = !downloading;
     if (compProgress) {
       compProgress.hidden = comp.percent === null || comp.percent === undefined;
       compProgress.value = Number(comp.percent || 0);
