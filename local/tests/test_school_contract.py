@@ -126,6 +126,48 @@ class GetJoinInfoContractTests(unittest.TestCase):
         self.assertIs(self._joined(case["response"]), True)
         self.assertIs(self._joined(case["response"], budget=_Budget()), True)
 
+    def _payload(self, data):
+        return {"code": 1, "message": "操作成功！", "data": data}
+
+    def test_cancelled_registration_reads_as_not_joined(self):
+        # 报名后撤销：data 不回到 null，只把 sfcx 置 1（学校前端 9.2/9.3）。
+        # 旧判据「data 非空即已报名」会把撤销过的活动永远钉成已报名，
+        # 预检不再提交、收尾核对还会把它写成报名成功。
+        data = {"sfbm": 1, "sfcx": 1, "bmsj": "2026-11-03 12:00:00"}
+        self.assertIs(self._joined(self._payload(data)), False)
+        self.assertIs(self._joined(self._payload(data), budget=_Budget()), False)
+        text = {"sfbm": "1", "sfcx": "1"}
+        self.assertIs(self._joined(self._payload(text)), False, "字符串 \"1\" 同样是撤销")
+
+    def test_explicitly_signed_false_reads_as_not_joined(self):
+        for data in ({"sfbm": 0}, {"sfbm": "0"}, {"sfbm": False, "sfcx": 0}):
+            with self.subTest(data=data):
+                self.assertIs(self._joined(self._payload(data)), False)
+                self.assertIs(self._joined(self._payload(data), budget=_Budget()), False)
+
+    def test_registered_without_cancel_flag_reads_as_joined(self):
+        for data in ({"sfbm": 1, "sfcx": 0}, {"sfbm": "1", "sfcx": "0"}, {"sfbm": 1}):
+            with self.subTest(data=data):
+                self.assertIs(self._joined(self._payload(data)), True)
+                self.assertIs(self._joined(self._payload(data), budget=_Budget()), True)
+
+    def test_unreadable_payload_stays_joined(self):
+        # 认不出的形状按已报名处理：宁可漏报一次，也不重复提交
+        for data in ({"bmsj": "2026-11-03 12:00:00"}, {"sfbm": None}, {"sfbm": ""}):
+            with self.subTest(data=data):
+                self.assertIs(self._joined(self._payload(data)), True)
+
+    def test_empty_payload_reads_as_not_joined(self):
+        for data in (None, {}, []):
+            with self.subTest(data=data):
+                self.assertIs(self._joined(self._payload(data)), False)
+
+    def test_failed_query_keeps_the_three_state_none(self):
+        # 查询没成功 ≠ 未报名；budget 模式必须回 None，否则会再发一次提交
+        failed = {"code": 4001, "message": "身份验证失败", "data": None}
+        self.assertIsNone(self._joined(failed, budget=_Budget()))
+        self.assertIs(self._joined(failed), False)
+
 
 class SignupReplyContractTests(unittest.TestCase):
     def setUp(self):

@@ -834,11 +834,35 @@ def fetch_activities(budget=None, with_details=False):
     return out
 
 
+def _join_state(payload):
+    """getJoinInfo 的 data → 是否已报名（与学校前端同口径）。
+
+    出处：school-frontend-analysis.md 9.2/9.3/9.8（学校前端静态分析）：
+    - data 为 null（顺带容忍空对象/空数组）：从没报过 → 未报名；
+    - sfcx（是否撤销）为 1：学校把「已撤销」当成可以再报，列表里也退回可报名 →
+      未报名。只判 data 非空会把撤销过的活动永远钉在「已报名」；
+    - sfbm（是否报名）明确为假：学校自己说没报上 → 未报名；
+    - 其余（含缺 sfbm 字段、形状认不出）：按已报名处理。宁可漏报一次，
+      也不要因为读不懂回包就再提交一遍，把「结果未知」变成重复报名。
+    """
+    if payload in (None, {}, []):
+        return False
+    if not isinstance(payload, dict):
+        return True
+    if payload.get("sfcx") in (1, "1", True):
+        return False
+    if payload.get("sfbm") in (0, "0", False):
+        return False
+    return True
+
+
 def is_joined(act_id, budget=None):
     """getJoinInfo：未报名时 data 为 null，报名后 data 是对象。
 
     实测形状（2026-11-03）：未报名 {"code": 1, "message": "操作成功！", "data": null}；
     已报名 data 带 sfbm=1（是否报名）、bmsj（报名时间）、qdzt/qtzt（签到/签退状态）等。
+    报名后又撤销的 data 不回到 null，而是留在对象里并带 sfcx=1，所以判据交给
+    _join_state()（见那里的三条口径与出处）。
 
     传入 budget 时返回三态：True 已报名 / False 确认未报名 / None 查询没成功。
     最后一种绝不能被当成「未报名」——把它当未报名会再发一次提交，
@@ -850,7 +874,7 @@ def is_joined(act_id, budget=None):
                  timeout=None if budget is None else budget.timeout_s(15))
     if not isinstance(data, dict) or data.get("code") != 1:
         return False if budget is None else None
-    return data.get("data") not in (None, {}, [])
+    return _join_state(data.get("data"))
 
 
 def parse_ts(text):
