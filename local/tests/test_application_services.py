@@ -690,15 +690,20 @@ class AdvancedComponentDialogTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertIn("没有", result["text"])
 
-    def test_state_exposes_download_snapshot_for_phone_control_only(self):
+    def test_state_exposes_download_snapshot_for_both_components(self):
+        """两个组件都能一键下载（f9442ad 起验证码识别也有下载事务）。
+
+        旧断言认为 ddddocr 走已装依赖、不需要下载，组件包上线后不再成立；
+        新断言改成两行都带 download 快照、状态值取自同一集合。
+        """
         state = self.api.advanced_features_state()
-        phone = state["features"]["phone_control"]
-        self.assertIn("download", phone)
-        self.assertIn(phone["download"]["state"],
-                      {"available", "installed", "missing", "cancelled", "failed",
-                       "downloading", "verifying", "removing"})
-        self.assertNotIn("download", state["features"]["relogin_ocr"],
-                         "ddddocr 走已装依赖，没有下载概念")
+        for key in ("phone_control", "relogin_ocr"):
+            with self.subTest(feature=key):
+                feature = state["features"][key]
+                self.assertIn("download", feature)
+                self.assertIn(feature["download"]["state"],
+                              {"available", "installed", "missing", "cancelled", "failed",
+                               "downloading", "verifying", "removing"})
 
     def _version_text(self, text):
         return mock.patch.object(
