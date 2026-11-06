@@ -18,7 +18,7 @@ import tempfile
 import threading
 import time
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -40,6 +40,8 @@ from fixtures.business_clock import TestWallClock  # noqa: E402
 from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
 
 NOW = 1000.0
+# 学校时间是北京时间：造 at/sign_end 必须用同一时区，否则换时区就错位
+BEIJING_TZ = timezone(timedelta(hours=8))
 
 
 def activity(aid, sign, start, end, sign_end=""):
@@ -240,7 +242,7 @@ class WorkerTelemetryFlowTests(unittest.TestCase):
             captured["args"] = cmd
             return cmd
 
-        at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+        at = (datetime.now(BEIJING_TZ).replace(tzinfo=None) - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
         row = activity("a", at, "2026-10-23 12:00:00", "2026-10-23 13:00:00", sign_end=sign_end)
         # 计划接纳以本进程缓存为权威（R05）：本类验证遥测链路，先把同源快照
         # 登记进缓存再开始；接纳门禁本身由 test_signup_plan 的专门用例覆盖
@@ -268,7 +270,7 @@ class WorkerTelemetryFlowTests(unittest.TestCase):
             "sign_end=1792810000 last_reason=code:0 报名人数已满', flush=True)\n"
             "sys.exit(2)\n"
         )
-        sign_end = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+        sign_end = (datetime.now(BEIJING_TZ).replace(tzinfo=None) + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
         events, plan_id, worker_args = self._run_worker(
             api, source, policy={"retry_for_s": 600, "max_attempts": 3}, sign_end=sign_end)
 
@@ -417,7 +419,7 @@ class WorkerTelemetryFlowTests(unittest.TestCase):
     def test_plan_snapshot_carries_policy(self):
         """计划快照保留策略：页面重载后策略不丢。"""
         api = self._api()
-        sign_end = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+        sign_end = (datetime.now(BEIJING_TZ).replace(tzinfo=None) + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
         source = ("import time\n"
                   "print('[i] worker started', flush=True)\n"
                   "time.sleep(300)\n")
@@ -788,8 +790,8 @@ class WorkerLifecycleTests(_WorkerCase):
         events = []
         api._emit = lambda kind, payload: events.append((kind, payload))
         api._last_check = {"result": "valid", "checked_at": 0.0}
-        at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
-        sign_end = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+        at = (datetime.now(BEIJING_TZ).replace(tzinfo=None) - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+        sign_end = (datetime.now(BEIJING_TZ).replace(tzinfo=None) + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
         row = activity("a1", at, "2026-10-23 12:00:00", "2026-10-23 13:00:00",
                        sign_end=sign_end)
         api._activities = {"a1": dict(row)}

@@ -16,7 +16,7 @@ import tempfile
 import threading
 import time
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 LOCAL = Path(__file__).resolve().parents[1]
@@ -43,6 +43,9 @@ from local.signup_plan import (
 from fixtures.business_clock import TestWallClock  # noqa: E402
 from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
 from business_clock import ClockUnavailable  # noqa: E402
+
+# 学校时间是北京时间：造 sign_start/sign_end 必须用同一时区，否则换时区就错位
+BEIJING_TZ = timezone(timedelta(hours=8))
 
 
 def activity(aid, sign, start, end, name=None, signed=False):
@@ -294,7 +297,7 @@ class SignupPlanOrderingTests(unittest.TestCase):
     def test_batches_run_in_time_order_and_payloads_are_complete(self):
         """不同开放批次按时间顺序执行；task 事件带 plan_id/task_id/sign_start，
         plan_done 带按状态计数的 summary，而不是一句布尔。"""
-        now = datetime.now().replace(microsecond=0)
+        now = datetime.now(BEIJING_TZ).replace(tzinfo=None).replace(microsecond=0)
         first_at = (now - timedelta(seconds=30)).strftime("%Y-%m-%d %H:%M:%S")
         second_at = (now - timedelta(seconds=10)).strftime("%Y-%m-%d %H:%M:%S")
         specs = [
@@ -591,7 +594,7 @@ class WorkerStopLifecycleTests(unittest.TestCase):
         # 本测试只验证停止生命周期：先给一个 valid 的登录结论，越过登录门禁
         api._last_check = {"result": "valid", "checked_at": 0.0}
 
-        at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+        at = (datetime.now(BEIJING_TZ).replace(tzinfo=None) - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
         row = activity("a", at, "2026-10-23 12:00:00", "2026-10-23 13:00:00")
         # 计划接纳以本进程缓存为权威（R05）：本类验证停止生命周期，
         # 先把同源快照登记进缓存；接纳门禁由专门用例覆盖
@@ -772,7 +775,7 @@ class PlanRuntimeDetailTests(unittest.TestCase):
 
     def test_snapshot_keeps_runtime_checkpoints_and_mode(self):
         """重载恢复的快照必须带真实 checkpoint、模式与策略字段。"""
-        at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+        at = (datetime.now(BEIJING_TZ).replace(tzinfo=None) - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
         spec = TaskSpec.from_activity(
             {"id": "o", "name": "开放场", "sign_start": at, "sign_end": "2099-01-02 09:00:00",
              "act_start": "2099-01-03 09:00:00", "act_end": "2099-01-03 11:00:00"},
@@ -812,7 +815,7 @@ class PlanRuntimeDetailTests(unittest.TestCase):
 
     def test_late_events_do_not_overwrite_checkpoints(self):
         """checkpoint 先到先得：重放/迟到的同名字段不得改写已发生的节点。"""
-        at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+        at = (datetime.now(BEIJING_TZ).replace(tzinfo=None) - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
         spec = TaskSpec.from_activity(
             {"id": "o", "name": "开放场", "sign_start": at, "sign_end": "",
              "act_start": "2099-01-03 09:00:00", "act_end": "2099-01-03 11:00:00"},
@@ -838,7 +841,7 @@ class PlanRuntimeDetailTests(unittest.TestCase):
 
     def test_mixed_plan_runs_open_first_and_future_waits(self):
         """混合计划：已开放场次立即执行到终态，未来场次保持等待；两场模式与时间线独立。"""
-        past_at = (datetime.now() - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
+        past_at = (datetime.now(BEIJING_TZ).replace(tzinfo=None) - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
         act_s, act_e = "2099-01-03 09:00:00", "2099-01-03 11:00:00"
         specs = [
             TaskSpec.from_activity({"id": "f", "name": "未来场", "sign_start": "2099-01-01 09:00:00",
@@ -1079,7 +1082,7 @@ class RetryPolicyContractTests(unittest.TestCase):
 
     def test_snapshot_and_task_events_carry_policy_and_telemetry(self):
         """快照保留策略（重载不丢）；submitting telemetry 与终态 stop_reason 透传。"""
-        now = datetime.now().replace(microsecond=0)
+        now = datetime.now(BEIJING_TZ).replace(tzinfo=None).replace(microsecond=0)
         at = (now - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
         spec = TaskSpec("task-a", "a", "a", at, "2026-10-23 12:00:00",
                         "2026-10-23 13:00:00",
@@ -1125,7 +1128,7 @@ class BurstPolicyFreezeTests(unittest.TestCase):
 
     def test_task_spec_frozen_fields_survive_adaptive_extension(self):
         """retry_started_at/retry_for_s/sign_end/max_attempts 接纳时冻结，扩窗不改写。"""
-        now = datetime.now().replace(microsecond=0)
+        now = datetime.now(BEIJING_TZ).replace(tzinfo=None).replace(microsecond=0)
         at = (now - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
         spec = TaskSpec("task-a", "a", "a", at, "2026-10-23 12:00:00",
                         "2026-10-23 13:00:00",
@@ -1167,7 +1170,7 @@ class BurstPolicyFreezeTests(unittest.TestCase):
 
     def test_retry_deadline_can_grow_but_not_shrink(self):
         """扩窗允许 deadline 变大；迟到/重放的更小值不得改小。"""
-        now = datetime.now().replace(microsecond=0)
+        now = datetime.now(BEIJING_TZ).replace(tzinfo=None).replace(microsecond=0)
         at = (now - timedelta(seconds=5)).strftime("%Y-%m-%d %H:%M:%S")
         spec = TaskSpec("task-b", "b", "b", at, "2026-10-23 12:00:00",
                         "2026-10-23 13:00:00",
