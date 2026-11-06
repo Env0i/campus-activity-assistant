@@ -24,8 +24,6 @@ import tempfile
 import threading
 import time
 
-from time_contract import configure_time_source
-configure_time_source(time.time)   # 旧用例显式注入本机时钟；新用例改注 FakeBusinessClock
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -38,6 +36,8 @@ if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
 from fixtures.business_clock import TestWallClock  # noqa: E402
 from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
+from time_contract import configure_time_source  # noqa: E402
+configure_time_source(time.time)   # 旧用例显式注入本机时钟；新用例改注 FakeBusinessClock
 
 
 def _app():
