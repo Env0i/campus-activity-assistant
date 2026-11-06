@@ -180,6 +180,9 @@ def _make_handler(service, bind_host: str, public_host: str,
         def _deny(self, code: str, status: int = 403) -> None:
             # 只回错误码与一句话，不回堆栈、不回路径、不回请求内容
             self._campus_error = code
+            # 先读掉未读的请求体：Windows 关闭留有未读数据的连接会发 RST，
+            # 客户端可能读不到拒绝回包，只看到连接被中止（WinError 10053）
+            self._discard_unread_body()
             self._json(status, {"ok": False, "error": code})
 
         def _log_access(self) -> None:
@@ -241,7 +244,30 @@ def _make_handler(service, bind_host: str, public_host: str,
                 return None, "body_too_large"
             if length == 0:
                 return None, "empty_body"
-            return self.rfile.read(length), ""
+            body = self.rfile.read(length)
+            self._campus_body_consumed = True
+            return body, ""
+
+        def _discard_unread_body(self):
+            """拒绝前把未读的请求体读掉，客户端才能完整收到 403/405。
+
+            只在 0 < Content-Length <= 上限时读；缺失、非法、超过上限都不读，照旧回包。
+            读请求体受 Handler.timeout = 10 的连接超时约束，慢客户端挂不死线程。
+            """
+            if getattr(self, "_campus_body_consumed", False):
+                return
+            raw_len = self.headers.get("Content-Length")
+            try:
+                length = int(raw_len)
+            except (TypeError, ValueError):
+                return
+            if length <= 0 or length > MAX_BODY_BYTES:
+                return
+            try:
+                self.rfile.read(length)
+            except Exception:  # noqa: BLE001 - 客户端断开等不外抛
+                pass
+            self._campus_body_consumed = True
 
         def _require_json_type(self) -> bool:
             ctype = str(self.headers.get("Content-Type") or "").split(";")[0].strip().lower()

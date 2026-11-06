@@ -255,6 +255,20 @@ class RejectionTests(PhoneHttpBase):
                                              body={"action": "check", "args": {}})
                 self.assertIn(status, (400, 403, 405))
 
+    def test_denied_request_with_unread_body_still_gets_reply(self):
+        """拒绝路径在回包前读掉未读请求体：Windows 上留着未读数据关连接会发 RST，
+        客户端收不到 403/405，只看到连接被中止（WinError 10053）。"""
+        body = json.dumps({"code": "x", "pad": "a" * 60000}).encode("utf-8")
+        self.assertLess(len(body), MAX_BODY_BYTES)
+        for path, method, status_expect, error in (
+                ("/pair", "POST", 403, "bad_origin"),
+                ("/api/action", "PUT", 405, "method_not_allowed")):
+            for attempt in range(10):
+                with self.subTest(path=path, method=method, attempt=attempt):
+                    status, _, raw = self._request(method, path, body=body)
+                    self.assertEqual(status, status_expect)
+                    self.assertEqual(json.loads(raw.decode("utf-8"))["error"], error)
+
     def test_directory_traversal_and_unknown_routes_404(self):
         for path in ("/../app.py", "/..%2f..%2fapp.py", "/secret.txt",
                      "/api/../session.json", "/ui/index.html"):
