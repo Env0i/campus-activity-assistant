@@ -1702,7 +1702,7 @@ class CoordinatorLockOrderTests(unittest.TestCase):
         self._app = local_app
         return stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
 
-    def _start_real_plan(self, api):
+    def _start_real_plan(self, api, *, hold: bool = False):
         app = self._app
         api._activities = {"a1": {
             "id": "a1", "name": "活动", "sign_start": "2026-10-23 10:00:00",
@@ -1711,10 +1711,17 @@ class CoordinatorLockOrderTests(unittest.TestCase):
             "signed": False}}
         api._last_check = {"result": "valid", "checked_at": 0.0}
         holder = {}
+        release = threading.Event()
+        if hold:
+            self.addCleanup(release.set)
 
         def runner(spec, cancel_event, status):
             # 先发一条进度事件，再返回成功：覆盖「任务事件与 bootstrap 并发」
             status("submitting", {"attempts": 1})
+            if hold:
+                # 假任务立刻成功时，计划可能在 bootstrap 读快照前就结束并清空 _plan，
+                # bootstrap 不再调用快照，entered 永远等不到——这测的不是锁序
+                release.wait(5.0)
             return {"status": "success", "reason": "ok"}
 
         def factory(plan_id, specs, runner_fn, emit, now=None):
@@ -1729,7 +1736,7 @@ class CoordinatorLockOrderTests(unittest.TestCase):
 
     def test_bootstrap_and_task_events_close_within_one_second(self):
         api = self._api()
-        coord = self._start_real_plan(api)
+        coord = self._start_real_plan(api, hold=True)
         original = coord.snapshot
         entered = threading.Event()
         proceed = threading.Event()
