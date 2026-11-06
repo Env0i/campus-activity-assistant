@@ -315,6 +315,44 @@ class StartGateContractTests(unittest.TestCase):
         self.assertIn("S.login.ok = false", body,
                       "旧 ok 不清掉的话 unknown 分支接不住，顶栏会残留「登录有效」")
 
+    def test_refresh_catch_failure_leaves_checking_and_sets_unknown(self):
+        """行为测试：check 桥接抛错后，必须离开 checking、落 unknown、写日志。
+
+        这条钉住 catch 分支真的在运行时清了三态，不是只有源码字符串断言。
+        """
+        res = run_js(r"""
+window.pywebview = { api: {
+  check: () => {
+    return Promise.reject(new Error("bridge down"));
+  },
+  list_activities: () => new Promise(() => {}),  // 永不完成
+} };
+// 条款已同意：S.terms.acceptedVersion 与 S.terms.version 相等
+S.terms = { version: "v1", acceptedVersion: "v1", acceptedAt: "2026-11-05 10:00" };
+S.online = true;
+S.login.present = true; S.login.result = "valid"; S.login.ok = true; S.login.checking = false;
+refresh(false);
+// 让 catch 分支跑完（async 调度）
+await Promise.resolve();
+await Promise.resolve();
+out.push({
+  checking: S.login.checking,
+  ok: S.login.ok,
+  result: S.login.result,
+  logs: S.recentLogs.slice(),
+});
+""")
+        row = res[0]
+        self.assertFalse(row["checking"],
+                         "桥接失败后 checking 必须清掉，不能永远停在「检查中」")
+        self.assertFalse(row["ok"],
+                         "桥接失败后 ok 必须清掉，否则 unknown 分支接不住")
+        self.assertEqual(row["result"], "unknown",
+                         "桥接失败后 result 必须是 unknown，不是 valid/none/expired")
+        log_text = "\n".join(row["logs"])
+        self.assertIn("检查登录状态失败", log_text,
+                      "运行记录里要有失败说明")
+
     def test_start_button_requires_valid_or_demo(self):
         """开始按钮门禁：只有登录校验 valid 且不在检查中，或 demo 模式放行。"""
         js = read("ui/app.js")
