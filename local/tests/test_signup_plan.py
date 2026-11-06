@@ -41,6 +41,7 @@ from local.signup_plan import (
     validate_plan,
 )
 from fixtures.business_clock import TestWallClock  # noqa: E402
+from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
 from business_clock import ClockUnavailable  # noqa: E402
 
 
@@ -379,7 +380,7 @@ class ApiBusyLockTests(unittest.TestCase):
         finally:
             sys.path.pop(0)
         self._app_module = local_app
-        return local_app.Api(clock=TestWallClock())
+        return stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
 
     def test_busy_lock_blocks_login_and_start_plan_until_stopped(self):
         api = self._api()
@@ -454,7 +455,7 @@ class ApiBusyLockTests(unittest.TestCase):
         local_app = self._app_module
         start = 1793100000.0
         clock = FakeBusinessClock(epoch=start, tick=0.0)
-        api = local_app.Api(clock=clock)
+        api = stop_auto_relogin_on_cleanup(self, local_app.Api(clock=clock))
         captured, statuses = {}, []
 
         def fake_worker(*args):
@@ -573,7 +574,7 @@ class WorkerStopLifecycleTests(unittest.TestCase):
         finally:
             sys.path.pop(0)
         self._app_module = local_app
-        return local_app.Api(clock=TestWallClock())
+        return stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
 
     def _start_and_wait_worker(self, api, source, needs_grandchild=True):
         """启动单任务计划并等到 worker 进程（含孙进程）真的跑起来。"""
@@ -1210,7 +1211,7 @@ class PlanAdmissionTests(unittest.TestCase):
         finally:
             sys.path.pop(0)
         self._app = local_app
-        return local_app.Api(clock=TestWallClock())
+        return stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
 
     def _seed(self, api, **override):
         item = {"id": "a1", "name": "活动", "sign_start": "2026-01-01 09:00:00",
@@ -1346,7 +1347,7 @@ class StartAdmissionConcurrencyTests(unittest.TestCase):
         finally:
             sys.path.pop(0)
         self._app = local_app
-        return local_app.Api(clock=TestWallClock())
+        return stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
 
     def _seed(self, api):
         item = {"id": "a1", "name": "活动", "sign_start": "2026-01-01 09:00:00",
@@ -1545,7 +1546,7 @@ class SignedResultReconciliationTests(unittest.TestCase):
         finally:
             sys.path.pop(0)
         self._app = local_app
-        return local_app.Api(clock=TestWallClock())
+        return stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
 
     def _seed(self, api, aid="a1", start="2099-01-03 19:00:00",
               end="2099-01-03 20:00:00", **override):
@@ -1699,7 +1700,7 @@ class CoordinatorLockOrderTests(unittest.TestCase):
         finally:
             sys.path.pop(0)
         self._app = local_app
-        return local_app.Api(clock=TestWallClock())
+        return stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
 
     def _start_real_plan(self, api):
         app = self._app

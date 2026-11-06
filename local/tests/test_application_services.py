@@ -24,6 +24,7 @@ if str(LOCAL) not in sys.path:
 
 from application import login_service, update_service  # noqa: E402
 from domain import plan_rules  # noqa: E402
+from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
 from signup_plan import TaskSpec  # noqa: E402
 
 
@@ -268,7 +269,7 @@ class PhoneChannelPreferenceTests(unittest.TestCase):
         ):
             patch.start()
             self.addCleanup(patch.stop)
-        self.api = local_app.Api()
+        self.api = stop_auto_relogin_on_cleanup(self, local_app.Api())
         self.api._phone = FakePhoneService()
 
     def _connect_tailscale(self, *, available=True, error="", state="connected"):
@@ -660,7 +661,7 @@ class AdvancedComponentDialogTests(unittest.TestCase):
         ):
             patch.start()
             self.addCleanup(patch.stop)
-        self.api = local_app.Api()
+        self.api = stop_auto_relogin_on_cleanup(self, local_app.Api())
         self.api._phone = FakePhoneService()
         self.addCleanup(self.api.shutdown)
 
@@ -933,7 +934,7 @@ class PhoneReloginTakeoverTests(unittest.TestCase):
         ):
             patch.start()
             self.addCleanup(patch.stop)
-        self.api = local_app.Api()
+        self.api = stop_auto_relogin_on_cleanup(self, local_app.Api())
         self.api._phone = FakePhoneService()
         self.addCleanup(self.api.shutdown)
 

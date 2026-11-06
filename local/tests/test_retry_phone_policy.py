@@ -43,6 +43,7 @@ from domain.time_text import task_deadline  # noqa: E402
 from grab import BurstPolicy, compute_retry_window  # noqa: E402
 from signup_plan import TaskSpec  # noqa: E402
 from fixtures.business_clock import TestWallClock  # noqa: E402
+from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
 
 
 # ---- 学校时间文本换算（与 ui/state/time.js 的 toTs 同一公式）------------
@@ -136,7 +137,7 @@ class _ServiceCase(unittest.TestCase):
              sign_end: str = "", cancel_after: float | None = None,
              announce_deadline: "float | None" = None, clock_spy=None):
         """跑一场 fake worker；返回 (result, elapsed, events, captured_args)。"""
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         events = []
         api._emit = lambda kind, payload: events.append((kind, payload))
         cancel = threading.Event()
@@ -372,7 +373,7 @@ class PlanServiceModeTests(_ServiceCase):
         now = time.time()
         anchor = now - (DEFAULT_RETRY_SECONDS - 1.0)   # 初始截止 ≈ 1 秒后
         candidate = anchor + DEFAULT_RETRY_SECONDS + 4.0
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         api._emit = lambda kind, payload: None
         cancel = threading.Event()
         original_env = self.app._env
@@ -404,7 +405,7 @@ class PlanServiceModeTests(_ServiceCase):
         now = time.time()
         anchor = now - (DEFAULT_RETRY_SECONDS - 1.0)
         candidate = anchor + DEFAULT_RETRY_SECONDS + 8.0
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         api._emit = lambda kind, payload: None
         cancel = threading.Event()
         original_env = self.app._env
@@ -433,7 +434,7 @@ class PlanServiceModeTests(_ServiceCase):
         now = time.time()
         anchor = now - (DEFAULT_RETRY_SECONDS - 1.0)
         candidate = anchor + DEFAULT_RETRY_SECONDS + 8.0
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         api._emit = lambda kind, payload: None
         cancel = threading.Event()
         original_env = self.app._env
@@ -461,7 +462,7 @@ class PlanServiceModeTests(_ServiceCase):
         now = time.time()
         anchor = now - (DEFAULT_RETRY_SECONDS - 1.0)
         candidate = anchor + DEFAULT_RETRY_SECONDS + 4.0
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         api._emit = lambda kind, payload: None
         cancel = threading.Event()
         original_env = self.app._env
@@ -608,7 +609,8 @@ class CanonicalOptionsTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, tmp, True)
         with mock.patch.object(local_app, "PREFS", Path(tmp) / "ui.json"), \
                 mock.patch.object(local_app, "DEMO", True):
-            payload = local_app.Api(clock=TestWallClock()).bootstrap()
+            payload = stop_auto_relogin_on_cleanup(
+                self, local_app.Api(clock=TestWallClock())).bootstrap()
         return payload["retry_options"]
 
     def test_desktop_select_options_match_bootstrap_canonical_choices(self):

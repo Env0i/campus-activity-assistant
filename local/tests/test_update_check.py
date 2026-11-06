@@ -20,6 +20,7 @@ if str(TESTS_DIR) not in sys.path:
 import update_check as updates
 import app as local_app
 from fixtures.business_clock import TestWallClock  # noqa: E402
+from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
 
 INSTALLER = "campus-activity-watch-installer-v1.1.1-win-x64.exe"
 DOWNLOAD = "https://github.com/Env0i/campus-activity-assistant/releases/download/v1.1.1/"
@@ -403,7 +404,8 @@ class UpdateNetworkTests(unittest.TestCase):
 
 class UpdateBridgeTests(unittest.TestCase):
     def setUp(self):
-        self.api = local_app.Api(clock=TestWallClock())
+        self.api = stop_auto_relogin_on_cleanup(
+            self, local_app.Api(clock=TestWallClock()))
         self.api._emit = Mock()
 
     def test_constructor_and_bootstrap_do_not_query(self):

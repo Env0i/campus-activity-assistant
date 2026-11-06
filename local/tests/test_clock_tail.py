@@ -23,6 +23,7 @@ if str(LOCAL / 'tests') not in sys.path:
 from test_ui_contract import run_js, read_ui_scripts
 from business_clock import BusinessClock
 from fixtures.business_clock import ntp_response
+from fixtures.api_threads import stop_auto_relogin_on_cleanup
 
 
 class PreferenceLockTailTests(unittest.TestCase):
@@ -45,7 +46,7 @@ class PreferenceLockTailTests(unittest.TestCase):
     def test_api_does_not_acknowledge_unsaved_preferences(self):
         app = importlib.import_module('app')
         with mock.patch.object(app, 'update_prefs', return_value=False):
-            result = app.Api().save_prefs({'headed': True})
+            result = stop_auto_relogin_on_cleanup(self, app.Api()).save_prefs({'headed': True})
         self.assertFalse(result['ok'], '保存失败不能回执成功')
         self.assertEqual(result['error'], 'prefs_busy')
 

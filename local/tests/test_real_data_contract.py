@@ -26,6 +26,7 @@ for _path in (str(LOCAL), str(TESTS)):
         sys.path.insert(0, _path)
 
 from fixtures.business_clock import TestWallClock  # noqa: E402
+from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
 from local.signup_plan import TaskSpec, parse_timestamp, validate_plan  # noqa: E402
 
 
@@ -52,7 +53,7 @@ class SignedLagContractTests(unittest.TestCase):
         finally:
             sys.path.pop(0)
         self._app = local_app
-        return local_app.Api(clock=TestWallClock())
+        return stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
 
     def test_success_then_school_list_still_false(self):
         api = self._api()

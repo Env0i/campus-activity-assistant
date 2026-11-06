@@ -37,6 +37,7 @@ TESTS_DIR = Path(__file__).resolve().parent
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
 from fixtures.business_clock import TestWallClock  # noqa: E402
+from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
 
 
 def _app():
@@ -165,7 +166,7 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
             self.addCleanup(patch.stop)
 
     def _api_with_events(self):
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         events = []
         api._emit = lambda kind, payload=None: events.append((kind, payload))
         return api, events
@@ -377,7 +378,7 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
     def test_demo_check_is_fully_offline(self):
         """R20：--demo 的 check/list/login 只用内存样例，零 worker、零学校。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         events = []
         api._emit = lambda kind, payload=None: events.append((kind, payload))
         with mock.patch.object(app, "DEMO", True), \
@@ -404,7 +405,7 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
     def test_demo_bootstrap_reads_no_credentials(self):
         """C07：demo 的 bootstrap 不得读 session/生命周期，也不得迁移真实数据。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         with mock.patch.object(app, "DEMO", True), \
                 mock.patch.object(app, "login_state",
                                   side_effect=AssertionError("demo 不得读真实登录态")), \
@@ -422,7 +423,7 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
                 "sign_end": "2099-01-02 09:00:00",
                 "act_start": "2099-01-03 09:00:00", "act_end": "2099-01-03 11:00:00",
                 "signed": False}
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         api._last_check = {"result": "valid", "checked_at": 0.0}
         with mock.patch.object(self.app, "worker_problem", lambda: "worker_missing"):
             res = api.start_plan([dict(item)])
@@ -432,7 +433,7 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
         self.assertIsNone(api._plan, "拒绝路径不得创建计划")
         # demo：不起 worker，组件门禁放行（落到计划校验层；缺举办时间的样本直接被拒）
         with mock.patch.object(self.app, "DEMO", True):
-            api2 = self.app.Api(clock=TestWallClock())
+            api2 = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
             res2 = api2.start_plan([{"id": "b", "name": "缺时间",
                                      "sign_start": "2099-01-01 09:00:00",
                                      "signed": False}])
@@ -468,7 +469,7 @@ class ShutdownLifecycleTests(unittest.TestCase):
         p_aux = self._sleeper()
         p_foreign = self._sleeper()
         self.addCleanup(self._force_kill, p_foreign)
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         api._proc = p_login
         api._plan_procs["task-01"] = p_plan
         api._aux_procs.add(p_aux)
@@ -483,7 +484,7 @@ class ShutdownLifecycleTests(unittest.TestCase):
 
     def test_shutdown_stops_coordinator_once(self):
         """有计划时先置停协调器（等待/排队任务标 canceled），再走进程收尾。"""
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         plan = mock.Mock()
         plan.plan_id = "p1"
         api._plan = plan
@@ -585,7 +586,7 @@ class ShutdownBarrierTests(unittest.TestCase):
     def test_closing_refuses_all_public_starters_without_popen(self):
         """关闭先置位：check/list/login/start_plan 四类入口都拒绝且零 Popen。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         popen_calls = []
 
         def counting_popen(args, **kwargs):
@@ -613,7 +614,7 @@ class ShutdownBarrierTests(unittest.TestCase):
     def test_shutdown_waits_for_inflight_creation_and_reaps_it(self):
         """创建先开始：shutdown 等在锁外；登记完成、进程仍活着时必被收走（不漏登记）。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         entered, release, finish = (threading.Event(), threading.Event(),
                                     threading.Event())
         made = []
@@ -655,7 +656,7 @@ class ShutdownBarrierTests(unittest.TestCase):
     def _queued_refusal(self, do_request, event_kind):
         """排队请求在关闭后到达创建点：拒绝创建、恰一次取消终态、无组件码。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         entered, proceed = threading.Event(), threading.Event()
 
         def gate_cmd(*a):
@@ -698,7 +699,7 @@ class ShutdownBarrierTests(unittest.TestCase):
     def test_plan_task_refuses_creation_after_closing(self):
         """计划任务在关闭后到达创建点：_run_plan_task 抛关闭拒绝（取消语义）。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         spec = SimpleNamespace(task_id="task-01-a1", activity_id="a1", name="活动",
                                sign_start="2099-01-01 09:00:00",
                                sign_end="2099-01-02 09:00:00",
@@ -741,7 +742,7 @@ class ShutdownBarrierTests(unittest.TestCase):
     def test_runner_converts_closing_refusal_to_canceled(self):
         """计划运行中关闭：runner 把关闭拒绝转成 canceled，协调器照常收出唯一 plan_done。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         api._last_check = {"result": "valid", "checked_at": 0.0}
         # 已开放场次（instant_signup）：协调器立即启动任务线程——
         # 未来场次是 pre_register，真实调度会等到准备时刻，测试里永远到不了创建点
@@ -791,7 +792,7 @@ class ShutdownBarrierTests(unittest.TestCase):
     def test_concurrent_shutdowns_close_out_once_without_deadlock(self):
         """并发两次 shutdown：只真正收尾一次（stop 恰一次、每进程恰收一次）、无死锁。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         plan = mock.Mock()
         api._plan = plan
         p_login, p_plan = _FakeProc(pid=1001), _FakeProc(pid=1002)
@@ -838,7 +839,7 @@ class ShutdownAcceptTests(unittest.TestCase):
     def test_concurrent_start_plans_accept_exactly_one(self):
         """两请求都越过开头 busy 检查后在最终接纳点串行：恰一个接纳、一个拒绝、一个协调器启动。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         api._last_check = {"result": "valid", "checked_at": 0.0}
         item = self._instant_item()
         # 计划接纳改为以本进程缓存为权威（R05）：先登记同源快照再开始。
@@ -893,7 +894,7 @@ class ShutdownAcceptTests(unittest.TestCase):
     def test_request_paused_before_reservation_refused_after_shutdown(self):
         """请求停在校验后、最终预留前，shutdown 先完成：放行后被拒、零启动、无新计划。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         api._last_check = {"result": "valid", "checked_at": 0.0}
         item = self._instant_item()
         # 计划接纳改为以本进程缓存为权威（R05）：先登记同源快照再开始。
@@ -930,7 +931,7 @@ class ShutdownAcceptTests(unittest.TestCase):
     def test_shutdown_stops_reserved_coordinator(self):
         """已预留的协调器必须被 shutdown 快照看见并置停（预留与快照同锁）。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         api._last_check = {"result": "valid", "checked_at": 0.0}
         item = self._instant_item()
         # 计划接纳改为以本进程缓存为权威（R05）：先登记同源快照再开始。
@@ -948,7 +949,7 @@ class ShutdownAcceptTests(unittest.TestCase):
     def test_start_failure_releases_own_reservation_only(self):
         """coordinator.start 抛错：释放本人预留、下一次正常请求可开始、不清别的计划。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         api._last_check = {"result": "valid", "checked_at": 0.0}
         item = self._instant_item()
         # 计划接纳改为以本进程缓存为权威（R05）：先登记同源快照再开始。
@@ -983,7 +984,7 @@ class ShutdownAcceptTests(unittest.TestCase):
     def test_second_shutdown_waits_for_closeout_completion(self):
         """后到 shutdown 等首次收尾的完成信号：释放前都不返回、锁外等待、每 PID 恰收一次。"""
         app = self.app
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         plan = mock.Mock()
         api._plan = plan
         p_login, p_plan = _FakeProc(pid=2001), _FakeProc(pid=2002)
@@ -1172,7 +1173,7 @@ class PlanDoneCommitOrderTests(unittest.TestCase):
                 "signed": False}
 
     def _api(self):
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         api._last_check = {"result": "valid", "checked_at": 0.0}
         item = self._item()
         api._activities = {item["id"]: dict(item)}
@@ -1501,7 +1502,7 @@ class BusyLockOrderContractTests(unittest.TestCase):
 
     def test_busy_check_uses_published_status_only(self):
         app = _app()
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         plan = mock.Mock()
         plan.published_status.return_value = "running"
         plan.snapshot.side_effect = AssertionError("持 Api 锁时不得取协调器锁")
@@ -1512,7 +1513,7 @@ class BusyLockOrderContractTests(unittest.TestCase):
 
     def test_busy_false_for_terminal_plan(self):
         app = _app()
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         plan = mock.Mock()
         plan.published_status.return_value = "completed"
         api._plan = plan

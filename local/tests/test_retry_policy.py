@@ -37,6 +37,7 @@ configure_time_source(time.time)   # 旧用例显式注入本机时钟；新用�
 from grab import attempts_allowed, compute_retry_window, retry_anchor
 from signup_plan import TaskSpec
 from fixtures.business_clock import TestWallClock  # noqa: E402
+from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
 
 NOW = 1000.0
 
@@ -214,7 +215,7 @@ class WorkerTelemetryFlowTests(unittest.TestCase):
         finally:
             sys.path.pop(0)
         self._app_module = local_app
-        return local_app.Api(clock=TestWallClock())
+        return stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
 
     def _run_worker(self, api, source, policy=None, sign_end=""):
         """启动单任务计划等到 plan_done，返回 (事件, plan_id, task_id, worker 参数)。"""
@@ -653,7 +654,7 @@ class _WorkerCase(unittest.TestCase):
     def _run_task(self, scenario: str, *, retry_for: int = 5,
                   cancel_after: float | None = None, cancel_on_attempts: int | None = None,
                   expect_spawn_failure: bool = False, deadline_past: bool = True):
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         events = []
         api._emit = lambda kind, payload: events.append((kind, payload))
         cancel = threading.Event()
@@ -770,7 +771,7 @@ class WorkerLifecycleTests(_WorkerCase):
 
     def test_plan_done_once_and_busy_released(self):
         """整计划跑一遍：监督收走后 plan_done 恰一次、busy 解除。"""
-        api = self.app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         events = []
         api._emit = lambda kind, payload: events.append((kind, payload))
         api._last_check = {"result": "valid", "checked_at": 0.0}

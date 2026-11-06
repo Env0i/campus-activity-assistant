@@ -34,6 +34,7 @@ TESTS_DIR = Path(__file__).resolve().parent
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
 from fixtures.business_clock import TestWallClock  # noqa: E402
+from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
 from time_contract import configure_time_source  # noqa: E402
 configure_time_source(time.time)   # 旧用例显式注入本机时钟；时钟用例自行注入 Fake
 
@@ -293,19 +294,19 @@ class CheckGateContractTests(unittest.TestCase):
         for result, needle in (("unknown", "暂时无法确认登录态"),
                                ("none", "还没有登录"),
                                ("expired", "重新登录")):
-            api = app.Api(clock=TestWallClock())
+            api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
             api._last_check = {"result": result, "checked_at": 0.0}
             res = api.start_plan([dict(item) for item in items])
             self.assertFalse(res["ok"], "%s 必须拒绝开始真实计划" % result)
             self.assertIn(needle, res["text"], "%s 的拒绝理由要给出下一步" % result)
         # 检查进行中：同样拒绝，避免拿到半截结论就开始
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         api._checking = True
         res = api.start_plan([dict(item) for item in items])
         self.assertFalse(res["ok"])
         self.assertIn("正在检查登录态", res["text"])
         # 上一轮 valid + 新一轮检查进行中：仍拒绝（refresh 不清旧 valid，门禁必须显式排除 checking）
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         api._last_check = {"result": "valid", "checked_at": 0.0}
         api._checking = True
         res = api.start_plan([dict(item) for item in items])
@@ -313,13 +314,13 @@ class CheckGateContractTests(unittest.TestCase):
         self.assertIn("正在检查登录态", res["text"])
         # demo 只绕过登录门禁：其余计划校验照走（缺活动时间的样本落到校验层）
         with mock.patch.object(app, "DEMO", True):
-            api = app.Api(clock=TestWallClock())
+            api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
             res = api.start_plan([dict(item) for item in items])
             self.assertFalse(res["ok"])
             self.assertNotIn("登录", res.get("text", ""),
                              "demo 放行的只是登录门禁，不是所有校验")
         # valid：越过登录门禁，走到计划校验层
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         api._last_check = {"result": "valid", "checked_at": 0.0}
         res = api.start_plan([dict(item) for item in items])
         self.assertFalse(res["ok"])
@@ -328,7 +329,7 @@ class CheckGateContractTests(unittest.TestCase):
     def test_start_plan_rejects_closed_activity(self):
         """报名截止是硬门禁：已截止活动即使通过登录门禁也不能进入 worker。"""
         app = self._app()
-        api = app.Api(clock=TestWallClock())
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
         api._last_check = {"result": "valid", "checked_at": 0.0}
         past_end = (datetime.now() - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
         closed = {"id": "c1", "name": "已截止活动", "sign_start": "2000-01-01 09:00:00",
@@ -453,7 +454,7 @@ class PlanRestoreContractTests(unittest.TestCase):
                 thread = coordinator._thread
                 thread.join(2)
                 self.assertFalse(thread.is_alive())
-                api = app.Api(clock=TestWallClock())
+                api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
                 api._plan = coordinator
                 payload = api.bootstrap()
         # bootstrap 的 login 快照必须携带 S3 新增的上次校验时刻/结论
@@ -904,7 +905,7 @@ class LoginAnchorProductionPathTests(unittest.TestCase):
                 def wait(self):
                     return 0
 
-            api = app.Api(clock=clock)
+            api = stop_auto_relogin_on_cleanup(self, app.Api(clock=clock))
             with mock.patch.object(app, "SESSION_FILE", session), \
                     mock.patch.object(app, "PREFS", prefs):
                 api._pump(Proc(), "登录", kind="login")
@@ -931,7 +932,7 @@ class LoginAnchorProductionPathTests(unittest.TestCase):
                 def wait(self):
                     return 0
 
-            api = app.Api()          # 未注入时钟：显式不可用
+            api = stop_auto_relogin_on_cleanup(self, app.Api())          # 未注入时钟：显式不可用
             with mock.patch.object(app, "SESSION_FILE", session), \
                     mock.patch.object(app, "PREFS", prefs):
                 api._pump(Proc(), "登录", kind="login")
@@ -961,7 +962,8 @@ class LoginAnchorProductionPathTests(unittest.TestCase):
                     return 1
 
             events = []
-            api = app.Api(clock=FakeBusinessClock(epoch=1793100000.0, uncertainty=0.1))
+            api = stop_auto_relogin_on_cleanup(
+                self, app.Api(clock=FakeBusinessClock(epoch=1793100000.0, uncertainty=0.1)))
             api._emit = lambda kind, payload: events.append((kind, payload))
             with mock.patch.object(app, "SESSION_FILE", session), \
                     mock.patch.object(app, "PREFS", prefs):
@@ -994,7 +996,8 @@ class LoginAnchorProductionPathTests(unittest.TestCase):
                 def wait(self):
                     return 1
 
-            api = app.Api(clock=FakeBusinessClock(epoch=1793100000.0, uncertainty=0.1))
+            api = stop_auto_relogin_on_cleanup(
+                self, app.Api(clock=FakeBusinessClock(epoch=1793100000.0, uncertainty=0.1)))
             api._emit = lambda kind, payload: None
             with mock.patch.object(app, "SESSION_FILE", session), \
                     mock.patch.object(app, "PREFS", prefs):
@@ -1025,7 +1028,8 @@ class LoginAnchorProductionPathTests(unittest.TestCase):
                 def wait(self):
                     return 0
 
-            api = app.Api(clock=FakeBusinessClock(epoch=1793100000.0, uncertainty=0.1))
+            api = stop_auto_relogin_on_cleanup(
+                self, app.Api(clock=FakeBusinessClock(epoch=1793100000.0, uncertainty=0.1)))
             with mock.patch.object(app, "SESSION_FILE", session), \
                     mock.patch.object(app, "PREFS", prefs):
                 api._pump(Proc(), "登录", kind="login")
@@ -1053,7 +1057,8 @@ class LoginAnchorProductionPathTests(unittest.TestCase):
                     return 0
 
             events = []
-            api = app.Api(clock=FakeBusinessClock(epoch=1793100000.0, uncertainty=0.1))
+            api = stop_auto_relogin_on_cleanup(
+                self, app.Api(clock=FakeBusinessClock(epoch=1793100000.0, uncertainty=0.1)))
             api._emit = lambda kind, payload: events.append((kind, payload))
             with mock.patch.object(app, "SESSION_FILE", session), \
                     mock.patch.object(app, "PREFS", prefs), \
