@@ -527,8 +527,8 @@ def run_submit_loop(page, *, activity_id, at_ts, window_s, sign_end_ts=None,
             if code == 1:
                 state["resp_ok"] = True
             code_text = "" if code is None else str(code)
-            if (code_text == "4001" or "4001" in message
-                    or "登录" in message or "身份验证" in message):
+            # 只认 4001（决策 015）；业务回包里出现「登录」字样不算失效，交给原有重试逻辑
+            if code_text == "4001":
                 state["login_invalid"] = True
         _sync()
         log("[retry] kind=settle request_id=%s status=%s %s last_reason=%s"

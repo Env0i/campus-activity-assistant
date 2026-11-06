@@ -441,6 +441,16 @@ class SubmitLoopTests(unittest.TestCase):
         self.assertEqual(state["attempts"], 1, "登录失效后不得再发起")
         self.assertEqual(self.notify_calls[-1]["template"], "red")
 
+    def test_login_keyword_without_code_4001_does_not_close(self):
+        """回包含「登录」字样但 code 不是 4001，不能判失效（决策 015）。"""
+        outcomes = [out_real({"code": 500, "message": "请先完成登录信息核对"}),
+                    out_real({"code": 1, "message": "成功"})]
+        page, logs, stop_reason, state = self._run(outcomes)
+        self.assertEqual(stop_reason, "success",
+                         "含「登录」字样但不是 4001 的回包不得结束本场")
+        self.assertEqual(state["attempts"], 2,
+                         "本场应继续发第二次尝试并成功")
+
     def test_unconfirmed_pending_reported_not_faked_failure(self):
         outcomes = [out_lost(), out_lost()]
         page, logs, stop_reason, state = self._run(outcomes, window_s=0.3)
