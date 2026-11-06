@@ -653,11 +653,24 @@ class _WorkerCase(unittest.TestCase):
 
     def _run_task(self, scenario: str, *, retry_for: int = 5,
                   cancel_after: float | None = None, cancel_on_attempts: int | None = None,
+                  cancel_on_log: str | None = None,
                   expect_spawn_failure: bool = False, deadline_past: bool = True):
+        """跑一场 fake worker，返回 (api, result, events, elapsed, pid_file, mark_file, seen)。
+
+        cancel_after 是墙钟延时：机器慢时它可能早于终态行到达，测到的就不是「晚到」；
+        需要「父进程已读到终态行之后再停止」的用例改用 cancel_on_log。
+        """
         api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
         events = []
-        api._emit = lambda kind, payload: events.append((kind, payload))
         cancel = threading.Event()
+
+        def emit(kind, payload):
+            events.append((kind, payload))
+            # feed 对每一行输出都会 emit("log", ...)：此刻父进程已读到并记下该行
+            if cancel_on_log and kind == "log" and cancel_on_log in str(payload):
+                cancel.set()
+
+        api._emit = emit
         pid_file = self.root / ("pid-%d.txt" % time.monotonic_ns())
         mark_file = self.root / ("mark-%d.txt" % time.monotonic_ns())
         seen = {"attempts": 0, "spawned_at": []}
@@ -915,19 +928,20 @@ class StopPreservesFactsTests(_WorkerCase):
 
     def test_cancel_after_confirmed_success_keeps_success(self):
         _, result, _, _, _, _, _ = self._run_task(
-            "success_then_wait", retry_for=30, deadline_past=False, cancel_after=0.8)
+            "success_then_wait", retry_for=30, deadline_past=False, cancel_on_log="kind=done")
         self.assertEqual(result["status"], "success",
                          "停止晚到不得把已确认成功改写为取消")
         self.assertEqual(result["attempts"], 1)
 
     def test_cancel_after_already_signed_keeps_already(self):
         _, result, _, _, _, _, _ = self._run_task(
-            "already_then_wait", retry_for=30, deadline_past=False, cancel_after=0.8)
+            "already_then_wait", retry_for=30, deadline_past=False, cancel_on_log="kind=done")
         self.assertEqual(result["status"], "already_signed")
 
     def test_cancel_after_definite_failure_keeps_reason(self):
         _, result, _, _, _, _, _ = self._run_task(
-            "definite_fail_then_wait", retry_for=30, deadline_past=False, cancel_after=0.8)
+            "definite_fail_then_wait", retry_for=30, deadline_past=False,
+            cancel_on_log="kind=done")
         self.assertEqual(result["stop_reason"], "max_attempts",
                          "确定失败晚于停止时不能被改写成「待核对」")
         self.assertEqual(result["attempts"], 2)
