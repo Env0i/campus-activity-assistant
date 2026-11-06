@@ -448,8 +448,9 @@ class ScanBatchTests(unittest.TestCase):
         yield
 
     def items(self, count: int) -> list:
-        # 5 分钟后开放，落在 LEAD_MINUTES(10) 的窗口内
-        base = datetime.now() + timedelta(minutes=5)
+        # 按北京时间 5 分钟后开放，落在 LEAD_MINUTES(10) 的窗口内：
+        # scan.py 用 business_now() 判断，本机时区不是 UTC+8 时也不能错位
+        base = scan.business_now() + timedelta(minutes=5)
         out = []
         for i in range(count):
             start = (base + timedelta(seconds=i)).strftime("%Y-%m-%d %H:%M")
