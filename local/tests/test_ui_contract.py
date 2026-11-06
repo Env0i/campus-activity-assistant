@@ -6866,6 +6866,33 @@ out.push({ online: S.online, banner: document.querySelector("#banners").innerHTM
         self.assertIn("[OK] 网络已恢复", row["logs"])
 
 
+class WithdrawReasonTests(unittest.TestCase):
+    """计划运行中撤回按钮禁用，原因要写在按钮下方（原型 Main.dc.html:738）。"""
+
+    def test_reason_shows_only_while_a_plan_is_running(self):
+        res = run_js(r"""
+S.terms = { version: "v1", acceptedVersion: "v1", acceptedAt: "2026-11-04 10:00" };
+S.busy = true;
+paintTermsRow();
+const why = document.querySelector("#terms-withdraw-why");
+const busy = { hidden: why.hidden, text: why.textContent,
+  disabled: document.querySelector("#btn-terms-withdraw").disabled };
+S.busy = false;
+paintTermsRow();
+const idle = { hidden: why.hidden,
+  disabled: document.querySelector("#btn-terms-withdraw").disabled };
+out.push({ busy, idle });
+""")
+        row = res[0]
+        self.assertFalse(row["busy"]["hidden"], "忙时原因必须可见，不能只放在悬停提示里")
+        # 桩不解析静态 HTML：文案另用 index.html 契约钉住，这里只管显隐
+        self.assertIn("报名计划运行中不能撤回同意，先停止计划。", read("ui/index.html"),
+                      "撤回原因必须是原型 :738 原话")
+        self.assertTrue(row["busy"]["disabled"], "忙时撤回按钮仍禁用")
+        self.assertTrue(row["idle"]["hidden"], "不忙时原因收起")
+        self.assertFalse(row["idle"]["disabled"], "不忙时撤回按钮可用")
+
+
 class DocAndCopySyncTests(unittest.TestCase):
     """文档和提示文案必须跟真实能力对得上：cloudflared 只从组件包来。"""
 

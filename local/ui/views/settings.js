@@ -80,6 +80,9 @@ function paintTermsRow() {
   withdraw.hidden = !accepted;
   withdraw.disabled = !!S.busy;
   withdraw.title = S.busy ? "计划运行中不能撤回，先停止计划" : "撤回同意（保存的账号和登录信息不会删除）";
+  /* 原因也写在按钮下方（原型 Main.dc.html:738）：悬停提示在触控板和键盘操作里看不到。 */
+  const why = $("#terms-withdraw-why");
+  if (why) why.hidden = !(accepted && S.busy);
 }
 
 async function withdrawTerms() {

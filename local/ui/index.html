@@ -301,6 +301,8 @@
           <div class="help-tool-text"><h3>使用条款与隐私</h3><p>当前条款版本 <b id="help-terms-version">—</b>；<span id="settings-terms-state">同意记录保存在本机设置里。</span></p></div>
           <div class="help-actions"><button class="btn btn-line" id="btn-help-terms" type="button">查看条款</button><button class="btn btn-line" id="btn-terms-withdraw" type="button">撤回同意</button></div>
         </div>
+        <!-- 计划运行中不能撤回：原因写在按钮下方，不只放在悬停提示里（原型 :738） -->
+        <p class="help-checked" id="terms-withdraw-why" hidden>报名计划运行中不能撤回同意，先停止计划。</p>
         <div class="terms-withdraw-confirm" id="terms-withdraw-confirm" hidden>
           <p class="relogin-line">撤回后，登录、登录检查、自动登录、刷新活动和开始计划都会停用；保存的账号密码和登录信息不会删除，重新同意就能继续用。</p>
           <div class="help-actions"><button class="btn btn-line" id="btn-terms-withdraw-cancel" type="button">先不撤回</button><button class="btn btn-solid" id="btn-terms-withdraw-confirm" type="button">确认撤回</button></div>
