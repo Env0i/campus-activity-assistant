@@ -928,9 +928,11 @@ class ListEntryTests(unittest.TestCase):
     或伪造它们自己的返回值——否则测的就不是生产入口。
     """
 
-    def _run_list(self, replies, *, token=(True, "ok"), all_rows=False):
+    def _run_list(self, replies, *, token=(True, "ok"), all_rows=False,
+                  json_mode=True, token_impl=None, log_impl=None):
         clock = FakeClock()
         seen = []
+        details_requested = []
         queue = list(replies) if isinstance(replies, list) else [replies]
 
         def fake_post(path, payload=None, tok=None, timeout=None, budget=None):
@@ -940,9 +942,20 @@ class ListEntryTests(unittest.TestCase):
                 raise item
             return item
 
-        args = SimpleNamespace(all=all_rows, json=True)
+        # 详情边界替身：cmd_list 筛选后会补详情，任何用例都不得真的发详情请求
+        def fake_detail(activity_id, timeout=None):
+            details_requested.append(activity_id)
+            return {"checkin_required": False, "checkout_required": False,
+                    "checkin_start": "", "checkin_end": "",
+                    "checkout_start": "", "checkout_end": ""}
+
+        args = SimpleNamespace(all=all_rows, json=json_mode)
         out = io.StringIO()
-        patches = {"_post": fake_post, "check_token": lambda budget=None: token}
+        patches = {"_post": fake_post,
+                   "check_token": token_impl or (lambda budget=None: token),
+                   "fetch_activity_detail": fake_detail}
+        if log_impl is not None:
+            patches["log"] = log_impl
         originals = {name: getattr(grab, name, None) for name in patches}
         original_time = grab.time
         original_clock = dict(grab._CLOCK)
@@ -951,6 +964,7 @@ class ListEntryTests(unittest.TestCase):
         # 列表筛选按业务北京时间：测试显式注入可控时钟，不用系统墙钟
         grab.configure_business_clock(clock)
         try:
+            grab.DETAIL_CACHE.clear()
             for name, value in patches.items():
                 setattr(grab, name, value)
             with contextlib.redirect_stdout(out):
@@ -967,7 +981,8 @@ class ListEntryTests(unittest.TestCase):
             grab.time = original_time
             grab._CLOCK.update(original_clock)
             time_contract.configure_time_source(original_now)
-        return code, out.getvalue(), seen
+            grab.DETAIL_CACHE.clear()
+        return code, out.getvalue(), seen, details_requested
 
     def test_cmd_list_returns_sorted_json_for_real_rows(self):
         now = START
@@ -979,7 +994,7 @@ class ListEntryTests(unittest.TestCase):
             school_row("future", "未开放活动", grab.school_time_text(now + 3600),
                        grab.school_time_text(now + 7200)),
         ]
-        code, out, seen = self._run_list({"code": 1, "data": {"count": 3, "list": rows}})
+        code, out, seen, _details = self._run_list({"code": 1, "data": {"count": 3, "list": rows}})
         self.assertEqual(code, 0, "真实 cmd_list 成功路径不得报错：%s" % out)
         data = json.loads(out.strip())
         self.assertEqual([row["id"] for row in data], ["future", "open", "signed"],
@@ -994,24 +1009,190 @@ class ListEntryTests(unittest.TestCase):
         self.assertEqual(len(seen), 1, "单页数据应只请求一次列表")
 
     def test_cmd_list_zero_rows_is_empty_json(self):
-        code, out, _ = self._run_list({"code": 1, "data": {"count": 0, "list": []}})
+        code, out, _, _details = self._run_list({"code": 1, "data": {"count": 0, "list": []}})
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(out.strip()), [],
                          "学校确实零行时必须输出可解析的空数组")
 
     def test_cmd_list_permission_error_is_attributed_to_login(self):
-        code, out, _ = self._run_list({"code": 4001, "message": "身份验证失败"})
+        code, out, _, _details = self._run_list({"code": 4001, "message": "身份验证失败"})
         self.assertEqual(code, 2)
         self.assertIn("登录态已失效", out)
         self.assertNotIn("拉取活动失败", out)
 
     def test_cmd_list_network_error_is_not_reported_as_expired_login(self):
         # 真实 _post 把 URLError 收成 {code:-1, message:"URLError"}，这里按同一形状喂入
-        code, out, _ = self._run_list({"code": -1, "message": "URLError"})
+        code, out, _, _details = self._run_list({"code": -1, "message": "URLError"})
         self.assertEqual(code, 2)
         self.assertIn("拉取活动失败", out)
         self.assertIn("URLError", out)
         self.assertNotIn("登录态已失效", out, "网络错误不得归因成登录过期")
+
+    def test_cmd_list_details_only_for_relevant_rows(self):
+        """先筛选再补详情：详情只发给要显示的 3 行，已截止的 5 行一个请求都不发。"""
+        now = START
+        rows = [
+            school_row("future", "未开放活动", grab.school_time_text(now + 3600),
+                       grab.school_time_text(now + 7200)),
+            school_row("open", "开放中活动", grab.school_time_text(now - 3600),
+                       grab.school_time_text(now + 7200)),
+            school_row("signed", "已报名活动", grab.school_time_text(now - 7200),
+                       grab.school_time_text(now + 7200), signed=True),
+        ]
+        ended_ids = []
+        for i in range(5):
+            aid = "ended%d" % i
+            ended_ids.append(aid)
+            rows.append(school_row(aid, "已截止活动%d" % i,
+                                   grab.school_time_text(now - 86400),
+                                   grab.school_time_text(now - 9000)))
+        code, out, _, details = self._run_list(
+            {"code": 1, "data": {"count": 8, "list": rows}})
+        self.assertEqual(code, 0, "成功路径不得报错：%s" % out)
+        data = json.loads(out.strip())
+        self.assertEqual([row["id"] for row in data],
+                         ["future", "open", "signed"],
+                         "只显示报名还没截止的 3 行")
+        self.assertEqual(sorted(details), ["future", "open", "signed"],
+                         "详情只补要显示的行")
+        for aid in ended_ids:
+            self.assertNotIn(aid, details, "已截止的活动不得发详情请求")
+
+    def test_cmd_list_all_still_enriches_every_row(self):
+        """--all 显式要看全部历史：8 行都保留，详情也全部补齐。"""
+        now = START
+        rows = [
+            school_row("future", "未开放活动", grab.school_time_text(now + 3600),
+                       grab.school_time_text(now + 7200)),
+            school_row("open", "开放中活动", grab.school_time_text(now - 3600),
+                       grab.school_time_text(now + 7200)),
+            school_row("signed", "已报名活动", grab.school_time_text(now - 7200),
+                       grab.school_time_text(now + 7200), signed=True),
+        ]
+        all_ids = ["future", "open", "signed"]
+        for i in range(5):
+            aid = "ended%d" % i
+            all_ids.append(aid)
+            rows.append(school_row(aid, "已截止活动%d" % i,
+                                   grab.school_time_text(now - 86400),
+                                   grab.school_time_text(now - 9000)))
+        code, out, _, details = self._run_list(
+            {"code": 1, "data": {"count": 8, "list": rows}}, all_rows=True)
+        self.assertEqual(code, 0, "成功路径不得报错：%s" % out)
+        data = json.loads(out.strip())
+        self.assertEqual(len(data), 8, "--all 不得筛掉任何行")
+        self.assertEqual(sorted(details), sorted(all_ids), "--all 时详情仍全补")
+
+    def test_cmd_list_without_clock_keeps_full_enrich(self):
+        """北京时间不可用：不筛选、详情照旧全补，状态一律显示待确认。
+
+        不走 _run_list：那条路会注入可用时钟，模拟不出「时钟不可用」分支；
+        这里照 CliListWithoutClockTests 的口径清空 _CLOCK，让 business_now
+        直接抛 ClockUnavailable，并替换 log（该分支会打一条提示）。
+        """
+        rows = [
+            school_row("future", "未开放活动", grab.school_time_text(START + 3600),
+                       grab.school_time_text(START + 7200)),
+            school_row("open", "开放中活动", grab.school_time_text(START - 3600),
+                       grab.school_time_text(START + 7200)),
+        ]
+        all_ids = ["future", "open"]
+        for i in range(6):
+            aid = "ended%d" % i
+            all_ids.append(aid)
+            rows.append(school_row(aid, "已截止活动%d" % i,
+                                   grab.school_time_text(START - 86400),
+                                   grab.school_time_text(START - 9000)))
+        details_requested = []
+
+        def fake_post(path, payload=None, tok=None, timeout=None, budget=None):
+            return {"code": 1, "data": {"count": 8, "list": rows}}
+
+        def fake_detail(activity_id, timeout=None):
+            details_requested.append(activity_id)
+            return {"checkin_required": False, "checkout_required": False,
+                    "checkin_start": "", "checkin_end": "",
+                    "checkout_start": "", "checkout_end": ""}
+
+        args = SimpleNamespace(all=False, json=True)
+        out = io.StringIO()
+        patches = {"_post": fake_post, "check_token": lambda budget=None: (True, "ok"),
+                   "fetch_activity_detail": fake_detail, "log": lambda msg: None}
+        originals = {name: getattr(grab, name, None) for name in patches}
+        original_clock = dict(grab._CLOCK)
+        grab._CLOCK.update({"now": None, "bounds": None, "meta": None})
+        try:
+            grab.DETAIL_CACHE.clear()
+            for name, value in patches.items():
+                setattr(grab, name, value)
+            with contextlib.redirect_stdout(out):
+                code = grab.cmd_list(args)
+        finally:
+            for name, value in originals.items():
+                if value is None:
+                    try:
+                        delattr(grab, name)
+                    except AttributeError:
+                        pass
+                else:
+                    setattr(grab, name, value)
+            grab._CLOCK.update(original_clock)
+            grab.DETAIL_CACHE.clear()
+        self.assertEqual(code, 0, "时钟不可用也要出列表：%s" % out.getvalue())
+        data = json.loads(out.getvalue().strip())
+        self.assertEqual(len(data), 8, "没有可信时钟不得按本机日期筛选")
+        self.assertEqual(sorted(details_requested), sorted(all_ids),
+                         "时钟不可用时详情仍全补")
+        for row in data:
+            self.assertEqual(row["state"], "待确认",
+                             "时钟不可用时开放状态显示待确认")
+
+    def test_cmd_list_json_stdout_stays_pure_when_helpers_log(self):
+        """--json 时辅助日志改道 stderr：stdout 只剩 JSON，stderr 恰一行 [timing]。"""
+        log_lines = []
+
+        def noisy_log(msg):
+            log_lines.append(msg)
+            print("LOGGER:%s" % msg, flush=True)   # 模拟真实 log() 往 stdout 打印
+
+        def token_impl(budget=None):
+            grab.log("[i] 登录探测：4001 后复查恢复（测试）")
+            return (True, "ok")
+
+        rows = [school_row("open", "开放中活动", grab.school_time_text(START - 3600),
+                           grab.school_time_text(START + 7200))]
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code, out, _, details = self._run_list(
+                {"code": 1, "data": {"count": 1, "list": rows}},
+                token_impl=token_impl, log_impl=noisy_log)
+        self.assertEqual(code, 0)
+        data = json.loads(out.strip())
+        self.assertEqual(data[0]["id"], "open",
+                         "辅助函数打过日志后 stdout 里的 JSON 必须仍能直接解析")
+        self.assertEqual(log_lines, ["[i] 登录探测：4001 后复查恢复（测试）"])
+        self.assertIn("[i] 登录探测", err.getvalue(), "辅助日志应改道到 stderr")
+        timing_lines = [line for line in err.getvalue().splitlines()
+                        if line.startswith("[timing] list ")]
+        self.assertEqual(len(timing_lines), 1, "用时分段恰好一行")
+        for key in ("token_s=", "pages=", "details=", "total_s="):
+            self.assertIn(key, timing_lines[0])
+        self.assertEqual(details, ["open"])
+
+    def test_cmd_list_text_mode_has_no_timing_line(self):
+        """纯文本模式：不补详情、不写 [timing] 行，输出保持原有表头与行。"""
+        rows = [school_row("open", "开放中活动", grab.school_time_text(START - 3600),
+                           grab.school_time_text(START + 7200))]
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code, out, _, details = self._run_list(
+                {"code": 1, "data": {"count": 1, "list": rows}}, json_mode=False)
+        self.assertEqual(code, 0)
+        self.assertIn("报名开始", out, "纯文本模式仍有表头")
+        self.assertIn("开放中活动", out)
+        self.assertNotIn("[timing] list ", err.getvalue(),
+                         "纯文本模式不写用时分段")
+        self.assertEqual(details, [], "纯文本模式不为活动发详情请求")
 
     def _run_resolve(self, **kwargs):
         clock = FakeClock()

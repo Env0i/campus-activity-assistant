@@ -288,6 +288,53 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
         self.assertIsInstance(item["seconds_to_open"], int,
                               "未来 sign_start 必须算出整数秒，而不是崩掉或 None")
 
+    def test_list_parses_stdout_only_and_logs_timing(self):
+        """列表 JSON 只来自 stdout：stderr 的辅助日志不再污染解析，
+        [timing] 行转成一条「活动列表用时」运行记录（联网段按 total_s）。"""
+        api, events = self._api_with_events()
+        fake = mock.Mock()
+        fake.returncode = 0
+        fake.communicate.return_value = (
+            '[{"id": "a1", "name": "活动", "sign_start": "", "sign_end": ""}]',
+            "[i] 一行辅助日志\n[timing] list token_s=0.40 pages=7 pages_s=2.80 "
+            "details=3 details_s=1.20 total_s=4.50\n")
+        fake.poll.return_value = 0
+        with mock.patch.object(self.app.subprocess, "Popen",
+                               mock.Mock(return_value=fake)):
+            api._do_list()
+        acts = [payload for kind, payload in events if kind == "activities"]
+        self.assertEqual(len(acts), 1)
+        self.assertTrue(acts[0]["ok"], "stderr 混有辅助日志时列表必须照常可解析")
+        self.assertEqual([item["id"] for item in acts[0]["items"]], ["a1"])
+        logs = [payload for kind, payload in events if kind == "log"]
+        timing_logs = [item for item in logs
+                       if str(item).startswith("活动列表用时")]
+        self.assertEqual(len(timing_logs), 1, "用时应恰好写一条运行记录")
+        self.assertIn("联网约 4.5 秒", str(timing_logs[0]))
+        self.assertIn("补详情 3 场", str(timing_logs[0]))
+
+    def test_list_without_timing_line_still_loads(self):
+        """旧 worker 没有 [timing] 行：列表照常加载，运行记录用简短用时一句。"""
+        api, events = self._api_with_events()
+        fake = mock.Mock()
+        fake.returncode = 0
+        fake.communicate.return_value = (
+            '[{"id": "a1", "name": "活动", "sign_start": "", "sign_end": ""}]',
+            "[i] 只有一行杂音，没有用时分段\n")
+        fake.poll.return_value = 0
+        with mock.patch.object(self.app.subprocess, "Popen",
+                               mock.Mock(return_value=fake)):
+            api._do_list()
+        acts = [payload for kind, payload in events if kind == "activities"]
+        self.assertEqual(len(acts), 1)
+        self.assertTrue(acts[0]["ok"], "没有 [timing] 行时列表必须照常加载")
+        logs = [payload for kind, payload in events if kind == "log"]
+        timing_logs = [item for item in logs
+                       if str(item).startswith("活动列表用时")]
+        self.assertEqual(len(timing_logs), 1)
+        self.assertNotIn("联网约", str(timing_logs[0]),
+                         "拿不到分段时只写简短用时，不得编造联网耗时")
+
     def test_check_data_exception_is_plain_failure_not_component(self):
         """check 数据异常：恰一次检查失败终态、无 runtime_error、技术细节只进日志。"""
         api, events = self._api_with_events()

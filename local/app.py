@@ -1968,17 +1968,44 @@ class Api:
             self._activities = {str(it["id"]): it for it in items}
             self._emit("activities", {"ok": True, "items": items})
             return
+        started = time.monotonic()   # 总用时含 worker 启动；联网段由 [timing] 单独给
         res = self._run(worker_command("list", "--json"), timeout=120)
+        elapsed = time.monotonic() - started
         if res["code"] != 0:
             self._emit("activities", {"ok": False,
                                       "text": res["out"].strip(), "items": []})
             return
         try:
-            items = json.loads(res["out"].strip() or "[]")
+            # stderr 可能混有辅助日志，列表 JSON 只认 stdout；
+            # 测试里伪造的 _run 没有 stdout 键时退回旧的 out，行为不变
+            raw = res.get("stdout", res["out"])
+            items = json.loads(raw.strip() or "[]")
         except json.JSONDecodeError:
             self._emit("activities", {"ok": False,
                                       "text": "活动列表解析失败", "items": []})
             return
+        # 用时只进运行记录，不进 activities 载荷：stderr 里只认 [timing] 那一行
+        timing_text = "活动列表用时 %.1f 秒" % elapsed
+        try:
+            for line in (res.get("stderr") or "").splitlines():
+                if not line.startswith("[timing] list "):
+                    continue
+                fields = {}
+                for part in line[len("[timing] list "):].split():
+                    if "=" in part:
+                        key, value = part.split("=", 1)
+                        fields[key] = value
+                total_s = float(fields["total_s"])
+                timing_text = (
+                    "活动列表用时 %.1f 秒：程序启动约 %.1f 秒，联网约 %.1f 秒"
+                    "（列表约 %d 页，补详情 %d 场）"
+                    % (elapsed, max(0.0, elapsed - total_s), total_s,
+                       int(fields.get("pages", 0)),
+                       int(fields.get("details", 0))))
+                break
+        except Exception:
+            timing_text = "活动列表用时 %.1f 秒" % elapsed
+        self._emit("log", timing_text)
         now = None
         try:
             now = self._clock_now()      # 列表「距开放」按业务北京时间
@@ -3444,11 +3471,15 @@ class Api:
                     proc.communicate(timeout=5)
                 except Exception:
                     pass
-                return {"code": -1, "out": "[X] 执行超时（%d 秒）" % timeout}
+                return {"code": -1, "out": "[X] 执行超时（%d 秒）" % timeout,
+                        "stdout": "", "stderr": ""}
         finally:
             with self._lock:
                 self._aux_procs.discard(proc)
-        return {"code": proc.returncode, "out": (out or "") + (err or "")}
+        return {"code": proc.returncode, "out": (out or "") + (err or ""),
+                # stdout/stderr 分开交：列表 JSON 只认 stdout，stderr 混着辅助
+                # 日志，不能整段拿去 json.loads（旧键 out 保留原行为不动）
+                "stdout": out or "", "stderr": err or ""}
 
     def _spawn(self, args: list[str], label: str, kind: str = "grab") -> dict:
         problem = worker_problem()

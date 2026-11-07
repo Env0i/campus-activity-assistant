@@ -332,16 +332,21 @@ class CliListWithoutClockTests(unittest.TestCase):
                  "sign_end": "2020-01-02 09:00:00", "act_start": "2020-01-03 09:00:00",
                  "act_end": "2020-01-03 11:00:00", "place": "A", "signed": False,
                  "checkin_required": None, "checkout_required": None}]
-        for name in ("check_token", "fetch_activities", "log"):
+        # cmd_list 改成筛选后再补详情后，下面这 1 行也会走补详情：
+        # 不把 fetch_activity_detail 一并替换，用例就会真的发详情请求
+        for name in ("check_token", "fetch_activities", "fetch_activity_detail", "log"):
             self._patched[name] = getattr(grab, name)
         grab.check_token = lambda budget=None: (True, "ok")
         grab.fetch_activities = lambda budget=None, with_details=False: rows
+        grab.fetch_activity_detail = lambda activity_id, timeout=None: None
         grab.log = lambda msg: None
+        grab.DETAIL_CACHE.clear()
 
     def tearDown(self):
         for name, value in self._patched.items():
             setattr(grab, name, value)
         grab._CLOCK.update(self._clock_state)
+        grab.DETAIL_CACHE.clear()
 
     def test_list_keeps_rows_and_marks_state_unknown(self):
         args = SimpleNamespace(all=False, json=True)

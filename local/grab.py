@@ -78,6 +78,8 @@ from time_contract import (BudgetExhausted, RetryBudget, parse_school_time,
 # 独立北京时间（决策 012）：worker 读父进程快照，CLI 有界自校时；
 # 任何失败都不回退系统墙钟，也不把校时失败说成登录失效
 from business_clock import BusinessClock, ClockClient, ClockUnavailable
+# 测试会把 grab.time 换成假时钟：计时段只能用导入时取好的别名，不能现取 grab.time
+_perf_counter = time.perf_counter
 CONFIG_FILE = HERE / "config.json"
 
 # ---- 独立北京时间（决策 012）-----------------------------------------------
@@ -217,6 +219,27 @@ def _stderr_note(text):
         print(text, file=stream, flush=True)
     except Exception:
         pass
+
+
+@contextlib.contextmanager
+def _stdout_to_stderr(enabled):
+    """--json 的 stdout 是给主程序 json.loads 的：log() 等辅助函数会往 stdout
+    打印，这段时间必须把 stdout 改道到 stderr（无控制台的打包形态里 stderr
+    可能是 None，此时丢到系统空设备），否则 JSON 前面多一行，整张列表解析失败。"""
+    if not enabled:
+        yield
+        return
+    stream = sys.stderr
+    devnull = None
+    if stream is None:
+        devnull = open(os.devnull, "w", encoding="utf-8")
+        stream = devnull
+    try:
+        with contextlib.redirect_stdout(stream):
+            yield
+    finally:
+        if devnull is not None:
+            devnull.close()
 
 
 def log(msg):
@@ -1131,17 +1154,40 @@ def cmd_check(args):
 
 
 def cmd_list(args):
+    json_mode = bool(getattr(args, "json", False))
+    # 计时起点放函数最前：[timing] 的 total_s 要覆盖登录探测到打印 JSON 全程
+    t_start = _perf_counter() if json_mode else 0.0
+    token_s = pages_s = 0.0
+
+    def _emit_list_timing(details_n, details_s):
+        # 运行记录里的列表用时分段只作诊断：任何异常都不能影响列表输出与退出码
+        try:
+            total_s = _perf_counter() - t_start
+            pages = max(1, math.ceil(len(acts) / PAGE_SIZE))
+            _stderr_note("[timing] list token_s=%.2f pages=%d pages_s=%.2f "
+                         "details=%d details_s=%.2f total_s=%.2f"
+                         % (token_s, pages, pages_s, details_n, details_s,
+                            total_s))
+        except Exception:
+            pass
+
     # 先判登录态：直接拉列表失败只会得到一句「接口异常：HTTPError」，
     # 图形界面里的用户看不出是没登录还是网络问题。
-    ok, msg = check_token()
+    with _stdout_to_stderr(json_mode):
+        t0 = _perf_counter()
+        ok, msg = check_token()
+        token_s = _perf_counter() - t0
     if not ok:
         print("[X] %s" % msg)
         print("    请先运行：python grab.py login（或点界面上的「登录」）")
         return 2
     try:
-        # 图形界面（--json）需要签到/签退时间段：详情按 id 去重补全，失败单场降级；
-        # 纯文本列表只给人看活动名与状态，不为每场多发一次详情请求。
-        acts = fetch_activities(with_details=bool(getattr(args, "json", False)))
+        # 学校列表返回的是全部历史活动（11-02 实测 313 场里 294 场已截止），
+        # 这里先只拉列表不发详情，详情等下面筛完再补（见 enrich 调用处）。
+        with _stdout_to_stderr(json_mode):
+            t0 = _perf_counter()
+            acts = fetch_activities()
+            pages_s = _perf_counter() - t0
     except PermissionError as exc:
         print("[X] 登录态已失效（%s），请先运行 python grab.py login" % exc)
         return 2
@@ -1155,7 +1201,8 @@ def cmd_list(args):
         # 校时不可用仍可完成原始数据读取：不按系统时钟筛选/排行，
         # 状态与距开放一律显示未知，绝不把本机日期当北京时间。
         now = None
-        log("[!] 北京时间暂不可用：本次保留全部活动，开放状态显示未知。")
+        with _stdout_to_stderr(json_mode):
+            log("[!] 北京时间暂不可用：本次保留全部活动，开放状态显示未知。")
     # 默认只看报名还没截止的（历史活动几百条，混在一起没法挑）；
     # 没有可信北京时间时不能按本机时钟过滤，保留全部由用户自行判断
     rows = list(acts) if (args.all or now is None) \
@@ -1174,14 +1221,22 @@ def cmd_list(args):
 
     rows.sort(key=lambda a: (rank(a), a["sign_start"] or "9999", a["name"]))
     if not rows:
-        if getattr(args, "json", False):
+        if json_mode:
             print("[]")
+            _emit_list_timing(0, 0.0)
             return 0
         print("[i] 近期没有可报名的活动（还没公布报名时间，或都已截止/已报名）。")
         print("    想连历史活动一起看：python grab.py list --all")
         return 0
 
-    if getattr(args, "json", False):
+    if json_mode:
+        # 详情只补要显示的这些：--all 或北京时间不可用时 rows 就是全部活动，
+        # 仍全补——没有可信时钟分不出谁已截止，宁可慢也不按本机时钟猜；
+        # 纯文本列表只给人看活动名与状态，照旧不为每场发详情请求。
+        t0 = _perf_counter()
+        with _stdout_to_stderr(json_mode):
+            rows = enrich_attendance_items(rows)
+        details_s = _perf_counter() - t0
         # 给图形界面用：字段固定，界面拿 id 直接把目标钉死，不靠序号对齐
         out = []
         for i, act in enumerate(rows, 1):
@@ -1208,6 +1263,7 @@ def cmd_list(args):
                          else ("待确认" if now is None else sign_state(act, now)),
             })
         print(json.dumps(out, ensure_ascii=False))
+        _emit_list_timing(len(rows), details_s)
         return 0
 
     print("%3s  %s  %s  %s" % ("#", "报名开始", "状态", "活动名"))
