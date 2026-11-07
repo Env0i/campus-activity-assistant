@@ -108,10 +108,12 @@
 | 空态 | 筛选后空 / 学校返回 0 场 / 列表没加载 / 程序组件缺失（横幅优先） |
 | 计划栏阶段 | 草稿·没选(禁用开始) / 草稿·已选 / 草稿·有提醒 / 等开放(琥珀倒计时) / 修改中 / 提交中(红色倒计时) / 结果(大数字) |
 | 结果分类 | 已报名(绿) / 名额已满(中性) / 待核对(中性) / 未成功(红) / 登录失效(红) |
-| 设置抽屉 | 三组导航：高级功能 / 登录 / 程序；程序组含撤回同意入口 |
+| 设置抽屉 | 三组导航：高级功能 / 登录 / 程序；高级功能含手机访问（未开启 / 下载中 / 校验中 / 装好未开启 / 开启中 / 已开启）和验证码识别（没装 / 下载中 / 装好未启用 / 已启用 / 加载失败）；登录组为登录恢复（没账号 / 已保存 / 仅本次运行 / 密码被拒）；程序组含本机数据与撤回同意入口 |
 | 帮助面板 | 三步说明 + 快捷键 + 页脚「重看引导」「知道了」 |
 | 横幅 | 单次只一条，优先级：组件缺失 > 条款未同意 > 断网 > 刚睡眠 > 登录问题 > 时间问题 |
 | 窗口出口 | 最小化(默认焦点) / 直接关闭 / 隐藏到后台；计划运行中退出要二次确认 |
+
+设置抽屉接口（2026-11-07 落地）：组件状态来自 `advanced_features_state`，动作为 `download_advanced_feature(key)`、`cancel_advanced_feature_download(key)`、`enable_advanced_feature(key)`（装好未启用时的「启用」，不打开导入弹窗）、导入弹窗用的 `inspect_advanced_component` 与 `install_advanced_feature`；组件位置与打开文件夹只走电脑端专用接口 `advanced_component_location(key)` 与 `open_advanced_component_dir(key)`，不进快照。手机访问的「手机已连接」= `phone_access_state.paired_count > 0` 或布尔 `live_session`。登录恢复读 `credential.saved`、`credential.staged`、`credential.staged_hint`（只用这一次的账号提示，不含密码）与 `credential.paused`（学校拒绝已保存的密码）；「只用这一次」经 `prepare_phone_relogin` 只进内存，「保存到本机」经 `save_relogin_credentials`。
 
 **已知未落地**（UI-B b-amendment）：
 - 手机页第 10 节整页视觉重排（顶栏菜单、点阵屏卡、页签、弹层化、结果分类计数）
