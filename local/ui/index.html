@@ -209,81 +209,97 @@
     <nav class="set-nav" aria-label="设置分组"><button type="button" data-sec="adv">高级功能</button><button type="button" data-sec="login">登录</button><button type="button" data-sec="prog">程序</button></nav>
     <div class="draw-b" id="settings-body">
       <h3 class="set-g" id="set-adv" tabindex="-1">高级功能<small>可选，用到时点一下就装</small></h3>
-      <section class="help-tools help-advanced" aria-label="手机访问">
-        <div class="help-section-head"><h3>手机访问</h3><span class="help-feature-status" id="phone-feature-status">未安装</span></div>
-        <div class="help-tool-row help-tool-row-phone">
-          <div class="help-tool-text"><h3>手机控制</h3><p id="phone-feature-note">从外面查看活动和控制报名计划；只提供 Tailscale 与 Cloudflare 两种远程通道。</p></div>
-          <div class="help-actions"><button class="btn btn-line" id="btn-phone-feature-install" type="button">安装手机控制</button></div>
+      <!-- 手机访问照原型 phView（settings-gap 一、PH01–PH32）：标题行右侧二选一，没装或下载中放按钮、装好后放状态 chip；
+           状态机 没装 / 下载中 / 校验中 / 装好未开启 / 开启中 / 已开启，各块显隐由 views/phone.js paintPhoneAccess 决定。
+           二维码和配对码保留真实图和文本码，不做点阵（决策 014 b-amendment-009，桌面抽屉同样不做）。 -->
+      <section class="help-tools help-advanced ph-sec" aria-label="手机访问">
+        <div class="set-h"><b>手机访问</b><span class="ph-slot"><span class="ph-st" id="phone-feature-status" hidden>未开启</span><button class="btn btn-line" id="btn-phone-feature-install" type="button" hidden>启用手机控制</button><button class="btn btn-solid" id="btn-phone-component-install" type="button">下载并安装</button><button class="btn btn-line" id="btn-phone-component-cancel" type="button" hidden>取消下载</button></span></div>
+        <p id="phone-feature-note">从手机查看活动、开始和停止计划。手机只是遥控器，真正报名的还是这台电脑，所以电脑要开着、不能睡眠。</p>
+        <p class="ph-err" id="phone-feature-error" role="alert" hidden></p>
+        <div class="ph-block" id="phone-missing">
+          <p class="ph-err phone-component-error" id="phone-component-error" role="alert" hidden></p>
+          <p class="ph-note" id="phone-component-state" aria-live="polite" role="status" hidden></p>
+          <p class="ph-note" id="phone-size-note">可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。</p>
+          <div class="loc" id="phone-loc-before" hidden><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg><span class="loc-t"><small>会装到</small><code id="phone-loc-before-path"></code></span></div>
+          <p class="ph-note" id="phone-import-line" hidden>一直下载不了的话，可以到发布页手动下载组件包，再<button class="ph-link" id="btn-phone-import" type="button">导入已下载的组件包</button>。</p>
+        </div>
+        <div class="ph-block" id="phone-loading" hidden>
+          <div class="ph-prog"><div class="ph-prog-t"><span id="phone-prog-text">正在下载手机控制组件</span><b id="phone-prog-num"></b></div><div class="ph-bar phone-component-progress" id="phone-component-progress" role="progressbar" aria-label="手机控制组件安装进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="phone-prog-fill"></i></div></div>
+          <p class="ph-err" id="phone-loading-error" role="alert" hidden></p>
+          <p class="ph-note" id="phone-download-note">下载和报名计划互不影响，可以关掉设置继续用。</p>
         </div>
         <div class="phone-access-detail" id="phone-access-detail" hidden>
-          <div class="phone-component" id="phone-component">
-            <p class="phone-line" id="phone-component-state" aria-live="polite">手机控制组件：未安装</p>
-            <progress class="phone-component-progress" id="phone-component-progress" max="100" value="0" hidden></progress>
-            <p class="phone-line phone-code-note" id="phone-download-note" hidden>下载和报名计划互不影响，可以关掉设置继续用。</p>
-            <p class="phone-component-error" id="phone-component-error" hidden></p>
-            <div class="help-actions">
-              <button class="btn btn-line" id="btn-phone-component-install" type="button">一键安装组件包</button>
-              <button class="btn btn-line" id="btn-phone-component-cancel" type="button" hidden>取消下载</button>
+          <div class="ph-block" id="phone-off">
+            <p class="ph-err" id="phone-off-error" role="alert" hidden></p>
+            <p class="ph-note" id="phone-off-note" role="status" hidden></p>
+            <div class="chans" id="phone-channel" role="radiogroup" aria-label="远程通道">
+              <label class="chan" id="phone-chan-tailscale-card"><input type="radio" name="phone-chan" id="phone-chan-tailscale" value="tailscale"><span class="chan-t"><b>Tailscale，长期地址</b><span class="chan-s" id="phone-chan-tailscale-status">正在检测…</span></span><span class="chan-d" id="phone-chan-tailscale-text"></span></label>
+              <label class="chan" id="phone-chan-cloudflare-card"><input type="radio" name="phone-chan" id="phone-chan-cloudflare" value="cloudflare"><span class="chan-t"><b>Cloudflare，临时地址</b><span class="chan-s" id="phone-chan-cloudflare-status">正在检测…</span></span><span class="chan-d" id="phone-chan-cloudflare-text"></span></label>
             </div>
+            <div class="ph-acts"><button class="btn btn-solid" id="btn-phone-start" type="button">开启手机访问</button><button class="btn btn-line" id="btn-tailscale-recheck" type="button" hidden>重新检测</button></div>
+            <p class="ph-note" id="phone-channel-hint" hidden></p>
           </div>
-          <div class="phone-access-toolbar">
-            <label class="phone-channel"><span>远程通道</span><select id="phone-channel" aria-label="远程通道"><option value="tailscale">Tailscale</option><option value="cloudflare">Cloudflare 临时地址</option></select></label>
-            <div class="help-actions"><button class="btn btn-solid" id="btn-phone-start" type="button">开启手机访问</button><button class="btn btn-line" id="btn-phone-stop" type="button" hidden>关闭访问</button></div>
-          </div>
-          <div class="phone-channel-state" id="phone-channel-state">
-            <p class="phone-line"><b id="phone-channel-label">Tailscale</b> <span id="phone-channel-state-text">正在检测…</span></p>
-            <p class="phone-line phone-channel-hint" id="phone-channel-hint"></p>
-            <div class="help-actions"><button class="btn btn-line" id="btn-tailscale-recheck" type="button">重新检测</button></div>
-          </div>
-          <ol class="phone-steps" id="tailscale-guide">
-            <li>在这台电脑上装好 Tailscale 并登录（手机用同一个账号）。</li>
-            <li>手机也装 Tailscale，登录后保持连接。</li>
-            <li>这里选 Tailscale，点「开启手机访问」。</li>
-            <li>手机扫二维码，再输入下面的配对码；之后重启程序不用重新扫码。</li>
-          </ol>
-          <p class="phone-warn" id="phone-channel-warn" hidden>Cloudflare 临时地址每次重新开启都会变：重启后需重新扫码；要固定地址请用 Tailscale。cloudflared 随「手机控制」组件包自带并校验版本与哈希，不用另装、也不用配 PATH。</p>
-          <p class="phone-line" id="phone-bookmark-hint" hidden>打开后建议加入手机书签，方便下次访问。</p>
-          <p class="phone-line phone-code-note" id="phone-qr-note">打开后建议加入手机书签，方便下次访问。</p>
-          <div class="phone-stop-confirm" id="phone-stop-confirm" hidden>
-            <p class="phone-line">关闭后手机立即失去权限，下次连接要重新扫码配对。</p>
-            <div class="help-actions"><button class="btn btn-line" id="btn-phone-stop-cancel" type="button">先不关闭</button><button class="btn btn-solid" id="btn-phone-stop-confirm" type="button">确认关闭</button></div>
-          </div>
-          <div class="phone-access-grid">
-            <div><p class="phone-line">手机地址：<b id="phone-address">未开启</b></p><p class="phone-line" id="phone-address-alt-line" hidden>备用地址：<b id="phone-address-alt"></b></p><p class="phone-line">配对码：<b class="phone-code" id="phone-code">—</b></p><p class="phone-line phone-code-note" id="pair-code-note" hidden></p><p class="phone-line" id="phone-channel-note">首次连接先扫二维码，再输入配对码。</p><div class="help-actions"><button class="btn btn-line" id="btn-phone-address-copy" type="button">复制地址</button></div></div>
-            <div class="phone-qr-wrap"><img id="phone-qr" alt="手机访问二维码" hidden><span id="phone-qr-empty">开启后显示二维码</span></div>
-          </div>
-          <p class="help-status" id="phone-status" role="status" hidden></p>
-        </div>
-      </section>
-      <section class="help-tools set-ocr" aria-labelledby="set-ocr-title">
-        <div class="help-section-head"><h3 id="set-ocr-title">验证码识别</h3><span class="help-feature-status" id="ocr-feature-status">按需安装</span><span class="grow"></span><button class="btn btn-solid" id="btn-ocr-download" type="button">下载并安装</button><button class="btn btn-line" id="btn-ocr-cancel" type="button" hidden>取消下载</button></div>
-        <p class="relogin-line" id="ocr-download-state">装好以后，登录失效时电脑能自己认验证码；没装时要你手动输入。</p>
-        <p class="phone-component-error" id="ocr-download-error" hidden></p>
-        <div class="help-actions" id="ocr-import-row" hidden><button class="btn btn-line" id="btn-ocr-feature-install" type="button">导入已下载的组件包</button></div>
-      </section>
-      <h3 class="set-g" id="set-login" tabindex="-1">登录<small>保存的账号与失效后自动登录</small></h3>
-      <section class="help-tools" aria-label="登录恢复">
-        <div class="relogin-card" id="relogin-card">
-          <div class="relogin-head"><h3>电脑续登录</h3><span class="help-feature-status" id="relogin-overall-status">未配置</span></div>
-          <p class="relogin-line" id="relogin-ocr-status">验证码识别：未启用，验证码由手机人工输入。</p>
-          <p class="relogin-line" id="relogin-credential-status">账号：未保存。</p>
-          <p class="relogin-line" id="relogin-last-used">最近一次登录：暂无记录。</p>
-          <p class="relogin-line relogin-path" id="relogin-auto-path">电脑上自动恢复：未启用。</p>
-          <p class="relogin-line relogin-path" id="relogin-phone-path">手机上重新登录：需要账号密码；没保存时只在本次运行的内存里用一次。</p>
-          <div class="help-actions">
-            <button class="btn btn-line" id="btn-credentials-manage" type="button">填写账号密码</button>
-            <button class="btn btn-line" id="btn-credentials-clear" type="button" hidden>清除已保存</button>
-          </div>
-          <div class="credential-editor" id="credential-editor" hidden>
-            <input id="credential-user" type="text" autocomplete="username" placeholder="账号" aria-label="保存的账号">
-            <input id="credential-pass" type="password" autocomplete="new-password" placeholder="密码" aria-label="保存的密码">
-            <button class="btn btn-solid" id="btn-credentials-save" type="button">保存到本机</button>
-          </div>
-          <div class="relogin-clear-confirm" id="relogin-clear-confirm" hidden>
-            <p class="relogin-line">清除后，电脑不会再自动恢复登录，手机重新登录也要重新输入账号密码。</p>
-            <div class="help-actions"><button class="btn btn-line" id="btn-relogin-clear-cancel" type="button">先不清除</button><button class="btn btn-solid" id="btn-relogin-clear-confirm" type="button">确认清除</button></div>
+          <div class="ph-block" id="phone-on" hidden>
+            <p class="ph-ok" id="phone-ok" role="status" hidden>手机已连接。配对码已换成新的，旧码不能再用。</p>
+            <p class="tipbox" id="phone-cred-tip" hidden>出门前建议保存账号密码：登录失效时只需在手机上输验证码；再装上验证码识别，就完全不用管。<button class="ph-link" id="btn-phone-cred-go" type="button">去保存</button></p>
+            <div class="ph-pair" id="phone-pair">
+              <div class="phone-access-grid">
+                <div class="pair-r"><p class="pair-c">手机扫码打开页面，再输入这 6 位配对码</p><b class="phone-code" id="phone-code">—</b><p class="pair-n" id="pair-code-note"></p></div>
+                <div class="phone-qr-wrap"><img id="phone-qr" alt="手机访问二维码" hidden><span id="phone-qr-empty">开启后显示二维码</span></div>
+              </div>
+              <p class="ph-note" id="phone-pair-note" role="status" hidden></p>
+            </div>
+            <dl class="ph-addr"><dt>地址</dt><dd id="phone-address">未开启</dd><button class="btn btn-line" id="btn-phone-address-copy" type="button">复制</button><div class="ph-addr-alt" id="phone-address-alt-line" hidden><dt>备用</dt><dd id="phone-address-alt"></dd><span></span></div></dl>
+            <p class="ph-note" id="phone-channel-note">地址固定，建议在手机上存成书签，下次直接打开。</p>
+            <p class="ph-err" id="phone-on-error" role="alert" hidden></p>
+            <div class="ph-confirm" id="phone-stop-confirm" role="alert" hidden>关闭后手机立刻失去权限，下次连接要重新扫码配对。<div class="ph-acts"><button class="btn btn-line" id="btn-phone-stop-cancel" type="button">先不关闭</button><button class="btn btn-stop" id="btn-phone-stop-confirm" type="button">确认关闭</button></div></div>
+            <div class="ph-acts" id="phone-stop-row"><button class="btn btn-line" id="btn-phone-stop" type="button">关闭手机访问</button><button class="btn btn-line" id="btn-phone-add-pair" type="button" hidden>再配对一台手机</button></div>
           </div>
         </div>
+        <div class="loc" id="phone-loc-after" hidden><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg><span class="loc-t"><small>装在</small><code id="phone-loc-after-path"></code></span><button class="ph-link" id="btn-phone-open-loc" type="button">打开所在文件夹</button></div>
+        <p class="help-status" id="phone-status" role="status" hidden></p>
+      </section>
+      <!-- 验证码识别照原型 ocrView（settings-gap 二、OC01–OC15）：标题行右侧二选一，没装放「下载并安装」、已装没启用放「启用」、
+           下载中放「取消下载 / 校验中…」、已启用放 chip；状态机由 views/settings.js paintOcrDownload 决定。 -->
+      <section class="help-tools set-ocr ph-sec" id="set-ocr" aria-label="验证码识别">
+        <div class="set-h"><b id="set-ocr-title">验证码识别<span class="ph-st set-chip" id="ocr-title-chip" hidden>未启用</span></b><span class="ph-slot"><span class="ph-st" id="ocr-feature-status" hidden>已启用</span><button class="btn btn-solid" id="btn-ocr-download" type="button">下载并安装</button><button class="btn btn-solid" id="btn-ocr-enable" type="button" hidden>启用</button><button class="btn btn-line" id="btn-ocr-feature-install" type="button" hidden>重新导入组件包</button><button class="btn btn-line" id="btn-ocr-cancel" type="button" hidden>取消下载</button></span></div>
+        <p id="ocr-download-state">登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。没装或认不出来时，由你在手机上手动输入。</p>
+        <p class="ph-err" id="ocr-download-error" role="alert" hidden></p>
+        <div class="ph-block" id="ocr-missing">
+          <p class="ph-note" id="ocr-size-note">可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。</p>
+          <div class="loc" id="ocr-loc-before" hidden><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg><span class="loc-t"><small>会装到</small><code id="ocr-loc-before-path"></code></span></div>
+          <p class="ph-note" id="ocr-import-line" hidden>一直下载不了的话，可以到发布页手动下载组件包，再<button class="ph-link" id="btn-ocr-import" type="button">导入已下载的组件包</button>。</p>
+        </div>
+        <p class="ph-note" id="ocr-off-note" hidden>这一项关系到自动登录，所以装好了也不会自己打开。</p>
+        <div class="ph-block" id="ocr-loading" hidden>
+          <div class="ph-prog"><div class="ph-prog-t"><span id="ocr-prog-text">正在下载验证码识别组件</span><b id="ocr-prog-num"></b></div><div class="ph-bar" id="ocr-component-progress" role="progressbar" aria-label="验证码识别组件安装进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="ocr-prog-fill"></i></div></div>
+        </div>
+        <p class="ph-note" id="ocr-note" role="status" hidden></p>
+        <div class="loc" id="ocr-loc-after" hidden><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg><span class="loc-t"><small>装在</small><code id="ocr-loc-after-path"></code></span><button class="ph-link" id="btn-ocr-open-loc" type="button">打开所在文件夹</button></div>
+      </section>
+      <h3 class="set-g" id="set-login" tabindex="-1">登录</h3>
+      <!-- 登录恢复照原型 credView（settings-gap 三、CR01–CR22）：标题行右侧一个按钮（没账号「填写账号密码」，有账号「更换」），
+           下面依次是 lead、已保存账号行、自动登录结论行、表单、清除确认、坏密码红字、行内反馈；由 views/phone.js paintRelogin 决定显隐。
+           「存储不可用」「最近一次登录」「手机上重新登录」三行原型没有、代码里有真实信号，保留（kept_not_in_prototype）。 -->
+      <section class="help-tools ph-sec" id="relogin-card" aria-label="登录恢复">
+        <div class="set-h"><b>登录恢复</b><span class="ph-slot"><button class="btn btn-line" id="btn-credentials-manage" type="button">填写账号密码</button></span></div>
+        <p id="relogin-lead">登录失效时用账号密码自动登录。账号密码只用 Windows 当前用户加密保存在本机，手机页看不到。</p>
+        <p id="relogin-credential-status" hidden></p>
+        <p id="relogin-auto-path">失效后自动登录：未启用，还没有账号密码。登录失效后要手动重新登录；报名计划开放前 100 秒内失效的场次会直接结束。</p>
+        <p id="relogin-store-note" hidden>账号：本机加密存储不可用，输入后只在本次运行期间有效。</p>
+        <p class="relogin-path" id="relogin-last-used">最近一次登录：暂无记录。</p>
+        <p class="relogin-path" id="relogin-phone-path">手机上重新登录：需要账号密码；没保存时只在本次运行的内存里用一次。</p>
+        <div class="credf" id="credential-editor" hidden>
+          <label class="fl"><span>账号</span><input id="credential-user" type="text" autocomplete="username" spellcheck="false" aria-label="账号"></label>
+          <label class="fl"><span>密码</span><input id="credential-pass" type="password" autocomplete="new-password" aria-label="密码"></label>
+          <label class="agree"><input type="checkbox" id="credential-once">只在这次运行中用，不保存到本机</label>
+          <p class="ph-note">登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。</p>
+          <div class="ph-acts"><button class="btn btn-solid" id="btn-credentials-save" type="button" disabled>保存到本机</button><button class="btn btn-line" id="btn-credentials-cancel" type="button">取消</button></div>
+        </div>
+        <div class="ph-confirm" id="relogin-clear-confirm" role="alert" hidden>清除后，电脑不会再自动登录，手机上重新登录也要重新输入账号密码。<div class="ph-acts"><button class="btn btn-line" id="btn-relogin-clear-cancel" type="button">先不清除</button><button class="btn btn-stop" id="btn-relogin-clear-confirm" type="button">确认清除</button></div></div>
+        <div class="ph-acts" id="relogin-clear-row" hidden><button class="btn btn-line" id="btn-credentials-clear" type="button">清除已保存</button></div>
+        <p class="ph-err" id="relogin-bad" role="alert" hidden>保存的密码学校不认，自动登录已暂停。点“更换”输入新密码。</p>
+        <p class="ph-note" id="credential-note" role="status" hidden></p>
       </section>
       <h3 class="set-g" id="set-prog" tabindex="-1">程序</h3>
       <section class="help-tools" aria-label="程序">
@@ -296,7 +312,7 @@
           <div class="help-actions update-actions"><span class="update-flow" id="update-flow" hidden><button class="btn btn-solid" id="btn-update-install" type="button" hidden>下载并安装</button><button class="btn btn-solid" id="btn-update-confirm" type="button" hidden>确认下载</button><button class="btn btn-line" id="btn-update-launch" type="button" hidden>启动安装程序</button><button class="btn btn-line" id="btn-update-cancel" type="button" hidden>取消</button><button class="btn btn-solid" id="btn-update-close" type="button" hidden>关闭本工具…</button></span><button class="btn btn-line" id="btn-update-check" type="button">检查更新</button><button class="btn btn-line" id="btn-help-latest" type="button">前往下载页</button></div>
         </div>
         <div class="help-tool-row">
-          <div class="help-tool-text"><h3>本机数据</h3><p id="help-data-path">登录信息、设置和运行记录都只保存在这台电脑。</p></div>
+          <div class="help-tool-text"><h3>本机数据</h3><p id="help-data-path">登录信息、设置、运行记录和下载的组件，都只保存在这台电脑。</p></div>
           <button class="btn btn-line" id="btn-help-data" type="button">打开数据目录</button>
         </div>
         <div class="help-tool-row">
@@ -408,48 +424,36 @@
       <span class="grow"></span>
     </div>
   </dialog>
-  <!-- 组件与通道：每项都由用户亲自选文件，选完立刻自检；程序自己不会联网下载组件 -->
+  <!-- 导入已下载的组件包（原型 impView，settings-gap 五、IM01–IM03）：每次只导入一个组件，标题和说明随 key 变；
+       选完文件立刻自检（没有单独的「自检」按钮）。设置里的一键下载会联网，这里仍只接收用户亲自选的 ZIP，程序不替他选文件。 -->
   <dialog class="dlg dlg-components" id="dlg-components" aria-labelledby="dlg-components-title">
     <div class="dlg-head">
-      <h2 id="dlg-components-title">组件与通道</h2>
-      <p>本程序不联网下载组件。每一项都由你亲自选文件，选完立刻自检：选错东西不会等到装完才发现，会当场说清这是什么。</p>
+      <h2 id="dlg-components-title">导入验证码识别组件</h2>
+      <p>选一个已经下好的组件包 ZIP。选完会立刻自检，选错了会当场说清是什么。</p>
     </div>
     <div class="comp-rows">
-      <section class="comp-row" id="comp-phone">
-        <div class="comp-row-head"><b>手机控制 · Cloudflare 通道</b><span class="comp-status" id="comp-phone-status">检测中…</span></div>
-        <p class="comp-need" id="comp-phone-need">需要官方的 <code>cloudflared.exe</code>（Windows 版）；打包版也可以直接导入 <code>phone_control-*.zip</code> 组件包，包里的 cloudflared 会一起校验版本与哈希。</p>
+      <section class="comp-row" id="comp-phone" hidden>
         <div class="comp-pick">
-          <input class="comp-path" id="comp-phone-path" type="text" placeholder="还没有选择文件（可以粘贴完整路径）" spellcheck="false">
+          <input class="comp-path" id="comp-phone-path" type="text" readonly placeholder="还没有选择文件" spellcheck="false" aria-label="已选的组件包">
           <button class="btn btn-line" id="btn-comp-phone-pick" type="button">选择文件…</button>
         </div>
-        <p class="comp-note" id="comp-phone-note" hidden></p>
-        <div class="comp-actions">
-          <button class="btn btn-line" id="btn-comp-phone-inspect" type="button">自检</button>
-          <button class="btn btn-solid" id="btn-comp-phone-install" type="button" disabled>安装这份</button>
-        </div>
+        <p class="comp-note" id="comp-phone-note" role="status" hidden></p>
+        <p class="comp-need" id="comp-phone-need">需要 phone_control-版本号.zip，里面已经带好 cloudflared，不用另外安装。</p>
       </section>
       <section class="comp-row" id="comp-ocr">
-        <div class="comp-row-head"><b>验证码识别 · 验证码识别</b><span class="comp-status" id="comp-ocr-status">检测中…</span></div>
-        <p class="comp-need" id="comp-ocr-need">打包版需要 <code>relogin_ocr-*.zip</code> 组件包；源码版走 Python 依赖（<code>ddddocr</code>），选 ZIP 不会生效。</p>
         <div class="comp-pick">
-          <input class="comp-path" id="comp-ocr-path" type="text" placeholder="还没有选择文件（可以粘贴完整路径）" spellcheck="false">
+          <input class="comp-path" id="comp-ocr-path" type="text" readonly placeholder="还没有选择文件" spellcheck="false" aria-label="已选的组件包">
           <button class="btn btn-line" id="btn-comp-ocr-pick" type="button">选择文件…</button>
         </div>
-        <p class="comp-note" id="comp-ocr-note" hidden></p>
-        <div class="comp-actions">
-          <button class="btn btn-line" id="btn-comp-ocr-inspect" type="button">自检</button>
-          <button class="btn btn-solid" id="btn-comp-ocr-install" type="button" disabled>安装这份</button>
-        </div>
-      </section>
-      <section class="comp-row comp-row-plain" id="comp-tailscale">
-        <div class="comp-row-head"><b>Tailscale</b><span class="comp-status" id="comp-tailscale-status">检测中…</span></div>
-        <p class="comp-need">Tailscale 不是本程序的组件，用官方安装包装好、登录同一个账号就行。这里只检测它有没有装、有没有登录，不接收任何文件。</p>
+        <p class="comp-note" id="comp-ocr-note" role="status" hidden></p>
+        <p class="comp-need" id="comp-ocr-need">需要 relogin_ocr-版本号.zip，在发布页和程序一起发布，版本要和程序一致。</p>
       </section>
     </div>
     <div class="dlg-foot">
-      <span class="comp-foot-note" id="comp-foot-note">选错文件：自检会告诉你它是什么（例如 Tailscale 的可执行文件、另一个组件的包）。</span>
       <span class="grow"></span>
-      <button class="btn btn-line" id="btn-comp-close" type="button">关闭</button>
+      <button class="btn btn-line" id="btn-comp-close" type="button">取消</button>
+      <button class="btn btn-solid" id="btn-comp-phone-install" type="button" disabled hidden>安装这份</button>
+      <button class="btn btn-solid" id="btn-comp-ocr-install" type="button" disabled>安装这份</button>
     </div>
   </dialog>
   <script src="led.js"></script>

@@ -426,7 +426,9 @@ out.push($("#phone-feature-status").textContent);
 out.push($("#ocr-feature-status").textContent);
 out.push($("#btn-ocr-feature-install").textContent);
 out.push($("#phone-access-detail").hidden);
-''', files=["views/phone.js"])
+''', files=["views/phone.js", "views/settings.js"])
+        # fe-ocr-login 同步：验证码识别一节的状态、按钮绘制从 phone.js 搬到 settings.js（paintOcrDownload），
+        # 所以这里把 settings.js 一起加载；断言本身（加载失败 chip、重新导入按钮）一字未改
         self.assertEqual(values, ["启用手机控制", "已停用", "加载失败", "重新导入组件包", True])
 
     def test_busy_disables_all_mutations_and_a_canceled_pick_is_quiet(self):
@@ -441,7 +443,8 @@ globalThis.__api = async (name) => name === "pick_advanced_component"
   ? {ok: true, canceled: true} : {ok: true};
 await PhonePanel.pickComponent("phone_control");
 out.push([$("#comp-phone-note").textContent, PhonePanel.verified.phone_control]);
-''', files=["views/phone.js"])
+''', files=["views/phone.js", "views/settings.js"])
+        # fe-ocr-login 同步：同上，验证码识别的「重新导入」按钮由 settings.js 绘制
         self.assertEqual(values, [True, ["", ""]])
 
     def test_failed_save_clears_password_and_recovers_buttons(self):
@@ -462,26 +465,38 @@ class PhoneChannelUiTests(unittest.TestCase):
     """帮助里的通道引导：两个通道各自成句，通道状态不串台。"""
 
     def test_channels_render_independently(self):
+        # fe-phone 同步：下拉框换成两张单选卡（PH16），两条通道同时各显示各的状态；
+        # 四步清单与 Cloudflare 警告段按 PH21 删除，说明收进卡片，所以改读两张卡和提示行（PH20）
         values = run_phone_js('''
-PhonePanel.state.advanced = {channels:{
+PhonePanel.state.advanced = {features:{phone_control:{ready:true, available:true}}, channels:{
   tailscale:{available:false, state:"missing", text:"电脑上没有 Tailscale"},
   cloudflare:{available:true, state:"available", text:"可用"}}};
-$("#phone-channel").value = "cloudflare";
+PhonePanel.channel = "cloudflare";
 PhonePanel.paint();
-out.push({status:$("#phone-channel-state-text").textContent,
-          label:$("#phone-channel-label").textContent,
-          warn:$("#phone-channel-warn").hidden,
-          guide:$("#tailscale-guide").hidden});
-$("#phone-channel").value = "tailscale";
+out.push({ts:$("#phone-chan-tailscale-status").textContent,
+          cf:$("#phone-chan-cloudflare-status").textContent,
+          cfCard:$("#phone-chan-cloudflare-card").className,
+          cfChecked:$("#phone-chan-cloudflare").checked,
+          recheckHidden:$("#btn-tailscale-recheck").hidden,
+          hintHidden:$("#phone-channel-hint").hidden,
+          startDisabled:$("#btn-phone-start").disabled});
+PhonePanel.channel = "tailscale";
 PhonePanel.paint();
-out.push({status:$("#phone-channel-state-text").textContent,
-          warn:$("#phone-channel-warn").hidden,
-          guide:$("#tailscale-guide").hidden});
+out.push({tsCard:$("#phone-chan-tailscale-card").className,
+          tsText:$("#phone-chan-tailscale-text").textContent,
+          recheckHidden:$("#btn-tailscale-recheck").hidden,
+          hint:$("#phone-channel-hint").textContent,
+          startDisabled:$("#btn-phone-start").disabled});
 ''', files=["views/phone.js"])
         cloudflare, tailscale = values
-        self.assertEqual(cloudflare, {"status": "可用", "label": "Cloudflare（临时地址）",
-                                      "warn": False, "guide": True})
-        self.assertEqual(tailscale, {"status": "未安装", "warn": True, "guide": False})
+        self.assertEqual(cloudflare, {"ts": "未安装", "cf": "可用", "cfCard": "chan on",
+                                      "cfChecked": True, "recheckHidden": True,
+                                      "hintHidden": True, "startDisabled": False})
+        self.assertEqual(tailscale["tsCard"], "chan on")
+        self.assertEqual(tailscale["tsText"], "电脑和手机都要装好并登录同一个账号；工具不会替你安装。")
+        self.assertFalse(tailscale["recheckHidden"], "选了没装的 Tailscale 才给重新检测（PH19）")
+        self.assertEqual(tailscale["hint"], "还差一步：装好 Tailscale 后点“重新检测”，或者改用 Cloudflare。")
+        self.assertTrue(tailscale["startDisabled"], "Tailscale 没连上时开启按钮禁用（PH18）")
 
     def test_magicdns_is_primary_and_ip_is_backup(self):
         values = run_phone_js('''
@@ -499,7 +514,9 @@ out.push($("#phone-address-alt-line").hidden);
         self.assertEqual(values, ["http://pc.tail.ts.net:8765/", "http://100.64.0.9:8765/", False])
 
     def test_pair_code_change_is_announced_with_leftover_time(self):
-        """配对码过期/被用掉后会换新码，界面必须说一声并给出剩余时间。"""
+        # 配对码过期/被用掉后会换新码，界面必须说一声并给出剩余时间。
+        # fe-phone 同步：倒计时句照原型改成「m:ss 后失效，一码只能用一次」（PH25 的文案，审核决定 A5）；
+        # 换码提示从抽屉底部的 helpStatus 改为配对区里就地显示（PH30），所以读 #phone-pair-note
         values = run_phone_js('''
 PhonePanel.state.running = true;
 PhonePanel.state.advanced = {features:{phone_control:{ready:true, available:true}},
@@ -508,28 +525,34 @@ PhonePanel.state.pair_code_status = {code:"111111", expires_in:265, seq:1,
                                     reason:"started"};
 PhonePanel.paint();
 out.push({code:$("#phone-code").textContent,
-          note:$("#pair-code-note").textContent,
-          hidden:$("#pair-code-note").hidden});
+          note:$("#pair-code-note").innerHTML,
+          pairHidden:$("#phone-pair").hidden,
+          noticeHidden:$("#phone-pair-note").hidden});
 PhonePanel.state.pair_code_status = {code:"222222", expires_in:300, seq:2,
                                     reason:"expired"};
 PhonePanel.paint();
 out.push({code:$("#phone-code").textContent,
-          note:$("#pair-code-note").textContent,
-          hidden:$("#pair-code-note").hidden});
+          note:$("#pair-code-note").innerHTML,
+          notice:$("#phone-pair-note").textContent,
+          noticeHidden:$("#phone-pair-note").hidden});
 ''', files=["views/phone.js"])
-        first, notice, second = values
+        first, second = values
         self.assertEqual(first["code"], "111111")
-        self.assertEqual(first["note"], "配对码 4:25 后失效")
-        self.assertFalse(first["hidden"])
+        self.assertEqual(first["note"], "<b>4:25</b> 后失效，一码只能用一次")
+        self.assertFalse(first["pairHidden"], "还没连上时配对区要显示")
+        self.assertTrue(first["noticeHidden"], "第一张码不算换码，不提示")
         self.assertEqual(second["code"], "222222")
-        self.assertEqual(second["note"], "配对码 5:00 后失效")
-        self.assertEqual(notice["tone"], "warn")
-        self.assertIn("配对码已过期", notice["text"])
+        self.assertEqual(second["note"], "<b>5:00</b> 后失效，一码只能用一次")
+        self.assertEqual(second["notice"], "配对码已过期，已经换成新的。")
+        self.assertFalse(second["noticeHidden"])
 
 class ReloginCardUiTests(unittest.TestCase):
     """电脑续登录：ddddocr 与账号保存分开说，清除账号必须先确认。"""
 
     def test_missing_ocr_still_saves_account(self):
+        # fe-ocr-login 同步（CR03、CR07、CR08）：总状态 chip 与「验证码识别：…」状态行按原型删除，
+        # 「没装验证码识别也能存账号」改读自动登录结论行（原型第四档「还缺验证码识别组件」）；
+        # 保存仍走 save_relogin_credentials，不退成只存内存——这一条断言原样保留
         values = run_phone_js("""
 const calls = [];
 globalThis.__api = async (name) => { calls.push(name); return {ok:true, saved:true}; };
@@ -537,20 +560,28 @@ PhonePanel.state.advanced = {
   features:{relogin_ocr:{available:false, ready:false, status:"missing"}},
   credential:{available:true, store_available:true, saved:false, ocr_ready:false}};
 PhonePanel.paint();
-out.push({ocr: $("#relogin-ocr-status").textContent,
-          overall: $("#relogin-overall-status").textContent,
-          auto: $("#relogin-auto-path").textContent});
+out.push({auto: $("#relogin-auto-path").textContent,
+          slot: $("#btn-credentials-manage").textContent});
+PhonePanel.state.advanced.credential = {available:true, store_available:true, saved:true,
+  username:"20230001", ocr_ready:false};
+PhonePanel.paint();
+out.push({auto: $("#relogin-auto-path").textContent,
+          autoCls: $("#relogin-auto-path").className,
+          slot: $("#btn-credentials-manage").textContent});
 $("#credential-user").value = "20230001";
 $("#credential-pass").value = "secret";
 await PhonePanel.saveCredentials();
 out.push({calls: calls.slice()});
 """, files=["views/phone.js"])
         # helpStatus 会往 out 里补提示，这里只取自己 push 的结构
-        first = values[0]
+        none, saved_row = values[0], values[1]
         second = [row for row in values if "calls" in row][-1]
-        self.assertIn("人工输入", first["ocr"], "没装 ddddocr 也要说清验证码人工输入")
-        self.assertEqual(first["overall"], "未配置")
-        self.assertIn("还没保存账号", first["auto"])
+        self.assertIn("还没有账号密码", none["auto"])
+        self.assertEqual(none["slot"], "填写账号密码")
+        self.assertIn("还缺验证码识别组件", saved_row["auto"], "没装验证码识别也要说清缺什么、会怎样")
+        self.assertIn("要你输验证码", saved_row["auto"])
+        self.assertEqual(saved_row["autoCls"], "up-warn")
+        self.assertEqual(saved_row["slot"], "更换")
         self.assertIn("save_relogin_credentials", second["calls"])
         self.assertNotIn("prepare_phone_relogin", second["calls"],
                          "本机存储可用时就该真正落盘，不能退成只存内存")
@@ -582,6 +613,8 @@ out.push({shown: !$("relogin-clear-confirm").hidden, calls: calls.slice()});
         self.assertFalse(confirmed["shown"])
 
     def test_configured_card_explains_paths(self):
+        # fe-ocr-login 同步（CR03、CR06、CR07）：总状态 chip 删除；账号行改成「已保存账号 st****01。」；
+        # 自动登录结论行逐字照原型第二档「已启用…不用你动手」。打码、最近一次登录、手机路径三条断言保留
         values = run_phone_js("""
 PhonePanel.state.advanced = {
   features:{relogin_ocr:{available:true, ready:true, status:"ready"}},
@@ -589,19 +622,21 @@ PhonePanel.state.advanced = {
     username:"20230001", ocr_ready:true, last_origin:"auto_ocr",
     automatic:{last_used_ago_s:90, last_used_method:"auto_ocr"}}};
 PhonePanel.paint();
-out.push({overall: $("#relogin-overall-status").textContent,
-          cred: $("#relogin-credential-status").textContent,
+out.push({cred: $("#relogin-credential-status").textContent,
+          credHidden: $("#relogin-credential-status").hidden,
           last: $("#relogin-last-used").textContent,
           auto: $("#relogin-auto-path").textContent,
+          autoCls: $("#relogin-auto-path").className,
           phone: $("#relogin-phone-path").textContent});
 """, files=["views/phone.js"])
         row = values[0]
-        self.assertEqual(row["overall"], "已配置")
+        self.assertFalse(row["credHidden"])
         # 旧断言「卡片写出完整账号」改为只露首尾各两位（设计 9.3：界面上的账号一律打码）
-        self.assertIn("20****01", row["cred"])
+        self.assertEqual(row["cred"], "已保存账号 20****01。")
         self.assertNotIn("20230001", row["cred"], "完整账号不得出现在界面上")
         self.assertIn("电脑自动恢复", row["last"])
-        self.assertIn("不需要你动手", row["auto"])
+        self.assertEqual(row["auto"], "失效后自动登录：已启用。登录失效时电脑自己重新登录，报名计划等开放或提交时也一样，不用你动手。")
+        self.assertEqual(row["autoCls"], "up-ok")
         # 旧断言要求写出库名 ddddocr：界面统一叫「验证码识别」/「电脑自动识别」，不露技术名（设计第 12 节）
         self.assertIn("先由电脑自动识别", row["phone"])
         self.assertIn("再由你输入", row["phone"], "认不出来时的人工兜底要写清")
@@ -636,23 +671,29 @@ out.push({shown: !$("phone-stop-confirm").hidden, calls: calls.slice()});
         self.assertFalse(confirmed["shown"])
 
     def test_start_button_locks_and_reports_progress(self):
+        # fe-phone 同步：通道从下拉框改成两张单选卡（PH16），启动中整组禁用；关闭按钮文案照原型改成
+        # 「关闭手机访问」（PH29）；Cloudflare 启动中的提示就在按钮下一行（PH20），不再写抽屉底部
         values = run_phone_js('''
 const calls = [];
 let release;
-globalThis.__api = (name) => {
-  calls.push(name);
+globalThis.__api = (name, ...args) => {
+  calls.push([name].concat(args));
   if (name === "start_phone_access") return new Promise((resolve) => { release = resolve; });
   return Promise.resolve({ok:true, running:true, address:"https://x.trycloudflare.com"});
 };
-$("#phone-channel").value = "cloudflare";
+PhonePanel.state.advanced = {features:{phone_control:{ready:true, available:true}},
+  channels:{cloudflare:{available:true, state:"available"}}};
+PhonePanel.channel = "cloudflare";
 const task = PhonePanel.toggleStart();
 await Promise.resolve();
 out.push({mark:"pending", hidden: $("#btn-phone-start").hidden,
           disabled: $("#btn-phone-start").disabled,
           text: $("#btn-phone-start").textContent,
-          channelDisabled: $("#phone-channel").disabled});
+          channelDisabled: $("#phone-chan-cloudflare").disabled && $("#phone-chan-tailscale").disabled,
+          hint: $("#phone-channel-hint").textContent,
+          lead: $("#phone-feature-note").textContent});
 await PhonePanel.toggleStart();
-out.push({mark:"calls", starts: calls.filter((n) => n === "start_phone_access").length});
+out.push({mark:"calls", starts: calls.filter((c) => c[0] === "start_phone_access")});
 release({ok:true, address:"https://x.trycloudflare.com"});
 await task;
 out.push({mark:"done", startHidden: $("#btn-phone-start").hidden,
@@ -665,10 +706,13 @@ out.push({mark:"done", startHidden: $("#btn-phone-start").hidden,
         self.assertIn("启动中", marks["pending"]["text"])
         self.assertTrue(marks["pending"]["channelDisabled"],
                         "启动过程中不能改通道，否则拿到的地址和界面显示对不上")
-        self.assertEqual(marks["calls"]["starts"], 1, "连点两次只能发一次启动请求")
+        self.assertEqual(marks["pending"]["hint"], "正在建立临时隧道，最多等 20 秒。")
+        self.assertEqual(marks["pending"]["lead"], "正在开启，先不要切换通道。")
+        self.assertEqual(marks["calls"]["starts"], [["start_phone_access", "cloudflare"]],
+                         "连点两次只能发一次启动请求，且开的是卡片里选的那条")
         self.assertTrue(marks["done"]["startHidden"])
         self.assertFalse(marks["done"]["stopHidden"])
-        self.assertEqual(marks["done"]["stopText"], "关闭访问")
+        self.assertEqual(marks["done"]["stopText"], "关闭手机访问")
 
     def test_stop_button_reports_closing(self):
         values = run_phone_js('''
@@ -697,19 +741,28 @@ out.push({mark:"done", startText: $("#btn-phone-start").textContent,
         self.assertEqual(marks["done"]["startText"], "开启手机访问")
 
     def test_copy_address_reports_success_and_failure(self):
+        # fe-phone 同步：复制结果不再写抽屉底部（PH30）。成功时按钮 1.6 秒内显示「已复制」（PH26），
+        # 失败才在已开启那块就地红字说明
         values = run_phone_js('''
 PhonePanel.state.running = true;
 PhonePanel.state.address = "http://pc.tail.ts.net:8765/";
 await PhonePanel.copyAddress();
+out.push({err:$("#phone-on-error").textContent, errHidden:$("#phone-on-error").hidden,
+          label:$("#btn-phone-address-copy").textContent});
 globalThis.navigator = {clipboard:{writeText: async (text) => { out.push(text); }}};
 await PhonePanel.copyAddress();
+out.push({err:$("#phone-on-error").textContent, errHidden:$("#phone-on-error").hidden,
+          label:$("#btn-phone-address-copy").textContent,
+          timers:__timerDelays()});
 ''', files=["views/phone.js"])
-        failed = values[0]
-        self.assertEqual(failed["tone"], "warn")
-        self.assertIn("没有成功", failed["text"])
-        self.assertEqual(values[1], "http://pc.tail.ts.net:8765/")
-        self.assertEqual(values[2]["tone"], "info")
-        self.assertIn("已复制", values[2]["text"])
+        failed, copied, done = values
+        self.assertEqual(failed["err"], "复制没有成功，请手动选中地址。")
+        self.assertFalse(failed["errHidden"])
+        self.assertEqual(failed["label"], "复制")
+        self.assertEqual(copied, "http://pc.tail.ts.net:8765/")
+        self.assertTrue(done["errHidden"])
+        self.assertEqual(done["label"], "已复制")
+        self.assertIn(1600, done["timers"], "「已复制」1.6 秒后变回「复制」")
 
     def test_recheck_button_asks_the_backend_again(self):
         values = run_phone_js('''
@@ -727,17 +780,22 @@ out.push({wired: typeof ($("btn-tailscale-recheck").listeners.click || [])[0] ==
                          "重新检测必须真的去问后端，不能只改本地文案")
 
     def test_channel_switch_remembers_preference(self):
+        # fe-phone 同步：下拉框换成两张单选卡（PH16），每张卡的 radio 都要绑定 change，选卡仍调偏好接口
         values = run_phone_js('''
 const calls = [];
 globalThis.__api = async (name, value) => { calls.push([name, value]); return {ok:true}; };
 PhonePanel.wire();
-out.push(typeof ($("phone-channel").listeners.change || [])[0] === "function");
-await PhonePanel.changeChannel("cloudflare");
+out.push(["tailscale", "cloudflare"].every((key) =>
+  typeof ($("phone-chan-" + key).listeners.change || [])[0] === "function"));
+$("phone-chan-cloudflare").listeners.change[0]();
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
 out.push(calls);
+out.push(PhonePanel.channel);
 ''', files=["views/phone.js"])
-        wired, calls = values
-        self.assertTrue(wired, "下拉框必须绑定 change")
+        wired, calls, chosen = values
+        self.assertTrue(wired, "两张通道卡都必须绑定 change")
         self.assertIn(["set_phone_access_preferences", "cloudflare"], calls)
+        self.assertEqual(chosen, "cloudflare")
 
 
 class ComponentDownloadUiTests(unittest.TestCase):
@@ -750,62 +808,104 @@ class ComponentDownloadUiTests(unittest.TestCase):
                 % json.dumps(download, ensure_ascii=False))
 
     def test_downloading_shows_progress_and_offers_cancel(self):
+        # fe-phone 同步：进度文字与数字拆成左右两处（PH13），进度条改成 div 进度块（role=progressbar，墨色），
+        # 取消按钮在标题行右侧；下载中没有状态 chip（PH06）
         snippet = self._features(state="downloading", downloaded=32 * 1048576,
                                  total_bytes=100 * 1048576) + '''
-$("#phone-channel").value = "cloudflare";
 PhonePanel.paint();
-out.push({text:$("#phone-component-state").textContent,
-          progress:$("#phone-component-progress").value,
-          progressHidden:$("#phone-component-progress").hidden,
+out.push({text:$("#phone-prog-text").textContent,
+          num:$("#phone-prog-num").textContent,
+          progress:$("#phone-component-progress")["attr_aria-valuenow"],
+          fill:$("#phone-prog-fill").style.width,
+          loadingHidden:$("#phone-loading").hidden,
+          missingHidden:$("#phone-missing").hidden,
           installHidden:$("#btn-phone-component-install").hidden,
           cancelHidden:$("#btn-phone-component-cancel").hidden,
+          cancelText:$("#btn-phone-component-cancel").textContent,
+          chipHidden:$("#phone-feature-status").hidden,
           startDisabled:$("#btn-phone-start").disabled});
 '''
         row = run_phone_js(snippet, files=["views/phone.js"])[0]
-        self.assertIn("32%", row["text"])
-        self.assertEqual(row["progress"], 32)
-        self.assertFalse(row["progressHidden"])
+        self.assertEqual(row["text"], "正在下载手机控制组件")
+        self.assertEqual(row["num"], "32.0 / 100.0 MB")
+        self.assertEqual(row["progress"], "32")
+        self.assertEqual(row["fill"], "32%")
+        self.assertFalse(row["loadingHidden"])
+        self.assertTrue(row["missingHidden"])
         self.assertTrue(row["installHidden"], "下载中不能再点安装")
         self.assertFalse(row["cancelHidden"])
+        self.assertEqual(row["cancelText"], "取消下载")
+        self.assertTrue(row["chipHidden"])
         self.assertTrue(row["startDisabled"], "组件没落地就别让开通道")
 
     def test_failure_shows_reason_and_allows_retry(self):
+        # fe-phone 同步：失败后回到没装态，标题行按钮叫「重新下载」、红条照原型拼句（PH11）；
+        # 认不出的错误码回落后端原话。旧的「手机控制组件：安装失败」状态行按 PH03 删除
         snippet = self._features(state="failed", text="下载超时，请重试。") + '''
 PhonePanel.paint();
-out.push({text:$("#phone-component-state").textContent,
-          error:$("#phone-component-error").textContent,
+out.push({error:$("#phone-component-error").textContent,
           errorHidden:$("#phone-component-error").hidden,
-          installHidden:$("#btn-phone-component-install").hidden});
+          installHidden:$("#btn-phone-component-install").hidden,
+          installText:$("#btn-phone-component-install").textContent,
+          importHidden:$("#phone-import-line").hidden});
+PhonePanel.state.advanced.features.phone_control.download = {state:"failed", error_code:"network_error",
+  text:"暂时连不上 GitHub，请检查网络后重试。"};
+PhonePanel.paint();
+out.push({error:$("#phone-component-error").textContent});
+PhonePanel.state.advanced.features.phone_control.download = {state:"failed", error_code:"timeout",
+  text:"下载超时，请重试。"};
+PhonePanel.paint();
+out.push({error:$("#phone-component-error").textContent});
 '''
-        row = run_phone_js(snippet, files=["views/phone.js"])[0]
-        self.assertEqual(row["text"], "手机控制组件：安装失败")
+        row, network, timeout = run_phone_js(snippet, files=["views/phone.js"])
         self.assertEqual(row["error"], "下载超时，请重试。")
         self.assertFalse(row["errorHidden"])
         self.assertFalse(row["installHidden"], "失败后必须能重试")
+        self.assertEqual(row["installText"], "重新下载")
+        self.assertFalse(row["importHidden"], "下载失败后才露出导入链接（PH10）")
+        self.assertEqual(network["error"], "下载没有完成：连不上发布页，可以重试。")
+        self.assertEqual(timeout["error"], "下载没有完成：网络中断，可以重试。")
 
     def test_missing_cloudflared_keeps_the_install_entry(self):
+        # fe-phone 同步：没装时的入口改成标题行的「下载并安装」（PH07），旧的「手机控制组件：未安装」状态行删除；
+        # 组件 ready 但缺 cloudflared 是原型没画的一档，保留现状：入口「安装/更换组件包」不许消失
         snippet = self._features(state="missing") + '''
+PhonePanel.paint();
+out.push({installHidden:$("#btn-phone-component-install").hidden,
+          installText:$("#btn-phone-component-install").textContent,
+          featureHidden:$("#btn-phone-feature-install").hidden});
+PhonePanel.state.advanced.features.phone_control = {ready:true, available:true, download:{state:"installed"}};
 PhonePanel.paint();
 out.push({featureHidden:$("#btn-phone-feature-install").hidden,
           featureText:$("#btn-phone-feature-install").textContent,
-          component:$("#phone-component-state").textContent});
+          cf:$("#phone-chan-cloudflare-status").textContent});
 '''
-        row = run_phone_js(snippet, files=["views/phone.js"])[0]
-        self.assertFalse(row["featureHidden"], "缺组件时安装入口不能消失")
-        self.assertTrue(row["featureText"])
-        self.assertEqual(row["component"], "手机控制组件：未安装")
+        missing, ready = run_phone_js(snippet, files=["views/phone.js"])
+        self.assertFalse(missing["installHidden"], "缺组件时安装入口不能消失")
+        self.assertEqual(missing["installText"], "下载并安装")
+        self.assertTrue(missing["featureHidden"])
+        self.assertFalse(ready["featureHidden"], "ready 但缺 cloudflared 时补装入口不能消失")
+        self.assertEqual(ready["featureText"], "安装/更换组件包")
+        self.assertEqual(ready["cf"], "不可用")
 
     def test_cancelled_state_says_nothing_was_changed(self):
+        # fe-phone 同步：取消后回到没装态，文案照原型改成「下载已取消，没有装任何东西。」（PH12）
         snippet = self._features(state="cancelled") + '''
 PhonePanel.paint();
 out.push({text:$("#phone-component-state").textContent,
+          textHidden:$("#phone-component-state").hidden,
           installHidden:$("#btn-phone-component-install").hidden,
-          cancelHidden:$("#btn-phone-component-cancel").hidden});
+          installText:$("#btn-phone-component-install").textContent,
+          cancelHidden:$("#btn-phone-component-cancel").hidden,
+          importHidden:$("#phone-import-line").hidden});
 '''
         row = run_phone_js(snippet, files=["views/phone.js"])[0]
-        self.assertIn("已取消", row["text"])
+        self.assertEqual(row["text"], "下载已取消，没有装任何东西。")
+        self.assertFalse(row["textHidden"])
         self.assertFalse(row["installHidden"])
+        self.assertEqual(row["installText"], "下载并安装")
         self.assertTrue(row["cancelHidden"])
+        self.assertTrue(row["importHidden"], "取消不是失败，不露导入链接")
 
     def test_install_button_calls_the_download_action(self):
         snippet = self._features(state="missing") + '''
@@ -828,20 +928,707 @@ out.push({calls:calls});
         self.assertIn(["download_advanced_feature", "phone_control"], row["calls"])
 
     def test_cloudflare_note_asks_for_a_new_scan_and_keeps_the_bookmark_hint(self):
+        # fe-phone 同步：Cloudflare 警告段与两处书签句按 PH21、PH22 删除；开启后只留一行通道说明（PH27）：
+        # 临时地址用警告色说要重新扫码，固定地址才建议存书签。界面仍不许自己切通道
         snippet = self._features(state="installed") + '''
-$("#phone-channel").value = "cloudflare";
+PhonePanel.state.advanced.features.phone_control.ready = true;
+PhonePanel.state.running = true;
+PhonePanel.state.active_channel = "cloudflare";
 PhonePanel.paint();
-out.push({warnHidden:$("#phone-channel-warn").hidden,
-          guideHidden:$("#tailscale-guide").hidden,
-          note:$("#phone-qr-note").textContent,
-          selectValue:$("#phone-channel").value});
+out.push({cls:$("#phone-channel-note").className, note:$("#phone-channel-note").textContent,
+          chosen:PhonePanel.channel});
+PhonePanel.state.active_channel = "tailscale";
+PhonePanel.paint();
+out.push({cls:$("#phone-channel-note").className, note:$("#phone-channel-note").textContent});
 '''
-        row = run_phone_js(snippet, files=["views/phone.js"])[0]
-        self.assertFalse(row["warnHidden"], "Cloudflare 要显示换地址提示（文案在 HTML 里）")
-        self.assertTrue(row["guideHidden"])
-        self.assertNotIn("hidden", row)
+        cloudflare, tailscale = run_phone_js(snippet, files=["views/phone.js"])
+        self.assertEqual(cloudflare["cls"], "ph-warn")
+        self.assertEqual(cloudflare["note"], "这是临时地址：关闭访问或重启程序后就会变，手机要重新扫码配对。")
+        self.assertEqual(cloudflare["chosen"], "", "界面不许自己切通道")
+        self.assertEqual(tailscale["cls"], "ph-note")
+        self.assertEqual(tailscale["note"], "地址固定，建议在手机上存成书签，下次直接打开。")
 
-        self.assertEqual(row["selectValue"], "cloudflare", "界面不许自己切通道")
+
+class PhoneAccessStateMachineTests(unittest.TestCase):
+    """fe-phone：设置抽屉手机访问一组照原型 phView 的状态机（settings-gap 一、PH01–PH32）。"""
+
+    PHONE = "PhonePanel.state.advanced = {features:{phone_control:%s}, channels:%s, credential:%s};"
+
+    def _state(self, feature, channels=None, credential=None):
+        return self.PHONE % (json.dumps(feature, ensure_ascii=False),
+                             json.dumps(channels or {}, ensure_ascii=False),
+                             json.dumps(credential or {}, ensure_ascii=False))
+
+    def test_download_and_install_downloads_instead_of_opening_the_import_dialog(self):
+        """PH07：没装时点「下载并安装」调 download_advanced_feature，不打开导入弹窗（决策 010 第 54 行）。"""
+        values = run_phone_js(self._state({"ready": False, "available": False,
+                                           "download": {"state": "available"}}) + """
+const calls = [];
+let opened = 0;
+globalThis.__api = async (name, ...args) => { calls.push([name].concat(args)); return {ok:true}; };
+PhonePanel.openComponents = () => { opened += 1; };
+PhonePanel.wire();
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+PhonePanel.paint();
+out.push({hidden:$("#btn-phone-component-install").hidden,
+          text:$("#btn-phone-component-install").textContent,
+          missingHidden:$("#phone-missing").hidden,
+          detailHidden:$("#phone-access-detail").hidden,
+          size:$("#phone-size-note").hidden});
+calls.length = 0;
+$("#btn-phone-component-install").click();
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+out.push({calls:calls.filter((c) => c[0] !== "phone_access_state" && c[0] !== "advanced_component_location"),
+          opened:opened});
+""", files=["views/phone.js"])
+        shown, clicked = values
+        self.assertEqual(shown, {"hidden": False, "text": "下载并安装", "missingHidden": False,
+                                 "detailHidden": True, "size": False})
+        self.assertEqual(clicked["calls"], [["download_advanced_feature", "phone_control"]])
+        self.assertEqual(clicked["opened"], 0, "「下载并安装」不能再打开导入弹窗")
+
+    def test_import_link_appears_only_after_a_download_failure(self):
+        """PH10：导入链接只在下载失败后出现，点了打开现有导入弹窗。"""
+        values = run_phone_js(self._state({"ready": False, "available": False,
+                                           "download": {"state": "available"}}) + """
+let opened = 0;
+PhonePanel.openComponents = () => { opened += 1; };
+PhonePanel.wire();
+PhonePanel.paint();
+out.push($("#phone-import-line").hidden);
+PhonePanel.state.advanced.features.phone_control.download = {state:"downloading", downloaded:1, total_bytes:10};
+PhonePanel.paint();
+out.push($("#phone-import-line").hidden || $("#phone-missing").hidden);
+PhonePanel.state.advanced.features.phone_control.download = {state:"failed", error_code:"network_error"};
+PhonePanel.paint();
+out.push([$("#phone-import-line").hidden, $("#phone-missing").hidden]);
+$("#btn-phone-import").click();
+out.push(opened);
+""", files=["views/phone.js"])
+        self.assertEqual(values, [True, True, [False, False], 1])
+
+    def test_cancel_returns_to_not_installed_and_says_nothing_was_installed(self):
+        """PH12：取消下载后回到没装态，按钮变回「下载并安装」，并说一句「下载已取消，没有装任何东西。」"""
+        values = run_phone_js(self._state({"ready": False, "available": False,
+                                           "download": {"state": "downloading", "downloaded": 5,
+                                                        "total_bytes": 10}}) + """
+const calls = [];
+globalThis.__api = async (name, ...args) => {
+  calls.push([name].concat(args));
+  if (name === "phone_access_state") return {ok:true, running:false, advanced:{features:{phone_control:{
+    ready:false, available:false, download:{state:"cancelled"}}}, channels:{}, credential:{}}};
+  return {ok:true};
+};
+PhonePanel.wire();
+PhonePanel.state.advanced.features.phone_control.download = {state:"downloading", downloaded:5, total_bytes:10};
+PhonePanel.paint();
+out.push({loading:!$("#phone-loading").hidden, cancel:!$("#btn-phone-component-cancel").hidden});
+$("#btn-phone-component-cancel").click();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+out.push({calls:calls.filter((c) => c[0] === "cancel_advanced_feature_download"),
+          missing:!$("#phone-missing").hidden, loading:!$("#phone-loading").hidden,
+          install:$("#btn-phone-component-install").hidden ? "" : $("#btn-phone-component-install").textContent,
+          note:$("#phone-component-state").hidden ? "" : $("#phone-component-state").textContent});
+""", files=["views/phone.js"])
+        before, after = values
+        self.assertEqual(before, {"loading": True, "cancel": True})
+        self.assertEqual(after, {"calls": [["cancel_advanced_feature_download", "phone_control"]],
+                                 "missing": True, "loading": False, "install": "下载并安装",
+                                 "note": "下载已取消，没有装任何东西。"})
+
+    def test_no_pairing_and_no_live_session_is_not_connected(self):
+        """PH23（审核决定 A4）：paired_count 为 0 且没有活动会话就不是「已连接」；抽屉和顶栏同一条规则。"""
+        values = run_phone_js("globalThis.S = {statusCard: null};\n" + self._state(
+            {"ready": True, "available": True},
+            {"tailscale": {"available": True, "state": "connected"}}) + """
+const st = PhonePanel.state;
+st.running = true; st.address = "http://pc.tail.ts.net:8765/";
+st.pair_code_status = {code:"123456", expires_in:120, seq:3, reason:"paired"};
+const read = () => ({chip:$("#phone-feature-status").textContent, ok:!$("#phone-ok").hidden,
+  pair:!$("#phone-pair").hidden, add:!$("#btn-phone-add-pair").hidden,
+  badge:$("#phone-badge-text").textContent});
+st.paired_count = 0; st.live_session = false;
+PhonePanel.paint(); out.push(read());
+st.paired_count = 1;
+PhonePanel.paint(); out.push(read());
+st.paired_count = 0; st.live_session = true;
+PhonePanel.paint(); out.push(read());
+""", files=["views/status-cards.js", "views/phone.js"])
+        waiting, paired, restored = values
+        self.assertEqual(waiting, {"chip": "等手机连接", "ok": False, "pair": True, "add": False,
+                                   "badge": "等手机连接"},
+                         "reason=paired 只是换码原因，不能当成已连接")
+        self.assertEqual(paired, {"chip": "手机已连接", "ok": True, "pair": False, "add": True,
+                                  "badge": "手机已连接"})
+        self.assertEqual(restored, paired, "设备 cookie 恢复的会话也算已连接")
+
+    def test_add_another_phone_reopens_pairing_until_the_next_pairing(self):
+        """PH29：「再配对一台手机」重新显示配对区；下一台配上（paired_count 变大）后自动收起。"""
+        values = run_phone_js(self._state({"ready": True, "available": True}) + """
+const st = PhonePanel.state;
+st.running = true; st.paired_count = 1; st.pair_code_status = {code:"123456", expires_in:300};
+PhonePanel.wire();
+PhonePanel.paint();
+out.push(!$("#phone-pair").hidden);
+$("#btn-phone-add-pair").click();
+out.push([!$("#phone-pair").hidden, !$("#btn-phone-add-pair").hidden]);
+st.paired_count = 2;
+PhonePanel.paint();
+out.push([!$("#phone-pair").hidden, !$("#btn-phone-add-pair").hidden]);
+""", files=["views/phone.js"])
+        self.assertEqual(values, [False, [True, False], [False, True]])
+
+    def test_save_tip_shows_only_without_a_saved_or_this_run_account(self):
+        """PH24（审核决定 A3）：先看 saved 再看 staged；两样都没有才出现「出门前建议保存账号密码」。"""
+        values = run_phone_js(self._state({"ready": True, "available": True}) + """
+const st = PhonePanel.state;
+st.running = true; st.paired_count = 1;
+const tip = (cred) => { st.advanced.credential = cred; PhonePanel.paint(); return !$("#phone-cred-tip").hidden; };
+out.push(tip({saved:false, staged:false}));
+out.push(tip({saved:false, staged:true}));
+out.push(tip({saved:true, staged:true}));
+out.push(tip({saved:true, staged:false}));
+st.paired_count = 0;
+out.push(tip({saved:false, staged:false}));
+""", files=["views/phone.js"])
+        self.assertEqual(values, [True, False, False, False, False])
+
+    def test_save_tip_link_opens_the_login_group_with_the_form(self):
+        """PH24「去保存」：打开设置的登录组并展开账号密码表单。"""
+        values = run_phone_js(self._state({"ready": True, "available": True}) + """
+const opened = [];
+globalThis.openSettings = (section) => { opened.push(section); };
+$("#credential-editor").hidden = true;
+PhonePanel.wire();
+$("#btn-phone-cred-go").click();
+out.push([opened, $("#credential-editor").hidden]);
+""", files=["views/phone.js"])
+        self.assertEqual(values, [[["login"], False]])
+
+    def test_location_box_uses_the_desktop_only_interface_and_hides_without_a_path(self):
+        """PH09：「会装到 / 装在」只走电脑端 B3 接口；取不到位置就不显示，不编路径。"""
+        values = run_phone_js(self._state({"ready": False, "available": False}) + """
+const calls = [];
+let loc = {ok:true, path:"<数据目录>/advanced/phone_control", short:"…advanced/phone_control", exists:false};
+globalThis.__api = async (name, ...args) => {
+  calls.push([name].concat(args));
+  if (name === "advanced_component_location") return loc;
+  return {ok:true};
+};
+await PhonePanel.refresh();
+out.push({before:!$("#phone-loc-before").hidden, after:!$("#phone-loc-after").hidden,
+          text:$("#phone-loc-before-path").textContent, title:$("#phone-loc-before").title});
+PhonePanel.state.advanced.features.phone_control = {ready:true, available:true};
+PhonePanel.paint();
+out.push({before:!$("#phone-loc-before").hidden, after:!$("#phone-loc-after").hidden,
+          text:$("#phone-loc-after-path").textContent});
+PhonePanel.wire();
+$("#btn-phone-open-loc").click();
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+out.push(calls.filter((c) => c[0] === "open_advanced_component_dir"));
+PhonePanel.location = null;
+loc = {ok:false, reason:"bad_feature"};
+await PhonePanel.refresh();
+out.push({before:!$("#phone-loc-before").hidden, after:!$("#phone-loc-after").hidden});
+""", files=["views/phone.js"])
+        missing, ready, opened, unknown = values
+        self.assertEqual(missing, {"before": True, "after": False, "text": "…advanced/phone_control",
+                                   "title": "<数据目录>/advanced/phone_control"})
+        self.assertEqual(ready, {"before": False, "after": True, "text": "…advanced/phone_control"})
+        self.assertEqual(opened, [["open_advanced_component_dir", "phone_control"]])
+        self.assertEqual(unknown, {"before": False, "after": False})
+
+    def test_stop_asks_in_a_red_block_and_hides_the_stop_row(self):
+        """PH28：关闭前红底确认块，确认时收起「关闭手机访问」那一行；确认按钮是红色 btn-stop。"""
+        values = run_phone_js(self._state({"ready": True, "available": True}) + """
+PhonePanel.state.running = true;
+PhonePanel.wire();
+PhonePanel.paint();
+out.push([!$("#phone-stop-confirm").hidden, !$("#phone-stop-row").hidden]);
+$("#btn-phone-stop").click();
+out.push([!$("#phone-stop-confirm").hidden, !$("#phone-stop-row").hidden]);
+$("#btn-phone-stop-cancel").click();
+out.push([!$("#phone-stop-confirm").hidden, !$("#phone-stop-row").hidden]);
+""", files=["views/phone.js"])
+        self.assertEqual(values, [[False, True], [True, False], [False, True]])
+        html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('class="btn btn-stop" id="btn-phone-stop-confirm"', html)
+        self.assertIn("关闭后手机立刻失去权限，下次连接要重新扫码配对。", html)
+
+    def test_off_state_reports_tunnel_exit_installed_and_closed_inline(self):
+        """PH31、PH32、PH30：隧道断开红条、看着装好的那一句、关闭后的那一句都在本块就地显示。"""
+        values = run_phone_js(self._state({"ready": False, "available": False,
+                                           "download": {"state": "verifying"}}) + """
+const st = PhonePanel.state;
+PhonePanel.paint();
+out.push({chip:$("#phone-feature-status").hidden, cancel:$("#btn-phone-component-cancel").textContent,
+          cancelDisabled:$("#btn-phone-component-cancel").disabled,
+          text:$("#phone-prog-text").textContent});
+st.advanced.features.phone_control = {ready:true, available:true, download:{state:"installed"}};
+PhonePanel.paint();
+out.push({chip:$("#phone-feature-status").textContent, note:$("#phone-off-note").textContent});
+st.advanced.channels = {cloudflare:{available:true, state:"exited", error:"tunnel_exited"}};
+PhonePanel.paint();
+out.push($("#phone-off-error").textContent);
+globalThis.__api = async (name) => name === "phone_access_state"
+  ? {ok:true, running:false} : {ok:true};
+st.running = true;
+await PhonePanel.toggleStop();
+out.push($("#phone-off-note").textContent);
+""", files=["views/phone.js"])
+        verifying, installed, gone, closed = values
+        self.assertEqual(verifying, {"chip": True, "cancel": "校验中…", "cancelDisabled": True,
+                                     "text": "下载完成，正在校验组件…"})
+        self.assertEqual(installed, {"chip": "未开启", "note": "手机控制组件已安装，选一条通道就能开启。"})
+        self.assertEqual(gone, "Cloudflare 隧道断了，旧地址和二维码已失效。重新开启后要重新扫码配对。")
+        self.assertEqual(closed, "手机访问已关闭，手机需要重新配对才能再进。")
+
+    def test_installed_but_disabled_enables_through_the_backend(self):
+        """原型没画、保留现状的一档：组件在本机但启用位没开时，「启用手机控制」走 B2，不打开导入弹窗。"""
+        values = run_phone_js(self._state({"ready": False, "available": True, "status": "ready"}) + """
+const calls = [];
+let opened = 0;
+globalThis.__api = async (name, ...args) => { calls.push([name].concat(args)); return {ok:true}; };
+PhonePanel.openComponents = () => { opened += 1; };
+PhonePanel.wire();
+PhonePanel.paint();
+$("#btn-phone-feature-install").click();
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+out.push([calls.filter((c) => c[0] === "enable_advanced_feature"), opened]);
+""", files=["views/phone.js"])
+        self.assertEqual(values, [[[["enable_advanced_feature", "phone_control"]], 0]])
+
+    def test_static_copy_follows_the_prototype(self):
+        """PH04、PH08、IM02：多出的二级行删掉；体积只做「现在读不到」形态；导入弹窗不再说本程序不联网下载。"""
+        html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
+        view = (LOCAL / "ui" / "views" / "phone.js").read_text(encoding="utf-8")
+        self.assertIn("可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。", html)
+        self.assertNotIn("约 18.4 MB", html + view, "打开设置不联网，不写死体积（审核决定 4）")
+        self.assertNotIn("只提供 Tailscale 与 Cloudflare 两种远程通道", html)
+        self.assertNotIn("安装手机控制", html)
+        self.assertEqual(html.count("本程序不联网下载组件"), 0)
+        self.assertEqual(view.count("下载已取消，没有装任何东西。"), 1)
+        self.assertIn("一直下载不了的话，可以到发布页手动下载组件包，再", html)
+
+
+class OcrAndLoginRecoveryTests(unittest.TestCase):
+    """fe-ocr-login：验证码识别三态与启用、登录恢复结构与只用这一次、本机数据一句、导入弹窗
+    （settings-gap 二 OC、三 CR、四 DT、五 IM）。验证码识别一节由 settings.js 绘制，所以两个脚本一起加载。"""
+
+    FILES = ["views/phone.js", "views/settings.js"]
+
+    def _run(self, snippet):
+        return run_phone_js(snippet, files=self.FILES)
+
+    def test_enable_calls_the_enable_interface_and_never_opens_the_import_dialog(self):
+        """OC08、冲突 6：已装好但没启用时，标题行是「启用」，点它调 enable_advanced_feature("relogin_ocr")，不打开导入弹窗。"""
+        values = self._run("""
+const calls = [];
+let opened = 0;
+globalThis.__api = async (name, ...args) => { calls.push([name].concat(args)); return {ok:true}; };
+PhonePanel.openComponents = () => { opened += 1; };
+PhonePanel.wire();
+wireSettings();
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+PhonePanel.state.advanced = {features:{relogin_ocr:{available:true, enabled:false, ready:false,
+  status:"ready", package_version:"1.2.0", download:{state:"available"}}}, credential:{}};
+PhonePanel.paint();
+out.push({enable: $("#btn-ocr-enable").hidden,
+          download: $("#btn-ocr-download").hidden, chip: $("#ocr-title-chip").hidden,
+          doneChip: $("#ocr-feature-status").hidden,
+          lead: $("#ocr-download-state").textContent,
+          offNote: $("#ocr-off-note").hidden,
+          missing: $("#ocr-missing").hidden, importLine: $("#ocr-import-line").hidden});
+calls.length = 0;
+$("#btn-ocr-enable").click();
+for (let i = 0; i < 12; i += 1) await Promise.resolve();
+out.push({calls: calls.filter((c) => c[0] === "enable_advanced_feature"), opened: opened,
+          note: $("#ocr-note").textContent});
+""")
+        shown, clicked = values[0], values[-1]
+        # 按钮名、chip 字样、说明句是 index.html 里的静态文字，由 test_static_copy_follows_the_prototype 核对
+        self.assertFalse(shown["enable"], "已装好没启用：标题行右侧是「启用」")
+        self.assertTrue(shown["download"], "已装好就不再露出「下载并安装」")
+        self.assertFalse(shown["chip"], "已装没启用：标题旁挂中性 chip「未启用」")
+        self.assertTrue(shown["doneChip"])
+        self.assertEqual(shown["lead"], "已装好（版本 1.2.0），还没启用。启用后，登录失效时电脑会自己认验证码；"
+                                        "配合“登录恢复”里的账号密码，就能无人值守自动登录。")
+        self.assertFalse(shown["offNote"])
+        self.assertTrue(shown["missing"])
+        self.assertTrue(shown["importLine"])
+        self.assertEqual(clicked["calls"], [["enable_advanced_feature", "relogin_ocr"]])
+        self.assertEqual(clicked["opened"], 0, "「启用」不能再打开导入弹窗")
+        self.assertEqual(clicked["note"], "验证码识别已启用。")
+
+    def test_enable_failure_is_said_in_place(self):
+        """OC08：启用没成功，后端的原话就地显示在本节红条里，不走抽屉底部。"""
+        values = self._run("""
+globalThis.__api = async (name) => name === "enable_advanced_feature"
+  ? {ok:false, reason:"not_available", error:"not_available", text:"这个组件还没装好，不能启用。"} : {ok:true};
+PhonePanel.wire();
+wireSettings();
+PhonePanel.state.advanced = {features:{relogin_ocr:{available:true, ready:false, status:"ready"}}, credential:{}};
+PhonePanel.paint();
+$("#btn-ocr-enable").click();
+for (let i = 0; i < 12; i += 1) await Promise.resolve();
+out.push([$("#ocr-download-error").hidden, $("#ocr-download-error").textContent]);
+""")
+        self.assertEqual(values[-1], [False, "这个组件还没装好，不能启用。"])
+
+    def test_missing_is_one_click_and_the_import_link_only_follows_a_failure(self):
+        """OC04、OC10–OC13：没装时「下载并安装」，失败后「重新下载」+ 红条 + 导入链接；取消后回到没装态。"""
+        values = self._run("""
+const opened = [];
+globalThis.__api = async () => ({ok:true});
+PhonePanel.openComponents = (key) => { opened.push(key); };
+PhonePanel.wire();
+wireSettings();
+const set = (download) => {
+  PhonePanel.state.advanced = {features:{relogin_ocr:{available:false, ready:false, status:"missing", download:download}}, credential:{}};
+  PhonePanel.paint();
+};
+set({state:"available"});
+out.push({btn: [$("#btn-ocr-download").hidden, $("#btn-ocr-download").textContent],
+          importLine: $("#ocr-import-line").hidden, size: $("#ocr-missing").hidden,
+          lead: $("#ocr-download-state").textContent, err: $("#ocr-download-error").hidden});
+set({state:"downloading", downloaded:9961472, total_bytes:33128448});
+out.push({cancel: [$("#btn-ocr-cancel").hidden, $("#btn-ocr-cancel").textContent],
+          loading: $("#ocr-loading").hidden, num: $("#ocr-prog-num").textContent,
+          text: $("#ocr-prog-text").textContent, now: $("#ocr-component-progress").getAttribute("aria-valuenow"),
+          fill: $("#ocr-prog-fill").style.width, missing: $("#ocr-missing").hidden});
+set({state:"verifying"});
+out.push({cancel: [$("#btn-ocr-cancel").textContent, $("#btn-ocr-cancel").disabled],
+          text: $("#ocr-prog-text").textContent});
+set({state:"failed", error_code:"network_error", text:"后端原话"});
+out.push({btn: $("#btn-ocr-download").textContent, err: $("#ocr-download-error").textContent,
+          importLine: $("#ocr-import-line").hidden});
+$("#btn-ocr-import").click();
+set({state:"cancelled"});
+out.push({note: $("#ocr-note").textContent, btn: [$("#btn-ocr-download").hidden, $("#btn-ocr-download").textContent],
+          err: $("#ocr-download-error").hidden});
+out.push({opened: opened});
+""")
+        idle, loading, verifying, failed, cancelled, link = values
+        self.assertEqual(idle["btn"], [False, "下载并安装"])
+        self.assertTrue(idle["importLine"], "没失败过就不露导入链接")
+        self.assertFalse(idle["size"], "没装时显示体积说明和「会装到」那一块")
+        self.assertEqual(idle["lead"], "登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。"
+                                       "没装或认不出来时，由你在手机上手动输入。")
+        self.assertTrue(idle["err"])
+        self.assertEqual(loading["cancel"], [False, "取消下载"])
+        self.assertFalse(loading["loading"])
+        self.assertTrue(loading["missing"])
+        self.assertEqual(loading["num"], "9.5 / 31.6 MB")
+        self.assertEqual(loading["text"], "正在下载验证码识别组件")
+        self.assertEqual((loading["now"], loading["fill"]), ("30", "30%"))
+        self.assertEqual(verifying, {"cancel": ["校验中…", True], "text": "下载完成，正在校验组件…"})
+        self.assertEqual(failed["btn"], "重新下载")
+        self.assertEqual(failed["err"], "下载没有完成：连不上发布页，可以重试。")
+        self.assertFalse(failed["importLine"])
+        self.assertEqual(cancelled["note"], "下载已取消，没有装任何东西。")
+        self.assertEqual(cancelled["btn"], [False, "下载并安装"])
+        self.assertTrue(cancelled["err"])
+        self.assertEqual(link["opened"], ["relogin_ocr"], "导入链接打开的是验证码识别的导入")
+
+    def test_ocr_feedback_is_in_place_and_location_uses_the_desktop_interface(self):
+        """OC06、OC07、OC15：位置只走 B3；装好后说一句；下载没开始的原话就地显示，不走抽屉底部。"""
+        values = self._run("""
+const calls = [];
+globalThis.__api = async (name, ...args) => {
+  calls.push([name].concat(args));
+  if (name === "advanced_component_location") return {ok:true, path:"<数据目录>/advanced/relogin_ocr", short:"…/advanced/relogin_ocr", exists:false};
+  if (name === "download_advanced_feature") return {ok:false, text:"现在连不上，稍后再试。"};
+  return {ok:true};
+};
+PhonePanel.wire();
+wireSettings();
+const set = (feature) => {
+  PhonePanel.state.advanced = {features:{relogin_ocr:feature}, credential:{}};
+  PhonePanel.paint();
+};
+set({available:false, ready:false, status:"missing", download:{state:"available"}});
+await ocrLoadLocation();
+paintOcrDownload();
+out.push({before: [$("#ocr-loc-before").hidden, $("#ocr-loc-before-path").textContent], after: $("#ocr-loc-after").hidden});
+await PhonePanel.downloadComponent("relogin_ocr");
+out.push({err: $("#ocr-download-error").textContent});
+set({available:false, ready:false, status:"missing", download:{state:"downloading", downloaded:1, total_bytes:10}});
+set({available:true, ready:true, status:"ready", package_version:"1.2.0", download:{state:"installed"}});
+out.push({chip: [$("#ocr-feature-status").hidden, $("#ocr-feature-status").textContent],
+          lead: $("#ocr-download-state").textContent, note: $("#ocr-note").textContent,
+          after: [$("#ocr-loc-after").hidden, $("#ocr-loc-after-path").textContent], before: $("#ocr-loc-before").hidden});
+calls.length = 0;
+$("#btn-ocr-open-loc").click();
+for (let i = 0; i < 4; i += 1) await Promise.resolve();
+out.push({opened: calls.filter((c) => c[0] === "open_advanced_component_dir")});
+""")
+        located = values[0]
+        failed = [v for v in values if "err" in v][-1]
+        installed = [v for v in values if "chip" in v][-1]
+        opened = values[-1]
+        self.assertEqual(located["before"], [False, "…/advanced/relogin_ocr"])
+        self.assertTrue(located["after"])
+        self.assertEqual(failed["err"], "现在连不上，稍后再试。")
+        self.assertEqual(installed["chip"], [False, "已启用"])
+        self.assertEqual(installed["lead"], "版本 1.2.0。电脑会自己认验证码，连续认错 3 次再转给手机手动输入。")
+        self.assertEqual(installed["note"], "验证码识别组件已安装并启用。")
+        self.assertEqual(installed["after"], [False, "…/advanced/relogin_ocr"])
+        self.assertTrue(installed["before"])
+        self.assertEqual(opened["opened"], [["open_advanced_component_dir", "relogin_ocr"]])
+        helped = [v for v in values if isinstance(v, dict) and "tone" in v]
+        self.assertEqual(helped, [], "验证码识别的反馈不再走抽屉底部的 helpStatus")
+
+    def test_this_run_account_sentence_shows_only_without_a_saved_account(self):
+        """CR06、审核决定 A3：先看 saved 再看 staged；「关闭工具后自动清除」那句只在 !saved && staged 时出现，账号用 staged_hint。"""
+        values = self._run("""
+const show = (cred) => {
+  PhonePanel.state.advanced = {features:{relogin_ocr:{available:false, ready:false, status:"missing"}}, credential:cred};
+  PhonePanel.paint();
+  return {line: $("#relogin-credential-status").textContent, hidden: $("#relogin-credential-status").hidden,
+          slot: $("#btn-credentials-manage").textContent, clearRow: $("#relogin-clear-row").hidden};
+};
+out.push(show({available:true, store_available:true, saved:false, staged:true, staged_hint:"st****01"}));
+out.push(show({available:true, store_available:true, saved:true, username:"20230001", staged:true, staged_hint:"20****01"}));
+out.push(show({available:true, store_available:true, saved:false, staged:false, staged_hint:""}));
+out.push(show({available:true, store_available:true, saved:false, staged:true, staged_hint:""}));
+""")
+        once, saved, none, no_hint = values
+        self.assertEqual(once["line"], "这次运行可以用账号 st****01 重新登录，关闭工具后自动清除。")
+        self.assertFalse(once["hidden"])
+        self.assertEqual(once["slot"], "更换")
+        self.assertTrue(once["clearRow"], "「清除已保存」只有保存过的账号才有，只用这一次没有")
+        self.assertEqual(saved["line"], "已保存账号 20****01。")
+        self.assertNotIn("关闭工具后自动清除", saved["line"], "已保存时即使暂存区也有，也不说「这次运行」")
+        self.assertFalse(saved["clearRow"])
+        self.assertTrue(none["hidden"], "没有账号时不显示这一行")
+        self.assertEqual(none["slot"], "填写账号密码")
+        self.assertTrue(no_hint["hidden"], "拿不到打码账号就不显示，不自己编")
+
+    def test_auto_login_line_counts_this_run_account_when_ocr_is_enabled(self):
+        """CR07、CR20（冲突 5）：只用这一次的账号加识别已启用，结论行写「已启用」；识别没启用 / 没装各有各的说法。"""
+        values = self._run("""
+const line = (cred, ocr) => {
+  PhonePanel.state.advanced = {features:{relogin_ocr: ocr}, credential:cred};
+  PhonePanel.paint();
+  return [$("#relogin-auto-path").textContent, $("#relogin-auto-path").className];
+};
+const once = {available:true, store_available:true, saved:false, staged:true, staged_hint:"st****01"};
+out.push(line(once, {available:true, ready:true, status:"ready"}));
+out.push(line(once, {available:true, ready:false, status:"ready"}));
+out.push(line(once, {available:false, ready:false, status:"missing"}));
+out.push(line({available:true, store_available:true, saved:false, staged:false}, {available:true, ready:true, status:"ready"}));
+out.push(line({available:true, store_available:true, saved:false, staged:false, automatic:{state:"paused"}}, {available:true, ready:true, status:"ready"}));
+out.push(line({available:true, store_available:true, saved:true, username:"20230001", paused:true}, {available:true, ready:true, status:"ready"}));
+""")
+        enabled, installed, missing, none, rejected, saved_bad = values
+        self.assertEqual(enabled, ["失效后自动登录：已启用。登录失效时电脑自己重新登录，报名计划等开放或提交时也一样，不用你动手。", "up-ok"])
+        self.assertEqual(installed, ["失效后自动登录：验证码识别本机已装，还没启用（在上面“高级功能”里点“启用”）。"
+                                     "现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。", "up-warn"])
+        self.assertEqual(missing, ["失效后自动登录：还缺验证码识别组件（在上面的“高级功能”里一键安装）。"
+                                   "现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。", "up-warn"])
+        self.assertEqual(none[0], "失效后自动登录：未启用，还没有账号密码。登录失效后要手动重新登录；"
+                                  "报名计划开放前 100 秒内失效的场次会直接结束。")
+        self.assertEqual(rejected, none, "这次那份被学校拒了：表里没有这一档，按「还没有账号密码」显示")
+        self.assertIn("已启用", saved_bad[0], "保存的密码被拒走单独的红字，结论行不再写括号（CR07）")
+        self.assertNotIn("（", saved_bad[0].split("已启用")[0])
+
+    def test_bad_saved_password_has_its_own_red_line(self):
+        """CR18：保存的密码学校不认，是单独一条红字，表单展开时不显示。"""
+        values = self._run("""
+PhonePanel.state.advanced = {features:{}, credential:{available:true, store_available:true, saved:true,
+  username:"20230001", paused:true}};
+PhonePanel.paint();
+out.push($("#relogin-bad").hidden);
+PhonePanel.openCredForm();
+out.push($("#relogin-bad").hidden);
+PhonePanel.state.advanced.credential.paused = false;
+PhonePanel.cancelCredForm();
+out.push($("#relogin-bad").hidden);
+""")
+        # 红字本身是 index.html 里的静态文字（test_static_copy_follows_the_prototype 逐字核对），这里只看显隐
+        self.assertEqual(values, [False, True, True])
+
+    def test_credential_form_follows_the_prototype(self):
+        """CR05、CR11–CR15、CR19：展开表单、勾选「只在这次运行中用」改按钮名并改走内存接口、成功后收起并就地说一句、取消清空。"""
+        values = self._run("""
+const calls = [];
+globalThis.__api = async (name, ...args) => { calls.push([name].concat(args.map((x, i) => (i === 1 ? "***" : x)))); return {ok:true}; };
+PhonePanel.wire();
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+PhonePanel.state.advanced = {features:{}, credential:{available:true, store_available:true, saved:false}};
+PhonePanel.paint();
+out.push({formHidden: $("#credential-editor").hidden, slotHidden: $("#btn-credentials-manage").hidden});
+$("#btn-credentials-manage").click();
+out.push({formHidden: $("#credential-editor").hidden, slotHidden: $("#btn-credentials-manage").hidden,
+          save: [$("#btn-credentials-save").textContent, $("#btn-credentials-save").disabled]});
+$("#credential-user").value = "20230001";
+$("#credential-pass").value = "fictional-secret";
+PhonePanel.paintCredForm();
+out.push({save: [$("#btn-credentials-save").textContent, $("#btn-credentials-save").disabled]});
+$("#credential-once").checked = true;
+PhonePanel.paintCredForm();
+out.push({save: $("#btn-credentials-save").textContent});
+calls.length = 0;
+await PhonePanel.saveCredentials();
+out.push({calls: calls.filter((c) => c[0] === "prepare_phone_relogin" || c[0] === "save_relogin_credentials"),
+          formHidden: $("#credential-editor").hidden, note: $("#credential-note").textContent,
+          pass: $("#credential-pass").value});
+$("#btn-credentials-manage").click();
+$("#credential-user").value = "x";
+$("#btn-credentials-cancel").click();
+out.push({formHidden: $("#credential-editor").hidden, user: $("#credential-user").value});
+$("#btn-credentials-manage").click();
+$("#credential-user").value = "20230001";
+$("#credential-pass").value = "fictional-secret";
+$("#credential-once").checked = false;
+calls.length = 0;
+await PhonePanel.saveCredentials();
+out.push({calls: calls.filter((c) => c[0] === "prepare_phone_relogin" || c[0] === "save_relogin_credentials"),
+          note: $("#credential-note").textContent});
+""")
+        closed, opened, typed, once_label, once_saved, cancelled, saved = values
+        self.assertEqual(closed, {"formHidden": True, "slotHidden": False})
+        self.assertEqual(opened, {"formHidden": False, "slotHidden": True, "save": ["保存到本机", True]})
+        self.assertEqual(typed["save"], ["保存到本机", False])
+        self.assertEqual(once_label["save"], "只用这一次")
+        self.assertEqual(once_saved["calls"], [["prepare_phone_relogin", "20230001", "***"]],
+                         "勾了只在这次运行中用：只进内存，不落盘")
+        self.assertTrue(once_saved["formHidden"], "保存成功后收起表单（CR11）")
+        self.assertEqual(once_saved["note"], "已准备好，只在这次运行中使用。")
+        self.assertEqual(once_saved["pass"], "", "密码框保存后必须清空")
+        self.assertEqual(cancelled, {"formHidden": True, "user": ""})
+        self.assertEqual(saved["calls"], [["save_relogin_credentials", "20230001", "***"]])
+        self.assertEqual(saved["note"], "已加密保存到本机。")
+
+    def test_clear_flow_uses_the_prototype_wording(self):
+        """CR16、CR17、CR19：「清除已保存」→ 红底确认块 → 清除后就地说一句；确认展开时标题行按钮和清除行都收起。"""
+        values = self._run("""
+const calls = [];
+globalThis.__api = async (name) => { calls.push(name); return {ok:true}; };
+PhonePanel.wire();
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+PhonePanel.state.advanced = {features:{}, credential:{available:true, store_available:true, saved:true, username:"20230001"}};
+PhonePanel.paint();
+out.push({row: $("#relogin-clear-row").hidden, confirm: $("#relogin-clear-confirm").hidden});
+$("#btn-credentials-clear").click();
+out.push({row: $("#relogin-clear-row").hidden, confirm: $("#relogin-clear-confirm").hidden,
+          slot: $("#btn-credentials-manage").hidden});
+$("#btn-relogin-clear-confirm").click();
+for (let i = 0; i < 12; i += 1) await Promise.resolve();
+out.push({calls: calls.filter((c) => c === "clear_relogin_credentials"), note: $("#credential-note").textContent});
+""")
+        self.assertEqual(values[0], {"row": False, "confirm": True})
+        self.assertEqual(values[1], {"row": True, "confirm": False, "slot": True})
+        self.assertEqual(values[2], {"calls": ["clear_relogin_credentials"], "note": "已清除本机保存的账号密码。"})
+
+    def test_static_copy_follows_the_prototype(self):
+        """CR01、CR02、CR04、CR13、CR17、DT01、DT04、IM01、IM02：静态文案逐字照原型。"""
+        html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
+        view = (LOCAL / "ui" / "views" / "phone.js").read_text(encoding="utf-8")
+        for text in ("登录信息、设置、运行记录和下载的组件，都只保存在这台电脑。",
+                     "登录失效时用账号密码自动登录。账号密码只用 Windows 当前用户加密保存在本机，手机页看不到。",
+                     "登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。",
+                     "只在这次运行中用，不保存到本机",
+                     "清除后，电脑不会再自动登录，手机上重新登录也要重新输入账号密码。",
+                     "保存的密码学校不认，自动登录已暂停。点“更换”输入新密码。",
+                     "可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。",
+                     "这一项关系到自动登录，所以装好了也不会自己打开。",
+                     "一直下载不了的话，可以到发布页手动下载组件包，再",
+                     'id="btn-ocr-enable" type="button" hidden>启用</button>',
+                     'id="ocr-title-chip" hidden>未启用</span>',
+                     "导入验证码识别组件", "选择文件…"):
+            self.assertIn(text, html, "缺少原型文案：%s" % text)
+        self.assertNotIn("登录信息、设置和运行记录都只保存在这台电脑。", html, "旧的本机数据说明句要换掉（DT01）")
+        self.assertNotIn("保存的账号与失效后自动登录", html, "CR01：登录组标题后面没有副标题")
+        self.assertNotIn("电脑续登录", html, "CR02：可见标题改成「登录恢复」")
+        self.assertNotIn('id="relogin-overall-status"', html, "CR03：总状态 chip 删除")
+        self.assertNotIn('id="relogin-ocr-status"', html, "CR08：验证码识别状态行并入结论行")
+        self.assertNotIn("清除后，电脑不会再自动恢复登录", html)
+        self.assertEqual(view.count("下载已取消，没有装任何东西。"), 1)
+        # DT04：抽屉里按钮名、组件名用中文双引号，不用「」
+        self.assertNotIn("点「重新检测」", view)
+        self.assertNotIn("重新安装「手机控制」", view)
+
+    def test_import_dialog_opens_per_component_and_checks_on_pick(self):
+        """IM01：弹窗一次导入一个组件，标题随组件变；选完文件立刻自检，通过才能点「安装这份」。.exe 不进后端。"""
+        values = self._run("""
+const calls = [];
+const paths = ["C:/downloads/relogin_ocr-1.2.0.zip", "C:/downloads/TailscaleSetup-1.76.exe"];
+let nth = 0;
+globalThis.__api = async (name, ...args) => {
+  calls.push([name].concat(args));
+  if (name === "pick_advanced_component") return {ok:true, path: paths[nth++]};
+  if (name === "inspect_advanced_component") return {ok:true, kind:"component", feature:"relogin_ocr", version:"1.2.0", text:"已识别为「验证码识别」组件包。"};
+  return {ok:true};
+};
+PhonePanel.openComponents("relogin_ocr");
+out.push({title: $("#dlg-components-title").textContent, phoneRow: $("#comp-phone").hidden, ocrRow: $("#comp-ocr").hidden,
+          phoneInstall: $("#btn-comp-phone-install").hidden, ocrInstall: [$("#btn-comp-ocr-install").hidden, $("#btn-comp-ocr-install").disabled]});
+await PhonePanel.pickComponent("relogin_ocr");
+out.push({note: $("#comp-ocr-note").textContent, tone: $("#comp-ocr-note").dataset.tone,
+          install: $("#btn-comp-ocr-install").disabled, path: $("#comp-ocr-path").value});
+calls.length = 0;
+await PhonePanel.pickComponent("relogin_ocr");
+out.push({note: $("#comp-ocr-note").textContent, tone: $("#comp-ocr-note").dataset.tone,
+          install: $("#btn-comp-ocr-install").disabled,
+          inspected: calls.filter((c) => c[0] === "inspect_advanced_component").length});
+PhonePanel.openComponents("phone_control");
+out.push({title: $("#dlg-components-title").textContent, phoneRow: $("#comp-phone").hidden, ocrRow: $("#comp-ocr").hidden});
+""")
+        opened, passed, exe, phone = values
+        self.assertEqual(opened["title"], "导入验证码识别组件")
+        self.assertTrue(opened["phoneRow"])
+        self.assertFalse(opened["ocrRow"])
+        self.assertTrue(opened["phoneInstall"])
+        self.assertEqual(opened["ocrInstall"], [False, True])
+        self.assertEqual(passed["note"], "已识别为「验证码识别」组件包，版本 1.2.0。")
+        self.assertEqual(passed["tone"], "ok")
+        self.assertFalse(passed["install"], "自检通过才能安装")
+        self.assertEqual(passed["path"], "C:/downloads/relogin_ocr-1.2.0.zip")
+        self.assertEqual(exe["note"], "这是 Tailscale 的安装程序，不是组件包。Tailscale 要用官方安装包装好并登录，不用在这里导入。")
+        self.assertEqual(exe["tone"], "warn")
+        self.assertTrue(exe["install"], "自检没过就不能安装")
+        self.assertEqual(exe["inspected"], 0, ".exe 不再走后端自检（裸 cloudflared 入口已去掉）")
+        self.assertEqual(phone, {"title": "导入手机控制组件", "phoneRow": False, "ocrRow": True})
+
+    def test_import_check_copy_follows_the_actual_reply_fields(self):
+        """IM03：文案照原型，但只说回包里真有的东西——通过时有 version，失败时没有包自己的版本，也没有核过哈希。"""
+        values = self._run("""
+$("#help-version").textContent = "1.2.0";
+const c = (key, path, info) => importCheckText(key, path, info);
+out.push(c("relogin_ocr", "a/relogin_ocr-1.2.0.zip", {ok:true, kind:"component", feature:"relogin_ocr", version:"1.2.0", text:"已识别为「验证码识别」组件包。"}));
+out.push(c("relogin_ocr", "a/phone_control-1.2.0.zip", {ok:false, kind:"wrong_feature", feature:"phone_control", text:"这是「手机控制」的组件包，不是这里要装的「验证码识别」。"}));
+out.push(c("relogin_ocr", "a/x.zip", {ok:false, kind:"not_component", feature:"", text:"这个 ZIP 里没有组件清单（manifest.json），不是本程序的组件包。"}));
+out.push(c("relogin_ocr", "a/relogin_ocr-1.1.0.zip", {ok:false, kind:"incompatible_manifest", feature:"relogin_ocr", text:"组件清单不合法（incompatible_manifest），请用与当前版本配套的组件包。"}));
+$("#help-version").textContent = "—";
+out.push(c("relogin_ocr", "a/relogin_ocr-1.1.0.zip", {ok:false, kind:"incompatible_manifest", feature:"relogin_ocr", text:"后端原话"}));
+out.push(c("relogin_ocr", "a/其他.exe", {ok:false, kind:"not_zip"}));
+out.push(c("relogin_ocr", "a/x.zip", null));
+""")
+        self.assertEqual(values[0], "已识别为「验证码识别」组件包，版本 1.2.0。")
+        self.assertEqual(values[1], "这是「手机控制」的组件包，不是这里要装的「验证码识别」。")
+        self.assertEqual(values[2], "这个 ZIP 里没有组件清单，不是本程序的组件包。")
+        self.assertEqual(values[3], "这个组件包和现在的 1.2.0 不配套。到发布页下载 1.2.0 的组件包。")
+        self.assertEqual(values[4], "后端原话", "读不到程序版本就不编，照后端原话说")
+        self.assertEqual(values[5], "这里需要组件包 ZIP，不是可执行文件。")
+        self.assertEqual(values[6], "自检没有返回结论。")
+
+    def test_import_success_closes_the_dialog_and_says_so_in_the_ocr_section(self):
+        """OC15、IM01：导入装好后关掉弹窗，在验证码识别那一节说「已导入并启用」。"""
+        values = self._run("""
+globalThis.__api = async (name) => {
+  if (name === "pick_advanced_component") return {ok:true, path:"C:/d/relogin_ocr-1.2.0.zip"};
+  if (name === "inspect_advanced_component") return {ok:true, version:"1.2.0"};
+  return {ok:true};
+};
+wireSettings();
+PhonePanel.openComponents("relogin_ocr");
+await PhonePanel.pickComponent("relogin_ocr");
+PhonePanel.state.advanced = {features:{relogin_ocr:{available:true, ready:true, status:"ready", package_version:"1.2.0"}}, credential:{}};
+await PhonePanel.installComponent("relogin_ocr");
+out.push({note: $("#ocr-note").textContent, noteHidden: $("#ocr-note").hidden});
+""")
+        self.assertEqual(values[-1], {"note": "验证码识别组件已导入并启用。", "noteHidden": False})
 
 
 class PhoneReloginRecoveryTests(unittest.TestCase):
@@ -1497,12 +2284,17 @@ class LayoutStaticTests(unittest.TestCase):
 
     def test_help_channel_guide_statics(self):
         html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
-        for needle in ('id="phone-channel-state"', 'id="btn-tailscale-recheck"',
-                       'id="phone-channel-warn"', 'id="phone-bookmark-hint"',
+        # fe-phone 同步：PH21 删了 Tailscale 四步清单与 Cloudflare 警告段（#phone-channel-warn、「重启后需重新扫码」），
+        # PH22 删了两处书签句（#phone-bookmark-hint），PH16 的单选卡取代了 #phone-channel-state 状态行；
+        # 「先扫二维码」换成原型的引导句（PH25 文案，审核决定 A5）
+        for needle in ('id="phone-channel"', 'role="radiogroup"', 'id="btn-tailscale-recheck"',
                        'id="btn-phone-address-copy"', 'id="phone-address-alt-line"',
                        'id="phone-stop-confirm"', 'id="btn-phone-stop-cancel"',
-                       "先扫二维码", "重启后需重新扫码"):
+                       "手机扫码打开页面，再输入这 6 位配对码", "下次连接要重新扫码配对"):
             self.assertIn(needle, html, "帮助入口缺少 %s" % needle)
+        for gone in ('id="phone-channel-warn"', 'id="phone-bookmark-hint"', 'id="tailscale-guide"',
+                     'id="phone-qr-note"'):
+            self.assertNotIn(gone, html, "%s 按原型删除（PH21、PH22）" % gone)
         # 四步说明只解释环境准备，不把配对码拼进地址或按钮
         self.assertNotIn("pair_code=", html)
         self.assertNotIn("window.confirm", html)
@@ -1510,13 +2302,11 @@ class LayoutStaticTests(unittest.TestCase):
     def test_help_cross_device_credential_contracts(self):
         html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
         # 远程通道只允许 Tailscale 与 Cloudflare，不给普通局域网入口
-        select = re.search(
-            r'<select id="phone-channel".*?</select>', html, re.S)
-        self.assertIsNotNone(select, "帮助里必须有远程通道选择")
-        self.assertEqual(re.findall(r'value="([^"]+)"', select.group(0)),
+        # fe-phone 同步：下拉框换成两张单选卡（PH16），按 radio 的 value 核对
+        self.assertEqual(re.findall(r'name="phone-chan"[^>]*value="([^"]+)"', html),
                          ["tailscale", "cloudflare"])
-        # 文案明确先扫码再输入配对码
-        self.assertIn("先扫二维码，再输入配对码", html)
+        # 文案明确先扫码再输入配对码（fe-phone 同步：照原型的引导句，PH25 文案）
+        self.assertIn("手机扫码打开页面，再输入这 6 位配对码", html)
         self.assertIn('id="phone-qr"', html)
         self.assertIn('id="phone-code"', html)
         # 账号区域：保存/清除 + 人工验证码降级提示；密码框按密码类型
@@ -1524,7 +2314,8 @@ class LayoutStaticTests(unittest.TestCase):
         self.assertIn('id="btn-credentials-save"', html)
         self.assertIn('id="btn-credentials-clear"', html)
         self.assertRegex(html, r'id="credential-pass"[^>]*type="password"')
-        self.assertIn("人工输入", html, "未安装 ddddocr 必须提示人工降级")
+        # fe-ocr-login 同步：OC03 的 lead 照原型写「没装或认不出来时，由你在手机上手动输入」，不再有「人工输入」四个字
+        self.assertIn("手动输入", html, "未安装 ddddocr 必须提示人工降级")
 
 
 class PhoneSyncPolicyTests(unittest.TestCase):

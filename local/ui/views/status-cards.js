@@ -111,6 +111,14 @@ function phoneSnapshot() {
   return (window.PhonePanel && window.PhonePanel.state) || {};
 }
 
+/* 「手机已连接」（settings-gap PH23，审核决定 A4）：开着，且本次兑换过配对码（paired_count，B1）
+ * 或有活动会话（live_session，重启后靠设备信任 cookie 回来的手机）。不再看 pair_code_status.reason：
+ * 那个 reason 只挂在刚换出的那张码上，码过期后「已连接」会自己消失。设置抽屉用同一条规则（views/phone.js） */
+function phoneLinked(state) {
+  return !!(state && state.running)
+    && (Number(state.paired_count || 0) > 0 || state.live_session === true);
+}
+
 /* 手机标识只在手机访问开启时出现：开启了就常显，关了就收起 */
 function paintPhoneBadge() {
   const badge = $("#phone-badge");
@@ -119,16 +127,14 @@ function paintPhoneBadge() {
   const running = !!state.running;
   badge.hidden = !running;
   if (!running) return;
-  const status = state.pair_code_status || {};
-  const linked = status.reason === "paired";
+  const linked = phoneLinked(state);
   badge.className = "pill phone-badge" + (linked ? " is-ok" : "");
   $("#phone-badge-text").textContent = linked ? "手机已连接" : "等手机连接";
 }
 
 function renderPhoneCard() {
   const state = phoneSnapshot();
-  const status = state.pair_code_status || {};
-  const linked = status.reason === "paired";
+  const linked = phoneLinked(state);
   const chip = $("#phone-pop-chip");
   if (chip) chip.dataset.tone = state.running ? (linked ? "ok" : "warn") : "";
   $("#phone-pop-chip-text").textContent = state.running ? (linked ? "已连接" : "等手机连接") : "未开启";

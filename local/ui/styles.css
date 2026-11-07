@@ -397,28 +397,23 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .close-choice.is-danger:hover { border-color: var(--bad); background: var(--bad-tint); }
 .dlg-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 16px 24px 20px; }.grow { flex: 1; }
 
-/* 组件与通道：每行从上到下是「这是什么 → 缺什么 → 选文件 → 自检/安装」，
-   单列排布。两列网格会让说明文字把标题列挤成一字一行。 */
-.dlg-components { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); }
+/* 导入已下载的组件包（原型 impView，settings-gap 五）：一次只导入一个组件，路径盒子 + 选择文件，
+   自检结论一行（✓ 通过 / ! 不通过），需要什么包写在最下面；[hidden] 的那一行不占位。 */
+.dlg-components { width: min(512px, calc(100vw - 32px)); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); }
 .dlg-components[open] { display: flex; flex-direction: column; }
-.comp-rows { display: grid; gap: 10px; flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 24px 12px; }
-.comp-row { display: grid; gap: 8px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper-2); }
-.comp-row-plain { background: var(--paper); }
-.comp-row-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.comp-row-head b { font-size: 15px; font-weight: 700; }
-.comp-status { padding: 1px 8px; border-radius: 999px; background: var(--paper); color: var(--ink-2); font-size: 12px; font-weight: 600; }
-.comp-status[data-state="available"] { background: var(--warn-tint); color: #5e3a00; }
-.comp-status[data-state="ready"] { background: #e7f6ec; color: #1f6b3a; }
-.comp-status[data-state="failed"] { background: var(--bad-tint); color: var(--bad); }
-.comp-need { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.55; }
-.comp-need code { padding: 1px 4px; border-radius: 4px; background: var(--paper); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.comp-rows { display: grid; gap: 10px; flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px 24px; }
+.comp-row { display: grid; gap: 0; }
+.comp-row[hidden] { display: none; }
+.comp-need { margin: 10px 0 0; color: var(--ink-3); font-size: 12px; line-height: 1.55; }
 .comp-pick { display: flex; gap: 8px; align-items: center; }
-.comp-path { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
-.comp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.comp-note { margin: 0; font-size: 13px; line-height: 1.55; }
-.comp-note[data-tone="ok"] { color: #1f6b3a; }
-.comp-note[data-tone="warn"] { color: var(--bad); }
-.comp-foot-note { color: var(--ink-2); font-size: 12px; }
+.comp-path { flex: 1 1 auto; min-width: 0; height: 32px; padding: 0 10px; overflow: hidden; border: 0; border-radius: 8px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); font: 12px var(--font-log); text-overflow: ellipsis; }
+.comp-path::placeholder { color: var(--ink-3); font-family: inherit; }
+.comp-note { display: flex; gap: 8px; margin: 12px 0 0; padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 1.55; }
+.comp-note[hidden] { display: none; }
+.comp-note::before { flex: none; font-weight: 700; content: "!"; }
+.comp-note[data-tone="ok"] { background: var(--ok-tint); color: var(--ok); }
+.comp-note[data-tone="ok"]::before { content: "\2713"; }
+.comp-note[data-tone="warn"] { background: var(--bad-tint); color: #7e2119; }
 
 /* 帮助沿用站牌与时刻表的层级：黑色标题、白纸正文、真实三步路线和普通工具行。
    只有正文滚动；[open] 才改 flex，保留原生 dialog 的关闭语义。 */
@@ -791,42 +786,86 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .help-feature-status { color: var(--ink-3); font-size: 11px; white-space: nowrap; }
 .help-feature-status[data-state="ready"] { color: var(--ok); }
 .help-feature-status[data-state="missing"] { color: var(--warn); }
-.help-tool-row-phone { border-bottom: 0; }
-.phone-access-detail { margin: 0 0 12px; padding: 12px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--paper); }
-.phone-access-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
-.phone-channel { display: flex; flex-direction: column; gap: 4px; min-width: 210px; color: var(--ink-2); font-size: 12px; }
-.phone-channel select, .credential-editor input { min-height: 32px; padding: 0 9px; border: 1px solid var(--line-2); border-radius: 7px; background: var(--paper); }
-.phone-channel-state { margin-top: 10px; padding: 8px 10px; border: 1px dashed var(--line-2); border-radius: 8px; }
-.phone-component { margin: 10px 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper-2); }
-.phone-component-progress { width: 100%; height: 8px; margin: 4px 0; accent-color: var(--blue); }
-.phone-component-error { margin: 6px 0; padding: 6px 8px; border-radius: 6px; background: var(--bad-tint); color: var(--bad); font-size: 12px; }
-.phone-channel-hint { color: var(--ink-3); }
-.phone-code-note { color: var(--ink-3); font-size: 12px; }
-.phone-steps { margin: 8px 0; padding-left: 20px; color: var(--ink-2); font-size: 12px; }
-.phone-steps li { margin: 3px 0; }
-.phone-warn { margin: 8px 0; padding: 7px 9px; border-radius: 7px; background: #FFF6E5; color: #8A5A00; font-size: 12px; }
-.phone-stop-confirm { margin: 8px 0; padding: 8px 10px; border: 1px solid #E7C0B8; border-radius: 8px; background: #FFF3F1; }
-.phone-stop-confirm .help-actions { margin-top: 6px; }
-.phone-access-grid { display: grid; grid-template-columns: minmax(0,1fr) 116px; gap: 14px; align-items: center; margin-top: 12px; }
-.phone-line { margin: 4px 0; color: var(--ink-2); font-size: 12px; overflow-wrap: anywhere; }
-.phone-line b { color: var(--ink); font-weight: 700; }
-.phone-code { letter-spacing: .16em; font: 20px/1 var(--font-num); }
+/* 手机访问（settings-gap 一）：标题行、状态 chip、红绿黄提示、通道单选卡、进度条、位置盒子、关闭确认块。
+   照原型 Main.dc.html 263–352 行的 .set-h / .ph-* / .chans / .chan / .loc / .tipbox 抄，rem 换成 px；
+   区块底色照原型 .set 用白纸。验证码识别的进度条共用 .ph-prog / .ph-bar（墨色，不用蓝色，PH14）。 */
+.ph-sec { padding-top: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); background: var(--paper); }
+.set-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.set-h b { font-size: 13px; font-weight: 700; }
+.ph-slot { display: inline-flex; flex: none; align-items: center; gap: 6px; }
+.ph-slot .btn { height: 30px; }
+.ph-sec p { margin: 4px 0 0; color: var(--ink-2); font-size: 12px; overflow-wrap: anywhere; text-wrap: pretty; }
+.ph-block[hidden], .ph-st[hidden], .ph-acts[hidden], .loc[hidden] { display: none; }
+.ph-st { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 4px; background: var(--paper-2); color: var(--ink-2); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.ph-st::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.ph-st.ok { background: var(--ok-tint); color: var(--ok); }
+.ph-st.warn { background: var(--warn-tint); color: var(--warn); }
+.ph-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ph-sec p.ph-err { margin-top: 10px; padding: 7px 10px; border-radius: 6px; background: var(--bad-tint); color: #7e2119; }
+.ph-sec p.ph-ok { margin-top: 10px; padding: 7px 10px; border-radius: 6px; background: var(--ok-tint); color: var(--ok); }
+.ph-sec p.ph-warn { margin-top: 10px; color: var(--warn); }
+.ph-sec p.ph-note { margin-top: 8px; }
+.ph-link { padding: 0; border: 0; background: transparent; color: var(--blue); font-size: 12px; text-decoration: underline; cursor: pointer; }
+.loc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; padding: 7px 12px 7px 10px; border-radius: 8px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); }
+.loc-i { flex: none; width: 18px; height: 18px; fill: var(--paper); stroke: var(--ink-3); stroke-width: 1.5; stroke-linejoin: round; }
+.loc-t { display: flex; flex-direction: column; flex: 1 1 248px; min-width: 0; line-height: 1.35; }
+.loc-t small { color: var(--ink-3); font-size: 11px; }
+.loc-t code { overflow: hidden; color: var(--ink); font: 11px/1.5 var(--font-log); text-overflow: ellipsis; white-space: nowrap; }
+.loc .ph-link { flex: none; margin-left: auto; }
+.ph-prog { margin-top: 10px; }
+.ph-prog-t { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 5px; color: var(--ink-2); font-size: 12px; }
+.ph-prog-t b { color: var(--ink); font: 600 12px var(--font-num); }
+.ph-bar, .phone-component-progress { height: 6px; overflow: hidden; border-radius: 999px; background: var(--line); }
+.ph-bar i { display: block; width: 0; height: 100%; background: var(--ink); transition: width .2s; }
+.chans { margin-top: 10px; overflow: hidden; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line-2); }
+.chan { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 2px 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.chan:last-child { border-bottom: 0; }
+.chan.on { background: var(--blue-tint); }
+.chan input { width: 15px; height: 15px; margin: 2px 0 0; accent-color: var(--blue); }
+.chan-t { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.chan-t b { font-weight: 700; }
+.chan-s { color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+.chan-s.ok { color: var(--ok); }
+.chan-s.warn { color: var(--warn); }
+.chan-d { grid-column: 2; color: var(--ink-2); font-size: 12px; }
+.tipbox { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--warn-tint); color: #6b4100; font-size: 12px; line-height: 1.6; }
+.ph-sec p.tipbox { margin-top: 10px; color: #6b4100; }
+.tipbox .ph-link { margin-left: 4px; color: #6b4100; font-weight: 700; }
+.ph-addr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; margin: 10px 0 0; font-size: 12px; }
+.ph-addr dt { color: var(--ink-3); }
+.ph-addr dd { margin: 0; overflow-wrap: anywhere; font: 12px var(--font-log); }
+.ph-addr .btn { height: 26px; padding: 0 8px; font-size: 12px; }
+.ph-addr-alt { display: contents; }
+.ph-addr-alt[hidden] { display: none; }
+.ph-confirm { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--bad-tint); color: #7e2119; font-size: 12px; }
+.ph-confirm[hidden] { display: none; }
+.ph-confirm .ph-acts { margin-top: 8px; }
+.phone-access-grid { display: grid; grid-template-columns: minmax(0,1fr) 116px; gap: 14px; align-items: center; margin-top: 10px; }
+.pair-r { min-width: 0; }
+.ph-sec p.pair-c { margin: 0 0 8px; line-height: 1.5; }
+.ph-sec p.pair-n { margin: 8px 0 0; }
+.pair-n b { color: var(--ink); font: 600 13px var(--font-num); font-variant-numeric: tabular-nums; }
+.phone-code { display: block; letter-spacing: .16em; font: 20px/1 var(--font-num); }
 .phone-qr-wrap { display: flex; width: 116px; height: 116px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink-3); font-size: 11px; text-align: center; }
 .phone-qr-wrap img { display: block; width: 108px; height: 108px; image-rendering: pixelated; }
-.credential-editor { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 0 13px; }
-.credential-editor input { flex: 1 1 140px; min-width: 0; }
-.credential-editor .btn { flex: none; }
-/* 电脑续登录：一张卡里说清「自动识别」与「账号保存」两件事各自的现状 */
-.relogin-card { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
-.relogin-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.relogin-head h3 { margin: 0; }
+.phone-component-error { margin: 6px 0; padding: 6px 8px; border-radius: 6px; background: var(--bad-tint); color: var(--bad); font-size: 12px; }
+/* 登录恢复（settings-gap 三）：表单、勾选项、自动登录结论行的着色，照原型 .credf / .fl / .agree / .up-ok / .up-warn。
+   「最近一次登录」「手机上重新登录」两行原型没有、保留，用 .relogin-line / .relogin-path 的灰字。 */
+.credf { display: grid; gap: 8px; margin-top: 10px; padding: 12px; border-radius: 8px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); }
+.credf .fl { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 8px; margin: 0; color: var(--ink-2); font-size: 12px; }
+.credf .fl input { height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); }
+.credf .fl input:focus { outline: 0; box-shadow: inset 0 0 0 2px var(--blue); }
+.credf .agree { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-2); font-size: 12px; }
+.credf .agree input { width: 15px; height: 15px; margin: 0; accent-color: var(--blue); }
+.credf[hidden] { display: none; }
+.credf .ph-acts { margin-top: 0; }
+.credf p.ph-note { margin: 0; }
+.ph-sec p.up-ok { color: var(--ok); }
+.ph-sec p.up-warn { color: var(--warn); }
+.ph-sec .set-chip { height: 20px; margin-left: 8px; padding: 0 7px; font-size: 11px; vertical-align: 1px; }
 .relogin-line { margin: 6px 0 0; color: var(--ink-2); font-size: 12px; overflow-wrap: anywhere; }
 .relogin-path { color: var(--ink-3); }
-.relogin-clear-confirm { margin-top: 10px; padding: 8px 10px; border: 1px solid #E7C0B8; border-radius: 8px; background: #FFF3F1; }
-.relogin-clear-confirm .help-actions { margin-top: 6px; }
 @media (max-width: 520px) {
-  .phone-access-toolbar { align-items: stretch; flex-direction: column; }
-  .phone-channel { min-width: 0; }
   .phone-access-grid { grid-template-columns: minmax(0,1fr) 96px; }
   .phone-qr-wrap { width: 96px; height: 96px; }
   .phone-qr-wrap img { width: 88px; height: 88px; }
@@ -877,15 +916,22 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .stats span { color: var(--on-board-2); font-size: 12px; white-space: nowrap; }
 
 /* ---- 设置抽屉（决策 011 修订、014）：右侧滑出，顶部分组跳转常驻 ---- */
-.draw { position: fixed; top: 0; right: 0; bottom: 0; z-index: 30; display: flex; flex-direction: column; width: min(32rem, 100vw); background: var(--paper); color: var(--ink); box-shadow: -12px 0 28px rgba(18,21,19,.18), -1px 0 0 var(--line-2); }
-.draw-h { display: flex; flex: none; align-items: center; justify-content: space-between; padding: 12px 16px 6px; }
-.draw-h h2 { margin: 0; font-size: 17px; }
-.set-nav { position: sticky; top: 0; z-index: 1; display: flex; flex: none; gap: 6px; padding: 6px 16px 10px; background: var(--paper); border-bottom: 1px solid var(--line); }
-.set-nav button { height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--paper-2); color: var(--ink-2); font-size: 12px; font-weight: 600; }
-.set-nav button:hover { background: var(--blue-tint); color: var(--blue); }
-.draw-b { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 16px 20px; }
-.set-g { scroll-margin-top: 12px; margin: 18px 0 8px; font-size: 15px; }
-.set-g small { margin-left: 8px; color: var(--ink-3); font-size: 12px; font-weight: 400; }
+/* 抽屉外框照原型 Main.dc.html 255–261、341、429–432 行：宽 34rem、深色标题栏加琥珀竖条、胶囊分组按钮、
+   灰条分组标题、白色整宽区块。区块内部排版沿用上面 .ph-sec / .set-h 的抄法。 */
+.draw { position: fixed; top: 0; right: 0; bottom: 0; z-index: 30; display: flex; flex-direction: column; width: min(34rem, 100vw); background: var(--paper); color: var(--ink); box-shadow: -16px 0 48px rgba(24,55,45,.16), -1px 0 0 var(--line-2); }
+.draw-h { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 12px; padding: 1.125rem 1.375rem; background: radial-gradient(circle at 1.5px 1.5px, rgba(255,255,255,.045) 1px, transparent 1.4px) 0 0/6px 6px, var(--board); color: var(--on-board); }
+.draw-h h2 { margin: 0; padding-left: .6875rem; border-left: 3px solid var(--amber); font-size: 1.125rem; line-height: 1.3; }
+.draw-h .dlg-x { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 6px; background: transparent; box-shadow: none; color: var(--on-board-2); }
+.draw-h .dlg-x:hover { background: rgba(255,255,255,.09); color: var(--on-board); }
+.set-nav { position: sticky; top: 0; z-index: 1; display: flex; flex: none; flex-wrap: wrap; gap: 6px; padding: .5rem 1.375rem; background: var(--paper-2); border-bottom: 1px solid var(--line); }
+.set-nav button { height: 28px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink-2); font-size: 12px; font-weight: 600; }
+.set-nav button:hover { background: var(--paper); color: var(--ink); }
+.draw-b { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0; background: var(--paper-2); }
+.set-g { scroll-margin-top: 12px; margin: 0; padding: .875rem 1.375rem .375rem; color: var(--ink-2); font-size: 12px; font-weight: 600; line-height: 1.5; }
+.set-g small { margin-left: .375rem; color: var(--ink-3); font-weight: 400; }
+.draw-b .help-tools { padding: 0 1.375rem; border-top: 0; background: var(--paper); }
+.draw-b .ph-sec { padding-top: .75rem; padding-bottom: .75rem; border-bottom: 1px solid var(--line); }
+.draw-b .help-tool-row { padding: .75rem 0; }
 .set-g:focus { outline: 0; }
 .update-actions .update-flow { display: inline-flex; gap: 6px; }
 .update-actions .update-flow[hidden] { display: none; }
