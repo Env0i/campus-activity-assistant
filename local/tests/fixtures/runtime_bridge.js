@@ -59,7 +59,7 @@
    * local/ui/controllers/terms.js。默认「已同意本版」：老场景原本没有 terms，
    * 前端 markTermsUnknown 后登录/列表/开始全被停用，断言只会假失败；缺字段
    * 是真实缺陷形状，所以由 termsMode=absent 显式制造，而不是当作默认。 */
-  const TERMS_VERSION = "2026-11-03-r4";
+  const TERMS_VERSION = "2026-11-07-r5";
   const TERMS_DECLINED_OLD = "2026-10-05-r1";
   /* 随包 LICENSE 原文（与仓库根 LICENSE 逐字一致）：生产 Api.get_license_text
    * 从安装目录读，QA 离线所以内嵌同文。state.licenseFail=true 注入失败。 */
