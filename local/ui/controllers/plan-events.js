@@ -8,37 +8,12 @@ function presentPlanDone(payload, autoRefresh) {
   S.plan.status = String(data.status || "failed");
   /* 计划收尾：解除「正在停止」并解锁 busy（canceled/终态都已落定） */
   S.stopping = false;
-  /* 记下终态时的选择集合：集合不变时结论留在 LED 上，变化后回到预览 */
+  /* 记下终态时的选择集合（旧口径，保留给 QA 与诊断读）；结果页进出改由结果页标记决定 */
   S.plan.doneSelection = selectionSignature();
   setBusy(false);
   /* 已确认成功的场次立即回写列表（计数/分组/门禁/冲突基线），
    * 再安排一次有界刷新去取学校权威列表；刷新失败不撤销成功事实。 */
   const signedChanged = noteSignedTasks(Array.from(S.plan.tasks.values()));
-  const outcome = planOutcome();
-  const successTotal = outcome.success + outcome.already_signed;
-  /* 计划级结论也带上失败场次到达的停止条件（次数/时长/截止），去重后一句话说清 */
-  const stopNotes = [];
-  S.plan.tasks.forEach((task) => {
-    if (String(task.status) !== "failed") return;
-    if (task.stop_reason === "unconfirmed" || task.stop_reason === "auth_unavailable") return;
-    const note = stopReasonText(task.stop_reason);
-    if (note && task.stop_reason !== "process_error" && stopNotes.indexOf(note) < 0) stopNotes.push(note);
-  });
-  const noteText = stopNotes.length ? "（" + stopNotes.join("、") + "）" : "";
-  /* 未知必须分列：待核对=已提交没回应，未提交=登录状态没能确认。
-   * 用 unknown 总和冒充「待核对」会把没提交的场次也算成提交过（FR06）。 */
-  const splitText = "已报名 " + successTotal + " 场 · 报名未成功 " + outcome.failed
-    + " 场 · 待核对 " + outcome.unconfirmed + " 场 · 未提交 " + outcome.auth_unavailable
-    + " 场 · 已取消 " + outcome.canceled + " 场";
-  const unknownTail = [];
-  if (outcome.unconfirmed) {
-    unknownTail.push(outcome.unconfirmed + " 场已提交但没拿到确定回应，请去活动页核对，本工具不会自动重发");
-  }
-  if (outcome.auth_unavailable) {
-    unknownTail.push(outcome.auth_unavailable + " 场因登录状态无法确认而没有提交，检查网络后刷新重试");
-  }
-  const tasksNow = Array.from(S.plan.tasks.values());
-  const allFull = tasksNow.length > 0 && tasksNow.every((task) => String(task.stop_reason || "") === "full");
   if (S.editing && S.plan.status === "stopped") {
     /* 修改计划：停下以后把没提交的场次放回选择，等用户改完重新开始（不弹停止结论） */
     S.selected.clear();
@@ -47,36 +22,14 @@ function presentPlanDone(payload, autoRefresh) {
       if (item && isEligibleForPlan(item)) S.selected.add(String(id));
     });
     S.plan = { id: null, status: "idle", tasks: new Map() };
-    setResult(null);
-  } else if (S.plan.status === "completed") {
-    setResult({ ok: true, title: "报名计划完成", text: "已报名 " + successTotal + " 场。每场结束时都向学校核对过。" });
-  } else if (allFull) {
-    /* 全部名额已满：学校的结论，不是工具失败，不用红色（决策 014 第 9 条） */
-    setResult({ ok: "neutral", title: "这次没报上：名额满了",
-                text: "学校说这 " + tasksNow.length + " 场报名人数都已满，工具没有出错，也不会再提交。" });
-  } else if (S.plan.status === "stopped") {
-    /* 用户停止是主结论；停止前已提交却没回应的场次并列说清，不并进「取消」 */
-    const extra = outcome.unknown ? "其中 " + unknownLabel(outcome).replace(/^有 /, "")
-      + "，请去活动页核对。" : "";
-    setResult({ ok: "partial", title: "报名计划已停止",
-                text: "已提交的场次保留原状态，还没提交的场次已取消。" + extra
-                  + (outcome.unknown ? "（" + splitText + "）" : ""),
-                action: { label: "重新选择活动", run: restartStoppedPlan } });
-  } else if (S.plan.status === "partial") {
-    setResult({ ok: "partial",
-                title: "报名计划部分完成" + (outcome.unknown ? "，" + unknownLabel(outcome) : ""),
-                text: "已报名 " + successTotal + " 场。" + splitText + "。"
-                  + unknownTail.join("；") + (unknownTail.length ? "。" : ""),
-                action: outcome.unknown ? { label: "刷新列表", run: () => refresh(false) } : undefined });
-  } else if (outcome.unknown > 0) {
-    /* 含未知只能用中性/部分完成视觉：不能把所有场次说成「都没抢到」 */
-    setResult({ ok: "partial", title: "报名计划已结束，" + unknownLabel(outcome),
-                text: splitText + "。" + unknownTail.join("；") + "。"
-                  + (outcome.failed ? "其余失败场次的原因见任务状态。" : ""),
-                action: { label: "刷新列表", run: () => refresh(false) } });
+    closeResultPage();
   } else {
-    setResult({ ok: false, title: "报名计划没有成功", text: "报名未成功 " + outcome.failed + " 场" + noteText + "。逐场原因已列在上面任务状态里。", action: { label: "刷新列表", run: () => refresh(false) } });
+    /* 计划结束就进结果页（P1）：结论由计划栏的大数字、标题和副行承担（原型 res 段），
+     * 不再往 #result 条写结论和「重新选择活动 / 刷新列表」内联动作（P8）。
+     * 成功场次已在上面移出选择集合，结果页从这之后的选择开始记。 */
+    openResultPage();
   }
+  setResult(null);
   render();
   if (signedChanged && autoRefresh !== false) scheduleSignedRefresh();
 }
@@ -107,6 +60,7 @@ function restartStoppedPlan() {
     /* 重新选择也要过门禁：已截止的场次不能被重新选上 */
     if (item && isEligibleForPlan(item) && ["canceled", "failed"].indexOf(String(task.status)) >= 0) S.selected.add(String(item.id));
   });
+  closeResultPage();   /* 重新选择就是离开结果页（state/plan.js） */
   S.selectionNotice = "";
   setResult(null);
   render();

@@ -57,7 +57,8 @@ function handlePlan(payload) {
   const gen = admitPlanEvent(data);
   if (!S.plan.id || S.plan.id !== String(data.plan_id)) {
     S.plan = { id: String(data.plan_id || ""), gen: gen, status: String(data.status || "ready"), tasks: new Map(), armedAt: Date.now() / 1000 };
-    S.editing = null;   /* 新计划已接纳：修改流程到此结束 */
+    S.editing = null;   /* 新计划已接纳：修改流程和上一轮的结果页到此结束 */
+    closeResultPage();
     setBusy(["ready", "running"].indexOf(S.plan.status) >= 0);
   } else {
     if (gen > (Number(S.plan.gen) || 0)) S.plan.gen = gen;
@@ -79,6 +80,7 @@ function handleTask(payload) {
   const gen = admitPlanEvent(data);
   if (!S.plan.id || S.plan.id !== String(data.plan_id)) {
     S.plan = { id: String(data.plan_id || ""), gen: gen, status: "running", tasks: new Map(), armedAt: Date.now() / 1000 };
+    closeResultPage();
   } else if (gen > (Number(S.plan.gen) || 0)) {
     S.plan.gen = gen;
   }
@@ -96,6 +98,33 @@ function handleTask(payload) {
     showTaskResult(task);
   }
   render();
+}
+
+/* 结果页标记（原型 phase === 'result'，P1）：plan_done 时打开；开始新计划、点「完成」、
+ * 点「重新选择未成功的场次」、用户自己在时刻表改了勾选时关闭。
+ * 成功场次会被自动移出选择集合（controllers/refresh.js），那一步只同步记下的选择，不关结果页。 */
+function openResultPage() {
+  S.resultOpen = true;
+  S.resultSel = selectionSignature();
+}
+
+function closeResultPage() {
+  S.resultOpen = false;
+  S.resultSel = null;
+}
+
+function syncResultSelection() {
+  if (S.resultOpen) S.resultSel = selectionSignature();
+}
+
+function resultPageOpen() {
+  if (!S.resultOpen) return false;
+  if (S.resultSel !== selectionSignature()) {
+    /* 选择变了又不是自动移出：只能是用户自己改了勾选，结果页到此关闭 */
+    closeResultPage();
+    return false;
+  }
+  return true;
 }
 
 /* 计划级结论分类：协调器的 counts.failed 把「结果未确认」也算进失败，

@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import re
 import unittest
 from pathlib import Path
@@ -520,10 +521,25 @@ class LedAndStopContractTests(unittest.TestCase):
         html = read("ui/index.html")
         self.assertIn('<script src="led.js"></script>', html, "必须在 app.js 之前引入 led.js")
         self.assertIn('id="led"', html, "缺少 LED 点阵容器 #led")
-        self.assertIn('id="dlg-stop"', html, "缺少停止确认 dialog #dlg-stop")
-        self.assertIn("继续计划", html, "确认弹窗必须有「继续计划」按钮")
-        self.assertIn("停止计划", html, "确认弹窗必须有「停止计划」按钮")
-        self.assertIn('value="no"', html, "「继续计划」提交 no，Esc 也走 no 通道")
+        # 原因：停止确认从原生 <dialog id="dlg-stop"> 改成计划栏内的遮罩弹层（决策 014 / 原型 P19），
+        # 旧 id 与 form method=dialog 的 value=no/yes 通道随之取消，改钉新结构
+        self.assertNotIn('id="dlg-stop"', html, "停止确认不再是原生 dialog：旧 #dlg-stop 必须删掉")
+        start = html.index('id="plan-stop-ask"')
+        ask = html[html.rindex("<div", 0, start):html.index("</aside>", start)]
+        board = html[html.index('<aside class="board plan-panel" id="board"'):html.index("</aside>", start)]
+        self.assertIn(ask, board, "停止确认弹层必须在 #board 内部，只盖计划栏")
+        self.assertTrue(ask.startswith('<div class="scrim"'), "外层是原型的 .scrim 遮罩")
+        for attr in ('role="dialog"', 'aria-modal="true"', 'aria-labelledby="plan-stop-title"', "hidden"):
+            self.assertIn(attr, ask.split(">")[0], "遮罩缺 %s：读屏与默认隐藏靠它" % attr)
+        self.assertIn('id="plan-stop-title">停止报名计划？<', ask, "标题逐字照原型")
+        self.assertIn("工具会停止后续尝试。已经发出的提交仍可能成功，停止不会取消已成功的报名。", ask,
+                      "说明逐字照原型")
+        self.assertIn('class="btn btn-line" id="btn-stop-keep" type="button">继续计划<', ask,
+                      "「继续计划」是 btn-line，且是弹层里的第一个按钮")
+        self.assertIn('class="btn btn-stop" id="btn-stop-yes" type="button">停止计划<', ask,
+                      "「停止计划」是 btn-stop（危险色），且排在「继续计划」之后")
+        self.assertLess(ask.index("btn-stop-keep"), ask.index("btn-stop-yes"))
+        self.assertIn('class="dlg sm"', ask, "弹层窄版 .dlg.sm 照原型")
 
     def test_led_js_is_pure_renderer(self):
         js = read("ui/led.js")
@@ -538,12 +554,163 @@ class LedAndStopContractTests(unittest.TestCase):
         js = read("ui/app.js")
         start = js.index("function stopPlan()")
         body = js[start:js.index("function ", start + 10)]
-        self.assertIn("dlg-stop", body, "stopPlan 必须先打开确认弹窗")
+        # 原因：确认弹窗换成 #plan-stop-ask 弹层，stopPlan 只负责打开它，不再 showModal
+        self.assertIn("openStopAsk()", body, "stopPlan 必须先打开确认弹层")
+        self.assertNotIn("showModal", body, "停止确认不再是原生 dialog")
         self.assertNotIn("stop_plan", body, "stopPlan 本体不得直接调用 stop_plan")
         do_start = js.index("function doStopPlan()")
         do_body = js[do_start:js.index("function ", do_start + 10)]
         self.assertIn('"stop_plan"', do_body, "真正的停止只在确认回调 doStopPlan 里")
-        self.assertIn('returnValue === "yes"', js, "只有弹窗回 yes 才停止；Esc/继续等待不触发")
+        # 原因：原生 dialog 的 returnValue 通道取消；现在只有「停止计划」按钮（#btn-stop-yes）接到停止流程，
+        # 「继续计划」与 Esc 只关弹层
+        self.assertIn('$("#btn-stop-yes").addEventListener("click", confirmStopPlan)', js,
+                      "只有「停止计划」按钮接到停止流程")
+        self.assertIn('$("#btn-stop-keep").addEventListener("click", () => closeStopAsk(true))', js,
+                      "「继续计划」只关弹层并还焦点")
+        confirm = js[js.index("function confirmStopPlan()"):js.index("function ", js.index("function confirmStopPlan()") + 10)]
+        self.assertIn("doStopPlan()", confirm, "「停止计划」走现有停止流程")
+        self.assertNotIn("dlg-stop", js, "旧 #dlg-stop 的绑定必须删干净")
+        self.assertNotIn("returnValue", js[js.index("function stopAskOpen()"):js.index("function modifyPlan()")],
+                         "弹层不再借 dialog.returnValue 传结论")
+
+
+class StopAskBehaviorTests(unittest.TestCase):
+    """停止确认弹层（计划栏内遮罩，原型 P19）的焦点与键盘行为（node 桩，不连学校）。"""
+
+    # 共用前置：计划运行中、桥接桩记录 stop_plan 调用
+    SETUP = r"""
+const calls = [];
+window.pywebview = { api: { stop_plan: (id) => { calls.push(id); return Promise.resolve({ ok: true }); } } };
+setBusy(true);
+S.plan = { id: "p1", status: "running", tasks: new Map() };
+updateControls();
+const ask = document.querySelector("#plan-stop-ask");
+const keep = document.querySelector("#btn-stop-keep");
+const yes = document.querySelector("#btn-stop-yes");
+const stopBtn = document.querySelector("#btn-stop");
+"""
+
+    def test_open_puts_focus_on_keep_going(self):
+        """点「停止计划」只打开弹层，焦点落在「继续计划」；这时还没有发出 stop_plan。"""
+        res = run_js(self.SETUP + r"""
+const before = ask.hidden;
+stopBtn.click();
+out.push({ before, after: ask.hidden, active: document.activeElement.__sel, calls: calls.length,
+  stopping: S.stopping });
+""")
+        self.assertTrue(res[0]["before"], "弹层默认隐藏")
+        self.assertFalse(res[0]["after"], "点「停止计划」必须打开弹层")
+        self.assertEqual(res[0]["active"], "#btn-stop-keep", "打开后焦点必须在「继续计划」，防止回车误停")
+        self.assertEqual(res[0]["calls"], 0, "只是打开确认，不得已经停止")
+        self.assertFalse(res[0]["stopping"], "只是打开确认，计划状态不变")
+
+    def test_escape_closes_and_returns_focus_to_stop_button(self):
+        """Esc 只关弹层，焦点回到 #btn-stop；不停止、不清空选择。"""
+        res = run_js(self.SETUP + r"""
+S.selected.add("a1");
+stopBtn.click();
+const ev = __dispatchKey({ key: "Escape" });
+out.push({ hidden: ask.hidden, active: document.activeElement.__sel, calls: calls.length,
+  prevented: ev.defaultPrevented, selKept: S.selected.has("a1") });
+""")
+        self.assertTrue(res[0]["hidden"], "Esc 必须关闭弹层")
+        self.assertEqual(res[0]["active"], "#btn-stop", "关闭后焦点还给触发它的「停止计划」按钮")
+        self.assertEqual(res[0]["calls"], 0, "Esc 不得停止计划")
+        self.assertTrue(res[0]["prevented"], "Esc 由弹层接管，不再向下传")
+        self.assertTrue(res[0]["selKept"], "Esc 不得顺手清空背景的选择")
+
+    def test_keep_going_closes_without_stopping(self):
+        """「继续计划」关闭弹层并还焦点，不停止。"""
+        res = run_js(self.SETUP + r"""
+stopBtn.click();
+keep.click();
+out.push({ hidden: ask.hidden, active: document.activeElement.__sel, calls: calls.length });
+""")
+        self.assertTrue(res[0]["hidden"], "「继续计划」必须关闭弹层")
+        self.assertEqual(res[0]["active"], "#btn-stop", "关闭后焦点还给「停止计划」按钮")
+        self.assertEqual(res[0]["calls"], 0, "「继续计划」不得停止计划")
+
+    def test_confirm_runs_existing_stop_flow_once(self):
+        """「停止计划」关弹层并走现有停止流程：恰好一次 stop_plan，界面进入「正在停止」。"""
+        res = run_js(self.SETUP + r"""
+stopBtn.click();
+yes.click();
+yes.click();   /* 弹层已关，重复点击不得再发第二次 */
+out.push({ hidden: ask.hidden, calls: calls.slice(), stopping: S.stopping });
+""")
+        self.assertTrue(res[0]["hidden"], "确认后弹层关闭")
+        self.assertEqual(res[0]["calls"], ["p1"], "必须只对当前计划发一次 stop_plan")
+        self.assertTrue(res[0]["stopping"], "确认后进入「正在停止」")
+
+    def test_confirm_after_plan_ended_does_not_call_backend(self):
+        """弹层开着时计划恰好结束：「停止计划」只关弹层，不再给后端发 stop_plan。"""
+        res = run_js(self.SETUP + r"""
+stopBtn.click();
+setBusy(false);
+yes.click();
+out.push({ hidden: ask.hidden, calls: calls.length });
+""")
+        self.assertTrue(res[0]["hidden"], "确认后弹层关闭")
+        self.assertEqual(res[0]["calls"], 0, "计划已结束时不得再发 stop_plan")
+
+    def test_tab_cycles_between_the_two_buttons_only(self):
+        """弹层打开时 Tab / Shift+Tab 只在「继续计划」和「停止计划」之间循环。"""
+        res = run_js(self.SETUP + r"""
+stopBtn.click();
+const seen = [document.activeElement.__sel];
+const prevented = [];
+for (let i = 0; i < 3; i += 1) {
+  prevented.push(__dispatchKey({ key: "Tab" }).defaultPrevented);
+  seen.push(document.activeElement.__sel);
+}
+const back = [];
+for (let i = 0; i < 2; i += 1) {
+  __dispatchKey({ key: "Tab", shiftKey: true });
+  back.push(document.activeElement.__sel);
+}
+out.push({ seen, prevented, back });
+""")
+        self.assertEqual(res[0]["seen"], ["#btn-stop-keep", "#btn-stop-yes", "#btn-stop-keep", "#btn-stop-yes"],
+                         "Tab 在两个按钮间循环，不跑到背景")
+        self.assertTrue(all(res[0]["prevented"]), "Tab 由弹层接管（preventDefault）")
+        self.assertEqual(res[0]["back"], ["#btn-stop-keep", "#btn-stop-yes"], "Shift+Tab 反向循环")
+
+    def test_enter_and_search_keys_do_not_reach_background(self):
+        """弹层打开时 Enter 不开始计划、Ctrl+F 与 / 不抢焦点去搜索框。"""
+        res = run_js(self.SETUP + r"""
+let started = 0;
+startPlan = () => { started += 1; };
+stopBtn.click();
+__dispatchKey({ key: "Enter" });
+const f = __dispatchKey({ key: "f", ctrlKey: true });
+const slash = __dispatchKey({ key: "/" });
+out.push({ started, active: document.activeElement.__sel, fPrevented: f.defaultPrevented,
+  slashPrevented: slash.defaultPrevented, open: !ask.hidden });
+""")
+        self.assertEqual(res[0]["started"], 0, "Enter 不得穿透到背景开始计划")
+        self.assertEqual(res[0]["active"], "#btn-stop-keep", "Ctrl+F 与 / 不得把焦点抢到搜索框")
+        self.assertTrue(res[0]["fPrevented"] and res[0]["slashPrevented"], "背景快捷键被弹层吞掉")
+        self.assertTrue(res[0]["open"], "这些键不关弹层")
+
+    def test_no_plan_means_no_prompt(self):
+        """没有进行中的计划时，stopPlan 不打开弹层。"""
+        res = run_js(r"""
+S.plan = { id: null, status: "idle", tasks: new Map() };
+stopPlan();
+out.push({ hidden: document.querySelector("#plan-stop-ask").hidden });
+""")
+        self.assertTrue(res[0]["hidden"], "没有计划就没有可停止的东西")
+
+    def test_overlay_styles_follow_prototype(self):
+        """样式照原型：遮罩绝对定位铺满计划栏、z-index 8；窄弹层 26rem；btn-stop 用危险色。"""
+        css = read("ui/styles.css")
+        self.assertRegex(css, r"\.board \{[^}]*position: relative", ".board 是遮罩的定位父级")
+        scrim = css[css.index(".board .scrim {"):css.index("}", css.index(".board .scrim {"))]
+        for want in ("position: absolute", "inset: 0", "z-index: 8", "rgba(17,29,38,.38)"):
+            self.assertIn(want, scrim, "遮罩缺 %s（原型 .scrim）" % want)
+        self.assertIn(".board .dlg.sm { width: min(26rem, 100%); }", css, "窄弹层宽度照原型 .dlg.sm")
+        self.assertIn(".btn-stop { background: var(--bad); color: #fff; }", css, "「停止计划」用危险色（原型 .btn-stop）")
+        self.assertNotIn("btn-stop-confirm", css + read("ui/index.html"), "旧的 btn-stop-confirm 样式随原生 dialog 一起删掉")
 
 
 class StopLifecycleContractTests(unittest.TestCase):
@@ -634,10 +801,11 @@ class RetryPolicyUiContractTests(unittest.TestCase):
 
     def test_app_js_renders_attempts_and_stop_reason(self):
         js = read("ui/app.js")
-        # R13：有限次数必须显示 N/M；0=不限要明说，不能只写「第 N 次」
-        self.assertIn('"已提交 " + attempts + "/" + cap + " 次"', js,
-                      "任务卡必须显示已提交 N/M 次（telemetry）")
-        self.assertIn("（不限次数）", js, "不限次数必须明说，不能只给一个孤立数字")
+        # R13：有限次数必须写出上限；0=不限要明说，不能只写「第 N 次」。
+        # 计划栏 1:1（run-panel F）：写法照原型 card「已提交 N 次（上限 M 次）」，不再是「N/M 次」
+        self.assertIn('"已提交 " + attempts + " 次（"', js, "任务卡必须显示已提交次数")
+        self.assertIn('"上限 " + cap + " 次"', js, "任务卡必须显示上限（telemetry）")
+        self.assertIn('"不限次数"', js, "不限次数必须明说，不能只给一个孤立数字")
         self.assertIn("last_reason", js, "任务卡必须显示最近原因")
         self.assertIn("stopReasonText", js, "缺少停止条件人话函数")
         for word in ("达到最大提交次数", "重试时长到了", "报名已截止", "登录失效"):
@@ -681,8 +849,11 @@ class StateGapsContractTests(unittest.TestCase):
         由开始前提醒第 3 条取代（设计第 5 节，开放前 100 秒内失效的那场直接结束）。"""
         js = read("ui/app.js")
         self.assertIn("function paintChecks", js, "缺少检查条 paintChecks")
-        checks = js[js.index("function paintChecks("):js.index("function autoLoginCredential")]
-        self.assertIn('S.login.result === "valid"', checks, "检查条只报学校的登录结论")
+        # 计划栏 1:1（draft-panel F）：检查条照原型 checks 只列未满足的登录结论，判断移进 planCheckList，
+        # 读的是 paintLogin 写好的 S.login.view.state（ok 只在学校确认有效时出现）
+        checks = js[js.index("function planCheckList("):js.index("function autoLoginCredential")]
+        self.assertIn('(S.login.view || {}).state', checks, "检查条只报学校的登录结论")
+        self.assertIn('login !== "ok"', checks, "登录不是学校确认有效就列为未满足")
         for banned in ("预计", "expireAt", "loginHoursLeft"):
             self.assertNotIn(banned, checks, "检查条不得再拿登录估算说事（%s）" % banned)
         self.assertNotIn("earliestSelectedExecutionEnd", js, "登录估算比较窗口的函数不得残留")
@@ -691,7 +862,8 @@ class StateGapsContractTests(unittest.TestCase):
                          "不得再用保证式结论：登录有效性只由学校校验决定")
         warns = js[js.index("function preStartWarnings("):js.index("function paintPrewarn")]
         self.assertIn("latest - now > 3600", warns, "按最晚一场要等 1 小时以上来提醒")
-        self.assertIn("开放前 100 秒内失效的那场会直接结束", warns, "要讲清来不及重新登录的后果")
+        # 计划栏 1:1（draft-panel G）：句子照原型 loginWarn
+        self.assertIn("开放前 100 秒内失效，那场就结束。", warns, "要讲清来不及重新登录的后果")
 
     def test_clock_skew_structured_and_not_text_scraped(self):
         """R08：学校 HTTP 粗测只认结构化载荷，逐轮替换，不再从文本猜。"""
@@ -860,7 +1032,11 @@ out.push(taskHtml({ ...task, signup_mode: "instant_signup" }));
         self.assertIn("立即报名 · ", cards[1])
 
     def test_task_card_shows_submit_phase(self):
-        """UI_SPEC 5.8-6：提交中任务卡显示当前阶段（黄金风暴/常规全速/404 自适应）。"""
+        """提交中任务卡照原型 card 的 submitting 支：只写次数、上限、最近原因和重试截止，不写阶段名。
+
+        旧口径（UI_SPEC 5.8-6）显示「黄金风暴 / 常规全速 / 404 自适应」；原型 Main.dc.html 的 card 没有阶段名，
+        计划 20261106-plan-panel 的 run-panel F 要求去掉。phase 字段仍可能随事件到达，任何取值都不得冒出阶段名。
+        """
         cards = run_js(r"""
 const task = { task_id: "phase", name: "阶段样本", status: "submitting",
   attempts: 1 };
@@ -870,12 +1046,11 @@ out.push(taskHtml({ ...task, phase: "adaptive_backoff" }));
 out.push(taskHtml({ ...task, phase: "unknown_kind" }));
 out.push(taskHtml({ ...task }));
 """)
-        self.assertIn("黄金风暴", cards[0])
-        self.assertIn("常规全速", cards[1])
-        self.assertIn("404 自适应", cards[2])
-        for card in cards[3:]:
+        for card in cards:
             for label in ("黄金风暴", "常规全速", "404 自适应"):
-                self.assertNotIn(label, card, "未知/缺失 phase 不显示阶段，不编造文案")
+                self.assertNotIn(label, card, "原型 card 不显示阶段名，任何 phase 都不编造文案")
+            self.assertIn("已提交 1 次（不限次数）。", card, "提交中说明照原型 card：次数与上限")
+            self.assertNotIn(" · 黄金", card)
 
 
 class TimetableGroupingBehaviorTests(unittest.TestCase):
@@ -1365,6 +1540,9 @@ const sandbox = {
 };
 sandbox.window = sandbox;
 sandbox.document.body = el2("body");
+/* 停止确认弹层在 index.html 里默认 hidden；桩元素默认 hidden:false，不显式对齐的话
+ * stopAskOpen() 在每个用例里都为真，键盘处理会被它截走 */
+el2("#plan-stop-ask").hidden = true;
 vm.createContext(sandbox);
 /* 结构重构后界面按层拆成多脚本：按 index.html 的加载序喂进同一个沙箱，
  * 与真实 WebView 顺序一致。led.js 不进沙箱——字库渲染器只在真实 DOM 有
@@ -2316,7 +2494,10 @@ class SettingsEntryContractTests(unittest.TestCase):
         body = js[key_at:key_at + 2400]
         self.assertIn('"#help"', body,
                       "弹窗键盘隔离必须覆盖更多弹窗")
-        self.assertIn('"#dlg-stop"', body, "停止确认弹窗保持原有 Esc 语义")
+        # 原因：停止确认不再是 <dialog>（没有 .open），键盘隔离改成「弹层可见」判断并由 stopAskKey 接管
+        self.assertIn("stopAskOpen()", body, "停止确认弹层可见时键盘归弹层")
+        self.assertIn("stopAskKey(event)", body, "弹层可见时 Esc/Tab/Enter 交给 stopAskKey")
+        self.assertNotIn("#dlg-stop", body, "旧 #dlg-stop 不再参与键盘隔离")
 
 
 class SettingsDialogBehaviorTests(unittest.TestCase):
@@ -3018,14 +3199,16 @@ render();
 out.push({ taskId: executionView().task.task_id,
   countdown: document.querySelector("#countdown").textContent,
   label: document.querySelector("#led-label b").textContent,
-  expected: fmtClock(toTs(start)) });
+  expected: hmsDay(toTs(start)), clock: fmtClock(toTs(start)) });
 """)
         case = res[0]
         self.assertEqual(case["taskId"], "A", "立即场成功后目标必须落到未来场")
         self.assertIn("同时开放 1 场", case["countdown"])
         self.assertNotIn("00:00:00", case["countdown"], "未来场不得显示成全开放")
+        # 计划栏 1:1（run-panel C）：原型 led 说明用 hms(cur.open)，跨天加「N 天后」，所以期望走 hmsDay
         self.assertEqual(case["label"], case["expected"],
                          "LED 标注必须直接格式化开放时刻（now+left 会差 1 秒）")
+        self.assertTrue(case["label"].endswith(case["clock"]))
 
     def test_preview_open_label_uses_absolute_time(self):
         """未选择与选择预览也必须直接显示开放时刻，不能从取整倒计时反推。"""
@@ -3037,6 +3220,8 @@ const item = { id: "preview", name: "预览场", sign_start: start,
   act_end: "2099-01-02 11:00:00", signed: false };
 S.busy = false; S.items = [item]; S.byId = new Map([[item.id, item]]);
 S.selected = new Set(); S.plan = { id: null, status: "idle", tasks: new Map() };
+/* 计划栏 1:1（draft-panel I）：原型 draft 段 led 在列表没加载时只写「活动未加载」，样本要先标列表已加载 */
+S.listState = "ready";
 paintLed();
 const idle = document.querySelector("#led-label b").textContent;
 S.selected.add(item.id);
@@ -3175,13 +3360,22 @@ handlePlanDone({ plan_id: "p1", status: "failed",
   summary: { counts: { failed: 1 } } });
 const failed = { board: document.querySelector("#board").dataset.planState,
   resultVisible: !document.querySelector("#result").hidden,
-  resultHtml: document.querySelector("#result").innerHTML };
+  resultHtml: document.querySelector("#result").innerHTML,
+  title: document.querySelector("#selected").textContent };
+/* 结果页外框按原型 res 段由各场结论决定（result-panel D），不再只看计划 status：每种终态配上对应的场次 */
 const colors = {};
-[["partial"], ["completed"], ["stopped"]].forEach((pair) => {
-  S.plan.status = pair[0];
-  S.plan.doneSelection = selectionSignature();
+const sets = {
+  partial: [{ task_id: "A", activity_id: "A", status: "success" },
+            { task_id: "B", activity_id: "B", status: "failed", stop_reason: "max_attempts" }],
+  completed: [{ task_id: "A", activity_id: "A", status: "success" }],
+  stopped: [{ task_id: "A", activity_id: "A", status: "canceled", stop_reason: "user_stopped" }],
+};
+Object.keys(sets).forEach((status) => {
+  S.plan.status = status;
+  S.plan.tasks = new Map(sets[status].map((t) => [t.task_id, t]));
+  openResultPage();
   render();
-  colors[pair[0]] = document.querySelector("#board").dataset.planState;
+  colors[status] = document.querySelector("#board").dataset.planState;
 });
 S.selected.add("zzz");
 render();
@@ -3199,7 +3393,10 @@ out.push({ running, failed, colors });
         self.assertIn("达到最大提交次数", case["running"]["tasksHtml"],
                       "任务卡要写出到达的停止条件")
         self.assertEqual(case["failed"]["board"], "failed")
-        self.assertIn("报名计划没有成功", case["failed"]["resultHtml"])
+        # 计划栏 1:1（result-panel D / plan-events setResult，P8）：结论改由计划栏标题承担，#result 条不再写计划结论
+        self.assertEqual(case["failed"]["title"], "报名计划没有成功")
+        self.assertFalse(case["failed"]["resultVisible"], "计划结束不再往 #result 条写结论")
+        self.assertNotIn("报名计划没有成功", case["failed"]["resultHtml"])
         self.assertEqual(case["colors"]["partial"], "partial")
         self.assertEqual(case["colors"]["completed"], "completed")
         self.assertEqual(case["colors"]["stopped"], "stopped")
@@ -3363,7 +3560,8 @@ const before = { phase: executionView().phase, display: executionView().display,
   countdown: document.querySelector("#countdown").textContent,
   tag: document.querySelector("#board-tag-text").textContent,
   led: document.querySelector("#led-label b").textContent,
-  html: document.querySelector("#plan-tasks").innerHTML };
+  html: document.querySelector("#plan-tasks").innerHTML,
+  openHms: hmsDay(openTs) };   /* 同一业务时刻下算期望（下面会把时钟推到开放后） */
 const openTs0 = openTs;
 setBusinessNow((openTs0 + 1) * 1000);
 tick();
@@ -3379,8 +3577,12 @@ out.push({ before, after, openClock: fmtClock(openTs) });
         self.assertEqual(case["before"]["display"], "preopen")
         self.assertIn("同时开放 1 场", case["before"]["countdown"])
         self.assertEqual(case["before"]["tag"], "等开放")
-        self.assertEqual(case["before"]["led"], case["openClock"],
+        # 计划栏 1:1（run-panel C）：原型 ex 段 led 的说明是 hms(cur.open)，跨天时前面加「明天 / 后天 / N 天后」；
+        # 样本开在 2099 年，所以按 hmsDay 比，时刻部分仍必须是原定开放的 HH:MM:SS
+        self.assertEqual(case["before"]["led"], case["before"]["openHms"],
                          "LED 必须走到原定开放，不是重试窗口")
+        self.assertTrue(case["before"]["led"].endswith(case["openClock"]),
+                        "LED 说明的时刻部分必须是原定开放")
         self.assertIn("提前准备", case["before"]["html"])
         self.assertNotIn("正在提交", case["before"]["html"],
                          "任务卡不得把预热说成已提交")
@@ -3590,7 +3792,9 @@ out.push({ title: document.querySelector("#empty-title").textContent,
         # 原型 Main.dc.html:2096 的按钮就叫「刷新」：刷新本身已是统一入口，
         # 「重新加载」是自造词（计划 desktop-copy 的 W8）。
         self.assertEqual(case["action"], "刷新")
-        self.assertEqual(case["boardTitle"], "学校当前没有返回活动")
+        # 计划栏 1:1（draft-panel A）：原型 draft 段 0 场时标题「学校当前没有活动」、副行「稍后刷新再看。」
+        self.assertEqual(case["boardTitle"], "学校当前没有活动")
+        self.assertEqual(case["boardText"], "稍后刷新再看。")
         self.assertNotIn("还没公布", case["boardText"], "大屏不得把已知零说成还没公布")
 
     def test_list_empty_subline_uses_current_wording(self):
@@ -3605,12 +3809,15 @@ out.push({ title: document.querySelector("#empty-title").textContent,
         self.assertNotIn("登录是有效的，学校当前没有返回", list_src)
 
     def test_board_and_list_share_one_empty_sentence(self):
-        """空态同句契约：大屏与列表空态是同一状态，措辞必须一字不差。
+        """学校返回 0 场：计划栏与列表空态各用原型那一句，两处都钉住，防止再分叉成第三种说法。
 
-        只钉源码同句，防止两处文案再分叉；运行时相等由浏览器场景把关。
+        旧口径是两处一字不差；现在的原型两处本来就不同：计划栏 draft 段写「学校当前没有活动」/「稍后刷新再看。」，
+        列表 empty 写「学校当前没有返回活动」（计划 20261106-plan-panel 的 draft-panel A，见 plan_amendments）。
         """
-        # board.js 已改名 plan-panel.js（计划栏），句子跟着搬过去，契约不变
-        self.assertIn("学校当前没有返回活动", read("ui/views/plan-panel.js"))
+        panel = read("ui/views/plan-panel.js")
+        self.assertIn('"学校当前没有活动"', panel)
+        self.assertIn('"稍后刷新再看。"', panel)
+        self.assertNotIn("学校当前没有返回活动", panel, "计划栏照原型 draft 段，不用列表那一句")
         self.assertIn("学校当前没有返回活动", read("ui/views/list.js"))
 
     def test_login_states_get_their_own_next_step(self):
@@ -3850,7 +4057,9 @@ out.push({ onlySigned, onlyClosed, onlyUnknown, reallyEmpty });
             self.assertEqual(case[name]["count"], "1 / 1 场",
                              "%s：列表数据必须原样保留" % name)
         self.assertNotIn("学校当前没有返回活动", case["onlySigned"]["title"])
-        self.assertEqual(case["reallyEmpty"]["title"], "学校当前没有返回活动",
+        self.assertNotIn("学校当前没有活动", case["onlySigned"]["title"])
+        # 计划栏 1:1（draft-panel A）：原型 draft 段 0 场的标题是「学校当前没有活动」
+        self.assertEqual(case["reallyEmpty"]["title"], "学校当前没有活动",
                          "真正零条才归咎学校空列表")
 
     def test_check_arrival_updates_empty_state(self):
@@ -6717,6 +6926,380 @@ class LicenseDocContractTests(unittest.TestCase):
         self.assertIn("MIT License", fixture, "桥替身必须内嵌真实 MIT 全文")
 
 
+PP_LOGIN_OK_JS = r"""
+S.listState = "ready";
+S.login.present = true; S.login.result = "valid"; S.login.ok = true; S.login.checking = false;
+paintLogin();
+"""
+
+
+def _pp_stats(html):
+    """结果页大数字 → {标签: 数}（只含显示出来的格子）。"""
+    return {label: int(n) for n, label in
+            re.findall(r"<strong>(\d+)</strong><span>([^<]+)</span>", html)}
+
+
+class PlanPanelPrototypeTests(unittest.TestCase):
+    """计划栏向原型 1:1（计划 20261106-plan-panel）：草稿、运行、结果三段按原型 Main.dc.html 视图模型的新行为。
+
+    草稿：draft / checks / blockers / editNote；运行：ex / head / runWarnV / card；结果：res 段与结果页标记。
+    """
+
+    # ---------------- draft-panel
+    def test_draft_one_selected_title_and_checks(self):
+        """选 1 场：标题「已选 1 场」、副行一句汇总；检查条照原型 checks 只列未满足的，全满足无提醒只留一条 ✓。"""
+        res = run_js(WB_STAMP_JS + PP_LOGIN_OK_JS + r"""
+seed([{ id: "a1", name: "甲活动", place: "一号楼", sign_start: stamp(now + 3600), sign_end: stamp(now + 7200),
+        act_start: stamp(now + 86400), act_end: stamp(now + 90000) }]);
+S.selected = new Set(["a1"]);
+render();
+const ok = { title: document.querySelector("#selected").textContent,
+  sub: document.querySelector("#board-text").textContent,
+  meta: document.querySelector("#selected-meta").innerHTML,
+  checks: document.querySelector("#plan-checks").innerHTML,
+  tag: document.querySelector("#board-tag-text").textContent };
+S.login.result = "expired"; S.login.ok = false;
+paintLogin();   /* 生产里登录结论由 check 事件经 paintLogin 写进 S.login.view，检查条读它 */
+render();
+const expired = { checks: document.querySelector("#plan-checks").innerHTML,
+  why: document.querySelector("#plan-why").innerHTML };
+S.selected = new Set();
+S.login.result = "valid"; S.login.ok = true;
+paintLogin();
+render();
+const none = { checks: document.querySelector("#plan-checks").innerHTML };
+out.push({ ok, expired, none });
+""")
+        r = res[0]
+        self.assertEqual(r["ok"]["title"], "已选 1 场", "原型 draft.title：一律「已选 N 场」")
+        self.assertEqual(r["ok"]["sub"], "1 场预报名等开放", "原型 summary：为 0 的一半不写")
+        self.assertEqual(r["ok"]["meta"], "", "选了活动不再复读地点时间（票里有）")
+        self.assertEqual(r["ok"]["checks"].count('class="chk"'), 1, "全满足且无提醒只留一条")
+        self.assertIn("登录、北京时间和举办时间都没问题", r["ok"]["checks"])
+        self.assertIn('data-tone="ok"><i aria-hidden="true">✓</i>', r["ok"]["checks"])
+        self.assertEqual(r["expired"]["checks"].count('class="chk"'), 1, "只列未满足的那一条")
+        self.assertIn('data-tone="no"><i aria-hidden="true">!</i>登录已失效', r["expired"]["checks"])
+        self.assertIn("还差一步：登录已失效", r["expired"]["why"])
+        self.assertIn('data-act="login">重新登录</button>', r["expired"]["why"])
+        self.assertIn("登录和北京时间都没问题", r["none"]["checks"], "没选活动时的那一句")
+
+    def test_draft_clock_blocker_resyncs_directly(self):
+        """「还差一步：北京时间还没校准」的按钮叫「重新校准」，直接触发校准（原型 blockers 的 syncClock）。"""
+        res = run_js(WB_STAMP_JS + PP_LOGIN_OK_JS + r"""
+seed([{ id: "a1", name: "甲活动", sign_start: stamp(now + 3600), sign_end: stamp(now + 7200) }]);
+S.selected = new Set(["a1"]);
+businessNowMs = () => null;
+updateControls();
+out.push({ why: document.querySelector("#plan-why").innerHTML,
+  hidden: document.querySelector("#plan-why").hidden,
+  board: typeof resyncClock });
+""")
+        r = res[0]
+        self.assertFalse(r["hidden"])
+        self.assertIn("还差一步：北京时间还没校准", r["why"])
+        self.assertIn('data-act="clock-sync">重新校准</button>', r["why"])
+        self.assertEqual(r["board"], "function")
+        app = read("ui/app.js")
+        self.assertIn('else if (act === "clock-sync") resyncClock();', app, "按钮直接触发重新校准")
+
+    def test_draft_edit_note_counts_down_inside_300_seconds(self):
+        """修改中：#edit-note 三句拼成，离最近一场开放不到 300 秒时报剩余时间；主按钮叫「重新开始计划」。"""
+        res = run_js(WB_STAMP_JS + PP_LOGIN_OK_JS + r"""
+seed([{ id: "a1", name: "甲活动", sign_start: stamp(now + 200), sign_end: stamp(now + 7200) }]);
+S.selected = new Set(["a1"]);
+S.busy = false;
+S.editing = { ids: ["a1"], doneN: 1 };
+render();
+const near = { note: document.querySelector("#edit-note").textContent,
+  hidden: document.querySelector("#edit-note").hidden,
+  tag: document.querySelector("#board-tag-text").textContent,
+  start: document.querySelector("#btn-plan").textContent };
+seed([{ id: "a1", name: "甲活动", sign_start: stamp(now + 900), sign_end: stamp(now + 7200) }]);
+S.editing = { ids: ["a1"], doneN: 0 };
+render();
+const far = { note: document.querySelector("#edit-note").textContent };
+out.push({ near, far });
+""")
+        r = res[0]
+        self.assertFalse(r["near"]["hidden"])
+        self.assertTrue(r["near"]["note"].startswith("计划已暂停，重新开始前不会自动报名。"), r["near"]["note"])
+        self.assertIn("已结束的 1 场不受影响。", r["near"]["note"])
+        self.assertIn("离最近一场开放只剩", r["near"]["note"])
+        self.assertEqual(r["near"]["tag"], "修改中")
+        self.assertEqual(r["near"]["start"], "重新开始计划")
+        self.assertEqual(r["far"]["note"], "计划已暂停，重新开始前不会自动报名。", "超过 300 秒、没有已结束的就只有第一句")
+
+    # ---------------- run-panel
+    def _run_one(self, extra, task):
+        return run_js(WB_STAMP_JS + PP_LOGIN_OK_JS + r"""
+seed([{ id: "a1", name: "甲活动", sign_start: stamp(now + 3600), sign_end: stamp(now + 7200) }]);
+S.busy = true;
+S.plan = { id: "p1", status: "running", tasks: new Map(), source: "" };
+/* LED 下方说明的前半句：桩里文本节点不进 textContent，按调用记下来 */
+const __caps = [];
+const __realCap = paintLedLabel;
+paintLedLabel = (prefix, value) => { __caps.push(String(prefix)); return __realCap(prefix, value); };
+""" + extra + r"""
+const put = (patch) => { S.plan.tasks.clear();
+  S.plan.tasks.set("t1", Object.assign({ task_id: "t1", activity_id: "a1", name: "甲活动",
+    signup_mode: "pre_register" }, patch)); };
+const look = () => { paintLogin(); render(); return {
+  tag: document.querySelector("#board-tag-text").textContent,
+  cap: document.querySelector("#board-text").textContent,
+  meta: document.querySelector("#selected-meta").innerHTML,
+  warn: document.querySelector("#run-warn").innerHTML,
+  warnHidden: document.querySelector("#run-warn").hidden,
+  led: __caps[__caps.length - 1] || "",
+  ledB: document.querySelector("#led-label b").textContent,
+  tasks: document.querySelector("#plan-tasks").innerHTML,
+  pill: document.querySelector("#pill-text").textContent,
+  banners: document.querySelector("#banners").innerHTML }; };
+""" + task)
+
+    def test_run_tag_turns_soon_inside_five_seconds(self):
+        """等开放：离开放大于 5 秒「等开放」，5 秒以内「即将开放」（原型 ex 段 head，P18）。"""
+        res = self._run_one("", r"""
+put({ status: "waiting", sign_start: stamp(now + 4) }); const four = look();
+put({ status: "waiting", sign_start: stamp(now + 5) }); const five = look();
+put({ status: "waiting", sign_start: stamp(now + 6) }); const six = look();
+out.push({ four, five, six, open6: hmsDay(now + 6) });
+""")
+        r = res[0]
+        self.assertEqual(r["four"]["tag"], "即将开放")
+        self.assertEqual(r["five"]["tag"], "即将开放", "5 秒（含）以内")
+        self.assertEqual(r["six"]["tag"], "等开放")
+        self.assertEqual(r["six"]["cap"], "这一场等开放，到点自动开始。")
+        self.assertEqual(r["six"]["meta"], "", "运行态不写地点时间（原型运行态没有）")
+        self.assertEqual(r["six"]["led"], "开放时间")
+        self.assertEqual(r["six"]["ledB"], r["open6"])
+
+    def test_run_submitting_single_caption_and_cancel_label(self):
+        """提交中、只有 1 场：「已提交 N 次，最近：<原因>」；等开放的任务卡取消按钮叫「取消这一场」。"""
+        res = self._run_one("", r"""
+put({ status: "submitting", sign_start: stamp(now - 5), attempts: 3, last_reason: "还没开放",
+      retry_deadline: now + 115 });
+const sub = look();
+put({ status: "waiting", sign_start: stamp(now + 900) }); const wait = look();
+put({ status: "queued", sign_start: stamp(now + 900) }); const queued = look();
+out.push({ sub, wait, queued, until: hmsDay(now + 115) });
+""")
+        r = res[0]
+        self.assertTrue(r["sub"]["cap"].startswith("已提交 3 次，最近："), r["sub"]["cap"])
+        self.assertEqual(r["sub"]["cap"], "已提交 3 次，最近：还没开放")
+        self.assertEqual(r["sub"]["tag"], "正在提交")
+        self.assertEqual(r["sub"]["led"], "本次尝试到", "原型 ex 段 led：本次尝试到 HH:MM:SS")
+        self.assertEqual(r["sub"]["ledB"], r["until"])
+        self.assertIn("已提交 3 次（不限次数）。最近：还没开放，重试到 ", r["sub"]["tasks"])
+        self.assertIn(">取消这一场</button>", r["wait"]["tasks"])
+        self.assertIn(">取消这一场</button>", r["queued"]["tasks"], "queued 也是还没提交，照样能取消")
+        self.assertNotIn(">取消</button>", r["wait"]["tasks"])
+
+    def test_run_warn_relogin_window_and_too_late(self):
+        """运行中登录失效：离开放 300 秒给「只要在 … 前重新登录」和按钮；60 秒说来不及、不给按钮（原型 runWarnV）。"""
+        res = self._run_one(r"""
+S.login.result = "expired"; S.login.ok = false;
+""", r"""
+put({ status: "waiting", sign_start: stamp(now + 300) }); const far = look();
+put({ status: "waiting", sign_start: stamp(now + 60) }); const near = look();
+out.push({ far, near, expect: hmsDay(now + 200) });
+""")
+        r = res[0]
+        self.assertFalse(r["far"]["warnHidden"])
+        self.assertIn("只要在 " + r["expect"] + " 前重新登录，计划照常继续", r["far"]["warn"])
+        self.assertIn('data-act="login">重新登录</button>', r["far"]["warn"])
+        self.assertIn("来不及重新登录", r["near"]["warn"])
+        self.assertIn("这一批会以“登录失效”结束。", r["near"]["warn"])
+        self.assertNotIn("<button", r["near"]["warn"], "来不及时不给重新登录按钮")
+
+    def test_busy_pill_shows_expired_but_keeps_unknown(self):
+        """运行中学校明确说登录失效：胶囊「登录已失效」、横幅「报名计划还在等」；网络原因的 unknown 仍是「已登录」。"""
+        res = self._run_one(r"""
+S.login.result = "expired"; S.login.ok = false;
+""", r"""
+put({ status: "waiting", sign_start: stamp(now + 900) }); const expired = look();
+S.login.result = "unknown"; S.login.ok = false;
+const unknown = look();
+out.push({ expired, unknown });
+""")
+        r = res[0]
+        self.assertEqual(r["expired"]["pill"], "登录已失效", "决策 014 第 8 条：运行中失效要说出来")
+        self.assertIn("报名计划还在等", r["expired"]["banners"])
+        self.assertEqual(r["unknown"]["pill"], "已登录", "网络原因的暂时无法确认不打扰运行中的计划")
+
+    # ---------------- result-panel
+    def _result(self, tasks, status, after="", via="task"):
+        body = WB_STAMP_JS + PP_LOGIN_OK_JS + r"""
+seed([
+  { id: "a1", name: "甲", sign_start: stamp(now + 3600), sign_end: stamp(now + 7200) },
+  { id: "a2", name: "乙", sign_start: stamp(now + 3600), sign_end: stamp(now + 7200) },
+  { id: "a3", name: "丙", sign_start: stamp(now + 3600), sign_end: stamp(now + 7200) },
+]);
+S.selected = new Set(["a1", "a2", "a3"]);
+window.onBackend.plan({ plan_id: "p1", status: "running", tasks: [] });
+"""
+        if via == "plan":
+            # 场次结论随计划快照一起到（plan 事件带 tasks，不逐场发 task 事件）：成功场次到 plan_done
+            # 才被移出选择集合——P1 里结果页就是在这一步退回草稿的
+            body += "window.onBackend.plan(%s);\n" % json.dumps(
+                {"plan_id": "p1", "status": "running", "tasks": tasks}, ensure_ascii=False)
+        else:
+            for task in tasks:
+                body += "window.onBackend.task(%s);\n" % json.dumps(dict(task, plan_id="p1"), ensure_ascii=False)
+        body += "const beforeDone = Array.from(S.selected).sort();\n"
+        body += "window.onBackend.plan_done({ plan_id: \"p1\", status: %s, summary: {} });\n" % json.dumps(status)
+        body += r"""
+const view = () => ({
+  tag: document.querySelector("#board-tag-text").textContent,
+  title: document.querySelector("#selected").textContent,
+  sub: document.querySelector("#board-text").textContent,
+  meta: document.querySelector("#selected-meta").innerHTML,
+  stats: document.querySelector("#plan-stats").innerHTML,
+  statsHidden: document.querySelector("#plan-stats").hidden,
+  reselectHidden: document.querySelector("#btn-reselect").hidden,
+  resultActionsHidden: document.querySelector("#result-actions").hidden,
+  draftActionsHidden: document.querySelector("#route-actions").hidden,
+  tickets: document.querySelector("#plan-tickets").innerHTML,
+  policyHidden: document.querySelector("#policy-line").hidden,
+  ledHidden: document.querySelector("#led-box").hidden,
+  resultHidden: document.querySelector("#result").hidden,
+  tasks: document.querySelector("#plan-tasks").innerHTML,
+  frame: document.querySelector("#board").dataset.planState,
+  selected: Array.from(S.selected).sort(), beforeDone: beforeDone });
+const done = view();
+""" + after + r"""
+out.push({ done, later: typeof later === "undefined" ? null : later });
+"""
+        return run_js(body)[0]
+
+    def test_result_partial_with_pending_and_no_fallback(self):
+        """两场成功一场待核对：大数字「已报名 2」「待核对 1」，标题副行照原型 res；成功场次被移出选择后也不回落。"""
+        tasks = [
+            {"task_id": "t1", "activity_id": "a1", "name": "甲", "status": "success", "stop_reason": "success", "attempts": 1},
+            {"task_id": "t2", "activity_id": "a2", "name": "乙", "status": "success", "stop_reason": "success", "attempts": 1},
+            {"task_id": "t3", "activity_id": "a3", "name": "丙", "status": "failed", "stop_reason": "unconfirmed", "attempts": 2},
+        ]
+        r = self._result(tasks, "partial", r"""
+/* 刷新取回学校列表：两场成功的显示已报名，被自动移出选择（controllers/refresh.js）——不是用户改勾选 */
+window.onBackend.activities({ ok: true, request_id: "l1", items: [
+  { id: "a1", name: "甲", sign_start: stamp(now + 3600), sign_end: stamp(now + 7200), signed: true },
+  { id: "a2", name: "乙", sign_start: stamp(now + 3600), sign_end: stamp(now + 7200), signed: true },
+  { id: "a3", name: "丙", sign_start: stamp(now + 3600), sign_end: stamp(now + 7200), signed: false } ] });
+noteSignedTasks(Array.from(S.plan.tasks.values()));
+render();
+const refreshed = view();
+/* 用户自己在时刻表改勾选：结果页到此关闭 */
+toggleSelection("a3", false);
+const changed = view();
+const later = { refreshed, changed };
+""", via="plan")
+        done = r["done"]
+        self.assertEqual(done["beforeDone"], ["a1", "a2", "a3"], "对照：plan_done 之前成功场次还在选择里")
+        self.assertEqual(done["selected"], ["a3"], "成功场次已移出选择集合")
+        self.assertEqual(_pp_stats(done["stats"]), {"已报名": 2, "待核对": 1})
+        self.assertFalse(done["statsHidden"])
+        self.assertEqual(done["tag"], "部分完成")
+        self.assertEqual(done["title"], "报名计划部分完成", "成功场次被移出选择也不回落成「下一场」")
+        self.assertEqual(done["sub"], "有 1 场需要到活动页核对，结果以学校为准。")
+        self.assertEqual(done["meta"], "", "结果页不写地点时间")
+        self.assertEqual(done["tickets"], "", "结果页不摆草稿的票")
+        self.assertTrue(done["policyHidden"], "结果页不显示尝试设置")
+        self.assertTrue(done["draftActionsHidden"], "结果页不显示检查条、提醒、还差一步")
+        self.assertFalse(done["resultActionsHidden"])
+        self.assertTrue(done["ledHidden"], "部分完成不显示 LED（原型 res.hasLed）")
+        self.assertTrue(done["resultHidden"], "结论不再写进 #result 条（P8）")
+        self.assertEqual(done["frame"], "partial")
+        self.assertIn(">刷新核对</button>", done["tasks"], "待核对场次只给「刷新核对」")
+        self.assertNotIn("打开活动页", done["tasks"])
+        self.assertIn("没拿到确定回应；结束时向学校核对也没查到结果。", done["tasks"])
+        later = r["later"]
+        self.assertEqual(later["refreshed"]["title"], "报名计划部分完成", "刷新移出成功场次也不关结果页")
+        self.assertNotEqual(later["changed"]["title"], "报名计划部分完成", "用户改了勾选就离开结果页")
+        self.assertTrue(later["changed"]["statsHidden"])
+
+    def test_result_only_full_has_no_reselect(self):
+        """只有名额已满：标题「这次没报上：名额满了」，不放「重新选择未成功的场次」（原型 res.canRetry）。"""
+        r = self._result([
+            {"task_id": "t1", "activity_id": "a1", "name": "甲", "status": "failed", "stop_reason": "full", "attempts": 4},
+        ], "failed")
+        done = r["done"]
+        self.assertEqual(done["title"], "这次没报上：名额满了")
+        self.assertEqual(done["tag"], "名额已满")
+        self.assertEqual(done["sub"], "学校的名额在开放后被报满了，不是工具出错。")
+        self.assertEqual(_pp_stats(done["stats"]), {"名额已满": 1})
+        self.assertTrue(done["reselectHidden"], "名额已满不放回重新选择")
+        self.assertFalse(done["resultActionsHidden"], "「完成，回到活动列表」还在")
+        self.assertIn("学校说报名人数已满，这一场到此结束，不再提交。不是工具出错。已提交 4 次", done["tasks"])
+
+    def test_result_stopped_counts_canceled(self):
+        """用户停止：「已取消」计数出现，标题「报名计划已停止」，没提交的场次写「计划已停止，这一场没有提交」。"""
+        r = self._result([
+            {"task_id": "t1", "activity_id": "a1", "name": "甲", "status": "success", "stop_reason": "success", "attempts": 1,
+             "last_reason": "报名成功！"},
+            {"task_id": "t2", "activity_id": "a2", "name": "乙", "status": "canceled", "stop_reason": "user_stopped"},
+        ], "stopped")
+        done = r["done"]
+        self.assertEqual(_pp_stats(done["stats"]), {"已报名": 1, "已取消": 1})
+        self.assertEqual(done["title"], "报名计划已停止")
+        self.assertEqual(done["tag"], "已停止")
+        self.assertEqual(done["sub"], "已提交的场次保留原状态，还没提交的场次已取消。")
+        self.assertIn("计划已停止，这一场没有提交", done["tasks"])
+        self.assertIn("学校回“报名成功”，结束时向学校核对过：已报名", done["tasks"])
+        self.assertFalse(done["reselectHidden"], "已取消的可以重新选")
+
+    def test_result_all_success_shows_mini_led(self):
+        """全部报上：标签「报名成功」、标题「报名计划完成」，只这时（和全失败）显示缩小的 LED。"""
+        r = self._result([
+            {"task_id": "t1", "activity_id": "a1", "name": "甲", "status": "success", "stop_reason": "success", "attempts": 1},
+        ], "completed")
+        done = r["done"]
+        self.assertEqual(done["tag"], "报名成功")
+        self.assertEqual(done["title"], "报名计划完成")
+        self.assertEqual(done["sub"], "每场结束时都向学校核对过。")
+        self.assertFalse(done["ledHidden"])
+        self.assertEqual(done["frame"], "completed")
+        self.assertTrue(done["reselectHidden"], "没有可重选的场次")
+
+    def test_result_not_complete_while_a_task_is_still_waiting(self):
+        """计划结束时还有一场停在 waiting：不能说「报名计划完成」，走「部分完成」。"""
+        r = self._result([
+            {"task_id": "t1", "activity_id": "a1", "name": "甲", "status": "success", "stop_reason": "success", "attempts": 1},
+            {"task_id": "t2", "activity_id": "a2", "name": "乙", "status": "waiting", "stop_reason": "", "attempts": 0},
+        ], "partial")
+        done = r["done"]
+        self.assertEqual(done["title"], "报名计划部分完成")
+        self.assertEqual(done["tag"], "部分完成")
+        self.assertNotEqual(done["title"], "报名计划完成")
+
+    def test_stop_ask_closes_when_plan_ends(self):
+        """停止确认弹层开着时计划结束：弹层收起，焦点不留在隐藏元素上（原型 finishState 的 stopAsk:false）。"""
+        res = run_js(StopAskBehaviorTests.SETUP + r"""
+stopBtn.click();
+const opened = !ask.hidden;
+const focusedBefore = document.activeElement.__sel;
+setBusy(false);
+S.plan = { id: "p1", status: "completed", tasks: new Map() };
+updateControls();
+const act = document.activeElement;
+out.push({ opened, focusedBefore, hidden: ask.hidden, active: act && act.__sel,
+  activeHidden: !!(act && (act.id === "btn-stop-keep" || act.id === "btn-stop-yes")) });
+""")
+        self.assertTrue(res[0]["opened"])
+        self.assertEqual(res[0]["focusedBefore"], "#btn-stop-keep")
+        self.assertTrue(res[0]["hidden"], "计划结束后弹层必须收起")
+        self.assertFalse(res[0]["activeHidden"], "焦点不能留在已隐藏的弹层按钮上")
+
+    def test_task_prepared_uses_checkpoint_time(self):
+        """等待开放：准备好了「已准备好，HH:MM:SS 开放时提交」，还没准备好「提前准备，等到 HH:MM:SS 开放」（原型 card）。"""
+        res = self._run_one("", r"""
+put({ status: "waiting", sign_start: stamp(now + 900) }); const plain = look();
+put({ status: "waiting", sign_start: stamp(now + 900), watch_started_at: now - 3 }); const ready = look();
+out.push({ plain, ready, open: hmsDay(now + 900) });
+""")
+        r = res[0]
+        self.assertIn("提前准备，等到 " + r["open"] + " 开放", r["plain"]["tasks"])
+        self.assertIn("已准备好，" + r["open"] + " 开放时提交", r["ready"]["tasks"])
+
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -7189,6 +7772,11 @@ seed([
   { id: "a3", name: "两天后", sign_start: stamp(now + 2 * 86400), sign_end: stamp(now + 2 * 86400 + 3600) },
 ]);
 const texts = () => preStartWarnings().map((w) => w.text);
+/* 原型 loginWarn 只在登录有效时提醒（draft-panel G）：先记下没登录时的样子，再把登录置为有效 */
+S.selected = new Set(["a2"]);
+const waitNoLogin = preStartWarnings();
+S.login.present = true; S.login.result = "valid"; S.login.ok = true; S.login.checking = false;
+paintLogin();
 S.online = true;
 S.retryPolicy = { retry_for_s: 120, max_attempts: 0 };
 S.selected = new Set(["a1"]);
@@ -7209,19 +7797,27 @@ paintChecks(); updateControls();
 const label = document.querySelector("#btn-plan").textContent;
 S.selected = new Set(["a1"]); paintChecks(); updateControls();
 const quietLabel = document.querySelector("#btn-plan").textContent;
-out.push({ quiet, offline, hold, wait, noEnd, day, fullAuto, label, quietLabel });
+out.push({ quiet, offline, hold, wait, noEnd, day, fullAuto, label, quietLabel, waitNoLogin });
 """)
         r = res[0]
         self.assertEqual(r["quiet"], [], "半小时内开放、有截止、在线：不提醒")
-        self.assertTrue(any("网络断开了" in t for t in r["offline"]), "第 1 条：断网")
-        self.assertTrue(any("上次的校准结果" in t for t in r["hold"]), "第 2 条：沿用上次校准")
+        # 计划栏 1:1（draft-panel G）：五条逐字照原型 preWarn / loginWarn
+        self.assertIn("现在连不上网。到开放时间还没恢复，就提交不出去。", r["offline"], "第 1 条：断网")
+        self.assertTrue(any(t.startswith("北京时间在用上次的校准结果") and t.endswith("工具正在自动重试校准。")
+                            for t in r["hold"]), "第 2 条：沿用上次校准")
         wait = [w for w in r["wait"] if "中途登录失效" in w["text"]]
         self.assertEqual(len(wait), 1, "第 3 条：等 1 小时以上又没开全自动登录")
         self.assertIn("自动登录没开", wait[0]["text"])
-        self.assertIn("开放前 100 秒内失效的那场会直接结束", wait[0]["text"])
+        self.assertIn("开放前 100 秒内失效，那场就结束。", wait[0]["text"])
+        self.assertTrue(wait[0]["text"].startswith("要等到"), wait[0]["text"])
         self.assertEqual(wait[0]["act"], "go-cred", "没保存账号就带「去保存」")
-        self.assertTrue(any("最多试 2 分钟" in t for t in r["noEnd"]), "第 4 条：直到截止但缺截止时间")
-        self.assertTrue(any("24 小时以后" in t for t in r["day"]), "第 5 条：最晚一场 24 小时以后（按最晚一场算）")
+        self.assertFalse(any("中途登录失效" in w["text"] for w in r["waitNoLogin"]),
+                         "原型 loginWarn：登录不是有效时不提第 3 条（由「还差一步」说）")
+        self.assertTrue(any("“直到报名截止”对它只会尝试 2 分钟。" in t for t in r["noEnd"]),
+                        "第 4 条：直到截止但缺截止时间")
+        self.assertTrue(any(t.startswith("「两小时后没截止」没给报名截止时间") for t in r["noEnd"]))
+        self.assertIn("有场次在 24 小时以后才开放，计划要一直运行到那时。这段时间电脑不能关机或睡眠。", r["day"],
+                      "第 5 条：最晚一场 24 小时以后（按最晚一场算）")
         self.assertFalse(any("中途登录失效" in t for t in r["fullAuto"]), "自动登录开全了就不提第 3 条")
         self.assertEqual(r["label"], "仍然开始报名计划", "有提醒时按钮改名，但不禁用")
         self.assertEqual(r["quietLabel"], "开始报名计划")
@@ -7250,13 +7846,16 @@ out.push({ edge, at100, submitting, stopping, far, lateCalls, calls, editing: S.
         r = res[0]
         self.assertFalse(r["edge"]["disabled"], "离开放 101 秒还来得及改")
         self.assertTrue(r["at100"]["disabled"], "离开放 100 秒（含）就不能改")
-        self.assertIn("不到 100 秒", r["at100"]["why"], "禁用要写原因")
+        # 计划栏 1:1（run-panel E）：原因逐字照原型 modifyInfo
+        self.assertEqual(r["at100"]["why"], "有场次 100 秒内开放，工具已在准备，现在不能修改。", "禁用要写原因")
+        self.assertEqual(r["submitting"]["why"], "有场次正在提交，现在不能修改。")
         self.assertTrue(r["submitting"]["disabled"], "有场次在提交不能改")
         self.assertTrue(r["stopping"]["disabled"], "正在停止不能改")
         self.assertEqual(r["lateCalls"], [], "来不及时点修改也不停计划")
-        self.assertIn("改完要重新开始", r["far"]["why"], "能改时说清楚修改会先停下")
+        self.assertEqual(r["far"]["why"], "还没提交的场次可以放回草稿，改完要重新开始。", "能改时说清楚修改会先停下")
         self.assertEqual(r["calls"], ["stop_plan"], "修改＝先停下计划")
-        self.assertEqual(r["editing"], {"ids": ["a1"]}, "还没提交的场次带回草稿")
+        # 计划栏 1:1（draft-panel C）：进入修改时记下已结束的场次数（原型 modifyS 的 doneN），这里没有已结束的
+        self.assertEqual(r["editing"], {"ids": ["a1"], "doneN": 0}, "还没提交的场次带回草稿")
 
     def test_late_window_is_the_same_100_seconds_front_and_back(self):
         """运行中重新登录的「来不及」窗口：前端 planLate 与后端 login_rules 同一个 100 秒。"""
@@ -7294,7 +7893,9 @@ out.push({ ids, counts, selected: Array.from(S.selected) });
 """)
         r = res[0]
         self.assertEqual(r["ids"], ["x1"], "名额已满、已成功都不放回")
-        self.assertEqual(r["counts"], {"ok": 1, "full": 1, "pending": 0, "bad": 1}, "名额已满单列，不算未成功")
+        # 计划栏 1:1（result-panel C）：大数字五类，多了「已取消」一格
+        self.assertEqual(r["counts"], {"ok": 1, "full": 1, "pending": 0, "bad": 1, "canceled": 0},
+                         "名额已满单列，不算未成功")
         self.assertEqual(r["selected"], ["x1"])
         labels = read("ui/state/labels.js")
         self.assertIn('if (stop === "full") return "is-neutral";', labels, "名额已满用中性色，不是失败红")

@@ -52,15 +52,20 @@ function tick() {
   }
   /* 阶段在秒与秒之间会变（开放那一刻、第一次真实提交）：变了才重画摘要，
    * 让标题与批次说法跟 LED/任务卡同步，不必每秒重建整块标题区。 */
-  const runPhase = S.busy ? executionView().phase : null;
+  /* 标签在秒与秒之间也会变（离开放 5 秒变「即将开放」），一并算进重画条件 */
+  const runPhase = S.busy ? runHeadKey() : null;
   if (runPhase !== S.lastRunPhase) {
     S.lastRunPhase = runPhase;
     paintSelected();
   }
   paintRail();
+  /* 修改中「离最近一场开放只剩 X」要跟着走字 */
+  if (S.editing) paintEditNote();
   paintCountdown();
   paintLed();
   paintRoute();
+  /* 运行提醒与修改说明随时间变（离开放 100 秒那一刻）：和事件渲染调同一个 paintRunPanel，不另写一份 */
+  if (S.busy) paintRunPanel();
   /* 未终态任务行：每秒按同一份阶段解释走字。
    * 开放那一刻 preopen→preparing 时，标签与说明必须跟着改，
    * 不能初次渲染正确、下一秒又被原始 submitting 文案盖回去。 */

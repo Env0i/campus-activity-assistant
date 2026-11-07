@@ -273,10 +273,15 @@ S.byId=new Map(S.items.map(x=>[x.id,x])); S.selected.clear();
 S.businessClock.anchorEpochMs=0; S.businessClock.state='unavailable';
 S.businessClock.attempted=true; S.demo=false;
 const target=nextOpen(); paintLed();
-out.push(Object.keys(target).sort(), $('#led-label b').textContent);
+out.push(Object.keys(target).sort(),
+  (($('#led-label')._children) || []).filter((n) => n.nodeType === 3).slice(0, 1).map((n) => n.textContent).join('').trim(),
+  $('#led-label b').textContent);
 ''')
         self.assertEqual(result[0], ['best', 'bestId', 'futureId', 'openId', 'openNow'])
-        self.assertEqual(result[1], '待校准')
+        # 计划栏 1:1（plan-20261106-plan-panel 的 draft-panel I）：原型 led 在时钟不可信时屏下写「时间待校准」、粗体值留空；
+        # 本例本意不变——时钟未知时屏下必须说待校准，不能说没有目标或待公布
+        self.assertEqual(result[1], '时间待校准')
+        self.assertEqual(result[2], '')
 
     def test_logs_use_business_time_and_preserve_worker_source_time(self):
         result = run_js(r'''

@@ -331,6 +331,8 @@ function noteSignedTasks(tasks) {
     S.selected.delete(id);
     changed = true;
   });
+  /* 自动移出不是用户改勾选：结果页照常开着，只同步它记下的选择 */
+  syncResultSelection();
   return changed;
 }
 
@@ -384,6 +386,7 @@ function applyActivities(payload, quiet) {
     S.items = [];
     S.byId = new Map();
     S.selected.clear();
+    syncResultSelection();   /* 列表失败清掉选择不是用户改勾选，不关结果页 */
     S.listState = "error";
     /* FB4：先消费后端的 runtime_error 再渲染——check 成功而 list 起不来时
      * 组件横幅不能缺席；失败原话留给列表空态做唯一完整说明，不再生成
@@ -402,6 +405,7 @@ function applyActivities(payload, quiet) {
   applyConfirmedToItems();
   S.byId = new Map(S.items.map((item) => [String(item.id), item]));
   Array.from(S.selected).forEach((id) => { if (!S.byId.has(String(id))) S.selected.delete(id); });
+  syncResultSelection();   /* 列表里没了的场次自动移出，不关结果页 */
   S.listState = "ready";
   S.listAtMono = _monoMs();   /* 时刻表上方的「N 分钟前更新」从这一刻算 */
   render();

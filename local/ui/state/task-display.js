@@ -54,12 +54,13 @@ function taskDisplayLabel(task) {
   if (phase === "retrying") return "提交中";
   const state = String(task && task.status || "queued");
   if (state === "failed") {
-    /* 结果没确认 / 登录状态未知都不是「失败」：标签必须留出核对空间 */
+    /* 刷新核对确认过已报名：照原型 card.verify 改成「报名成功」（先判它，否则会被「待核对」截走） */
+    if (typeof verifiedSigned === "function" && verifiedSigned(task)) return "报名成功";
+    /* 结果没确认 / 登录状态未知都不是「失败」：标签必须留出核对空间（「未提交」是代码独有） */
     if (task.stop_reason === "unconfirmed") return "待核对";
     if (task.stop_reason === "auth_unavailable") return "未提交";
     /* 名额已满是学校给的结束结论，不是工具失败（架构方案 3.3） */
     if (task.stop_reason === "full") return "名额已满";
-    if (typeof verifiedSigned === "function" && verifiedSigned(task)) return "已报名";
   }
   return taskLabel(state);
 }
@@ -71,12 +72,31 @@ function taskModePrefix(task) {
   return RUNNING_STATUSES.indexOf(state) >= 0 && modeText(mode) ? modeText(mode) + " · " : "";
 }
 
-/* 任务卡的说明行：与标题/LED 同一解释，tick 每秒复用同一份 */
+/* 预报名场次是否已准备好提交：和路线图「准备好提交」同一个信号（改用页面点击时看活动页打开）。
+ * 照原型 card 的 prepped = t.prep && s.now >= t.prep：记下的时刻还没到（时钟对不上）就不算准备好；
+ * 读不到可信的现在时只看有没有这个 checkpoint。 */
+function taskPrepared(task, now) {
+  const clickPath = String(task && task.path || "") === "click";
+  const page = Number(task && task.page_opened_at) || 0;
+  const watch = Number(task && task.watch_started_at) || 0;
+  const at = clickPath ? page : (watch > 0 ? watch : page);
+  if (!(at > 0)) return false;
+  const current = Number.isFinite(now) ? now : bnowS();
+  return current == null || at <= current + 1;
+}
+
+/* 任务卡的说明行（原型 card 的 waiting / submitting 支）：与标题/LED 同一解释，tick 每秒复用同一份 */
 function taskDisplayDetail(task, now) {
   const phase = taskDisplayPhase(task, now);
+  if (phase !== "terminal" && String(task && task.login_wait || "") === "waiting") {
+    /* 代码独有：报名进程确认登录失效、在等电脑自动登录（架构方案 4.3），换上新登录态后接着提交 */
+    return "电脑正在自动登录，换上新登录态后接着提交";
+  }
   if (phase === "preopen") {
     const open = toTs(task && task.sign_start);
-    return open === null ? "提前准备，开放时间待公布" : "提前准备，等到 " + fmtClock(open) + " 开放";
+    if (open === null) return "提前准备，开放时间待公布";
+    return taskPrepared(task, now) ? "已准备好，" + hmsDay(open) + " 开放时提交"
+      : "提前准备，等到 " + hmsDay(open) + " 开放";
   }
   if (phase === "preparing") return "已开放，正在准备提交";
   if (phase === "retrying") return submittingDetail(task);

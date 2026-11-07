@@ -105,7 +105,8 @@
   }
 
   function prefsInfo() {
-    const prefs = { welcome_seen: true, tour_version: 2,
+    /* 必须与 state/store.js 的 TOUR_VERSION 一致，否则首次引导会盖住所有开始计划的 QA 场景 */
+    const prefs = { welcome_seen: true, tour_version: 3,
                     retry_policy: { retry_for_s: 120, max_attempts: 0 } };
     /* save_prefs 落在 state.savedPrefs：生产 get_prefs 把 ui.json 整份偏好
      * 原样回放进 bootstrap.prefs，filter（q/status/time/sort/checkin/checkout

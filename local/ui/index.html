@@ -51,7 +51,7 @@
       <aside class="board plan-panel" id="board" aria-label="报名计划" aria-live="polite" data-tour-target="select">
         <div class="b-head"><span class="b-tag" id="board-tag" data-tone="amber"><i></i><span id="board-tag-text">报名计划</span></span><span class="b-head-acts"><button class="b-link" id="btn-clear-plan" type="button">清空</button><button class="b-link" id="btn-plan-back" type="button" hidden>返回列表</button></span></div>
         <div class="b-body">
-          <div class="b-led" data-tour-target="run">
+          <div class="b-led" id="led-box" data-tour-target="run">
             <div class="led-wrap" id="led" data-tone="off" role="img" aria-label="计划点阵屏"></div>
             <p class="led-label" id="led-label">最近开放 <b id="metric-next">待公布</b></p>
           </div>
@@ -59,12 +59,13 @@
           <h2 class="b-title" id="selected">还没选活动</h2>
           <div class="b-sub" id="selected-meta"></div>
           <p class="b-text" id="board-text"></p>
-          <p class="b-note" id="rail-message">先选活动，系统会检查举办时间冲突。</p>
-          <p class="paused" id="edit-note" role="status" hidden>计划已暂停，改完要重新开始。</p>
+          <p class="b-note" id="rail-message" hidden>先选活动，系统会检查举办时间冲突。</p>
+          <p class="paused" id="edit-note" role="status" hidden>计划已暂停，重新开始前不会自动报名。</p>
           <div class="b-metrics" hidden><span><b>最近开放</b><strong class="num" id="countdown">待选</strong></span><span><b>列表</b><strong id="metric-total">—</strong></span><span><b>可报名</b><strong id="metric-free">—</strong></span></div>
           <div id="plan-conflicts" class="plan-conflicts" role="alert" hidden></div>
           <div id="plan-tickets" class="plan-tickets" aria-label="已选场次"></div>
-          <div class="policy" id="policy-line"><span id="policy-text">尝试 2 分钟，不限次数</span><button class="b-link" id="btn-policy" type="button" aria-expanded="false" aria-controls="policy-edit">改设置</button></div>
+          <button id="btn-board-pick" class="bb bb-ghost board-quick" type="button" hidden>选这一场</button>
+          <div class="policy" id="policy-line"><span id="policy-text">尝试 2 分钟，不限次数</span><button class="b-link" id="btn-policy" type="button" aria-expanded="false" aria-controls="policy-edit">修改</button></div>
           <div class="pol-e" id="policy-edit" hidden>
             <!-- 计划级重试策略：-1=自动延长（最多25分钟）；时长 0=直到报名截止（缺截止回退 2 分钟）；次数 0=不限；报名截止永远是硬上限 -->
             <label class="policy-select" for="retry-for"><span>尝试时长</span><select id="retry-for" aria-label="尝试时长"><option value="120">2 分钟</option><option value="600">10 分钟</option><option value="1800">30 分钟</option><option value="3600">1 小时</option><option value="-1">自动延长（最多25分钟）</option><option value="0">直到报名截止</option></select></label>
@@ -81,8 +82,6 @@
           <div class="route-actions" id="route-actions" data-tour-target="start">
             <ul class="prew" id="plan-prewarn" aria-label="开始前提醒" hidden></ul>
             <div class="b-checks" id="plan-checks" aria-label="加入计划前的检查"></div>
-            <button id="btn-board-login" class="bb bb-primary board-quick" type="button" hidden>登录</button>
-            <button id="btn-board-pick" class="bb bb-ghost board-quick" type="button" hidden>选这一场</button>
             <button id="btn-plan" class="bb bb-primary bb-lg" type="button" aria-describedby="plan-why" disabled>开始报名计划</button>
             <div class="why" id="plan-why" hidden></div>
             <button id="btn-edit-restore" class="bb bb-ghost" type="button" hidden>放弃修改，按原计划继续</button>
@@ -91,6 +90,8 @@
           <div class="foot-row" id="run-actions" hidden><button id="btn-modify" class="bb bb-ghost" type="button" aria-describedby="modify-why">修改计划</button><button id="btn-stop" class="bb bb-ghost route-stop" type="button" disabled>停止计划</button></div>
           <p class="b-hint" id="modify-why" hidden></p>
         </div>
+        <!-- 停止计划二次确认（原型 P19）：遮罩只盖计划栏，Esc / 继续计划 都不会触发停止 -->
+        <div class="scrim" id="plan-stop-ask" role="dialog" aria-modal="true" aria-labelledby="plan-stop-title" hidden><div class="dlg sm"><div class="dlg-h"><h2 id="plan-stop-title">停止报名计划？</h2></div><div class="dlg-b"><p class="dlg-p">工具会停止后续尝试。已经发出的提交仍可能成功，停止不会取消已成功的报名。</p></div><div class="dlg-f"><button class="btn btn-line" id="btn-stop-keep" type="button">继续计划</button><button class="btn btn-stop" id="btn-stop-yes" type="button">停止计划</button></div></div></div>
       </aside>
     </main>
 
@@ -343,11 +344,6 @@
     <dl class="sc-rows" id="phone-pop-rows"></dl>
     <div class="sc-f"><span class="sc-hint">Esc 关闭</span><button class="btn btn-line" id="btn-phone-manage" type="button">管理手机访问</button></div>
   </div>
-  <!-- 停止计划二次确认：Esc / 继续计划 都不会触发停止 -->
-  <dialog class="dlg dlg-sm" id="dlg-stop" aria-labelledby="dlg-stop-title">
-    <div class="dlg-head"><h2 id="dlg-stop-title">停止报名计划？</h2><p id="dlg-stop-body">工具会停止后续尝试。已发出的提交仍可能成功，停止不会取消已成功的报名。</p></div>
-    <div class="dlg-foot"><form method="dialog"><button class="btn btn-line" type="submit" value="no">继续计划</button><button class="btn btn-solid btn-stop-confirm" type="submit" value="yes">停止计划</button></form></div>
-  </dialog>
   <!-- 重新登录（设计 9.3）：四种情况各走一步；验证码图与进度来自后端 phone_relogin 事件，和手机同一场流程 -->
   <dialog class="dlg dlg-sm dlg-relogin" id="dlg-relogin" aria-labelledby="dlg-relogin-title">
     <div class="dlg-head"><h2 id="dlg-relogin-title">重新登录</h2><button class="dlg-x" id="btn-rl-close" type="button" aria-label="关闭重新登录"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>

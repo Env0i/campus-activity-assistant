@@ -209,6 +209,42 @@ class Session:
         text = self.text(selector)
         self.check("%s 不含「%s」" % (selector, needle), needle not in text, text[:120])
 
+    # ---- 计划栏结果页（计划 20261106-plan-panel）----
+    # 计划结论不再写进 #result 条：标签 #board-tag-text、标题 #selected、副行 #board-text、
+    # 五类大数字 #plan-stats；#result 只剩登录、开始请求这类非计划提示。
+    BOARD_RESULT_READY = "!document.querySelector('#plan-stats').hidden"
+
+    def board_view(self) -> dict:
+        return self.js("""() => {
+          const cells = {};
+          document.querySelectorAll('#plan-stats > div').forEach((div) => {
+            cells[div.querySelector('span').textContent] = Number(div.querySelector('strong').textContent);
+          });
+          return {
+            tag: document.querySelector('#board-tag-text').textContent,
+            title: document.querySelector('#selected').textContent,
+            text: document.querySelector('#board-text').textContent,
+            stats: cells,
+            statsShown: !document.querySelector('#plan-stats').hidden,
+          };
+        }""")
+
+    def board_said(self) -> str:
+        view = self.board_view()
+        return " | ".join([view["tag"], view["title"], view["text"]])
+
+    def check_board_contains(self, needle: str) -> None:
+        said = self.board_said()
+        self.check("计划栏标签/标题/副行 含「%s」" % needle, needle in said, said[:160])
+
+    def check_board_not_contains(self, needle: str) -> None:
+        said = self.board_said()
+        self.check("计划栏标签/标题/副行 不含「%s」" % needle, needle not in said, said[:160])
+
+    def check_board_stat(self, label: str, count: int) -> None:
+        stats = self.board_view()["stats"]
+        self.check("计划栏大数字「%s」= %d" % (label, count), stats.get(label) == count, stats)
+
     def shot(self, name: str) -> str:
         path = self.evidence / ("%s-%s.png" % (self.scenario["id"], name))
         self.page.screenshot(path=str(path), full_page=False)
@@ -1683,10 +1719,14 @@ def _(s: Session):
     s.wait("document.querySelectorAll('#plan-tasks .task-row').length === 2")
     s.check("#运行中不弹整屏成功", s.page.locator("#result").is_hidden())
     s.shot("single-success")
+    # 结果页按每场的结论计数，「等待中」不会留到计划结束；真实后端结束时每场都有终态，
+    # 所以收尾先让第二场以「报名已截止」结束，再发 plan_done（结论仍应是「部分完成」）
+    s.emit("task", _task("t2", "a-open", "校园歌手大赛决赛", "failed",
+                         stop="sign_end", attempts=1, reason="报名已截止"))
     s.emit("plan_done", {"plan_id": "qa-plan", "status": "partial",
-                         "summary": {"total": 2, "counts": {"success": 1, "waiting": 1}}})
-    s.wait("!document.querySelector('#result').hidden")
-    s.check_contains("#result", "部分完成")
+                         "summary": {"total": 2, "counts": {"success": 1, "failed": 1}}})
+    s.wait(s.BOARD_RESULT_READY)
+    s.check_board_contains("部分完成")
     s.shot("partial-done")
 
 
@@ -1705,17 +1745,19 @@ def _(s: Session):
                          stop="auth_unavailable", attempts=0, reason="接口异常：URLError"))
     s.emit("plan_done", {"plan_id": "qa-plan", "status": "failed",
                          "summary": {"total": 2, "counts": {"failed": 2}}})
-    s.wait("!document.querySelector('#result').hidden")
-    s.check_contains("#result", "需确认")
-    s.check_not_contains("#result", "都没抢到")
-    s.check_not_contains("#result", "登录失效")
+    s.wait(s.BOARD_RESULT_READY)
+    s.check_board_contains("需确认")
+    s.check_board_not_contains("都没抢到")
+    s.check_board_not_contains("登录失效")
     s.check_contains("#plan-tasks", "待核对")
     s.check_contains("#plan-tasks", "本场没有提交")
     s.check("#LED 不亮失败叉", s.attr("#led", "data-tone") != "red")
     # FR06：待核对与未提交必须分列，不能拿 unknown 总数当「待核对」
-    s.check_contains("#result", "待核对 1 场")
-    s.check_contains("#result", "未提交 1 场")
-    s.check_not_contains("#result", "待核对 2 场")
+    # 结果页把没提交的场次计入「报名未成功」（卡片仍写「本场没有提交」），与「待核对」分开计数
+    s.check_board_stat("待核对", 1)
+    s.check_board_stat("报名未成功", 1)
+    s.check("#大数字只有这两类、不把未提交算成待核对",
+            s.board_view()["stats"] == {"待核对": 1, "报名未成功": 1}, s.board_view()["stats"])
     shadow = s.js("getComputedStyle(document.querySelector('#board')).boxShadow")
     s.actions.append({"action": "board-shadow", "value": shadow})
     s.check("#大屏不画确定失败红框", "255, 91, 72" not in shadow, shadow)
@@ -1886,12 +1928,12 @@ def _(s: Session):
                          locally_stopped=True))
     s.emit("plan_done", {"plan_id": "qa-plan", "status": "stopped",
                          "summary": {"total": 2, "counts": {"success": 1, "failed": 1}}})
-    s.wait("!document.querySelector('#result').hidden")
-    s.check_contains("#result strong", "已停止")
-    s.check_contains("#result", "待核对")
-    s.check_contains("#result", "已报名 1 场")
+    s.wait(s.BOARD_RESULT_READY)
+    s.check_board_contains("已停止")
+    s.check_board_stat("待核对", 1)
+    s.check_board_stat("已报名", 1)
     s.check_contains("#plan-tasks", "已提交 3 次")
-    s.check_not_contains("#result", "都没抢到")
+    s.check_board_not_contains("都没抢到")
     shadow = s.js("getComputedStyle(document.querySelector('#board')).boxShadow")
     s.check("#停止带未知不画红框", "255, 91, 72" not in shadow, shadow)
     s.check("#LED 不亮失败叉", s.attr("#led", "data-tone") != "red")
@@ -1916,11 +1958,11 @@ def _(s: Session):
     s.page.reload(wait_until="domcontentloaded")
     s.settle()
     s.wait("S.plan.id === 'qa-f5'")
-    s.wait("!document.querySelector('#result').hidden")
+    s.wait(s.BOARD_RESULT_READY)
     s.check("#F5 后不是忙碌态", s.js("S.busy === false"))
-    s.check("#F5 后结论框在", s.js("document.querySelector('#result').hidden === false"))
-    s.check_contains("#result", "待核对 1 场")
-    s.check_contains("#result", "未提交 1 场")
+    s.check("#F5 后结论在计划栏", s.board_view()["statsShown"], s.board_view())
+    s.check_board_stat("待核对", 1)
+    s.check_board_stat("报名未成功", 1)
     s.check_contains("#plan-tasks", "已提交 4 次")
     s.check("#F5 后 LED 不亮失败叉", s.attr("#led", "data-tone") != "red")
     shadow = s.js("getComputedStyle(document.querySelector('#board')).boxShadow")
@@ -1959,16 +2001,17 @@ def _(s: Session):
             s.js("(S.plan.tasks.get('t1')||{}).attempts"))
     s.check("#旧事件不弹终态结果框", s.js("document.querySelector('#result').hidden"),
             s.text("#result")[:80])
+    s.check("#旧事件不让计划栏变成结果页", not s.board_view()["statsShown"], s.board_view())
     # 真实指针点击停止并确认：stop_plan 实参必须是 B 的 plan_id（P1）
     record = s.pointer("#btn-stop", "stop")
     s.check("#停止按钮真实命中", _hit_id(record, "btn-stop"), record.get("hit"))
-    s.wait("document.querySelector('#dlg-stop').open === true")
-    s.pointer("#dlg-stop button[value='yes']", "stop-confirm")
+    s.wait("!document.querySelector('#plan-stop-ask').hidden")
+    s.pointer("#btn-stop-yes", "stop-confirm")
     s.wait("S.busy === false", 8000)
     stops = s.js("window.__QA_CALLS.filter((c) => c.name === 'stop_plan')"
                  ".map((c) => String(c.args[0]))")
     s.check("#停止调用指向 B", stops == ["qa-plan"], stops)
-    s.check_contains("#result strong", "已停止")
+    s.check_board_contains("已停止")
     s.check("#旧计划 ID 不得出现在屏上", s.js("S.plan.id") == "qa-plan", s.js("S.plan.id"))
     s.shot("stale-plan-events")
 
@@ -1984,16 +2027,15 @@ def _(s: Session):
                          stop="unconfirmed", attempts=3, reason="响应丢失"))
     s.emit("plan_done", {"plan_id": "qa-plan", "status": "failed",
                          "summary": {"total": 1, "counts": {"failed": 1}}})
-    s.wait("!document.querySelector('#result').hidden")
-    s.check_contains("#result", "待核对 1 场")
-    before_html = s.js("document.querySelector('#result').innerHTML")
+    s.wait(s.BOARD_RESULT_READY)
+    s.check_board_stat("待核对", 1)
+    before_view = s.board_view()
     before_led = s.attr("#led", "data-tone")
     # B 已结束后注入旧 A 的完成与进度事件：结论/LED/边框/忙态保持 B
     s.js("() => window.__QA_EMIT_STALE()")
     s.page.wait_for_timeout(200)
     s.check("#已完成结论不被旧完成事件改写",
-            s.js("document.querySelector('#result').innerHTML") == before_html,
-            s.js("document.querySelector('#result').innerHTML")[:120])
+            s.board_view() == before_view, s.board_view())
     s.check("#LED 保持 B 的结论", s.attr("#led", "data-tone") == before_led,
             [before_led, s.attr("#led", "data-tone")])
     s.check("#已完成计划不得被旧进度复活", s.js("S.busy === false"), s.js("S.busy"))
@@ -2015,7 +2057,7 @@ def _(s: Session):
     s.page.wait_for_timeout(200)
     s.check("#F5 后旧事件不改结论", s.js("S.busy === false && S.plan.id === 'qa-plan'"),
             s.js("[S.plan.id, S.busy, S.plan.status]"))
-    s.check_contains("#result", "待核对 1 场")
+    s.check_board_stat("待核对", 1)
     s.shot("stale-after-done")
 
 
@@ -2051,7 +2093,7 @@ def _(s: Session):
     s.set_state(earlyTerminalBeforeAck=True, earlyAckDelayMs=600)
     s.click("#btn-plan")
     s.wait("S.plan.status === 'completed' && S.busy === false", 8000)
-    s.check_contains("#result", "已报名 1 场")
+    s.check_board_stat("已报名", 1)
     s.wait("S.startRequest.state === 'settled'", 8000)
     s.page.wait_for_timeout(300)
     s.check("#迟到的 ack 不复活忙态", s.js("S.busy === false"), s.js("S.busy"))
@@ -2148,8 +2190,8 @@ def _(s: Session):
                          stop="unconfirmed", attempts=1, reason="响应丢失"))
     s.emit("plan_done", {"plan_id": "qa-plan", "status": "failed",
                          "summary": {"total": 1, "counts": {"failed": 1}}})
-    s.wait("!document.querySelector('#result').hidden")
-    s.check_contains("#result", "待核对 1 场")
+    s.wait(s.BOARD_RESULT_READY)
+    s.check_board_stat("待核对", 1)
     s.shot("wall-jump-during-plan")
 
 
@@ -2778,7 +2820,7 @@ def _(s: Session):
                          stop="success", attempts=1, reason="报名成功"))
     s.emit("plan_done", {"plan_id": "qa-plan", "status": "completed",
                          "summary": {"total": 1, "counts": {"success": 1}}})
-    s.wait("!document.querySelector('#result').hidden")
+    s.wait(s.BOARD_RESULT_READY)
     s.check_contains("#plan-tasks", "报名成功")
     clears_before = s.calls_count("cancel_task")
     s.check("#清空按钮已恢复可用", s.js("!document.querySelector('#btn-clear-plan').disabled"))
@@ -2901,10 +2943,10 @@ def _narrow(s: Session, width: int, height: int):
     s.wait("document.querySelector('#route-line').hidden === false")
     stop = s.pointer("#btn-stop", "stop")
     s.check("#停止按钮命中", _hit_id(stop, "btn-stop"), stop["hit"])
-    s.wait("document.querySelector('#dlg-stop').open === true")
+    s.wait("!document.querySelector('#plan-stop-ask').hidden")
     s.check("#停止确认框可打开", True)
-    s.page.locator("#dlg-stop button[value='no']").first.click()
-    s.wait("document.querySelector('#dlg-stop').open === false")
+    s.page.locator("#btn-stop-keep").first.click()
+    s.wait("document.querySelector('#plan-stop-ask').hidden === true")
     s.shot("narrow-%d-running" % width)
 
     # 帮助入口同样要能到达并关闭

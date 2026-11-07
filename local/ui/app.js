@@ -265,7 +265,7 @@ $("#btn-policy").addEventListener("click", () => {
   const open = !!box.hidden;
   box.hidden = !open;
   $("#btn-policy").setAttribute("aria-expanded", open ? "true" : "false");
-  $("#btn-policy").textContent = open ? "收起" : "改设置";
+  $("#btn-policy").textContent = open ? "收起" : "修改";   /* 原型 policyBtn */
 });
 window.addEventListener("resize", applyBand);
 applyBand();
@@ -283,6 +283,8 @@ $("#board").addEventListener("click", (event) => {
   else if (act === "login") openRelogin();
   else if (act === "refresh") refresh(false);
   else if (act === "clock-open") openStatusCard("clock", true);
+  /* 「还差一步：北京时间还没校准」的「重新校准」直接触发校准（原型 blockers 的 syncClock） */
+  else if (act === "clock-sync") resyncClock();
   else if (act === "terms-open") openTerms("banner", btn);
 });
 wireSettings();
@@ -296,7 +298,7 @@ $("#btn-log-folder").addEventListener("click", () => api("open_data")
 $("#btn-log-copy").addEventListener("click", copyLog);
 $("#btn-plan").addEventListener("click", startPlan);
 $("#btn-stop").addEventListener("click", stopPlan);
-$("#btn-board-login").addEventListener("click", doLogin);
+/* 计划栏的快捷「登录」已删：没登录时由「还差一步：还没有登录」的「去登录」打开登录对话框 */
 $("#btn-board-pick").addEventListener("click", () => {
   const id = nextOpen().bestId;
   if (id) toggleSelection(id, true);
@@ -306,12 +308,9 @@ $("#board-text").addEventListener("click", (event) => {
   const target = event.target;
   if (target && target.closest && target.closest("[data-open-clock]")) toggleClockPop();
 });
-const stopDialog = $("#dlg-stop");
-if (stopDialog) stopDialog.addEventListener("close", () => {
-  /* 只有「停止计划」按钮回 yes 才真正停止；Esc/继续等待都是 no */
-  if (stopDialog.returnValue === "yes") doStopPlan();
-  stopDialog.returnValue = "";
-});
+/* 停止确认弹层（计划栏内遮罩）：只有「停止计划」才真正停止；Esc/继续计划只关弹层 */
+$("#btn-stop-keep").addEventListener("click", () => closeStopAsk(true));
+$("#btn-stop-yes").addEventListener("click", confirmStopPlan);
 $("#btn-clear-plan").addEventListener("click", clearSelection);
 $("#plan-tasks").addEventListener("click", (event) => {
   const button = event.target.closest(".task-cancel");
@@ -456,11 +455,12 @@ document.addEventListener("keydown", (event) => {
       return;   /* 卡片内回车：交给按钮原生激活（click 监听照常触发） */
     }
   }
-  /* 帮助/停止确认打开时：Enter/Esc 只属于弹窗——
-   * 不穿透到背景开始计划、不清空选择、不误跳引导；停止确认弹窗的
-   * Esc/「继续等待」=不停止 的原生语义不变 */
+  /* 停止确认弹层打开时键盘只属于它：Esc 关弹层，Tab 在两个按钮间循环，
+   * 其余（Enter、Ctrl+F、/）不穿透到背景；Esc/「继续计划」=不停止 */
+  if (stopAskOpen()) { stopAskKey(event); return; }
+  /* 帮助打开时：Enter/Esc 只属于弹窗——不穿透到背景开始计划、不清空选择、不误跳引导 */
   if ((event.key === "Enter" || event.key === "Escape") &&
-      ["#help", "#dlg-stop"].some((sel) => { const d = $(sel); return !!d && d.open; })) {
+      ["#help"].some((sel) => { const d = $(sel); return !!d && d.open; })) {
     return;
   }
   /* Ctrl+F 或 / 跳到搜索框 */

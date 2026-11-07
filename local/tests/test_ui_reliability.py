@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -151,6 +152,8 @@ const futureItem = { id: "future", name: "未来活动", sign_start: "2026-10-27
   checkout_required: null };
 S.items = [openItem, futureItem];
 S.byId = new Map([["open", openItem], ["future", futureItem]]);
+/* 计划栏 1:1（draft-panel I）：原型 draft 段 led 在列表没加载时只写「活动未加载」，样本要先标列表已加载 */
+S.listState = "ready";
 const next = nextOpen();
 const target = boardTargetItem();
 paintLed();
@@ -178,7 +181,8 @@ const before = submittingDetail({ status: "submitting", attempts: 0, max_attempt
 out.push({ limited, unlimited, before });
 """)
         data = res[0]
-        self.assertIn("已提交 1/3 次", data["limited"])
+        # 计划栏 1:1（run-panel F）：写法照原型 card「已提交 N 次（上限 M 次）」，不再是「N/M 次」
+        self.assertIn("已提交 1 次（上限 3 次）", data["limited"])
         self.assertIn("已提交 2 次（不限次数）", data["unlimited"])
         self.assertIn("上限 5 次", data["before"])
         self.assertNotIn("第 ", data["limited"], "不能只写「第 N 次」，用户看不到上限")
@@ -272,7 +276,7 @@ class ReconcileTerminalTests(unittest.TestCase):
     """C05：15 秒内就结束的计划不得被对账复活成运行中。"""
 
     def test_finished_plan_restores_terminal_not_busy(self):
-        res = run_js(r"""
+        res = run_js(BOARD_VIEW_JS + r"""
 window.pywebview = { api: {
   start_request_state: () => Promise.resolve({
     ok: true, state: "accepted", plan_id: "p1", running: false, finished: true,
@@ -288,14 +292,15 @@ reconcileStart("rid");
 for (let i = 0; i < 8; i += 1) await Promise.resolve();
 out.push({ busy: S.busy, starting: S.starting, status: S.plan.status,
            tasks: S.plan.tasks.size,
-           title: document.querySelector("#result").innerHTML });
+           title: __boardView().title });
 """)
         data = res[0]
         self.assertFalse(data["busy"], "已结束的计划不得保持运行态")
         self.assertFalse(data["starting"])
         self.assertEqual(data["status"], "completed")
         self.assertEqual(data["tasks"], 1)
-        self.assertIn("完成", data["title"])
+        # 结论在计划栏标题（result-panel D：全部报上 → 「报名计划完成」）
+        self.assertEqual(data["title"], "报名计划完成")
 
 
 class SkippedRefreshTests(unittest.TestCase):
@@ -328,6 +333,32 @@ out.push({ round: S.round.check, checking: S.login.checking,
         self.assertEqual(data["result"], "valid")
 
 
+# 计划栏结果页（计划 20261106-plan-panel 的 result-panel，P1 / P8）：计划结论不再写进 #result 条，
+# 改由计划栏的标签、标题、副行和五类大数字承担（原型 Main.dc.html 渲染函数 res 段）。
+# 用例从这里读同一份结论；#result 只剩登录、开始请求这类非计划提示。
+BOARD_VIEW_JS = r"""
+const __boardView = () => ({
+  tag: document.querySelector("#board-tag-text").textContent,
+  title: document.querySelector("#selected").textContent,
+  text: document.querySelector("#board-text").textContent,
+  stats: document.querySelector("#plan-stats").hidden ? "" : document.querySelector("#plan-stats").innerHTML,
+  ledHidden: !!document.querySelector("#led-box").hidden,
+  resultHidden: !!document.querySelector("#result").hidden,
+});
+"""
+
+
+def _stats(view):
+    """结果页大数字 → {标签: 数}（只含显示出来的格子）。"""
+    return {label: int(n) for n, label in
+            re.findall(r"<strong>(\d+)</strong><span>([^<]+)</span>", view["stats"])}
+
+
+def _said(view):
+    """结果页标签、标题、副行连成一句，便于查用词。"""
+    return " | ".join([view["tag"], view["title"], view["text"]])
+
+
 SELECTED_SNIPPET = r"""
 window.LED_UI = { renderLed: (el, text, tone) => { S.__led = [String(text), String(tone)]; } };
 const __labels = [];
@@ -341,7 +372,7 @@ class UnknownOutcomeUITests(unittest.TestCase):
     """F04：未确认/鉴权未知贯穿任务卡、计划总结与大屏（与 stopReasonText 同源）。"""
 
     def _run(self, tasks, status, counts):
-        body = SELECTED_SNIPPET
+        body = BOARD_VIEW_JS + SELECTED_SNIPPET
         for task in tasks:
             body += "window.onBackend.task(%s);\n" % _js(task)
         body += ("window.onBackend.plan_done({ plan_id: \"p1\", status: %s, "
@@ -351,6 +382,7 @@ class UnknownOutcomeUITests(unittest.TestCase):
 out.push({
   cards: document.querySelector("#plan-tasks").innerHTML,
   result: document.querySelector("#result").innerHTML,
+  board: __boardView(),
   led: S.__led,
   labels: __labels,
 });
@@ -367,14 +399,19 @@ out.push({
         self.assertIn("待核对", data["cards"])
         self.assertIn("3 次", data["cards"])
         self.assertNotIn("没抢到", data["cards"])
-        self.assertIn("待核对", data["result"])
-        self.assertIn("没拿到确定回应", data["result"])
-        self.assertIn("不会自动重发", data["result"])
-        self.assertNotIn("没抢到", data["result"])
-        self.assertNotIn("都没抢到", data["result"])
-        self.assertTrue(any("1 场待核对" in text for text in data["labels"]),
-                        "大屏必须与任务卡同一分类：%s" % data["labels"])
-        self.assertEqual(data["led"], ["--:--:--", "off"], "待核对不得亮失败叉")
+        # 结论从 #result 条搬到计划栏（result-panel D「没报上、有待核对」），说明原话在任务卡（G）
+        board = data["board"]
+        self.assertTrue(board["resultHidden"], "计划结束不再往 #result 条写结论")
+        self.assertEqual(_stats(board), {"待核对": 1}, "大数字与任务卡同一分类")
+        self.assertEqual(board["tag"], "需确认")
+        self.assertEqual(board["title"], "计划已结束，有 1 场需确认")
+        self.assertIn("不会自动重发", board["text"])
+        self.assertIn("没拿到确定回应", data["cards"])
+        self.assertNotIn("没抢到", _said(board))
+        self.assertNotIn("都没抢到", _said(board))
+        # 原型 res.hasLed 只在全成功 / 全失败时为真：待核对不亮 LED，更不亮失败叉
+        self.assertTrue(board["ledHidden"], "待核对不显示结论 LED")
+        self.assertNotEqual(data["led"], ["✕", "red"], "待核对不得亮失败叉")
 
     def test_auth_unavailable_does_not_push_relogin(self):
         data = self._run(
@@ -385,12 +422,19 @@ out.push({
             "failed", {"failed": 1})
         self.assertIn("本场没有提交", data["cards"])
         self.assertNotIn("没抢到", data["cards"])
-        self.assertIn("未提交", data["result"])
-        self.assertIn("登录状态无法确认", data["result"])
-        self.assertNotIn("登录失效", data["result"])
-        self.assertNotIn("请重新登录", data["result"])
-        self.assertIn("检查网络", data["result"])
-        self.assertEqual(data["led"], ["--:--:--", "off"])
+        # 计划 20261106-plan-panel decisions：auth_unavailable 在结果页计入「报名未成功」，卡片标签保留「未提交」；
+        # 原因原话只在任务卡（结果页副行是原型的「每场的原因都列在下面。」）
+        board = data["board"]
+        self.assertIn("未提交", data["cards"], "卡片标签保留「未提交」（代码独有）")
+        self.assertEqual(_stats(board), {"报名未成功": 1}, "没提交的场次不得算成待核对")
+        self.assertIn("登录状态无法确认", data["cards"])
+        self.assertIn("检查网络", data["cards"])
+        for said in (_said(board), data["cards"]):
+            self.assertNotIn("登录失效", said)
+            self.assertNotIn("请重新登录", said)
+        # 只有这一场且确定没提交：结果页走原型 res 的「其余」分支（未成功、小 LED ✕），见 plan_amendments
+        self.assertEqual(board["title"], "报名计划没有成功")
+        self.assertEqual(data["led"], ["✕", "red"])
 
     def test_mixed_success_and_unknown_is_partial(self):
         data = self._run(
@@ -402,10 +446,12 @@ out.push({
               "status": "failed", "stop_reason": "unconfirmed", "attempts": 2,
               "reason": "响应丢失"}],
             "partial", {"success": 1, "failed": 1})
-        self.assertIn("待核对", data["result"])
-        self.assertIn("已报名 1 场", data["result"])
-        self.assertIn("待核对 1 场", data["result"])
-        self.assertNotIn("都没抢到", data["result"])
+        # 结论在计划栏（result-panel D「有报上的、也有别的」）
+        board = data["board"]
+        self.assertEqual(_stats(board), {"已报名": 1, "待核对": 1})
+        self.assertEqual(board["title"], "报名计划部分完成")
+        self.assertEqual(board["text"], "有 1 场需要到活动页核对，结果以学校为准。")
+        self.assertNotIn("都没抢到", _said(board))
 
     def test_confirmed_failure_and_unknown_are_counted_separately(self):
         data = self._run(
@@ -418,11 +464,13 @@ out.push({
               "status": "failed", "stop_reason": "unconfirmed", "attempts": 1,
               "reason": "响应丢失"}],
             "failed", {"failed": 2})
-        self.assertIn("报名未成功 1 场", data["result"])
-        self.assertIn("待核对 1 场", data["result"])
-        self.assertIn("待核对", data["result"])
-        self.assertTrue(any("待核对" in text for text in data["labels"]))
-        self.assertEqual(data["led"], ["--:--:--", "off"])
+        # 结论在计划栏（result-panel C / D）：两类分开计数，有待核对就走「需确认」，不画确定失败
+        board = data["board"]
+        self.assertEqual(_stats(board), {"报名未成功": 1, "待核对": 1})
+        self.assertEqual(board["tag"], "需确认")
+        self.assertIn("待核对", data["cards"])
+        self.assertTrue(board["ledHidden"], "有待核对就不亮结论 LED")
+        self.assertNotEqual(data["led"], ["✕", "red"])
 
     def test_all_confirmed_failures_keep_definite_copy(self):
         data = self._run(
@@ -435,9 +483,12 @@ out.push({
               "status": "failed", "stop_reason": "sign_end", "attempts": 1,
               "reason": "报名已截止"}],
             "failed", {"failed": 2})
-        self.assertIn("报名计划没有成功", data["result"])
-        self.assertIn("报名未成功 2 场", data["result"])
-        self.assertNotIn("待核对", data["result"])
+        board = data["board"]
+        self.assertEqual(board["title"], "报名计划没有成功")
+        self.assertEqual(board["text"], "每场的原因都列在下面。")
+        self.assertEqual(_stats(board), {"报名未成功": 2})
+        self.assertNotIn("待核对", _said(board) + board["stats"])
+        self.assertFalse(board["ledHidden"], "全部确认失败显示小 LED（原型 res.hasLed）")
         self.assertEqual(data["led"], ["✕", "red"], "全部确认失败才允许亮失败结论")
 
     def test_stopped_plan_keeps_its_own_copy(self):
@@ -447,10 +498,14 @@ out.push({
               "status": "canceled", "stop_reason": "user_stopped", "attempts": 0,
               "reason": "用户取消了这一场"}],
             "stopped", {"canceled": 1})
-        self.assertIn("已停止", data["result"])
-        self.assertNotIn("待核对", data["result"])
-        self.assertIn("保留原状态", data["result"])
-        self.assertEqual(data["led"], ["--:--:--", "off"])
+        board = data["board"]
+        self.assertEqual(board["tag"], "已停止")
+        self.assertEqual(board["title"], "报名计划已停止")
+        self.assertNotIn("待核对", _said(board) + board["stats"])
+        self.assertIn("保留原状态", board["text"])
+        self.assertEqual(_stats(board), {"已取消": 1})
+        self.assertTrue(board["ledHidden"], "停止不显示结论 LED（原型 res.hasLed）")
+        self.assertNotEqual(data["led"], ["✕", "red"])
 
     def test_f5_restore_keeps_same_conclusion_and_attempts(self):
         res = run_js(r"""
@@ -815,7 +870,7 @@ class BootstrapTerminalViewTests(unittest.TestCase):
              "stop_reason": "user_stopped", "attempts": 0,
              "sign_start": "2026-10-26 09:00:00", "sign_end": "2026-10-26 23:00:00"},
         ])
-        res = run_js("const snap = " + _js(snap) + ";" + r"""
+        res = run_js(BOARD_VIEW_JS + "const snap = " + _js(snap) + ";" + r"""
 window.LED_UI = { renderLed: (el, text, tone) => { S.__led = [String(text), String(tone)]; } };
 const __labels = [];
 const __realLabel = paintLedLabel;
@@ -826,6 +881,7 @@ out.push({
   doneSel: S.plan.doneSelection === selectionSignature(),
   board: boardPlanState(),
   html: document.querySelector("#result").innerHTML,
+  view: __boardView(),
   labels: __labels,
   cards: document.querySelector("#plan-tasks").innerHTML,
 });
@@ -835,10 +891,13 @@ out.push({
         self.assertEqual(data["status"], "stopped")
         self.assertTrue(data["doneSel"], "恢复时必须设好选择签名，否则 LED/边框回落预览")
         self.assertEqual(data["board"], "attention", "含未知的停止不能画确定失败红框")
-        self.assertIn("已停止", data["html"])
-        self.assertIn("待核对 1 场", data["html"])
-        self.assertTrue(any("已停止" in text and "待核对" in text for text in data["labels"]),
-                        "LED 必须同时说清「已停止」和待核对场次：%s" % data["labels"])
+        # 结论在计划栏（result-panel D「用户停止的」）：标签同时说清「已停止」和要确认；
+        # 原型 res.hasLed 在停止时为假，所以这句从 LED 下方搬到了标签
+        view = data["view"]
+        self.assertEqual(view["title"], "报名计划已停止")
+        self.assertEqual(view["tag"], "已停止，需确认", "必须同时说清「已停止」和待核对场次")
+        self.assertEqual(_stats(view), {"待核对": 1, "已取消": 1})
+        self.assertTrue(view["ledHidden"], "停止的结果页不显示 LED")
         self.assertIn("3 次", data["cards"], "恢复后已提交次数不能归零")
 
     def test_running_snapshot_restores_busy_and_progress(self):
@@ -846,15 +905,18 @@ out.push({
             {"task_id": "t1", "activity_id": "a1", "name": "场一", "status": "waiting",
              "sign_start": "2099-01-01 09:00:00", "sign_end": "2099-01-01 10:00:00"},
         ])
-        res = run_js("const snap = " + _js(snap) + ";" + r"""
+        res = run_js(BOARD_VIEW_JS + "const snap = " + _js(snap) + ";" + r"""
 ingestBootstrapPlan({ plan: snap });
 out.push({ busy: S.busy, status: S.plan.status, tasks: S.plan.tasks.size,
-           result: document.querySelector("#result").innerHTML });
+           result: document.querySelector("#result").innerHTML, view: __boardView() });
 """)
         data = res[0]
         self.assertTrue(data["busy"], "运行态快照必须恢复进度与停止入口")
         self.assertEqual(data["tasks"], 1)
         self.assertNotIn("报名计划", data["result"], "运行态不该冒出终态结论")
+        # 计划结论现在在计划栏：运行态不显示结果大数字，标题也不是结论
+        self.assertEqual(data["view"]["stats"], "", "运行态不该冒出结果大数字")
+        self.assertNotIn("报名计划", data["view"]["title"])
 
     def test_same_plan_id_advances_to_terminal(self):
         running = self._snapshot("running", [])
@@ -863,18 +925,19 @@ out.push({ busy: S.busy, status: S.plan.status, tasks: S.plan.tasks.size,
              "stop_reason": "success", "attempts": 1,
              "sign_start": "2026-10-26 09:00:00", "sign_end": "2026-10-26 23:00:00"},
         ])
-        res = run_js("const running = " + _js(running) + "; const done = " + _js(done) + ";" + r"""
+        res = run_js(BOARD_VIEW_JS + "const running = " + _js(running) + "; const done = " + _js(done) + ";" + r"""
 ingestBootstrapPlan({ plan: running });
 const busyFirst = S.busy;
 ingestBootstrapPlan({ plan: done });
 out.push({ busyFirst: busyFirst, busy: S.busy, status: S.plan.status,
-           html: document.querySelector("#result").innerHTML });
+           html: __boardView().title });
 """)
         data = res[0]
         self.assertTrue(data["busyFirst"])
         self.assertFalse(data["busy"], "同一 plan_id 推进到终态不能因为「已存在」被跳过")
         self.assertEqual(data["status"], "completed")
-        self.assertIn("完成", data["html"])
+        # 结论在计划栏标题（result-panel D）
+        self.assertEqual(data["html"], "报名计划完成")
 
     def test_restore_never_starts_a_plan(self):
         snap = self._snapshot("failed", [])
@@ -896,7 +959,8 @@ class BoardStateSemanticsTests(unittest.TestCase):
     """FR06：整屏视觉与卡片/总结/LED 同一分类，确认失败才用失败色。"""
 
     def _run_plan(self, tasks, status):
-        body = ["window.onBackend.plan({ plan_id: \"p1\", status: \"running\", tasks: [] });"]
+        body = [BOARD_VIEW_JS,
+                "window.onBackend.plan({ plan_id: \"p1\", status: \"running\", tasks: [] });"]
         for task in tasks:
             # plan_id 必须随任务一起带：handleTask 用它对账，缺了会被当成别的计划
             body.append("window.onBackend.task(%s);" % _js(dict(task, plan_id="p1")))
@@ -904,6 +968,7 @@ class BoardStateSemanticsTests(unittest.TestCase):
             {"plan_id": "p1", "status": status, "summary": {"total": len(tasks)}}))
         body.append(r"""out.push({ board: document.querySelector("#board").dataset.planState,
   html: document.querySelector("#result").innerHTML,
+  view: __boardView(),
   led: document.querySelector("#led-label").textContent });""")
         return run_js(chr(10).join(body))[0]
 
@@ -913,9 +978,9 @@ class BoardStateSemanticsTests(unittest.TestCase):
               "stop_reason": "unconfirmed", "attempts": 2, "reason": "响应丢失"}],
             "failed")
         self.assertEqual(data["board"], "attention")
-        self.assertIn("待核对 1 场", data["html"])
-        self.assertIn("有 1 场待核对", data["html"])
-        self.assertNotIn("待核对 2 场", data["html"])
+        # 结论在计划栏（result-panel C / D「没报上、有待核对」）
+        self.assertEqual(_stats(data["view"]), {"待核对": 1}, "按场数计，不按提交次数")
+        self.assertEqual(data["view"]["title"], "计划已结束，有 1 场需确认")
 
     def test_auth_unavailable_is_counted_separately(self):
         data = self._run_plan(
@@ -924,9 +989,9 @@ class BoardStateSemanticsTests(unittest.TestCase):
              {"task_id": "t2", "activity_id": "a2", "name": "场二", "status": "failed",
               "stop_reason": "auth_unavailable", "attempts": 0, "reason": "URLError"}],
             "failed")
-        self.assertIn("待核对 1 场", data["html"])
-        self.assertIn("未提交 1 场", data["html"])
-        self.assertNotIn("待核对 2 场", data["html"], "未提交的场次不能算成待核对")
+        # 计划 decisions：auth_unavailable 在结果页计入「报名未成功」，与待核对分开
+        self.assertEqual(_stats(data["view"]), {"报名未成功": 1, "待核对": 1},
+                         "未提交的场次不能算成待核对")
         self.assertEqual(data["board"], "attention")
 
     def test_confirmed_failure_keeps_red(self):
@@ -935,7 +1000,8 @@ class BoardStateSemanticsTests(unittest.TestCase):
               "stop_reason": "max_attempts", "attempts": 5, "reason": "名额已满"}],
             "failed")
         self.assertEqual(data["board"], "failed", "确认失败仍用确定失败视觉")
-        self.assertIn("报名未成功 1 场", data["html"])
+        self.assertEqual(_stats(data["view"]), {"报名未成功": 1})
+        self.assertEqual(data["view"]["title"], "报名计划没有成功")
 
     def test_stopped_with_unknown_keeps_stopped_title(self):
         data = self._run_plan(
@@ -944,9 +1010,10 @@ class BoardStateSemanticsTests(unittest.TestCase):
              {"task_id": "t2", "activity_id": "a2", "name": "场二", "status": "failed",
               "stop_reason": "unconfirmed", "attempts": 3, "reason": "停止前没拿到回应"}],
             "stopped")
-        self.assertIn("已停止", data["html"], "停止是主结论，不能被未知覆盖")
-        self.assertIn("待核对", data["html"], "停止前的未知场次要并列说清")
-        self.assertIn("已报名 1 场", data["html"])
+        view = data["view"]
+        self.assertEqual(view["title"], "报名计划已停止", "停止是主结论，不能被未知覆盖")
+        self.assertEqual(view["tag"], "已停止，需确认", "停止前的未知场次要并列说清")
+        self.assertEqual(_stats(view), {"已报名": 1, "待核对": 1})
         self.assertEqual(data["board"], "attention")
 
 
@@ -985,40 +1052,42 @@ out.push({ calls: calls });
 
     def test_stale_done_cannot_replace_finished_plan_conclusion(self):
         """B 已完成后再注入 A 的完成：结果框/LED/边框/忙态保持 B 的结论。"""
-        res = run_js(r"""
+        res = run_js(BOARD_VIEW_JS + r"""
 window.onBackend.plan({ plan_id: "pb", plan_generation: 2, status: "running",
   tasks: [{ task_id: "t1", activity_id: "a1", name: "B场一", status: "success" }] });
 window.onBackend.plan_done({ plan_id: "pb", plan_generation: 2,
                              status: "completed", summary: { total: 1 } });
-const doneHtml = document.querySelector("#result").innerHTML;
+const doneHtml = JSON.stringify(__boardView());
 const doneBoard = document.querySelector("#board").dataset.planState;
 window.onBackend.plan_done({ plan_id: "pa", plan_generation: 1,
                              status: "failed", summary: {} });
 out.push({ id: S.plan.id, busy: S.busy, board: document.querySelector("#board").dataset.planState,
-           html: document.querySelector("#result").innerHTML,
-           unchanged: document.querySelector("#result").innerHTML === doneHtml,
+           html: JSON.stringify(__boardView()), doneTitle: JSON.parse(doneHtml).title,
+           unchanged: JSON.stringify(__boardView()) === doneHtml,
            doneBoard: doneBoard });
 """)
         data = res[0]
         self.assertEqual(data["id"], "pb", "旧完成事件不得把屏上计划换成 A")
+        self.assertEqual(data["doneTitle"], "报名计划完成", "对照：B 的结论在计划栏")
         self.assertTrue(data["unchanged"], "B 的结果框结论不得被 A 改写")
         self.assertFalse(data["busy"], "B 已结束：忙态应保持解除")
         self.assertEqual(data["board"], data["doneBoard"], "整屏状态保持 B 的终态")
 
     def test_duplicate_done_keeps_first_conclusion(self):
         """同计划重复终态：不把已定结论改成后来重复包的另一状态。"""
-        res = run_js(r"""
+        res = run_js(BOARD_VIEW_JS + r"""
 window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running",
   tasks: [{ task_id: "t1", activity_id: "a1", name: "场一", status: "failed" }] });
 window.onBackend.plan_done({ plan_id: "p1", plan_generation: 1,
                              status: "failed", summary: {} });
-const firstHtml = document.querySelector("#result").innerHTML;
+const firstHtml = JSON.stringify(__boardView());
 window.onBackend.plan_done({ plan_id: "p1", plan_generation: 1,
                              status: "completed", summary: {} });
-out.push({ status: S.plan.status, busy: S.busy,
-           unchanged: document.querySelector("#result").innerHTML === firstHtml });
+out.push({ status: S.plan.status, busy: S.busy, firstTitle: JSON.parse(firstHtml).title,
+           unchanged: JSON.stringify(__boardView()) === firstHtml });
 """)
         data = res[0]
+        self.assertEqual(data["firstTitle"], "报名计划没有成功", "对照：第一次终态的结论在计划栏")
         self.assertTrue(data["unchanged"], "重复终态不得改写已定结论")
         self.assertFalse(data["busy"], "重复终态不得重新拉起忙态")
 
@@ -1064,19 +1133,20 @@ out.push({ id: S.plan.id, busy: S.busy, tasks: S.plan.tasks.size, attempts: task
 
     def test_f5_restore_survives_stale_events(self):
         """F5 以 bootstrap 权威快照建立归属后，旧计划事件不得覆盖。"""
-        res = run_js(r"""
+        res = run_js(BOARD_VIEW_JS + r"""
 ingestBootstrapPlan({ plan: { plan_id: "pb", plan_generation: 2, status: "completed",
   summary: { total: 1 },
   tasks: [{ task_id: "t1", activity_id: "a1", name: "B场一", status: "success" }] } });
-const html = document.querySelector("#result").innerHTML;
+const html = JSON.stringify(__boardView());
 window.onBackend.plan_done({ plan_id: "pa", plan_generation: 1,
                              status: "failed", summary: {} });
 window.onBackend.plan({ plan_id: "pa", plan_generation: 1, status: "running", tasks: [] });
-out.push({ id: S.plan.id, busy: S.busy, status: S.plan.status,
-           unchanged: document.querySelector("#result").innerHTML === html });
+out.push({ id: S.plan.id, busy: S.busy, status: S.plan.status, title: JSON.parse(html).title,
+           unchanged: JSON.stringify(__boardView()) === html });
 """)
         data = res[0]
         self.assertEqual(data["id"], "pb", "F5 恢复的计划不得被旧事件替换")
+        self.assertEqual(data["title"], "报名计划完成", "对照：F5 恢复的结论在计划栏")
         self.assertTrue(data["unchanged"], "F5 恢复的结论不得被旧事件改写")
         self.assertFalse(data["busy"])
         self.assertEqual(data["status"], "completed")
@@ -1179,7 +1249,7 @@ out.push({ busy: S.busy, status: S.plan.status, tasks: S.plan.tasks.size,
 
     def test_reconcile_old_running_snapshot_cannot_revive_terminal(self):
         """adoptPlan 收到同 plan_id 旧 running 快照：终态/忙态/次数不回退。"""
-        res = run_js(self._harness() + r"""
+        res = run_js(BOARD_VIEW_JS + self._harness() + r"""
 window.onBackend.plan({ plan_id: "p9", plan_generation: 1, status: "running", tasks: [] });
 window.onBackend.task({ plan_id: "p9", plan_generation: 1, task_id: "t1",
                         activity_id: "a1", name: "活动一", status: "success",
@@ -1187,7 +1257,7 @@ window.onBackend.task({ plan_id: "p9", plan_generation: 1, task_id: "t1",
 window.onBackend.plan_done({ plan_id: "p9", plan_generation: 1,
                              status: "completed", summary: { total: 1 } });
 const before = { busy: S.busy, status: S.plan.status,
-                 result: document.querySelector("#result").innerHTML };
+                 result: JSON.stringify(__boardView()), title: __boardView().title };
 S.startRequest = { id: "rid", state: "reconciling", timer: null,
                    queryTimer: null, reconcile: 0, gen: 0 };
 adoptPlan("rid", "p9",
@@ -1200,10 +1270,11 @@ await flush();
 out.push({ before: before, after: { busy: S.busy, status: S.plan.status,
            taskStatus: (S.plan.tasks.get("t1")||{}).status,
            attempts: (S.plan.tasks.get("t1")||{}).attempts,
-           unchanged: document.querySelector("#result").innerHTML === before.result } });
+           unchanged: JSON.stringify(__boardView()) === before.result } });
 """)
         data = res[0]
         self.assertFalse(data["before"]["busy"], "plan_done 后已解锁（对照）")
+        self.assertEqual(data["before"]["title"], "报名计划完成", "对照：终态结论在计划栏")
         self.assertFalse(data["after"]["busy"],
                          "旧 running 快照不得复活已终态的计划")
         self.assertEqual(data["after"]["status"], "completed",

@@ -272,11 +272,59 @@ function cancelTask(taskId) {
   }).catch((err) => addLog("[X] 取消这一场失败：" + msg(err)));
 }
 
+/* 停止确认是计划栏里的遮罩弹层（原型 P19 stopAsk），不是原生 dialog：
+ * 打开时焦点落「继续计划」；Esc / 继续计划关闭并把焦点还给 #btn-stop；Tab 只在两个按钮间循环 */
+function stopAskOpen() {
+  const ask = $("#plan-stop-ask");
+  return !!ask && !ask.hidden;
+}
+
+function openStopAsk() {
+  const ask = $("#plan-stop-ask");
+  if (!ask || !ask.hidden) return;
+  ask.hidden = false;
+  $("#btn-stop-keep").focus();
+}
+
+function closeStopAsk(restoreFocus) {
+  const ask = $("#plan-stop-ask");
+  if (!ask || ask.hidden) return;
+  ask.hidden = true;
+  const opener = $("#btn-stop");
+  if (restoreFocus !== false && opener && !opener.disabled) opener.focus();
+}
+
+/* 弹层打开时的键盘：Esc 只关弹层（不停止、不穿透到清空选择）；Tab 在两个按钮间循环；
+ * Ctrl+F、/ 不抢焦点；Enter 交给当前按钮原生激活 */
+function stopAskKey(event) {
+  const key = event.key;
+  if (key === "Escape") { event.preventDefault(); closeStopAsk(true); return; }
+  if (key === "Tab") {
+    const keep = $("#btn-stop-keep");
+    const yes = $("#btn-stop-yes");
+    const order = [keep, yes];
+    const at = order.indexOf(document.activeElement);
+    const next = at < 0 ? (event.shiftKey ? yes : keep)
+      : order[(at + (event.shiftKey ? order.length - 1 : 1)) % order.length];
+    event.preventDefault();
+    next.focus();
+    return;
+  }
+  if ((event.ctrlKey && (key === "f" || key === "F")) || key === "/") event.preventDefault();
+}
+
 function stopPlan() {
   if (!S.plan.id) return;
-  /* 先确认再停：等待任务会取消、已提交任务可能已生效；Esc/继续等待都不触发停止 */
-  const dialog = $("#dlg-stop");
-  if (dialog && !dialog.open) dialog.showModal();
+  /* 先确认再停：等待任务会取消、已提交任务可能已生效；Esc/继续计划都不触发停止 */
+  openStopAsk();
+}
+
+/* 弹层里的「停止计划」：关弹层（不抢焦点，按钮随即变成「正在停止」）后走现有停止流程。
+ * 弹层开着时计划恰好结束或已在停止，就只关弹层，不再向后端重复发停止请求 */
+function confirmStopPlan() {
+  closeStopAsk(false);
+  if (!S.busy || S.stopping) return;
+  doStopPlan();
 }
 
 /* 等开放时「修改计划」（决策 014 第 6 条）：复用停止和重选，不改报名调度。
@@ -287,7 +335,8 @@ function modifyPlan() {
   S.plan.tasks.forEach((task) => {
     if (["queued", "waiting"].indexOf(String(task.status || "")) >= 0) keep.push(String(task.activity_id));
   });
-  S.editing = { ids: keep };
+  /* doneN：进入修改时已经结束的场次数，修改说明写「已结束的 N 场不受影响」（原型 modifyS） */
+  S.editing = { ids: keep, doneN: S.plan.tasks.size - keep.length };
   addLog("修改计划：先停下，改完要重新开始");
   doStopPlan();
 }
@@ -299,6 +348,7 @@ function reselectFailed() {
   S.selected.clear();
   ids.forEach((id) => S.selected.add(id));
   S.plan = { id: null, status: "idle", tasks: new Map() };
+  closeResultPage();
   S.selectionNotice = "";
   setResult(null);
   render();
@@ -306,6 +356,7 @@ function reselectFailed() {
 
 /* 结果页「完成，回到活动列表」：收起结果，回到空草稿；中、窄档顺便回到时刻表 */
 function finishResult() {
+  closeResultPage();
   clearSelection();
   if (typeof setPlanOpen === "function") setPlanOpen(false);
 }
