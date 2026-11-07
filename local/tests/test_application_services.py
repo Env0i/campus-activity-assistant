@@ -1608,5 +1608,319 @@ class LoginExpiredPushTests(unittest.TestCase):
         self.assertIn("回电脑或手机上重新登录", source)
 
 
+class _OnceSink:
+    """登录进程 stdin 替身：只在内存里记下发的行，绝不落盘。"""
+
+    def __init__(self):
+        self.written = []
+
+    def write(self, text):
+        self.written.append(str(text))
+
+    def flush(self):
+        pass
+
+
+class _OncePipe:
+    """登录进程 stdout 替身：测试推一行它吐一行，close 才给 EOF。"""
+
+    def __init__(self):
+        import queue
+        self._q = queue.Queue()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        item = self._q.get()
+        if item is None:
+            raise StopIteration
+        return item
+
+    def push(self, line):
+        self._q.put(line + "\n")
+
+    def close(self):
+        self._q.put(None)
+
+
+class _OnceWorker:
+    def __init__(self):
+        self.stdin = _OnceSink()
+        self.stdout = _OncePipe()
+
+    def terminate(self):
+        self.stdout.close()
+
+
+class _FakeCredentialStore:
+    """本机加密凭据的内存替身：记下有没有写过，绝不碰 DPAPI 和磁盘。"""
+
+    def __init__(self):
+        self.doc = None
+        self.bad = False
+        self.saves = 0
+
+    @staticmethod
+    def _protect(raw):
+        return raw
+
+    def has_credentials(self, _path):
+        return bool(self.doc)
+
+    def load(self, _path):
+        if not self.doc:
+            raise ValueError("没有保存的账号")
+        return dict(self.doc)
+
+    def stored_username(self, path):
+        return self.load(path)["username"]
+
+    def is_bad(self, _path):
+        return self.bad
+
+    def mark_bad(self, _path):
+        self.bad = True
+
+    def clear_bad(self, _path):
+        self.bad = False
+
+    def save(self, _path, username, password):
+        self.saves += 1
+        self.doc = {"username": str(username), "password": str(password)}
+        self.bad = False
+
+    def clear(self, _path):
+        self.doc = None
+        self.bad = False
+        return True
+
+
+class OnceCredentialAutoReloginTests(unittest.TestCase):
+    """冲突 5（settings-gap CR20）：只用这一次的账号密码在这次运行里也能自动登录。
+
+    学校、验证码识别、登录进程和本机加密存储全部替身；账号密码都是虚构的。
+    """
+
+    ONCE_USER = "once-user-77"
+    ONCE_PASS = "once-pw-fictional-9"
+    SAVED_USER = "saved-user-01"
+    SAVED_PASS = "saved-pw-fictional-3"
+
+    def setUp(self):
+        import shutil
+
+        try:
+            import app as local_app
+        except Exception as exc:  # pragma: no cover - 环境缺 pywebview 时跳过
+            self.skipTest("无法导入 local/app.py：%s" % exc)
+        self.local_app = local_app
+        tmp = tempfile.mkdtemp(prefix="campus-once-autologin-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        self.dir = Path(tmp)
+        self.data = self.dir / "data"
+        self.data.mkdir()
+        self.store = _FakeCredentialStore()
+        self.ocr = True
+        self.worker_commands = []
+        for patch in (
+            mock.patch.object(local_app, "PREFS", self.dir / "ui.json"),
+            mock.patch.object(local_app, "DEVICE_FILE", self.dir / "devices.json"),
+            mock.patch.object(local_app, "DATA_DIR", self.data),
+            mock.patch.object(local_app, "CREDENTIAL_FILE", self.data / "cred.json"),
+            mock.patch.object(local_app, "LOG_FILE", self.data / "grab.log"),
+            mock.patch.object(local_app, "ensure_data_dir", lambda: self.data),
+            mock.patch.object(local_app, "_credential_store", self.store),
+            mock.patch.object(local_app, "_CREDENTIAL_STORE_OK", None),
+            mock.patch.object(local_app, "worker_command",
+                              lambda *args: ["fake-worker"] + list(args)),
+            mock.patch.object(local_app, "DEMO", True),
+            mock.patch.object(local_app._advanced_features, "feature_ready",
+                              lambda *a, **k: self.ocr),
+            mock.patch.object(local_app._advanced_features, "module_available",
+                              lambda _module: False),
+            mock.patch.object(local_app._tunnel_manager, "tailscale_endpoint",
+                              lambda *a, **k: {"available": False, "error": "tailscale_missing",
+                                               "state": "missing", "text": "没装"}),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.api = stop_auto_relogin_on_cleanup(self, local_app.Api())
+        self.api._phone = FakePhoneService()
+        self.addCleanup(self.api.shutdown)
+        # 构造完才放开 DEMO：自动登录在演示模式下一律没资格。这个补丁最后登记、
+        # 最先收回，shutdown 时 DEMO 已回到 True，不写任何生命周期记录
+        demo = mock.patch.object(local_app, "DEMO", False)
+        demo.start()
+        self.addCleanup(demo.stop)
+        self.api._terms_gate = lambda: None
+        self.events = []
+        self.api._emit = lambda kind, payload: self.events.append((kind, payload))
+        self.workers = []
+        self._wire_relay(self.api._relay)
+
+    def _wire_relay(self, relay):
+        relay._emit = self.api._emit
+
+        def spawn(_args):
+            worker = _OnceWorker()
+            self.workers.append(worker)
+            return worker
+        relay._spawn = spawn
+
+    def _stage_once(self):
+        result = self.api.prepare_phone_relogin(self.ONCE_USER, self.ONCE_PASS, save=False)
+        self.assertTrue(result["ok"], result)
+
+    def _save(self):
+        self.store.doc = {"username": self.SAVED_USER, "password": self.SAVED_PASS}
+
+    def _sent_credentials(self):
+        self.assertTrue(self.workers, "应该已经起了一个登录进程")
+        first = json.loads(self.workers[-1].stdin.written[0])
+        self.assertEqual(first["kind"], "credentials")
+        return first
+
+    def _wait(self, predicate, what):
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if predicate():
+                return
+            time.sleep(0.02)
+        self.fail("等不到：%s" % what)
+
+    def _fail_with_bad_password(self, flow_id):
+        worker = self.workers[-1]
+        worker.stdout.push("[login] " + json.dumps(
+            {"kind": "failed", "flow_id": flow_id, "error": "bad_password"}))
+        worker.stdout.close()
+        self._wait(lambda: not self.api._relay.state()["live"], "这一场结束")
+        self._wait(lambda: self.api._once_creds_rejected, "收尾回调记下密码不对")
+
+    # ---------- 资格 ----------
+    def test_only_this_run_with_ocr_enabled_is_eligible(self):
+        self.assertFalse(self.api._auto_relogin_eligible(), "什么账号都没有时没资格")
+        self._stage_once()
+        self.assertTrue(self.api._auto_relogin_eligible(),
+                        "只用这一次的账号 + 识别已启用，就和保存过一样能自动登录")
+        self.assertEqual(self.api._relogin_wait_s(), self.local_app.RELOGIN_WAIT_S,
+                         "电脑能自己登录，报名进程就该等它")
+
+    def test_only_this_run_without_ocr_is_not_eligible(self):
+        self.ocr = False
+        self._stage_once()
+        self.assertFalse(self.api._auto_relogin_eligible(), "识别没启用这一条不放宽")
+        self.assertEqual(self.api._relogin_wait_s(), 0.0)
+
+    def test_saved_copy_staged_for_the_phone_is_not_a_this_run_credential(self):
+        self._save()
+        self.assertTrue(self.api.prepare_phone_relogin()["ok"], "不带输入时暂存的是保存的账号")
+        self.store.doc = None
+        self.assertTrue(self.api._relay.has_staged())
+        self.assertFalse(self.api._auto_relogin_eligible(),
+                         "暂存区里保存账号的副本不算「只用这一次」（be-fields A3）")
+
+    # ---------- 取哪一份 ----------
+    def test_only_this_run_is_used_when_nothing_is_saved(self):
+        self._stage_once()
+        result = self.api._begin_auto_relogin_once()
+        self.assertTrue(result["ok"], result)
+        sent = self._sent_credentials()
+        self.assertEqual(sent["username"], self.ONCE_USER)
+        self.assertEqual(sent["password"], self.ONCE_PASS)
+        self.assertEqual(self.api._relay_creds_source, "typed")
+        self.assertEqual(self.store.saves, 0, "只用这一次的账号不落盘")
+        self.api._relay.cancel()
+
+    def test_saved_credential_wins_when_both_are_present(self):
+        self._stage_once()
+        self._save()
+        self.assertTrue(self.api._auto_relogin_eligible())
+        result = self.api._begin_auto_relogin_once()
+        self.assertTrue(result["ok"], result)
+        sent = self._sent_credentials()
+        self.assertEqual(sent["username"], self.SAVED_USER, "两者都有时以保存的为准")
+        self.assertEqual(sent["password"], self.SAVED_PASS)
+        self.assertEqual(self.api._relay_creds_source, "saved")
+        self.api._relay.cancel()
+
+    # ---------- 学校说密码错 ----------
+    def test_wrong_password_pauses_and_clears_the_this_run_credential(self):
+        self._stage_once()
+        result = self.api._begin_auto_relogin_once()
+        self.assertTrue(result["ok"], result)
+        self._fail_with_bad_password(result["flow_id"])
+        self.assertFalse(self.api._relay.has_staged(), "内存里那份被清掉，绝不再试")
+        self.assertFalse(self.store.bad, "没有保存的账号，不在磁盘上留暂停标记")
+        self.assertTrue(self.api._auto_relogin_paused(), "进入「暂停到更新密码」")
+        self.assertFalse(self.api._auto_relogin_eligible())
+        self.assertEqual(self.api._relogin_wait_s(), 0.0)
+        self.assertEqual(self.api._begin_auto_relogin_once()["error"], "bad_password")
+        spawned = len(self.workers)
+        self.api._auto_relogin.observe_check("expired")
+        self.api._auto_relogin.request_recover()
+        self.api._auto_relogin.tick()
+        self.assertEqual(self.api._auto_relogin.snapshot()["state"], "paused")
+        self.assertEqual(len(self.workers), spawned, "暂停时不再起登录进程")
+        # 用户输入新的账号密码才解除
+        self._stage_once()
+        self.assertFalse(self.api._auto_relogin_paused())
+        self.assertTrue(self.api._auto_relogin_eligible())
+
+    def test_saving_a_new_password_also_lifts_the_pause(self):
+        self._stage_once()
+        result = self.api._begin_auto_relogin_once()
+        self._fail_with_bad_password(result["flow_id"])
+        self.assertTrue(self.api._auto_relogin_paused())
+        with mock.patch.object(self.local_app, "_credential_store_available", lambda: True):
+            self.assertTrue(self.api.save_relogin_credentials(
+                self.SAVED_USER, self.SAVED_PASS)["ok"])
+        self.assertFalse(self.api._auto_relogin_paused())
+        self.assertTrue(self.api._auto_relogin_eligible())
+
+    # ---------- 进程退出 / 中继服务重建 ----------
+    def test_eligibility_disappears_when_the_relay_goes_away(self):
+        from application.login_relay_service import LoginRelayService
+
+        self._stage_once()
+        self.assertTrue(self.api._auto_relogin_eligible())
+        old = self.api._relay
+        rebuilt = LoginRelayService(spawn=lambda _args: _OnceWorker(), now=time.monotonic)
+        self.addCleanup(rebuilt.shutdown)
+        self.api._relay = rebuilt
+        old.shutdown()
+        self.assertEqual(self.api._relay_creds_source, "typed", "来源标签还在，账号已经没了")
+        self.assertFalse(self.api._auto_relogin_eligible(), "中继服务重建后资格消失")
+        self.api._relay = old
+        self.assertFalse(old.has_staged(), "关闭收尾清掉了暂存")
+        self.assertFalse(self.api._auto_relogin_eligible(), "程序退出（shutdown）后资格消失")
+
+    # ---------- 不落盘、不进日志、不进快照 ----------
+    def test_password_never_reaches_logs_snapshots_or_disk(self):
+        self._stage_once()
+        self.assertTrue(self.api._auto_relogin_eligible())
+        result = self.api._begin_auto_relogin()
+        self.assertTrue(result["ok"], result)
+        live = [self.api.advanced_features_state(), self.api.phone_access_state(),
+                self.api._phone_raw_state(), self.api._auto_relogin.snapshot()]
+        self._fail_with_bad_password(result["flow_id"])
+        after = [self.api.advanced_features_state(), self.api.phone_access_state(),
+                 self.api._phone_raw_state(), self.api._auto_relogin.snapshot()]
+        dump = json.dumps(live + after + [list(self.events)], ensure_ascii=False, default=str)
+        self.assertNotIn(self.ONCE_PASS, dump, "快照与界面事件里出现了密码")
+        self.assertNotIn(self.ONCE_USER, dump, "快照与界面事件里只许出现打码账号")
+        log = self.data / "grab.log"
+        self.assertTrue(log.is_file(), "自动登录的发起与失败应该写了日志行")
+        log_text = log.read_text(encoding="utf-8")
+        self.assertIn("auto_relogin_started", log_text)
+        self.assertNotIn(self.ONCE_PASS, log_text)
+        self.assertNotIn(self.ONCE_USER, log_text)
+        self.assertEqual(self.store.saves, 0, "只用这一次的账号没有写进加密存储")
+        for item in self.dir.rglob("*"):
+            if item.is_file():
+                self.assertNotIn(self.ONCE_PASS, item.read_text(encoding="utf-8", errors="replace"),
+                                 "临时目录里的文件出现了密码")
+
+
 if __name__ == "__main__":
     unittest.main()

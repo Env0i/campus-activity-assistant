@@ -762,11 +762,14 @@ class Api:
         # 这一场登录用的是谁的账号密码：saved=电脑上保存的，typed=这次手输的
         # （只在内存里，勾了保存才在成功后写盘）。决定失败时要不要暂停自动登录。
         self._relay_creds_source = ""
+        # 冲突 5（CR20）：只用这一次的账号被学校说密码不对。只在内存里，退出即丢；
+        # 没有保存的账号时据此暂停自动登录，直到用户输入或保存新的账号密码。
+        self._once_creds_rejected = False
         self._pending_save: dict | None = None
         self._auto_relogin = AutoReloginMonitor(
             now=time.monotonic, check=self.check, start=self._begin_auto_relogin,
             eligible=self._auto_relogin_eligible, state=self._relay.state,
-            paused=lambda: _credential_store.is_bad(CREDENTIAL_FILE))
+            paused=self._auto_relogin_paused)
         if not DEMO:
             self._auto_relogin.start()
 
@@ -1494,6 +1497,8 @@ class Api:
         try:
             with self._credential_lock:
                 _credential_store.save(CREDENTIAL_FILE, user, secret)
+                with self._lock:
+                    self._once_creds_rejected = False
                 self._auto_relogin.reset()
         except Exception as exc:  # noqa: BLE001
             return {"ok": False, "error": "credential_save_failed",
@@ -1504,6 +1509,8 @@ class Api:
         with self._credential_lock:
             _credential_store.clear(CREDENTIAL_FILE)
             self._relay.clear_staged()
+            with self._lock:
+                self._once_creds_rejected = False
             self._relay.cancel(origin="auto")
             self._auto_relogin.reset()
         return {"ok": True, "saved": False}
@@ -1515,9 +1522,34 @@ class Api:
             if (self._closing or self._advanced_busy or self._checking or self._listing
                     or self._relogin_blocked_locked()):
                 return False
+        # 冲突 5（CR20）：保存过的账号，或这次运行内存里「只用这一次」的账号，有其一即可；
+        # 其余条件（条款、识别已启用、计划阶段、暂停）一条不放宽
         return bool(_advanced_features.feature_ready(
             load_prefs(), _advanced_features.RELOGIN_OCR, root=DATA_DIR)
-            and _credential_store.has_credentials(CREDENTIAL_FILE))
+            and (_credential_store.has_credentials(CREDENTIAL_FILE)
+                 or self._once_credentials_staged()))
+
+    def _once_credentials_staged(self) -> bool:
+        """这次运行内存里有没有「只用这一次」（手输、没保存）的账号密码。
+
+        只认手输来源：中继暂存区也可能放着「手机重登用保存账号预备」的副本
+        （be-fields A3），那份不算这次的。只读布尔，不碰账号密码本身。
+        """
+        with self._lock:
+            typed = self._relay_creds_source == "typed"
+        return typed and self._relay.has_staged()
+
+    def _auto_relogin_paused(self) -> bool:
+        """自动登录该不该暂停到用户更新密码。
+
+        保存的密码被学校拒绝过（落盘标记）照旧暂停；没有保存的账号、只用这一次的
+        那份被拒绝过（内存标记）也暂停。有保存的账号时以保存的为准，内存标记不管。
+        """
+        if _credential_store.is_bad(CREDENTIAL_FILE):
+            return True
+        with self._lock:
+            rejected = self._once_creds_rejected
+        return rejected and not _credential_store.has_credentials(CREDENTIAL_FILE)
 
     def _relogin_blocked_locked(self) -> bool:
         """计划运行中什么时候不该自动登录（决策 015）。调用方持 self._lock。
@@ -1543,10 +1575,12 @@ class Api:
             return 0.0
         try:
             # 保存的密码被学校拒绝过：自动登录已暂停，报名进程等了也白等
+            # 只用这一次的账号也算电脑能自己登录（冲突 5），与 _auto_relogin_eligible 同口径
             ready = bool(_advanced_features.feature_ready(
                 load_prefs(), _advanced_features.RELOGIN_OCR, root=DATA_DIR)
-                and _credential_store.has_credentials(CREDENTIAL_FILE)
-                and not _credential_store.is_bad(CREDENTIAL_FILE))
+                and (_credential_store.has_credentials(CREDENTIAL_FILE)
+                     or self._once_credentials_staged())
+                and not self._auto_relogin_paused())
         except Exception:
             return 0.0
         return RELOGIN_WAIT_S if ready else 0.0
@@ -1643,18 +1677,26 @@ class Api:
 
     def _begin_auto_relogin_once(self) -> dict:
         with self._credential_lock:
-            if _credential_store.is_bad(CREDENTIAL_FILE):
+            if self._auto_relogin_paused():
                 return {"ok": False, "error": "bad_password"}
             if not self._auto_relogin_eligible():
                 return {"ok": False, "error": "busy"}
             stored = {}
             try:
-                stored = _credential_store.load(CREDENTIAL_FILE)
-                result = self._relay.prepare(stored["username"], stored["password"])
-                if not result.get("ok"):
-                    return result
+                if _credential_store.has_credentials(CREDENTIAL_FILE):
+                    # 有保存的用保存的（两者都有时以保存的为准）
+                    stored = _credential_store.load(CREDENTIAL_FILE)
+                    result = self._relay.prepare(stored["username"], stored["password"])
+                    if not result.get("ok"):
+                        return result
+                    source = "saved"
+                elif self._once_credentials_staged():
+                    # 没保存、只有这次的：直接用中继内存里那份，不取出、不复制、不落盘
+                    source = "typed"
+                else:
+                    return {"ok": False, "error": "needs_local_setup"}
                 with self._lock:
-                    self._relay_creds_source = "saved"
+                    self._relay_creds_source = source
                     self._pending_save = None
                 manual = int(self._auto_relogin.snapshot().get("failures") or 0) >= _MANUAL_RELOGIN_AFTER
                 return self._relay.begin(origin="auto", worker_command=worker_command("login"),
@@ -3154,6 +3196,9 @@ class Api:
         if result.get("ok"):
             with self._lock:
                 self._relay_creds_source = "typed" if typed else "saved"
+                if typed:
+                    # 用户输了新的账号密码：解除只用这一次那份被拒后的暂停
+                    self._once_creds_rejected = False
                 self._pending_save = ({"username": user, "password": secret}
                                       if typed and save else None)
         user = ""
@@ -3376,8 +3421,11 @@ class Api:
                     pass
                 self._emit("log", "保存的密码学校不认，自动登录已暂停；到设置里换成新密码。")
             else:
-                # 手输的密码不对：内存里这份作废，下次要重新输
+                # 手输的密码不对：内存里这份作废，下次要重新输；没有保存的账号时
+                # 自动登录同样暂停到用户更新密码（冲突 5），绝不拿这份再试
                 self._relay.clear_staged()
+                with self._lock:
+                    self._once_creds_rejected = True
         if last.get("origin") == "auto" and last.get("state") in ("failed", "canceled"):
             self._log_event("auto_relogin_failed", level="WARN",
                             reason=str(last.get("safe_error") or last.get("state") or "unknown"),
