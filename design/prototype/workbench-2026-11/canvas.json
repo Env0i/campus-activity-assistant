@@ -472,84 +472,84 @@
     },
     "PreWarn.dc.html": {
       "x": 0,
-      "y": 15112,
+      "y": 15272,
       "w": 1280,
       "h": 800,
       "title": "开始前提醒（只提醒不拦）"
     },
     "NetOff.dc.html": {
       "x": 1360,
-      "y": 15112,
+      "y": 15272,
       "w": 1280,
       "h": 800,
       "title": "计划运行中断网"
     },
     "Slept.dc.html": {
       "x": 2720,
-      "y": 15112,
+      "y": 15272,
       "w": 1280,
       "h": 800,
       "title": "电脑睡眠错过了开放"
     },
     "Broken.dc.html": {
       "x": 4080,
-      "y": 15112,
+      "y": 15272,
       "w": 1280,
       "h": 800,
       "title": "程序组件缺失"
     },
     "HelpKeys.dc.html": {
       "x": 5440,
-      "y": 15112,
+      "y": 15272,
       "w": 1280,
       "h": 800,
       "title": "帮助里的键盘快捷键"
     },
     "LongName.dc.html": {
       "x": 6800,
-      "y": 15112,
+      "y": 15272,
       "w": 1280,
       "h": 800,
       "title": "超长活动名和地点"
     },
     "NarrowPop.dc.html": {
       "x": 0,
-      "y": 16032,
+      "y": 16192,
       "w": 430,
       "h": 820,
       "title": "窄窗口：详情卡铺满宽度"
     },
     "NarrowWarn.dc.html": {
       "x": 510,
-      "y": 16032,
+      "y": 16192,
       "w": 430,
       "h": 820,
       "title": "窄窗口：有提醒时先看计划再开始"
     },
     "ZeroAct.dc.html": {
       "x": 0,
-      "y": 16952,
+      "y": 17112,
       "w": 1280,
       "h": 800,
       "title": "学校没返回活动"
     },
     "ClockHold.dc.html": {
       "x": 1360,
-      "y": 16952,
+      "y": 17112,
       "w": 1280,
       "h": 800,
       "title": "沿用上次校准"
     },
     "RunExpired.dc.html": {
       "x": 2720,
-      "y": 16952,
+      "y": 17112,
       "w": 1280,
       "h": 800,
       "title": "运行中登录失效"
     },
     "ToastMin.dc.html": {
       "x": 4080,
-      "y": 16952,
+      "y": 17112,
       "w": 1280,
       "h": 800,
       "title": "后台结束的通知",
@@ -557,7 +557,7 @@
     },
     "RunPhone.dc.html": {
       "x": 5440,
-      "y": 16952,
+      "y": 17112,
       "w": 1280,
       "h": 800,
       "title": "从手机开始的计划"
@@ -587,22 +587,281 @@
       "x": 6800,
       "y": 13032,
       "w": 1280,
-      "h": 1580,
+      "h": 2120,
       "title": "实现备注"
     },
     "RunAuto.dc.html": {
       "x": 6800,
-      "y": 16952,
+      "y": 17112,
       "w": 1280,
       "h": 800,
       "title": "等开放时自动登录"
     },
     "RunClick.dc.html": {
       "x": 8160,
-      "y": 16952,
+      "y": 17112,
       "w": 1280,
       "h": 800,
       "title": "本场改用页面点击"
+    },
+    "ListErr.dc.html": {
+      "x": 0,
+      "y": 18032,
+      "w": 1280,
+      "h": 800,
+      "title": "活动列表加载失败"
+    },
+    "ClockDown.dc.html": {
+      "x": 1360,
+      "y": 18032,
+      "w": 1280,
+      "h": 800,
+      "title": "北京时间没校准"
+    },
+    "Expired.dc.html": {
+      "x": 2720,
+      "y": 18032,
+      "w": 1280,
+      "h": 800,
+      "title": "登录已失效"
+    },
+    "Normal.dc.html": {
+      "x": 4080,
+      "y": 18032,
+      "w": 1280,
+      "h": 800,
+      "title": "常态：还没选活动"
+    },
+    "StopAsk.dc.html": {
+      "x": 5440,
+      "y": 18032,
+      "w": 1280,
+      "h": 800,
+      "title": "停止计划前确认"
+    },
+    "Stopped.dc.html": {
+      "x": 6800,
+      "y": 18032,
+      "w": 1280,
+      "h": 800,
+      "title": "停止后的逐场结果"
+    },
+    "CompAfter.dc.html": {
+      "x": 0,
+      "y": 18952,
+      "w": 1280,
+      "h": 800,
+      "title": "组件已装：位置与验证码识别未启用"
+    },
+    "CompNoSize.dc.html": {
+      "x": 1360,
+      "y": 18952,
+      "w": 1280,
+      "h": 800,
+      "title": "读不到发布页：大小以发布页为准"
+    },
+    "CredOcrOff.dc.html": {
+      "x": 2720,
+      "y": 18952,
+      "w": 1280,
+      "h": 800,
+      "title": "登录恢复：验证码识别已装未启用"
+    },
+    "Filters.dc.html": {
+      "x": 0,
+      "y": 19872,
+      "w": 1280,
+      "h": 800,
+      "title": "更多筛选展开"
+    },
+    "NoResult.dc.html": {
+      "x": 1360,
+      "y": 19872,
+      "w": 1280,
+      "h": 800,
+      "title": "搜索没有结果"
+    },
+    "Conflict.dc.html": {
+      "x": 2720,
+      "y": 19872,
+      "w": 1280,
+      "h": 800,
+      "title": "时间重叠，保留原选择"
+    },
+    "Policy.dc.html": {
+      "x": 4080,
+      "y": 19872,
+      "w": 1280,
+      "h": 800,
+      "title": "修改尝试时长与次数"
+    },
+    "LogOpen.dc.html": {
+      "x": 5440,
+      "y": 19872,
+      "w": 1280,
+      "h": 800,
+      "title": "运行记录展开"
+    },
+    "PhStopAsk.dc.html": {
+      "x": 6800,
+      "y": 19872,
+      "w": 1280,
+      "h": 800,
+      "title": "关闭手机访问前确认"
+    },
+    "PhAddPair.dc.html": {
+      "x": 8160,
+      "y": 19872,
+      "w": 1280,
+      "h": 800,
+      "title": "再配对一台手机"
+    },
+    "CredClear.dc.html": {
+      "x": 0,
+      "y": 20792,
+      "w": 1280,
+      "h": 800,
+      "title": "清除已保存账号前确认"
+    },
+    "PhFail.dc.html": {
+      "x": 1360,
+      "y": 20792,
+      "w": 1280,
+      "h": 800,
+      "title": "手机控制组件下载失败"
+    },
+    "RlCapBad.dc.html": {
+      "x": 2720,
+      "y": 20792,
+      "w": 1280,
+      "h": 800,
+      "title": "重新登录：验证码认错"
+    },
+    "TermsUnknown.dc.html": {
+      "x": 4080,
+      "y": 20792,
+      "w": 1280,
+      "h": 800,
+      "title": "条款状态没能确认"
+    },
+    "SecondRun.dc.html": {
+      "x": 5440,
+      "y": 20792,
+      "w": 1280,
+      "h": 800,
+      "title": "又打开了一次（只运行一份）"
+    },
+    "Migrated.dc.html": {
+      "x": 6800,
+      "y": 20792,
+      "w": 1280,
+      "h": 800,
+      "title": "旧版本数据已搬到新位置"
+    },
+    "MigrateFail.dc.html": {
+      "x": 8160,
+      "y": 20792,
+      "w": 1280,
+      "h": 800,
+      "title": "旧登录信息没能搬过来"
+    },
+    "NarrowResult.dc.html": {
+      "x": 0,
+      "y": 21712,
+      "w": 430,
+      "h": 820,
+      "title": "窄窗口：计划结果"
+    },
+    "NarrowSettings.dc.html": {
+      "x": 510,
+      "y": 21712,
+      "w": 430,
+      "h": 820,
+      "title": "窄窗口：设置"
+    },
+    "PhoneSearch.dc.html": {
+      "x": 1020,
+      "y": 21712,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：搜索"
+    },
+    "PhoneStop.dc.html": {
+      "x": 1490,
+      "y": 21712,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：停止计划前确认"
+    },
+    "PhoneCancel.dc.html": {
+      "x": 1960,
+      "y": 21712,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：取消这一场前确认"
+    },
+    "PhonePairFail.dc.html": {
+      "x": 2430,
+      "y": 21712,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：配对码输错"
+    },
+    "PhonePcList.dc.html": {
+      "x": 2900,
+      "y": 21712,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：电脑上的列表没加载"
+    },
+    "PhonePcClock.dc.html": {
+      "x": 3370,
+      "y": 21712,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：电脑上的北京时间没校准"
+    },
+    "Login.dc.html": {
+      "x": 0,
+      "y": 22676,
+      "w": 1280,
+      "h": 800,
+      "title": "登录：在这里输入账号密码"
+    },
+    "LoginBrowser.dc.html": {
+      "x": 1360,
+      "y": 22676,
+      "w": 1280,
+      "h": 800,
+      "title": "登录：选用学校登录页"
+    },
+    "LoginWait.dc.html": {
+      "x": 2720,
+      "y": 22676,
+      "w": 1280,
+      "h": 800,
+      "title": "登录：等在学校登录页登完"
+    },
+    "LoginCap.dc.html": {
+      "x": 4080,
+      "y": 22676,
+      "w": 1280,
+      "h": 800,
+      "title": "登录：下一步输验证码"
+    },
+    "LoginBad.dc.html": {
+      "x": 5440,
+      "y": 22676,
+      "w": 1280,
+      "h": 800,
+      "title": "登录：账号或密码不对"
+    },
+    "NarrowLogin.dc.html": {
+      "x": 6800,
+      "y": 22676,
+      "w": 430,
+      "h": 820,
+      "title": "窄窗口：登录"
     }
   },
   "order": [
@@ -688,7 +947,44 @@
     "PhoneReviewWarn.dc.html",
     "Medium.dc.html",
     "MediumRun.dc.html",
-    "ImplNotes.dc.html"
+    "ImplNotes.dc.html",
+    "ListErr.dc.html",
+    "ClockDown.dc.html",
+    "Expired.dc.html",
+    "Normal.dc.html",
+    "StopAsk.dc.html",
+    "Stopped.dc.html",
+    "CompAfter.dc.html",
+    "CompNoSize.dc.html",
+    "CredOcrOff.dc.html",
+    "Filters.dc.html",
+    "NoResult.dc.html",
+    "Conflict.dc.html",
+    "Policy.dc.html",
+    "LogOpen.dc.html",
+    "PhStopAsk.dc.html",
+    "PhAddPair.dc.html",
+    "CredClear.dc.html",
+    "PhFail.dc.html",
+    "RlCapBad.dc.html",
+    "TermsUnknown.dc.html",
+    "SecondRun.dc.html",
+    "Migrated.dc.html",
+    "MigrateFail.dc.html",
+    "NarrowResult.dc.html",
+    "NarrowSettings.dc.html",
+    "PhoneSearch.dc.html",
+    "PhoneStop.dc.html",
+    "PhoneCancel.dc.html",
+    "PhonePairFail.dc.html",
+    "PhonePcList.dc.html",
+    "PhonePcClock.dc.html",
+    "Login.dc.html",
+    "LoginBrowser.dc.html",
+    "LoginWait.dc.html",
+    "LoginCap.dc.html",
+    "LoginBad.dc.html",
+    "NarrowLogin.dc.html"
   ],
   "notes": {},
   "designSystems": []

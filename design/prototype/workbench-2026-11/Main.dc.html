@@ -50,7 +50,7 @@ body{margin:0}
 .btn-stop{background:var(--bad);color:#fff}.btn-stop:hover:not(:disabled){background:#9a2a20}
 .btn:disabled{opacity:.45}
 .banner{flex:none;display:flex;align-items:center;gap:.625rem;min-height:2.25rem;margin:0 1rem .625rem;padding:.375rem .5rem .375rem .75rem;border-radius:8px;background:var(--warn-tint);color:#6b4100;box-shadow:inset 0 0 0 1px #e9c98a}
-.banner.bad{background:var(--bad-tint);color:#7e2119;box-shadow:inset 0 0 0 1px #ebb4ad}
+.banner.bad{background:var(--bad-tint);color:#7e2119;box-shadow:inset 0 0 0 1px #ebb4ad}.banner.note{background:var(--paper);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line-2)}.banner.note b{color:var(--ink)}
 .banner .grow{flex:1;min-width:0}.banner b{font-weight:700;margin-right:.25rem}
 .banner .btn{height:1.625rem;padding:0 .5rem;font-size:.75rem}
 .main{flex:1 1 auto;min-height:0;display:flex;gap:.75rem;padding:0 1rem}
@@ -96,7 +96,7 @@ body{margin:0}
 .ct-t{font:600 1.5rem var(--n);font-stretch:85%;font-variant-numeric:tabular-nums}
 .ct-t.txt{font:400 .8125rem var(--ui);color:var(--ink-3)}
 .ct-d{color:var(--ink-3);font-size:.75rem}
-.c-main{min-width:0}
+.c-main{min-width:0}.nl{display:flex;align-items:flex-start;gap:.5rem;min-width:0}.nl .name{flex:1;min-width:0}.rw{display:flex;flex:none;gap:.25rem;margin-top:.0625rem}.rw-c{padding:0 .375rem;border-radius:4px;background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2);font-size:.6875rem;line-height:1.25rem;white-space:nowrap}.rw-c b{margin:0 .125rem;color:var(--ink);font:600 .75rem var(--n);font-variant-numeric:tabular-nums}.rw-c b:empty{display:none}.rw-c.pt{min-width:3.125rem;text-align:center}.rw-c.wg{min-width:3.75rem;text-align:center}.rw-c b:first-child{margin-left:0}.rw-c.pt b{margin-right:.1875rem}.rw-c.wg b{margin-left:.1875rem}.rw-c.na{color:var(--ink-3);box-shadow:none}.rw-p{color:var(--warn);font-size:.6875rem;line-height:1.25rem;white-space:nowrap}.rw-i{padding:0 .3125rem;border-radius:4px;background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);font-size:.6875rem;line-height:1.25rem;white-space:nowrap;font-variant-numeric:tabular-nums}.rw-i.p{background:transparent;box-shadow:none;color:var(--warn)}.row.sel .rw-c,.row.sel .rw-i:not(.p){background:var(--paper)}.row.dim .rw-c{opacity:.72}
 .name{display:-webkit-box;overflow:hidden;font-size:.875rem;font-weight:600;line-height:1.4;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .sub{display:flex;flex-wrap:wrap;align-items:center;gap:.125rem .5rem;margin-top:.125rem;color:var(--ink-2);font-size:.75rem}
 .it{font:600 .8125rem var(--n);color:var(--ink)}
@@ -125,7 +125,7 @@ body{margin:0}
 .empty svg{width:4.75rem;height:3.25rem;color:var(--ink-3);fill:none;stroke:currentColor;stroke-width:2}
 .empty svg .f{fill:currentColor;stroke:none}
 .empty h3{margin:.25rem 0 0;font-size:1rem;font-weight:700}
-.empty p{max-width:21rem;margin:0 0 .375rem;color:var(--ink-2);font-size:.75rem}
+.empty p{max-width:21rem;margin:0 0 .375rem;color:var(--ink-2);font-size:.75rem;text-wrap:balance}
 .skel{display:grid;column-gap:.875rem;align-items:center;height:3.5rem;padding:0 .75rem;border-bottom:1px solid var(--line)}
 .skel i{display:block;height:.75rem;border-radius:4px;background:linear-gradient(90deg,#edf0f3,#f6f8fa,#edf0f3) 0 0/200% 100%;animation:shimmer 1.4s linear infinite}
 .skel i:nth-child(2){height:1.125rem;width:3rem}.skel i:nth-child(3){width:70%}.skel i:last-child{width:3.75rem;justify-self:end}
@@ -231,7 +231,7 @@ body{margin:0}
 .kv dt{color:var(--ink-3)}.kv dd{margin:0;text-align:right}
 .scrim{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(17,29,38,.38)}
 .dlg{display:flex;flex-direction:column;width:min(38rem,100%);max-height:100%;overflow:hidden;border:1px solid var(--line);border-radius:14px;background:var(--paper);color:var(--ink);box-shadow:0 24px 70px rgba(24,55,45,.2)}
-.dlg.sm{width:min(26rem,100%)}
+.dlg.sm{width:min(26rem,100%)}.dlg.rl-dlg{width:min(28rem,100%)}.dlg.rl-dlg.wide{width:min(32rem,100%)}.lg-way{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:0 0 1rem}.lg-opt{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:.625rem;row-gap:.0625rem;min-height:3.75rem;padding:.625rem .75rem;border:0;border-radius:10px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:box-shadow .15s,background .15s}.lg-opt:hover{box-shadow:inset 0 0 0 1px var(--ink-3)}.lg-opt:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.lg-opt .lg-ic{grid-row:span 2;display:grid;place-items:center;width:2.125rem;height:2.125rem;border-radius:8px;background:var(--paper-2);color:var(--ink-2)}.lg-opt .lg-ic svg{width:1.125rem;height:1.125rem}.lg-opt b{font-size:.8125rem;line-height:1.35}.lg-opt small{color:var(--ink-3);font-size:.6875rem;line-height:1.45}.lg-opt.on,.lg-opt.on:hover{background:var(--blue-tint);box-shadow:inset 0 0 0 2px var(--blue)}.lg-opt.on .lg-ic{background:var(--paper);color:var(--blue)}.lg-form{display:grid;gap:.625rem}.lg-f{display:grid;gap:.25rem;color:var(--ink-2);font-size:.75rem}.lg-f input{width:100%;height:2.375rem;padding:0 .75rem;border:0;border-radius:8px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink);font:500 .875rem var(--ui)}.lg-f input:focus{outline:0;box-shadow:inset 0 0 0 2px var(--blue)}.lg-pw{position:relative;display:block}.lg-pw input{padding-right:2.625rem}.lg-eye{position:absolute;top:50%;right:.25rem;display:grid;place-items:center;width:2rem;height:2rem;margin-top:-1rem;border:0;border-radius:6px;background:none;color:var(--ink-3);cursor:pointer}.lg-eye:hover{background:var(--paper-2);color:var(--ink)}.lg-eye svg{width:1.0625rem;height:1.0625rem}.lg-save{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:.5rem;align-items:start;padding:.625rem .75rem;border-radius:8px;background:var(--paper-2);cursor:pointer}.lg-save input{width:.9375rem;height:.9375rem;margin:.125rem 0 0;accent-color:var(--blue)}.lg-save b{display:block;font-size:.8125rem;font-weight:600;line-height:1.4}.lg-save small{display:block;margin-top:.125rem;color:var(--ink-3);font-size:.6875rem;line-height:1.5}.lg-facts{display:grid;gap:.3125rem;margin:.875rem 0 0;padding:.75rem 0 0;border-top:1px dashed var(--line-2);list-style:none;color:var(--ink-2);font-size:.75rem}.lg-facts li{display:grid;grid-template-columns:.875rem minmax(0,1fr);column-gap:.4375rem;line-height:1.5}.lg-facts svg{width:.875rem;height:.875rem;margin-top:.1875rem;color:var(--ok)}.lg-way+.lg-facts{margin-top:0;padding-top:0;border-top:0}.dlg-b .rl-spin{margin-bottom:.375rem}.lg-trade{margin:.75rem 0 0;padding:.5rem .625rem;border-radius:6px;background:var(--warn-tint);color:var(--warn);font-size:.75rem;line-height:1.5}
 .dlg-h{flex:none;padding:1.125rem 1.375rem;background:var(--dots),var(--board);color:var(--on)}
 .dlg-h h2{margin:0;padding-left:.6875rem;border-left:3px solid var(--amber);font-size:1.125rem;line-height:1.3}
 .dlg-h p{margin:.375rem 0 0;color:var(--on-2);font-size:.75rem}
@@ -262,7 +262,7 @@ body{margin:0}
 .set{padding:.75rem 1.375rem;background:var(--paper);border-bottom:1px solid var(--line)}
 .set-h{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
 .set-h b{font-size:.8125rem;font-weight:700}
-.set p{margin:.25rem 0 0;color:var(--ink-2);font-size:.75rem}
+.set p{margin:.25rem 0 0;color:var(--ink-2);font-size:.75rem}.app p,.app .note-w,.banner .grow{text-wrap:pretty}
 .set select{height:2rem;padding:0 .375rem;border:0;border-radius:8px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);font-weight:600}
 .sw{appearance:none;position:relative;flex:none;width:2.25rem;height:1.25rem;margin:0;border-radius:999px;background:var(--line-2);cursor:pointer;transition:background-color .12s}
 .sw::before{content:"";position:absolute;top:2px;left:2px;width:1rem;height:1rem;border-radius:50%;background:#fff;transition:transform .12s}
@@ -276,12 +276,13 @@ body{margin:0}
 .set p.ph-ok{margin-top:.625rem;padding:.4375rem .625rem;border-radius:6px;background:var(--ok-tint);color:var(--ok)}
 .set p.ph-warn{margin-top:.625rem;color:var(--warn)}
 .set p.ph-note{margin-top:.5rem}
+.loc{display:flex;flex-wrap:wrap;align-items:center;gap:.375rem .625rem;margin-top:.5rem;padding:.4375rem .75rem .4375rem .625rem;border-radius:8px;background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line)}.loc-i{flex:none;width:1.125rem;height:1.125rem;fill:var(--paper);stroke:var(--ink-3);stroke-width:1.5;stroke-linejoin:round}.loc-t{display:flex;flex-direction:column;flex:1 1 15.5rem;min-width:0;line-height:1.35}.loc-t small{color:var(--ink-3);font-size:.6875rem}.loc-t code{overflow:hidden;color:var(--ink);font:.6875rem/1.5 var(--mono);text-overflow:ellipsis;white-space:nowrap}.loc .ph-link{flex:none;margin-left:auto}.set-h b .set-chip{height:1.25rem;margin-left:.5rem;padding:0 .4375rem;font-size:.6875rem;vertical-align:1px}
 .ph-demo{display:block;margin-top:.5rem;padding:0;border:0;background:transparent;color:var(--blue);font-size:.75rem;text-decoration:underline}
 .ph-prog{margin-top:.625rem}
 .ph-prog-t{display:flex;justify-content:space-between;gap:.75rem;margin-bottom:.3125rem;color:var(--ink-2);font-size:.75rem}
 .ph-prog-t b{color:var(--ink);font:600 .75rem var(--n)}
 .ph-bar{height:.375rem;overflow:hidden;border-radius:999px;background:var(--line)}
-.ph-bar i{display:block;height:100%;background:var(--blue);transition:width .2s}
+.ph-bar i{display:block;height:100%;background:var(--ink);transition:width .2s}
 .chans{margin-top:.625rem;overflow:hidden;border-radius:8px;box-shadow:inset 0 0 0 1px var(--line-2)}
 .chan{display:grid;grid-template-columns:1rem minmax(0,1fr);gap:.125rem .625rem;padding:.625rem .75rem;border-bottom:1px solid var(--line);cursor:pointer}
 .chan:last-child{border-bottom:0}
@@ -377,7 +378,7 @@ body{margin:0}
 .top{position:relative}
 .top.narrow{gap:.125rem;padding:.25rem .5rem}.top.narrow .clock{padding:0 .25rem}.top.narrow .clock-ic{display:none}.top.narrow .btn{padding:0 .5rem}.top.narrow .pill{padding:0 .625rem 0 .5rem}
 .top.narrow .status,.top.narrow .st-item{position:static}.top.narrow .sc{left:.5rem;right:.5rem;width:auto}.top.narrow .sc-caret{display:none}
-@media (max-width:720px){.td-b{grid-template-columns:1fr}.td-nav{display:none}.td-tabs{flex-wrap:wrap;padding:.375rem 1rem 0}.td-tabs button{padding:0 .625rem;white-space:nowrap}.td-newnote{order:-1;flex-basis:100%;margin:0 0 .25rem}}
+@media (max-width:720px){.lg-opt{grid-template-columns:minmax(0,1fr)}.lg-opt .lg-ic{display:none}.td-b{grid-template-columns:1fr}.td-nav{display:none}.td-tabs{flex-wrap:wrap;padding:.375rem 1rem 0}.td-tabs button{padding:0 .625rem;white-space:nowrap}.td-newnote{order:-1;flex-basis:100%;margin:0 0 .25rem}}
 .lnote{margin:0;padding:.4375rem .75rem;border-bottom:1px solid var(--line);background:var(--warn-tint);color:#6b4100;font-size:.75rem}
 .status{position:relative;display:flex;align-items:center;gap:.375rem}
 .st-item{position:relative;display:inline-flex}
@@ -449,7 +450,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
 .cch:hover:not(:disabled){background:#f8fafb;box-shadow:inset 0 0 0 1px var(--ink-3)}
 .cch b{font-size:.875rem;font-weight:700}
 .cch span{color:var(--ink-2);font-size:.75rem;line-height:1.55}
-.cch.rec b::after{content:"推荐";margin-left:.5rem;padding:1px .375rem;border-radius:4px;background:var(--blue-tint);color:var(--blue);font-size:.6875rem}
+.cch.rec b::after{content:"推荐";margin-left:.5rem;padding:1px .375rem;border-radius:4px;background:var(--paper-2);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line);font-size:.6875rem}
 .cch.danger b{color:var(--bad)}
 .cch.danger:hover:not(:disabled){box-shadow:inset 0 0 0 1px var(--bad)}
 .cch:disabled{background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line);opacity:1}
@@ -558,7 +559,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
                 <label class="row {{r.cls}}" data-tour="{{r.tourAttr}}" style="grid-template-columns: {{r.cols}}">
                   <span class="c-sel"><input type="checkbox" checked="{{r.selected}}" disabled="{{r.disabled}}" onChange="{{r.toggle}}" aria-label="{{r.aria}}"></span>
                   <sc-if value="{{r.showTime}}" hint-placeholder-val="{{true}}"><span class="c-time"><span class="ct-t {{r.timeCls}}">{{r.time}}</span><sc-if value="{{r.hasDay}}" hint-placeholder-val="{{false}}"><span class="ct-d">{{r.day}}</span></sc-if></span></sc-if>
-                  <span class="c-main"><span class="name" title="{{r.name}}">{{r.name}}</span><span class="sub"><sc-if value="{{r.inlineTime}}" hint-placeholder-val="{{false}}"><span class="it">{{r.time}}</span></sc-if><sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1"><span class="flag {{f.cls}}">{{f.text}}</span></sc-for><span>{{r.act}}</span><sc-if value="{{r.hasAtt}}" hint-placeholder-val="{{true}}"><span class="{{r.attCls}}">{{r.att}}</span></sc-if></span><sc-if value="{{r.hasWarn}}" hint-placeholder-val="{{false}}"><span class="note-w" style="display: block">{{r.warn}}</span></sc-if><sc-if value="{{r.hasSync}}" hint-placeholder-val="{{false}}"><span class="note-s" style="display: block">报名已确认，学校列表正在同步</span></sc-if></span>
+                  <span class="c-main"><span class="nl"><span class="name" title="{{r.name}}">{{r.name}}</span><sc-if value="{{r.rwSide}}" hint-placeholder-val="{{true}}"><span class="rw" title="{{r.rw.title}}"><sc-if value="{{r.rw.pend}}" hint-placeholder-val="{{false}}"><span class="rw-p">奖励同步中</span></sc-if><sc-if value="{{r.rw.ready}}" hint-placeholder-val="{{true}}"><span class="rw-c pt {{r.rw.ptsCls}}"><b>{{r.rw.ptsN}}</b>{{r.rw.ptsU}}</span><span class="rw-c wg {{r.rw.wageCls}}">{{r.rw.wageL}}<b>{{r.rw.wageN}}</b></span></sc-if></span></sc-if></span><span class="sub"><sc-if value="{{r.inlineTime}}" hint-placeholder-val="{{false}}"><span class="it">{{r.time}}</span></sc-if><sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1"><span class="flag {{f.cls}}">{{f.text}}</span></sc-for><span>{{r.act}}</span><sc-if value="{{r.rwInline}}" hint-placeholder-val="{{false}}"><span class="{{r.rw.iCls}}" title="{{r.rw.title}}">{{r.rw.iText}}</span></sc-if><sc-if value="{{r.hasAtt}}" hint-placeholder-val="{{true}}"><span class="{{r.attCls}}">{{r.att}}</span></sc-if></span><sc-if value="{{r.hasWarn}}" hint-placeholder-val="{{false}}"><span class="note-w" style="display: block">{{r.warn}}</span></sc-if><sc-if value="{{r.hasSync}}" hint-placeholder-val="{{false}}"><span class="note-s" style="display: block">报名已确认，学校列表正在同步</span></sc-if></span>
                   <sc-if value="{{r.showPlace}}" hint-placeholder-val="{{true}}"><span class="c-place" title="{{r.place}}">{{r.place}}</span></sc-if>
                   <span class="c-state"><sc-if value="{{r.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag {{r.tagCls}}">{{r.tag}}</span></sc-if><sc-if value="{{r.hasLeft}}" hint-placeholder-val="{{true}}"><span class="left {{r.leftCls}}">{{r.left}}</span></sc-if><sc-if value="{{r.hasSmall}}" hint-placeholder-val="{{false}}"><span class="small">{{r.small}}</span></sc-if></span>
                 </label>
@@ -628,7 +629,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
         </sc-if>
 
         <sc-if value="{{stopAsk}}" hint-placeholder-val="{{false}}">
-          <div class="scrim" role="dialog" aria-modal="true" aria-label="停止报名计划"><div class="dlg sm"><div class="dlg-h"><h2>停止报名计划？</h2></div><div class="dlg-b"><p class="dlg-p">工具会停止后续尝试。已发出的提交仍可能成功，停止不会取消已成功的报名。</p></div><div class="dlg-f"><button class="btn btn-line" type="button" onClick="{{keepGoing}}">继续计划</button><button class="btn btn-stop" type="button" onClick="{{doStop}}">停止计划</button></div></div></div>
+          <div class="scrim" role="dialog" aria-modal="true" aria-label="停止报名计划"><div class="dlg sm"><div class="dlg-h"><h2>停止报名计划？</h2></div><div class="dlg-b"><p class="dlg-p">工具会停止后续尝试。已经发出的提交仍可能成功，停止不会取消已成功的报名。</p></div><div class="dlg-f"><button class="btn btn-line" type="button" onClick="{{keepGoing}}">继续计划</button><button class="btn btn-stop" type="button" onClick="{{doStop}}">停止计划</button></div></div></div>
         </sc-if>
       </aside>
     </sc-if>
@@ -655,7 +656,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
           <sc-if value="{{phV.isMissing}}" hint-placeholder-val="{{false}}">
             <sc-if value="{{phV.hasErr}}" hint-placeholder-val="{{false}}"><p class="ph-err" role="alert">{{phV.err}}</p></sc-if>
             <sc-if value="{{phV.hasNote}}" hint-placeholder-val="{{false}}"><p class="ph-note" role="status">{{phV.note}}</p></sc-if>
-            <p class="ph-note">可选组件，约 18.4 MB。点“下载并安装”后自动下载、校验并启用，不会自动升级。</p>
+            <p class="ph-note">{{phV.sizeNote}}</p><div class="loc" title="{{phV.loc}}"><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"></path></svg><span class="loc-t"><small>会装到</small><code>{{phV.locShort}}</code></span></div>
             <sc-if value="{{phV.canImport}}" hint-placeholder-val="{{false}}"><p class="ph-note">一直下载不了的话，可以到发布页手动下载组件包，再<button class="ph-link" type="button" onClick="{{phImport}}">导入已下载的组件包</button>。</p></sc-if>
           </sc-if>
           <sc-if value="{{phV.isLoading}}" hint-placeholder-val="{{false}}">
@@ -684,15 +685,18 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
             <sc-if value="{{phV.showStop}}" hint-placeholder-val="{{true}}"><div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{phStopAskFn}}">关闭手机访问</button><sc-if value="{{phV.canAddPair}}" hint-placeholder-val="{{false}}"><button class="btn btn-line" type="button" onClick="{{phAddPair}}">再配对一台手机</button></sc-if></div></sc-if>
             <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><sc-if value="{{phV.canDemoPair}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{phDemoPair}}">演示：手机配对成功</button></sc-if><sc-if value="{{phV.canDemoGone}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{phDemoGone}}">演示：Cloudflare 隧道断开</button></sc-if></sc-if>
           </sc-if>
+          <sc-if value="{{phV.hasLoc}}" hint-placeholder-val="{{false}}"><div class="loc" title="{{phV.loc}}"><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"></path></svg><span class="loc-t"><small>装在</small><code>{{phV.locShort}}</code></span><button class="ph-link" type="button" onClick="{{phOpenLoc}}">打开所在文件夹</button></div></sc-if>
         </section>
         <section class="set" data-sec="ocr">
-          <div class="set-h"><b>验证码识别</b><sc-if value="{{ocV.hasSlot}}" hint-placeholder-val="{{true}}"><button class="btn {{ocV.slotCls}}" type="button" disabled="{{ocV.slotOff}}" onClick="{{ocV.slotFn}}">{{ocV.slotLabel}}</button></sc-if><sc-if value="{{ocV.hasChip}}" hint-placeholder-val="{{false}}"><span class="ph-st ok">已启用</span></sc-if></div>
+          <div class="set-h"><b>验证码识别<sc-if value="{{ocV.isOff}}" hint-placeholder-val="{{false}}"><span class="ph-st set-chip">未启用</span></sc-if></b><sc-if value="{{ocV.hasSlot}}" hint-placeholder-val="{{true}}"><button class="btn {{ocV.slotCls}}" type="button" disabled="{{ocV.slotOff}}" onClick="{{ocV.slotFn}}">{{ocV.slotLabel}}</button></sc-if><sc-if value="{{ocV.hasChip}}" hint-placeholder-val="{{false}}"><span class="ph-st ok">已启用</span></sc-if></div>
           <p>{{ocV.lead}}</p>
           <sc-if value="{{ocV.hasErr}}" hint-placeholder-val="{{false}}"><p class="ph-err" role="alert">{{ocV.err}}</p></sc-if>
-          <sc-if value="{{ocV.isMissing}}" hint-placeholder-val="{{true}}"><p class="ph-note">可选组件，约 31.6 MB。点“下载并安装”后自动下载、校验并启用，不会自动升级。</p></sc-if>
+          <sc-if value="{{ocV.isMissing}}" hint-placeholder-val="{{true}}"><p class="ph-note">{{ocV.sizeNote}}</p><div class="loc" title="{{ocV.loc}}"><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"></path></svg><span class="loc-t"><small>会装到</small><code>{{ocV.locShort}}</code></span></div></sc-if>
+          <sc-if value="{{ocV.isOff}}" hint-placeholder-val="{{false}}"><p class="ph-note">这一项关系到自动登录，所以装好了也不会自己打开。</p></sc-if>
           <sc-if value="{{ocV.isLoading}}" hint-placeholder-val="{{false}}"><div class="ph-prog"><div class="ph-prog-t"><span>{{ocV.loadText}}</span><b>{{ocV.loadNum}}</b></div><div class="ph-bar" role="progressbar" aria-label="验证码识别组件安装进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ocV.pct}}"><i style="width: {{ocV.pct}}%"></i></div></div><sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><sc-if value="{{ocV.canDemoFail}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{ocDemoFail}}">演示：下载失败</button></sc-if></sc-if></sc-if>
           <sc-if value="{{ocV.canImport}}" hint-placeholder-val="{{false}}"><p class="ph-note">一直下载不了的话，可以到发布页手动下载组件包，再<button class="ph-link" type="button" onClick="{{ocImport}}">导入已下载的组件包</button>。</p></sc-if>
           <sc-if value="{{ocV.hasNote}}" hint-placeholder-val="{{false}}"><p class="ph-note" role="status">{{ocV.note}}</p></sc-if>
+          <sc-if value="{{ocV.hasLoc}}" hint-placeholder-val="{{false}}"><div class="loc" title="{{ocV.loc}}"><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"></path></svg><span class="loc-t"><small>装在</small><code>{{ocV.locShort}}</code></span><button class="ph-link" type="button" onClick="{{ocOpenLoc}}">打开所在文件夹</button></div></sc-if>
         </section>
         <div class="set-g">登录</div>
         <section class="set" data-sec="login">
@@ -733,7 +737,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
           <p class="ph-note"><button class="ph-link" type="button" onClick="{{upRelease}}">打开发布页</button>，看更新说明，或者手动下载完整包。</p>
           <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><label class="ph-demo-sel">演示：下一次检查的结果<select value="{{upNext}}" onChange="{{onUpNext}}" aria-label="演示：下一次检查的结果"><option value="available">有新版本</option><option value="current">已是最新</option><option value="no_installer">有新版本但没有安装包</option><option value="preview">当前是预览版</option><option value="unavailable">还没有正式发布</option><option value="error">连接超时</option></select></label><sc-if value="{{upV.canDemoFail}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{upDemoFail}}">演示：校验失败</button></sc-if></sc-if>
         </section>
-        <section class="set"><div class="set-h"><b>本机数据</b><button class="btn btn-line" type="button">打开数据目录</button></div><p>登录信息、设置和运行记录都只保存在这台电脑。</p></section>
+        <section class="set"><div class="set-h"><b>本机数据</b><button class="btn btn-line" type="button">打开数据目录</button></div><p>登录信息、设置、运行记录和下载的组件，都只保存在这台电脑。</p></section>
         <section class="set"><div class="set-h"><b>条款与隐私</b><button class="btn btn-line" type="button" onClick="{{openTermsView}}">查看条款</button></div><p>{{termsLine}}<sc-if value="{{canWithdraw}}" hint-placeholder-val="{{false}}"> <button class="ph-link" type="button" onClick="{{withdrawAsk}}">撤回同意</button></sc-if></p>
           <sc-if value="{{withdrawBlocked}}" hint-placeholder-val="{{false}}"><p class="ph-note">报名计划运行中不能撤回同意，先停止计划。</p></sc-if>
           <sc-if value="{{termsWAsk}}" hint-placeholder-val="{{false}}"><div class="ph-confirm" role="alert">撤回后，登录、自动登录、活动列表和报名计划会停用。已保存的账号密码和登录信息不会删除。要删除账号密码，在“登录恢复”里清除。<div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{withdrawNo}}">先不撤回</button><button class="btn btn-stop" type="button" onClick="{{termsWithdraw}}">确认撤回</button></div></div></sc-if></section>
@@ -742,7 +746,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
   </sc-if>
 
   <sc-if value="{{help}}" hint-placeholder-val="{{false}}">
-    <div class="scrim" role="dialog" aria-modal="true" aria-label="使用帮助"><div class="dlg"><div class="dlg-h"><h2>使用帮助</h2><p>三步完成一次报名</p></div><div class="dlg-b"><ol class="steps"><li><span class="no">1</span><div><b>确认登录</b><span>顶部显示“已登录”就可以继续。只有提示失效时才需要重新登录。</span></div></li><li><span class="no">2</span><div><b>选活动并开始</b><span>在时刻表勾选活动，核对右边的计划，再点「开始报名计划」。勾选不会自动开始。</span></div></li><li><span class="no">3</span><div><b>看结果</b><span>每场结果单独显示。看到“待核对”时，到学校活动页确认。</span></div></li></ol><div class="keys"><h3>键盘快捷键</h3><dl><dt><kbd>F5</kbd></dt><dd>刷新登录状态和活动列表</dd><dt><kbd>Ctrl</kbd> + <kbd>F</kbd></dt><dd>跳到搜索框</dd><dt><kbd>Esc</kbd></dt><dd>关闭弹窗和详情卡</dd><dt><kbd>Tab</kbd></dt><dd>在按钮和活动之间移动</dd><dt><kbd>空格</kbd></dt><dd>勾选或取消当前活动</dd></dl></div></div><div class="dlg-f"><button class="btn btn-line" type="button" disabled="{{replayOff}}" onClick="{{replay}}">{{replayLabel}}</button><button class="btn btn-solid" type="button" onClick="{{closeHelp}}">知道了</button></div></div></div>
+    <div class="scrim" role="dialog" aria-modal="true" aria-label="使用帮助"><div class="dlg"><div class="dlg-h"><h2>使用帮助</h2><p>三步完成一次报名</p></div><div class="dlg-b"><ol class="steps"><li><span class="no">1</span><div><b>确认登录</b><span>顶部显示“已登录”就可以继续。只有提示失效时才需要重新登录。</span></div></li><li><span class="no">2</span><div><b>选活动并开始</b><span>在时刻表勾选活动，核对右边的计划，再点“开始报名计划”。勾选不会自动开始。</span></div></li><li><span class="no">3</span><div><b>看结果</b><span>每场结果单独显示。看到“待核对”时，到学校活动页确认。</span></div></li></ol><div class="keys"><h3>键盘快捷键</h3><dl><dt><kbd>F5</kbd></dt><dd>刷新登录状态和活动列表</dd><dt><kbd>Ctrl</kbd> + <kbd>F</kbd></dt><dd>跳到搜索框</dd><dt><kbd>Esc</kbd></dt><dd>关闭弹窗和详情卡</dd><dt><kbd>Tab</kbd></dt><dd>在按钮和活动之间移动</dd><dt><kbd>空格</kbd></dt><dd>勾选或取消当前活动</dd></dl></div></div><div class="dlg-f"><button class="btn btn-line" type="button" disabled="{{replayOff}}" onClick="{{replay}}">{{replayLabel}}</button><button class="btn btn-solid" type="button" onClick="{{closeHelp}}">知道了</button></div></div></div>
   </sc-if>
 
   <sc-if value="{{termsOpen}}" hint-placeholder-val="{{false}}">
@@ -773,12 +777,24 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
   </sc-if>
 
   <sc-if value="{{rlOn}}" hint-placeholder-val="{{false}}">
-    <div class="scrim" role="dialog" aria-modal="true" aria-labelledby="rl-title" onKeyDown="{{rlKey}}"><div class="dlg sm" style="width: min(28rem, 100%)">
+    <div class="scrim" role="dialog" aria-modal="true" aria-labelledby="rl-title" onKeyDown="{{rlKey}}"><div class="dlg sm rl-dlg {{rlV.dlgCls}}">
       <div class="dlg-h"><h2 id="rl-title">{{rlV.title}}</h2><sc-if value="{{rlV.hasSub}}" hint-placeholder-val="{{true}}"><p>{{rlV.sub}}</p></sc-if></div>
       <div class="dlg-b">
         <sc-if value="{{rlV.hasErr}}" hint-placeholder-val="{{false}}"><p class="dlg-err" role="alert">{{rlV.err}}</p></sc-if>
         <sc-if value="{{rlV.isBusy}}" hint-placeholder-val="{{false}}"><div class="rl-spin" role="status"><i></i>{{rlV.busy}}</div></sc-if>
         <sc-if value="{{rlV.hasText}}" hint-placeholder-val="{{true}}"><p class="dlg-p">{{rlV.text}}</p></sc-if>
+        <sc-if value="{{rlV.isLogin}}" hint-placeholder-val="{{false}}">
+          <div class="lg-way" role="radiogroup" aria-label="登录方式"><button class="lg-opt {{rlV.hereCls}}" type="button" role="radio" aria-checked="{{rlV.isHere}}" onClick="{{lgHere}}"><span class="lg-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2.5"></rect><path d="M7 10h.01M10.5 10h.01M14 10h.01M17.5 10h.01M8 14h8"></path></svg></span><b>在这里输入</b><small>直接发给学校，默认不保存</small></button><button class="lg-opt {{rlV.webCls}}" type="button" role="radio" aria-checked="{{rlV.isWeb}}" onClick="{{lgWeb}}"><span class="lg-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"></rect><path d="M3 9h18M6.5 6.5h.01M9.5 6.5h.01"></path><path d="M9 14.5l2 2 4-4"></path></svg></span><b>用学校登录页</b><small>在学校官方页面里输入</small></button></div>
+          <sc-if value="{{rlV.isHere}}" hint-placeholder-val="{{true}}">
+            <div class="lg-form">
+              <label class="lg-f"><span>账号</span><input type="text" data-lg="user" autocomplete="username" spellcheck="false" value="{{lgUser}}" onChange="{{onLgUser}}"></label>
+              <label class="lg-f"><span>密码</span><span class="lg-pw"><sc-if value="{{lgShow}}" hint-placeholder-val="{{false}}"><input type="text" data-lg="pass" autocomplete="current-password" spellcheck="false" value="{{lgPass}}" onChange="{{onLgPass}}" aria-label="密码"></sc-if><sc-if value="{{rlV.pwHidden}}" hint-placeholder-val="{{true}}"><input type="password" data-lg="pass" autocomplete="current-password" value="{{lgPass}}" onChange="{{onLgPass}}" aria-label="密码"></sc-if><button class="lg-eye" type="button" onClick="{{lgEye}}" aria-label="{{rlV.eyeLabel}}" title="{{rlV.eyeLabel}}"><sc-if value="{{lgShow}}" hint-placeholder-val="{{false}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"></path><circle cx="12" cy="12" r="2.8"></circle><path d="M4 4l16 16"></path></svg></sc-if><sc-if value="{{rlV.pwHidden}}" hint-placeholder-val="{{true}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"></path><circle cx="12" cy="12" r="2.8"></circle></svg></sc-if></button></span></label>
+              <label class="lg-save"><input type="checkbox" checked="{{lgSave}}" onChange="{{onLgSave}}"><span><b>登录成功后保存到这台电脑</b><small>保存了，登录失效时电脑能自己重新登录。</small></span></label>
+            </div>
+          </sc-if>
+          <ul class="lg-facts"><sc-for list="{{rlV.facts}}" as="f" hint-placeholder-count="3"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"></path></svg><span>{{f}}</span></li></sc-for></ul>
+          <sc-if value="{{rlV.isWeb}}" hint-placeholder-val="{{false}}"><p class="lg-trade">这种方式不保存账号：登录失效后不能自动登录，要你再登录一次。</p></sc-if>
+        </sc-if>
         <sc-if value="{{rlV.isCap}}" hint-placeholder-val="{{false}}">
           <div class="captcha-d" role="img" aria-label="验证码图片，原型示意"><svg class="cap-line" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><path d="M3 24 C 28 8, 58 30, 117 22"></path></svg><sc-for list="{{rlV.chars}}" as="c" hint-placeholder-count="4"><span style="color: {{c.col}}; transform: rotate({{c.r}}deg) translateY({{c.y}}px)">{{c.ch}}</span></sc-for></div>
           <label class="rl-code"><span>照图输入 4 位字母或数字</span><input type="text" data-rl="code" maxlength="4" autocomplete="off" spellcheck="false" value="{{rlCode}}" onChange="{{onRlCode}}" onKeyDown="{{rlCodeKey}}" aria-label="验证码"></label>
@@ -851,7 +867,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"draft","options":["draft","normal","waiting","editing","running","result","unknown","expired","clock","listerr","first","settings","tour","tour2","tour4","phonesetup","phonets","phonewait","phonelinked","closerun","closeask","closeexit","closeidle","closehidden","update","upavail","updown","upready","upfail","comp","compwrong","compok","compfail","credform","credsaved","relogin","rlcap","rlconfirm","rlbad","loginshort","termsupdate","termsdoc","termsprivacy","termsoff","termswithdraw","popclock","poplogin","popdown","popphone","prewarn","netoff","slept","broken","helpkeys","longname","zeroact","clockhold","runexpired","runauto","runclick","toastmin","runphone"]},"tier":{"editor":"enum","default":"auto","options":["auto","wide","medium","narrow"]},"frozen":{"editor":null},"short":{"editor":null},"height":{"editor":null},"$preview":{"width":1280,"height":800}}'>
+<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"draft","options":["draft","normal","waiting","editing","running","result","unknown","expired","clock","listerr","first","settings","tour","tour2","tour4","phonesetup","phonets","phonewait","phonelinked","closerun","closeask","closeexit","closeidle","closehidden","update","upavail","updown","upready","upfail","comp","compwrong","compok","compfail","credform","credsaved","relogin","rlcap","rlconfirm","rlbad","loginshort","termsupdate","termsdoc","termsprivacy","termsoff","termswithdraw","popclock","poplogin","popdown","popphone","prewarn","netoff","slept","broken","helpkeys","longname","zeroact","clockhold","runexpired","runauto","runclick","toastmin","runphone","stopask","stopped","compafter","compnosize","credocroff","filters","noresult","conflict","policy","logopen","phstopask","phaddpair","credclear","phfail","rlcapbad","termsunknown","secondrun","migrated","migratefail","login","loginbrowser","loginwait","loginbad","logincap"]},"tier":{"editor":"enum","default":"auto","options":["auto","wide","medium","narrow"]},"frozen":{"editor":null},"short":{"editor":null},"height":{"editor":null},"$preview":{"width":1280,"height":800}}'>
 class Component extends DCLogic {
   state = this.init((this.props || {}).scene || 'draft');
 
@@ -908,21 +924,30 @@ class Component extends DCLogic {
   items() {
     if (this.state && this.state.zero) return [];
     if (!this._it) this._it = [
-      { id: 'o1', name: '创新创业经验分享会', place: '大学生活动中心二楼', st: 'open', open: 32400, group: '正在开放', act: '活动 11月3日 19:00–20:30', actShort: '11月3日 19:00–20:30', d: 3, s: 1140, e: 1230, inV: 'yes', inT: '签到 18:40–19:00', outV: 'no', outT: '无需签退' },
-      { id: 'o2', name: '校园安全主题讲座', place: '一号教学楼 301', st: 'open', open: 37800, group: '正在开放', act: '活动 11月4日 14:00–15:30', actShort: '11月4日 14:00–15:30', d: 4, s: 840, e: 930, inV: 'null', inT: '签到信息同步中', outV: 'null', outT: '' },
-      { id: 't1', name: '人工智能与未来职业', place: '图书馆报告厅', st: 'pre', open: 52200, group: '今天', act: '活动 11月5日 19:00–20:30', actShort: '11月5日 19:00–20:30', d: 5, s: 1140, e: 1230, inV: 'yes', inT: '签到 18:40–19:00', outV: 'yes', outT: '签退 20:30–20:50' },
-      { id: 't2', name: '志愿服务培训', place: '二号楼多功能厅', st: 'pre', open: 52200, group: '今天', noEnd: true, act: '活动 11月6日 15:00–16:30', actShort: '11月6日 15:00–16:30', d: 6, s: 900, e: 990, inV: 'no', inT: '无需签到', outV: 'no', outT: '无需签退' },
-      { id: 't3', name: '心理健康工作坊', place: '学生事务中心', st: 'pre', open: 64800, group: '今天', act: '活动 11月5日 20:00–21:00', actShort: '11月5日 20:00–21:00', d: 5, s: 1200, e: 1260, inV: 'no', inT: '无需签到', outV: 'yes', outT: '签退 21:00–21:10' },
-      { id: 'm1', name: '“书香校园”经典诵读展演暨第十二届校园朗诵大赛决赛', place: '大学生活动中心一楼多功能报告厅（东侧入口，凭学生证入场）', st: 'pre', open: 118800, group: '明天', act: '活动 11月7日 19:00–21:00', actShort: '11月7日 19:00–21:00', d: 7, s: 1140, e: 1260, inV: 'yes', inT: '签到 18:30–19:00', outV: 'no', outT: '无需签退' },
-      { id: 'm2', name: '就业指导午间沙龙', place: '二号楼 204', st: 'pre', open: 129600, group: '明天', act: '活动 11月8日 14:30–15:30', actShort: '11月8日 14:30–15:30', d: 8, s: 870, e: 930, inV: 'no', inT: '无需签到', outV: 'no', outT: '无需签退' },
-      { id: 'u1', name: '年度社团风采展', place: '地点待定', st: 'unknown', open: 0, group: '待公布', act: '举办时间待公布', actShort: '举办时间待公布', inV: 'null', inT: '', outV: 'null', outT: '' },
-      { id: 's1', name: '学术诚信专题报告', place: '图书馆报告厅', st: 'signed', open: 28800, group: '已报名', act: '活动 11月8日 14:00–15:30', actShort: '11月8日 14:00–15:30', d: 8, s: 840, e: 930, inV: 'yes', inT: '签到 13:40–14:00', outV: 'no', outT: '无需签退' },
-      { id: 'w1', name: '毕业生双选会志愿者招募', place: '体育馆', st: 'pre', open: 205200, group: '后天', act: '活动 11月10日 09:00–17:00', actShort: '11月10日 09:00–17:00', d: 10, s: 540, e: 1020, inV: 'yes', inT: '签到 08:30–09:00', outV: 'yes', outT: '签退 17:00–17:30' },
-      { id: 'c1', name: '秋季运动会志愿者招募', place: '体育馆', st: 'closed', open: 28800, group: '已截止', act: '报名已于今天 12:00 截止', actShort: '报名已截止', inV: 'no', inT: '', outV: 'no', outT: '' }
+      { id: 'o1', pts: 2, wage: 20, name: '创新创业经验分享会', place: '大学生活动中心二楼', st: 'open', open: 32400, group: '正在开放', act: '活动 11月3日 19:00–20:30', actShort: '11月3日 19:00–20:30', d: 3, s: 1140, e: 1230, inV: 'yes', inT: '签到 18:40–19:00', outV: 'no', outT: '无需签退' },
+      { id: 'o2', pts: null, wage: null, name: '校园安全主题讲座', place: '一号教学楼 301', st: 'open', open: 37800, group: '正在开放', act: '活动 11月4日 14:00–15:30', actShort: '11月4日 14:00–15:30', d: 4, s: 840, e: 930, inV: 'null', inT: '签到信息同步中', outV: 'null', outT: '' },
+      { id: 't1', pts: 2, wage: 20, name: '人工智能与未来职业', place: '图书馆报告厅', st: 'pre', open: 52200, group: '今天', act: '活动 11月5日 19:00–20:30', actShort: '11月5日 19:00–20:30', d: 5, s: 1140, e: 1230, inV: 'yes', inT: '签到 18:40–19:00', outV: 'yes', outT: '签退 20:30–20:50' },
+      { id: 't2', pts: 4, wage: 40, name: '志愿服务培训', place: '二号楼多功能厅', st: 'pre', open: 52200, group: '今天', noEnd: true, act: '活动 11月6日 15:00–16:30', actShort: '11月6日 15:00–16:30', d: 6, s: 900, e: 990, inV: 'no', inT: '无需签到', outV: 'no', outT: '无需签退' },
+      { id: 't3', pts: 1, wage: 10, name: '心理健康工作坊', place: '学生事务中心', st: 'pre', open: 64800, group: '今天', act: '活动 11月5日 20:00–21:00', actShort: '11月5日 20:00–21:00', d: 5, s: 1200, e: 1260, inV: 'no', inT: '无需签到', outV: 'yes', outT: '签退 21:00–21:10' },
+      { id: 'm1', pts: 3, wage: 30, name: '“书香校园”经典诵读展演暨第十二届校园朗诵大赛决赛', place: '大学生活动中心一楼多功能报告厅（东侧入口，凭学生证入场）', st: 'pre', open: 118800, group: '明天', act: '活动 11月7日 19:00–21:00', actShort: '11月7日 19:00–21:00', d: 7, s: 1140, e: 1260, inV: 'yes', inT: '签到 18:30–19:00', outV: 'no', outT: '无需签退' },
+      { id: 'm2', pts: 0.5, wage: 5, name: '就业指导午间沙龙', place: '二号楼 204', st: 'pre', open: 129600, group: '明天', act: '活动 11月8日 14:30–15:30', actShort: '11月8日 14:30–15:30', d: 8, s: 870, e: 930, inV: 'no', inT: '无需签到', outV: 'no', outT: '无需签退' },
+      { id: 'u1', pts: null, wage: null, name: '年度社团风采展', place: '地点待定', st: 'unknown', open: 0, group: '待公布', act: '举办时间待公布', actShort: '举办时间待公布', inV: 'null', inT: '', outV: 'null', outT: '' },
+      { id: 's1', pts: 1, wage: 10, name: '学术诚信专题报告', place: '图书馆报告厅', st: 'signed', open: 28800, group: '已报名', act: '活动 11月8日 14:00–15:30', actShort: '11月8日 14:00–15:30', d: 8, s: 840, e: 930, inV: 'yes', inT: '签到 13:40–14:00', outV: 'no', outT: '无需签退' },
+      { id: 'w1', pts: 8, wage: 80, name: '毕业生双选会志愿者招募', place: '体育馆', st: 'pre', open: 205200, group: '后天', act: '活动 11月10日 09:00–17:00', actShort: '11月10日 09:00–17:00', d: 10, s: 540, e: 1020, inV: 'yes', inT: '签到 08:30–09:00', outV: 'yes', outT: '签退 17:00–17:30' },
+      { id: 'c1', pts: 2, wage: null, name: '秋季运动会志愿者招募', place: '体育馆', st: 'closed', open: 28800, group: '已截止', act: '报名已于今天 12:00 截止', actShort: '报名已截止', inV: 'no', inT: '', outV: 'no', outT: '' }
     ];
     return this._it;
   }
   find(id) { return this.items().filter(function (i) { return i.id === id; })[0]; }
+  // 两项奖励来自 getInfo 的参与人字段（cyrysjfs 实践分、cyryxngz 虚拟工资），和签到信息同一次请求；
+  // 详情没回来时显示同步中，学校没给的写未公布，0 照实写 0
+  rwOf(i) {
+    var pend = i.inV === 'null';
+    var pn = i.pts == null ? '' : String(i.pts), wn = i.wage == null ? '' : String(i.wage);
+    return { pend: pend, ready: !pend, ptsN: pn, ptsU: pn ? '分' : '分未公布', ptsCls: pn ? '' : 'na', wageL: wn ? '工资' : '工资未公布', wageN: wn, wageCls: wn ? '' : 'na',
+      title: pend ? '奖励信息同步中' : '实践分 ' + (pn || '未公布') + '，虚拟工资 ' + (wn || '未公布'),
+      iCls: pend ? 'rw-i p' : 'rw-i', iText: pend ? '奖励同步中' : (pn ? pn + ' 分' : '分未公布') + ' · ' + (wn ? '工资 ' + wn : '工资未公布') };
+  }
   stOf(it, s) {
     if (s.signedLocal.indexOf(it.id) >= 0 || s.tasks.some(function (t) { return t.id === it.id && t.status === 'success'; })) return 'signed';
     if (it.st === 'pre' && s.now >= it.open) return 'open';
@@ -933,13 +958,13 @@ class Component extends DCLogic {
   isEnd(st) { return ['success', 'full', 'failed', 'unconfirmed', 'canceled', 'missed'].indexOf(st) >= 0; }
 
   init(scene) {
-    var s = { scene: scene, q: '', seg: 'all', fOpen: false, fTime: 'all', fSort: 'open', fIn: 'all', fOut: 'all', selected: [], notice: '', phase: 'draft', tasks: [], now: 51605, login: 'valid', clock: 'ready', list: 'ready', terms: true, retry: 120, maxA: 0, headed: false, editPolicy: false, pop: '', settings: false, help: false, termsOpen: false, agree: false, logOpen: false, stopAsk: false, planOpen: false, ph: 'off', phCh: 'tailscale', phTs: 'ok', phPct: 0, phErr: '', phNote: '', phStarting: false, phPaired: false, phAddPair: false, phCode: 0, phLeft: 300, phStopAsk: false, phCopied: false, chrome: false, win: 'open', closeAsk: false, closeStep: '', closeRemember: false, closePref: 'ask', closeWhy: '', tray: true, exitNote: '', up: 'idle', upNext: 'available', upPct: 0, upAt: '', upErr: '', upNote: '', upFocus: false, cred: 'none', credMask: '', credForm: false, credOnce: false, credUser: '', credPass: '', credClearAsk: false, credNote: '', ocr: 'missing', ocrNote: '', ocrPct: 0, ocrErr: '', credBad: false, rl: '', rlCode: '', rlIdx: 0, rlErr: '', loginAt: 51603, popPin: false, clockJust: false, net: 'ok', broken: false, slept: 0, sleepMissed: [], zero: false, toast: false, planSource: '', listAtS: 51604, termsAgreed: '2026-11-03-r4', termsAt: '11-02 09:12', termsPrev: '', termsWithdrawn: false, termsWAsk: false, td: null, tuOpen: false, imp: null, loginFocus: false, advFocus: false, signedLocal: [], stopped: false, editing: null, tourOpen: false, tourStep: 0, tourRect: null, tourRowId: '', tourDone: true, w: 1280, h: 800, lines: ['14:20:03  [OK] 已复用本机登录，学校校验通过', '14:20:04  活动列表已更新，共 10 场'] };
+    var s = { scene: scene, q: '', seg: 'all', fOpen: false, fTime: 'all', fSort: 'open', fIn: 'all', fOut: 'all', selected: [], notice: '', phase: 'draft', tasks: [], now: 51605, login: 'valid', clock: 'ready', list: 'ready', terms: true, retry: 120, maxA: 0, headed: false, editPolicy: false, pop: '', settings: false, help: false, termsOpen: false, agree: false, logOpen: false, stopAsk: false, planOpen: false, ph: 'off', phCh: 'tailscale', phTs: 'ok', phPct: 0, phErr: '', phNote: '', phStarting: false, phPaired: false, phAddPair: false, phCode: 0, phLeft: 300, phStopAsk: false, phCopied: false, chrome: false, win: 'open', closeAsk: false, closeStep: '', closeRemember: false, closePref: 'ask', closeWhy: '', tray: true, exitNote: '', up: 'idle', upNext: 'available', upPct: 0, upAt: '', upErr: '', upNote: '', upFocus: false, cred: 'none', credMask: '', credForm: false, credOnce: false, credUser: '', credPass: '', credClearAsk: false, credNote: '', ocr: 'missing', ocrNote: '', ocrPct: 0, ocrErr: '', credBad: false, rl: '', rlCode: '', rlIdx: 0, rlErr: '', loginAt: 51603, popPin: false, clockJust: false, net: 'ok', broken: false, slept: 0, sleepMissed: [], zero: false, sizeKnown: true, termsUnknown: false, info: '', toast: false, planSource: '', listAtS: 51604, termsAgreed: '2026-11-03-r4', termsAt: '11-03 09:12', lgWay: 'here', lgUser: '', lgPass: '', lgSave: false, lgShow: false, rlFrom: '', termsPrev: '', termsWithdrawn: false, termsWAsk: false, td: null, tuOpen: false, imp: null, loginFocus: false, advFocus: false, signedLocal: [], stopped: false, editing: null, tourOpen: false, tourStep: 0, tourRect: null, tourRowId: '', tourDone: true, w: 1280, h: 800, lines: ['14:20:03  [OK] 已复用本机登录，学校校验通过', '14:20:04  活动列表已更新，共 11 场'] };
     var pick = ['o1', 't1', 't2'];
     if (scene === 'draft') { s.selected = pick; s.ph = 'on'; s.phPaired = true; s.phCode = 1; }
     if (scene === 'unknown') { s.login = 'unknown'; s.selected = ['t1']; }
     if (scene === 'expired') { s.login = 'expired'; s.selected = ['t1']; }
     if (scene === 'clock') { s.clock = 'down'; s.selected = ['t1']; }
-    if (scene === 'listerr') { s.list = 'error'; }
+    if (scene === 'listerr') { s.list = 'error'; s.lines = s.lines.slice(0, -1).concat('14:20:04  活动列表没加载：连不上学校站点'); }
     if (scene === 'termsupdate' || scene === 'termsdoc') { s.terms = false; s.termsPrev = '2026-10-27-r3'; s.termsAgreed = '2026-10-27-r3'; s.termsAt = '10-30 14:02'; }
     if (scene === 'termsupdate') s.tuOpen = true;
     if (scene === 'popclock') { s.pop = 'clock'; s.popPin = true; }
@@ -995,7 +1020,7 @@ class Component extends DCLogic {
     if (scene === 'editing') s = this.modifyS(s);
     if (scene === 'update' || scene.indexOf('up') === 0) {
       s.settings = true; s.upFocus = true;
-      if (scene !== 'update') s.upAt = '11-02 14:20';
+      if (scene !== 'update') s.upAt = '11-03 14:20';
       if (scene === 'upavail') s.up = 'available';
       if (scene === 'updown') { s.up = 'downloading'; s.upPct = 41; }
       if (scene === 'upfail') { s.up = 'failed'; s.upErr = '下载内容的哈希校验没通过，已放弃并删掉临时文件。旧版本和你的数据都没动。'; }
@@ -1009,7 +1034,7 @@ class Component extends DCLogic {
     if (scene === 'rlbad') { s.ocr = 'on'; s.rl = 'bad'; s.credBad = true; }
     if (scene === 'loginshort') s.selected = ['t1', 'm1'];
     if (scene === 'compok') { s.ocr = 'downloading'; s.ocrPct = 41; }
-    if (scene === 'compfail' || scene === 'compwrong') s.ocrErr = '下载没有完成：连不上发布页。现有组件没有改动，可以重试。';
+    if (scene === 'compfail' || scene === 'compwrong') s.ocrErr = '下载没有完成：连不上发布页，可以重试。';
     if (scene === 'compwrong') s.imp = { key: 'relogin_ocr', file: 'phone_control-1.2.0.zip', check: this.impCheck('relogin_ocr', 'phone_control-1.2.0.zip'), picking: false, installing: false };
     if (scene === 'credform') s.credForm = true;
     if (scene === 'credsaved') { s.cred = 'saved'; s.credMask = 'st****01'; s.ocr = 'on'; }
@@ -1027,6 +1052,36 @@ class Component extends DCLogic {
     if (scene === 'result') {
       s.selected = pick; s = this.startState(s);
       for (var n = 0; n < 80 && s.phase === 'running'; n++) { s = this.fastForward(s); if (s.phase === 'running') s = this.advance(s); }
+    }
+    // 2026-11-06 补画板：停止确认、停止后的逐场结果、组件位置与体积来源、验证码识别已装未启用
+    if (scene === 'stopask') { s.selected = pick; s = this.startState(s); s = this.advance(s); s = this.advance(s); s.stopAsk = true; }
+    if (scene === 'stopped') { s.selected = pick; s = this.startState(s); s = this.advance(s); s = this.advance(s); s = this.finishState(s, true); }
+    if (scene === 'compafter') { s.ph = 'off'; s.ocr = 'off'; }
+    if (scene === 'compnosize') s.sizeKnown = false;
+    if (scene === 'credocroff') { s.cred = 'saved'; s.credMask = 'st****01'; s.ocr = 'off'; }
+    // 2026-11-06 第二轮补画板：能点出来但没画的子状态、条款状态没能确认、多开与搬旧数据提示
+    if (scene === 'filters') s.fOpen = true;
+    if (scene === 'noresult') s.q = '篮球';
+    if (scene === 'conflict') { s.selected = ['t1']; s.notice = '「心理健康工作坊」与「人工智能与未来职业」的活动时间重叠，同一计划只能选其中一场。已保留原选择。'; }
+    if (scene === 'policy') { s.selected = ['t1', 't2']; s.editPolicy = true; }
+    if (scene === 'logopen') { s.selected = pick; s = this.startState(s); s = this.advance(s); s = this.advance(s); s.logOpen = true; }
+    if (scene === 'phstopask' || scene === 'phaddpair') { s.settings = true; s.ph = 'on'; s.phPaired = true; s.phCode = 1; }
+    if (scene === 'phstopask') s.phStopAsk = true;
+    if (scene === 'phaddpair') s.phAddPair = true;
+    if (scene === 'credclear') { s.cred = 'saved'; s.credMask = 'st****01'; s.ocr = 'on'; s.credClearAsk = true; }
+    if (scene === 'phfail') { s.settings = true; s.advFocus = true; s.ph = 'missing'; s.phErr = '下载没有完成：连不上发布页，可以重试。'; }
+    if (scene === 'rlcapbad') { s.login = 'expired'; s.selected = ['t1']; s.cred = 'saved'; s.credMask = 'st****01'; s.rl = 'cap'; s.rlIdx = 1; s.rlErr = '验证码不对，已经换了一张新图。'; }
+    if (scene === 'termsunknown') { s.terms = false; s.termsUnknown = true; s.termsAgreed = ''; s.termsAt = ''; s.lines = s.lines.slice(0, 1).concat('14:20:04  [!] 没读到条款同意记录，学校相关操作已暂停'); }
+    if (scene === 'secondrun') { s.selected = ['t1', 't2']; s = this.startState(s); s = this.advance(s); s = this.advance(s); s.planOpen = false; s.info = 'second'; s.lines = s.lines.concat('14:20:06  又打开了一次，已切回这个窗口'); }
+    if (scene === 'migrated') { s.info = 'migrated'; s.lines = ['14:20:01  已把 3 个旧数据文件搬到新的数据目录'].concat(s.lines); }
+    if (scene === 'migratefail') { s.info = 'migratefail'; s.login = 'none'; s.list = 'idle'; s.lines = ['14:20:01  [!] 旧版本的登录信息没能搬过来，其他数据已搬好']; }
+    // 2026-11-06 登录框：两种方式并列，用户选自己放心的那种（不信任工具的人用学校登录页）
+    if (['login', 'loginbrowser', 'loginwait', 'loginbad', 'logincap'].indexOf(scene) >= 0) {
+      s.login = 'none'; s.list = 'idle'; s.lines = ['14:20:01  程序已启动，还没有登录'];
+      s.rl = 'login'; s.lgWay = scene === 'loginbrowser' ? 'browser' : 'here'; s.lgUser = 'st123401'; s.lgPass = scene === 'loginbad' ? '' : 'demo-pass';
+      if (scene === 'loginwait') { s.rl = 'lgwait'; s.lgWay = 'browser'; s.login = 'pending'; s.lgPass = ''; s.lines = s.lines.concat('14:20:09  已打开学校登录页，等你在浏览器里登录'); }
+      if (scene === 'loginbad') { s.rlErr = '学校说账号或密码不对。为了避免账号被锁，工具没有重试；改好再登录。'; s.lines = s.lines.concat('14:20:12  学校说账号或密码不对'); }
+      if (scene === 'logincap') { s.rl = 'cap'; s.rlFrom = 'form'; }
     }
     return s;
   }
@@ -1067,7 +1122,7 @@ class Component extends DCLogic {
         } else if (k >= 4) {
           t.status = t.outcome;
           if (t.outcome === 'success') t.reason = '学校回“操作成功”，结束时向学校核对过：已报名';
-          if (t.outcome === 'unconfirmed') t.reason = '已提交 ' + t.attempts + ' 次，没拿到确定回应；结束时向学校核对也没查到结果。去活动页看一眼，或稍后刷新核对。工具不会再自动重发';
+          if (t.outcome === 'unconfirmed') t.reason = '已提交 ' + t.attempts + ' 次，没拿到确定回应；结束时向学校核对也没查到结果。去活动页看一眼，或稍后刷新核对。工具不会再自动重发。';
           lines = lines.concat(self.hms(now) + '  ' + t.name + '：' + t.reason);
         }
       }
@@ -1195,7 +1250,11 @@ class Component extends DCLogic {
       installLabel: s.phErr ? '重新下载' : '下载并安装组件', loadText: s.ph === 'verifying' ? '下载完成，正在校验组件…' : '正在下载手机控制组件', loadNum: s.ph === 'verifying' ? '' : mb + ' / 18.4 MB', pct: s.phPct,
       channels: [], starting: s.phStarting, cantStart: true, startLabel: '开启手机访问', canRecheck: false, hasHint: false, hint: '',
       showPair: false, hasCredTip: false, canAddPair: false, canDemoPair: false, canDemoGone: false, qr: [], led: this.ledOf('--- ---', 'off', '', ''), left: '', addr: '', hasAlt: false, alt: '', copyLabel: s.phCopied ? '已复制' : '复制', chanCls: 'ph-note', chanNote: '', stopAsk: s.phStopAsk, showStop: !s.phStopAsk,
-      tone: '', status: '未开启', lead: ''
+      tone: '', status: '未开启', lead: '',
+      // 体积取发布页资产的实际大小，读不到发布页时不写死数字；位置只在电脑设置里显示，不进手机快照，
+      // 中间省略显示，悬停看完整路径
+      sizeNote: s.sizeKnown ? '可选组件，约 18.4 MB。下载后自动校验并启用，不会自动升级。' : '可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。',
+      loc: 'C:\\Users\\同学\\AppData\\Local\\TianSoftActivityPreRegistration\\data\\advanced\\phone_control', locShort: 'C:\\Users\\同学\\AppData\\Local\\…\\advanced\\phone_control', hasLoc: s.ph === 'off' || s.ph === 'on'
     };
     v.hasSlot = s.ph === 'missing' || loading;
     v.hasChip = !v.hasSlot;
@@ -1207,8 +1266,8 @@ class Component extends DCLogic {
     if (s.ph === 'missing') { v.status = '未安装'; v.lead = '从手机查看活动、开始和停止计划。手机只是遥控器，真正报名的还是这台电脑，所以电脑要开着、不能睡眠。'; }
     if (loading) { v.status = s.ph === 'verifying' ? '校验中' : '下载中'; v.lead = '可以关掉设置继续用，下载和报名计划互不影响。'; }
     if (s.ph === 'off') {
-      v.lead = s.phStarting ? '正在开启，先不要切换通道。' : '选一条通道再开启。没开启时不监听任何端口，手机连不上这台电脑。';
-      var ts = { ok: ['已连接', 'ok', '地址固定，重启程序和电脑后手机不用重新配对。电脑和手机要登录同一个账号。'], nologin: ['已安装，未登录', 'warn', '在电脑上打开 Tailscale 登录，手机用同一个账号。'], missing: ['未安装', 'warn', '电脑和手机都要装好并登录同一个账号；工具不会替你安装。'] }[s.phTs];
+      v.lead = s.phStarting ? '正在开启，先不要切换通道。' : '选一条通道再开启。没开启时不监听端口，手机连不上电脑。';
+      var ts = { ok: ['已连接', 'ok', '地址固定，重启程序和电脑后不用重新配对。电脑和手机要登录同一个账号。'], nologin: ['已安装，未登录', 'warn', '在电脑上打开 Tailscale 登录，手机用同一个账号。'], missing: ['未安装', 'warn', '电脑和手机都要装好并登录同一个账号；工具不会替你安装。'] }[s.phTs];
       v.channels = [
         { key: 'tailscale', name: 'Tailscale，长期地址', status: ts[0], tone: ts[1], text: ts[2] },
         { key: 'cloudflare', name: 'Cloudflare，临时地址', status: '可用', tone: 'ok', text: '不用账号，组件里已带好。但每次开启地址都会变，要重新扫码和配对。' }
@@ -1328,10 +1387,10 @@ class Component extends DCLogic {
   }
   credView(s) {
     var self = this, has = s.cred === 'saved' || s.cred === 'once', ocrOn = s.ocr === 'on';
-    var auto = !has ? ['失效后自动登录：未启用，还没有账号密码。登录失效后要手动重新登录；报名计划开放前 100 秒内失效的场次会直接结束。', ''] : (ocrOn ? ['失效后自动登录：已启用。登录失效时电脑自己重新登录，报名计划等开放或提交时也一样，不用你动手。', 'up-ok'] : ['失效后自动登录：还缺验证码识别组件（在上面的“高级功能”里一键安装）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。', 'up-warn']);
+    var auto = !has ? ['失效后自动登录：未启用，还没有账号密码。登录失效后要手动重新登录；报名计划开放前 100 秒内失效的场次会直接结束。', ''] : (ocrOn ? ['失效后自动登录：已启用。登录失效时电脑自己重新登录，报名计划等开放或提交时也一样，不用你动手。', 'up-ok'] : s.ocr === 'off' ? ['失效后自动登录：验证码识别本机已装，还没启用（在上面“高级功能”里点“启用”）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。', 'up-warn'] : ['失效后自动登录：还缺验证码识别组件（在上面的“高级功能”里一键安装）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。', 'up-warn']);
     return {
       hasSlot: !s.credForm && !s.credClearAsk, slotLabel: has ? '更换' : '填写账号密码', slotFn: function () { self.setState({ credForm: true, credNote: '', credUser: '', credPass: '', credOnce: false }); },
-      lead: '登录失效时，用账号密码自动登录。账号密码只用 Windows 当前用户加密保存在本机，手机页拿不到。',
+      lead: '登录失效时用账号密码自动登录。账号密码只用 Windows 当前用户加密保存在本机，手机页看不到。',
       hasSaved: has, saved: s.cred === 'saved' ? '已保存账号 ' + s.credMask + '。' : '这次运行可以用账号 ' + s.credMask + ' 重新登录，关闭工具后自动清除。',
       auto: auto[0], autoCls: auto[1], formOn: s.credForm, cantSave: !s.credUser.trim() || !s.credPass, saveLabel: s.credOnce ? '只用这一次' : '保存到本机',
       clearAsk: s.credClearAsk, canClear: s.cred === 'saved' && !s.credForm && !s.credClearAsk, hasNote: !!s.credNote, note: s.credNote, hasBad: !!s.credBad && has && !s.credForm
@@ -1339,11 +1398,13 @@ class Component extends DCLogic {
   }
   ocrView(s) {
     var on = s.ocr === 'on', loading = s.ocr === 'downloading' || s.ocr === 'verifying';
-    var slot = s.ocr === 'missing' ? [s.ocrErr ? '重新下载' : '下载并安装', 'btn-solid', false, this.ocInstall] : (s.ocr === 'downloading' ? ['取消下载', 'btn-line', false, this.ocCancel] : (s.ocr === 'verifying' ? ['校验中…', 'btn-line', true, function () {}] : null));
+    var slot = s.ocr === 'missing' ? [s.ocrErr ? '重新下载' : '下载并安装', 'btn-solid', false, this.ocInstall] : s.ocr === 'off' ? ['启用', 'btn-solid', false, this.ocEnable] : (s.ocr === 'downloading' ? ['取消下载', 'btn-line', false, this.ocCancel] : (s.ocr === 'verifying' ? ['校验中…', 'btn-line', true, function () {}] : null));
     return {
       hasSlot: !!slot, slotLabel: slot ? slot[0] : '', slotCls: slot ? slot[1] : '', slotOff: slot ? slot[2] : true, slotFn: slot ? slot[3] : function () {}, hasChip: on,
-      lead: on ? '版本 1.2.0。电脑会自己认验证码，连续认错 3 次再转给手机手动输入。' : '登录失效时，电脑能自己认验证码；配合“登录恢复”里的账号密码，就能无人值守自动登录。没装或认不出来时，由你在手机上手动输入。',
-      isMissing: s.ocr === 'missing', hasErr: s.ocr === 'missing' && !!s.ocrErr, err: s.ocrErr, canImport: s.ocr === 'missing' && !!s.ocrErr,
+      lead: on ? '版本 1.2.0。电脑会自己认验证码，连续认错 3 次再转给手机手动输入。' : s.ocr === 'off' ? '已装好（版本 1.2.0），还没启用。启用后，登录失效时电脑会自己认验证码；配合“登录恢复”里的账号密码，就能无人值守自动登录。' : '登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。没装或认不出来时，由你在手机上手动输入。',
+      isMissing: s.ocr === 'missing', isOff: s.ocr === 'off', hasLoc: on || s.ocr === 'off', loc: 'C:\\Users\\同学\\AppData\\Local\\TianSoftActivityPreRegistration\\data\\advanced\\relogin_ocr', locShort: 'C:\\Users\\同学\\AppData\\Local\\…\\advanced\\relogin_ocr',
+      sizeNote: s.sizeKnown ? '可选组件，约 31.6 MB。下载后自动校验并启用，不会自动升级。' : '可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。',
+      hasErr: s.ocr === 'missing' && !!s.ocrErr, err: s.ocrErr, canImport: s.ocr === 'missing' && !!s.ocrErr,
       isLoading: loading, pct: s.ocrPct, loadText: s.ocr === 'verifying' ? '下载完成，正在校验组件…' : '正在下载验证码识别组件', loadNum: s.ocr === 'verifying' ? '' : (s.ocrPct * 0.316).toFixed(1) + ' / 31.6 MB', canDemoFail: s.ocr === 'downloading',
       hasNote: !!s.ocrNote, note: s.ocrNote
     };
@@ -1366,7 +1427,7 @@ class Component extends DCLogic {
     if (!opens.length) return null;
     var last = Math.max.apply(null, opens);
     if (last - s.now <= 3600) return null;
-    var text = '要等到 ' + this.hms(last).slice(0, -3) + '，' + (has ? '验证码识别没装' : '自动登录没开') + '。中途登录失效要你' + (has ? '输验证码' : '重新登录') + '；开放前 100 秒内失效的那场会直接结束。';
+    var text = '要等到' + this.hms(last).slice(0, -3).replace(/^(\d)/, ' $1') + '，' + (has ? '验证码识别没装' : '自动登录没开') + '。中途登录失效要你' + (has ? '输验证码' : '重新登录') + '；开放前 100 秒内失效，那场就结束。';
     return has ? { text: text, label: '去安装', fn: this.goOcr } : { text: text, label: '去保存', fn: this.goSaveCred };
   }
   termsNewVer() { return '2026-11-03-r4'; }
@@ -1411,7 +1472,7 @@ class Component extends DCLogic {
     if (s.clock === 'hold') return {
       chip: '沿用上次校准', tone: 'warn', busy: false, led: this.ledOf(this.hhmmss(s.now % 86400), 'dim', '北京时间', ''),
       rows: [{ k: '最近校准成功', v: '40 分钟前（13:40:12）' }, { k: '这次校准', v: '没成功，正在自动重试' }, { k: '估计误差', v: '约 ±0.3 秒，会慢慢变大' }, { k: '时间来源', v: '公共授时服务' }],
-      note: '先用上次校准的结果继续走时，可以照常报名。误差超过 1 秒会改成“待校准”，那时就不能开始了。', action: '马上重试'
+      note: '先用上次校准的结果继续走时，可以照常报名。误差超过 1 秒会改成“待校准”，那时就不能开始了。', action: '重新校准'
     };
     var ready = s.clock === 'ready', syncing = s.clock === 'syncing';
     return {
@@ -1419,8 +1480,8 @@ class Component extends DCLogic {
       led: ready ? this.ledOf(this.hhmmss(s.now % 86400), 'amber', '北京时间', '') : this.ledOf('--:--:--', syncing ? 'dim' : 'off', '北京时间', ''),
       rows: ready ? [{ k: '最近校准', v: s.clockJust ? '刚刚' : '1 分钟前（14:19:02）' }, { k: '估计误差', v: '±0.08 秒' }, { k: '电脑时钟', v: '比北京时间快 1.6 秒' }, { k: '时间来源', v: '公共授时服务' }]
         : [{ k: '最近校准', v: syncing ? '正在校准…' : '失败（14:19:02）' }, { k: '估计误差', v: '未知' }, { k: '电脑时钟', v: '暂时没法比较' }, { k: '时间来源', v: '公共授时服务' }],
-      note: ready ? '报名按这个时间执行，运行中会定时自动校准。工具不会改电脑的时间。' : '还没校准成功，多半是连不上授时服务。校准前不能开始报名，不影响查看活动。',
-      action: syncing ? '校准中…' : (ready ? '重新校准' : '再试一次')
+      note: ready ? '报名按这个时间执行，运行中会定时自动校准。工具不会改电脑的时间。' : '还没校准成功，多半是连不上授时服务。校准之前不能开始报名，不影响查看活动。',
+      action: syncing ? '校准中…' : '重新校准'
     };
   }
   loginCard(s, hold) {
@@ -1428,10 +1489,10 @@ class Component extends DCLogic {
     var after = has ? (ocrOn ? '电脑自动登录，计划不停' : '你输验证码就能重新登录') : '要重新登录';
     var act = function (label, cls, fn) { return { label: label, cls: cls, fn: fn }; };
     var c;
-    if (hold) c = { chip: '等同意条款', tone: '', cap: '暂停检查', big: '暂停检查', sub: '同意条款后才会检查登录状态', rows: [{ k: '已保存的登录', v: '还在，不会删除' }], note: '', acts: [act('查看条款', 'btn-solid', this.askTerms)] };
+    if (hold) c = { chip: s.termsUnknown ? '等确认条款' : '等同意条款', tone: '', cap: '暂停检查', big: '暂停检查', sub: '同意条款后才会检查登录状态', rows: [{ k: '已保存的登录', v: '还在，不会删除' }], note: '', acts: [act('查看条款', 'btn-solid', this.askTerms)] };
     else c = {
       valid: { chip: '已登录', tone: 'ok', cap: '学校已确认', big: '登录有效', sub: '上次校验 ' + this.hhmmss(s.loginAt % 86400) + '，学校确认有效', rows: [{ k: '有效多久', v: '学校不公布，工具不估算' }, { k: '别处登录', v: '会让这里失效，比如手机上的学校页面' }, { k: '失效以后', v: after }], note: '报名前还会再确认一次登录。', acts: [act('刷新', 'btn-line', this.refresh), act('重新登录', 'btn-line', this.reLogin)] },
-      none: { chip: '未登录', tone: '', cap: '还没登录', big: '还没有登录', sub: '在浏览器里登录一次就行', rows: [{ k: '登录方式', v: '打开浏览器，自己输账号、密码和验证码' }], note: '', acts: [act('登录', 'btn-solid', this.doLogin)] },
+      none: { chip: '未登录', tone: '', cap: '还没登录', big: '还没有登录', sub: '在这里输入账号密码，或用学校登录页', rows: [{ k: '登录方式', v: '两种都行，点登录后选' }], note: '', acts: [act('登录', 'btn-solid', this.askLogin)] },
       unknown: { chip: '待确认', tone: 'warn', cap: '没拿到学校的结果', big: '暂时无法确认', sub: '多半是网络问题', rows: [{ k: '最近校验', v: '14:20:03，没有结果' }, { k: '已保存的登录', v: '还在，先不用重新登录' }], note: '', acts: [act('刷新', 'btn-solid', this.refresh)] },
       expired: { chip: '已失效', tone: 'bad', cap: '学校明确返回失效', big: '需要重新登录', sub: has ? (ocrOn ? '可以自动登录一次' : '只需要输验证码') : '要在浏览器里登录', rows: [{ k: '发现失效', v: '14:20:03' }, { k: '重新登录', v: has ? (ocrOn ? '确认后自动登录' : '电脑填账号密码，你输验证码') : '打开浏览器自己输' }], note: '', acts: [act('重新登录', 'btn-solid', this.reLogin)] },
       pending: { chip: '登录中', tone: 'warn', cap: '浏览器已打开', big: '正在登录', sub: '在浏览器里登完再回来', rows: [], note: '中途关掉浏览器，会保留原来的登录状态。', acts: [act('刷新', 'btn-line', this.refresh)] },
@@ -1500,8 +1561,8 @@ class Component extends DCLogic {
     var self = this, mask = s.credMask || '已保存的账号';
     var act = function (key, label, cls, fn, off) { return { key: key, label: label, cls: cls, fn: fn, off: !!off }; };
     var close = function () { self.setState({ rl: '', rlErr: '' }); };
-    var v = { title: '', sub: '', hasSub: true, hasErr: !!s.rlErr, err: s.rlErr, isBusy: false, busy: '', hasText: false, text: '', isCap: false, chars: [], acts: [], hasActs: true, canDemo: false };
-    if (s.rl === 'confirm') { v.title = '自动登录一次？'; v.sub = '用保存的账号 ' + mask + '，验证码由电脑识别'; v.hasText = true; v.text = '会向学校发送一次账号密码。登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。' + (s.phase === 'running' ? '成功后报名计划照常继续。' : '成功后刷新活动列表，计划不会自动开始。'); v.acts = [act('no', '取消', 'btn-line', close), act('go', '自动登录', 'btn-solid', this.rlAuto)]; v.canDemo = true; }
+    var v = { title: '', sub: '', hasSub: true, hasErr: !!s.rlErr, err: s.rlErr, isBusy: false, busy: '', hasText: false, text: '', isCap: false, chars: [], acts: [], hasActs: true, canDemo: false, dlgCls: '', isLogin: false, isHere: false, isWeb: false, hereCls: '', webCls: '', pwHidden: true, eyeLabel: '显示密码', facts: [] };
+    if (s.rl === 'confirm') { v.title = '自动登录一次？'; v.sub = '用保存的账号 ' + mask + '，验证码由电脑识别'; v.hasText = true; v.text = '会向学校发送一次账号密码。登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。' + (s.phase === 'running' ? '成功后报名计划照常继续。' : '成功后会刷新活动列表，计划不会自动开始。'); v.acts = [act('no', '取消', 'btn-line', close), act('go', '自动登录', 'btn-solid', this.rlAuto)]; v.canDemo = true; }
     if (s.rl === 'auto') { v.title = '正在自动登录'; v.sub = '用保存的账号 ' + mask; v.isBusy = true; v.busy = '电脑正在识别验证码并登录…'; v.hasActs = false; }
     if (s.rl === 'cap') {
       v.title = '输入验证码'; v.sub = '账号 ' + mask + ' 和密码由电脑自动填写'; v.isCap = true; v.canDemo = true;
@@ -1510,8 +1571,24 @@ class Component extends DCLogic {
       v.acts = [act('no', '取消', 'btn-line', close), act('go', '登录', 'btn-solid', this.rlSubmit, s.rlCode.length !== 4)];
     }
     if (s.rl === 'verifying') { v.title = '输入验证码'; v.sub = '账号 ' + mask + ' 和密码由电脑自动填写'; v.isBusy = true; v.busy = '正在登录，请等结果'; v.hasActs = false; }
-    if (s.rl === 'bad') { v.title = '保存的密码不对'; v.sub = '自动登录已暂停'; v.hasText = true; v.text = '学校说账号或密码不对。为了避免账号被锁，工具没有重试。更新账号密码后，自动登录会恢复。'; v.acts = [act('no', '在浏览器里登录', 'btn-line', this.rlBrowser), act('go', '更新账号密码', 'btn-solid', function () { self.setState({ rl: '' }); self.goSaveCred(); })]; }
+    if (s.rl === 'bad') { v.title = '保存的密码不对'; v.sub = '自动登录已暂停'; v.hasText = true; v.text = '学校说账号或密码不对。为了避免账号被锁，工具没有重试。请更新账号密码，之后自动登录会恢复。'; v.acts = [act('no', '在浏览器里登录', 'btn-line', this.rlBrowser), act('go', '更新账号密码', 'btn-solid', function () { self.setState({ rl: '' }); self.goSaveCred(); })]; }
     if (s.rl === 'planbusy') { v.title = '现在来不及重新登录'; v.hasSub = false; v.hasText = true; v.text = '有场次正在提交，或者离开放不到 100 秒。这时只有电脑能自动登录；没开自动登录的场次会以“登录失效”结束。等这一批结束，再重新登录后面的场次。'; v.acts = [act('go', '知道了', 'btn-solid', close)]; }
+    if (s.rl === 'login') {
+      var here = s.lgWay !== 'browser';
+      v.title = '登录学校账号'; v.sub = '两种方式都可以，选你放心的那种'; v.dlgCls = 'wide';
+      v.isLogin = true; v.isHere = here; v.isWeb = !here; v.hereCls = here ? 'on' : ''; v.webCls = here ? '' : 'on';
+      v.pwHidden = !s.lgShow; v.eyeLabel = s.lgShow ? '隐藏密码' : '显示密码';
+      v.facts = here
+        ? ['账号密码只从这台电脑发给学校站点，不经过任何其他服务器', s.lgSave ? '勾了保存：用 Windows 当前用户加密，只有这台电脑能解开，设置里随时能清除' : '没勾保存：密码只用这一次，不写进电脑', '工具会替你勾选学校登录页的“我已阅读并同意《隐私协议》”']
+        : ['用这台电脑上的 Edge 或 Chrome 打开学校官方登录页', '账号、密码和验证码都在学校页面里输，工具看不到', '登录成功后，工具只取走登录状态'];
+      v.acts = here ? [act('no', '取消', 'btn-line', close), act('go', '下一步', 'btn-solid', this.lgNext, !s.lgUser.trim() || !s.lgPass)]
+        : [act('no', '取消', 'btn-line', close), act('go', '打开学校登录页', 'btn-solid', this.lgOpenWeb)];
+    }
+    if (s.rl === 'lgwait') { v.title = '在学校登录页登录'; v.sub = '已经用浏览器打开学校登录页'; v.isBusy = true; v.busy = '在浏览器里登完再回来，这里会自己更新'; v.hasText = true; v.text = '没看到窗口的话，它可能在别的窗口后面。中途关掉浏览器，会保留原来的登录状态。'; v.acts = [act('no', '取消', 'btn-line', this.lgCancelWeb)]; }
+    if (s.rlFrom === 'form' && (s.rl === 'cap' || s.rl === 'verifying')) {
+      v.sub = '账号 ' + this.lgMask(s.lgUser) + '，密码已填好';
+      if (s.rl === 'cap') v.acts[0] = act('no', '上一步', 'btn-line', function () { self.setState({ rl: 'login', rlErr: '', rlCode: '' }); });
+    }
     return v;
   }
   closeStake(s) {
@@ -1552,7 +1629,7 @@ class Component extends DCLogic {
     v.toastTitle = ok && !bad && !ask && !full ? '报名计划完成' : (ok ? '报名计划部分完成' : '报名计划结束');
     v.toastText = [ok ? ok + ' 场成功' : '', ask ? ask + ' 场待核对' : '', full ? full + ' 场名额已满' : '', bad ? bad + ' 场没成功' : ''].filter(Boolean).join('，') + '。点这里看每场结果。';
     if (s.win === 'min') { v.title = '窗口已最小化'; v.text = (k.run ? '报名计划照常运行，到点会自动提交。' : '') + '点任务栏上的按钮就能回来。'; }
-    if (s.win === 'hidden') { v.title = '窗口已隐藏，工具在后台运行'; v.text = (k.run ? '报名计划照常运行。' : '') + (s.tray ? '点右下角托盘里的图标回来' : '托盘图标不可用') + (s.ph === 'on' && s.phPaired ? '，也可以在手机页点“显示电脑窗口”。' : '。'); }
+    if (s.win === 'hidden') { v.title = '窗口已隐藏，工具在后台运行'; v.text = (k.run ? '报名计划照常运行。' : '') + (s.tray ? '点右下角托盘图标回来' : '托盘图标不可用') + (s.ph === 'on' && s.phPaired ? '，也可以在手机页点“显示电脑窗口”。' : '。'); }
     if (s.win === 'exited') { v.title = '程序已退出'; v.text = s.exitNote; v.action = '重新打开'; v.fn = this.reopen; }
     return v;
   }
@@ -1634,7 +1711,7 @@ class Component extends DCLogic {
     }
     this._cf = cf;
     var rf = s.rl || '';
-    if (rf && this._rf !== rf) { var t = document.querySelector(rf === 'cap' ? '[data-rl="code"]' : '[data-rl="go"]'); if (t) t.focus(); }
+    if (rf && this._rf !== rf) { var t = document.querySelector(rf === 'cap' ? '[data-rl="code"]' : (rf === 'login' && s.lgWay !== 'browser' ? (!s.lgUser.trim() ? '[data-lg="user"]' : (!s.lgPass ? '[data-lg="pass"]' : '[data-rl="go"]')) : '[data-rl="go"]')); if (t) t.focus(); }
     this._rf = rf;
     var tf = s.td ? 'doc:' + s.td.tab : (s.tuOpen ? 'tu' : '');
     if (tf && this._tf2 !== tf) { var tt = document.querySelector(s.td ? '.td-tabs .on' : '[data-tu="go"]'); if (tt) tt.focus(); }
@@ -1672,7 +1749,7 @@ class Component extends DCLogic {
     this.setState({ up: 'checking', upErr: '', upNote: '' });
     setTimeout(() => {
       var s = this.state, r = s.upNext;
-      this.setState({ up: r, upAt: '11-02 ' + this.hhmmss(s.now % 86400).slice(0, 5), upErr: r === 'error' ? '连接超时，可以重试，也可以打开发布页看看。' : '' });
+      this.setState({ up: r, upAt: '11-03 ' + this.hhmmss(s.now % 86400).slice(0, 5), upErr: r === 'error' ? '连接超时，可以重试，也可以打开发布页看看。' : '' });
       this.upGuardOn();
     }, 1200);
   };
@@ -1688,7 +1765,7 @@ class Component extends DCLogic {
   askTerms = () => { var s = this.state; this.setState(s.termsPrev && !s.terms ? { tuOpen: true, pop: '' } : { termsOpen: true, pop: '' }); };
   termsAccept = () => {
     var s = this.state, first = !s.termsAgreed && !s.termsWithdrawn;
-    this.setState({ terms: true, termsAgreed: this.termsNewVer(), termsAt: '11-02 14:20', termsPrev: '', termsWithdrawn: false, td: null, tuOpen: false, termsOpen: false, agree: false, lines: (first ? [] : s.lines).concat('14:20:05  已同意 ' + this.termsNewVer() + ' 版条款') });
+    this.setState({ terms: true, termsAgreed: this.termsNewVer(), termsAt: '11-03 14:20', termsPrev: '', termsWithdrawn: false, td: null, tuOpen: false, termsOpen: false, agree: false, lines: (first ? [] : s.lines).concat('14:20:05  已同意 ' + this.termsNewVer() + ' 版条款') });
     // 第一次同意还没登录，交给登录流程；升版或撤回后重新同意，就马上检查登录并刷新活动
     if (!first) setTimeout(() => this.refresh(), 60);
   };
@@ -1706,7 +1783,7 @@ class Component extends DCLogic {
     var s = this.state, has = s.cred === 'saved' || s.cred === 'once';
     var base = { pop: '', rlCode: '', rlErr: '' };
     if (s.phase === 'running' && this.reloginLate(s)) { this.setState(Object.assign(base, { rl: 'planbusy' })); return; }
-    if (!has) { this.doLogin(); return; }
+    if (!has) { this.askLogin(); return; }
     if (s.credBad) { this.setState(Object.assign(base, { rl: 'bad' })); return; }
     this.setState(Object.assign(base, { rl: s.ocr === 'on' ? 'confirm' : 'cap' }));
   };
@@ -1719,13 +1796,34 @@ class Component extends DCLogic {
     setTimeout(() => {
       var st = this.state;
       if (code === '0000') { this.setState({ rl: 'cap', rlCode: '', rlIdx: st.rlIdx + 1, rlErr: '验证码不对，已经换了一张新图。' }); return; }
-      this.rlOk('已重新登录');
+      if (st.rlFrom === 'form') this.lgDone(); else this.rlOk('已重新登录');
     }, 900);
   };
   rlOk(text) { var run = this.state.phase === 'running'; this.setState({ rl: '', rlErr: '', rlCode: '', login: 'valid', loginAt: this.state.now, lines: this.log(this.state, '[OK] ' + text + (run ? '，报名计划照常继续' : '，活动列表已刷新')) }); }
   autoDone() { if (this.state.login === 'auto') this.setState({ login: 'valid', loginAt: this.state.now, lines: this.log(this.state, '[OK] 已用保存的账号自动登录，报名计划照常继续') }); }
-  rlBrowser = () => { this.setState({ rl: '', rlErr: '' }); this.doLogin(); };
-  rlDemoBad = () => { this.setState({ rl: 'bad', credBad: true, rlErr: '', rlCode: '', lines: this.log(this.state, '学校说保存的账号或密码不对，自动登录已暂停') }); };
+  rlBrowser = () => { this.setState({ rl: 'login', lgWay: 'browser', rlErr: '', rlCode: '', rlFrom: '' }); };
+  askLogin = () => { this.setState({ rl: 'login', rlErr: '', rlCode: '', rlFrom: '', pop: '', lgPass: '', lgShow: false }); };
+  lgMask(u) { u = String(u || '').trim(); return u.length > 4 ? u.slice(0, 2) + '****' + u.slice(-2) : '****'; }
+  lgNext = () => {
+    var s = this.state;
+    if (!s.lgUser.trim() || !s.lgPass) return;
+    if (s.ocr === 'on') { this.setState({ rl: 'verifying', rlFrom: 'form', rlErr: '' }); setTimeout(() => this.lgDone(), 1200); return; }
+    this.setState({ rl: 'cap', rlFrom: 'form', rlCode: '', rlErr: '' });
+  };
+  lgOpenWeb = () => {
+    this.setState({ rl: 'lgwait', rlErr: '', login: 'pending', lines: this.log(this.state, '已打开学校登录页，等你在浏览器里登录') });
+    setTimeout(() => { if (this.state.rl === 'lgwait') this.lgDone(); }, 2600);
+  };
+  lgCancelWeb = () => { this.setState({ rl: '', login: 'none', lines: this.log(this.state, '取消了学校登录页登录，登录状态没变') }); };
+  lgDone() {
+    var s = this.state, form = s.rlFrom === 'form', keep = form && s.lgSave;
+    var patch = { rl: '', rlErr: '', rlCode: '', rlFrom: '', lgPass: '', lgShow: false, login: 'valid', loginAt: s.now, list: 'ready' };
+    if (form) { patch.cred = keep ? 'saved' : 'once'; patch.credMask = this.lgMask(s.lgUser); patch.credBad = false; }
+    patch.lines = this.log(s, '[OK] 登录成功' + (keep ? '，账号已加密保存到这台电脑' : '') + (s.phase === 'running' ? '，报名计划照常继续' : '，活动列表已更新'));
+    this.setState(patch);
+    if (!this.state.tourDone) setTimeout(() => this.goTour(0), 350);
+  }
+  rlDemoBad = () => { if (this.state.rlFrom === 'form') { this.setState({ rl: 'login', lgWay: 'here', lgPass: '', rlCode: '', rlFrom: '', rlErr: '学校说账号或密码不对。为了避免账号被锁，工具没有重试；改好再登录。', lines: this.log(this.state, '学校说账号或密码不对') }); return; } this.setState({ rl: 'bad', credBad: true, rlErr: '', rlCode: '', lines: this.log(this.state, '学校说保存的账号或密码不对，自动登录已暂停') }); };
   goSaveCred = () => {
     this.setState({ settings: true, credForm: true, credNote: '', credUser: '', credPass: '', credOnce: false, pop: '' });
     setTimeout(() => { var el = document.querySelector('[data-sec="login"]'); if (el) el.scrollIntoView({ block: 'start' }); }, 150);
@@ -1765,8 +1863,12 @@ class Component extends DCLogic {
       if (this.state.ocr !== 'downloading' && this.state.ocr !== 'verifying') clearInterval(this._oc);
     }, 220);
   };
-  ocCancel = () => { clearInterval(this._oc); this.setState({ ocr: 'missing', ocrPct: 0, ocrErr: '', ocrNote: '下载已取消，现有组件没有改动。' }); };
-  ocDemoFail = () => { clearInterval(this._oc); this.setState({ ocr: 'missing', ocrPct: 0, ocrNote: '', ocrErr: '下载没有完成：连不上发布页。现有组件没有改动，可以重试。' }); };
+  ocEnable = () => { var s = this.state; this.setState({ ocr: 'on', ocrNote: '验证码识别已启用。', lines: s.lines.concat(this.hms(s.now) + '  验证码识别已启用') }); };
+  // 原型里只回一句提示；产品直接用资源管理器打开组件所在的文件夹
+  ocOpenLoc = () => { this.setState({ ocrNote: '已用资源管理器打开组件所在的文件夹。' }); };
+  phOpenLoc = () => { this.setState({ phNote: '已用资源管理器打开组件所在的文件夹。' }); };
+  ocCancel = () => { clearInterval(this._oc); this.setState({ ocr: 'missing', ocrPct: 0, ocrErr: '', ocrNote: '下载已取消，没有装任何东西。' }); };
+  ocDemoFail = () => { clearInterval(this._oc); this.setState({ ocr: 'missing', ocrPct: 0, ocrNote: '', ocrErr: '下载没有完成：连不上发布页，可以重试。' }); };
   impOpen(key) { this.setState({ imp: { key: key, file: '', check: null, picking: false, installing: false } }); }
   impInstall = () => {
     var m = this.state.imp;
@@ -1786,8 +1888,8 @@ class Component extends DCLogic {
     var mask = u.length > 4 ? u.slice(0, 2) + '****' + u.slice(-2) : u.slice(0, 1) + '***';
     this.setState({ credBad: false, cred: s.credOnce ? 'once' : 'saved', credMask: mask, credForm: false, credUser: '', credPass: '', credNote: s.credOnce ? '已准备好，只在这次运行中使用。' : '已加密保存到本机。', lines: this.log(s, s.credOnce ? '已准备本次重新登录用的账号（不记录账号内容）' : '账号已加密保存到本机（不记录账号内容）') });
   };
-  phCancel = () => { clearInterval(this._ph); this.setState({ ph: 'missing', phPct: 0, phErr: '', phNote: '下载已取消，现有组件没有改动。' }); };
-  phDemoFail = () => { clearInterval(this._ph); this.setState({ ph: 'missing', phPct: 0, phNote: '', phErr: '下载没有完成：网络中断。现有组件没有改动，可以重试。' }); };
+  phCancel = () => { clearInterval(this._ph); this.setState({ ph: 'missing', phPct: 0, phErr: '', phNote: '下载已取消，没有装任何东西。' }); };
+  phDemoFail = () => { clearInterval(this._ph); this.setState({ ph: 'missing', phPct: 0, phNote: '', phErr: '下载没有完成：网络中断，可以重试。' }); };
   phStart = () => {
     var cf = this.state.phCh === 'cloudflare';
     this.setState({ phStarting: true, phNote: '', phErr: '' });
@@ -1832,25 +1934,29 @@ class Component extends DCLogic {
   blockers(s) {
     var b = [];
     if (s.broken) { b.push({ text: '程序组件缺失，看顶部提示' }); return b; }
-    if (!s.terms) b.push({ text: s.termsPrev ? '先同意新版条款' : '先同意使用条款', label: '查看条款', fn: this.askTerms });
-    else if (s.login === 'none') b.push({ text: '还没有登录', label: '去登录', fn: this.doLogin });
+    if (!s.terms) b.push({ text: s.termsUnknown ? '先重新确认条款' : (s.termsPrev ? '先同意新版条款' : '先同意使用条款'), label: '查看条款', fn: this.askTerms });
+    else if (s.login === 'none') b.push({ text: '还没有登录', label: '去登录', fn: this.askLogin });
     else if (s.login === 'expired') b.push({ text: '登录已失效', label: '重新登录', fn: this.reLogin });
     else if (s.login === 'unknown') b.push({ text: '登录状态还没确认', label: '刷新', fn: this.refresh });
     else if (s.login === 'pending') b.push({ text: '正在登录' });
     else if (s.login === 'auto') b.push({ text: '正在自动登录' });
-    if (s.clock !== 'ready' && s.clock !== 'hold') b.push({ text: '北京时间还没校准', label: '校准', fn: this.syncClock });
-    if (s.list !== 'ready') b.push({ text: '活动列表还没加载', label: '重试', fn: this.refresh });
+    if (s.clock !== 'ready' && s.clock !== 'hold') b.push({ text: '北京时间还没校准', label: '重新校准', fn: this.syncClock });
+    if (s.list !== 'ready') b.push({ text: '活动列表还没加载', label: '刷新', fn: this.refresh });
     if (!s.selected.length) b.push(s.zero ? { text: '学校还没有可选的活动', label: '刷新', fn: this.refresh } : { text: '先在时刻表勾选活动' });
     return b;
   }
   attention(s) {
     if (s.broken) return { tone: 'bad', title: '程序组件缺失。', detail: '重新下载完整版本，下载页在设置的“版本与更新”里。', action: '重新检查', fn: this.recheck };
-    if (!s.terms && !s.termsOpen && !s.tuOpen && !s.td) return { tone: '', title: s.termsWithdrawn ? '你撤回了条款同意。' : (s.termsPrev ? '使用条款更新了，还没有同意新版。' : '还没有同意使用条款。'), detail: '同意后才能登录、查看活动和开始报名计划。', action: '查看条款', fn: this.askTerms };
+    if (!s.terms && !s.termsOpen && !s.tuOpen && !s.td) return { tone: '', title: s.termsUnknown ? '条款状态没能确认。' : (s.termsWithdrawn ? '你撤回了条款同意。' : (s.termsPrev ? '使用条款更新了，还没有同意新版。' : '还没有同意使用条款。')), detail: s.termsUnknown ? '读不到你同意过哪一版。登录、活动列表和报名计划暂时停用，打开条款重新确认后恢复。' : '同意后才能登录、查看活动和开始报名计划。', action: '查看条款', fn: this.askTerms };
     if (s.net === 'off') return { tone: 'bad', title: '网络断开了。', detail: s.phase === 'running' ? '到点时还没恢复，这次报名会失败。恢复以后看一眼计划结果。' : '恢复以后点“刷新”。', action: '重新检测', fn: this.netRecheck };
     if (s.slept) return { tone: '', title: '电脑刚才睡眠了约 ' + s.slept + ' 分钟。', detail: s.sleepMissed.length ? '期间' + s.sleepMissed.map((id) => '「' + this.find(id).name + '」').join('') + '到了开放时间，没有提交。' : '期间没有场次到开放时间。', action: '知道了', fn: () => this.setState({ slept: 0 }) };
-    if (s.login === 'unknown') return { tone: '', title: '暂时无法确认登录状态。', detail: '检查网络后点「刷新」，先不用重新登录。', action: '刷新', fn: this.refresh };
+    if (s.login === 'unknown') return { tone: '', title: '暂时无法确认登录状态。', detail: '检查网络后点“刷新”，先不用重新登录。', action: '刷新', fn: this.refresh };
     if (s.login === 'expired') return { tone: 'bad', title: '登录已失效。', detail: s.phase === 'running' ? '报名计划还在等，开放前 100 秒以前重新登录就照常继续。' : '重新登录后可以继续。', action: '重新登录', fn: this.reLogin };
     if (s.clock === 'down') return { tone: '', title: '北京时间还没校准。', detail: '校准后才能开始报名计划，不影响查看活动。', action: '重新校准', fn: this.syncClock };
+    var seen = () => this.setState({ info: '' });
+    if (s.info === 'second') return { tone: 'note', title: '工具已经开着。', detail: '刚才又打开了一次，已切回这个窗口。同一台电脑只运行一份，免得同一场被提交两遍。', action: '知道了', fn: seen };
+    if (s.info === 'migrated') return { tone: 'note', title: '已把旧版本的数据搬到新位置。', detail: '登录、设置和运行记录都在，不用重新登录。位置在设置的“本机数据”里。', action: '知道了', fn: seen };
+    if (s.info === 'migratefail') return { tone: '', title: '旧版本的登录信息没能搬过来。', detail: '设置和运行记录已经搬好；重新登录一次就行，旧文件还留在原来的位置。', action: '登录', fn: this.askLogin };
     return null;
   }
 
@@ -1861,14 +1967,14 @@ class Component extends DCLogic {
     var wait = s.tasks.filter(function (t) { return t.status === 'waiting'; }), sub = s.tasks.some(function (t) { return t.status === 'submitting'; });
     if (!wait.length && !sub) return v;
     v.show = true;
-    if (s.login === 'auto') { v.tone = 'info'; v.text = sub ? '登录失效了，电脑正在自动登录（最多约 20 秒），成功后接着提交。' : '登录失效了，电脑正在自动登录。计划照常等开放，不用你动手。'; return v; }
+    if (s.login === 'auto') { v.tone = 'info'; v.text = sub ? '登录失效了，电脑正在自动登录（最多约 20 秒），成功后接着提交。' : '登录失效了，电脑正在自动登录。计划照常等开放，不用你管。'; return v; }
     var first = wait.length ? Math.min.apply(null, wait.map(function (t) { return t.open; })) : 0;
     if (sub || first - s.now <= 100) {
       var later = wait.some(function (t) { return t.open > (sub ? s.now : first); });
       v.text = '登录失效了。' + (sub ? '正在提交' : '离开放不到 100 秒') + '，来不及重新登录，' + (sub ? '正在提交的场次' : '这一批') + '会以“登录失效”结束。' + (later ? '后面的场次等它结束后重新登录就行。' : '');
       return v;
     }
-    v.text = '登录失效了，计划还在等。' + this.hms(first - 100) + ' 前重新登录，计划照常继续；来不及的话，' + this.hms(first) + ' 开放的那批会以“登录失效”结束。';
+    v.text = '登录失效了，计划还在等。只要在 ' + this.hms(first - 100) + ' 前重新登录，计划照常继续；否则 ' + this.hms(first) + ' 开放的那批会以“登录失效”结束。';
     v.hasFn = true; v.label = '重新登录'; v.fn = this.reLogin;
     return v;
   }
@@ -1938,10 +2044,10 @@ class Component extends DCLogic {
           if (task && !self.isEnd(task.status)) { tag = task.status === 'submitting' ? '提交中' : '等开放'; tagCls = 't-armed'; }
           var gap = i.open - s.now;
           var leftText = st === 'pre' ? (clockOk ? self.leftCn(gap) : '待校准') : '';
-          var small = st === 'open' ? (clockOk ? '已开放 ' + self.leftCn(s.now - i.open) : '') : '';
+          var small = st === 'open' ? (clockOk ? '已开放 ' + self.leftCn(s.now - i.open) : '已开放') : '';
           var isKnown = st !== 'unknown';
           var dim = st === 'signed' || st === 'closed' || st === 'unknown';
-          return { name: i.name, place: i.place, act: narrow ? i.actShort : i.act, flags: flags, time: isKnown ? self.hhmmss(i.open % 86400).slice(0, 5) : '待公布', timeCls: isKnown ? '' : 'txt', hasDay: (i.group === '明天' || i.group === '后天') && st === 'pre', day: i.group, cols: cols, showTime: !narrow, inlineTime: narrow && isKnown, showPlace: showPlace, selected: selected, disabled: off, cls: (selected ? 'sel ' : '') + (task && !self.isEnd(task.status) ? 'armed ' : '') + (off && !selected ? 'off ' : '') + (dim ? 'dim' : ''), hasTag: !!tag, tag: tag, tagCls: tagCls, hasAtt: !!att, att: att, attCls: i.inV === 'null' ? 'att un' : 'att', hasLeft: !!leftText, left: leftText, leftCls: st === 'pre' && gap < 600 ? 'soon' : '', hasSmall: !!small, small: small, hasWarn: !!warn && !busy, warn: warn, hasSync: s.signedLocal.indexOf(i.id) >= 0 || !!(task && task.status === 'success'), tourAttr: i.id === s.tourRowId ? 'row' : '', aria: '选择 ' + i.name, toggle: function (e) { self.toggle(i.id, e.target.checked); } };
+          return { name: i.name, rw: self.rwOf(i), rwSide: !narrow, rwInline: narrow, place: i.place, act: narrow ? i.actShort : i.act, flags: flags, time: isKnown ? self.hhmmss(i.open % 86400).slice(0, 5) : '待公布', timeCls: isKnown ? '' : 'txt', hasDay: (i.group === '明天' || i.group === '后天') && st === 'pre', day: i.group, cols: cols, showTime: !narrow, inlineTime: narrow && isKnown, showPlace: showPlace, selected: selected, disabled: off, cls: (selected ? 'sel ' : '') + (task && !self.isEnd(task.status) ? 'armed ' : '') + (off && !selected ? 'off ' : '') + (dim ? 'dim' : ''), hasTag: !!tag, tag: tag, tagCls: tagCls, hasAtt: !!att, att: att, attCls: i.inV === 'null' ? 'att un' : 'att', hasLeft: !!leftText, left: leftText, leftCls: st === 'pre' && gap < 600 ? 'soon' : '', hasSmall: !!small, small: small, hasWarn: !!warn && !busy, warn: warn, hasSync: s.signedLocal.indexOf(i.id) >= 0 || !!(task && task.status === 'success'), tourAttr: i.id === s.tourRowId ? 'row' : '', aria: '选择 ' + i.name, toggle: function (e) { self.toggle(i.id, e.target.checked); } };
         })
       });
     });
@@ -2000,7 +2106,7 @@ class Component extends DCLogic {
         else led = this.ledOf(this.hhmmss(nextIt.open - s.now), 'amber', '最近开放', this.hms(nextIt.open));
       }
       if (!sel.length) {
-        if (s.list === 'idle') { head = { text: '首次使用', tone: 'off' }; draft = { title: '登录后开始', sub: '活动会在登录完成后自动加载。' }; }
+        if (s.list === 'idle') { head = { text: s.info === 'migratefail' ? '未登录' : '首次使用', tone: 'off' }; draft = { title: '登录后开始', sub: '活动会在登录完成后自动加载。' }; }
         else if (s.list === 'error') { head = { text: '需重试', tone: 'red' }; draft = { title: '活动暂时没加载', sub: '具体原因看左边列表的提示。' }; }
         else if (s.list === 'broken') { head = { text: '不可用', tone: 'red' }; draft = { title: '暂时不能报名', sub: '程序组件缺失，处理办法在顶部提示里。' }; }
         else if (s.list === 'loading') { head = { text: '加载中', tone: 'off' }; draft = { title: '活动列表正在加载', sub: '先等这一次加载结束。' }; }
@@ -2012,8 +2118,8 @@ class Component extends DCLogic {
 
     if (s.phase === 'draft' && !s.terms && s.list !== 'idle') {
       head = { text: '已暂停', tone: 'off' };
-      led = this.ledOf('--:--:--', 'off', '同意条款后才能报名', '');
-      if (!sel.length) draft = { title: '同意条款后才能报名', sub: '登录、活动列表和报名计划都停用了。帮助和设置照常可用。' };
+      led = this.ledOf('--:--:--', 'off', s.termsUnknown ? '重新确认条款后才能报名' : '同意条款后才能报名', '');
+      if (!sel.length) draft = s.termsUnknown ? { title: '重新确认条款后才能报名', sub: '登录、活动列表和报名计划暂时停用。帮助和设置照常可用。' } : { title: '同意条款后才能报名', sub: '登录、活动列表和报名计划都停用了。帮助和设置照常可用。' };
     }
     var editNote = '';
     if (s.phase === 'draft' && s.editing) {
@@ -2076,12 +2182,12 @@ class Component extends DCLogic {
     }
 
     var termsHold = !s.terms && s.login !== 'none';
-    var loginText = termsHold ? '等同意条款' : { valid: '已登录', none: '未登录', unknown: '登录待确认', expired: '登录已失效', pending: '登录中…', auto: '自动登录中…' }[s.login];
+    var loginText = termsHold ? (s.termsUnknown ? '等确认条款' : '等同意条款') : { valid: '已登录', none: '未登录', unknown: '登录待确认', expired: '登录已失效', pending: '登录中…', auto: '自动登录中…' }[s.login];
     var loginTone = termsHold ? '' : { valid: 'ok', none: '', unknown: 'warn', expired: 'bad', pending: 'busy', auto: 'busy' }[s.login];
     var loginPop = {
       valid: { title: '已登录', text: '报名前会再用学校系统确认一次。', checked: '14:20:03', left: '学校不公布', action: '重新登录', fn: this.reLogin },
       auto: { title: '正在自动登录', text: '用保存的账号自动登录，验证码由电脑识别。', checked: '14:20:07', left: '—', action: '刷新', fn: this.refresh },
-      none: { title: '还没有登录', text: '在打开的浏览器里完成登录，这里不保存你的密码。', checked: '暂无', left: '未知', action: '登录', fn: this.doLogin },
+      none: { title: '还没有登录', text: '可以在这里输入账号密码，也可以用学校登录页。不勾保存就不留密码。', checked: '暂无', left: '未知', action: '登录', fn: this.askLogin },
       unknown: { title: '暂时无法确认', text: '多半是网络问题。已保存的登录还在，先不用重新登录。', checked: '14:20:03', left: '未知（以学校校验为准）', action: '刷新', fn: this.refresh },
       expired: { title: '登录已失效', text: '学校明确返回登录失效，重新登录后可以继续。', checked: '14:20:03', left: '已失效', action: '重新登录', fn: this.reLogin },
       pending: { title: '正在登录', text: '在浏览器里登完再回来。中途关掉窗口会保留原来的登录状态。', checked: '—', left: '—', action: '刷新', fn: this.refresh }
@@ -2091,8 +2197,8 @@ class Component extends DCLogic {
     var attn = this.attention(s);
     var empty = null;
     if (s.list === 'broken') empty = { title: '活动列表没加载', text: '程序组件缺失，修好之前看不了活动。处理办法在顶部提示里。', action: '', fn: function () {} };
-    if (s.list === 'idle') empty = s.terms ? { title: '登录后查看活动', text: '在打开的浏览器里完成登录，活动会自动加载。', action: '登录', fn: this.doLogin } : { title: '先看一下使用条款', text: '同意后才能登录和查看活动。', action: '查看条款', fn: this.askTerms };
-    else if (s.list === 'error') empty = { title: '活动暂时没加载', text: '连不上学校站点。检查网络后再试一次，已保存的登录不受影响。', action: '重试', fn: this.refresh };
+    if (s.list === 'idle') empty = s.terms ? { title: '登录后查看活动', text: '在这里输入账号密码或用学校登录页，登录后活动会自动加载。', action: '登录', fn: this.askLogin } : { title: '先看一下使用条款', text: '同意后才能登录和查看活动。', action: '查看条款', fn: this.askTerms };
+    else if (s.list === 'error') empty = { title: '活动暂时没加载', text: '连不上学校站点，已保存的登录不受影响。检查网络后点“刷新”。', action: '刷新', fn: this.refresh };
     else if (s.list === 'ready' && !count.all) empty = { title: '学校当前没有返回活动', text: '这不是登录问题。稍后点“刷新”再看，学校发布新活动后会出现在这里。', action: '刷新', fn: this.refresh };
     else if (s.list === 'ready' && !groups.length) empty = { title: '没有符合筛选的活动', text: '一共 ' + count.all + ' 场。换个关键词，或清除筛选看完整列表。', action: '清除筛选', fn: function () { self.setState({ q: '', seg: 'all', fTime: 'all', fSort: 'open', fIn: 'all', fOut: 'all' }); } };
     var fN = (s.fTime !== 'all' ? 1 : 0) + (s.fSort !== 'open' ? 1 : 0) + (s.fIn !== 'all' ? 1 : 0) + (s.fOut !== 'all' ? 1 : 0);
@@ -2123,12 +2229,12 @@ class Component extends DCLogic {
       refresh: this.refresh, openSettings: function () { self.setState({ settings: true, pop: '' }); }, closeSettings: function () { self.setState({ settings: false }); }, openHelp: function () { self.setState({ help: true, pop: '' }); }, closeHelp: function () { self.setState({ help: false }); },
       settings: s.settings, help: s.help, chromeOn: !!s.chrome, winMin: this.winMin, winClose: this.winClose, winRestore: this.winRestore, closeAsk: s.closeAsk && s.win === 'open', cv: this.closeView(s), closeRemember: s.closeRemember, onRemember: function (e) { self.setState({ closeRemember: e.target.checked }); }, closeCancel: function () { self.setState({ closeAsk: false, closeStep: '', closeWhy: '' }); }, closeBack: function () { self.setState({ closeStep: '' }); }, closeExitYes: function () { self.closePick('exit'); },
       closeKey: function (e) { if (e.key !== 'Escape') return; e.preventDefault(); if (self.state.closeStep === 'confirm') self.setState({ closeStep: '' }); else self.setState({ closeAsk: false, closeWhy: '' }); },
-      winGone: s.win !== 'open', wv: this.winView(s), upV: this.upView(s), crV: this.credView(s), rlOn: !!s.rl, rlV: this.rlView(s), rlCode: s.rlCode, onRlCode: function (e) { var v = String(e.target.value).replace(/[^0-9A-Za-z]/g, '').slice(0, 4); if (e.target.value !== v) e.target.value = v; self.setState({ rlCode: v, rlErr: '' }); }, rlCodeKey: function (e) { if (e.key === 'Enter') self.rlSubmit(); }, rlNext: function () { self.setState({ rlIdx: self.state.rlIdx + 1, rlCode: '', rlErr: '' }); }, rlBrowser: this.rlBrowser, rlDemoBad: this.rlDemoBad, goSaveCred: this.goSaveCred,
+      winGone: s.win !== 'open', wv: this.winView(s), upV: this.upView(s), crV: this.credView(s), rlOn: !!s.rl, rlV: this.rlView(s), rlCode: s.rlCode, onRlCode: function (e) { var v = String(e.target.value).replace(/[^0-9A-Za-z]/g, '').slice(0, 4); if (e.target.value !== v) e.target.value = v; self.setState({ rlCode: v, rlErr: '' }); }, rlCodeKey: function (e) { if (e.key === 'Enter') self.rlSubmit(); }, rlNext: function () { self.setState({ rlIdx: self.state.rlIdx + 1, rlCode: '', rlErr: '' }); }, rlBrowser: this.rlBrowser, rlDemoBad: this.rlDemoBad, lgUser: s.lgUser, lgPass: s.lgPass, lgSave: s.lgSave, lgShow: s.lgShow, onLgUser: function (e) { self.setState({ lgUser: e.target.value, rlErr: '' }); }, onLgPass: function (e) { self.setState({ lgPass: e.target.value, rlErr: '' }); }, onLgSave: function (e) { self.setState({ lgSave: e.target.checked }); }, lgHere: function () { self.setState({ lgWay: 'here' }); }, lgWeb: function () { self.setState({ lgWay: 'browser', rlErr: '' }); }, lgEye: function () { self.setState({ lgShow: !self.state.lgShow }); }, goSaveCred: this.goSaveCred,
       rlKey: function (e) { if (e.key !== 'Escape') return; e.preventDefault(); if (['auto', 'verifying'].indexOf(self.state.rl) < 0) self.setState({ rl: '', rlErr: '' }); },
       ocV: this.ocrView(s), impOn: !!s.imp, impV: this.impView(s),
       credUser: s.credUser, credPass: s.credPass, credOnce: s.credOnce, onCredUser: function (e) { self.setState({ credUser: e.target.value }); }, onCredPass: function (e) { self.setState({ credPass: e.target.value }); }, onCredOnce: function (e) { self.setState({ credOnce: e.target.checked }); },
       credSave: this.credSave, credCancel: function () { self.setState({ credForm: false, credUser: '', credPass: '' }); }, credClearAskFn: function () { self.setState({ credClearAsk: true, credNote: '' }); }, credClearNo: function () { self.setState({ credClearAsk: false }); }, credClearYes: function () { self.setState({ cred: 'none', credMask: '', credClearAsk: false, credNote: '已清除本机保存的账号密码。', lines: self.log(self.state, '已清除本机保存的账号密码') }); },
-      ocImport: function () { self.impOpen('relogin_ocr'); }, ocDemoFail: this.ocDemoFail, impPickToggle: function () { var m = self.state.imp; if (m && !m.installing) self.setState({ imp: Object.assign({}, m, { picking: !m.picking }) }); }, impCancel: function () { self.setState({ imp: null }); }, impInstall: this.impInstall,
+      ocOpenLoc: this.ocOpenLoc, phOpenLoc: this.phOpenLoc, ocImport: function () { self.impOpen('relogin_ocr'); }, ocDemoFail: this.ocDemoFail, impPickToggle: function () { var m = self.state.imp; if (m && !m.installing) self.setState({ imp: Object.assign({}, m, { picking: !m.picking }) }); }, impCancel: function () { self.setState({ imp: null }); }, impInstall: this.impInstall,
       impKey: function (e) { if (e.key !== 'Escape') return; e.preventDefault(); var m = self.state.imp; if (!m || m.installing) return; if (m.picking) self.setState({ imp: Object.assign({}, m, { picking: false }) }); else self.setState({ imp: null }); }, upNext: s.upNext, onUpNext: function (e) { self.setState({ upNext: e.target.value }); }, upCheck: this.upCheck, upInstall: this.upInstall, upBack: this.upBack, upConfirm: this.upConfirm, upCancel: this.upCancel, upDemoFail: this.upDemoFail, upLaunch: this.upLaunch, upExit: this.upExit, upRelease: this.upRelease, closePref: s.closePref, onClosePref: function (e) { self.setState({ closePref: e.target.value }); }, phV: this.phView(s), canDemo: !p.frozen, phTop: { show: s.ph === 'on', tone: s.phPaired ? 'ok' : 'warn', text: s.phPaired ? '手机已连接' : '等手机连接', aria: (s.phPaired ? '手机已连接' : '手机访问已开启，等手机连接') + '，查看详情' }, phInstall: this.phInstall, phImport: this.phImport, phCancel: this.phCancel, phDemoFail: this.phDemoFail, phStart: this.phStart, phRecheck: this.phRecheck, phDemoTs: this.phDemoTs, phStopAskFn: this.phStopAskFn, phStopNo: this.phStopNo, phStopYes: this.phStopYes, phAddPair: this.phAddPair, phCopy: this.phCopy, phDemoPair: this.phDemoPair, phDemoGone: this.phDemoGone, openTermsView: function () { self.setState({ td: { tab: 'agreement', mode: self.state.terms ? 'view' : 'consent' }, settings: false }); },
       hasAttn: !!attn, attn: attn || { tone: '', title: '', detail: '', action: '', fn: function () {} },
       showList: two || !s.planOpen, showPanel: two || s.planOpen, showDock: !two && !s.planOpen, showBack: !two && s.planOpen, panelFlex: two ? '0 0 25rem' : '1 1 auto', boardCls: boardCls, head: head, draft: draft, led: led, openPlan: function () { self.setState({ planOpen: true }); }, closePlan: function () { self.setState({ planOpen: false }); }, dock: dock,
@@ -2141,7 +2247,7 @@ class Component extends DCLogic {
       hasNotice: !!s.notice, notice: s.notice,
       retry: String(s.retry), maxA: s.maxA, headed: s.headed, editPolicy: s.editPolicy, policyBtn: s.editPolicy ? '收起' : '修改', togglePolicy: function () { self.setState({ editPolicy: !s.editPolicy }); }, onRetry: function (e) { self.setState({ retry: Number(e.target.value) }); }, onMax: function (e) { var v = Math.floor(Number(e.target.value)); if (v >= 0) self.setState({ maxA: v }); }, onHeaded: function (e) { self.setState({ headed: e.target.checked }); },
       retryText: { '120': '2 分钟', '600': '10 分钟', '1800': '30 分钟', '3600': '1 小时', '-1': '自动延长', '0': '直到报名截止' }[String(s.retry)], attemptText: s.maxA ? '最多 ' + s.maxA + ' 次' : '不限次数',
-      checks: s.broken ? [{ cls: 'no', mark: '!', text: '程序组件缺失' }] : !s.terms ? [{ cls: 'no', mark: '!', text: s.termsPrev ? '还没有同意新版条款' : '还没有同意使用条款' }] : checks.filter(function (x) { return x.cls === 'no'; }).length ? checks.filter(function (x) { return x.cls === 'no'; }) : (this.preWarn(s).length ? [] : [{ cls: 'ok', mark: '✓', text: sel.length ? '登录、北京时间和举办时间都没问题' : '登录和北京时间都没问题' }]), dockStart: s.phase === 'draft' && !blockers.length && !pwN, topCls: narrow ? 'narrow' : '', searchPh: narrow ? '搜活动或地点' : '搜活动名或地点（Ctrl+F）', cantStart: blockers.length > 0, hasWhy: blockers.length > 0, why: why, start: function () { self.setState(self.startState(self.state)); },
+      checks: s.broken ? [{ cls: 'no', mark: '!', text: '程序组件缺失' }] : !s.terms ? [{ cls: 'no', mark: '!', text: s.termsUnknown ? '条款状态没能确认' : (s.termsPrev ? '还没有同意新版条款' : '还没有同意使用条款') }] : checks.filter(function (x) { return x.cls === 'no'; }).length ? checks.filter(function (x) { return x.cls === 'no'; }) : (this.preWarn(s).length ? [] : [{ cls: 'ok', mark: '✓', text: sel.length ? '登录、北京时间和举办时间都没问题' : '登录和北京时间都没问题' }]), dockStart: s.phase === 'draft' && !blockers.length && !pwN, topCls: narrow ? 'narrow' : '', searchPh: narrow ? '搜活动或地点' : '搜活动名或地点（Ctrl+F）', cantStart: blockers.length > 0, hasWhy: blockers.length > 0, why: why, start: function () { self.setState(self.startState(self.state)); },
       tourV: this.tourView(s, two), tourNext: function () { var st = self.state; if (st.tourStep >= self.tourSteps().length - 1) self.finishTour(); else self.goTour(st.tourStep + 1); }, tourPrev: function () { var st = self.state; if (st.tourStep > 0) self.goTour(st.tourStep - 1); }, tourSkip: function () { self.finishTour(); },
       tourKey: function (e) {
         if (e.key === 'Escape') { e.preventDefault(); self.finishTour(); return; }
@@ -2167,8 +2273,8 @@ class Component extends DCLogic {
       tdOn: !!s.td, tdV: this.tdView(s), tdClose: function () { self.setState({ td: null }); },
       tdKey: function (e) { if (e.key !== 'Escape') return; e.preventDefault(); self.setState({ td: null }); },
       canWithdraw: s.terms && s.phase !== 'running' && !s.termsWAsk, withdrawBlocked: s.terms && s.phase === 'running', termsWAsk: s.termsWAsk && s.terms, withdrawAsk: function () { self.setState({ termsWAsk: true }); }, withdrawNo: function () { self.setState({ termsWAsk: false }); }, termsWithdraw: this.termsWithdraw,
-      hasListNote: !s.terms && s.list === 'ready', listNote: '这是上次的活动缓存，可能已经过时。同意条款后才会刷新，现在不能勾选。',
-      termsLine: s.terms ? '你在 ' + s.termsAt + ' 同意了 ' + s.termsAgreed + ' 版。用户协议、隐私政策和开源许可都在这里。' : (s.termsPrev ? '条款更新了，你还没有同意新版 ' + this.termsNewVer() + '。' : '你还没有同意使用条款。')
+      hasListNote: !s.terms && s.list === 'ready', listNote: '这是上次的活动缓存，可能已经过时。' + (s.termsUnknown ? '重新确认条款' : '同意条款') + '后才会刷新，现在不能勾选。',
+      termsLine: s.terms ? '你在 ' + s.termsAt + ' 同意了 ' + s.termsAgreed + ' 版。用户协议、隐私政策和开源许可的全文都可以在这里查看。' : s.termsUnknown ? '没能读到你同意过哪一版，打开条款重新确认后恢复。' : (s.termsPrev ? '条款更新了，你还没有同意新版 ' + this.termsNewVer() + '。' : '你还没有同意使用条款。')
     };
   }
 }

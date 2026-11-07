@@ -1,9 +1,12 @@
-# 新工作台原型快照（2026-11-03，版本 32）
+# 新工作台原型快照（2026-11-06，版本 33）
 
 这是 [新工作台设计](../../../docs/superpowers/specs/2026-11-02-workbench-ui-redesign-design.md) 的原型源码快照（2026-11-02 已批准，待实现），给写代码的人对照状态规则和文案用。上一层目录是 2026-10-22 的旧原型，和这里无关。
 
 - 只用假数据，不连学校、不连网；活动、账号打码、版本号、条款版本号都是编的。
-- 83 张画板和 claude.ai 上的私有原型一致，可以在本机打开、点击操作。
+- 原有 83 张画板和 claude.ai 上的私有原型一致，可以在本机打开、点击操作。2026-11-06 在本机分三轮补了 37 张（见下三条），画布现有 120 张；私有原型暂不同步（用户 2026-11-06 定）。
+- 2026-11-06 补画板（困难计划 prototype-backfill）：给已有场景补画板（列表加载失败、北京时间没校准、登录已失效、还没选活动）；停止计划前确认、停止后的逐场结果；组件安装位置（下载前写会装到哪，装好后写装在哪并能打开所在文件夹）；组件大小按发布页实际大小、读不到时写以发布页为准；验证码识别“本机已装、还没启用”这一态，以及登录恢复里对应的说明。截图在 [design/evidence/2026-11-06/prototype-backfill/](../../evidence/2026-11-06/prototype-backfill/)。
+- 2026-11-06 第二轮补画板：已有交互里够得着、但没单独成画板的状态（更多筛选、搜索没结果、时间重叠、修改尝试时长、运行记录展开、关闭手机访问前确认、再配对一台、清除已保存账号前确认、组件下载失败、验证码认错）；新状态（条款状态没能确认、又打开了一次、旧数据搬迁成功与失败）；窄窗口的结果和设置；手机页的搜索、停止与取消确认、配对码输错、电脑上列表没加载、电脑上北京时间没校准。同时活动列表每场加了两项奖励：实践分和虚拟工资（宽、中窗口在活动名右侧两枚标签，窄窗口和手机页合成一枚放进说明行；详情没回来写“奖励同步中”，没公布写“未公布”）。不做活动详情页。
+- 2026-11-06 登录框：点“登录”先弹登录框，“在这里输入”和“用学校登录页”两种方式并列，由用户选自己放心的那种。在这里输入时，表单下面直接写明密码只发给学校、不勾保存就不留；用学校登录页时写明工具看不到密码、代价是不能自动登录。代码里已有工具内登录，但样式不照搬，按这组画板重做。
 - 2026-11-03 按[架构方案](../../../docs/superpowers/specs/2026-11-03-architecture-revision-design.md)回填：登录只显示上次校验时刻、计划等开放时原地重新登录、每场写明直接提交还是页面点击、名额已满单列、条款草案升到 r4。标志换成入场券（见 [design/brand/](../../brand/README.md)）。
 
 ## 在本机打开
@@ -49,7 +52,7 @@ python -m http.server 8790 --bind 127.0.0.1 --directory design/prototype/workben
 | `Phone.dc.html` | 手机页，结构同上 |
 | `DesignSpec.dc.html` | 字体、字号、色板、按钮层级、对比度表 |
 | `ImplNotes.dc.html` | 实现备注：只为演示存在的控件、假数据、待定事项 |
-| 其余 `*.dc.html` | 83 张画板，每张只是“引用 Main 或 Phone + 一个场景名 + 尺寸” |
+| 其余 `*.dc.html` | 117 张画板，每张只是“引用 Main 或 Phone + 一个场景名 + 尺寸” |
 | `support.js` | 画布运行时，不进仓库（见上一节） |
 
 ## 怎么读源码
@@ -147,4 +150,41 @@ python -m http.server 8790 --bind 127.0.0.1 --directory design/prototype/workben
 | PhoneReviewWarn | 手机核对计划带提醒 | Phone.dc.html | reviewwarn | 390×844 |
 | Medium | 中等宽度 900：草稿 | Main.dc.html | draft | 900×700（medium） |
 | MediumRun | 中等宽度 900：运行中 | Main.dc.html | running | 900×700（medium） |
-| ImplNotes | 实现备注 | ImplNotes.dc.html | — | 1280×1580 |
+| ListErr | 活动列表加载失败 | Main.dc.html | listerr | 1280×800 |
+| ClockDown | 北京时间没校准 | Main.dc.html | clock | 1280×800 |
+| Expired | 登录已失效 | Main.dc.html | expired | 1280×800 |
+| Normal | 常态：还没选活动 | Main.dc.html | normal | 1280×800 |
+| StopAsk | 停止计划前确认 | Main.dc.html | stopask | 1280×800 |
+| Stopped | 停止后的逐场结果 | Main.dc.html | stopped | 1280×800 |
+| CompAfter | 组件已装：位置与验证码识别未启用 | Main.dc.html | compafter | 1280×800 |
+| CompNoSize | 读不到发布页：大小以发布页为准 | Main.dc.html | compnosize | 1280×800 |
+| CredOcrOff | 登录恢复：验证码识别已装未启用 | Main.dc.html | credocroff | 1280×800 |
+| Filters | 更多筛选展开 | Main.dc.html | filters | 1280×800 |
+| NoResult | 搜索没有结果 | Main.dc.html | noresult | 1280×800 |
+| Conflict | 时间重叠，保留原选择 | Main.dc.html | conflict | 1280×800 |
+| Policy | 修改尝试时长与次数 | Main.dc.html | policy | 1280×800 |
+| LogOpen | 运行记录展开 | Main.dc.html | logopen | 1280×800 |
+| PhStopAsk | 关闭手机访问前确认 | Main.dc.html | phstopask | 1280×800 |
+| PhAddPair | 再配对一台手机 | Main.dc.html | phaddpair | 1280×800 |
+| CredClear | 清除已保存账号前确认 | Main.dc.html | credclear | 1280×800 |
+| PhFail | 手机控制组件下载失败 | Main.dc.html | phfail | 1280×800 |
+| RlCapBad | 重新登录：验证码认错 | Main.dc.html | rlcapbad | 1280×800 |
+| TermsUnknown | 条款状态没能确认 | Main.dc.html | termsunknown | 1280×800 |
+| SecondRun | 又打开了一次（只运行一份） | Main.dc.html | secondrun | 1280×800 |
+| Migrated | 旧版本数据已搬到新位置 | Main.dc.html | migrated | 1280×800 |
+| MigrateFail | 旧登录信息没能搬过来 | Main.dc.html | migratefail | 1280×800 |
+| NarrowResult | 窄窗口：计划结果 | Main.dc.html | result | 430×820（narrow） |
+| NarrowSettings | 窄窗口：设置 | Main.dc.html | settings | 430×820（narrow） |
+| PhoneSearch | 手机页：搜索 | Phone.dc.html | search | 390×844 |
+| PhoneStop | 手机页：停止计划前确认 | Phone.dc.html | stopsheet | 390×844 |
+| PhoneCancel | 手机页：取消这一场前确认 | Phone.dc.html | cancelsheet | 390×844 |
+| PhonePairFail | 手机页：配对码输错 | Phone.dc.html | pairfail | 390×844 |
+| PhonePcList | 手机页：电脑上的列表没加载 | Phone.dc.html | pclisterr | 390×844 |
+| PhonePcClock | 手机页：电脑上的北京时间没校准 | Phone.dc.html | pcclock | 390×844 |
+| Login | 登录：在这里输入账号密码 | Main.dc.html | login | 1280×800 |
+| LoginBrowser | 登录：选用学校登录页 | Main.dc.html | loginbrowser | 1280×800 |
+| LoginWait | 登录：等在学校登录页登完 | Main.dc.html | loginwait | 1280×800 |
+| LoginCap | 登录：下一步输验证码 | Main.dc.html | logincap | 1280×800 |
+| LoginBad | 登录：账号或密码不对 | Main.dc.html | loginbad | 1280×800 |
+| NarrowLogin | 窄窗口：登录 | Main.dc.html | login | 430×820（narrow） |
+| ImplNotes | 实现备注 | ImplNotes.dc.html | — | 1280×2120 |

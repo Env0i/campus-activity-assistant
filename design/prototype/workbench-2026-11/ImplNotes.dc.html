@@ -15,7 +15,7 @@ body{margin:0}
 .nt *{box-sizing:border-box}
 .nt h1{margin:0;font-size:1.5rem;font-weight:800;letter-spacing:.03em}
 .nt .lead{margin:.375rem 0 1.5rem;max-width:56rem;color:var(--ink-2)}
-.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem;align-items:start}
 .card{padding:1.125rem 1.25rem 1.25rem;border-radius:12px;background:var(--paper);box-shadow:0 0 0 1px var(--line)}
 .card.wide{grid-column:1/-1}
 .card h2{display:flex;align-items:baseline;gap:.5rem;margin:0 0 .25rem;padding-left:.625rem;border-left:3px solid var(--amber);font-size:1rem;line-height:1.3}
@@ -67,8 +67,10 @@ code{padding:0 .25rem;border-radius:4px;background:var(--paper-2);font:.75rem va
       <ul class="list">
         <li><span class="tag real">换</span><span><b>活动列表</b>：11 场编出来的活动、地点、时间。真实数据来自学校接口，字段口径按现有解析。</span></li>
         <li><span class="tag real">换</span><span><b>账号打码</b> <code>st****01</code>：原型的打码规则是前两位加后两位，实现时照这个来。</span></li>
-        <li><span class="tag real">换</span><span><b>版本号和大小</b>：1.2.0、1.3.0、92.4 MB、31.6 MB 都是占位，以 <code>VERSION</code> 和 Release 资产为准。</span></li>
+        <li><span class="tag real">换</span><span><b>版本号和大小</b>：1.2.0、1.3.0、92.4 MB、31.6 MB 都是占位，以 <code>VERSION</code> 和 Release 资产为准。组件大小取发布页资产的 <code>size</code>；读不到发布页时写“大小以发布页为准”，不写死数字。</span></li>
+        <li><span class="tag real">换</span><span><b>组件安装位置</b> <code>C:\Users\同学\…\advanced\…</code>：用户名是编的。真实路径是数据目录下的 <code>advanced\组件名</code>，只在电脑设置里显示，不进手机快照，也不进高级功能状态接口。显示时中间省略，悬停看完整路径。</span></li>
         <li><span class="tag real">换</span><span><b>条款版本号和正文</b>：版本按架构方案升到 r4，<code>2026-11-03-r4</code> 里的日期按正式发布那天定；正文是按架构方案第 8 节披露清单写的草案，措辞要用户过一遍。</span></li>
+        <li><span class="tag real">换</span><span><b>两项奖励</b>：每场的实践分、虚拟工资是编的。单位和小数位以学校详情接口实际返回为准，实现前先看几条真数据。</span></li>
         <li><span class="tag real">换</span><span><b>二维码、验证码图片</b>：示意图，不能扫、不能认。</span></li>
         <li><span class="tag real">换</span><span><b>上次校验时刻</b> 14:20:03 是编的，真实值来自最近一次学校校验。界面不再显示剩余时长：学校不公布有效期，工具也不估算。</span></li>
       </ul>
@@ -80,6 +82,12 @@ code{padding:0 .25rem;border-radius:4px;background:var(--paper-2);font:.75rem va
         <li><span class="tag ask">后端</span><span><b>每场提交方式</b>：worker 要报告这一场走直接提交还是页面点击、为什么改用点击，计划栏和运行记录都显示（架构方案 3.1）。</span></li>
         <li><span class="tag ask">后端</span><span><b>结束结论和核对</b>：按回包分类给结论：报上了、名额已满、时间冲突、报名已截止、活动不存在、登录失效、本机时钟有问题、待核对。每场结束用 <code>getJoinInfo</code> 核对一次，“刷新核对”用同一个接口（架构方案 3.3、3.5）。</span></li>
         <li><span class="tag ask">后端</span><span><b>验证码识别组件</b>：要把 <code>relogin_ocr</code> 组件包发到 Release，清单解析和下载服务从只认 <code>phone_control</code> 改成两种都认。</span></li>
+        <li><span class="tag ask">后端</span><span><b>验证码识别三态</b>：后端要分开回“本机已装”和“已启用”（现在只回两者合一的 <code>ocr_ready</code>），设置和登录恢复据此分三种写。装好了也不自动启用。</span></li>
+        <li><span class="tag ask">后端</span><span><b>活动奖励</b>：从详情接口读参与人的 <code>cyrysjfs</code>（实践分）和 <code>cyryxngz</code>（虚拟工资），和签到信息同一次请求、同一个缓存，不新增学校请求；组织人那两个字段 <code>zzrysjfs</code> / <code>zzryxngz</code> 不用。详情没回来写“奖励同步中”，字段缺失写“未公布”，0 照写。宽、中窗口放在活动名右侧两枚标签，窄窗口和手机页合成一枚放进说明行。</span></li>
+        <li><span class="tag ask">后端</span><span><b>登录框两种方式</b>：点“登录”先弹登录框，“在这里输入”和“用学校登录页”两张卡并列，由用户选自己放心的那种；记住上次选的方式，第一次默认“在这里输入”。在这里输入：填账号密码，默认不保存，勾选才加密存到本机；下一步输验证码（装了识别就由电脑认）。用学校登录页：打开浏览器进学校官方页，工具不读密码，代价是不能自动登录。学校说账号或密码不对时回到表单，清空密码、不重试。现有代码的登录框只作“功能已有”的依据，样式和文案按画板 Login 系列重做（Login、LoginBrowser、LoginWait、LoginCap、LoginBad、NarrowLogin）。</span></li>
+        <li><span class="tag ask">后端</span><span><b>只运行一份</b>：第二次打开时不再开新窗口，把已开的窗口切到前面并提示一次（SecondRun）。要加单实例锁；现在能开两份，两份计划可能把同一场提交两遍。</span></li>
+        <li><span class="tag ask">后端</span><span><b>搬旧数据的结果</b>：首次启动搬旧数据后，把结果交给界面提示一次（Migrated / MigrateFail）。现在只打印到控制台，打包版看不到。</span></li>
+        <li><span class="tag ask">后端</span><span><b>打开所在文件夹</b>：原型点了只回一句提示，产品用资源管理器打开组件所在的文件夹。</span></li>
         <li><span class="tag ask">后端</span><span><b>登录失效推飞书</b>：只在填了机器人地址时推，不带账号。</span></li>
         <li><span class="tag ask">后端</span><span><b>手机端输入账号密码</b>：默认只放本次运行内存，勾选后才保存到电脑。</span></li>
         <li><span class="tag ask">待定</span><span><b>验证码是否区分大小写</b>：还没确认。</span></li>

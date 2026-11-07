@@ -77,7 +77,7 @@ body{margin:0}
 .stats div>span{color:var(--on-2);font-size:.75rem;white-space:nowrap}
 .stats .ok strong{color:var(--green)}.stats .bad strong{color:#ff9b8f}.stats .ask strong{color:#ffd587}.stats .wait strong{color:var(--on-2)}
 .pick{width:100%;margin-top:.625rem}
-.fbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:.25rem;margin-top:.5rem;padding:.25rem .25rem .25rem .75rem;background:var(--hall)}
+.m p,.m .w{text-wrap:pretty}.fbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:.25rem;margin-top:.5rem;padding:.25rem .25rem .25rem .75rem;background:var(--hall)}
 .seg{display:flex;flex:1;gap:2px;padding:3px;border-radius:8px;background:#dfe4e8}
 .seg button{flex:1;min-height:2.25rem;padding:0 .25rem;border:0;border-radius:6px;background:transparent;color:var(--ink-2);font-size:.8125rem;white-space:nowrap}
 .seg button.on{background:var(--paper);color:var(--blue);font-weight:700;box-shadow:0 1px 3px rgba(31,50,65,.12)}
@@ -108,7 +108,7 @@ body{margin:0}
 .time b.txt{font:400 .8125rem var(--ui);color:var(--ink-3)}
 .time small{margin-top:.125rem;color:var(--blue);font:.75rem var(--n);font-variant-numeric:tabular-nums}
 .time small.soon{color:var(--warn);font-weight:700}
-.main{min-width:0}
+.main{min-width:0}.sub .rw{padding:0 .3125rem;border-radius:4px;background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);font-size:.6875rem;line-height:1.25rem;white-space:nowrap}.sub .rw.p{background:transparent;box-shadow:none;color:var(--warn)}
 .name{display:block;font-size:.9375rem;font-weight:600;line-height:1.4}
 .sub{display:flex;flex-wrap:wrap;align-items:center;gap:.125rem .375rem;margin-top:.125rem;color:var(--ink-2);font-size:.75rem}
 .flag{padding:1px .3125rem;border-radius:4px;background:var(--blue-tint);color:var(--blue);font-size:.6875rem;line-height:1.35;white-space:nowrap}
@@ -249,7 +249,7 @@ body{margin:0}
         <div class="tasks"><sc-for list="{{taskCards}}" as="t" hint-placeholder-count="3"><div class="task"><b>{{t.name}}</b><span class="ts {{t.tone}}">{{t.label}}</span><small>{{t.detail}}</small><sc-if value="{{t.canCancel}}" hint-placeholder-val="{{false}}"><button class="t-cancel" type="button" onClick="{{t.cancel}}">取消这一场</button></sc-if></div></sc-for></div>
       </sc-if>
       <sc-if value="{{isRun}}" hint-placeholder-val="{{false}}">
-        <p class="tip">手机可以锁屏，电脑不能关机或睡眠。要改计划，回电脑点“修改计划”，或者停止后重新选。</p>
+        <p class="tip">手机能锁屏，电脑不能关机或睡眠。要改，回电脑点“修改计划”，或者停止后重新选。</p>
         <sc-if value="{{canFF}}" hint-placeholder-val="{{false}}"><button class="lnk" type="button" onClick="{{demoFF}}">演示：快进到开放前 12 秒</button></sc-if>
       </sc-if>
       <sc-if value="{{canToggleList}}" hint-placeholder-val="{{false}}"><button class="lnk" type="button" aria-expanded="{{listOpen}}" onClick="{{toggleList}}">{{listBtn}}</button></sc-if>
@@ -261,7 +261,7 @@ body{margin:0}
         <div class="lst"><sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
           <sc-if value="{{g.nowBefore}}" hint-placeholder-val="{{false}}"><div class="nowline"><span class="nowchip">现在 <b>{{g.now}}</b></span></div></sc-if>
           <div class="grp {{g.cls}}"><b>{{g.title}}</b><span>{{g.note}}</span><span class="ct">{{g.n}} 场</span></div>
-          <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3"><label class="row {{r.cls}}"><input type="checkbox" checked="{{r.selected}}" disabled="{{r.disabled}}" onChange="{{r.toggle}}" aria-label="{{r.aria}}"><span class="time"><b class="{{r.timeCls}}">{{r.time}}</b><sc-if value="{{r.hasLeft}}" hint-placeholder-val="{{true}}"><small class="{{r.leftCls}}">{{r.left}}</small></sc-if></span><span class="main"><span class="name">{{r.name}}</span><span class="sub"><sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1"><span class="flag {{f.cls}}">{{f.text}}</span></sc-for><span>{{r.act}}</span><sc-if value="{{r.hasPlace}}" hint-placeholder-val="{{true}}"><span>{{r.place}}</span></sc-if></span><sc-if value="{{r.hasWarn}}" hint-placeholder-val="{{false}}"><span class="w">{{r.warn}}</span></sc-if></span></label></sc-for>
+          <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3"><label class="row {{r.cls}}"><input type="checkbox" checked="{{r.selected}}" disabled="{{r.disabled}}" onChange="{{r.toggle}}" aria-label="{{r.aria}}"><span class="time"><b class="{{r.timeCls}}">{{r.time}}</b><sc-if value="{{r.hasLeft}}" hint-placeholder-val="{{true}}"><small class="{{r.leftCls}}">{{r.left}}</small></sc-if></span><span class="main"><span class="name">{{r.name}}</span><span class="sub"><sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1"><span class="flag {{f.cls}}">{{f.text}}</span></sc-for><span>{{r.act}}</span><sc-if value="{{r.hasPlace}}" hint-placeholder-val="{{true}}"><span>{{r.place}}</span></sc-if><span class="{{r.rw.cls}}">{{r.rw.text}}</span></span><sc-if value="{{r.hasWarn}}" hint-placeholder-val="{{false}}"><span class="w">{{r.warn}}</span></sc-if></span></label></sc-for>
         </sc-for></div>
         <sc-if value="{{noRows}}" hint-placeholder-val="{{false}}"><p class="tip" style="text-align: center">没有符合筛选的活动。</p></sc-if>
       </sc-if>
@@ -316,7 +316,7 @@ body{margin:0}
             </sc-if>
             <sc-if value="{{rel.autoCap}}" hint-placeholder-val="{{false}}"><p class="rel-auto">验证码由电脑自动识别，你不用输入。</p></sc-if>
             <sc-if value="{{rel.needAcct}}" hint-placeholder-val="{{false}}"><label class="chk"><input type="checkbox" checked="{{relSave}}" onChange="{{onRelSave}}" aria-label="登录成功后保存到这台电脑"><span><b>登录成功后保存到这台电脑</b><small>加密保存，只有这台电脑能解开。下次失效时{{rel.saveGain}}。不勾的话，只在这次运行中有效。</small></span></label></sc-if>
-            <p class="demo-tip" style="color: var(--ink-3)">登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。</p>
+            <p class="demo-tip" style="color: var(--ink-3)">工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。</p>
             <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><p class="demo-tip">{{rel.demoTip}}</p></sc-if>
           </sc-if>
         </div>
@@ -328,7 +328,7 @@ body{margin:0}
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"pair","options":["pair","pairlock","home","picked","review","pending","running","offline","result","expired","captcha","auto","relall","relacct","relconfirm","relbad","phoneterms","reviewwarn"]},"frozen":{"editor":null},"height":{"editor":null},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"pair","options":["pair","pairlock","home","picked","review","pending","running","offline","result","expired","captcha","auto","relall","relacct","relconfirm","relbad","phoneterms","reviewwarn","search","stopsheet","cancelsheet","pairfail","pclisterr","pcclock"]},"frozen":{"editor":null},"height":{"editor":null},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
   state = this.init((this.props || {}).scene || 'pair');
 
@@ -382,21 +382,26 @@ class Component extends DCLogic {
   }
   items() {
     if (!this._it) this._it = [
-      { id: 'o1', name: '创新创业经验分享会', place: '大学生活动中心二楼', st: 'open', open: 32400, group: '正在开放', act: '11月3日 19:00–20:30', d: 3, s: 1140, e: 1230 },
-      { id: 'o2', name: '校园安全主题讲座', place: '一号教学楼 301', st: 'open', open: 37800, group: '正在开放', act: '11月4日 14:00–15:30', d: 4, s: 840, e: 930 },
-      { id: 't1', name: '人工智能与未来职业', place: '图书馆报告厅', st: 'pre', open: 52200, group: '今天', act: '11月5日 19:00–20:30', d: 5, s: 1140, e: 1230 },
-      { id: 't2', name: '志愿服务培训', place: '二号楼多功能厅', st: 'pre', open: 52200, group: '今天', noEnd: true, act: '11月6日 15:00–16:30', d: 6, s: 900, e: 990 },
-      { id: 't3', name: '心理健康工作坊', place: '学生事务中心', st: 'pre', open: 64800, group: '今天', act: '11月5日 20:00–21:00', d: 5, s: 1200, e: 1260 },
-      { id: 'm1', name: '“书香校园”经典诵读展演暨第十二届校园朗诵大赛决赛', place: '大学生活动中心一楼多功能报告厅（东侧入口，凭学生证入场）', st: 'pre', open: 118800, group: '明天', act: '11月7日 19:00–21:00', d: 7, s: 1140, e: 1260 },
-      { id: 'm2', name: '就业指导午间沙龙', place: '二号楼 204', st: 'pre', open: 129600, group: '明天', act: '11月8日 14:30–15:30', d: 8, s: 870, e: 930 },
-      { id: 'u1', name: '年度社团风采展', place: '地点待定', st: 'unknown', open: 0, group: '待公布', act: '举办时间待公布' },
-      { id: 's1', name: '学术诚信专题报告', place: '图书馆报告厅', st: 'signed', open: 28800, group: '已报名', act: '11月8日 14:00–15:30', d: 8, s: 840, e: 930 },
-      { id: 'w1', name: '毕业生双选会志愿者招募', place: '体育馆', st: 'pre', open: 205200, group: '后天', act: '11月10日 09:00–17:00', d: 10, s: 540, e: 1020 },
-      { id: 'c1', name: '秋季运动会志愿者招募', place: '体育馆', st: 'closed', open: 28800, group: '已截止', act: '报名已于今天 12:00 截止' }
+      { id: 'o1', pts: 2, wage: 20, name: '创新创业经验分享会', place: '大学生活动中心二楼', st: 'open', open: 32400, group: '正在开放', act: '11月3日 19:00–20:30', d: 3, s: 1140, e: 1230 },
+      { id: 'o2', pts: null, wage: null, rwPend: true, name: '校园安全主题讲座', place: '一号教学楼 301', st: 'open', open: 37800, group: '正在开放', act: '11月4日 14:00–15:30', d: 4, s: 840, e: 930 },
+      { id: 't1', pts: 2, wage: 20, name: '人工智能与未来职业', place: '图书馆报告厅', st: 'pre', open: 52200, group: '今天', act: '11月5日 19:00–20:30', d: 5, s: 1140, e: 1230 },
+      { id: 't2', pts: 4, wage: 40, name: '志愿服务培训', place: '二号楼多功能厅', st: 'pre', open: 52200, group: '今天', noEnd: true, act: '11月6日 15:00–16:30', d: 6, s: 900, e: 990 },
+      { id: 't3', pts: 1, wage: 10, name: '心理健康工作坊', place: '学生事务中心', st: 'pre', open: 64800, group: '今天', act: '11月5日 20:00–21:00', d: 5, s: 1200, e: 1260 },
+      { id: 'm1', pts: 3, wage: 30, name: '“书香校园”经典诵读展演暨第十二届校园朗诵大赛决赛', place: '大学生活动中心一楼多功能报告厅（东侧入口，凭学生证入场）', st: 'pre', open: 118800, group: '明天', act: '11月7日 19:00–21:00', d: 7, s: 1140, e: 1260 },
+      { id: 'm2', pts: 0.5, wage: 5, name: '就业指导午间沙龙', place: '二号楼 204', st: 'pre', open: 129600, group: '明天', act: '11月8日 14:30–15:30', d: 8, s: 870, e: 930 },
+      { id: 'u1', pts: null, wage: null, rwPend: true, name: '年度社团风采展', place: '地点待定', st: 'unknown', open: 0, group: '待公布', act: '举办时间待公布' },
+      { id: 's1', pts: 1, wage: 10, name: '学术诚信专题报告', place: '图书馆报告厅', st: 'signed', open: 28800, group: '已报名', act: '11月8日 14:00–15:30', d: 8, s: 840, e: 930 },
+      { id: 'w1', pts: 8, wage: 80, name: '毕业生双选会志愿者招募', place: '体育馆', st: 'pre', open: 205200, group: '后天', act: '11月10日 09:00–17:00', d: 10, s: 540, e: 1020 },
+      { id: 'c1', pts: 2, wage: null, name: '秋季运动会志愿者招募', place: '体育馆', st: 'closed', open: 28800, group: '已截止', act: '报名已于今天 12:00 截止' }
     ];
     return this._it;
   }
   find(id) { return this.items().filter(function (i) { return i.id === id; })[0]; }
+  // 与电脑端同源：实践分、虚拟工资来自活动详情；同步中 / 未公布 照实写
+  rwText(i) {
+    if (i.rwPend) return { cls: 'rw p', text: '奖励同步中' };
+    return { cls: 'rw', text: (i.pts == null ? '分未公布' : i.pts + ' 分') + ' · ' + (i.wage == null ? '工资未公布' : '工资 ' + i.wage) };
+  }
   stOf(it, s) {
     if (s.signedLocal.indexOf(it.id) >= 0 || s.tasks.some(function (t) { return t.id === it.id && t.status === 'success'; })) return 'signed';
     if (it.st === 'pre' && s.now >= it.open) return 'open';
@@ -407,7 +412,7 @@ class Component extends DCLogic {
   isEnd(st) { return ['success', 'full', 'failed', 'unconfirmed', 'canceled'].indexOf(st) >= 0; }
 
   init(scene) {
-    var s = { scene: scene, view: 'app', code: '', pairErr: '', pairFails: 0, lockLeft: 0, conn: 'ok', tries: 0, syncing: false, lastOk: '14:20:03', login: 'valid', phase: 'draft', pendingLong: false, selected: [], tasks: [], signedLocal: [], now: 51605, stopped: false, retry: 120, maxA: 0, seg: 'free', q: '', searchOpen: false, fTime: 'all', notice: '', sheet: '', sheetErr: '', cancelId: '', relogin: 'idle', capIdx: 0, capInput: '', capErr: '', termsOk: true, credReady: true, credMem: false, ocrOn: false, relNeedAcct: false, relNeedCap: true, relUser: '', relPass: '', relSave: false, relHandoff: false, relBadSaved: false, relFresh: false, relDoneSaved: false, relDoneMem: false, demoBadSaved: false, demoOcrFail: false, bookmark: false, listOpen: false, windowShown: false, lines: ['14:20:03  [OK] 已同步电脑上的活动和登录状态'] };
+    var s = { scene: scene, view: 'app', code: '', pairErr: '', pairFails: 0, lockLeft: 0, conn: 'ok', pcList: 'ok', pcClock: 'ok', tries: 0, syncing: false, lastOk: '14:20:03', login: 'valid', phase: 'draft', pendingLong: false, selected: [], tasks: [], signedLocal: [], now: 51605, stopped: false, retry: 120, maxA: 0, seg: 'free', q: '', searchOpen: false, fTime: 'all', notice: '', sheet: '', sheetErr: '', cancelId: '', relogin: 'idle', capIdx: 0, capInput: '', capErr: '', termsOk: true, credReady: true, credMem: false, ocrOn: false, relNeedAcct: false, relNeedCap: true, relUser: '', relPass: '', relSave: false, relHandoff: false, relBadSaved: false, relFresh: false, relDoneSaved: false, relDoneMem: false, demoBadSaved: false, demoOcrFail: false, bookmark: false, listOpen: false, windowShown: false, lines: ['14:20:03  [OK] 已同步电脑上的活动和登录状态'] };
     if (scene === 'pair' || scene === 'pairlock') s.view = 'pair';
     if (scene === 'pairlock') { s.lockLeft = 47; s.pairErr = '尝试次数过多，请稍后再试。换一台设备也一样要等。'; }
     if (scene === 'picked' || scene === 'review') s.selected = ['o1', 't1', 't2'];
@@ -427,7 +432,15 @@ class Component extends DCLogic {
     if (scene === 'relall') { s.credReady = false; s.sheet = 'relogin'; s.relogin = 'form'; s.relNeedAcct = true; s.relNeedCap = true; }
     if (scene === 'relacct') { s.credReady = false; s.ocrOn = true; s.sheet = 'relogin'; s.relogin = 'form'; s.relNeedAcct = true; s.relNeedCap = false; }
     if (scene === 'relconfirm') { s.ocrOn = true; s.sheet = 'relogin'; s.relogin = 'confirm'; }
-    if (scene === 'relbad') { s.ocrOn = true; s.sheet = 'relogin'; s.relogin = 'form'; s.relNeedAcct = true; s.relNeedCap = false; s.relBadSaved = true; s.capErr = '电脑上保存的密码学校不认，自动登录已暂停。输入新的账号密码；勾选保存会替换旧的。'; }
+    if (scene === 'relbad') { s.ocrOn = true; s.sheet = 'relogin'; s.relogin = 'form'; s.relNeedAcct = true; s.relNeedCap = false; s.relBadSaved = true; s.capErr = '电脑上保存的密码学校不认，自动登录已暂停。请输入新的账号密码；勾选保存会替换旧的。'; }
+    // 2026-11-06 补画板：搜索、停止与单场取消确认、配对码输错、电脑那边列表没加载 / 北京时间没校准
+    if (scene === 'search') { s.searchOpen = true; s.q = '讲座'; }
+    if (scene === 'stopsheet' || scene === 'cancelsheet') { s.selected = ['t1', 't2']; s = this.startState(s); s = this.advance(s); s = this.advance(s); }
+    if (scene === 'stopsheet') s.sheet = 'stop';
+    if (scene === 'cancelsheet') { s.sheet = 'cancel'; s.cancelId = 't2'; }
+    if (scene === 'pairfail') { s.view = 'pair'; s.pairFails = 1; s.pairErr = '配对码不对，请核对后重试。再错 2 次要等 60 秒。'; }
+    if (scene === 'pclisterr') s.pcList = 'error';
+    if (scene === 'pcclock') { s.pcClock = 'down'; s.selected = ['t1']; }
     return s;
   }
 
@@ -464,7 +477,7 @@ class Component extends DCLogic {
         } else if (k >= 4) {
           t.status = t.outcome;
           if (t.outcome === 'success') t.reason = '学校回“操作成功”，结束时向学校核对过：已报名';
-          if (t.outcome === 'unconfirmed') t.reason = '已提交 ' + t.attempts + ' 次，没拿到确定回应；结束时向学校核对也没查到结果。去活动页看一眼，或稍后刷新核对。工具不会再自动重发';
+          if (t.outcome === 'unconfirmed') t.reason = '已提交 ' + t.attempts + ' 次，没拿到确定回应；结束时向学校核对也没查到结果。去活动页看一眼，或稍后刷新核对。工具不会再自动重发。';
           lines = lines.concat(self.hms(now) + '  ' + t.name + '：' + t.reason);
         }
       }
@@ -554,7 +567,7 @@ class Component extends DCLogic {
     setTimeout(() => {
       var st = this.state;
       if (st.relogin !== 'auto') return;
-      if (st.demoBadSaved && !st.relFresh) { this.setState({ relogin: 'form', relNeedAcct: true, relNeedCap: !st.ocrOn, relBadSaved: true, relPass: '', capErr: '电脑上保存的密码学校不认，自动登录已暂停。输入新的账号密码；勾选保存会替换旧的。' }); return; }
+      if (st.demoBadSaved && !st.relFresh) { this.setState({ relogin: 'form', relNeedAcct: true, relNeedCap: !st.ocrOn, relBadSaved: true, relPass: '', capErr: '电脑上保存的密码学校不认，自动登录已暂停。请输入新的账号密码；勾选保存会替换旧的。' }); return; }
       if (st.demoOcrFail) { this.setState({ relogin: 'form', relNeedAcct: false, relNeedCap: true, relHandoff: true, capInput: '' }); return; }
       this.reloginOk();
     }, 1600);
@@ -578,7 +591,7 @@ class Component extends DCLogic {
       var st = this.state;
       // 学校明确说密码错：一次就停，不换图重试，免得把账号试锁
       if (needAcct && pass === 'wrong') { this.setState({ relogin: 'form', relPass: '', capInput: '', capIdx: st.capIdx + 1, capErr: '学校说账号或密码不对。为了避免账号被锁，没有重试。核对后再登录。' }); return; }
-      if (!needAcct && st.demoBadSaved) { this.setState({ relogin: 'form', relNeedAcct: true, relBadSaved: true, relPass: '', capInput: '', capIdx: st.capIdx + 1, capErr: '电脑上保存的密码学校不认，自动登录已暂停。输入新的账号密码；勾选保存会替换旧的。' }); return; }
+      if (!needAcct && st.demoBadSaved) { this.setState({ relogin: 'form', relNeedAcct: true, relBadSaved: true, relPass: '', capInput: '', capIdx: st.capIdx + 1, capErr: '电脑上保存的密码学校不认，自动登录已暂停。请输入新的账号密码；勾选保存会替换旧的。' }); return; }
       if (needCap && code === '0000') { this.setState({ relogin: 'form', capIdx: st.capIdx + 1, capInput: '', capErr: '验证码不对，已经换了一张新图。' }); return; }
       if (!needCap) { this.setState({ relFresh: true }); this.autoRelogin(); return; }
       this.reloginOk();
@@ -636,9 +649,9 @@ class Component extends DCLogic {
           if (st === 'pre') flags.push({ text: i.id === nextPreId ? '下一场' : '预报名', cls: i.id === nextPreId ? 'next' : '' });
           if (st === 'signed') flags.push({ text: '已报名', cls: 'signed' });
           if (st === 'closed') flags.push({ text: '已截止', cls: 'mute' });
-          var gap = i.open - s.now, left = st === 'pre' ? self.leftCn(gap) : (st === 'open' ? '已开放' : '');
+          var gap = i.open - s.now, left = st === 'pre' ? (s.pcClock === 'down' ? '待校准' : self.leftCn(gap)) : (st === 'open' ? '已开放' : '');
           var warn = hitSigned ? '与已报名的「' + hitSigned.name + '」时间重叠，不能加入' : (hitSel ? '与已选的「' + hitSel.name + '」时间重叠' : '');
-          return { name: i.name, act: i.act, place: i.place, hasPlace: st !== 'closed', flags: flags, time: st !== 'unknown' ? self.hhmmss(i.open % 86400).slice(0, 5) : '待公布', timeCls: st !== 'unknown' ? '' : 'txt', hasLeft: !!left, left: left, leftCls: st === 'pre' && gap < 600 ? 'soon' : '', selected: selected, disabled: disabled, cls: (selected ? 'sel ' : '') + (disabled && !selected ? 'off ' : '') + (st === 'signed' || st === 'closed' || st === 'unknown' ? 'dim' : ''), hasWarn: !!warn && !busy, warn: warn, aria: '选择 ' + i.name, toggle: function (e) { self.toggle(i.id, e.target.checked); } };
+          return { name: i.name, rw: self.rwText(i), act: i.act, place: i.place, hasPlace: st !== 'closed', flags: flags, time: st !== 'unknown' ? self.hhmmss(i.open % 86400).slice(0, 5) : '待公布', timeCls: st !== 'unknown' ? '' : 'txt', hasLeft: !!left, left: left, leftCls: st === 'pre' && gap < 600 && s.pcClock !== 'down' ? 'soon' : '', selected: selected, disabled: disabled, cls: (selected ? 'sel ' : '') + (disabled && !selected ? 'off ' : '') + (st === 'signed' || st === 'closed' || st === 'unknown' ? 'dim' : ''), hasWarn: !!warn && !busy, warn: warn, aria: '选择 ' + i.name, toggle: function (e) { self.toggle(i.id, e.target.checked); } };
         })
       });
     });
@@ -672,7 +685,9 @@ class Component extends DCLogic {
         led = isOpen ? this.ledOf('00:00:00', 'amber', '已开放，可以立即报名', '现在') : this.ledOf(this.hhmmss(nextIt.open - s.now), 'amber', '最近开放', this.hms(nextIt.open));
       } else { head = { text: '暂时没有', tone: 'off' }; board = { title: '没有可报名的场次', sub: '列表里的活动已报名、已截止或还没公布报名时间。', rail: [] }; }
     }
-    if (s.phase === 'draft' && !s.termsOk) { head = { text: '已暂停', tone: 'off' }; led = this.ledOf('--:--:--', 'off', '电脑上同意条款后才能报名', ''); board = { title: '电脑上还没有同意条款', sub: '同意前只能查看上次的缓存，不能报名，也不能重新登录。', rail: [] }; }
+    // 电脑上的北京时间没校准：和电脑端一样不给倒计时，点阵屏写待校准
+    if (s.phase === 'draft' && s.termsOk && s.pcClock === 'down') led = this.ledOf('--:--:--', 'off', '电脑上的北京时间待校准', '');
+    if (s.phase === 'draft' && !s.termsOk) { head = { text: '已暂停', tone: 'off' }; led = this.ledOf('--:--:--', 'off', '电脑上同意条款后才能报名', ''); board = { title: '电脑上还没有同意条款', sub: '同意前只能看缓存，不能报名，也不能重新登录。', rail: [] }; }
     if (s.phase === 'pending') {
       head = { text: '核对中', tone: 'off' };
       led = this.ledOf('--:--:--', 'off', s.pendingLong ? '还没有查到开始结果' : '正在核对开始结果', '');
@@ -729,6 +744,8 @@ class Component extends DCLogic {
     if (off) alert = { tone: 'bad', title: '连不上电脑' + (s.tries ? '，已重试 ' + s.tries + ' 次' : ''), detail: '确认电脑开着、程序没退出。如果只是手机断网，电脑上的计划不受影响。', action: s.syncing ? '同步中…' : '重试', hasAction: true, fn: this.refresh };
     else if (!s.termsOk) alert = { tone: '', title: '电脑上还没有同意使用条款', detail: '回电脑同意后才能登录和报名。现在显示的是上次的缓存。', action: '', hasAction: false, fn: function () {} };
     else if (s.login === 'expired') alert = { tone: 'bad', title: '电脑上的登录已失效', detail: s.phase === 'running' ? '报名计划还在等，开放前 100 秒以前重新登录就照常继续。' : '可以在手机上重新登录，也可以回电脑处理。', action: '重新登录', hasAction: true, fn: this.beginRelogin };
+    else if (s.pcList === 'error') alert = { tone: '', title: '电脑上的活动列表没加载', detail: '电脑那边连不上学校站点，现在显示的是 14:12 更新的列表。恢复后会自动更新。', action: '', hasAction: false, fn: function () {} };
+    else if (s.pcClock === 'down') alert = { tone: '', title: '电脑上的北京时间还没校准', detail: '校准后才能开始报名计划，现在可以先选活动。', action: '', hasAction: false, fn: function () {} };
     else if (s.bookmark) alert = { tone: 'ok', title: '已连接电脑', detail: '建议把这一页存成书签，下次直接打开。', action: '知道了', hasAction: true, fn: function () { self.setState({ bookmark: false }); } };
 
     var bar = { show: false, title: '', sub: '', label: '', cls: 'b-amber', off: false, fn: function () {} };
@@ -737,6 +754,7 @@ class Component extends DCLogic {
       if (off) { bar.sub = '连上电脑后才能开始'; bar.off = true; }
       else if (!s.termsOk) { bar.sub = '电脑上同意条款后才能开始'; bar.off = true; }
       else if (s.login === 'expired') { bar.sub = '还差一步：重新登录'; bar.label = '重新登录'; bar.fn = this.beginRelogin; }
+      else if (s.pcClock === 'down') { bar.sub = '电脑校准北京时间后才能开始'; bar.off = true; }
     }
     if (s.phase === 'pending') bar = { show: true, title: s.pendingLong ? '还没有查到结果' : '正在核对', sub: '请先不要重复点击', label: '取消等待', cls: 'b-ghost', off: false, fn: function () { self.setState({ sheet: 'cancelstart', sheetErr: '' }); } };
     if (s.phase === 'running') bar = { show: true, title: '计划进行中', sub: '断网时也可以点停止', label: '停止计划', cls: 'b-ghost', off: false, fn: function () { self.setState({ sheet: 'stop', sheetErr: '' }); } };
@@ -745,7 +763,7 @@ class Component extends DCLogic {
     var sh = { title: '', isReview: s.sheet === 'review', isConfirm: false, isMore: s.sheet === 'more', isRelogin: s.sheet === 'relogin', canClose: true, hasErr: !!s.sheetErr, err: s.sheetErr, text: '', noLabel: '', yesLabel: '', yes: function () {} };
     if (sh.isReview) sh.title = '核对计划';
     if (sh.isMore) sh.title = '更多';
-    if (s.sheet === 'stop') sh = Object.assign(sh, { title: '停止报名计划？', isConfirm: true, text: '工具会停止后续尝试。已发出的提交仍可能成功，停止不会取消已成功的报名。', noLabel: '继续计划', yesLabel: '停止计划', yes: function () { var st = self.state; if (st.conn === 'off') self.setState({ sheetErr: netErr }); else self.setState(self.finishState(st, true)); } });
+    if (s.sheet === 'stop') sh = Object.assign(sh, { title: '停止报名计划？', isConfirm: true, text: '工具会停止后续尝试。已经发出的提交仍可能成功，停止不会取消已成功的报名。', noLabel: '继续计划', yesLabel: '停止计划', yes: function () { var st = self.state; if (st.conn === 'off') self.setState({ sheetErr: netErr }); else self.setState(self.finishState(st, true)); } });
     if (s.sheet === 'cancel') {
       var ct = s.tasks.filter(function (t) { return t.id === s.cancelId; })[0];
       sh = Object.assign(sh, { title: '取消这一场？', isConfirm: true, text: '「' + (ct ? ct.name : '') + '」还没提交，取消后不会再报名，其他场次继续。', noLabel: '先不取消', yesLabel: '取消这一场', yes: function () { var st = self.state; if (st.conn === 'off') { self.setState({ sheetErr: netErr }); return; } self.setState({ sheet: '', tasks: st.tasks.map(function (o) { return o.id === st.cancelId ? Object.assign({}, o, { status: 'canceled', reason: '你取消了这一场' }) : o; }) }); } });
@@ -753,14 +771,14 @@ class Component extends DCLogic {
     if (s.sheet === 'cancelstart') sh = Object.assign(sh, { title: '取消这次等待？', isConfirm: true, text: '只是不再等这次结果。如果计划其实已经启动，刷新后还要再点“停止计划”。', noLabel: '继续等', yesLabel: '取消等待', yes: function () { clearTimeout(self._pending); self.setState({ phase: 'draft', pendingLong: false, sheet: '', lines: self.log(self.state, '已取消这次开始，可以重新选择') }); } });
 
     var has = s.credReady || s.credMem;
-    var rel = { isBusy: false, busyText: '', hasText: false, text: '', isForm: false, hasLead: false, lead: '', needAcct: false, needCap: false, autoCap: false, chars: [], submitLabel: '', cantSubmit: true, saveGain: s.ocrOn ? '电脑会自己重新登录，不用你动手' : '只需要输验证码', demoTip: '', isConfirm: false, hasDone: false, doneLabel: '知道了' };
+    var rel = { isBusy: false, busyText: '', hasText: false, text: '', isForm: false, hasLead: false, lead: '', needAcct: false, needCap: false, autoCap: false, chars: [], submitLabel: '', cantSubmit: true, saveGain: s.ocrOn ? '电脑会自己重新登录，不用你动手' : '只要输验证码', demoTip: '', isConfirm: false, hasDone: false, doneLabel: '知道了' };
     if (sh.isRelogin) {
       sh.title = '在手机上重新登录';
       sh.hasErr = !!s.capErr; sh.err = s.capErr;
       if (s.relogin === 'starting') { rel.isBusy = true; rel.busyText = s.relNeedCap ? '正在向电脑要验证码…' : '正在准备…'; }
       if (s.relogin === 'verifying') { rel.isBusy = true; rel.busyText = '正在登录，请等结果'; sh.canClose = false; }
       if (s.relogin === 'auto') { rel.isBusy = true; rel.busyText = '电脑正在自动登录'; rel.hasText = true; rel.text = '验证码由电脑识别，手机上不用操作。电脑连续认错 3 次，才会转给你输入。'; rel.hasDone = true; rel.doneLabel = '收起，在后台继续'; }
-      if (s.relogin === 'confirm') { rel.isConfirm = true; rel.hasText = true; rel.text = '用电脑上保存的账号密码自动登录一次，验证码由电脑识别。登录会向学校发送一次账号密码。登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。' + (s.phase === 'running' ? '成功后报名计划照常继续。' : '成功后刷新活动列表，计划不会自动开始。'); }
+      if (s.relogin === 'confirm') { rel.isConfirm = true; rel.hasText = true; rel.text = '用电脑上存的账号密码登录一次，验证码由电脑识别。这会向学校发送一次账号密码，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。' + (s.phase === 'running' ? '成功后报名计划照常继续。' : '成功后会刷新活动列表，计划不会自动开始。'); }
       if (s.relogin === 'terms') { rel.hasText = true; rel.text = '电脑上还没有同意使用条款，回电脑同意后才能登录。手机上没法代你同意。'; rel.hasDone = true; }
       if (s.relogin === 'planbusy') { rel.hasText = true; rel.text = '有场次正在提交，或者离开放不到 100 秒。这时只有电脑能自动登录；没开自动登录的场次会以“登录失效”结束。等这一批结束，再重新登录后面的场次。'; rel.hasDone = true; }
       if (s.relogin === 'done') {
@@ -786,8 +804,8 @@ class Component extends DCLogic {
     var pwList = [], pwPre = sel.filter(function (i) { return self.stOf(i, s) === 'pre'; }).map(function (i) { return i.open; });
     if (s.retry === 0) { var pwNe = sel.filter(function (i) { return i.noEnd; }); if (pwNe.length) pwList.push({ text: '「' + pwNe[0].name + '」没给报名截止时间，“直到报名截止”对它只会尝试 2 分钟。' }); }
     var pwHas = s.credReady || s.credMem, pwLast = pwPre.length ? Math.max.apply(null, pwPre) : 0;
-    if (pwLast && pwLast - s.now > 3600 && !(pwHas && s.ocrOn)) pwList.push({ text: '要等到 ' + this.hms(pwLast).slice(0, -3) + '，' + (pwHas ? '电脑上没装验证码识别' : '电脑上没开自动登录') + '。中途登录失效要你' + (pwHas ? '输验证码' : '重新登录') + '；开放前 100 秒内失效的那场会直接结束。' });
-    if (pwLast && pwLast - s.now > 86400) pwList.push({ text: '有场次在 24 小时以后才开放，电脑要一直开着、不能睡眠。' });
+    if (pwLast && pwLast - s.now > 3600 && !(pwHas && s.ocrOn)) pwList.push({ text: '要等到' + this.hms(pwLast).slice(0, -3).replace(/^(\d)/, ' $1') + '，' + (pwHas ? '电脑上没装验证码识别' : '电脑上没开自动登录') + '。中途登录失效要你' + (pwHas ? '输验证码' : '重新登录') + '；开放前 100 秒内失效，那场就结束。' });
+    if (pwLast && pwLast - s.now > 86400) pwList.push({ text: '有场次在 24 小时后才开放，电脑要开着、不能睡眠。' });
     var retryHint = s.retry === -1 ? '自动延长，最多 25 分钟；报名截止仍是硬上限。' : (s.retry === 0 ? '缺报名截止时间的场次，本次最多 2 分钟。' : '');
     var ffState = s.phase === 'running' ? this.fastForward(s) : s;
 
@@ -799,7 +817,7 @@ class Component extends DCLogic {
       scrimClick: function (e) { if (e.target === e.currentTarget && self.state.relogin !== 'verifying') self.setState({ sheet: '', sheetErr: '', relogin: 'idle', capErr: '' }); },
       sheetKey: function (e) { if (e.key === 'Escape' && self.state.relogin !== 'verifying') { e.preventDefault(); self.setState({ sheet: '', sheetErr: '', relogin: 'idle', capErr: '' }); } },
       hasAlert: !!alert, alert: alert || { tone: '', title: '', detail: '', action: '', hasAction: false, fn: function () {} },
-      nowText: this.hhmmss(s.now % 86400), head: head, led: led, board: board, boardCls: boardCls, hasRail: board.rail.length > 0, hasPick: s.phase === 'draft' && !sel.length && !!nextIt && s.termsOk, pickNext: function () { self.toggle(nextIt.id, true); },
+      nowText: s.pcClock === 'down' ? '待校准' : this.hhmmss(s.now % 86400), head: head, led: led, board: board, boardCls: boardCls, hasRail: board.rail.length > 0, hasPick: s.phase === 'draft' && !sel.length && !!nextIt && s.termsOk, pickNext: function () { self.toggle(nextIt.id, true); },
       isRun: s.phase === 'running', isResult: s.phase === 'result', notResult: s.phase !== 'result', res: res, hasTasks: s.phase === 'running' || s.phase === 'result', taskCards: s.tasks.map(card), canFF: !p.frozen && ffState !== s, demoFF: function () { self.setState(self.fastForward(self.state)); },
       canToggleList: s.phase === 'running' || s.phase === 'result', listOpen: s.listOpen, listBtn: s.listOpen ? '收起活动列表' : '查看活动列表', toggleList: function () { self.setState({ listOpen: !s.listOpen }); }, showList: s.phase === 'draft' || s.phase === 'pending' || s.listOpen,
       segs: [{ k: 'free', t: '可报名', n: count.free }, { k: 'signed', t: '已报名', n: count.signed }, { k: 'all', t: '全部', n: count.all }].map(function (g) { return { text: g.t, n: g.n, on: s.seg === g.k, cls: s.seg === g.k ? 'on' : '', pick: function () { self.setState({ seg: g.k }); } }; }),
