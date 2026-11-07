@@ -10,7 +10,11 @@ function paintLogin() {
   let sub = "";
   let note = "打开顶栏的登录状态，点「登录」开始使用";
   let state = "none";
-  if (S.busy && !S.login.loginPending) {
+  /* 计划运行中胶囊保持「已登录」，不打扰运行中的计划；但学校明确说登录失效（expired）时
+   * 必须走「登录已失效」，电脑在自动登录时走「自动登录中…」——否则计划栏运行提醒和
+   * 顶部「登录已失效」横幅永远出不来（决策 014 第 8 条）。网络原因的「暂时无法确认」仍保持原样。 */
+  const busyExpired = S.login.result === "expired" && S.login.present !== false;
+  if (S.busy && !S.login.loginPending && !busyExpired && !S.autoLogin) {
     cls += " is-busy";
     /* 忙时胶囊只表达登录结论，不拿「正在处理」替换它（计划进度属于报名区域） */
     text = S.login.present === false ? "未登录" : "已登录";
