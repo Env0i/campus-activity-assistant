@@ -214,6 +214,51 @@ class PairAndSessionTests(PhoneServiceBase):
         self.assertTrue(first["ok"])
         self.assertFalse(second["ok"], "一码一次：第二次兑换必须失败")
 
+    def test_paired_count_counts_only_successful_redemptions(self):
+        """B1：设置抽屉的「手机已连接」靠这个整数，不靠会过期的 reason。"""
+        self.assertEqual(self.service.paired_count(), 0, "没开启时是零")
+        self.service.start("127.0.0.1", 0)
+        self.assertEqual(self.service.paired_count(), 0)
+        first = self.service.current_pair_code()
+        wrong = "000000" if first != "000000" else "111111"
+        self.assertFalse(self.service.pair(wrong, ip="127.0.0.1")["ok"])
+        self.assertEqual(self.service.paired_count(), 0, "配对码不对不算")
+        self.assertTrue(self.service.pair(first, ip="127.0.0.1")["ok"])
+        self.assertEqual(self.service.paired_count(), 1)
+        self.assertFalse(self.service.pair(first, ip="127.0.0.1")["ok"])
+        self.assertEqual(self.service.paired_count(), 1, "一码一次：重复兑换失败不加")
+        # 换出来的新码再兑换一次：第二台手机
+        second = self.service.current_pair_code()
+        self.assertNotEqual(second, first)
+        self.assertTrue(self.service.pair(second, ip="127.0.0.2")["ok"])
+        self.assertEqual(self.service.paired_count(), 2)
+        # 码过期后换了新码，计数不能跟着掉：这正是 reason 判断的毛病
+        self.clock["now"] += PAIR_TTL_S + 1
+        self.service.pair_code_status()
+        self.assertEqual(self.service.paired_count(), 2)
+
+    def test_paired_count_resets_when_phone_access_stops_or_restarts(self):
+        self.service.start("127.0.0.1", 0)
+        self.assertTrue(self.service.pair(self.service.current_pair_code(), ip="127.0.0.1")["ok"])
+        self.assertEqual(self.service.paired_count(), 1)
+        self.service.stop()
+        self.assertEqual(self.service.paired_count(), 0, "停止手机访问清零")
+        self.service.start("127.0.0.1", 0)
+        self.assertEqual(self.service.paired_count(), 0, "重新开启从零数起")
+        self.assertTrue(self.service.pair(self.service.current_pair_code(), ip="127.0.0.1")["ok"])
+        self.service.shutdown()
+        self.assertEqual(self.service.paired_count(), 0, "退出收尾同样清零")
+
+    def test_paired_count_ignores_rate_limited_attempts(self):
+        self.service.start("127.0.0.1", 0)
+        good = self.service.current_pair_code()
+        wrong = "000000" if good != "000000" else "111111"
+        for _ in range(IP_FAIL_LIMIT):
+            self.service.pair(wrong, ip="127.0.0.9")
+        locked = self.service.pair(good, ip="127.0.0.9")
+        self.assertEqual(locked["error"], "locked")
+        self.assertEqual(self.service.paired_count(), 0, "被限速的兑换不算")
+
     def test_pair_code_status_reports_leftover_time_and_change_reason(self):
         """面板要能说清「码还剩多久」「为什么换了一张」，而不是只给一串数字。"""
         self.service.start("127.0.0.1", 0)
@@ -328,6 +373,21 @@ class DispatchWhitelistTests(PhoneServiceBase):
                 result = self.service.dispatch(action, {})
                 self.assertFalse(result["ok"])
                 self.assertEqual(result["error"], "action_not_allowed")
+        self.assertEqual(self.api.calls, [], "禁止动作不得触达 Api")
+
+    def test_desktop_only_component_methods_are_not_reachable_from_the_phone(self):
+        """B2/B3 只给电脑端 js_api：手机动作白名单里没有它们，派发直接拒绝且不触达 Api。"""
+        from domain.phone_rules import ACTION_PARAMS
+        desktop_only = ("enable_advanced_feature", "advanced_component_location",
+                        "open_advanced_component_dir", "advanced_features_state",
+                        "phone_access_state")
+        for action in desktop_only:
+            with self.subTest(action=action):
+                self.assertNotIn(action, ACTION_PARAMS)
+                for args in ({}, {"key": "phone_control"}):
+                    result = self.service.dispatch(action, args)
+                    self.assertFalse(result["ok"])
+                    self.assertEqual(result["error"], "action_not_allowed")
         self.assertEqual(self.api.calls, [], "禁止动作不得触达 Api")
 
     def test_extra_args_are_rejected(self):

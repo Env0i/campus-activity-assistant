@@ -82,6 +82,11 @@ def _key(key):
     return key
 
 
+def install_dir(key, *, root=None):
+    """组件的安装目录（数据目录下 advanced/<功能>）；只给电脑端的位置接口用，不查磁盘。"""
+    return _root(root) / _key(key)
+
+
 def _linked(path):
     return path.is_symlink() or bool(getattr(path, "is_junction", lambda: False)())
 

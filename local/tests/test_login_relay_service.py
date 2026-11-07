@@ -131,6 +131,31 @@ class PrepareTests(RelayServiceBase):
         self.assertNotIn("secret-y", text)
         self.assertNotIn("user-x", text)
 
+    def test_staged_accessors_are_read_only_and_mask_the_account(self):
+        """B4：设置抽屉只需要「有没有」和打码账号；密码、原账号都不能从访问器出去。"""
+        self.assertFalse(self.service.has_staged())
+        self.assertEqual(self.service.staged_hint(), "")
+        self.service.prepare("demo-user-42", "pw-secret-xyz")
+        self.assertTrue(self.service.has_staged())
+        self.assertEqual(self.service.staged_hint(), "de****42", "与现有账号打码同一规则")
+        for value in (self.service.has_staged(), self.service.staged_hint()):
+            self.assertNotIn("pw-secret-xyz", str(value))
+        # 太短的账号只留第一位（与 login_rules.mask_account 一致）
+        self.service.prepare("abcd", "pw")
+        self.assertEqual(self.service.staged_hint(), "a****")
+        self.service.clear_staged()
+        self.assertFalse(self.service.has_staged())
+        self.assertEqual(self.service.staged_hint(), "")
+
+    def test_staged_hint_follows_a_failed_prepare_and_shutdown(self):
+        self.service.prepare("demo-user-42", "pw")
+        self.service.prepare("", "")
+        self.assertEqual(self.service.staged_hint(), "", "空输入清掉暂存，提示跟着清")
+        self.service.prepare("demo-user-42", "pw")
+        self.service.shutdown()
+        self.assertFalse(self.service.has_staged(), "关闭收口后不留暂存")
+        self.assertEqual(self.service.staged_hint(), "")
+
     def test_empty_prepare_clears_staging(self):
         self.service.prepare("user-x", "secret-y")
         result = self.service.prepare("", "")

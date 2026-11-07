@@ -582,6 +582,20 @@
       record("cancel_advanced_feature_download", [key]);
       return Promise.resolve({ ok: true, text: "已取消下载。" });
     },
+    /* settings-gap B2：已装好但没启用的组件点「启用」。QA 不改任何偏好，只回最小回执。 */
+    enable_advanced_feature: (key) => {
+      record("enable_advanced_feature", [key]);
+      return Promise.resolve({ ok: true, feature: String(key || ""), enabled: true });
+    },
+    /* settings-gap B3：组件位置只给电脑端。QA 不暴露真实路径，short 用示意形式，path 恒为空串。 */
+    advanced_component_location: (key) => {
+      record("advanced_component_location", [key]);
+      return Promise.resolve({ ok: true, path: "", short: "\u2026\\advanced\\" + String(key || ""), exists: false });
+    },
+    open_advanced_component_dir: (key) => {
+      record("open_advanced_component_dir", [key]);
+      return Promise.resolve({ ok: true, opened: "component" });
+    },
     inspect_advanced_component: (key, path) => {
       record("inspect_advanced_component", [key, path]);
       return Promise.resolve({ ok: false, text: "QA 场景不读取本机组件文件。" });

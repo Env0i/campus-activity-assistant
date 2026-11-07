@@ -151,6 +151,10 @@ class FakePhoneService:
         self.stop_calls = []
         self.running = False
         self.live = False
+        self.paired = 0
+
+    def paired_count(self):
+        return self.paired
 
     def has_live_session(self):
         return self.live
@@ -774,6 +778,206 @@ class AdvancedComponentDialogTests(unittest.TestCase):
         info = self.api.inspect_advanced_component("relogin_ocr", str(exe))
         self.assertFalse(info["ok"])
         self.assertEqual(info["kind"], "not_zip")
+
+
+class AdvancedBackendFieldsTests(unittest.TestCase):
+    """设置抽屉要的四个后端字段（settings-gap B1–B4）：启用、位置、已连接计数、暂存账号。
+
+    全部替身：偏好和数据目录在临时目录，系统打开文件夹的调用被替换，不连学校、
+    不碰真实凭据。重点是路径与密码「只走该走的口子」。
+    """
+
+    def setUp(self):
+        import shutil
+
+        try:
+            import app as local_app
+        except Exception as exc:  # pragma: no cover - 环境缺 pywebview 时跳过
+            self.skipTest("无法导入 local/app.py：%s" % exc)
+        self.local_app = local_app
+        tmp = tempfile.mkdtemp(prefix="campus-backend-fields-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        self.dir = Path(tmp)
+        self.data = self.dir / "data"
+        self.data.mkdir()
+        for patch in (
+            mock.patch.object(local_app, "PREFS", self.dir / "ui.json"),
+            mock.patch.object(local_app, "DEVICE_FILE", self.dir / "devices.json"),
+            mock.patch.object(local_app, "DATA_DIR", self.data),
+            mock.patch.object(local_app, "DEMO", True),
+            # 组件装没装只看依赖能否导入：按需要在各用例里改，默认「没装」
+            mock.patch.object(local_app._advanced_features, "module_available",
+                              lambda _module: False),
+            mock.patch.object(local_app._tunnel_manager, "tailscale_endpoint",
+                              lambda *a, **k: {"available": False, "error": "tailscale_missing",
+                                               "state": "missing", "text": "没装"}),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.api = stop_auto_relogin_on_cleanup(self, local_app.Api())
+        self.api._phone = FakePhoneService()
+        self.addCleanup(self.api.shutdown)
+
+    def _installed(self, installed=True):
+        patch = mock.patch.object(self.local_app._advanced_features, "module_available",
+                                  lambda _module: installed)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def _enabled_in_prefs(self):
+        return dict(self.local_app.load_prefs().get("advanced_features") or {})
+
+    # ---------- B2 enable_advanced_feature ----------
+    def test_enable_turns_on_both_known_components_once_installed(self):
+        self._installed(True)
+        for key in ("phone_control", "relogin_ocr"):
+            with self.subTest(feature=key):
+                self.assertFalse(self._enabled_in_prefs().get(key, False), "起点是没启用")
+                result = self.api.enable_advanced_feature(key)
+                self.assertTrue(result["ok"], result)
+                self.assertTrue(self._enabled_in_prefs().get(key))
+                row = self.api.advanced_features_state()["features"][key]
+                self.assertTrue(row["enabled"])
+                self.assertTrue(row["ready"])
+
+    def test_enable_refuses_unknown_key_and_changes_nothing(self):
+        self._installed(True)
+        for key in ("segno", "", "../phone_control"):
+            with self.subTest(key=key):
+                result = self.api.enable_advanced_feature(key)
+                self.assertFalse(result["ok"])
+                self.assertEqual(result["reason"], "bad_feature")
+        self.assertEqual(self._enabled_in_prefs(), {}, "未知键不得写进偏好")
+
+    def test_enable_refuses_when_component_is_not_installed(self):
+        self._installed(False)
+        for key in ("phone_control", "relogin_ocr"):
+            with self.subTest(feature=key):
+                result = self.api.enable_advanced_feature(key)
+                self.assertFalse(result["ok"])
+                self.assertEqual(result["reason"], "not_available")
+        self.assertEqual(self._enabled_in_prefs(), {}, "没装好就不能启用，偏好一个字不改")
+
+    def test_enabling_ocr_resets_auto_relogin_but_phone_control_does_not(self):
+        self._installed(True)
+        with mock.patch.object(self.api._auto_relogin, "reset") as reset:
+            self.api.enable_advanced_feature("phone_control")
+            self.assertEqual(reset.call_count, 0)
+            self.api.enable_advanced_feature("relogin_ocr")
+            self.assertEqual(reset.call_count, 1, "启用识别后自动登录要从头开始")
+
+    # ---------- B3 组件位置：只给电脑端 ----------
+    def test_location_points_into_the_data_dir_advanced_folder(self):
+        for key in ("phone_control", "relogin_ocr"):
+            with self.subTest(feature=key):
+                info = self.api.advanced_component_location(key)
+                self.assertTrue(info["ok"], info)
+                expected = (self.data / "advanced" / key).resolve()
+                self.assertEqual(Path(info["path"]), expected)
+                self.assertEqual(info["short"], "…\\advanced\\" + key)
+                self.assertNotIn(self.dir.name, info["short"], "省略形式不带真实目录")
+                self.assertFalse(info["exists"], "还没装时目录不存在")
+        (self.data / "advanced" / "relogin_ocr").mkdir(parents=True)
+        self.assertTrue(self.api.advanced_component_location("relogin_ocr")["exists"])
+
+    def test_location_refuses_unknown_key(self):
+        for key in ("segno", "", "..", "phone_control/.."):
+            with self.subTest(key=key):
+                result = self.api.advanced_component_location(key)
+                self.assertFalse(result["ok"])
+                self.assertNotIn("path", result)
+
+    def test_open_dir_prefers_component_then_parent_then_refuses(self):
+        advanced = self.data / "advanced"
+        opened = []
+        with mock.patch.object(self.local_app.os, "startfile",
+                               lambda path: opened.append(path), create=True):
+            gone = self.api.open_advanced_component_dir("phone_control")
+            self.assertFalse(gone["ok"], "两级都不存在要如实说")
+            self.assertEqual(opened, [])
+            advanced.mkdir()
+            parent = self.api.open_advanced_component_dir("phone_control")
+            self.assertTrue(parent["ok"])
+            self.assertEqual(parent["opened"], "parent")
+            (advanced / "phone_control").mkdir()
+            own = self.api.open_advanced_component_dir("phone_control")
+            self.assertEqual(own["opened"], "component")
+            self.assertEqual(Path(opened[-1]), (advanced / "phone_control").resolve())
+            self.assertFalse(self.api.open_advanced_component_dir("segno")["ok"])
+            self.assertEqual(len(opened), 2, "未知键不得触发打开")
+        for reply in (gone, parent, own):
+            self.assertNotIn("path", reply, "打开接口的回执也不带路径")
+
+    def test_open_dir_reports_a_system_failure_instead_of_raising(self):
+        (self.data / "advanced" / "phone_control").mkdir(parents=True)
+
+        def boom(_path):
+            raise OSError("no shell")
+
+        with mock.patch.object(self.local_app.os, "startfile", boom, create=True):
+            result = self.api.open_advanced_component_dir("phone_control")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "open_failed")
+
+    def test_no_component_path_leaks_into_state_or_phone_snapshot(self):
+        """路径只能走 advanced_component_location：状态快照和手机快照里一个字都不许有。"""
+        (self.data / "advanced" / "phone_control").mkdir(parents=True)
+        info = self.api.advanced_component_location("phone_control")
+        self.assertTrue(info["ok"])
+        escaped = json.dumps(info["path"])[1:-1]
+        snapshots = {
+            "advanced_features_state": self.api.advanced_features_state(),
+            "phone_access_state": self.api.phone_access_state(),
+            "phone_raw_state": self.api._phone_raw_state(),
+        }
+        for name, snapshot in snapshots.items():
+            with self.subTest(snapshot=name):
+                text = json.dumps(snapshot, ensure_ascii=False)
+                self.assertNotIn(self.dir.name, text, "临时数据目录的名字出现在快照里了")
+                self.assertNotIn(info["path"], text)
+                self.assertNotIn(escaped, text)
+                self.assertNotIn("…\\advanced", text)
+
+    # ---------- B4 staged / staged_hint ----------
+    def test_staged_reports_a_masked_hint_and_never_the_password(self):
+        credential = self.api.advanced_features_state()["credential"]
+        self.assertIs(credential["staged"], False)
+        self.assertEqual(credential["staged_hint"], "")
+        self.assertTrue(self.api._relay.prepare("demo-user-42", "pw-secret-xyz")["ok"])
+        state = self.api.advanced_features_state()
+        credential = state["credential"]
+        self.assertIs(credential["staged"], True)
+        self.assertEqual(credential["staged_hint"], "de****42")
+        dump = json.dumps(state, ensure_ascii=False) + json.dumps(
+            self.api.phone_access_state(), ensure_ascii=False)
+        self.assertNotIn("pw-secret-xyz", dump)
+        self.assertNotIn("demo-user-42", dump, "账号只给打码形式")
+        self.api._relay.clear_staged()
+        credential = self.api.advanced_features_state()["credential"]
+        self.assertIs(credential["staged"], False)
+        self.assertEqual(credential["staged_hint"], "")
+
+    # ---------- B1 paired_count 透出 ----------
+    def test_phone_access_state_carries_the_paired_count(self):
+        self.assertEqual(self.api.phone_access_state()["paired_count"], 0)
+        self.api._phone.paired = 2
+        self.assertEqual(self.api.phone_access_state()["paired_count"], 2)
+
+    # ---------- fe-phone：live_session（审核决定 A4，设备 cookie 恢复的手机也算已连接）----------
+    def test_live_session_is_a_bool_and_false_while_phone_access_is_stopped(self):
+        phone = self.api._phone
+        phone.running = False
+        phone.live = True            # 替身故意不清会话：停着时也必须报假
+        self.assertIs(self.api.phone_access_state()["live_session"], False,
+                      "手机访问停着时不能说有会话")
+        phone.running = True
+        phone.live = False
+        self.assertIs(self.api.phone_access_state()["live_session"], False)
+        phone.live = True
+        self.assertIs(self.api.phone_access_state()["live_session"], True,
+                      "只给布尔，不给 token 或 cookie")
+        phone.running = False
+        self.assertIs(self.api.phone_access_state()["live_session"], False)
 
 
 class WindowCloseHandlingTests(unittest.TestCase):

@@ -49,6 +49,9 @@ class PhoneAccessService:
         # 每换一张配对码就 +1：桌面面板靠它判断「码变过」，不靠时间猜
         self._pair_seq = 0
         self._pair_reason = ""
+        # 本次开启后成功兑换配对码的次数（settings-gap B1）：设置抽屉靠它判断「手机已连接」，
+        # 不靠 pair_code_status 的瞬时 reason——换出来的那张码一过期，reason 就不再是 paired。
+        self._paired_count = 0
         self._sessions: dict = {}
         self._fail_by_ip: dict = {}
         self._ip_lock_until: dict = {}
@@ -112,6 +115,11 @@ class PhoneAccessService:
             return {"code": self._pair_code, "expires_in": max(0, left),
                     "seq": self._pair_seq, "reason": self._pair_reason}
 
+    def paired_count(self) -> int:
+        """本次开启后成功兑换配对码的次数（只读；停止手机访问时清零）。"""
+        with self._lock:
+            return int(self._paired_count)
+
     def current_pair_code(self) -> str:
         """桌面面板显示一次性配对码；用过/过期就自动换一张新的。"""
         return str(self.pair_code_status().get("code") or "")
@@ -137,6 +145,7 @@ class PhoneAccessService:
             self._pair_used = False
             self._pair_seq += 1
             self._pair_reason = "started"
+            self._paired_count = 0       # 每次重新开启都从零数起
             self._bind_host = str(host)
             self._public_host = str(public_host or host)
             self._public_scheme = "https" if str(public_scheme).lower() == "https" else "http"
@@ -198,6 +207,7 @@ class PhoneAccessService:
             self._sessions.clear()
             self._pair_code = ""
             self._pair_used = False
+            self._paired_count = 0       # 停止手机访问即清零（B1）
             self._public_host = ""
             self._public_scheme = "http"
             self._persistent_device = False
@@ -242,6 +252,7 @@ class PhoneAccessService:
                 return {"ok": False, "error": "bad_code",
                         "text": "配对码不对，请核对后重试"}
             self._pair_used = True
+            self._paired_count += 1      # 只在兑换成功处加一；失败、限速都不算（B1）
             self._fail_by_ip.pop(ip, None)
             self._global_fails = 0
             token = secrets.token_hex(32)      # 256 位

@@ -1163,6 +1163,72 @@ class Api:
             return {"ok": False, "error": "bad_feature", "text": "未知高级功能"}
         return service.cancel()
 
+    def enable_advanced_feature(self, key: str = "") -> dict:
+        """启用一个已装好但没开启的组件（settings-gap B2，OC08「启用」按钮）。
+
+        只认 phone_control / relogin_ocr；组件没装好（available 为假）时什么都不改。
+        与安装完成的收尾一致：验证码识别启用后要重置自动登录的暂停状态。
+        """
+        if not _advanced_features.allowed_feature(key):
+            return {"ok": False, "reason": "bad_feature", "error": "bad_feature",
+                    "text": "未知高级功能"}
+        with self._credential_lock:
+            with self._lock:
+                if self._closing:
+                    return {"ok": False, "reason": "closing", "error": "closing",
+                            "text": "程序正在关闭。"}
+            prefs = load_prefs()
+            feature = _advanced_features.feature_state(
+                prefs, root=DATA_DIR, frozen=bool(getattr(sys, "frozen", False))).get(key, {})
+            if not feature.get("available"):
+                return {"ok": False, "reason": "not_available", "error": "not_available",
+                        "text": "这个组件还没装好，不能启用。"}
+            enabled = dict(prefs.get("advanced_features") or {})
+            enabled[str(key)] = True
+            if not update_prefs({"advanced_features": enabled}):
+                return {"ok": False, "reason": "prefs_busy", "error": "prefs_busy",
+                        "text": "启用状态没有保存，请重试。"}
+            if key == _advanced_features.RELOGIN_OCR:
+                self._auto_relogin.reset()
+            return {"ok": True, "feature": str(key), "enabled": True}
+
+    def advanced_component_location(self, key: str = "") -> dict:
+        """组件在本机的安装位置（settings-gap B3，只给电脑端设置抽屉用）。
+
+        路径只经这个接口给 pywebview 的 js_api；绝不放进 advanced_features_state，
+        也不进手机快照，手机动作白名单（domain.phone_rules.ACTION_PARAMS）里没有它。
+        short 是界面用的省略形式：前面用省略号，只留 advanced 与组件键两段。
+        """
+        if not _advanced_features.allowed_feature(key):
+            return {"ok": False, "error": "bad_feature", "text": "未知高级功能"}
+        try:
+            directory = _component_packages.install_dir(key, root=DATA_DIR)
+        except (_component_packages.PackageError, OSError, ValueError):
+            return {"ok": False, "error": "location_unavailable", "text": "读不到组件的安装位置。"}
+        parts = directory.parts
+        short = "…\\" + "\\".join(parts[-2:]) if len(parts) > 2 else str(directory)
+        return {"ok": True, "path": str(directory), "short": short,
+                "exists": directory.is_dir()}
+
+    def open_advanced_component_dir(self, key: str = "") -> dict:
+        """用资源管理器打开组件所在文件夹（B3，只给电脑端）。
+
+        组件目录还不存在就打开它的上一级（advanced），两级都不存在则如实说明。
+        """
+        located = self.advanced_component_location(key)
+        if not located.get("ok"):
+            return located
+        directory = Path(located["path"])
+        target = directory if directory.is_dir() else directory.parent
+        if not target.is_dir():
+            return {"ok": False, "error": "not_found", "text": "组件文件夹还不存在。"}
+        try:
+            os.startfile(str(target))        # noqa: S606 - Windows 桌面工具，与 open_data 同
+        except OSError as exc:
+            return {"ok": False, "error": "open_failed",
+                    "text": "没能打开文件夹（%s）。" % type(exc).__name__}
+        return {"ok": True, "opened": "component" if target == directory else "parent"}
+
     def advanced_features_state(self) -> dict:
         """帮助弹窗使用的高级功能快照；不返回密码、密文或安装路径。"""
         prefs = load_prefs()
@@ -1235,6 +1301,9 @@ class Api:
                 "ocr_ready": _advanced_features.feature_ready(
                     prefs, _advanced_features.RELOGIN_OCR, root=DATA_DIR),
                 "automatic": self._auto_relogin.snapshot(),
+                # B4：这次运行内存里有没有「只用这一次」的账号；只给打码账号，绝无密码
+                "staged": self._relay.has_staged(),
+                "staged_hint": self._relay.staged_hint(),
                 "last_origin": self._last_login_origin,
                 # 学校说保存的密码不对：自动登录已暂停，写入新密码后解除
                 "paused": saved and _credential_store.is_bad(CREDENTIAL_FILE),
@@ -2884,6 +2953,13 @@ class Api:
                 "qr": _phone_qr_data(address),
                 "pair_code": code_info["code"],
                 "pair_code_status": code_info,
+                # B1：本次开启后成功兑换配对码的次数，停止手机访问时清零；
+                # 「手机已连接」靠它判断，不靠 pair_code_status 的瞬时 reason
+                "paired_count": service.paired_count(),
+                # fe-phone（审核决定 A4）：重启后手机靠设备信任 cookie 恢复会话时 paired_count 为 0，
+                # 「手机已连接」= paired_count > 0 或 live_session。只给布尔，绝不回传 token 或 cookie；
+                # stop() 本就清会话，这里仍与 is_running 取与，停着时一定为假
+                "live_session": bool(service.is_running() and service.has_live_session()),
                 "supported": bool(feature.get("ready")),
                 # 通道选择的单一真源：界面只显示，不自己推断该恢复哪一个
                 "preferred_channel": prefs_info["preferred_channel"],

@@ -307,6 +307,18 @@ class PackageTests(unittest.TestCase):
             cp.install(self.archive(app_version="0.0.1"), self.key, root=self.root)
         self.assertIn("bad_app_version", str(version.exception))
 
+    def test_install_dir_is_root_advanced_key_and_touches_nothing(self):
+        """B3 的位置只靠这一个函数算出来：落在 <根>/advanced/<功能>，不建目录、不认未知键。"""
+        for key in ("phone_control", "relogin_ocr"):
+            with self.subTest(feature=key):
+                self.assertEqual(cp.install_dir(key, root=self.root),
+                                 (self.root / "advanced" / key).resolve())
+        self.assertFalse((self.root / "advanced").exists(), "只算位置，不创建目录")
+        for bad in ("segno", "", "..", "phone_control/.."):
+            with self.subTest(key=bad):
+                with self.assertRaises(cp.PackageError):
+                    cp.install_dir(bad, root=self.root)
+
     def test_status_reports_installed_version(self):
         self.assertEqual(cp.status(self.key, root=self.root).get("version"), "")
         cp.install(self.archive(app_version=cp.version()), self.key, root=self.root)

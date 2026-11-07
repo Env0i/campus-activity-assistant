@@ -18,6 +18,7 @@ import re
 import secrets
 import threading
 
+from domain.login_rules import mask_account
 from domain.phone_rules import clip_text
 
 # OCR 自动提交前的形状门禁：与 worker 的 valid_code 一致，四位 ASCII 字母数字
@@ -148,6 +149,17 @@ class LoginRelayService:
     def prepared(self) -> bool:
         with self._lock:
             return self._staged is not None
+
+    def has_staged(self) -> bool:
+        """这次运行内存里有没有暂存的账号密码（settings-gap B4，只读）。"""
+        return self.prepared()
+
+    def staged_hint(self) -> str:
+        """暂存账号的打码形式（如 st****01），没有时空串；只读，绝不含密码。"""
+        with self._lock:
+            staged = self._staged
+            name = staged.get("username") if staged else ""
+        return mask_account(name)
 
     def clear_staged(self) -> None:
         with self._lock:
