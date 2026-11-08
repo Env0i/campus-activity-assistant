@@ -43,6 +43,49 @@ def read_ui_scripts() -> str:
     return "\n".join(parts)
 
 
+def strip_ui_comments(text: str, suffix: str) -> str:
+    """逐行剥注释、保留行号，供禁词扫描只看真实文案。
+
+    原扫描按整行原文匹配，把注释里「为什么不照搬某个原型演示控件」「重登 sheet
+    指哪张 sheet」之类的设计说明也当成了残留（20261108-phone-1to1 的手机页注释
+    按计划规范必须写明这类取舍）；禁词查的是界面文案，注释不是文案。
+    .js 剥行尾 // 与跨行块注释；.html 另剥跨行 <!-- -->；.css 只剥块注释。
+    字符串里的 //（如链接）会被一并剥掉，但禁词都是中文词，不会藏在链接后面。"""
+    out = []
+    in_block = ""          # "" | "js" | "html"
+    for line in text.splitlines():
+        kept = []
+        i, n = 0, len(line)
+        while i < n:
+            if in_block == "js":
+                end = line.find("*/", i)
+                if end < 0:
+                    i = n
+                else:
+                    in_block = ""
+                    i = end + 2
+            elif in_block == "html":
+                end = line.find("-->", i)
+                if end < 0:
+                    i = n
+                else:
+                    in_block = ""
+                    i = end + 3
+            elif suffix == ".js" and line.startswith("//", i):
+                break
+            elif suffix in (".js", ".css") and line.startswith("/*", i):
+                in_block = "js"
+                i += 2
+            elif suffix == ".html" and line.startswith("<!--", i):
+                in_block = "html"
+                i += 4
+            else:
+                kept.append(line[i])
+                i += 1
+        out.append("".join(kept))
+    return "\n".join(out)
+
+
 def help_dialog(html: str) -> str:
     """截取更多 dialog 元素本体（不含其前注释），供禁词等逐字断言使用。"""
     start = html.index('<dialog class="dlg dlg-help"')
@@ -507,9 +550,15 @@ class BrandIconContractTests(unittest.TestCase):
                       "apple-touch-icon 必须指向 apple-touch-icon.png")
 
     def test_mobile_page_has_bar_logo(self):
-        """手机页顶栏必须有入场券小尺寸版 SVG（带 bar-logo 类）。"""
+        """手机页顶栏必须有入场券品牌 SVG（带 aria 标注）。
+
+        原断言钉住旧顶栏的 bar-logo 类（照电脑端头部搬的类名）：G01（frame-theme）
+        照原型 Phone.dc.html:236-241 重排手机页顶栏，同一张入场券图形改用 .mark，
+        品牌语义在 role=img + aria-label 上；断言随之改读 .mark，并加验 aria 标注。"""
         html = read("ui/m/index.html")
-        self.assertIn('class="bar-logo"', html, "手机页顶栏必须有 .bar-logo")
+        self.assertIn('class="mark"', html, "手机页顶栏必须有 .mark 品牌图")
+        self.assertIn('aria-label="校园预报名"', html,
+                      "品牌图必须带 aria 标注")
         self.assertIn('viewBox="0 0 64 64"', html,
                       "手机页入场券 logo 必须是 64×64 viewBox")
 
@@ -7981,7 +8030,11 @@ out.push({ filtered, zero, terms, comp });
         for path in sorted(ui.rglob("*")):
             if path.suffix not in (".js", ".html", ".css") or "led" in path.name:
                 continue
-            for no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            # 原断言按整行原文扫描：手机页注释（解释「重登 sheet」指哪张 sheet 等）
+            # 被当成用词残留；注释不是界面文案，扫描改在剥注释后的文本上做，
+            # 行号按原行保留，对真实文案的检查强度不变
+            stripped = strip_ui_comments(path.read_text(encoding="utf-8"), path.suffix)
+            for no, line in enumerate(stripped.splitlines(), 1):
                 if '<div class="terms-section">' in line:
                     continue   # 内嵌条款正文归条款文档管，用词以 docs 为准
                 for word in ("重登", "刷新状态", "直发", "约剩"):
@@ -8097,6 +8150,9 @@ out.push({
         for path in sorted(ui.rglob("*")):
             if path.suffix not in (".js", ".html", ".css"):
                 continue
-            text = path.read_text(encoding="utf-8")
+            # 原断言对整文件原文匹配：手机页注释里「原型 demo-tip 的「演示：」行不进产品」
+            # 这类解释为什么不搬演示控件的说明被当成演示控件本身；注释不是控件，
+            # 扫描改在剥注释后的文本上做，对真实控件与文案的检查强度不变
+            text = strip_ui_comments(path.read_text(encoding="utf-8"), path.suffix)
             hits.extend("%s：%s" % (path.relative_to(ui), word) for word in banned if word in text)
         self.assertEqual(hits, [], "演示控件不得进产品")

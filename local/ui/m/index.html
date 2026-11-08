@@ -11,144 +11,308 @@
 </head>
 <body>
 <main class="wrap">
-  <!-- 配对：首开必经；没有会话 cookie 一律回到这里 -->
-  <section id="pair" class="card">
-    <h1>连接电脑</h1>
-    <p class="hint">在电脑上的工具窗口里查看 6 位配对码，5 分钟内有效。</p>
-    <ol class="steps">
-      <li>先扫二维码打开这一页。</li>
-      <li>再输入电脑上显示的配对码。</li>
-      <li>打开后建议加入手机书签，方便下次访问。</li>
-    </ol>
-    <label class="field"><span>配对码</span>
-      <input id="pair-code" inputmode="numeric" autocomplete="one-time-code"
-             maxlength="6" placeholder="6 位数字" aria-label="配对码"></label>
-    <button id="btn-pair" class="primary" type="button">配对</button>
-    <p id="pair-error" class="error" role="alert"></p>
-    <p class="hint bookmark">打开后建议加入手机书签，方便下次访问。</p>
+  <!-- 配对：首开必经；没有会话 cookie 一律回到这里。
+       PA01（原型 Phone.dc.html:244-255）：无 pill、无底栏，点阵屏 + 琥珀宽钮；
+       PA02 说明两句照原型原句（替换原三步说明）；PA03 输入仍走 #pair-code
+       （inputmode/autocomplete 保留），点阵屏是可视化层，tag/LED/说明由 renderPair 写 -->
+  <section id="pair" class="pair-v">
+    <div class="board pair-b"><div class="b-in">
+      <div class="b-head"><span id="pair-tag" class="b-tag"><i></i>输入配对码</span></div>
+      <div class="pair-led"><div id="pair-led-wrap" class="led-wrap amber"><div id="pair-led" class="led" aria-hidden="true"></div><input id="pair-code" class="pair-in" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-label="配对码，6 位数字" aria-describedby="pair-cap"></div></div>
+      <p id="pair-cap" class="pair-cap">点上面的点阵屏，输入电脑上的 6 位数</p>
+      <button id="btn-pair" class="b b-amber b-wide" type="button">配对</button>
+    </div></div>
+    <p id="pair-error" class="pair-err" role="alert" hidden></p>
+    <div class="pair-t">
+      <h1>连接电脑</h1>
+      <p>配对码在电脑的“设置 → 手机访问”里，5 分钟内有效，只能用一次。</p>
+      <p>手机只是遥控器，真正报名的还是电脑，所以电脑要开着、不能睡眠。</p>
+      <p class="hint bookmark">打开后建议加入手机书签，方便下次访问。</p>
+    </div>
   </section>
 
   <!-- 主界面：配对成功后显示。顺序＝手机上的真实任务：先看今天，再看以后 -->
   <section id="app" hidden>
-    <header class="bar">
-      <svg class="bar-logo" width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><path d="M12 8H52A8 8 0 0 1 60 16V26A6 6 0 0 0 60 38V48A8 8 0 0 1 52 56H12A8 8 0 0 1 4 48V38A6 6 0 0 0 4 26V16A8 8 0 0 1 12 8Z" fill="#B98319"/><path d="M12 12H52A4 4 0 0 1 56 16V22.83A10 10 0 0 0 56 41.17V48A4 4 0 0 1 52 52H12A4 4 0 0 1 8 48V41.17A10 10 0 0 0 8 22.83V16A4 4 0 0 1 12 12Z" fill="#FFB020"/><path d="M20 32L28 40L44 24" fill="none" stroke="#121513" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <h1>这次报名</h1>
-      <span id="conn" class="pill" data-state="ok">已连接</span>
-      <button id="btn-refresh" class="ghost" type="button">刷新</button>
+    <!-- G01 顶栏（原型 .top / Phone:236-241）：品牌 + 三态 pill + 刷新/更多图标钮；
+         「最近同步」不再占独立行（原型顶栏没有），并进更多面板 -->
+    <header class="top">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 64 64" role="img" aria-label="校园预报名"><path d="M12 8H52A8 8 0 0 1 60 16V26A6 6 0 0 0 60 38V48A8 8 0 0 1 52 56H12A8 8 0 0 1 4 48V38A6 6 0 0 0 4 26V16A8 8 0 0 1 12 8Z" fill="#B98319"/><path d="M12 12H52A4 4 0 0 1 56 16V22.83A10 10 0 0 0 56 41.17V48A4 4 0 0 1 52 52H12A4 4 0 0 1 8 48V41.17A10 10 0 0 0 8 22.83V16A4 4 0 0 1 12 12Z" fill="#FFB020"/><path d="M20 32L28 40L44 24" fill="none" stroke="#121513" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h1>校园预报名</h1>
+      </div>
+      <span id="conn" class="pill" data-state="ok" role="status"><i></i><span id="conn-text">已连接</span></span>
+      <button id="btn-refresh" class="ic" type="button" aria-label="刷新"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path></svg></button>
+      <!-- 更多面板 sheet 化（G03/SH05）之前，先接现有的 details 折叠面板 -->
+      <button id="btn-more" class="ic" type="button" aria-label="更多"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
     </header>
-    <p class="bar-sub" id="last-sync">还没有同步过</p>
-    <p id="offline-note" class="warn" role="alert" hidden></p>
+    <!-- EX01 离线告警（原型 .alert.bad + 重试钮，Phone.dc.html:852）：两句照原型逐字，
+         标题在 N=0 时不带「已重试」尾缀；重试钮与右上角刷新同一动作（poll(true)） -->
+    <div id="offline-note" class="alert bad" role="alert" hidden>
+      <span class="grow"><b id="offline-note-title"></b><span id="offline-note-text"></span></span>
+      <button id="btn-offline-retry" class="b" type="button">重试</button>
+    </div>
     <p id="stale-note" class="hint" hidden>状态已过时：先点右上角「刷新」，拿到最新状态后才能开始报名。</p>
     <p id="banner" class="error" role="alert" hidden></p>
-    <p id="login-expired-banner" class="warn" role="alert" hidden>电脑上的登录已失效：可以在下面「更多 → 重新登录」里处理，也能回电脑上点重新登录。</p>
+    <!-- TM01 条款告警（原型 .alert tone 空，Phone.dc.html:853）：两句、无钮，替代原
+         #banner kind=terms 单句；文案由 app.js（renderAlerts）管开关，同意后收起 -->
+    <div id="terms-alert" class="alert" role="alert" hidden>
+      <span class="grow"><b id="terms-alert-title"></b><span id="terms-alert-text"></span></span>
+    </div>
+    <!-- EX02 登录失效告警（原型 .alert.bad + 重新登录钮，Phone.dc.html:854）：两句照原型逐字，
+         钮开重登 sheet（openRelogin）；显隐由 renderAlerts 按优先链管 -->
+    <div id="login-expired-banner" class="alert bad" role="alert" hidden>
+      <span class="grow"><b>电脑上的登录已失效</b><span>可以在手机上重新登录，也可以回电脑处理。</span></span>
+      <button id="btn-banner-relogin" class="b" type="button">重新登录</button>
+    </div>
+    <!-- EX05 电脑列表失败告警（原型 .alert tone 空，Phone.dc.html:855）：无钮，
+         题句与副句（HH:MM 来自快照 pc_list_error.at，BE2）由 app.js（renderAlerts）写入 -->
+    <div id="pclist-alert" class="alert" role="alert" hidden>
+      <span class="grow"><b id="pclist-alert-title"></b><span id="pclist-alert-text"></span></span>
+    </div>
+    <!-- EX06 时钟待校准告警（原型 .alert tone 空，Phone.dc.html:856）：无钮，两句由 renderAlerts 写入 -->
+    <div id="pcclock-alert" class="alert" role="alert" hidden>
+      <span class="grow"><b id="pcclock-alert-title"></b><span id="pcclock-alert-text"></span></span>
+    </div>
+    <!-- UI-F13 配对成功告警（原型 .alert.ok，Phone.dc.html:36/857）：告警链最末，
+         两句照原型逐字 + 「知道了」钮；显隐由 renderAlerts 按链写，点钮本会话不再出现 -->
+    <div id="pair-ok-alert" class="alert ok" role="status" hidden>
+      <span class="grow"><b>已连接电脑</b><span>建议把这一页存成书签，下次直接打开。</span></span>
+      <button id="btn-pair-ok" class="b" type="button">知道了</button>
+    </div>
 
-    <section class="card today" id="today-items">
-      <h2>今天要参加</h2>
-      <ul id="items" class="items"></ul>
-      <p id="empty" class="hint">今天没有可报名的活动，往下看即将开放的。</p>
-      <div class="row actions">
-        <button id="btn-start" class="primary wide" type="button">开始报名计划</button>
-        <button id="btn-stop" class="danger wide" type="button" hidden>停止计划</button>
+    <!-- LD01/LD02 详情确认板（原型 PhonePick/PhoneSearch 的 board，Phone.dc.html:260-270/783-794）：
+         已选＝「核对后再开始」+ 下一批 LED 倒计时；未选＝下一场详情卡 + 选这一场；
+         运行/等待两态的板由 run-wait 接（G04/RW02：runBoard/pendingBoard），
+         结果态与条款态由 result-and-terms 接（RS01/TM01） -->
+    <section id="plan-board" class="board" aria-label="报名计划" aria-live="polite" hidden>
+      <div class="b-in">
+        <div class="b-head">
+          <span id="board-tag" class="b-tag"><i></i><span id="board-tag-text"></span></span>
+          <span id="board-now" class="b-now" hidden>北京时间<b id="board-now-text"></b></span>
+        </div>
+        <!-- RS01 结果统计（原型 .stats，Phone.dc.html:262/75-78/828-840）：计划结束（全部场终态）
+             时 LED 与 cap 换成统计大数字区，只显非零，tone ok/wait/bad/ask 照原型 res.counts -->
+        <div id="board-stats" class="stats" hidden></div>
+        <div id="board-led-wrap" class="led-wrap" role="img"><div id="board-led" class="led" aria-hidden="true"></div></div>
+        <p class="cap" id="board-cap"><span id="board-cap-text"></span><b id="board-cap-b"></b></p>
+        <h2 class="b-title" id="board-title"></h2>
+        <p class="b-sub" id="board-sub"></p>
+        <!-- G04 四站进度（原型 .rail，Phone.dc.html:267/820-825）：启动/准备好或打开页面/开放提交/
+             核对结果；草稿与等待两态没有 rail，整块隐藏（原型 hasRail） -->
+        <div id="board-rail" class="rail" aria-hidden="true" hidden></div>
+        <button id="btn-pick-next" class="b b-ghost pick" type="button" hidden>选这一场</button>
       </div>
-      <p id="plan-line" class="hint">未开始</p>
-      <p id="pending-note" class="hint" hidden>已发出开始请求，正在核对结果，请先不要重复点击。</p>
-      <button id="btn-cancel-start" type="button" hidden>取消等待</button>
-      <button id="btn-cancel-task" class="danger" type="button" hidden>取消这一场</button>
     </section>
 
-    <section class="card">
-      <h2>即将开放</h2>
-      <ul id="upcoming-items" class="items"></ul>
+    <!-- G10 任务卡（原型 .tasks/.task，Phone.dc.html:145-153/272-274）：每场一张卡，状态词与
+         明细由 taskCard 给；「取消这一场」在卡上（原型 canCancel=status==='waiting'），
+         确认后发被点卡片那一场的 task_id（B-P1-1，见 app.js cancelTask 注释） -->
+    <div id="plan-tasks" class="tasks" hidden></div>
+    <!-- 原型 tip（Phone:276）：运行中显示；文案由 app.js（renderPlan）写入 -->
+    <p id="run-tip" class="tip" hidden></p>
+    <!-- RW01 列表开合（原型 .lnk/canToggleList，Phone.dc.html:279/930）：运行中默认收起活动列表 -->
+    <button id="btn-toggle-list" class="lnk" type="button" aria-expanded="false" hidden>查看活动列表</button>
+
+    <!-- G08 筛选条（原型 .fbar/.seg，Phone.dc.html:282/931）：段钮 可报名/已报名/全部 + 计数；
+         搜索钮开整页搜索（LD03）。状态段钮从更多面板的筛选区上移到这里，时间档筛选仍在面板里 -->
+    <div class="fbar" id="fbar">
+      <div class="seg" role="group" aria-label="报名状态">
+        <button type="button" data-status="free" aria-pressed="true">可报名<small id="seg-free">0</small></button>
+        <button type="button" data-status="signed" aria-pressed="false">已报名<small id="seg-signed">0</small></button>
+        <button type="button" data-status="all" aria-pressed="false">全部<small id="seg-all">0</small></button>
+      </div>
+      <button id="btn-search" class="ic" type="button" aria-expanded="false" aria-label="搜活动名或地点"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></button>
+    </div>
+    <!-- LD03 整页搜索视图（原型 searchOpen，Phone:283）：命中分组复用下方列表；折叠内 #q 保留快捷入口 -->
+    <label class="search" id="search-view" hidden>
+      <input id="search-q" type="search" placeholder="搜活动名或地点" aria-label="搜活动名或地点">
+    </label>
+    <!-- LD04 勾选冲突提示条（原型 notice，role=alert，Phone:284/700） -->
+    <p id="list-notice" class="notice" role="alert" hidden></p>
+
+    <!-- G07 分组列表（原型 .lst/.grp/.nowline，Phone:285-289）：组条与行由 app.js 前端聚合生成；
+         三段容器沿用既有 id 与页面顺序，两个既有空态保留（G09），筛选无结果另走 #filter-empty -->
+    <section class="lst" id="today-items">
+      <div id="items"></div>
+      <p id="empty" class="hint">今天没有可报名的活动，往下看即将开放的。</p>
+    </section>
+
+    <section class="lst" id="upcoming-zone">
+      <div id="upcoming-items"></div>
       <p id="upcoming-empty" class="hint">暂时没有更晚开放的活动。</p>
     </section>
 
+    <!-- G09 空态（原型 Phone:290，tip 居中）：文案由 app.js 写入，与上面两句区空态分开 -->
+    <p id="filter-empty" class="tip" hidden></p>
+
     <details class="card" id="signed-summary">
       <summary>已报名 <b id="signed-count">0</b> 场</summary>
-      <ul id="signed-items" class="items"></ul>
+      <div id="signed-items"></div>
     </details>
 
     <p class="hint bookmark" id="bookmark-hint">打开后建议加入手机书签，方便下次访问。</p>
 
-    <details class="card" id="more-panel">
-      <summary>更多（筛选、重试、日志、重新登录）</summary>
+    <!-- G03 sheet 外壳（原型 .scrim/.sheet，Phone:167-168/299-300）：通用容器＝头部（琥珀竖条标题 + 关闭钮）
+         + 内容槽；已迁「更多」「核对计划」、RW03/SH03/SH04 的确认槽与重登（relogin-sheet），
+         结果页随 result 任务迁 -->
+    <div id="sheet-root" class="scrim" hidden>
+      <div id="sheet-box" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1">
+        <div class="sh-h">
+          <h2 id="sheet-title">更多</h2>
+          <button id="btn-sheet-close" class="ic" type="button" aria-label="关闭"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </div>
+        <div class="sh-b">
+          <!-- SH06 操作失败红条（原型 netErr，Phone:870）：写动作发不出去时就地说明，电脑上的计划不受影响 -->
+          <p id="sheet-err" class="sh-err" role="alert" hidden></p>
 
-      <section id="filter-panel" class="sub">
-        <h3>筛选</h3>
+          <!-- RW03/SH03/SH04 确认槽（原型 isConfirm，Phone:311-314/874-879）：文案与双钮由
+               askConfirm 按档填（取消等待/停止计划/取消这一场），sheets-ops 迁移时复用 -->
+          <section id="confirm-panel" hidden>
+            <p id="confirm-text" class="confirm-text"></p>
+            <div class="confirm-actions">
+              <button id="btn-confirm-no" class="b b-line" type="button"></button>
+              <button id="btn-confirm-yes" class="b b-stop" type="button"></button>
+            </div>
+          </section>
+
+      <!-- SH05 更多 sheet（原型 isMore，Phone.dc.html:316-324）：节序照原型＝
+           开放时间 → 登录 → 电脑窗口 → 运行记录；#last-sync（G01 决策）与 #q 快捷入口
+           （LD03 决策）保留，原型 more sheet 无此两件（记 deviation） -->
+      <section id="more-panel" hidden>
+      <p class="bar-sub" id="last-sync">还没有同步过</p>
+
+      <!-- 开放时间节（原型 sec 1，Phone:316/936）：chips 照原型 .chips，aria-pressed 语义保留；
+           G08：报名状态段钮已在列表上方 .fbar（原型 segs），这里只留时间档 -->
+      <section id="filter-panel" class="sec">
+        <h3>开放时间</h3>
         <label class="field"><span>名称/关键词</span>
           <input id="q" type="search" placeholder="搜活动名或地点" aria-label="名称或关键词"></label>
-        <div class="row" role="group" aria-label="报名状态">
-          <button class="chip" type="button" data-status="all" aria-pressed="true">全部</button>
-          <button class="chip" type="button" data-status="free" aria-pressed="false">可报名</button>
-          <button class="chip" type="button" data-status="signed" aria-pressed="false">已报名</button>
-        </div>
-        <div class="row" role="group" aria-label="开放时间">
-          <button class="chip" type="button" data-time="all" aria-pressed="true">不限</button>
-          <button class="chip" type="button" data-time="today" aria-pressed="false">今天</button>
-          <button class="chip" type="button" data-time="week" aria-pressed="false">7 天内</button>
+        <div class="chips" role="group" aria-label="开放时间">
+          <button type="button" data-time="all" aria-pressed="true">不限</button>
+          <button type="button" data-time="today" aria-pressed="false">今天</button>
+          <button type="button" data-time="week" aria-pressed="false">7 天内</button>
         </div>
       </section>
 
-      <section id="retry-panel" class="sub">
-        <h3>重试设置</h3>
-        <label class="field"><span>尝试时长</span>
-          <select id="retry-for" aria-label="尝试时长"></select></label>
-        <p id="retry-hint" class="hint"></p>
-        <label class="field"><span>最多提交次数（0=不限）</span>
-          <input id="max-attempts" type="number" min="0" step="1" value="0" aria-label="最多提交次数"></label>
+      <!-- 登录节（原型 sec 2，Phone:319/937）：loginLine 四态一行 + 入口钮开重登 sheet（RL01 题）；
+           #relogin-note 留后台进度/结论行（ingestRelogin 照旧写入），原型无此行（记 deviation） -->
+      <section id="login-panel" class="sec">
+        <h3>登录</h3>
+        <p id="login-line"></p>
+        <button id="btn-relogin-open" class="b b-line" type="button">在手机上重新登录</button>
+        <p id="relogin-note" class="hint"></p>
       </section>
 
-      <section id="logs-panel" class="sub">
-        <h3>日志</h3>
+      <!-- 电脑窗口节（原型 sec 3，Phone:320）：说明句照原型，show_window 动作保留 -->
+      <section id="window-panel" class="sec">
+        <h3>电脑窗口</h3>
+        <p>窗口被隐藏到后台时，可以从这里叫回来。</p>
+        <button id="btn-show-window" class="b b-line" type="button">显示电脑窗口</button>
+      </section>
+
+      <!-- 运行记录节（原型 sec 4，Phone:321/499）：#logs 保留，上限 40 条不变 -->
+      <section id="logs-panel" class="sec">
+        <h3>运行记录</h3>
         <ol id="logs" class="logs"></ol>
       </section>
 
-      <section id="window-panel" class="sub">
-        <h3>电脑窗口</h3>
-        <p class="hint">电脑上的窗口可能被隐藏到后台了（程序还在跑）。</p>
-        <button class="btn btn-line" id="btn-show-window" type="button">显示电脑窗口</button>
       </section>
 
-      <section id="relogin-panel" class="sub">
-        <h3>重新登录</h3>
-        <p id="relogin-note" class="hint"></p>
-        <!-- 验证码整组（图 + 输入框 + 三个按钮）：电脑自己在认图时整组收起，
-             不留一个空白输入框让人以为「该我输了」。 -->
-        <div id="relogin-captcha-group" hidden>
-          <img id="captcha" alt="验证码" hidden>
-          <label class="field"><span>验证码（只对这场重新登录有效，不过期计时）</span>
-            <input id="code" inputmode="text" autocomplete="off" maxlength="4"
-                   placeholder="4 位字母数字" aria-label="验证码"></label>
-          <div class="row">
-            <button id="btn-relogin-submit" class="primary" type="button" hidden>提交验证码</button>
-            <button id="btn-relogin-refresh" class="ghost" type="button" hidden>换一张图</button>
-            <button id="btn-relogin-cancel" class="ghost" type="button" hidden>取消</button>
+      <!-- 开始前核对计划（SH01，原型 isReview，Phone.dc.html:302-309）：批次头+条目+移除钮
+           （移除钮 aria=从计划移除 {名}，原型 tk.remove，Phone:771，走勾选反选）+ 提醒 ul.pw +
+           尝试设置（SH01 从更多面板迁入，原型 fld 两行，Phone:306）+ fhint 提示（Phone:917）；
+           页脚主钮文案随提醒切换，标题在 sheet 头部，不再重复 h3 -->
+      <section id="review-panel" hidden>
+        <div id="review-items"></div>
+        <ul id="review-warns" class="pw" role="status" aria-label="开始前提醒" hidden></ul>
+        <!-- SEC-P3-1：内联 style 违反 CSP style-src 'self'，外距移进 styles.css 的 #retry-panel -->
+        <section id="retry-panel">
+          <label class="fld">尝试时长
+            <select id="retry-for" aria-label="尝试时长"></select></label>
+          <label class="fld">最多提交次数（0 = 不限）
+            <input id="max-attempts" type="number" inputmode="numeric" min="0" step="1" value="0" aria-label="最多提交次数"></label>
+          <p id="review-policy" class="fhint" hidden></p>
+        </section>
+      </section>
+
+      <!-- 重新登录 sheet（RL01–RL08/G11；原型 sh.isRelogin，Phone.dc.html:326-350）：
+           六态呈现由 renderRelogin 读写（忙态 spin / lead 四态 / 表单 / 确认层 / 完成态），
+           字段与动作沿用原有元素 id；入口在更多面板（#btn-relogin-open），
+           验证中 sheet 由 sheetBusy 锁住，Esc 与点遮罩都关不掉 -->
+      <section id="relogin-panel" hidden>
+        <!-- RL07 relbad / RL05 失败结论：sheet 顶部红错误（原型 sh-err，Phone:328/885） -->
+        <p id="rel-err" class="sh-err" role="alert" hidden></p>
+        <!-- RL02/RL03 忙态（原型 .spin，Phone:329）：三句忙态与「电脑正在自动登录」 -->
+        <div id="rel-spin" class="spin" role="status" hidden><i></i><span id="rel-busy-text"></span></div>
+        <!-- RL03 说明文 / RL06 确认文 / RL08 完成文+附言（原型 rel.text，Phone:330） -->
+        <p id="rel-text" hidden></p>
+        <div id="rel-form" hidden>
+          <!-- RL04 lead 四态（原型 rel-lead，Phone:332/898） -->
+          <p id="rel-lead" class="rel-lead" hidden></p>
+          <!-- needAcct（RL04）：电脑没保存账号或保存的密码不对时手机输（默认只用这一次，
+               勾选才保存，设计 9.3）；识别连续失败交接（handoff）时电脑自己填，整块收起 -->
+          <div id="relogin-account" hidden>
+            <label class="fld2"><span class="lb">账号</span>
+              <input id="relogin-user" class="txt-in" type="text" autocomplete="username"
+                     autocapitalize="off" spellcheck="false" aria-label="账号"></label>
+            <label class="fld2"><span class="lb">密码</span>
+              <input id="relogin-pass" class="txt-in" type="password"
+                     autocomplete="current-password" aria-label="密码"></label>
+            <!-- G11 保存勾选 + saveGain 小字（原型 .chk，Phone:342）：小字整句由 renderRelogin 写 -->
+            <label class="chk"><input id="relogin-save" type="checkbox">
+              <span><b>登录成功后保存到这台电脑</b><small id="rel-save-gain"></small></span></label>
           </div>
-        </div>
-        <!-- 电脑上没保存账号（或保存的密码学校不认）时，手机上可以输账号密码：默认只用这一次，
-             勾选才在登录成功后保存到电脑（设计 9.3）；电脑正在自动登录时这里只显示进度 -->
-        <div id="relogin-account" hidden>
-          <label class="field"><span>账号</span><input id="relogin-user" autocomplete="username" aria-label="账号"></label>
-          <label class="field"><span>密码</span><input id="relogin-pass" type="password" autocomplete="current-password" aria-label="密码"></label>
-          <label class="field check"><input id="relogin-save" type="checkbox"> 登录成功后保存到这台电脑</label>
-        </div>
-        <p class="hint">登录时，工具会替你勾选学校登录页上的《隐私协议》。</p>
-        <div class="row">
-          <button id="btn-relogin" class="primary" type="button">重新登录</button>
+          <!-- 验证码整组（G11）：图 + 输入一个开关；电脑自己在认图时整组收起，
+               不留一个空白输入框让人以为「该我输了」 -->
+          <div id="relogin-captcha-group" hidden>
+            <div class="captcha" role="img" aria-label="验证码图片"><img id="captcha" alt="" hidden></div>
+            <label><span class="lb">照图输入 4 位字母或数字</span>
+              <input id="code" class="code-in" inputmode="text" autocomplete="off"
+                     autocapitalize="off" spellcheck="false" maxlength="4" aria-label="验证码"></label>
+          </div>
+          <!-- RL04 自动认字条（原型 rel-auto，Phone:341）：没保存账号但装了识别，只输账号密码 -->
+          <p id="rel-auto" class="rel-auto" hidden>验证码由电脑自动识别，你不用输入。</p>
+          <!-- G11 固定句（原型 Phone:343）：补「我已阅读并同意」；原型 demo-tip 的「演示：」行不进产品 -->
+          <p class="rel-tip">工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。</p>
         </div>
       </section>
+        </div>
+        <!-- UI-F2 页脚（原型 .sh-f，Phone:174-175/305/347-349）：sheet 级 flex:none，
+             在 .sh-b 滚动区之外——核对/重登的主钮区不随内容滚动，含 safe-area 内距。
+             核对：开始（主钮文案随提醒切换）/返回；随 openSheet/closeSheet 与所属面板同开同收 -->
+        <div class="sh-f" id="review-foot" hidden>
+          <button id="btn-review-start" class="b b-amber" type="button">开始报名计划</button>
+          <button id="btn-review-back" class="b b-line" type="button">返回</button>
+        </div>
+        <!-- 重登页脚（原型 Phone:347-349）：主钮 登录/提交验证码/自动登录一次 三选一，
+             换一张图（仍是 cancel+begin 两步，后端没有换图接口）+ 取消一行；
+             RL03/RL08 的 doneLabel（收起，在后台继续/完成）单占一行 -->
+        <div class="sh-f" id="relogin-foot" hidden>
+          <button id="btn-relogin-auto" class="b b-amber" type="button" hidden>自动登录一次</button>
+          <button id="btn-relogin" class="b b-amber" type="button" hidden>登录</button>
+          <button id="btn-relogin-submit" class="b b-amber" type="button" hidden>提交验证码</button>
+          <div class="sh-f two" id="rel-second-row" hidden>
+            <button id="btn-relogin-refresh" class="b b-line" type="button" hidden>换一张图</button>
+            <button id="btn-relogin-cancel" class="b b-line" type="button" hidden>取消</button>
+          </div>
+          <button id="btn-relogin-done" class="b b-line" type="button" hidden></button>
+        </div>
+      </div>
+    </div>
 
-      <!-- 开始前核对计划：已选场次、尝试设置和与电脑同一套的开始前提醒（只提醒不拦） -->
-      <section id="review-panel" class="sub" hidden>
-        <h3>核对计划</h3>
-        <ul id="review-items" class="hint"></ul>
-        <p id="review-policy" class="hint"></p>
-        <ul id="review-warns" class="warns"></ul>
-        <div class="row">
-          <button id="btn-review-start" class="primary" type="button">开始报名计划</button>
-          <button id="btn-review-back" class="ghost" type="button">返回</button>
-        </div>
-      </section>
-    </details>
+    <!-- G02 底部操作条（原型 .bar / Phone:859-868）：深色点阵底、左标题两行 + 右主按钮，固定吸底。
+         三态各一个主钮：草稿＝核对并开始（琥珀）、等待＝取消等待、运行＝停止计划；
+         「取消这一场」已移到任务卡上（run-wait 的 G10）。
+         RS01 结果态（原型 .bar.stack，Phone.dc.html:295/933-934）：整条换纵排两钮，
+         左侧标题两行不出（原型 isResult 分支无 bar-t） -->
+    <div class="bar" id="action-bar">
+      <div class="bar-t" id="bar-info"><b id="bar-title">已选 0 场</b><small id="bar-sub"></small></div>
+      <button id="btn-start" class="b b-amber" type="button">核对并开始</button>
+      <button id="btn-stop" class="b b-ghost" type="button" hidden>停止计划</button>
+      <button id="btn-cancel-start" class="b b-ghost" type="button" hidden>取消等待</button>
+      <button id="btn-reselect" class="b b-amber" type="button" hidden>重新选择未成功的场次</button>
+      <button id="btn-finish" class="b b-ghost" type="button" hidden>完成，回到活动列表</button>
+    </div>
   </section>
 </main>
 <script src="app.js"></script>

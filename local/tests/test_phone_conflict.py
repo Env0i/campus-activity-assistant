@@ -60,6 +60,11 @@ function draw(ui) {
   ["#items", "#upcoming-items", "#signed-items"].forEach((id) => { $(id)._children.forEach((li) => { rows[li.dataset.id] = li; }); });
   return rows;
 }
+/* 原断言按旧行几何导航：行曾是 li，点按监听在第一个子元素（label）上，原因面板是行的第二个子节点。
+   G05（list-detail）把行改成 label.row 本身：dataset.id 与点按监听都在行上，原因面板是行内的 div.why；
+   原断言钉住的是旧结构，助手随之改为行上直接点按、按 div.why 计数，检查强度不变（面板 0→1→0）。 */
+function whyOf(li) { return tags(li, "div").filter((d) => d.className === "why").length; }
+function clickRow(li) { li.listeners.click[0]({ preventDefault() {} }); }
 """
 
 
@@ -211,39 +216,39 @@ clockAt(ui.model);
 let rows = draw(ui);
 const flagOf = (li) => tags(li, "span").filter((s) => s.className === "flag clash").length;
 const boxOf = (li) => tags(li, "input")[0];
-const first = { b: { disabled: boxOf(rows.b1).disabled, flag: flagOf(rows.b1), text: texts(rows.b1), clash: rows.b1.dataset.clash, kids: rows.b1.children.length },
-  free: { disabled: boxOf(rows.d1).disabled, flag: flagOf(rows.d1), kids: rows.d1.children.length } };
+/* 原断言读 dataset.clash：G05 把冲突标识改为行类名 .clash（原型 row.cls），断言随之读类名 */
+const first = { b: { disabled: boxOf(rows.b1).disabled, flag: flagOf(rows.b1), text: texts(rows.b1), clash: rows.b1.className, why: whyOf(rows.b1) },
+  free: { disabled: boxOf(rows.d1).disabled, flag: flagOf(rows.d1), why: whyOf(rows.d1) } };
 // 点按第一条重叠行：展开
-const labelOf = (li) => li.children[0];
-labelOf(rows.b1).listeners.click[0]({ preventDefault() {} });
+clickRow(rows.b1);
 rows = draw(ui);
-const opened = { id: ui.model.whyId, b: rows.b1.children.length, c: rows.c1.children.length, text: texts(rows.b1) };
+const opened = { id: ui.model.whyId, b: whyOf(rows.b1), c: whyOf(rows.c1), text: texts(rows.b1) };
 // 点第二条：第一条自动收起
-labelOf(rows.c1).listeners.click[0]({ preventDefault() {} });
+clickRow(rows.c1);
 rows = draw(ui);
-const second = { id: ui.model.whyId, b: rows.b1.children.length, c: rows.c1.children.length, text: texts(rows.c1) };
+const second = { id: ui.model.whyId, b: whyOf(rows.b1), c: whyOf(rows.c1), text: texts(rows.c1) };
 // 再点第二条：收起
-labelOf(rows.c1).listeners.click[0]({ preventDefault() {} });
+clickRow(rows.c1);
 rows = draw(ui);
-out.push({ first, opened, second, closed: { id: ui.model.whyId, c: rows.c1.children.length } });
+out.push({ first, opened, second, closed: { id: ui.model.whyId, c: whyOf(rows.c1) } });
 """)[0]
         self.assertTrue(out["first"]["b"]["disabled"], "重叠行复选框禁用")
         self.assertEqual(out["first"]["b"]["flag"], 1)
         self.assertIn("不可加入", out["first"]["b"]["text"])
-        self.assertEqual(out["first"]["b"]["clash"], "1")
-        self.assertEqual(out["first"]["b"]["kids"], 1, "没点之前没有原因面板")
+        self.assertIn("clash", out["first"]["b"]["clash"], "冲突行带 .clash 类")
+        self.assertEqual(out["first"]["b"]["why"], 0, "没点之前没有原因面板")
         self.assertFalse(out["first"]["free"]["disabled"])
         self.assertEqual(out["first"]["free"]["flag"], 0)
         self.assertEqual(out["opened"]["id"], "b1")
-        self.assertEqual(out["opened"]["b"], 2, "点按后行下多出原因面板")
-        self.assertEqual(out["opened"]["c"], 1)
+        self.assertEqual(out["opened"]["b"], 1, "点按后行内多出原因面板")
+        self.assertEqual(out["opened"]["c"], 0)
         self.assertIn("和已报名的活动时间重叠", out["opened"]["text"])
         self.assertIn("去已报名那场", out["opened"]["text"], "宿舍查寝可取消：有去已报名那场")
         self.assertEqual(out["second"]["id"], "c1")
-        self.assertEqual(out["second"]["b"], 1, "展开第二条时第一条收起")
-        self.assertEqual(out["second"]["c"], 2)
+        self.assertEqual(out["second"]["b"], 0, "展开第二条时第一条收起")
+        self.assertEqual(out["second"]["c"], 1)
         self.assertIn("想报这一场，要先取消「宿舍查寝」的报名", out["second"]["text"])
-        self.assertEqual(out["closed"], {"id": "", "c": 1}, "再点同一行收起")
+        self.assertEqual(out["closed"], {"id": "", "c": 0}, "再点同一行收起")
 
     def test_reason_panel_for_the_no_cancel_case_has_no_link(self):
         out = run_phone_js(SETUP + DOM + r"""
@@ -251,7 +256,8 @@ const ui = PhoneUI;
 ui.model.items = [Object.assign({}, signedA, { cancel_allowed: false }), clashB];
 clockAt(ui.model);
 let rows = draw(ui);
-rows.b1.children[0].listeners.click[0]({ preventDefault() {} });
+/* 原断言点行的第一个子元素：G05 后监听在行（label.row）上，改为行上直接点按 */
+clickRow(rows.b1);
 rows = draw(ui);
 out.push({ text: texts(rows.b1), buttons: tags(rows.b1, "button").length });
 """)[0]
@@ -262,6 +268,9 @@ out.push({ text: texts(rows.b1), buttons: tags(rows.b1, "button").length });
         out = run_phone_js(SETUP + DOM + r"""
 const ui = PhoneUI;
 ui.model.items = [signedA, clashB, clashC, freeD];
+/* 原断言隐含「所有行都可见」：G08 段钮默认「可报名」，已报名行只在「全部」段渲染，
+   看已报名行须先切段，断言语义不变 */
+ui.model.filter.status = "all";
 clockAt(ui.model);
 const rows = draw(ui);
 const nul = Object.assign({}, freeD, { id: "n1", name: "不明退改", cancel_allowed: null });
@@ -284,6 +293,8 @@ out.push({ signed: texts(rows.s1), signedButtons: tags(rows.s1, "button").length
         out = run_phone_js(SETUP + DOM + r"""
 const ui = PhoneUI;
 ui.model.items = [signedA];
+/* G08 段钮默认「可报名」，已报名行只在「全部」段渲染：看已报名行须先切段 */
+ui.model.filter.status = "all";
 ui.model.clock = null;
 const rows = draw(ui);
 out.push(texts(rows.s1));
