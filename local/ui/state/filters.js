@@ -63,25 +63,39 @@ function requirementFlags(item) {
   return flags.length ? '<span class="activity-flags">' + flags.join("") + "</span>" : "";
 }
 
-/* 奖励（实践分 / 虚拟工资）：与签到信息同一次详情请求，照原型 Main.dc.html:1037-1044 的 rwOf。
- * 详情没回来是「奖励同步中」；回来了但学校没给才是「未公布」；0 是真实回答，照实写 0。 */
-function rewardChips(item) {
-  if (!item) return "";
-  if (String(item.reward_state || "") !== "ready") {
-    return '<span class="rw"><span class="rw-p">奖励同步中</span></span>';
-  }
+/* 奖励（实践分 / 虚拟工资）：与签到信息同一次详情请求，照原型 Main.dc.html:1039-1045 的 rwOf。
+ * 详情没回来是「奖励同步中」；回来了但学校没给才是「未公布」；0 是真实回答，照实写 0。
+ * 宽档（>= 720px）在名字右侧放两枚小标签（rewardChips），窄档（< 720px）改在 .sub 行里放一个内联块
+ * （rewardInline）；两份都输出，由 CSS 媒体查询二选一显示。 */
+function rewardOf(item) {
   const num = (value) => {
     if (value === null || value === undefined || value === "") return "";
     const n = Number(value);
     return Number.isFinite(n) ? String(n) : "";
   };
-  const pts = num(item.points);
-  const wage = num(item.wage);
-  const title = "实践分 " + (pts || "未公布") + "，虚拟工资 " + (wage || "未公布");
+  const pend = String(item.reward_state || "") !== "ready";
+  const pts = pend ? "" : num(item.points);
+  const wage = pend ? "" : num(item.wage);
+  const title = pend ? "奖励信息同步中" : "实践分 " + (pts || "未公布") + "，虚拟工资 " + (wage || "未公布");
+  return { pend: pend, pts: pts, wage: wage, title: title };
+}
+
+function rewardChips(item) {
+  if (!item) return "";
+  const rw = rewardOf(item);
+  if (rw.pend) return '<span class="rw" title="' + esc(rw.title) + '"><span class="rw-p">奖励同步中</span></span>';
   /* 数值放 <b> 里、单位在外，照原型 .rw-c 的排版；没有数值时不画空的 <b> */
-  const ptsChip = pts ? '<span class="rw-c"><b>' + esc(pts) + "</b>分</span>" : '<span class="rw-c na">分未公布</span>';
-  const wageChip = wage ? '<span class="rw-c">工资<b>' + esc(wage) + "</b></span>" : '<span class="rw-c na">工资未公布</span>';
-  return '<span class="rw" title="' + esc(title) + '">' + ptsChip + wageChip + "</span>";
+  const ptsChip = rw.pts ? '<span class="rw-c pt"><b>' + esc(rw.pts) + "</b>分</span>" : '<span class="rw-c pt na">分未公布</span>';
+  const wageChip = rw.wage ? '<span class="rw-c wg">工资<b>' + esc(rw.wage) + "</b></span>" : '<span class="rw-c wg na">工资未公布</span>';
+  return '<span class="rw" title="' + esc(rw.title) + '">' + ptsChip + wageChip + "</span>";
+}
+
+function rewardInline(item) {
+  if (!item) return "";
+  const rw = rewardOf(item);
+  const text = rw.pend ? "奖励同步中" :
+    (rw.pts ? rw.pts + " 分" : "分未公布") + " · " + (rw.wage ? "工资 " + rw.wage : "工资未公布");
+  return '<span class="' + (rw.pend ? "rw-i p" : "rw-i") + '" title="' + esc(rw.title) + '">' + esc(text) + "</span>";
 }
 
 function selectedItems() {

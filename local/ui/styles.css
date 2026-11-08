@@ -345,7 +345,22 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .c-main .rw-p { color: var(--warn); font-size: 11px; line-height: 20px; white-space: nowrap; }
 .c-main .rw-c { padding: 0 6px; border-radius: 4px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink-2); font-size: 11px; line-height: 20px; white-space: nowrap; }
 .c-main .rw-c b { margin: 0 2px; color: var(--ink); font: 600 12px var(--font-num); font-variant-numeric: tabular-nums; }
-.c-main .rw-c.na { color: var(--ink-3); }
+.c-main .rw-c b:empty { display: none; }
+.c-main .rw-c.pt { min-width: 3.125rem; text-align: center; }
+.c-main .rw-c.wg { min-width: 3.75rem; text-align: center; }
+.c-main .rw-c b:first-child { margin-left: 0; }
+.c-main .rw-c.pt b { margin-right: 3px; }
+.c-main .rw-c.wg b { margin-left: 3px; }
+.c-main .rw-c.na { color: var(--ink-3); box-shadow: none; }
+/* 窄档内联块（.sub 行里）：宽档不显示，窄档（< 720px，原型 tier narrow）与侧边标签互换 */
+.c-main .rw-i { display: none; padding: 0 5px; border-radius: 4px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); font-size: 11px; line-height: 20px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.c-main .rw-i.p { background: transparent; box-shadow: none; color: var(--warn); }
+.row.is-selected .rw-c, .row.is-selected .rw-i:not(.p) { background: var(--paper); }
+.row.is-signed .rw-c, .row.is-closed .rw-c { opacity: .72; }
+@media (max-width: 719px) {
+  .c-main .rw { display: none; }
+  .c-main .rw-i { display: inline; }
+}
 /* 活动名最多两行，悬停（title）看全文 */
 .c-main .name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--ink); font-size: 14px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .row-warn { display: block; flex-basis: 100%; color: var(--warn); font-size: 12px; }

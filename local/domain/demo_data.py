@@ -50,6 +50,23 @@ def demo_items(now: float, time_text_of) -> list[dict]:
         "demo-nocancel": (False, True),
         "demo-community": (True, True),
     }
+    # 奖励（实践分 / 虚拟工资），形态同 grab.py list --json：points / wage 为数字或 None，
+    # reward_state 为 "ready"（详情已回来）或 "pending"（还没回来）。多数有值；
+    # demo-volunteer 是详情未回的 pending；demo-exhibit 详情回来了但学校没公布；
+    # demo-career 工资是真实的 0。
+    rewards = {
+        "demo-security": (2, 20, "ready"),
+        "demo-face": (1, 10, "ready"),
+        "demo-lab": (4, 40, "ready"),
+        "demo-career": (1, 0, "ready"),
+        "demo-workshop": (0.5, 5, "ready"),
+        "demo-volunteer": (None, None, "pending"),
+        "demo-exhibit": (None, None, "ready"),
+        "demo-dorm": (2, 20, "ready"),
+        "demo-interview": (8, 80, "ready"),
+        "demo-nocancel": (1, 10, "ready"),
+        "demo-community": (2, 20, "ready"),
+    }
     out = []
     for i, (aid, name, kind, place, s_off, e_off, act_s_off, act_e_off, signed) in enumerate(raw):
         # 样例时间也按学校东八区格式化：界面按 UTC+8 解析，用本机时区写会错位
@@ -60,11 +77,13 @@ def demo_items(now: float, time_text_of) -> list[dict]:
         act_end = "" if act_e_off is None else time_text_of(now + act_e_off)
         checkin_required, checkout_required = flags.get(aid, (None, None))
         cancel_allowed, can_sign = cancel_flags.get(aid, (None, None))
+        points, wage, reward_state = rewards.get(aid, (None, None, "pending"))
         out.append({"index": i + 1, "id": aid, "name": name, "type": kind,
                     "place": place, "sign_start": start, "sign_end": end,
                     "act_start": act_start, "act_end": act_end, "signed": signed,
                     "checkin_required": checkin_required, "checkout_required": checkout_required,
                     "cancel_allowed": cancel_allowed, "can_sign": can_sign,
+                    "points": points, "wage": wage, "reward_state": reward_state,
                     # 状态文案与 grab.py list --json 同一套中文口径，避免演示与真实契约不一致
                     "state": "已报名" if signed else (
                         "开放中" if s_off <= 0 else "未开放"),

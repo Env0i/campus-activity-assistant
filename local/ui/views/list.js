@@ -175,6 +175,8 @@ function rowHtml(item) {
   /* 报后可退 / 报后不可退：未报名的等待、开放中行；cancel_allowed 为 null 时不写 */
   const refund = refundFlag(item, state);
   if (refund) sub.push('<span class="rf' + (refund.no ? " no" : "") + '">' + refund.text + "</span>");
+  /* 窄档（< 720px）奖励改在这里内联显示（原型 rwInline：报后可退之后、签到说明之前）；宽档由 CSS 隐藏 */
+  sub.push(rewardInline(item));
   /* 学校列表还没同步回 signed=true：说清「已确认，只是列表在同步」，
    * 不把这场重新画成可报名。 */
   if (item.sync_pending && state === "signed") {
