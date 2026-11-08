@@ -390,8 +390,9 @@ function preStartWarnings() {
     const until = hmsDay(latest).slice(0, -3);
     list.push({
       tone: "warn",
+      /* U+2060：窄档下「重/新登录」不拆行（断行扫描 NarrowWarn 实测） */
       text: "要等到" + (/^\d/.test(until) ? " " : "") + until + "，" + missing + "。中途登录失效要你"
-        + (has ? "输验证码" : "重新登录") + "；开放前 100 秒内失效，那场就结束。",
+        + (has ? "输验证码" : "重⁠新登录") + "；开放前 100 秒内失效，那场就结束。",
       act: has ? "go-ocr" : "go-cred", label: has ? "去安装" : "去保存",
     });
   }
@@ -403,7 +404,7 @@ function preStartWarnings() {
     }
   }
   if (now !== null && latest !== null && latest - now > 86400) {
-    list.push({ tone: "warn", text: "有场次在 24 小时以后才开放，计划要一直运行到那时。这段时间电脑不能关机或睡眠。" });
+    list.push({ tone: "warn", text: "有场次在 24 小时以后才开放，计划要一直运行到那时。这段时⁠间电⁠脑不能关机或睡眠。" });
   }
   return list;
 }
@@ -500,7 +501,9 @@ function paintPolicyLine() {
   const choices = (S.retryOptions && S.retryOptions.choices) || [];
   const picked = choices.filter((c) => Number(c.value) === Number(S.retryPolicy.retry_for_s))[0];
   const cap = Number(S.retryPolicy.max_attempts) || 0;
-  $("#policy-text").innerHTML = "尝试 <b>" + esc(picked ? picked.label : "2 分钟") + "</b>，<b>"
+  /* GL06 概括行照原型 retryText：自动延长只写四个字，括号里的「最多 25 分钟」留给下拉选项 */
+  const retryText = picked ? (Number(picked.value) === -1 ? "自动延长" : picked.label) : "2 分钟";
+  $("#policy-text").innerHTML = "尝试 <b>" + esc(retryText) + "</b>，<b>"
     + (cap > 0 ? "最多 " + cap + " 次" : "不限次数") + "</b>";
 }
 
@@ -619,11 +622,13 @@ function verifyTask(taskId) {
   refresh(false);
 }
 
-/* 结果页大数字（原型 res.counts）：五类，名额已满单列、中性色。
- * 「报名未成功」含 failed 里除名额已满、待核对以外的，以及 auth_unavailable（没提交）；
- * 刷新核对确认过的算「已报名」。pending 即「待核对」。 */
+/* 结果页大数字（原型 res.counts）：六类，名额已满单列、中性色。
+ * 「报名未成功」含 failed 里除名额已满、待核对、错过了以外的，以及 auth_unavailable（没提交）；
+ * 刷新核对确认过的算「已报名」。pending 即「待核对」。
+ * 「错过了」（LS22 / PB15）由睡眠窗口推导（taskMissedBySleep，与时刻表行级同一判据），
+ * 在 failed 之前拦下：一场任务只落进一类，不会既算错过了又算报名未成功。 */
 function resultCounts() {
-  const counts = { ok: 0, full: 0, bad: 0, pending: 0, canceled: 0 };
+  const counts = { ok: 0, full: 0, bad: 0, missed: 0, pending: 0, canceled: 0 };
   S.plan.tasks.forEach((task) => {
     const st = String(task.status || "");
     const stop = String(task.stop_reason || "");
@@ -631,6 +636,7 @@ function resultCounts() {
     else if (st === "canceled") counts.canceled += 1;
     else if (stop === "full") counts.full += 1;
     else if (stop === "unconfirmed") counts.pending += 1;
+    else if (taskMissedBySleep(task)) counts.missed += 1;
     else if (st === "failed") counts.bad += 1;
   });
   return counts;
@@ -646,7 +652,7 @@ function resultView() {
   }
   /* 计划结束时仍有没出结论的场次（排队 / 等待 / 提交中）不算全部报上 */
   const allSettled = Array.from(S.plan.tasks.values()).every((task) => TASK_TERMINAL.indexOf(String(task.status || "")) >= 0);
-  if (c.ok && !c.bad && !c.pending && !c.canceled && !c.full && allSettled) {
+  if (c.ok && !c.bad && !c.missed && !c.pending && !c.canceled && !c.full && allSettled) {
     return { tag: "报名成功", tone: "green", title: "报名计划完成", text: "每场结束时都向学校核对过。",
              frame: "ok", led: ["✓", "green"] };
   }
@@ -660,7 +666,13 @@ function resultView() {
     return { tag: "需确认", tone: "amber", title: "计划已结束，有 " + c.pending + " 场需确认",
              text: "工具不会自动重发，到学校活动页核对。", frame: "warn", led: null };
   }
-  if (c.full && !c.bad) {
+  if (c.missed && !c.bad) {
+    /* 原型 res 段：错过了排在待核对之后、名额已满之前；红框，不画 LED（hasLed 为假） */
+    return { tag: "错过了", tone: "red", title: "电脑睡眠，错过了开放",
+             text: "运行计划时别让电脑睡眠：在 Windows 电源设置里把睡眠改成“从不”，并保持插电。",
+             frame: "bad", led: null };
+  }
+  if (c.full && !c.bad && !c.missed) {
     return { tag: "名额已满", tone: "amber", title: "这次没报上：名额满了",
              text: "学校的名额在开放后被报满了，不是工具出错。", frame: "warn", led: null };
   }
@@ -688,9 +700,9 @@ function paintResultPanel() {
   const done = resultMode();
   if (stats) {
     const c = resultCounts();
-    /* 顺序和颜色照原型 .stats：已报名 ok、名额已满 wait、报名未成功 bad、待核对 ask、已取消 wait */
+    /* 顺序和颜色照原型 .stats：已报名 ok、名额已满 wait、报名未成功 bad、错过了 bad、待核对 ask、已取消 wait */
     const cells = [[c.ok, "已报名", "ok"], [c.full, "名额已满", "wait"], [c.bad, "报名未成功", "bad"],
-      [c.pending, "待核对", "ask"], [c.canceled, "已取消", "wait"]].filter((cell) => cell[0] > 0);
+      [c.missed, "错过了", "bad"], [c.pending, "待核对", "ask"], [c.canceled, "已取消", "wait"]].filter((cell) => cell[0] > 0);
     stats.hidden = !done || !cells.length;
     stats.innerHTML = done ? cells.map((cell) => '<div data-tone="' + cell[2] + '"><strong>' + cell[0]
       + "</strong><span>" + cell[1] + "</span></div>").join("") : "";
@@ -1116,6 +1128,9 @@ function taskHtml(task, now) {
   } else if (verifiedSigned(task)) {
     /* 刷新核对：学校列表显示这场已报名，就按成功说，不再让用户去核对（原型 card.verify） */
     detail = "刷新核对：学校显示已报名";
+  } else if (state === "failed" && taskMissedBySleep(task)) {
+    /* 原型 Slept 画板的 reason 原句（LS22 / PB15）；盖过 auth_unavailable 等「没提交」的泛说法 */
+    detail = "电脑睡眠期间到了开放时间，没有提交。";
   } else if (state === "failed" && stop === "full") {
     detail = "学校说报名人数已满，这一场到此结束，不再提交。不是工具出错。" + (tried ? "已提交 " + tried + " 次" : "");
   } else if (state === "canceled") {
@@ -1306,7 +1321,12 @@ function setPlanOpen(open) {
   paintDock();
 }
 
-/* 计划条：已选几场 + 查看计划 + 开始；有开始前提醒时不给「开始」，先让用户看计划 */
+/* 计划条：已选几场 + 查看计划 + 开始；有开始前提醒时不给「开始」，先让用户看计划。
+ * 四态照原型 dockTitle / dockSub（TF05 / PB16）：
+ *  草稿  标题「已选 N 场」/「还没选活动」，副文 还差一步 > 开始前提醒 > 摘要句（优先级同原型）；
+ *  修改中  「修改中：已选 N 场」+「计划已暂停，改完要重新开始」；
+ *  运行中  沿用「报名计划运行中」+ 倒计时（原型取 LED 标签，表里没列这一行，不动）；
+ *  结果  结论标题 / 正文，与结果页同一来源（resultView），窄档结果页藏在计划栏里时 dock 也要说结论。 */
 function paintDock() {
   const dock = $("#plan-dock");
   if (!dock) return;
@@ -1314,27 +1334,36 @@ function paintDock() {
   dock.hidden = !narrow || !!S.planOpen;
   if (dock.hidden) return;
   const items = selectedItems();
-  let title = "还没选活动";
-  let sub = "在时刻表里勾选想报的活动";
+  const plan = $("#btn-plan");
+  const warns = S.busy ? 0 : Number(S.preWarnCount) || 0;
+  const result = !S.busy && resultMode();
+  let title = items.length ? "已选 " + items.length + " 场" : "还没选活动";
+  let sub = "";
   if (S.busy) {
     title = "报名计划运行中";
     sub = $("#countdown") ? String($("#countdown").textContent || "") : "";
-  } else if (items.length) {
-    title = "已选 " + items.length + " 场";
-    sub = $("#countdown") ? String($("#countdown").textContent || "") : "";
+  } else if (result) {
+    const res = resultView();
+    title = res.title;
+    sub = res.text;
+  } else if (S.editing) {
+    title = "修改中：已选 " + items.length + " 场";
+    sub = "计划已暂停，改完要重新开始";
+  } else {
+    /* 「还差一步」与计划栏里的 #plan-why 同一个判据：开始按钮禁用且不是正在开始 */
+    const blocker = plan && plan.disabled && !S.starting ? startBlocker() : null;
+    sub = blocker ? "还差一步：" + blocker.text
+      : (warns > 0 ? "有 " + warns + " 条提醒，开始前先看一眼" : selectionSummary(items));
   }
-  const warns = S.busy ? 0 : Number(S.preWarnCount) || 0;
-  if (warns > 0) sub = "有 " + warns + " 条提醒，开始前先看一眼";
-  const plan = $("#btn-plan");
   const start = $("#btn-dock-start");
-  if (start) start.hidden = S.busy || warns > 0 || !plan || !!plan.disabled;
+  if (start) start.hidden = S.busy || result || warns > 0 || !plan || !!plan.disabled;
   $("#dock-title").textContent = title;
   $("#dock-sub").textContent = sub;
 }
 
 /* ---------------------------------------------------------------- 横幅 */
-/* 一次只显示一条，按优先级取最前面那条（决策 014 第 12 条）：
- * 程序组件缺失 > 条款未同意 > 断网 > 电脑刚睡眠过 > 登录问题 > 北京时间问题。 */
+/* 一次只显示一条，按优先级取最前面那条（决策 014 第 12 条；顺序照原型 attention()）：
+ * 程序组件缺失 > 条款未同意 > 断网 > 电脑刚睡眠过 > 登录待确认 > 登录已失效 > 北京时间问题 > 工具已经开着（note）。 */
 function paintBanners() {
   const parts = [];
   if (S.runtime.error) {
@@ -1365,24 +1394,37 @@ function paintBanners() {
       '<button class="btn btn-ghost" type="button" data-act="net-recheck">重新检测</button></div>');
   }
   if (S.sleepGap) {
-    parts.push('<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>刚才有 ' + durText(S.sleepGap / 1000) +
-      " 界面没动静，电脑可能睡眠了。</b>要是睡过了开放时间，就赶不上了。看看计划和运行记录。</span>" +
+    /* LS21 照原型：写约几分钟，并点名睡眠期间到了开放时间的计划场次。
+     * 睡眠窗口没记下来（当时业务时钟不可用）时不能断言「没有场次」，沿用原来的提醒句。 */
+    const minutes = Math.max(1, Math.round(S.sleepGap / 60000));
+    const missed = S.sleepWindow ? sleepMissedNames() : null;
+    const detail = missed === null ? "要是睡过了开放时间，就赶不上了。看看计划和运行记录。"
+      : missed.length ? "期间" + missed.map((name) => "「" + esc(name) + "」").join("") + "到了开放时间，没有提交。"
+      : "期间没有场次到开放时间。";
+    parts.push('<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>电脑刚才睡眠了约 ' + minutes +
+      " 分钟。</b>" + detail + "</span>" +
       '<button class="btn btn-ghost" type="button" data-act="sleep-ok">知道了</button></div>');
   }
   const loginView = S.login.view || {};
-  if (loginView.state === "bad") {
-    parts.push('<div class="banner" data-tone="bad" role="alert"><span class="grow"><b>登录已失效。</b>' +
-      (S.busy ? "报名计划还在等，开放前 100 秒以前重新登录就照常继续。" : "重新登录后可以继续刷新和报名。") +
-      "</span>" + '<button class="btn btn-ghost" type="button" data-act="login">重新登录</button></div>');
-  } else if (loginView.state === "unknown") {
+  if (loginView.state === "unknown") {
     parts.push('<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>暂时无法确认登录状态。</b>' +
-      "检查网络后点「刷新」，先不用重新登录。</span>" +
+      "检查网络后点“刷新”，先不用重新登录。</span>" +
       '<button class="btn btn-ghost" type="button" data-act="runtime-refresh">刷新</button></div>');
+  } else if (loginView.state === "bad") {
+    parts.push('<div class="banner" data-tone="bad" role="alert"><span class="grow"><b>登录已失效。</b>' +
+      (S.busy ? "报名计划还在等，开放前 100 秒以前重新登录就照常继续。" : "重新登录后可以继续。") +
+      "</span>" + '<button class="btn btn-ghost" type="button" data-act="login">重新登录</button></div>');
   }
   if (!S.demo && typeof clockUiState === "function" && clockUiState() === "unavailable") {
     parts.push('<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>北京时间还没校准。</b>' +
       "校准后才能开始报名计划；已保存的登录不受影响。</span>" +
       '<button class="btn btn-ghost" type="button" data-act="clock-open">查看时间</button></div>');
+  }
+  if (S.secondOpen) {
+    /* GL01 note 档（原型 attention() 的 second，排在时钟之后）：又开了一次，第二份已退出，窗口已切回来 */
+    parts.push('<div class="banner" data-tone="note" role="status"><span class="grow"><b>工具已经开着。</b>' +
+      "刚才又打开了一次，已切回这个窗口。同一台电脑只运行一份，免得同一场被提交两遍。</span>" +
+      '<button class="btn btn-ghost" type="button" data-act="second-ok">知道了</button></div>');
   }
   $("#banners").innerHTML = parts.slice(0, 1).join("");
 }

@@ -67,6 +67,10 @@ const S = {
   clock: { state: "unknown", offset: null, uncertainty: null, checkedAt: null, detail: "" },
   online: navigator.onLine !== false,
   sleepGap: 0,
+  /* GL01 又打开了一次（second_open 事件）：横幅挂着直到点「知道了」 */
+  secondOpen: false,
+  /* LS06 更多筛选面板是否展开；记在偏好 filter_open 里，applyPrefs 读回 */
+  filterOpen: false,
   busy: false,
   stopping: false,
   /* 后端 bootstrap 的 demo 标记：演示模式不要求登录校验 valid 即可开始计划 */

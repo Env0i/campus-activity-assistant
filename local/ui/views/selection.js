@@ -21,6 +21,30 @@ function paintChips() {
   });
 }
 
+/* LS06 更多筛选：折叠按钮的计数 = 下拉里偏离默认值的个数（开放/排序/签到/签退）；
+ * 搜索词和状态胶囊本来就常驻在筛选行上，不算进去（原型 Main.dc.html 的 fN）。 */
+const MORE_FILTER_DEFAULTS = { time: "all", sort: "open", checkin: "all", checkout: "all" };
+function moreFilterCount() {
+  return Object.keys(MORE_FILTER_DEFAULTS).filter((key) => S.filter[key] !== MORE_FILTER_DEFAULTS[key]).length;
+}
+
+/* 折叠按钮与面板：文字「更多筛选」或「更多筛选（N）」，N>0 加 on 样式；aria-expanded 跟展开状态 */
+function paintMoreFilters() {
+  const count = moreFilterCount();
+  const button = $("#btn-more");
+  button.classList.toggle("on", count > 0 || S.filterOpen);
+  button.setAttribute("aria-expanded", S.filterOpen ? "true" : "false");
+  $("#more-label").textContent = count > 0 ? "更多筛选（" + count + "）" : "更多筛选";
+  $("#more-filters").hidden = !S.filterOpen;
+}
+
+/* 展开状态与筛选值一样记进偏好；记不下来不影响本次使用 */
+function setFilterOpen(open) {
+  S.filterOpen = !!open;
+  savePrefs({ filter_open: S.filterOpen });
+  paintMoreFilters();
+}
+
 function setFilter(key, value) {
   S.filter[key] = value;
   savePrefs({ filter: Object.assign({}, S.filter) });

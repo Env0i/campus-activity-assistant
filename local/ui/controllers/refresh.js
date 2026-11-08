@@ -11,6 +11,7 @@ function applyPrefs(prefs) {
     checkout: ["all", "yes", "no"].indexOf(filter.checkout) >= 0 ? filter.checkout : "all",
   };
   S.logOpen = !!S.prefs.log_open;
+  S.filterOpen = !!S.prefs.filter_open;   /* LS06 更多筛选面板的展开状态 */
   /* 重试策略偏好：只认白名单值，脏数据回落默认（120 秒 / 不限）。
    * 白名单与默认值来自 bootstrap 的权威选项（桌面/手机同源），不各写一套。 */
   const policy = S.prefs.retry_policy || {};
@@ -78,6 +79,8 @@ function ingestBootstrapPlan(info) {
     const key = String(task.task_id);
     S.plan.tasks.set(key, mergeTask(S.plan.tasks.get(key) || null, task));
   });
+  /* PB11：重载前这个计划的「开始了」记录早写过了，恢复时不补写（handlePlan 看 startNoted） */
+  S.plan.startNoted = true;
   if (["completed", "failed", "partial", "stopped"].indexOf(status) < 0) {
     /* 运行态：恢复进度与「停止」入口 */
     setBusy(true);
@@ -168,6 +171,7 @@ function refresh(quiet) {
     if (S.round.list !== listId || S.listState !== "loading") return;
     S.listState = "error";
     S.listError = "活动列表超过 130 秒没有回应";
+    noteListFailed(S.listError);
     render();
     settleRefreshBranch("list");
   }, 130000);
@@ -199,6 +203,7 @@ function refresh(quiet) {
     clearTimeout(S.round.listTimer);
     S.listState = "error";
     S.listError = msg(err);
+    noteListFailed(S.listError);
     render();
     settleRefreshBranch("list");
   });
@@ -242,6 +247,7 @@ function settleSynchronous(res, branch) {
       if (S.round.list !== id || S.listState !== "loading") return;
       S.listState = "error";
       S.listError = "活动列表超过 130 秒没有回应";
+      noteListFailed(S.listError);
       render();
       settleRefreshBranch("list");
     }, 130000);
@@ -287,8 +293,28 @@ function settleSynchronous(res, branch) {
   clearTimeout(S.round.listTimer);
   S.listState = "error";
   S.listError = (res && res.text) || "活动列表没能开始加载";
+  noteListFailed(S.listError);
   render();
   settleRefreshBranch("list");
+}
+
+/* LS11：列表没加载成功，补一条运行记录，句式照原型 listerr 画板的日志末行
+ * 「活动列表没加载：连不上学校站点」。失败有四个来源（错误回包、Promise 失败、130 秒超时、
+ * 入队被同步拒绝），各调一次；条款门拦下的那条不算失败，不写。 */
+function noteListFailed(reason) {
+  /* 只写用户看得懂的原因（与空态同一套归因的第一个分句），不回显「接口异常：URLError」这类原始异常名 */
+  addLogFresh("活动列表没加载：" + listErrorCopy(cleanReason(reason)).cause);
+}
+
+/* addLog 会把最近 40 条里相同的句子整句吞掉，连续两次刷新都失败时第二次就看不到新的一行。
+ * 失败类的记录要让用户看得见「又发生了一次」，所以只在紧挨着的上一行就是同一句时才不重复写。 */
+function addLogFresh(line) {
+  const text = String(line == null ? "" : line);
+  const recent = S.recentLogs;
+  if (recent.length && recent[recent.length - 1] === text) return;
+  const at = recent.indexOf(text);
+  if (at >= 0) recent.splice(at, 1);
+  addLog(text);
 }
 
 /* 组件错误 → 一句话标题 + 恢复动作说明（后端 runtime_error 的唯一展示口径） */
@@ -400,6 +426,7 @@ function applyActivities(payload, quiet) {
       updateControls();
     }
     S.listError = res.text || "";
+    noteListFailed(S.listError);
     render();
     settleRefreshBranch("list");
     return;

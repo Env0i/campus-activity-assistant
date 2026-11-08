@@ -38,7 +38,6 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .brand-name { font-size: 18px; font-weight: 800; letter-spacing: .04em; }
 /* 品牌名：默认完整名；窄窗口换成短标签「校园预报名工具」 */
 .brand-name .name-short { display: none; }
-.brand-desc { overflow: hidden; color: var(--ink-2); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 /* 顶栏状态组：北京时间、登录胶囊、手机标识（只在手机访问开启时出现）；三个都能点开详情卡 */
 .status { display: flex; align-items: center; gap: 6px; margin-left: auto; min-width: 0; }
 .top > .btn { flex: none; }
@@ -91,6 +90,9 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .banners:not(:empty) { padding: 0 var(--gutter); margin-bottom: 8px; }
 .banner { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 6px 8px 6px 12px; border-radius: 8px; background: var(--warn-tint); color: #6b4100; box-shadow: inset 0 0 0 1px #e9c98a; font-size: 13px; }
 .banner[data-tone="bad"] { background: var(--bad-tint); color: #7e2119; box-shadow: inset 0 0 0 1px #ebb4ad; }
+/* GL01 note 档（原型 .banner.note）：白底描边，用于「工具已经开着」这类只告知、不报警的提示 */
+.banner[data-tone="note"] { background: var(--paper); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+.banner[data-tone="note"] b { color: var(--ink); }
 .banner .grow { flex: 1; min-width: 0; }
 .banner b { font-weight: 700; }
 .banner .btn { height: 26px; padding: 0 8px; font-size: 12px; }
@@ -291,7 +293,13 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .chip .ct { color: var(--ink-3); font-family: var(--font-num); font-size: 11px; }
 .filter-select { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 7px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink-3); font-size: 11px; }
 .filter-select select { border: 0; outline: 0; background: transparent; color: var(--ink-2); cursor: pointer; font-size: 12px; }
+/* LS06 更多筛选（原型 .fbtn / .more / .fsel）：折叠按钮；有非默认项时 .on 加深描边与文字 */
+.fbtn { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--paper); color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+.fbtn:hover, .fbtn.on { border-color: var(--line-2); color: var(--ink); }
 .meta { margin-left: auto; color: var(--ink-3); font-size: 12px; white-space: nowrap; }
+.more { flex: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 12px; background: var(--paper-2); border-bottom: 1px solid var(--line); }
+.fsel { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 7px; border: 1px solid var(--line); border-radius: 7px; background: var(--paper); color: var(--ink-3); font-size: 11px; }
+.fsel select { border: 0; outline: 0; background: transparent; color: var(--ink-2); cursor: pointer; font-size: 12px; }
 .list { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 /* 空态可见 = 列表 0 行无溢出，stable 预留的滚动槽白占右侧 15px：绝对定位
    包含块不含预留槽，.empty{inset:0} 只覆盖内容盒，grid 居中便整体偏左
@@ -690,7 +698,6 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 /* 980×700 最小窗口 */
 @media (max-width: 1060px) {
   :root { --cols: 26px 70px minmax(0, 1fr) 128px 118px; --time-w: 70px; --gutter: 12px; }
-  .brand-desc { display: none; }
   .board { padding: 12px 14px 10px; }
   .b-title { font-size: 18px; }
   .led-wrap { height: 56px; }
@@ -711,14 +718,26 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
   .row { min-height: 50px; }
   .log { height: 150px; }
 }
-/* 窄窗顶栏（≤560px，含 320px 压力视口）：整行允许换行，品牌独占首行，
-   动作组与其余控件按原序换到下一行（DOM/Tab 顺序不变），控件不设死宽高。
-   放在 720 高档之后，同时压过它把 .top 固定 50px 的级联——换行后必须给两行留高，
-   否则第二行被裁仍算越界。桌面（≥561px）与既有 860 档行为不变。 */
+/* 窄窗顶栏，两档（放在 720 高档之后，压过它把 .top 固定 50px 的级联）：
+   401–560px（含原型窄档 430×820，TF06）：一行放下——只留品牌图标，品牌名、分隔线、「北京时间」小字
+   都收起，状态组靠右。430 是顶栏在 560 内必须收字的实测点：图标 28 + 时间 + 登录胶囊 + 刷新/设置/帮助
+   三个图标钮 ≈ 400px，再带 120px 的品牌名就会把帮助挤到第二行。登录胶囊的校验时间副字在这一档也收起，
+   免得把一行撑破；状态与时间仍可点开详情卡。
+   ≤400px（含 320px 压力视口）：放不下一行，整行允许换行，品牌独占首行，
+   动作组与其余控件按原序换到下一行（DOM/Tab 顺序不变），控件不设死宽高；
+   换行后必须给两行留高，否则第二行被裁仍算越界。桌面（≥561px）与既有 860 档行为不变。 */
 @media (max-width: 560px) {
+  .brand-text, .top-sep { display: none; }
+  .status { justify-content: flex-end; }
+  .status .pill .sub { display: none; }
+}
+@media (max-width: 400px) {
+  .brand-text { display: flex; }
+  .top-sep { display: block; }
+  .status .pill .sub { display: inline; }
   .top { height: auto; flex-wrap: wrap; align-items: center; row-gap: 8px; padding-top: 8px; padding-bottom: 8px; }
   .brand { flex: 1 0 100%; }
-  .status { flex: 1 1 auto; flex-wrap: wrap; margin-left: 0; }
+  .status { flex: 1 1 auto; flex-wrap: wrap; justify-content: flex-start; margin-left: 0; }
   .status .clock, .status .pill { max-width: 100%; height: auto; min-height: 32px; }
 }
 /* 更窄视口（约 746×512，150% 缩放未换算时）：点阵缩小但仍在标题右边，
@@ -905,7 +924,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .b-hint { margin: 0; color: var(--on-board-3); font-size: 12px; }
 .task-row .t-via { display: block; margin-top: 2px; color: var(--on-board-3); font-size: 11px; }
 .task-row .t-via[data-tone="warn"] { color: #ffd587; }
-/* 结果大数字照原型 .stats：五类（已报名 ok、名额已满 wait、报名未成功 bad、待核对 ask、已取消 wait） */
+/* 结果大数字照原型 .stats：六类（已报名 ok、名额已满 wait、报名未成功 bad、错过了 bad、待核对 ask、已取消 wait） */
 .stats { display: flex; flex-wrap: wrap; gap: 14px 28px; padding-bottom: 12px; border-bottom: 1px solid var(--board-line); }
 .stats[hidden] { display: none; }
 .stats div { display: flex; flex-direction: column; min-width: 0; }

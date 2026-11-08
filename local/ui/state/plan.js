@@ -71,6 +71,12 @@ function handlePlan(payload) {
     S.plan.tasks.set(String(task.task_id),
                      mergeTask(S.plan.tasks.get(String(task.task_id)) || null, task));
   });
+  /* PB11：从手机开始的计划只记一句「开始了」。startNoted 记在计划对象上：同计划的后续 plan 事件不再写；
+   * 页面重载后由 bootstrap 快照恢复的计划（ingestBootstrapPlan 预先置 true）也不重写。 */
+  if (S.plan.source === "phone" && !S.plan.startNoted) {
+    S.plan.startNoted = true;
+    noteStartedFromPhone(data.tasks);
+  }
   render();
 }
 

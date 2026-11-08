@@ -45,12 +45,17 @@ function stateOf(item) {
 }
 
 function taskLabel(state) {
-  return { queued: "排队", waiting: "等待开放", submitting: "提交中", success: "报名成功", already_signed: "已报名", failed: "报名未成功", canceled: "已取消" }[state] || "处理中";
+  return { queued: "排队", waiting: "等待开放", submitting: "提交中", success: "报名成功", already_signed: "已报名", failed: "报名未成功", canceled: "已取消",
+    /* 原型任务卡动词表含 missed（LS22 / PB15）；后端没有这个状态，由 taskMissedBySleep 推导 */
+    missed: "错过了" }[state] || "处理中";
 }
 
 function taskClass(state, task) {
   if (state === "success" || state === "already_signed") return "is-ok";
+  /* 错过了是确定没提交的红标（原型 map.missed = bad）；failed 里推导出的错过了也走这里，盖过 auth_unavailable 的中性色 */
+  if (state === "missed") return "is-bad";
   if (state === "failed") {
+    if (typeof taskMissedBySleep === "function" && taskMissedBySleep(task)) return "is-bad";
     /* 未知结论用中性色：不能给用户一个「确定失败」的红标 */
     const stop = String(task && task.stop_reason || "");
     if (typeof verifiedSigned === "function" && verifiedSigned(task)) return "is-ok";

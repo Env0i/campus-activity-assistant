@@ -90,6 +90,15 @@ function tick() {
   }
 }
 
+/* GL01 又打开了一次：后端发现第二份程序启动，已把这个窗口切回前台，第二份随即退出。
+ * 这里只出 note 档横幅和一条运行记录；payload.at（业务时钟秒，可为 null）界面不用——
+ * 运行记录的时刻戳由 addLog 按本窗口的业务时钟自己盖。 */
+function receiveSecondOpen() {
+  S.secondOpen = true;
+  addLogFresh("又打开了一次，已切回这个窗口");
+  paintBanners();
+}
+
 function doCheck() {
   api("check").catch((err) => addLog("[X] 检查登录状态失败：" + msg(err)));
 }
@@ -120,23 +129,24 @@ function failHint(text) {
   if (S.login.result === "expired") return "点「重新登录」后刷新。";
   if (S.login.result === "unknown") return "恢复网络后点「刷新」重试。";
   if (needLogin(raw)) return "点「重新登录」后刷新。";
-  if (/网络|连接|超时|timeout|连不上|dns|ssl|代理/i.test(raw)) return "连不上学校站点。检查校园网或代理，恢复后点「重试」。";
+  if (/网络|连接|超时|timeout|连不上|dns|ssl|代理/i.test(raw)) return "连不上学校站点。检查校园网或代理，恢复后点「刷新」。";
   return "程序组件没能正常启动。先点「刷新」；还不行就看下面的运行记录。";
 }
 
+/* cause 是这一句的第一个分句（运行记录用，不带恢复动作，也不带原始异常名）。 */
 function listErrorCopy(raw) {
   /* 组件问题优先：缺组件时列表失败不许被翻译成「先登录/重新登录」 */
   if (S.runtime.error) {
     const copy = runtimeErrorCopy();
-    return { title: copy.title, text: copy.hint };
+    return { title: copy.title, text: copy.hint, cause: copy.title };
   }
   /* 登录本身有问题时仍按登录分支给下一步：重新登录能修好，说成「连不上」是误判 */
-  if (S.login.present === false || S.login.result === "none") return { title: "还没登录", text: failHint(raw) };
-  if (S.login.result === "expired") return { title: "登录已过期", text: failHint(raw) };
-  if (S.login.result === "unknown") return { title: "暂时无法加载", text: failHint(raw) };
-  /* 已登录仍然拉不到列表：用原型 Main.dc.html:2095 的失败态原话。
-   * 登录是有效的，重新登录修不好网络，所以不把失败归因成登录问题。 */
-  return { title: "活动暂时没加载", text: "连不上学校站点。检查网络后再试一次，已保存的登录不受影响。" };
+  if (S.login.present === false || S.login.result === "none") return { title: "还没登录", text: failHint(raw), cause: "还没登录" };
+  if (S.login.result === "expired") return { title: "登录已过期", text: failHint(raw), cause: "登录已过期" };
+  if (S.login.result === "unknown") return { title: "暂时无法加载", text: failHint(raw), cause: "登录状态还没确认" };
+  /* 已登录仍然拉不到列表：用原型 Main.dc.html 的 listerr 空态原话（LS12：先说已保存的登录不受影响，
+   * 再给下一步，按钮叫「刷新」）。登录是有效的，重新登录修不好网络，所以不把失败归因成登录问题。 */
+  return { title: "活动暂时没加载", text: "连不上学校站点，已保存的登录不受影响。检查网络后点“刷⁠新”。", cause: "连不上学校站点" };
 }
 
 function needLogin(text) { return /登录状态|登录状态|未登录|请先登录|session|401|403|token/i.test(String(text || "")); }

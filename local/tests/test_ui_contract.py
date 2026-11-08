@@ -1164,7 +1164,7 @@ out.push({
         self.assertTrue(row["waitingInDayGroup"],
                         "waiting 活动应在日期分组里，不在四个固定组")
         self.assertEqual(row["groupCount"], 5,
-                         "恰好五个分组：正在开放、一个日期组、待公布、已截止、已报名")
+                         "恰好五个分组：正在开放、一个日期组、待公布、已报名、已截止（LS01 起已报名在已截止前）")
 
 
 class PreopenRouteContractTests(unittest.TestCase):
@@ -2674,7 +2674,8 @@ out.push({
 });
 """)
         self.assertTrue(res[0]["resultKept"], "列表失败不得清掉真实报名结果")
-        self.assertEqual(res[0]["retryText"], "重试", "「重试」只在列表空态")
+        # 20261108-main-window LS12：失败空态的按钮照原型改名「刷新」，动作仍是重新拉列表，只改按钮名
+        self.assertEqual(res[0]["retryText"], "刷新", "「刷新」只在列表空态")
         self.assertNotIn("报名成功", res[0]["emptyTitle"] + res[0]["emptyText"],
                          "空态说明与报名结果互不混写")
         self.assertNotIn("活动暂时没加载", res[0]["resultText"],
@@ -3887,7 +3888,8 @@ out.push({ title: document.querySelector("#empty-title").textContent,
   hints: (html.match(/无法找到所需程序组件/g) || []).length });
 """)
         case = res[0]
-        self.assertEqual(case["title"], "活动列表未加载")
+        # 20261108-main-window LS16：缺组件空态标题照原型 broken 画板改为「活动列表没加载」
+        self.assertEqual(case["title"], "活动列表没加载")
         self.assertNotIn("登录", case["text"], "缺组件不许显示成「登录后查看活动」")
         self.assertTrue(case["actionHidden"], "空态不重复恢复按钮")
         self.assertEqual(case["rechecks"], 1, "横幅只有一个恢复入口")
@@ -4140,7 +4142,8 @@ out.push({ errorState, afterRetry, filterState,
   retry: S.retryPolicy.retry_for_s, max: S.retryPolicy.max_attempts });
 """)
         case = res[0]
-        self.assertEqual(case["errorState"]["action"], "重试")
+        # 20261108-main-window LS12：按钮改名「刷新」，意图仍是 refresh（下一行钉住）
+        self.assertEqual(case["errorState"]["action"], "刷新")
         self.assertEqual(case["errorState"]["intent"], "refresh",
                          "失败空态的动作意图必须是刷新，不是清筛选")
         self.assertEqual(case["afterRetry"]["checks"], 1, "「重试」必须真的再查登录态")
@@ -7605,8 +7608,10 @@ out.push({
 """)
         row = res[0]
         self.assertEqual(row["title"], "活动暂时没加载")
-        self.assertEqual(row["text"], "连不上学校站点。检查网络后再试一次，已保存的登录不受影响。")
-        self.assertEqual(row["action"], "重试")
+        # 20261108-main-window LS12：正文语序与按钮名照原型 listerr 画板
+        # 评审修正：原型在这句里把「刷」「新」用 U+2060 连住，免得按钮名在 Edge 里被断成两行；句子本身没变。
+        self.assertEqual(row["text"], "连不上学校站点，已保存的登录不受影响。检查网络后点“刷⁠新”。")
+        self.assertEqual(row["action"], "刷新")
         self.assertEqual(row["planTitle"], "活动暂时没加载")
         self.assertEqual(row["planText"], "具体原因看左边列表的提示。")
 
@@ -7783,7 +7788,8 @@ clockUiState = realClock; seen.push(banner());
 out.push(seen);
 """)
         seen = res[0]
-        expected = ["程序组件缺失", "还没有同意使用条款", "网络断开了", "电脑可能睡眠了",
+        # 20261108-main-window LS21：睡眠横幅标题照原型改为「电脑刚才睡眠了约 N 分钟」，层级不变
+        expected = ["程序组件缺失", "还没有同意使用条款", "网络断开了", "电脑刚才睡眠了约",
                     "登录已失效", "暂时无法确认登录状态", "北京时间还没校准"]
         for got, title in zip(seen, expected):
             self.assertEqual(got["count"], 1, "同一时刻只显示一条横幅（%s）" % title)
@@ -7844,7 +7850,9 @@ out.push({ quiet, offline, hold, wait, noEnd, day, fullAuto, label, quietLabel, 
         self.assertTrue(any("“直到报名截止”对它只会尝试 2 分钟。" in t for t in r["noEnd"]),
                         "第 4 条：直到截止但缺截止时间")
         self.assertTrue(any(t.startswith("「两小时后没截止」没给报名截止时间") for t in r["noEnd"]))
-        self.assertIn("有场次在 24 小时以后才开放，计划要一直运行到那时。这段时间电脑不能关机或睡眠。", r["day"],
+        # 计划 20261108 fe-plan：原型这句在窄档会把「这段时间」拆成两行，原型用 U+2060 把「时」「间」连住，
+        # 界面同句照抄；这里只是断言里补上同一个不可见连接符，句子本身没变。
+        self.assertIn("有场次在 24 小时以后才开放，计划要一直运行到那时。这段时⁠间电⁠脑不能关机或睡眠。", r["day"],
                       "第 5 条：最晚一场 24 小时以后（按最晚一场算）")
         self.assertFalse(any("中途登录失效" in t for t in r["fullAuto"]), "自动登录开全了就不提第 3 条")
         self.assertEqual(r["label"], "仍然开始报名计划", "有提醒时按钮改名，但不禁用")
@@ -7922,7 +7930,8 @@ out.push({ ids, counts, selected: Array.from(S.selected) });
         r = res[0]
         self.assertEqual(r["ids"], ["x1"], "名额已满、已成功都不放回")
         # 计划栏 1:1（result-panel C）：大数字五类，多了「已取消」一格
-        self.assertEqual(r["counts"], {"ok": 1, "full": 1, "pending": 0, "bad": 1, "canceled": 0},
+        # 计划 20261108 fe-plan（LS22 / PB15）：计数对象多了「错过了」一类 missed；这里没有睡眠窗口，恒为 0，其余数不变
+        self.assertEqual(r["counts"], {"ok": 1, "full": 1, "pending": 0, "bad": 1, "missed": 0, "canceled": 0},
                          "名额已满单列，不算未成功")
         self.assertEqual(r["selected"], ["x1"])
         labels = read("ui/state/labels.js")
@@ -7959,7 +7968,8 @@ out.push({ filtered, zero, terms, comp });
         self.assertEqual(r["zero"]["act"], "refresh")
         self.assertIn("同意使用条款", r["terms"]["text"], "没加载要写原因")
         self.assertEqual(r["terms"]["act"], "terms-open", "原因对应的那一个动作")
-        self.assertEqual(r["comp"]["title"], "活动列表未加载")
+        # 20261108-main-window LS16：标题照原型改为「活动列表没加载」
+        self.assertEqual(r["comp"]["title"], "活动列表没加载")
         self.assertTrue(r["comp"]["hidden"], "组件缺失不放第二个按钮，看顶部横幅")
         titles = {r[k]["title"] for k in ("filtered", "zero", "terms", "comp")}
         self.assertEqual(len(titles), 4, "四种空态标题各不相同，不能混用")

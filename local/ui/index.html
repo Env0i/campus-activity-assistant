@@ -14,7 +14,7 @@
     <header class="top">
       <div class="brand">
         <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M12 8H52A8 8 0 0 1 60 16V26A6 6 0 0 0 60 38V48A8 8 0 0 1 52 56H12A8 8 0 0 1 4 48V38A6 6 0 0 0 4 26V16A8 8 0 0 1 12 8Z" fill="#B98319"/><path d="M12 12H52A4 4 0 0 1 56 16V22.83A10 10 0 0 0 56 41.17V48A4 4 0 0 1 52 52H12A4 4 0 0 1 8 48V41.17A10 10 0 0 0 8 22.83V16A4 4 0 0 1 12 12Z" fill="#FFB020"/><path d="M20 32L28 40L44 24" fill="none" stroke="#121513" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <div class="brand-text"><span class="brand-name"><span class="name-full">校园活动预报名工具</span><span class="name-short">校园预报名工具</span></span><span class="brand-desc">活动查询与报名计划</span></div>
+        <div class="brand-text"><span class="brand-name"><span class="name-full">校园活动预报名工具</span><span class="name-short">校园预报名工具</span></span></div>
       </div>
       <div class="status" id="status-group" data-tour-target="login">
         <button class="clock" id="clock" type="button" aria-haspopup="dialog" aria-controls="clock-pop" aria-expanded="false" aria-label="北京时间，查看时间详情"><span class="clock-label" id="clock-label">北京时间</span><span class="clock-time" id="clock-time">--:--:--</span><span class="state-icon" id="clock-icon" aria-hidden="true"></span><span class="clock-retry-hint" id="clock-retry-hint" hidden></span></button>
@@ -23,9 +23,9 @@
         <span id="status-detail" class="sr-only"></span>
       </div>
       <span class="top-sep" aria-hidden="true"></span>
-      <button class="btn btn-ghost" id="btn-refresh" type="button" aria-keyshortcuts="F5" title="刷新登录状态和活动列表（F5）"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span class="lbl">刷新</span></button>
-      <button class="btn btn-ghost" id="btn-settings" type="button" aria-haspopup="dialog" aria-controls="settings" aria-label="设置：高级功能、登录、程序" title="设置：高级功能、登录、程序"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span class="lbl">设置</span></button>
-      <button class="btn btn-ghost" id="btn-help" type="button" aria-label="帮助：使用说明、快捷键、重看引导" title="帮助：使用说明、快捷键、重看引导"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.7.3-1.2.9-1.2 1.6v.5"/><path d="M12 17h.01"/></svg><span class="lbl">帮助</span></button>
+      <button class="btn btn-ghost" id="btn-refresh" type="button" aria-keyshortcuts="F5" aria-label="刷新登录状态和活动列表" title="刷新（F5）"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span class="lbl">刷新</span></button>
+      <button class="btn btn-ghost" id="btn-settings" type="button" aria-haspopup="dialog" aria-controls="settings" aria-label="设置：高级功能、登录、程序" title="设置"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span class="lbl">设置</span></button>
+      <button class="btn btn-ghost" id="btn-help" type="button" aria-label="帮助：使用说明、快捷键、重看引导" title="帮助"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.7.3-1.2.9-1.2 1.6v.5"/><path d="M12 17h.01"/></svg><span class="lbl">帮助</span></button>
     </header>
 
     <div class="banners" id="banners"></div>
@@ -35,11 +35,15 @@
         <div class="filters" data-tour-target="filters">
           <label class="search"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" placeholder="搜活动名或地点" autocomplete="off" aria-label="搜活动名或地点"></label>
           <div class="seg" id="chips" role="group" aria-label="报名状态"><button class="chip" type="button" data-status="free" aria-pressed="false">可报名</button><button class="chip" type="button" data-status="signed" aria-pressed="false">已报名</button><button class="chip" type="button" data-status="all" aria-pressed="true">全部</button></div>
-          <label class="filter-select"><span>开放</span><select id="time" aria-label="开放时间"><option value="all">不限</option><option value="today">今天</option><option value="week">7 天内</option></select></label>
-          <label class="filter-select"><span>排序</span><select id="sort" aria-label="排序方式"><option value="open">按开放时间</option><option value="name">按活动名</option></select></label>
-          <label class="filter-select"><span>签到</span><select id="checkin" aria-label="签到要求"><option value="all">全部</option><option value="yes">需要</option><option value="no">无需</option></select></label>
-          <label class="filter-select"><span>签退</span><select id="checkout" aria-label="签退要求"><option value="all">全部</option><option value="yes">需要</option><option value="no">无需</option></select></label>
+          <button class="fbtn" id="btn-more" type="button" aria-expanded="false" aria-controls="more-filters"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg><span id="more-label">更多筛选</span></button>
           <span class="meta"><span id="count"></span> <span class="fresh" id="fresh" hidden></span></span>
+        </div>
+        <!-- LS06（原型 Main.dc.html 的 .more）：四个下拉平时收起，展开在筛选行下面；折叠按钮带非默认项个数 -->
+        <div class="more" id="more-filters" hidden>
+          <label class="fsel">开放<select id="time" aria-label="开放时间"><option value="all">不限</option><option value="today">今天</option><option value="week">7 天内</option></select></label>
+          <label class="fsel">排序<select id="sort" aria-label="排序方式"><option value="open">按开放时间</option><option value="name">按活动名</option></select></label>
+          <label class="fsel">签到<select id="checkin" aria-label="签到要求"><option value="all">全部</option><option value="yes">需要</option><option value="no">无需</option></select></label>
+          <label class="fsel">签退<select id="checkout" aria-label="签退要求"><option value="all">全部</option><option value="yes">需要</option><option value="no">无需</option></select></label>
         </div>
         <div class="list" id="list" tabindex="0" aria-label="活动列表">
           <div class="colhead" aria-hidden="true"><span class="h-sel">选</span><span class="h-time">开放时间</span><span>活动</span><span class="h-place">地点</span><span class="h-left">距开放</span></div>
@@ -67,9 +71,9 @@
           <button id="btn-board-pick" class="bb bb-ghost board-quick" type="button" hidden>选这一场</button>
           <div class="policy" id="policy-line"><span id="policy-text">尝试 2 分钟，不限次数</span><button class="b-link" id="btn-policy" type="button" aria-expanded="false" aria-controls="policy-edit">修改</button></div>
           <div class="pol-e" id="policy-edit" hidden>
-            <!-- 计划级重试策略：-1=自动延长（最多25分钟）；时长 0=直到报名截止（缺截止回退 2 分钟）；次数 0=不限；报名截止永远是硬上限 -->
-            <label class="policy-select" for="retry-for"><span>尝试时长</span><select id="retry-for" aria-label="尝试时长"><option value="120">2 分钟</option><option value="600">10 分钟</option><option value="1800">30 分钟</option><option value="3600">1 小时</option><option value="-1">自动延长（最多25分钟）</option><option value="0">直到报名截止</option></select></label>
-            <label class="policy-select" for="max-attempts"><span>最多提交次数（0=不限）</span><input id="max-attempts" type="number" min="0" step="1" value="0" aria-label="最多提交次数，0 表示不限次数" title="0 表示不限次数；只统计真正发出去的提交"></label>
+            <!-- 计划级重试策略：-1=自动延长（最多 25 分钟）；时长 0=直到报名截止（缺截止回退 2 分钟）；次数 0=不限；报名截止永远是硬上限 -->
+            <label class="policy-select" for="retry-for"><span>尝试时长</span><select id="retry-for" aria-label="尝试时长"><option value="120">2 分钟</option><option value="600">10 分钟</option><option value="1800">30 分钟</option><option value="3600">1 小时</option><option value="-1">自动延长（最多 25 分钟）</option><option value="0">直到报名截止</option></select></label>
+            <label class="policy-select" for="max-attempts"><span>最多提交次数（0 = 不限）</span><input id="max-attempts" type="number" min="0" step="1" value="0" aria-label="最多提交次数，0 表示不限次数" title="0 表示不限次数；只统计真正发出去的提交"></label>
             <label class="tg" id="headed-label" for="headed"><input type="checkbox" id="headed"><span class="box" aria-hidden="true"></span><span>改用页面点击时显示浏览器</span></label>
           </div>
           <div class="route-line" id="route-line" hidden><div class="route-wrap" id="route" aria-label="这次报名的时间点"></div></div>

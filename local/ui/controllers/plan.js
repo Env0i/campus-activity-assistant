@@ -327,6 +327,17 @@ function confirmStopPlan() {
   doStopPlan();
 }
 
+/* PB11 原型 RunPhone 的开始记录：「从手机开始了报名计划：2 场预报名等开放」。
+ * 电脑自己开始的计划写「已安排 …」（startPlan 的 ack），这一句只给计划来源是手机的那一次。
+ * 场次数按后端写进计划快照的 signup_mode 分，拿不到场次就只写前半句，不猜。 */
+function noteStartedFromPhone(tasks) {
+  const list = Array.isArray(tasks) ? tasks : [];
+  const instant = list.filter((task) => String(task && task.signup_mode || "") === "instant_signup").length;
+  const pre = list.filter((task) => String(task && task.signup_mode || "") === "pre_register").length;
+  const summary = [instant ? instant + " 场立即报名" : "", pre ? pre + " 场预报名等开放" : ""].filter(Boolean).join("，");
+  addLogFresh("从手机开始了报名计划" + (summary ? "：" + summary : ""));
+}
+
 /* 等开放时「修改计划」（决策 014 第 6 条）：复用停止和重选，不改报名调度。
  * 提交中或开放前 100 秒内不可用；停下以后把还没提交的场次放回选择，提示「改完要重新开始」。 */
 function modifyPlan() {
@@ -337,7 +348,8 @@ function modifyPlan() {
   });
   /* doneN：进入修改时已经结束的场次数，修改说明写「已结束的 N 场不受影响」（原型 modifyS） */
   S.editing = { ids: keep, doneN: S.plan.tasks.size - keep.length };
-  addLog("修改计划：先停下，改完要重新开始");
+  /* PB03 原型 modifyS 的运行记录句；同样的句子可以再来一次（改了又停了又改），所以不走 addLog 的整句去重 */
+  addLogFresh("计划已暂停：" + keep.length + " 场放回草稿修改");
   doStopPlan();
 }
 

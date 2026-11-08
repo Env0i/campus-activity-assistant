@@ -3,6 +3,7 @@ function render() {
   paintList();
   /* 活动列表异步回填后同步更新状态胶囊计数，避免真实数据已到但仍显示初始化的 0。 */
   paintChips();
+  paintMoreFilters();
   paintRail();
   paintSelected();
   paintBoardState();
@@ -72,7 +73,8 @@ function skeletonHtml() {
   return html + "</div>";
 }
 
-/* 按天分组的车站时刻表：正在开放 → 「现在」线 → 按天 → 待公布 → 刚截止 → 已报名 */
+/* 按天分组的车站时刻表：正在开放 → 「现在」线 → 按天 → 待公布 → 已报名 → 已截止
+ * （LS01：后三组的顺序照原型 Main.dc.html 的 order 数组，已报名在已截止前） */
 function groupTimetable(rows) {
   const open = [];
   const unknown = [];
@@ -108,9 +110,9 @@ function groupTimetable(rows) {
     html += groupHtml(dayLabel(dayMs), days.get(key).sort(byStart), "day");
   });
   if (unknown.length) html += groupHtml("报名时间待公布", unknown.sort(byStart), "unknown", "公布以后才能到点报名");
+  if (signed.length) html += groupHtml("已报名", signed.sort(byStart), "signed");
   /* 组名与旁注照原型 Main.dc.html:1922：已截止的场次只能查看 */
   if (closed.length) html += groupHtml("已截止", closed.sort(byStart), "closed", "只能查看");
-  if (signed.length) html += groupHtml("已报名", signed.sort(byStart), "signed");
   return html;
 }
 
@@ -148,7 +150,8 @@ function rowHtml(item) {
   /* 与已报名活动时间重叠的直接禁选（决策 004 的外部占用基线）；
    * 原因不写在行内：状态格只留「不可加入」，悬停或聚焦弹气泡（20261107-conflict-cancel U1） */
   const clash = clashOf(item, armed);
-  const checkDisabled = S.busy || termsLocked() || !isEligibleForPlan(item) || !!signedClash(item);
+  /* LS14：开放时间待公布的行也禁勾（原型 off 含 unknown），见 signStartPending */
+  const checkDisabled = S.busy || termsLocked() || !isEligibleForPlan(item) || !!signedClash(item) || signStartPending(item);
   /* 学校常把开放时间定在 00:59:59 这种点：有秒就把秒写成小号 */
   /* 还不知道开放时刻就写「待公布」（原型 Main.dc.html:1944），不拿 --:-- 冒充一个时刻 */
   let timeHtml = '<span class="t">待公布</span>';
@@ -291,23 +294,24 @@ function paintEmpty(rows) {
     /* 缺组件不许显示成「登录后查看活动」：重新登录解决不了缺组件。
      * 完整原因与恢复动作只在顶部横幅——这里只放未加载占位，
      * 不复读长说明，也不重复恢复按钮。 */
-    title.textContent = "活动列表未加载";
+    /* LS16：标题照原型 Main.dc.html 的 broken 空态「活动列表没加载」；正文按三种错误码的横幅保留原有说法 */
+    title.textContent = "活动列表没加载";
     text.textContent = "组件有问题，处理办法看页面顶部的提示。";
     action.hidden = true;
     return;
   }
   if (S.listState === "error") {
-    /* 普通列表失败：完整原因与「重试」唯一归这里（用真实失败原话归因） */
+    /* 普通列表失败：完整原因与「刷新」唯一归这里（用真实失败原话归因；按钮名照原型 LS12） */
     const copy = listErrorCopy(S.listError || "");
     title.textContent = copy.title;
     text.textContent = copy.text;
-    action.textContent = "重试";
+    action.textContent = "刷新";
     return;
   }
   if (S.items.length) {
     /* 有数据但都被筛掉：只有这一种空态给「清除筛选」 */
     title.textContent = "没有符合筛选的活动";
-    text.textContent = "一共 " + S.items.length + " 场，换个关键词，或清除筛选看完整列表。";
+    text.textContent = "一共 " + S.items.length + " 场。换个关键词，或清除筛选看完整列表。";
     action.textContent = "清除筛选";
     action.dataset.action = "clear-filters";
     return;

@@ -56,6 +56,8 @@ function taskDisplayLabel(task) {
   if (state === "failed") {
     /* 刷新核对确认过已报名：照原型 card.verify 改成「报名成功」（先判它，否则会被「待核对」截走） */
     if (typeof verifiedSigned === "function" && verifiedSigned(task)) return "报名成功";
+    /* 电脑睡眠盖住了开放时刻、一次都没提交（LS22 / PB15）：原型动词「错过了」 */
+    if (typeof taskMissedBySleep === "function" && taskMissedBySleep(task)) return taskLabel("missed");
     /* 结果没确认 / 登录状态未知都不是「失败」：标签必须留出核对空间（「未提交」是代码独有） */
     if (task.stop_reason === "unconfirmed") return "待核对";
     if (task.stop_reason === "auth_unavailable") return "未提交";

@@ -103,6 +103,14 @@ function isEligibleForPlan(item) {
   return !!item && !item.signed && modeOf(item) !== "closed";
 }
 
+/* LS14 报名开放时间还没公布的场次（行上写「待公布」）：原型 Main.dc.html 的 off 含 st === 'unknown'，
+ * 复选框禁用。只认学校没给开放时刻的行：开放时刻已知、只是本机时钟暂不可用的行（待校准，
+ * 原型 ClockDown / ClockHold 里照常可勾）不在内；已开放（open）的行立即可报，也不在内。
+ * 开始计划时 validateSelection 的「报名开放时间待确认」是第二道门，这里只管勾选。 */
+function signStartPending(item) {
+  return isEligibleForPlan(item) && !signStartKnown(item) && leftOf(item) === null && stateOf(item) !== "open";
+}
+
 /* 全局下一场：按全部活动算，不受筛选影响。
  * 返回 openId（已开放未截止）与 futureId（最近的未来场次）：
  * 存在开放活动时大屏与快捷选择优先 openId，只有没有开放活动才轮到
@@ -236,6 +244,35 @@ function missedBySleep(item) {
     if (status !== "success" && status !== "already_signed" && !(Number(task.attempts) > 0)) missed = true;
   });
   return missed;
+}
+
+/* LS21 睡眠横幅点名的场次：计划里、开放时刻落在睡眠窗口内、没成功也没提交过的那几场。
+ * 判据就是 missedBySleep（行级「错过了」同一条）：列表里已经没有这一场时，用任务自带的名字和开放时刻顶上。 */
+function sleepMissedNames() {
+  const names = [];
+  const seen = new Set();
+  S.plan.tasks.forEach((task) => {
+    const id = String(task.activity_id);
+    if (seen.has(id)) return;
+    seen.add(id);
+    const item = findItem(id) || { id: id, name: task.name, sign_start: task.sign_start, signed: false };
+    if (missedBySleep(item)) names.push(String(item.name || task.name || "这一场活动"));
+  });
+  return names;
+}
+
+/* LS22 / PB15 结果页与任务卡的「错过了」：一场任务结束了、没成功、睡眠窗口盖住了它的开放时刻。
+ * 判据复用 missedBySleep（行级、横幅、结果页只有这一条，不另写一套）；只在这几处收窄：
+ *  - 只认 failed：取消是用户的动作（含停止计划后没提交的），不翻成「错过了」；
+ *  - attempts > 0 的说明已经提交过，不是没提交。
+ * 所以一场任务不会同时落进「错过了」和别的计数（resultCounts 里它在 failed 之前被拦下）。 */
+function taskMissedBySleep(task) {
+  if (!task || String(task.status || "") !== "failed") return false;
+  if (Number(task.attempts) > 0) return false;
+  if (typeof verifiedSigned === "function" && verifiedSigned(task)) return false;
+  const id = String(task.activity_id);
+  const item = findItem(id) || { id: id, name: task.name, sign_start: task.sign_start, signed: false };
+  return missedBySleep(item);
 }
 
 function conflictIds() {

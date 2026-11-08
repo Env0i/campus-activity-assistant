@@ -140,6 +140,8 @@ window.onBackend = {
   plan: (payload) => handlePlan(payload),
   task: (payload) => handleTask(payload),
   plan_done: (payload) => handlePlanDone(payload),
+  /* GL01 防止开两份：第二份启动时后端切回这个窗口并推此事件，payload { at: 业务时钟秒 | null } */
+  second_open: (payload) => receiveSecondOpen(payload),
   update: (payload) => receiveUpdate(payload),
   /* 重新登录这一场的进度（电脑和手机共用的中继流程）：对话框开着时接管画面 */
   phone_relogin: (payload) => receiveReloginState(payload),
@@ -152,6 +154,8 @@ $("#chips").addEventListener("click", (event) => {
   const chip = event.target.closest(".chip");
   if (chip) { setFilter("status", chip.dataset.status); paintChips(); }
 });
+/* LS06 更多筛选：折叠按钮开合下拉面板，展开状态记进偏好 */
+$("#btn-more").addEventListener("click", () => setFilterOpen(!S.filterOpen));
 $("#time").addEventListener("change", (event) => setFilter("time", event.target.value));
 $("#sort").addEventListener("change", (event) => setFilter("sort", event.target.value));
 $("#checkin").addEventListener("change", (event) => setFilter("checkin", event.target.value));
@@ -364,6 +368,10 @@ $("#plan-tasks").addEventListener("click", (event) => {
 $("#banners").addEventListener("click", (event) => {
   if (event.target.closest('[data-act="sleep-ok"]')) {
     S.sleepGap = 0;
+    paintBanners();
+  }
+  if (event.target.closest('[data-act="second-ok"]')) {
+    S.secondOpen = false;
     paintBanners();
   }
   if (event.target.closest('[data-act="runtime-refresh"]')) {
