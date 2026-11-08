@@ -862,6 +862,83 @@
       "w": 430,
       "h": 820,
       "title": "窄窗口：登录"
+    },
+    "ConflictTip.dc.html": {
+      "x": 0,
+      "y": 23616,
+      "w": 1280,
+      "h": 800,
+      "title": "时间重叠：不可加入与原因气泡"
+    },
+    "ConflictNoCancel.dc.html": {
+      "x": 1360,
+      "y": 23616,
+      "w": 1280,
+      "h": 800,
+      "title": "时间重叠：已报名那场不能取消"
+    },
+    "CrossDay.dc.html": {
+      "x": 2720,
+      "y": 23616,
+      "w": 1280,
+      "h": 800,
+      "title": "跨天时段与报后可退、不可退"
+    },
+    "CancelAsk.dc.html": {
+      "x": 4080,
+      "y": 23616,
+      "w": 1280,
+      "h": 800,
+      "title": "取消报名前确认"
+    },
+    "CancelBusy.dc.html": {
+      "x": 5440,
+      "y": 23616,
+      "w": 1280,
+      "h": 800,
+      "title": "正在取消报名"
+    },
+    "CancelDone.dc.html": {
+      "x": 0,
+      "y": 24536,
+      "w": 1280,
+      "h": 800,
+      "title": "取消报名：已取消"
+    },
+    "CancelRefused.dc.html": {
+      "x": 1360,
+      "y": 24536,
+      "w": 1280,
+      "h": 800,
+      "title": "取消报名：学校没有取消"
+    },
+    "CancelUnknown.dc.html": {
+      "x": 2720,
+      "y": 24536,
+      "w": 1280,
+      "h": 800,
+      "title": "取消报名：没能确认"
+    },
+    "PhoneConflict.dc.html": {
+      "x": 4080,
+      "y": 24536,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：时间重叠，点按看原因"
+    },
+    "ConflictPast.dc.html": {
+      "x": 6800,
+      "y": 23616,
+      "w": 1280,
+      "h": 800,
+      "title": "时间重叠：已报名那场取消时间已过"
+    },
+    "ConflictUnknown.dc.html": {
+      "x": 8160,
+      "y": 23616,
+      "w": 1280,
+      "h": 800,
+      "title": "时间重叠：还不知道能不能取消"
     }
   },
   "order": [
@@ -984,7 +1061,18 @@
     "LoginWait.dc.html",
     "LoginCap.dc.html",
     "LoginBad.dc.html",
-    "NarrowLogin.dc.html"
+    "NarrowLogin.dc.html",
+    "ConflictTip.dc.html",
+    "ConflictNoCancel.dc.html",
+    "ConflictPast.dc.html",
+    "ConflictUnknown.dc.html",
+    "CrossDay.dc.html",
+    "CancelAsk.dc.html",
+    "CancelBusy.dc.html",
+    "CancelDone.dc.html",
+    "CancelRefused.dc.html",
+    "CancelUnknown.dc.html",
+    "PhoneConflict.dc.html"
   ],
   "notes": {},
   "designSystems": []

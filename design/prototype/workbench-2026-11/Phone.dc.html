@@ -118,6 +118,30 @@ body{margin:0}
 .flag.signed{background:var(--ok-tint);color:var(--ok)}
 .flag.mute{background:#eceff2;color:var(--ink-2)}
 .w{display:block;margin-top:.125rem;color:var(--warn);font-size:.75rem}
+.flag.clash,.row.sel .flag.clash{display:inline-flex;align-items:center;gap:.1875rem;padding:0 .25rem 0 .3125rem;border:1px dashed var(--ink-3);background:transparent;color:var(--ink-2)}
+.flag.clash svg{width:.75rem;height:.75rem;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round}
+.row[data-row]{scroll-margin-top:3.75rem}
+.row.clash,.row.clash:active{cursor:pointer}.row.clash.open,.row.clash.open:active{background:#f5f8fa}
+.rf{color:var(--ink-2)}.rf.no{color:var(--warn);font-weight:600}
+.cx-n{display:block;margin-top:.125rem;color:var(--ink-2);font-size:.75rem}
+.why{grid-column:1/-1;margin-top:.5rem;padding:.625rem .75rem .75rem;border-radius:8px;background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line);font-size:.75rem;line-height:1.5;cursor:default}
+.why-t{display:block;margin:0 0 .375rem;font-size:.8125rem;font-weight:700}
+.why-r{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.125rem .625rem;margin:0}
+.why-r dt{color:var(--ink-3)}.why-r dd{margin:0;color:var(--ink-2)}.why-r dd b{color:var(--ink);font-weight:600}
+.tl{display:block;margin:.5rem 0}
+.tl-d,.tl-k{display:flex}
+.tl-track{position:relative;height:2.125rem;border-radius:4px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line)}
+.tl-track i{position:absolute;top:0;bottom:0;width:1px;background:var(--line-2)}
+.tl-ov{position:absolute;top:0;bottom:0;background:rgba(182,50,39,.2);border-left:1.5px dashed var(--bad);border-right:1.5px dashed var(--bad)}
+.tl-bar{position:absolute;height:.5625rem;border-radius:2px}
+.tl-bar.bar-a{top:.375rem;background:#d98a00}.tl-bar.bar-b{bottom:.375rem;background:var(--blue)}
+.tl-d{display:flex;margin-top:.1875rem;color:var(--ink-3);font:.6875rem var(--n)}
+.tl-d span{flex:1;min-width:0;text-align:center}
+.tl-k{display:flex;gap:.75rem;margin-top:.25rem;color:var(--ink-2);font-size:.6875rem}
+.tl-k span::before{content:"";display:inline-block;width:.625rem;height:.375rem;margin-right:.25rem;border-radius:2px;vertical-align:.0625rem}
+.tl-k .k-a::before{background:#d98a00}.tl-k .k-b::before{background:var(--blue)}.tl-k .k-o::before{background:rgba(182,50,39,.2);box-shadow:inset 1.5px 0 0 var(--bad),inset -1.5px 0 0 var(--bad)}
+.why-s{display:block;margin:0}
+.why-s button{margin-left:.25rem;padding:0;border:0;background:transparent;color:var(--blue);font-size:.75rem;font-weight:600;text-decoration:underline;text-underline-offset:2px}
 .tasks{margin:.5rem .75rem 0;overflow:hidden;border-radius:10px;background:var(--paper);box-shadow:0 0 0 1px var(--line)}
 .task{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.125rem .5rem;align-items:baseline;padding:.625rem .75rem;border-bottom:1px solid var(--line)}
 .task:last-child{border-bottom:0}
@@ -261,7 +285,7 @@ body{margin:0}
         <div class="lst"><sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
           <sc-if value="{{g.nowBefore}}" hint-placeholder-val="{{false}}"><div class="nowline"><span class="nowchip">现在 <b>{{g.now}}</b></span></div></sc-if>
           <div class="grp {{g.cls}}"><b>{{g.title}}</b><span>{{g.note}}</span><span class="ct">{{g.n}} 场</span></div>
-          <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3"><label class="row {{r.cls}}"><input type="checkbox" checked="{{r.selected}}" disabled="{{r.disabled}}" onChange="{{r.toggle}}" aria-label="{{r.aria}}"><span class="time"><b class="{{r.timeCls}}">{{r.time}}</b><sc-if value="{{r.hasLeft}}" hint-placeholder-val="{{true}}"><small class="{{r.leftCls}}">{{r.left}}</small></sc-if></span><span class="main"><span class="name">{{r.name}}</span><span class="sub"><sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1"><span class="flag {{f.cls}}">{{f.text}}</span></sc-for><span>{{r.act}}</span><sc-if value="{{r.hasPlace}}" hint-placeholder-val="{{true}}"><span>{{r.place}}</span></sc-if><span class="{{r.rw.cls}}">{{r.rw.text}}</span></span><sc-if value="{{r.hasWarn}}" hint-placeholder-val="{{false}}"><span class="w">{{r.warn}}</span></sc-if></span></label></sc-for>
+          <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3"><label class="row {{r.cls}}" data-row="{{r.id}}" onClick="{{r.tap}}"><input type="checkbox" checked="{{r.selected}}" disabled="{{r.disabled}}" onChange="{{r.toggle}}" aria-label="{{r.aria}}"><span class="time"><b class="{{r.timeCls}}">{{r.time}}</b><sc-if value="{{r.hasLeft}}" hint-placeholder-val="{{true}}"><small class="{{r.leftCls}}">{{r.left}}</small></sc-if></span><span class="main"><span class="name">{{r.name}}</span><span class="sub"><sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1"><span class="flag {{f.cls}}">{{f.text}}</span></sc-for><sc-if value="{{r.hasClash}}" hint-placeholder-val="{{false}}"><span class="flag clash">不可加入<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5.5"></path><path d="M12 7.6h.01"></path></svg></span></sc-if><span>{{r.act}}</span><sc-if value="{{r.hasRf}}" hint-placeholder-val="{{false}}"><span class="{{r.rfCls}}">{{r.rf}}</span></sc-if><sc-if value="{{r.hasPlace}}" hint-placeholder-val="{{true}}"><span>{{r.place}}</span></sc-if><span class="{{r.rw.cls}}">{{r.rw.text}}</span></span><sc-if value="{{r.hasWarn}}" hint-placeholder-val="{{false}}"><span class="w">{{r.warn}}</span></sc-if><sc-if value="{{r.hasNote}}" hint-placeholder-val="{{false}}"><span class="cx-n">{{r.note}}</span></sc-if></span><sc-if value="{{r.hasWhy}}" hint-placeholder-val="{{false}}"><span class="why" role="group" aria-label="和已报名的活动时间重叠的原因"><b class="why-t">和已报名的活动时间重叠</b><dl class="why-r"><sc-for list="{{r.why.rows}}" as="tr" hint-placeholder-count="2"><dt>{{tr.label}}</dt><dd><b>{{tr.name}}</b>　{{tr.span}}</dd></sc-for></dl><span class="tl" role="img" aria-label="{{r.why.aria}}"><span class="tl-track" style="display: block"><sc-for list="{{r.why.cuts}}" as="tc" hint-placeholder-count="2"><i style="left: {{tc.left}}%"></i></sc-for><span class="tl-ov" style="left: {{r.why.ovL}}%; width: {{r.why.ovW}}%"></span><span class="tl-bar bar-a" style="left: {{r.why.aL}}%; width: {{r.why.aW}}%"></span><span class="tl-bar bar-b" style="left: {{r.why.bL}}%; width: {{r.why.bW}}%"></span></span><span class="tl-d"><sc-for list="{{r.why.days}}" as="td" hint-placeholder-count="3"><span>{{td.text}}</span></sc-for></span><span class="tl-k"><span class="k-a">已报名</span><span class="k-b">这一场</span><span class="k-o">重叠</span></span></span><span class="why-s">{{r.why.way}}<sc-if value="{{r.why.hasGo}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{r.why.go}}">去已报名那场</button></sc-if></span></span></sc-if></label></sc-for>
         </sc-for></div>
         <sc-if value="{{noRows}}" hint-placeholder-val="{{false}}"><p class="tip" style="text-align: center">没有符合筛选的活动。</p></sc-if>
       </sc-if>
@@ -328,7 +352,7 @@ body{margin:0}
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"pair","options":["pair","pairlock","home","picked","review","pending","running","offline","result","expired","captcha","auto","relall","relacct","relconfirm","relbad","phoneterms","reviewwarn","search","stopsheet","cancelsheet","pairfail","pclisterr","pcclock"]},"frozen":{"editor":null},"height":{"editor":null},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"pair","options":["pair","pairlock","home","picked","review","pending","running","offline","result","expired","captcha","auto","relall","relacct","relconfirm","relbad","phoneterms","reviewwarn","search","stopsheet","cancelsheet","conflict","pairfail","pclisterr","pcclock"]},"frozen":{"editor":null},"height":{"editor":null},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
   state = this.init((this.props || {}).scene || 'pair');
 
@@ -381,6 +405,10 @@ class Component extends DCLogic {
     return { cols: cols, dots: dots, tone: tone, cap: cap || '', capB: capB || '', aria: (cap || '') + ' ' + (capB || '') + ' ' + text };
   }
   items() {
+    if (this.state && this.state.cx) return this.cxItems();
+    return this._base();
+  }
+  _base() {
     if (!this._it) this._it = [
       { id: 'o1', pts: 2, wage: 20, name: '创新创业经验分享会', place: '大学生活动中心二楼', st: 'open', open: 32400, group: '正在开放', act: '11月3日 19:00–20:30', d: 3, s: 1140, e: 1230 },
       { id: 'o2', pts: null, wage: null, rwPend: true, name: '校园安全主题讲座', place: '一号教学楼 301', st: 'open', open: 37800, group: '正在开放', act: '11月4日 14:00–15:30', d: 4, s: 840, e: 930 },
@@ -397,6 +425,62 @@ class Component extends DCLogic {
     return this._it;
   }
   find(id) { return this.items().filter(function (i) { return i.id === id; })[0]; }
+  // ---- 冲突与取消（plan 20261107-conflict-cancel）：与电脑端 Main 同一套演示数据和时间换算 ----
+  // 绝对分钟 = 日 * 1440 + 当天分钟，日取 11 月的几号；演示的“现在”固定在 11-05 14:20
+  p2(n) { return (n < 10 ? '0' : '') + n; }
+  hm(m) { return this.p2(Math.floor(m / 60)) + ':' + this.p2(m % 60); }
+  fmtAbs(a) { return '11月' + Math.floor(a / 1440) + '日 ' + this.hm(a % 1440); }
+  startAbs(it) { return it.d * 1440 + it.s; }
+  endAbs(it) { return (it.d2 || it.d) * 1440 + it.e; }
+  nowAbs(s) { return 5 * 1440 + Math.floor(s.now / 60); }
+  // 末日：结束时刻恰为 00:00 时按前一天算
+  lastDay(it) { var e = this.endAbs(it); return Math.floor((e - (e % 1440 === 0 && e > this.startAbs(it) ? 1 : 0)) / 1440); }
+  nDays(it) { return this.lastDay(it) - it.d + 1; }
+  spanAbs(it) {
+    var n = this.nDays(it), a = this.startAbs(it), e = this.endAbs(it);
+    if (n <= 1) return this.fmtAbs(a) + '–' + (e % 1440 === 0 && e > a ? '24:00' : this.hm(e % 1440));
+    return this.fmtAbs(a) + ' – ' + this.fmtAbs(e) + '（⁠跨⁠' + n + '⁠天⁠）';  // 字间加 U+2060，「（跨3天）」不被拆行
+  }
+  // 行内的活动时段：同一天沿用原写法，跨天写绝对日期和天数（手机页行内不带“活动”二字）
+  actText(it) {
+    if (this.nDays(it) <= 1) { var e = this.endAbs(it); return '11月' + it.d + '日 ' + this.hm(it.s) + '–' + (e % 1440 === 0 && e > this.startAbs(it) ? '24:00' : this.hm(e % 1440)); }
+    return this.spanAbs(it);
+  }
+  cxItems() {
+    if (this._cxi) return this._cxi;
+    var self = this;
+    var mk = function (o) { var it = Object.assign({ pts: 1, wage: 10, place: '学生事务中心', cancel: null }, o); it.act = self.actText(it); return it; };
+    var base = this._base();
+    return (this._cxi = [
+      mk({ id: 'cxc', name: '社区志愿服务日', place: '南门广场', st: 'pre', open: 28800, group: '今天', d: 6, s: 540, e: 690, cancel: true, pts: 2, wage: 20 }),
+      mk({ id: 'cxn', name: '职业规划讲座', place: '图书馆报告厅', st: 'pre', open: 57600, group: '今天', d: 6, s: 840, e: 930, cancel: false }),
+      mk({ id: 'cxm', name: '模拟面试', place: '就业指导中心', st: 'pre', open: 122400, group: '明天', d: 9, s: 480, e: 1020, cancel: null, pts: 3, wage: 30 }),
+      base.filter(function (i) { return i.id === 'w1'; })[0],
+      base.filter(function (i) { return i.id === 's1'; })[0],
+      mk({ id: 'cxd', name: '宿舍查寝', place: '学生公寓', st: 'signed', open: 28800, group: '已报名', d: 8, s: 1360, d2: 10, e: 1400, cancel: true, signEnd: 8 * 1440 + 14 * 60 })
+    ]);
+  }
+  // 点按展开的原因：内容与电脑端气泡一致；手机上没有取消按钮，只有“去已报名那场”
+  whyOf(s, it, sg) {
+    var self = this;
+    var a0 = this.startAbs(sg), a1 = this.endAbs(sg), b0 = this.startAbs(it), b1 = this.endAbs(it);
+    var lo = Math.floor(Math.min(a0, b0) / 1440), hi = Math.max(this.lastDay(sg), this.lastDay(it)), n = hi - lo + 1, base = lo * 1440, tot = n * 1440;
+    var pc = function (x) { return Math.round((x - base) / tot * 10000) / 100; };
+    var ov0 = Math.max(a0, b0), ov1 = Math.min(a1, b1), days = [], cuts = [];
+    for (var k = 0; k < n; k++) { days.push({ text: '11月' + (lo + k) + '日' }); if (k) cuts.push({ left: pc(base + k * 1440) }); }
+    var nm = '「' + sg.name + '」', now = this.nowAbs(s), way = '', hasGo = false;
+    if (sg.cancel === true && sg.signEnd != null && now <= sg.signEnd) { way = '想报这一场，要先取消' + nm + '的报名，' + this.fmtAbs(sg.signEnd) + ' 前可以取消。'; hasGo = true; }
+    else if (sg.cancel === false) way = nm + '报名后不能取消，这⁠一⁠场⁠报⁠不⁠了⁠。';
+    else if (sg.cancel === true && sg.signEnd != null) way = nm + '的取消时间已过（截至 ' + this.fmtAbs(sg.signEnd) + '），这⁠一⁠场⁠报⁠不⁠了⁠。';
+    else way = nm + '能不能取消还没查到，刷新后再看。';
+    return {
+      rows: [{ label: '已报名', name: sg.name, span: this.spanAbs(sg) }, { label: '这一场', name: it.name, span: this.spanAbs(it) }],
+      cuts: cuts, days: days, ovL: pc(ov0), ovW: pc(ov1) - pc(ov0), aL: pc(a0), aW: pc(a1) - pc(a0), bL: pc(b0), bW: pc(b1) - pc(b0),
+      aria: '时间线：' + this.fmtAbs(a0) + ' 起的已报名活动与这一场在 ' + this.fmtAbs(ov0) + ' 到 ' + this.fmtAbs(ov1) + ' 重叠',
+      way: way, hasGo: hasGo,
+      go: function (e) { e.stopPropagation(); e.preventDefault(); self.setState({ tip: '', seg: 'all' }); setTimeout(function () { var el = document.querySelector('.row[data-row="' + sg.id + '"]'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 60); }
+    };
+  }
   // 与电脑端同源：实践分、虚拟工资来自活动详情；同步中 / 未公布 照实写
   rwText(i) {
     if (i.rwPend) return { cls: 'rw p', text: '奖励同步中' };
@@ -407,12 +491,12 @@ class Component extends DCLogic {
     if (it.st === 'pre' && s.now >= it.open) return 'open';
     return it.st;
   }
-  overlap(a, b) { return a.d && b.d && a.d === b.d && a.s < b.e && b.s < a.e; }
+  overlap(a, b) { return !!(a.d && b.d) && this.startAbs(a) < this.endAbs(b) && this.startAbs(b) < this.endAbs(a); }
   win(s) { return s.retry > 0 ? s.retry : (s.retry === -1 ? 120 : 3600); }
   isEnd(st) { return ['success', 'full', 'failed', 'unconfirmed', 'canceled'].indexOf(st) >= 0; }
 
   init(scene) {
-    var s = { scene: scene, view: 'app', code: '', pairErr: '', pairFails: 0, lockLeft: 0, conn: 'ok', pcList: 'ok', pcClock: 'ok', tries: 0, syncing: false, lastOk: '14:20:03', login: 'valid', phase: 'draft', pendingLong: false, selected: [], tasks: [], signedLocal: [], now: 51605, stopped: false, retry: 120, maxA: 0, seg: 'free', q: '', searchOpen: false, fTime: 'all', notice: '', sheet: '', sheetErr: '', cancelId: '', relogin: 'idle', capIdx: 0, capInput: '', capErr: '', termsOk: true, credReady: true, credMem: false, ocrOn: false, relNeedAcct: false, relNeedCap: true, relUser: '', relPass: '', relSave: false, relHandoff: false, relBadSaved: false, relFresh: false, relDoneSaved: false, relDoneMem: false, demoBadSaved: false, demoOcrFail: false, bookmark: false, listOpen: false, windowShown: false, lines: ['14:20:03  [OK] 已同步电脑上的活动和登录状态'] };
+    var s = { scene: scene, view: 'app', code: '', pairErr: '', pairFails: 0, lockLeft: 0, conn: 'ok', pcList: 'ok', pcClock: 'ok', tries: 0, syncing: false, lastOk: '14:20:03', login: 'valid', phase: 'draft', pendingLong: false, selected: [], tasks: [], signedLocal: [], now: 51605, stopped: false, retry: 120, maxA: 0, seg: 'free', q: '', searchOpen: false, fTime: 'all', notice: '', sheet: '', sheetErr: '', cancelId: '', relogin: 'idle', capIdx: 0, capInput: '', capErr: '', termsOk: true, credReady: true, credMem: false, ocrOn: false, relNeedAcct: false, relNeedCap: true, relUser: '', relPass: '', relSave: false, relHandoff: false, relBadSaved: false, relFresh: false, relDoneSaved: false, relDoneMem: false, demoBadSaved: false, demoOcrFail: false, bookmark: false, listOpen: false, windowShown: false, cx: '', tip: '', lines: ['14:20:03  [OK] 已同步电脑上的活动和登录状态'] };
     if (scene === 'pair' || scene === 'pairlock') s.view = 'pair';
     if (scene === 'pairlock') { s.lockLeft = 47; s.pairErr = '尝试次数过多，请稍后再试。换一台设备也一样要等。'; }
     if (scene === 'picked' || scene === 'review') s.selected = ['o1', 't1', 't2'];
@@ -440,6 +524,7 @@ class Component extends DCLogic {
     if (scene === 'cancelsheet') { s.sheet = 'cancel'; s.cancelId = 't2'; }
     if (scene === 'pairfail') { s.view = 'pair'; s.pairFails = 1; s.pairErr = '配对码不对，请核对后重试。再错 2 次要等 60 秒。'; }
     if (scene === 'pclisterr') s.pcList = 'error';
+    if (scene === 'conflict') { s.cx = 'a'; s.seg = 'all'; s.tip = 'cxm'; }
     if (scene === 'pcclock') { s.pcClock = 'down'; s.selected = ['t1']; }
     return s;
   }
@@ -509,6 +594,7 @@ class Component extends DCLogic {
   componentDidMount() {
     var p = this.props || {};
     if (p.scene && p.scene !== this.state.scene) this.setState(this.init(p.scene));
+    setTimeout(() => this.cxReveal(), 100);
     if (!p.frozen) this._t = setInterval(() => {
       var s = this.state;
       var n = s.phase === 'running' ? this.advance(s) : Object.assign({}, s, { now: s.now + 1 });
@@ -516,9 +602,19 @@ class Component extends DCLogic {
       this.setState(n);
     }, 1000);
   }
+  // 展开原因后，把这一行滚进可见区
+  cxReveal() {
+    var t = this.state.tip;
+    if (t === this._cxk) return;
+    this._cxk = t;
+    if (!t) return;
+    var el = document.querySelector('.row[data-row="' + t + '"]');
+    if (el) el.scrollIntoView({ block: 'start' });
+  }
   componentWillUnmount() { clearInterval(this._t); clearTimeout(this._pending); }
   componentDidUpdate(prev) {
     if (prev && prev.scene !== (this.props || {}).scene) { this.setState(this.init((this.props || {}).scene || 'pair')); return; }
+    this.cxReveal();
     var sheet = this.state.sheet;
     if (sheet && this._sf !== sheet) {
       var el = document.querySelector('.sheet');
@@ -649,9 +745,21 @@ class Component extends DCLogic {
           if (st === 'pre') flags.push({ text: i.id === nextPreId ? '下一场' : '预报名', cls: i.id === nextPreId ? 'next' : '' });
           if (st === 'signed') flags.push({ text: '已报名', cls: 'signed' });
           if (st === 'closed') flags.push({ text: '已截止', cls: 'mute' });
+          // 冲突与取消：不可加入（点按展开原因，一次一条）；报后可退/不可退；已报名可取消的行只说去哪取消
+          var clash = !!hitSigned && (st === 'open' || st === 'pre');
+          if (clash) flags = [];
+          var rf = '', rfCls = 'rf';
+          if (st === 'open' || st === 'pre') { if (i.cancel === false) { rf = '报后不可退'; rfCls = 'rf no'; } else if (i.cancel === true) rf = '报后可退'; }
+          var note = st === 'signed' && i.cancel === true && i.signEnd != null && self.nowAbs(s) <= i.signEnd ? '可取消至 ' + self.fmtAbs(i.signEnd) + '，在电脑上或学⁠校⁠网⁠站⁠取⁠消⁠。' : '';
+          var whyOpen = clash && s.tip === i.id;
+          var cxRow = {
+            id: i.id, hasClash: clash, hasRf: !!rf, rf: rf, rfCls: rfCls, hasNote: !!note, note: note,
+            tap: clash ? function () { self.setState({ tip: s.tip === i.id ? '' : i.id }); } : function () {},
+            hasWhy: whyOpen, why: whyOpen ? self.whyOf(s, i, hitSigned) : { rows: [], cuts: [], days: [] }
+          };
           var gap = i.open - s.now, left = st === 'pre' ? (s.pcClock === 'down' ? '待校准' : self.leftCn(gap)) : (st === 'open' ? '已开放' : '');
-          var warn = hitSigned ? '与已报名的「' + hitSigned.name + '」时间重叠，不能加入' : (hitSel ? '与已选的「' + hitSel.name + '」时间重叠' : '');
-          return { name: i.name, rw: self.rwText(i), act: i.act, place: i.place, hasPlace: st !== 'closed', flags: flags, time: st !== 'unknown' ? self.hhmmss(i.open % 86400).slice(0, 5) : '待公布', timeCls: st !== 'unknown' ? '' : 'txt', hasLeft: !!left, left: left, leftCls: st === 'pre' && gap < 600 && s.pcClock !== 'down' ? 'soon' : '', selected: selected, disabled: disabled, cls: (selected ? 'sel ' : '') + (disabled && !selected ? 'off ' : '') + (st === 'signed' || st === 'closed' || st === 'unknown' ? 'dim' : ''), hasWarn: !!warn && !busy, warn: warn, aria: '选择 ' + i.name, toggle: function (e) { self.toggle(i.id, e.target.checked); } };
+          var warn = hitSel ? '与已选的「' + hitSel.name + '」时间重叠' : '';
+          return Object.assign({ name: i.name, rw: self.rwText(i), act: i.act, place: i.place, hasPlace: st !== 'closed', flags: flags, time: st !== 'unknown' ? self.hhmmss(i.open % 86400).slice(0, 5) : '待公布', timeCls: st !== 'unknown' ? '' : 'txt', hasLeft: !!left && !clash, left: left, leftCls: st === 'pre' && gap < 600 && s.pcClock !== 'down' ? 'soon' : '', selected: selected, disabled: disabled, cls: (clash ? 'clash ' : '') + (whyOpen ? 'open ' : '') + (selected ? 'sel ' : '') + (disabled && !selected ? 'off ' : '') + (st === 'signed' || st === 'closed' || st === 'unknown' ? 'dim' : ''), hasWarn: !!warn && !busy, warn: warn, aria: '选择 ' + i.name, toggle: function (e) { self.toggle(i.id, e.target.checked); } }, cxRow);
         })
       });
     });

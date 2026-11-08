@@ -3,10 +3,11 @@
 这是 [新工作台设计](../../../docs/superpowers/specs/2026-11-02-workbench-ui-redesign-design.md) 的原型源码快照（2026-11-02 已批准，待实现），给写代码的人对照状态规则和文案用。上一层目录是 2026-10-22 的旧原型，和这里无关。
 
 - 只用假数据，不连学校、不连网；活动、账号打码、版本号、条款版本号都是编的。
-- 原有 83 张画板和 claude.ai 上的私有原型一致，可以在本机打开、点击操作。2026-11-06 在本机分三轮补了 37 张（见下三条），画布现有 120 张；私有原型暂不同步（用户 2026-11-06 定）。
+- 原有 83 张画板和 claude.ai 上的私有原型一致，可以在本机打开、点击操作。2026-11-06 在本机分三轮补了 37 张（见下三条），再加 2026-11-07 补的 9 张（见下面一条），画布现有 129 张；私有原型暂不同步（用户 2026-11-06 定）。
 - 2026-11-06 补画板（困难计划 prototype-backfill）：给已有场景补画板（列表加载失败、北京时间没校准、登录已失效、还没选活动）；停止计划前确认、停止后的逐场结果；组件安装位置（下载前写会装到哪，装好后写装在哪并能打开所在文件夹）；组件大小按发布页实际大小、读不到时写以发布页为准；验证码识别“本机已装、还没启用”这一态，以及登录恢复里对应的说明。截图在 [design/evidence/2026-11-06/prototype-backfill/](../../evidence/2026-11-06/prototype-backfill/)。
 - 2026-11-06 第二轮补画板：已有交互里够得着、但没单独成画板的状态（更多筛选、搜索没结果、时间重叠、修改尝试时长、运行记录展开、关闭手机访问前确认、再配对一台、清除已保存账号前确认、组件下载失败、验证码认错）；新状态（条款状态没能确认、又打开了一次、旧数据搬迁成功与失败）；窄窗口的结果和设置；手机页的搜索、停止与取消确认、配对码输错、电脑上列表没加载、电脑上北京时间没校准。同时活动列表每场加了两项奖励：实践分和虚拟工资（宽、中窗口在活动名右侧两枚标签，窄窗口和手机页合成一枚放进说明行；详情没回来写“奖励同步中”，没公布写“未公布”）。不做活动详情页。
 - 2026-11-06 登录框：点“登录”先弹登录框，“在这里输入”和“用学校登录页”两种方式并列，由用户选自己放心的那种。在这里输入时，表单下面直接写明密码只发给学校、不勾保存就不留；用学校登录页时写明工具看不到密码、代价是不能自动登录。代码里已有工具内登录，但样式不照搬，按这组画板重做。
+- 2026-11-07 冲突与取消（计划 20261107-conflict-cancel，用户看效果稿后确认）：与已报名活动时间重叠的行改成灰选框加虚线“不可加入”，悬停整行或 Tab 聚焦弹出原因气泡（双方时段、时间条、解除路径）；跨天时段写绝对日期和天数；未报名行写“报后可退 / 报后不可退”；已报名且能取消的行写“可取消至”并给“取消报名”按钮，点后先出红色确认块，再有“正在取消…”和四种结果；手机页点按展开原因，不放取消按钮。新画板 11 张（ConflictTip 到 PhoneConflict，含取消时间已过、还不知道能不能取消两种原因），冲突和取消的演示数据只在这些场景里用一份精简名单，其余画板不受影响。截图在 [design/evidence/2026-11-07/conflict-cancel/](../../evidence/2026-11-07/conflict-cancel/)。
 - 2026-11-03 按[架构方案](../../../docs/superpowers/specs/2026-11-03-architecture-revision-design.md)回填：登录只显示上次校验时刻、计划等开放时原地重新登录、每场写明直接提交还是页面点击、名额已满单列、条款草案升到 r4。标志换成入场券（见 [design/brand/](../../brand/README.md)）。
 
 ## 在本机打开
@@ -52,7 +53,7 @@ python -m http.server 8790 --bind 127.0.0.1 --directory design/prototype/workben
 | `Phone.dc.html` | 手机页，结构同上 |
 | `DesignSpec.dc.html` | 字体、字号、色板、按钮层级、对比度表 |
 | `ImplNotes.dc.html` | 实现备注：只为演示存在的控件、假数据、待定事项 |
-| 其余 `*.dc.html` | 117 张画板，每张只是“引用 Main 或 Phone + 一个场景名 + 尺寸” |
+| 其余 `*.dc.html` | 126 张画板，每张只是“引用 Main 或 Phone + 一个场景名 + 尺寸” |
 | `support.js` | 画布运行时，不进仓库（见上一节） |
 
 ## 怎么读源码
@@ -187,4 +188,15 @@ python -m http.server 8790 --bind 127.0.0.1 --directory design/prototype/workben
 | LoginCap | 登录：下一步输验证码 | Main.dc.html | logincap | 1280×800 |
 | LoginBad | 登录：账号或密码不对 | Main.dc.html | loginbad | 1280×800 |
 | NarrowLogin | 窄窗口：登录 | Main.dc.html | login | 430×820（narrow） |
+| ConflictTip | 时间重叠：不可加入与原因气泡 | Main.dc.html | conflicttip | 1280×800 |
+| ConflictNoCancel | 时间重叠：已报名那场不能取消 | Main.dc.html | conflictnocancel | 1280×800 |
+| ConflictPast | 时间重叠：已报名那场取消时间已过 | Main.dc.html | conflictpast | 1280×800 |
+| ConflictUnknown | 时间重叠：还不知道能不能取消 | Main.dc.html | conflictunknown | 1280×800 |
+| CrossDay | 跨天时段与报后可退、不可退 | Main.dc.html | crossday | 1280×800 |
+| CancelAsk | 取消报名前确认 | Main.dc.html | cancelask | 1280×800 |
+| CancelBusy | 正在取消报名 | Main.dc.html | cancelbusy | 1280×800 |
+| CancelDone | 取消报名：已取消 | Main.dc.html | canceldone | 1280×800 |
+| CancelRefused | 取消报名：学校没有取消 | Main.dc.html | cancelrefused | 1280×800 |
+| CancelUnknown | 取消报名：没能确认 | Main.dc.html | cancelunknown | 1280×800 |
+| PhoneConflict | 手机页：时间重叠，点按看原因 | Phone.dc.html | conflict | 390×844 |
 | ImplNotes | 实现备注 | ImplNotes.dc.html | — | 1280×2120 |
