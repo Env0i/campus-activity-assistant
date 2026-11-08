@@ -86,8 +86,9 @@
 | 接口 | 方法 | 用途 |
 |------|------|------|
 | `/dr/api/rjyHd/listActivity` | POST | 活动列表（分页，`pageSize` 最大 500） |
-| `/dr/api/rjyHd/getInfo/<id>` | GET | 活动详情 |
-| `/dr/api/rjyHdCyr/getJoinInfo/<id>` | POST | 我是否报名（`data` 非 null 即已报） |
+| `/dr/api/rjyHd/getInfo/<id>` | GET | 活动详情（`qxbm` 映射为 `cancel_allowed`，`sfkybm` 映射为 `can_sign`，决策 016） |
+| `/dr/api/rjyHdCyr/getJoinInfo/<id>` | POST | 我是否报名（`data` 非 null 即已报；取消报名后的复查也用它） |
+| `/dr/api/rjyHdCyr/cancel/<id>` | GET | 取消报名（明文活动 id，无 hash、无请求体；**结果以 `getJoinInfo` 复查为准**，回包只作参考，决策 016） |
 | `/dr/api/rjyHdCyr/signUp/<hash>` | GET | 报名（hash 用运行时密钥现算；直发为主，点击兜底，见下节） |
 | `/dr/api/upms/security/runtime/profile` | POST | 取 16 位运行时密钥（开抢前每场一次，只放内存，不落盘、不写日志） |
 | `/dr/api/auth/captcha` | POST | 登录验证码（`{client,userType}` → `{key,image}`） |
@@ -166,6 +167,7 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 | domain | `login_rules` | 登录三态快照分类、check 四态结论、来源行归因 | app 外观、application | 无（纯函数） |
 | domain | `retry_rules` | `[retry]` 行解析、次数归并、telemetry 载荷、策略归一 | application | 无 |
 | domain | `plan_rules` | 计划项归一化/截止门禁、列表合并、任务终态分类 | app 外观、application | 无（classify_mode/validate_fn/epoch_of 由 app.py 注入） |
+| domain | `cancel_rules` | 取消报名回包的清洗（去控制字符、截 80 字）与 worker 输出归一化；grab 与 app 共用一份 | grab、app 外观 | 无（纯函数） |
 | domain | `lifecycle_rules` | 跨关闭时长/质量记账（v1 文本 / v2 epoch） | infrastructure | 无 |
 | domain | `time_text` / `worker_lines` / `demo_data` / `errors` | 时间文本换算、worker 行解析、演示样例、语义类型 | 各层 | 无（换算/格式化函数由 app.py 注入；不读墙钟，此刻值由调用方传入） |
 | application | `plan_service` | 单场 worker 的启动、监督、终态收尾（端口注入） | app.Api._run_plan_task | domain + 注入端口 |
@@ -211,3 +213,14 @@ controller/view DOM 分离不在本轮范围。
   跨进程锁；命令行登录、手机重登中继、`storage_state.json` 双文件事务都走它。
 - **日志**：`log_event` 每行带北京时间、级别、来源、活动 ID、事件名；`grab.log`
   超过 5 MB 轮转成 `grab.log.1…5`；界面进程的自动登录事件也追加到同一份日志。
+
+### 取消报名与列表筛选（决策 016）
+
+- **列表筛选（R1）**：`local/grab.py` 的 `keep_in_list(act, now)`。原有的 `still_relevant` 为真，或者活动已报名、`act_end` 能解析且不早于业务北京时间，这两种情况都留在列表里。已报名但 `act_end` 缺失或解析不了的，仍按原规则筛掉。`--all` 与北京时间不可用时的行为不变。补回后，界面的冲突判断和计划冲突基线都能看到这些已报名活动。
+- **详情映射（R2）**：`parse_attendance_detail` 追加 `cancel_allowed`（`qxbm`：1 为真、0 为假、缺失为 null）和 `can_sign`（`sfkybm`，同样三态，只映射不展示）。`list --json` 每行输出这两个键。
+- **取消子命令（X2）**：`python local/grab.py cancel --id <id> --json`，由 `cmd_cancel` 调 `run_cancel`。stdout 恰好一行 JSON，日志走 stderr；退出码为 0 仅表示 `cancelled`，其余为 2。
+  - 流程：登录（只有学校明确说失效才报 `login_expired`）→ 北京时间可用 → 是否已报名（三态，只有真才往下走）→ 详情 `qxbm` 为 1 且业务北京时间在 `[报名开始, 报名截止]` 内 → 调 `GET /dr/api/rjyHdCyr/cancel/<id>` 一次，不重试 → 用 `getJoinInfo` 复查。
+  - 前置不满足或查不到时不调取消接口，结果为 `precheck_failed` 并带原因。
+- **界面进程（X1、X3、X4）**：`app.Api.cancel_signup(activity_id)`。先过条款门，id 必须在当前列表缓存里且为已报名；与计划、刷新、登录、另一场取消互斥（`_cancelling` 并入忙碌判定）。成功后发一次 `activities` 事件刷新列表。
+- **手机端不做取消**：`phone_rules.ACTION_PARAMS` 不含 `cancel_signup`，手机页不得调用。
+- 结果句与清洗规则在 `local/domain/cancel_rules.py`，worker 与界面进程共用一份，学校原话只回给界面、不写运行记录。

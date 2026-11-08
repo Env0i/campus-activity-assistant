@@ -104,7 +104,7 @@
 | 组件 | 状态 |
 |---|---|
 | 登录胶囊 | 未登录 / 检查中 / 已登录 · 上次校验 HH:MM / 自动登录中 / 登录已失效 / 暂时无法确认 / 等同意条款 |
-| 时刻表行 | 默认 / 已勾选 / 活动时段冲突 / 已报名(灰) / 错过了 / 空列表 |
+| 时刻表行 | 默认 / 已勾选 / 活动时段冲突 / 不可加入（与已报名举办时间重叠：勾选框置灰，悬停或聚焦「不可加入」弹出原因气泡，决策 016）/ 已报名(灰；取消窗口内多「可取消至」和「取消报名」) / 取消确认 / 正在取消 / 错过了 / 空列表 |
 | 空态 | 筛选后空 / 学校返回 0 场 / 列表没加载 / 程序组件缺失（横幅优先） |
 | 计划栏阶段 | 草稿·没选(禁用开始) / 草稿·已选 / 草稿·有提醒 / 等开放(琥珀倒计时) / 修改中 / 提交中(红色倒计时) / 结果(大数字) |
 | 结果分类 | 已报名(绿) / 名额已满(中性) / 待核对(中性) / 未成功(红) / 登录失效(红) |
@@ -141,6 +141,7 @@
 | `grab(activity_id, name, at, headed)` | `at` = `YYYY-MM-DD HH:MM:SS` 或空串；`headed` = bool | 同上 | `onBackend.done`（`kind:"grab"`） |
 | `start_plan(items, headed)` | `items` 为活动对象数组，至少含 `id/name/sign_start/act_start/act_end`；`headed` = bool | `{ok:true, queued:true, plan_id}` 或 `{ok:false,text,conflicts?}` | `onBackend.plan`、`onBackend.task`、`onBackend.plan_done` |
 | `cancel_task(plan_id, task_id)` | 两个字符串 | `{ok:bool, text?}` | `onBackend.task` |
+| `cancel_signup(activity_id)` | 一个活动 id 字符串；必须是当前列表缓存里已报名的活动，否则 `not_in_list` | 同步返回（不排队），`{ok, kind, reason?, message?}`：`kind` 为 `cancelled` / `refused`（带学校原话 `message`）/ `unknown` / `precheck_failed`（带 `reason`）/ `busy`（带 `reason` 与 `message`）；条款未同意时为 `precheck_failed` + `reason:"terms_required"` 并带 `ok`/`error`/`text` | 只在界面点「确认取消报名」时调用，一次一场；成功后后端发 `onBackend.activities`（`request_id` 为空）推新快照。电脑端专用，手机页不得调用 |
 | `stop_plan(plan_id)` | 计划 id | `{ok:bool, text?}` | `onBackend.task`、`onBackend.plan_done` |
 | `stop()` | — | `{ok:bool, text?}` | 兼容旧 UI：停止当前计划或单活动任务 |
 | `open_data()` | — | `{ok:true}` | 直接返回 |
@@ -159,6 +160,7 @@
 > `bootstrap()`/`help()`/`get_*()` 系列是唯一可以同步返回的；其余异步。
 > `relogin_begin` 仅在 `login.result ∈ {valid, expired}` 时可用（有真实会话才自动登录）；`source="auto"` 由后端自动发起（等开放前 100 秒内或开放时），前端只显示胶囊"自动登录中"，不弹浏览器。
 > `withdraw_terms()` 在计划 running/ready 时必须拒绝并返回明确原因（计划运行中不可撤回同意）。
+> `cancel_signup` 的流程：点「取消报名」只展开确认块（不调接口）；点「确认取消报名」才调用。忙碌（计划运行、正在刷新、有任务在运行、另一场取消中、程序关闭）时不起 worker，直接返回 `busy`。结果以学校复查为准（`getJoinInfo`），回包只作参考；取消期间刷新与开始计划都被挡住（决策 016 X3）。
 
 ### 5.2 事件
 
@@ -201,6 +203,8 @@
 | `sign_start` / `sign_end` | string | `YYYY-MM-DD HH:MM:SS`，可能为空 |
 | `act_start` / `act_end` | string | 活动举办起止时间；完整本地日期时间，任一缺失或非法都不能通过计划校验 |
 | `signed` | bool | 是否已报名 |
+| `cancel_allowed` | bool \| null | 详情 `qxbm` 映射：true 报后可退、false 报后不可退、null 没查到（决策 016）。列表接口不带，由详情补齐 |
+| `can_sign` | bool \| null | 详情 `sfkybm` 映射，只映射不展示，不作冲突依据 |
 | `checkin_required` / `checkout_required` | bool \| null | 活动是否要求签到/签退；接口字段未识别或无法归一化时为 `null`，不得当作无需 |
 | `checkin_start` / `checkin_end` | string | 签到时间段（`YYYY-MM-DD HH:MM:SS`），来自详情接口 `qdkssj` / `qdjssj`；明确无需或未知时为空 |
 | `checkout_start` / `checkout_end` | string | 签退时间段（`qtkssj` / `qtjssj`）；明确无需或未知时为空 |

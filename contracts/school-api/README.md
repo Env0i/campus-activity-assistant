@@ -36,6 +36,16 @@
 
 `cyrId`、`hbzj` 程序目前没用到，但学校会返回，样例里保留形状。
 
+## 取消接口与 get-info 的映射（2026-11-07，决策 016）
+
+- `GET /dr/api/rjyHdCyr/cancel/<id>`（明文 id，无请求体）**没有实测回包样例**，本目录不提供它的形状。
+  工具把回包只当参考：取消成功与否一律以 `getJoinInfo` 复查为准（复查为未报名才算取消）。
+  回包里的 `message` 只在复查仍为已报名时作为学校原话显示，不写进运行记录。
+- `get-info.data.json` 的两个键按三态映射（`local/grab.py` 的 `parse_attendance_detail`，值为 1 真、0 假，缺失或认不出为 null）：
+  - `qxbm` → `cancel_allowed`：取消的前置条件之一，须为真才调取消接口。
+  - `sfkybm` → `can_sign`：只映射，界面不展示，不作为冲突依据（学校不写冲突原因，见学校前端分析 9.4）。
+- 未报名判定（`_join_state`）沿用原规则：`getJoinInfo` 的 `data` 为 null、`sfcx` 为 1、或 `sfbm` 明确为假，即未报名；其余按已报名（见 `get-join-info.json`）。
+
 ## 脱敏规则
 
 - **文本类**（活动名、地点、组织单位、简介、院系名等）→ `<文本>`；
