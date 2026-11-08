@@ -35,7 +35,8 @@ function tipOpen(id) {
 /* 指针只是扫过标签时不立刻弹：停住一会儿才开，避免沿列表往下滑时一路冒泡 */
 function tipSoon(id) {
   clearTimeout(S.tip.openTimer);
-  if (S.tip.id === String(id)) return;
+  /* 已为这一场开着：指针只是从标签文字挪到它的图标上（先 mouseout 设了关闭计时），要把关闭计时取消 */
+  if (S.tip.id === String(id)) { clearTimeout(S.tip.timer); return; }
   S.tip.openTimer = setTimeout(() => tipOpen(id), 140);
 }
 
@@ -50,6 +51,7 @@ function tipClose() {
 /* 移开后稍等一下再收：鼠标从行移到气泡上不能闪一下 */
 function tipLater() {
   clearTimeout(S.tip.timer);
+  clearTimeout(S.tip.openTimer);   // 气泡还没开时，待开的计时也要取消，否则移开后它照样弹出来
   if (!S.tip.id) return;
   S.tip.timer = setTimeout(tipClose, 160);
 }

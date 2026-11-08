@@ -53,6 +53,36 @@ const click = (selector, dataset) => {
 """
 
 
+# 假计时器：run(ms) 把虚拟时间推进 ms，到点的回调按先后触发；clear 过的不触发
+HOVER = r"""
+const timers = (() => {
+  let now = 0, seq = 0;
+  const list = [];
+  return {
+    add: (fn, ms) => { seq += 1; list.push({ id: seq, at: now + (ms || 0), fn, live: true }); return seq; },
+    clear: (id) => { list.forEach((t) => { if (t.id === id) t.live = false; }); },
+    run: (ms) => {
+      const to = now + ms;
+      for (;;) {
+        const due = list.filter((t) => t.live && t.at <= to).sort((a, b) => a.at - b.at || a.id - b.id)[0];
+        if (!due) break;
+        due.live = false; now = due.at; due.fn();
+      }
+      now = to;
+    },
+    pending: () => list.filter((t) => t.live).length,
+  };
+})();
+setTimeout = (fn, ms) => timers.add(fn, ms);
+clearTimeout = (id) => timers.clear(id);
+const hoverTag = (id) => {
+  const row = { dataset: { id: id } };
+  const tag = { closest: (s) => (s === ".row" ? row : null) };
+  $("#rows").listeners.mouseover.forEach((fn) => fn({ target: { closest: (s) => (s === ".state-clash" ? tag : null) } }));
+};
+"""
+
+
 class ClashRowTests(unittest.TestCase):
     """重叠行：勾选框置灰，状态格只剩「不可加入」，行内没有「不能加入」，也没有倒计时。"""
 
@@ -146,11 +176,13 @@ out.push({ model: model, html: tipHtml(model) });
         self.assertIn('class="tl-ov"', html)
 
     def test_hover_opens_and_escape_closes_without_clearing_selection(self):
-        out = run_js(SETUP + r"""
+        # f81959e 有意把触发点从「整行」改到「不可加入」标签，并加了 140ms 的停留：
+        # 这里悬停标签、让计时走完，其余断言（打开、Esc 收起、不清已选）不变。
+        out = run_js(SETUP + HOVER + r"""
 load([signedA, clashB, noRefundC]);
 S.selected.add("c1");
-const row = { classList: { contains: (c) => c === "is-clash" }, dataset: { id: "b1" } };
-$("#rows").listeners.mouseover.forEach((fn) => fn({ target: { closest: (s) => (s === ".row" ? row : null) } }));
+hoverTag("b1");
+timers.run(140);
 const opened = { id: S.tip.id, hidden: $("#cx-tip").hidden, text: $("#cx-tip").innerHTML };
 __dispatchKey({ key: "Escape" });
 out.push({ opened, closed: { id: S.tip.id, hidden: $("#cx-tip").hidden }, selected: Array.from(S.selected) });
@@ -160,6 +192,69 @@ out.push({ opened, closed: { id: S.tip.id, hidden: $("#cx-tip").hidden }, select
         self.assertIn("和已报名的活动时间重叠", out["opened"]["text"])
         self.assertEqual(out["closed"], {"id": "", "hidden": True})
         self.assertEqual(out["selected"], ["c1"], "Esc 先收气泡，不顺手清空已选")
+
+    def test_hovering_the_row_but_not_the_tag_never_opens(self):
+        out = run_js(SETUP + HOVER + r"""
+load([signedA, clashB]);
+const row = { classList: { contains: (c) => c === "is-clash" }, dataset: { id: "b1" } };
+$("#rows").listeners.mouseover.forEach((fn) => fn({ target: { closest: (s) => (s === ".row" ? row : null) } }));
+const early = S.tip.id;
+timers.run(1000);
+out.push({ early, id: S.tip.id, hidden: $("#cx-tip").hidden, pending: timers.pending() });
+""")[0]
+        self.assertEqual(out["early"], "")
+        self.assertEqual(out["id"], "", "只扫过行的其它部位，计时走完也不弹")
+        self.assertEqual(out["pending"], 0)
+
+    def test_leaving_the_tag_within_140ms_cancels_the_pending_open(self):
+        out = run_js(SETUP + HOVER + r"""
+load([signedA, clashB]);
+hoverTag("b1");
+timers.run(60);
+const mid = S.tip.id;
+$("#rows").listeners.mouseout.forEach((fn) => fn({ target: { closest: (s) => (s === ".state-clash" ? {} : null) } }));
+timers.run(1000);
+const afterOut = S.tip.id;
+// 再来一次：这回是整个列表的 mouseleave
+hoverTag("b1");
+timers.run(60);
+$("#rows").listeners.mouseleave.forEach((fn) => fn({}));
+timers.run(1000);
+out.push({ mid, afterOut, afterLeave: S.tip.id, hidden: $("#cx-tip").hidden, pending: timers.pending() });
+""")[0]
+        self.assertEqual(out["mid"], "", "还不到 140ms，不开")
+        self.assertEqual(out["afterOut"], "", "140ms 内移开标签：待开的计时被取消，气泡不能自己冒出来")
+        self.assertEqual(out["afterLeave"], "", "140ms 内离开整个列表同理")
+        self.assertTrue(out["hidden"])
+        self.assertEqual(out["pending"], 0)
+
+    def test_moving_from_tag_text_to_its_icon_keeps_an_open_bubble(self):
+        out = run_js(SETUP + HOVER + r"""
+load([signedA, clashB]);
+hoverTag("b1");
+timers.run(140);
+const opened = S.tip.id;
+$("#rows").listeners.mouseout.forEach((fn) => fn({ target: { closest: (s) => (s === ".state-clash" ? {} : null) } }));
+hoverTag("b1");                       // 子元素（图标）的 mouseover：closest 仍是同一个标签
+timers.run(300);
+out.push({ opened, after: S.tip.id, hidden: $("#cx-tip").hidden });
+""")[0]
+        self.assertEqual(out["opened"], "b1")
+        self.assertEqual(out["after"], "b1", "指针还在标签内，tipLater 设的关闭计时必须被取消")
+        self.assertFalse(out["hidden"])
+
+    def test_resting_on_the_tag_for_140ms_opens(self):
+        out = run_js(SETUP + HOVER + r"""
+load([signedA, clashB]);
+hoverTag("b1");
+timers.run(139);
+const before = S.tip.id;
+timers.run(1);
+out.push({ before, after: S.tip.id, hidden: $("#cx-tip").hidden });
+""")[0]
+        self.assertEqual(out["before"], "")
+        self.assertEqual(out["after"], "b1")
+        self.assertFalse(out["hidden"])
 
     def test_keyboard_focus_opens_and_enter_moves_into_the_link(self):
         out = run_js(SETUP + r"""
