@@ -150,6 +150,20 @@ class GetInfoContractTests(unittest.TestCase):
         self.assertEqual(detail["hdkssj"], second["act_start"])
         self.assertEqual(detail["hdjssj"], second["act_end"])
 
+    def test_rewards_are_read_from_the_participant_fields(self):
+        # 奖励来自详情里的参与人字段（cyrysjfs 实践分、cyryxngz 虚拟工资）；
+        # 样例两者都是 2.0 / 0，0 是真实回答，必须原样保留
+        detail = _load("get-info.data.json")
+        parsed = grab.parse_attendance_detail(detail)
+        self.assertEqual(parsed["points"], detail["cyrysjfs"])
+        self.assertEqual(parsed["wage"], detail["cyryxngz"])
+        # 参与人字段缺失时回落到组织者那套；两套都没有才是 None（界面写「未公布」）
+        fallback = grab.parse_attendance_detail({"zzrysjfs": 1.5, "zzryxngz": 3})
+        self.assertEqual((fallback["points"], fallback["wage"]), (1.5, 3.0))
+        missing = grab.parse_attendance_detail({})
+        self.assertIsNone(missing["points"])
+        self.assertIsNone(missing["wage"])
+
 
 class GetJoinInfoContractTests(unittest.TestCase):
     def _joined(self, response, budget=None):

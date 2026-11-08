@@ -676,6 +676,12 @@ CHECKOUT_FLAG_NAMES = (
     "isCheckOutRequired", "sfqt", "sfqtd", "qiantui", "签退",
 )
 
+# 奖励字段：学校 getInfo 同时给参与人（cyr*）与组织者（zzr*）两套，
+# 本人是参与者，优先 cyr*；组织者那套只是兜底（有些活动只填一处）。
+# 列表接口没有这两项，所以奖励只能是「详情回来之后」才有的字段。
+POINTS_NAMES = ("points", "cyrysjfs", "zzrysjfs")
+WAGE_NAMES = ("wage", "cyryxngz", "zzryxngz")
+
 # 时间字段别名：列表接口目前全为 null，详情接口才给出真实时间段。
 # 名字按「内部字段 → 学校字段」排列，列表若已有同等信息则优先使用。
 CHECKIN_START_NAMES = ("checkin_start", "qdkssj", "checkinStart")
@@ -698,6 +704,24 @@ def _activity_time(raw, names):
             text = str(raw.get(name)).strip()
             return text if school_epoch(text) is not None else ""
     return ""
+
+
+def _reward_number(data, names):
+    """读奖励数值：缺失、认不出、负数一律 None（界面写「未公布」，不猜成 0）。
+
+    学校给 0 是真实回答（这场没有虚拟工资），必须原样保留，不能当缺失吞掉。
+    """
+    for name in names:
+        if name not in data or data.get(name) in (None, ""):
+            continue
+        try:
+            value = float(data.get(name))
+        except (TypeError, ValueError):
+            continue
+        if math.isnan(value) or math.isinf(value) or value < 0:
+            continue
+        return value
+    return None
 
 
 def _detail_fields(raw):
@@ -743,6 +767,10 @@ def parse_attendance_detail(raw):
         # 不写冲突原因）；cancel_allowed 是取消报名的前置条件之一（分析 11.1）。
         "cancel_allowed": _tri_state(data.get("qxbm")) if "qxbm" in data else None,
         "can_sign": _tri_state(data.get("sfkybm")) if "sfkybm" in data else None,
+        # 奖励（实践分 / 虚拟工资）：与签到信息同一次 getInfo 请求，参与人字段优先。
+        # 给 0 就存 0（真实回答），给不出就 None（界面写「未公布」）。
+        "points": _reward_number(data, POINTS_NAMES),
+        "wage": _reward_number(data, WAGE_NAMES),
     }
 
 
@@ -780,6 +808,10 @@ def _apply_attendance(item, detail):
         item["attendance_source"] = "list" if list_has else "none"
         item["attendance_state"] = "pending"
         item["attendance_error"] = "detail_unavailable"
+        # 奖励只在详情里：没拿到详情就是「同步中」，不能写「分未公布」
+        item["points"] = None
+        item["wage"] = None
+        item["reward_state"] = "pending"
         return item
     for key, value in detail.items():
         if key in ("checkin_required", "checkout_required",
@@ -794,6 +826,11 @@ def _apply_attendance(item, detail):
     item.setdefault("can_sign", None)
     item["attendance_source"] = "list" if list_has else "detail"
     item["attendance_state"] = "ready"
+    # 奖励以这次详情为准：详情里没有这两项，就是学校尚未公布（None），
+    # 不能沿用上一轮的值——活动可能改了奖励。
+    item["points"] = detail.get("points")
+    item["wage"] = detail.get("wage")
+    item["reward_state"] = "ready"
     item.pop("attendance_error", None)
     return item
 
@@ -1297,6 +1334,11 @@ def cmd_list(args):
                 # R2：三态，详情失败或字段缺失为 None；can_sign 只透传不展示
                 "cancel_allowed": act.get("cancel_allowed"),
                 "can_sign": act.get("can_sign"),
+                # 奖励（决策口径见 design/prototype/workbench-2026-11 Main/Phone 的 rw）：
+                # pending 是「详情还没回来」，ready 时 points/wage 为 None 才是「未公布」
+                "points": act.get("points"),
+                "wage": act.get("wage"),
+                "reward_state": act.get("reward_state") or "pending",
                 "state": "已报名" if act["signed"]
                          else ("待确认" if now is None else sign_state(act, now)),
             })
