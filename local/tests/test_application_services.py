@@ -1939,5 +1939,103 @@ class OnceCredentialAutoReloginTests(unittest.TestCase):
                                  "临时目录里的文件出现了密码")
 
 
+class PhonePcListErrorTests(unittest.TestCase):
+    """BE2/EX05：手机快照的 pc_list_error（电脑侧最近一次拉活动列表失败）。
+
+    正常为 None；失败带固定安全短语与北京 HH:MM（不放堆栈/路径/账号）；
+    成功刷新即清空；worker 的原始输出与异常文本不得透传进快照。
+    """
+
+    def setUp(self):
+        import shutil
+
+        try:
+            import app as local_app
+        except Exception as exc:  # pragma: no cover - 环境缺 pywebview 时跳过
+            self.skipTest("无法导入 local/app.py：%s" % exc)
+        self.local_app = local_app
+        tmp = tempfile.mkdtemp(prefix="campus-pclist-err-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        data = Path(tmp) / "data"
+        data.mkdir()
+        for patch in (
+            mock.patch.object(local_app, "PREFS", Path(tmp) / "ui.json"),
+            mock.patch.object(local_app, "DATA_DIR", data),
+            mock.patch.object(local_app, "DEMO", True),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.api = stop_auto_relogin_on_cleanup(self, local_app.Api())
+        self.api._phone = FakePhoneService()
+
+    # ---------- 正常态 ----------
+    def test_snapshot_has_null_pc_list_error_by_default(self):
+        raw = self.api._phone_raw_state()
+        self.assertIsNone(raw["pc_list_error"],
+                          "没失败过：pc_list_error 必须是 null（纯增量字段，旧字段不动）")
+
+    # ---------- 失败态 ----------
+    def test_failure_records_short_reason_and_beijing_hhmm(self):
+        self.api._note_pc_list_error("活动列表没能加载")
+        raw = self.api._phone_raw_state()
+        error = raw["pc_list_error"]
+        self.assertIsNotNone(error)
+        self.assertEqual(error["reason"], "活动列表没能加载")
+        self.assertRegex(error["at"], r"^\d{2}:\d{2}$",
+                         "时刻必须是北京 HH:MM（school_time_text 口径）")
+
+    def test_error_at_prefers_the_last_successful_refresh_time(self):
+        """R-P3-4：pc_list_error.at 优先取最后一次成功刷新的时刻——原型句
+        「现在显示的是 {HH:MM} 更新的列表」说的是手机正在展示的那份列表
+        （来自最后一次成功刷新），不是失败发生的时刻；从没成功过才退失败时刻。
+        时钟钉在两个相差一小时的时刻上，避免 HH:MM 粒度下两刻同分导致断言失真。"""
+        real_clock = self.api._clock_now
+        self.addCleanup(setattr, self.api, "_clock_now", real_clock)
+        self.api._clock_now = lambda: 1700000000.0          # 北京 2023-11-15 06:13
+        self.api._do_list_inner()          # DEMO：走成功分支，记下成功时刻
+        ok_at = self.api._pc_list_ok_at
+        self.assertRegex(ok_at, r"^\d{2}:\d{2}$", "成功时刻也是北京 HH:MM")
+        self.api._clock_now = lambda: 1700000000.0 + 3600   # 一小时后才失败
+        self.api._note_pc_list_error("活动列表没能加载")
+        error = self.api._phone_raw_state()["pc_list_error"]
+        self.assertIsNotNone(error)
+        self.assertEqual(error["at"], ok_at,
+                         "at 取最后一次成功刷新的时刻，不是失败时刻")
+        # 再次成功：错误清空，成功时刻随刷新推进到新的 HH:MM
+        self.api._do_list_inner()
+        self.assertIsNone(self.api._phone_raw_state()["pc_list_error"])
+        self.assertNotEqual(self.api._pc_list_ok_at, ok_at,
+                            "成功时刻随刷新推进（不是停在第一次）")
+
+    def test_worker_output_and_exceptions_never_reach_the_field(self):
+        """失败原因只许固定短语：带路径/账号样子的字符串即使被调用方塞进来，
+        也不该由这里负责透传——钉住「原因来自常量表」这一层。"""
+        self.api._note_pc_list_error("活动列表没能加载")
+        raw = self.api._phone_raw_state()
+        self.assertEqual(raw["pc_list_error"],
+                         {"reason": "活动列表没能加载", "at": raw["pc_list_error"]["at"]})
+        # 投影后仍只这两个键，值是短语与时刻
+        from domain.phone_rules import project_state
+        projected = project_state(self.api._phone_raw_state())
+        self.assertEqual(set(projected["pc_list_error"].keys()), {"reason", "at"})
+
+    # ---------- 成功清空 ----------
+    def test_successful_list_refresh_clears_the_error(self):
+        self.api._note_pc_list_error("活动列表没能加载")
+        self.assertIsNotNone(self.api._phone_raw_state()["pc_list_error"])
+        self.api._do_list_inner()          # DEMO：走成功分支并清空
+        self.assertIsNone(self.api._phone_raw_state()["pc_list_error"],
+                          "成功刷新后必须清空，手机不再亮「列表没加载」")
+
+    def test_demo_snapshot_keeps_other_fields_unchanged(self):
+        """纯增量：pc_list_error 进来后，activities/login/busy 等旧键照旧。"""
+        raw = self.api._phone_raw_state()
+        self.assertIn("activities", raw)
+        self.assertIn("login", raw)
+        self.assertIn("busy", raw)
+        self.assertIn("business_clock", raw)
+        self.assertIn("pc_list_error", raw)
+
+
 if __name__ == "__main__":
     unittest.main()

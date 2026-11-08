@@ -646,6 +646,12 @@ class Api:
         # check/list 这类短命 worker 的登记表：正常关闭时一并树终止，不留孤儿
         self._aux_procs: set = set()
         self._activities: dict[str, dict] = {}
+        # EX05/BE2：电脑侧最近一次拉活动列表失败（安全原因短语 + 北京 HH:MM）。
+        # 只进手机快照（_phone_raw_state），不写日志；成功刷新即清空（None）。
+        # R-P3-4：另记最后一次成功刷新的时刻——pc_list_error.at 优先用它，
+        # 因为文案说的是「手机现在这份列表」的更新时刻，不是失败时刻
+        self._pc_list_error: dict | None = None
+        self._pc_list_ok_at: str = ""
         self._lock = threading.Lock()
         self._credential_lock = threading.RLock()
         self._advanced_busy = False
@@ -2011,6 +2017,31 @@ class Api:
         payload = dict(payload, **_last_check_fields(self._last_check))
         self._emit("check", payload)
 
+    def _pc_clock_text(self) -> str:
+        """EX05/BE2：业务北京的 HH:MM；钟不可用给空串（手机改写「缓存列表」）。
+
+        不退回本机时钟：决策 012 规定业务时刻不读本机墙钟，本机钟偏了会写出错误的 HH:MM。
+        """
+        try:
+            return school_time_text(now_fn=self._clock_now)[11:16]
+        except Exception:
+            return ""
+
+    def _note_pc_list_error(self, reason: str) -> None:
+        """EX05/BE2：记最近一次拉活动列表失败，供手机快照透出（成功刷新即清空）。
+
+        原因只放固定短语，不透传 worker 输出或异常文本——那些串里可能有
+        路径、站点地址或账号痕迹；时刻按业务北京时间（决策 012）。
+        R-P3-4：at 优先取最后一次成功刷新的时刻——原型句「现在显示的是
+        {HH:MM} 更新的列表」说的是手机正在展示的那份列表（来自最后一次成功
+        刷新），不是失败发生的时刻；本进程从没成功过才退回失败时刻。
+        内存态，不落盘、不进日志。
+        """
+        when = self._pc_clock_text()
+        with self._lock:
+            self._pc_list_error = {"reason": str(reason),
+                                   "at": self._pc_list_ok_at or when}
+
     def _do_list(self) -> None:
         try:
             self._do_list_inner()
@@ -2025,6 +2056,7 @@ class Api:
             # Exception 都会被归成 spawn_failed，数据异常被误报成「重新下载」
             err_code = _component_error(exc)
             self._emit("log", "[X] 组件诊断 %s：%s: %s" % (err_code, type(exc).__name__, exc))
+            self._note_pc_list_error("列表程序启动失败")   # EX05/BE2：手机侧要知道列表没加载
             self._emit("activities", {"ok": False,
                                       "text": WORKER_PROBLEM_TEXT.get(err_code, "活动列表没能加载"),
                                       "items": [], "runtime_error": err_code})
@@ -2033,6 +2065,7 @@ class Api:
             # 从这里泄出导致骨架永远加载），但不是组件问题——不设 runtime_error、
             # 不诱导重新下载或重新登录
             self._emit("log", "[X] 列表请求异常 %s: %s" % (type(exc).__name__, exc))
+            self._note_pc_list_error("活动列表没能加载")   # EX05/BE2
             self._emit("activities", {"ok": False, "text": "活动列表没能加载", "items": []})
         finally:
             with self._lock:
@@ -2204,12 +2237,18 @@ class Api:
         if DEMO:
             items = demo_items()
             self._activities = {str(it["id"]): it for it in items}
+            with self._lock:
+                self._pc_list_error = None   # EX05/BE2：成功刷新即清空
+                # R-P3-4：记下这份列表的更新时刻，pc_list_error.at 优先用它
+                self._pc_list_ok_at = self._pc_clock_text()
             self._emit("activities", {"ok": True, "items": items})
             return
         started = time.monotonic()   # 总用时含 worker 启动；联网段由 [timing] 单独给
         res = self._run(worker_command("list", "--json"), timeout=120)
         elapsed = time.monotonic() - started
         if res["code"] != 0:
+            # EX05/BE2：worker 的退出输出不进快照（可能带站点/路径），只记固定短语
+            self._note_pc_list_error("活动列表没能加载")
             self._emit("activities", {"ok": False,
                                       "text": res["out"].strip(), "items": []})
             return
@@ -2219,6 +2258,7 @@ class Api:
             raw = res.get("stdout", res["out"])
             items = json.loads(raw.strip() or "[]")
         except json.JSONDecodeError:
+            self._note_pc_list_error("活动列表解析失败")   # EX05/BE2
             self._emit("activities", {"ok": False,
                                       "text": "活动列表解析失败", "items": []})
             return
@@ -2256,6 +2296,9 @@ class Api:
             it["seconds_to_open"] = _seconds_until(it.get("sign_start"), now)
         with self._lock:
             self._activities = {str(it.get("id")): dict(it) for it in items if it.get("id")}
+            self._pc_list_error = None   # EX05/BE2：成功刷新即清空
+            # R-P3-4：记下这份列表的更新时刻，pc_list_error.at 优先用它
+            self._pc_list_ok_at = self._pc_clock_text()
         # 详情补充是逐活动异步完成的：把「还在同步/已失败」如实交给界面，
         # 不让整张列表因为某一场详情查不到而失败。
         pending = sum(1 for it in items if it.get("attendance_state") == "pending")
@@ -3026,6 +3069,8 @@ class Api:
             plan = self._plan
             last_plan = self._last_plan
             busy = self._is_busy_locked()
+            # EX05/BE2：给副本，投影层与调用方都改不到内存里的原件
+            pc_list_error = dict(self._pc_list_error) if self._pc_list_error else None
         snapshot = None
         if plan is not None:
             try:
@@ -3057,6 +3102,10 @@ class Api:
             # relay 公开状态只含阶段/挑战图，不含账号密码、token 或 DPAPI 密文；
             # 电脑自己认图时投影层会把验证码抹掉，手机只看到「重试中」
             "login_relay": self._phone_relay_view(),
+            # EX05/BE2：电脑侧最近一次拉活动列表失败（原因短语 + 北京 HH:MM）；
+            # 正常时为 None。project_state（strip_sensitive）是黑名单制投影，
+            # 这两个键不含敏感片段、值是定长短语，原样放行
+            "pc_list_error": pc_list_error,
         }
 
     def _phone_relogin_setup(self) -> dict:
