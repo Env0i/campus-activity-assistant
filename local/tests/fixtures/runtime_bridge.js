@@ -233,12 +233,30 @@
       signed: false,
       checkin_required: true,
       checkout_required: false,
+      /* 与 list --json 同形（R2）：报后能不能取消 / 能不能报，三态，默认不知道 */
+      cancel_allowed: null,
+      can_sign: null,
     }, extra || {});
   }
 
   const LONG_PLACE = "目标学校教学实训楼A区四层实训中心A401多功能报告厅（入场请从东门刷校园卡，经连廊上四层，报告厅在最里侧）";
 
+  /* 列表行：state.cancelAllowed = { <活动id>: true|false|null } 让 QA 给某一场指定 cancel_allowed，
+   * state.canSign 同理；取消成功后 state.cancelledIds 里的场次变成未报名（生产是后端缓存置假）。 */
   function items() {
+    const cancelled = state.cancelledIds || [];
+    return rawItems().map(function (row) {
+      const out = Object.assign({}, row);
+      const allow = state.cancelAllowed || {};
+      const sign = state.canSign || {};
+      if (Object.prototype.hasOwnProperty.call(allow, row.id)) out.cancel_allowed = allow[row.id];
+      if (Object.prototype.hasOwnProperty.call(sign, row.id)) out.can_sign = sign[row.id];
+      if (cancelled.indexOf(row.id) >= 0) out.signed = false;
+      return out;
+    });
+  }
+
+  function rawItems() {
     return [
       item("a-future", "人工智能前沿讲座", 5400, 9000, "学术报告厅 A101"),
       item("a-open", "校园歌手大赛决赛", -120, 7200, LONG_PLACE, { checkin_required: false }),
@@ -252,7 +270,8 @@
       { id: "a-nosign", name: "开放时间未公布", sign_start: "", sign_end: "",
         act_start: schoolText(3 * 86400), act_end: schoolText(3 * 86400 + 7200),
         place: "学生活动中心", signed: false,
-        checkin_required: true, checkout_required: false },
+        checkin_required: true, checkout_required: false,
+        cancel_allowed: null, can_sign: null },
       item("a-long", "2026年秋季学期大学生创新创业训练计划项目立项申报宣讲暨优秀项目经验分享交流会（第二场）",
            86400, 90000, "线上会议"),
       item("a-same-1", "同名活动", 7200, 10800, "体育馆"),
@@ -532,6 +551,30 @@
     start_request_state: startRequestState,
     stop_plan: stopPlan,
     cancel_task: (taskId) => { record("cancel_task", [taskId]); return Promise.resolve({ ok: true }); },
+    /* 生产 Api.cancel_signup(activity_id) 的回执：{ok, kind, reason?, message?}，
+     * kind 取 cancelled / refused / unknown / precheck_failed / busy。默认回 cancelled。
+     * QA 用 window.__QA_STATE 改：cancel = 对象（原样当回执，如 {ok:false,kind:"refused",
+     * message:"…"}）或 "hang"（永不返回，看「正在取消…」）；cancelDelayMs = 回执延迟；
+     * cancelEmit = true 时 cancelled 之后像生产一样推一次 activities（request_id 为空，
+     * 被取消的场次变未报名）。 */
+    cancel_signup: (activityId) => {
+      record("cancel_signup", [activityId]);
+      const mode = state.cancel;
+      if (mode === "hang") return new Promise(() => {});
+      const answer = (mode && typeof mode === "object")
+        ? Object.assign({}, mode) : { ok: true, kind: "cancelled" };
+      const finish = () => {
+        if (answer.kind === "cancelled" && state.cancelEmit === true) {
+          state.cancelledIds = (state.cancelledIds || []).concat([String(activityId)]);
+          setTimeout(() => {
+            window.onBackend.activities({ ok: true, request_id: "", items: items() });
+          }, 0);
+        }
+        return answer;
+      };
+      const wait = Number(state.cancelDelayMs) || 0;
+      return wait > 0 ? delay(wait).then(finish) : Promise.resolve(finish());
+    },
     save_prefs: savePrefs,
     /* 生产 Api.accept_terms(document_version) 的回执形状：前端要求
      * version/accepted_version/accepted_at 三项齐全且 accepted_version===version

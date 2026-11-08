@@ -87,6 +87,10 @@ class _FakeApi:
         self._closing = False
         self._checking = False
         self._listing = False
+        # 取消报名在途标记（计划 20261107-conflict-cancel X3）：被抽出的 check /
+        # list_activities / _auto_relogin_eligible 现在会读它，替身要有这个属性
+        # （只补属性，断言一字未动）
+        self._cancelling = False
         self._check_request_id = ""
         self._list_request_id = ""
         self._check_last = {}

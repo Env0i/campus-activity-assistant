@@ -554,7 +554,8 @@ def _post(path, payload=None, tok=None, timeout=None, budget=None):
 
 
 def _get(path, tok=None, timeout=None):
-    """只读 GET：详情接口没有任何写语义，失败返回 code=-1 由调用方降级。
+    """GET：详情接口（只读）与取消报名（run_cancel，唯一的写用途）共用；
+    失败返回 code=-1 由调用方降级。取消接口不重试，成败以随后的复查为准。
 
     不打印 URL 之外的任何请求头；token 只在内存里使用，绝不进日志。
     """
@@ -1310,6 +1311,136 @@ def cmd_list(args):
         print("%3d  %s  %s  %s" % (i, act["sign_start"] or "-", flag, act["name"]))
     print("\n提示：双击 2-抢活动.bat 可直接选择并到点抢；也可以双击 4-图形界面.bat 用鼠标点。")
     return 0
+
+
+# ---------------------------------------------------------------- 取消报名（X2/X4）
+# 计划 20261107-conflict-cancel。取消不可撤回，所以：前置条件四条都在本进程里重核，
+# 任何一条不满足或查不到都不调接口；接口只调一次、不重试；成败一律以随后的 getJoinInfo
+# 复查为准（学校回包没有实测样例，只作参考）。依据：学校前端分析 11.1 / 9.2 / 9.3。
+CANCEL_PATH = "/rjyHdCyr/cancel/"
+CANCEL_PRECHECK_BUDGET_S = 20.0    # 前置核对（登录、是否已报名）共用的预算
+CANCEL_RECHECK_BUDGET_S = 10.0     # 取消之后复查单独给一份：前面再慢也要查得到
+# 学校原话回给界面前的清洗与截断（≤80 字、去控制字符）与界面进程共用一份实现
+from domain.cancel_rules import sanitize_message as sanitize_school_message  # noqa: E402
+
+
+def _cancel_facts(act_id):
+    """取消前要看的详情：(cancel_allowed, sign_start, sign_end) 或 None（详情没拿到）。
+
+    直接读 getInfo，不走 fetch_activity_detail：那条路的归一化结果不带报名起止时间。
+    本进程是新起的，缓存里也不会有东西，没有复用旧结论的风险。
+    """
+    data = _get("/rjyHd/getInfo/" + urllib.parse.quote(act_id, safe=""),
+                timeout=DETAIL_TIMEOUT_S)
+    if not isinstance(data, dict) or str(data.get("code")) not in {"1", "1.0"}:
+        return None
+    fields = _detail_fields(data)
+    allowed = _tri_state(fields.get("qxbm")) if "qxbm" in fields else None
+    return (allowed, school_epoch(str(fields.get("bmkssj") or "").strip()),
+            school_epoch(str(fields.get("bmjssj") or "").strip()))
+
+
+def _cancel_joined(act_id, budget_s):
+    """取消前后用的三态查询：True / False / None（含预算用尽、校时失效）。"""
+    try:
+        budget = RetryBudget(business_now() + budget_s, business_clock=_CLOCK["meta"])
+        return is_joined(act_id, budget=budget)
+    except (BudgetExhausted, ClockUnavailable):
+        return None
+
+
+def run_cancel(act_id, progress=None):
+    """取消报名的全部流程，返回 {ok, kind, reason?, message?}；不打印、不读 args。
+
+    progress 是调用方给的字典：调取消接口之前把 sent 置真，供异常兜底区分阶段。
+    """
+    def refuse(reason):
+        log("[cancel] 前置核对未通过：%s（未调取消接口）" % reason)
+        return {"ok": False, "kind": "precheck_failed", "reason": reason}
+
+    act_id = str(act_id or "").strip()
+    if not SITE_CONFIGURED:
+        return refuse("site_unconfigured")
+    if not act_id:
+        return refuse("not_in_list")
+    # 1 登录：只有学校明确说失效才算 login_expired；网络不通是「查不到」，不能诱导重登
+    state, _detail = probe_token()
+    if state in ("expired", "none"):
+        return refuse("login_expired")
+    if state != "valid":
+        return refuse("unknown_state")
+    # 2 业务北京时间
+    try:
+        business_now()
+        if _CLOCK.get("meta") is None:
+            raise ClockUnavailable("业务时钟未配置")
+    except ClockUnavailable:
+        return refuse("clock_unavailable")
+    # 3 确实已报名（三态，只有 True 往下走）
+    joined = _cancel_joined(act_id, CANCEL_PRECHECK_BUDGET_S)
+    if joined is None:
+        # 分不清是校时失效还是查询没成功：再看一眼时钟，给更准的原因
+        try:
+            business_now()
+        except ClockUnavailable:
+            return refuse("clock_unavailable")
+        return refuse("unknown_state")
+    if joined is False:
+        return refuse("not_signed")
+    # 4 详情：允许取消，且业务北京时间在 [报名开始, 报名截止] 内
+    facts = _cancel_facts(act_id)
+    if facts is None:
+        return refuse("unknown_state")
+    allowed, sign_start, sign_end = facts
+    if allowed is not True:
+        return refuse("not_allowed")
+    if sign_start is None or sign_end is None:
+        return refuse("unknown_state")
+    try:
+        now = business_now()
+    except ClockUnavailable:
+        return refuse("clock_unavailable")
+    if not (sign_start <= now <= sign_end):
+        return refuse("window_closed")
+    # 5 调取消接口：只调一次、不重试；从这一行起「结果未知」都算 unknown
+    log("[cancel] 前置核对通过，调用取消接口一次")
+    if progress is not None:
+        progress["sent"] = True
+    reply = _get(CANCEL_PATH + urllib.parse.quote(act_id, safe=""))
+    # 6 以复查为准：回包只拿来给「没取消成」配一句学校原话
+    after = _cancel_joined(act_id, CANCEL_RECHECK_BUDGET_S)
+    if after is False:
+        log("[cancel] 复查：学校记录里已没有这场报名")
+        return {"ok": True, "kind": "cancelled"}
+    if after is True:
+        log("[cancel] 复查：仍是已报名")
+        result = {"ok": False, "kind": "refused"}
+        # _get / _post 传输失败时回 {"code": -1, "message": "<异常类名>"}（B8）：
+        # 那不是学校的话，不能当学校原话显示；这种情况只回 refused，不带 message
+        from_school = (isinstance(reply, dict)
+                       and str(reply.get("code")) not in {"-1", "-1.0"})
+        message = sanitize_school_message(reply.get("message")) if from_school else ""
+        if message:
+            result["message"] = message
+        return result
+    log("[cancel] 复查没查到结果")
+    return {"ok": False, "kind": "unknown"}
+
+
+def cmd_cancel(args):
+    """worker 子命令：取消一场已报名活动。stdout 恰好一行 JSON，日志与其他输出走 stderr。"""
+    progress = {"sent": False}
+    with _stdout_to_stderr(True):
+        try:
+            result = run_cancel(getattr(args, "id", ""), progress)
+        except Exception as exc:  # noqa: BLE001 - 兜底：worker 不能不给结论
+            # 异常要分清「接口还没调」与「已经调了」：前者是前置失败，后者结果未知
+            log("[cancel] 异常 %s" % type(exc).__name__)
+            result = ({"ok": False, "kind": "unknown"} if progress["sent"]
+                      else {"ok": False, "kind": "precheck_failed",
+                            "reason": "unknown_state"})
+    print(json.dumps(result, ensure_ascii=False), flush=True)
+    return 0 if result.get("kind") == "cancelled" else 2
 
 
 def candidates(acts, now=None):
@@ -3731,6 +3862,12 @@ def main():
     p.add_argument("--json", action="store_true", help="输出 JSON（给图形界面调用）")
     p.set_defaults(func=cmd_list)
 
+    p = sub.add_parser("cancel", help="取消一场已报名的活动（复查为准；stdout 只有一行 JSON）")
+    p.add_argument("--id", required=True, help="活动 id（只取消这一场）")
+    p.add_argument("--json", action="store_true",
+                   help="输出 JSON（本子命令恒只输出一行 JSON，给图形界面调用）")
+    p.set_defaults(func=cmd_cancel)
+
     p = sub.add_parser("grab", help="到点自动报名（不传 --pick/--name/--activity-id 则交互选择）")
     p.add_argument("--pick", type=int, default=0, metavar="N",
                    help="按 list 里的序号直接选（与交互列表顺序一致）")
@@ -3758,12 +3895,13 @@ def main():
     p.set_defaults(func=cmd_selftest)
 
     args = ap.parse_args()
-    if not SITE_CONFIGURED:
+    # cancel 的 stdout 是给主程序 json.loads 的：站点未配置也由它自己回一行 JSON 拒绝
+    if not SITE_CONFIGURED and args.cmd != "cancel":
         print("[X] %s" % SITE_CONFIG_MESSAGE)
         return 2
-    # CLI check/list 也按需建立同一业务时钟：授时失败不阻断鉴权与原始数据读取，
+    # CLI check/list（以及 cancel）也按需建立同一业务时钟：授时失败不阻断鉴权与原始数据读取，
     # 由各子命令显式降级（列表状态未知、不做本机时钟筛选）
-    if args.cmd in ("check", "list"):
+    if args.cmd in ("check", "list", "cancel"):
         setup_business_clock(allow_sync=True)
     try:
         return args.func(args)

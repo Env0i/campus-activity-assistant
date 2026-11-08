@@ -57,6 +57,7 @@ from runtime_paths import DATA_DIR, LOG_FILE, SESSION_FILE, UI_STATE_FILE, ensur
 # 分层依赖（只准向下）：app（interface 外观）→ application → domain 纯规则；
 # 外部副作用统一走 infrastructure 适配器。旧模块级名字保留为兼容包装/再导出，
 # 测试与调用方按原名注入、patch 的语义不变。
+from domain import cancel_rules as _cancel_rules
 from domain import demo_data as _demo_data
 from domain import lifecycle_rules as _lifecycle_rules
 from domain import log_events as _log_events
@@ -665,6 +666,8 @@ class Api:
         # 不能被「已在检查」静默丢掉（只补一次，不排循环）
         self._check_again = False
         self._listing = False
+        # 取消报名在途（X3）：_is_busy_locked 读它，挡住刷新、登录和开始计划
+        self._cancelling = False
         # 在途请求 ID：去重跳过时界面才能对上账（R11）
         self._check_request_id = ""
         self._list_request_id = ""
@@ -1520,7 +1523,7 @@ class Api:
             return False
         with self._lock:
             if (self._closing or self._advanced_busy or self._checking or self._listing
-                    or self._relogin_blocked_locked()):
+                    or self._cancelling or self._relogin_blocked_locked()):
                 return False
         # 冲突 5（CR20）：保存过的账号，或这次运行内存里「只用这一次」的账号，有其一即可；
         # 其余条件（条款、识别已启用、计划阶段、暂停）一条不放宽
@@ -1840,6 +1843,9 @@ class Api:
                 # 关闭拒绝是取消语义：不给组件码，不再起线程
                 return {"ok": False, "queued": False, "request_id": request_id,
                         "text": "程序正在关闭，已取消本次检查"}
+            if self._cancelling:
+                return {"ok": False, "queued": False, "request_id": request_id,
+                        "text": "正在取消报名，等它结束再刷新"}
             if self._checking:
                 # 去重必须带上在途请求 ID：界面按 ID 对账，不能把旧轮当新轮
                 # 但这一轮的真实意图不能丢：记下来，等本轮收尾再补查一次
@@ -1865,6 +1871,9 @@ class Api:
             if self._closing:
                 return {"ok": False, "queued": False, "request_id": request_id,
                         "text": "程序正在关闭，已取消拉取活动列表"}
+            if self._cancelling:
+                return {"ok": False, "queued": False, "request_id": request_id,
+                        "text": "正在取消报名，等它结束再刷新"}
             if self._listing:
                 answer = {"ok": True, "queued": True, "skipped": "已经在拉活动列表",
                           "request_id": self._list_request_id}
@@ -2027,6 +2036,122 @@ class Api:
         finally:
             with self._lock:
                 self._listing = False
+
+    # ---------- 取消报名（计划 20261107-conflict-cancel，X1–X4） ----------
+    # 取消不可撤回：只收当前列表缓存里 signed 为真的单个 id；联网动作在一次性 worker 里做
+    # （grab.py cancel），前置条件由 worker 重核；成败只信 worker 的复查结论。
+    # 只在电脑端提供：phone_rules.ACTION_PARAMS 不含 cancel_signup（X1）。
+    CANCEL_WORKER_TIMEOUT_S = 90
+
+    # 忙碌原因 → 界面可直接显示的一句话（原型 PhStopAsk 同口径的初稿）
+    CANCEL_BUSY_TEXT = {
+        "plan_running": "计划在运行，先停下来再取消",
+        "refreshing": "正在刷新，等它结束再取消",
+        "task_running": "有任务在运行（登录或报名），等它结束再取消",
+        "cancelling": "正在取消另一场",
+        "closing": "程序正在关闭，已取消本次操作",
+    }
+
+    def _cancel_busy_reason_locked(self) -> str:
+        """取消能不能开始：返回占用原因，空串表示空闲。调用方持 self._lock。"""
+        if self._closing:
+            return "closing"
+        if self._cancelling:
+            return "cancelling"
+        if self._plan and self._plan.published_status() in {"ready", "running"}:
+            return "plan_running"
+        if any(proc.poll() is None for proc in self._plan_procs.values()):
+            return "plan_running"
+        if self._proc and self._proc.poll() is None:
+            return "task_running"
+        if self._checking or self._listing or self._advanced_busy:
+            return "refreshing"
+        return ""
+
+    def _cancel_refusal(self, kind: str, reason: str) -> dict:
+        result = {"ok": False, "kind": kind, "reason": reason}
+        text = self.CANCEL_BUSY_TEXT.get(reason) if kind == "busy" else ""
+        if text:
+            result["message"] = text
+        return result
+
+    def cancel_signup(self, activity_id: str = "") -> dict:
+        """取消一场已报名的活动。返回 {ok, kind, reason?, message?}：
+
+        kind 取 cancelled / refused / unknown / precheck_failed / busy（含义见
+        domain.cancel_rules）。cancelled 时缓存里这一场的 signed 置假，并发一次
+        activities 事件（与列表刷新同名同形，request_id 为空）让界面立刻更新。
+        """
+        gate = self._terms_gate()
+        if gate is not None:
+            return dict(gate, kind="precheck_failed", reason="terms_required")
+        aid = activity_id.strip() if isinstance(activity_id, str) else ""
+        with self._lock:
+            item = self._activities.get(aid) if aid else None
+            if not item or not item.get("signed"):
+                # 列表外的 id、没报名的 id：不起 worker，也不回显 id 内容
+                return self._cancel_refusal("precheck_failed", "not_in_list")
+            busy = self._cancel_busy_reason_locked()
+            if busy:
+                return self._cancel_refusal("busy", busy)
+            # 占住忙碌标记（_is_busy_locked 读它）：取消期间挡住刷新、登录和开始计划（X3）
+            self._cancelling = True
+        try:
+            result = self._cancel_signup_run(aid)
+        finally:
+            with self._lock:
+                self._cancelling = False
+        # 运行记录只记结果类别与原因，绝不记学校原话（message）
+        self._emit("log", "取消报名：%s%s" % (
+            result.get("kind"), "（%s）" % result["reason"] if result.get("reason") else ""))
+        if result.get("kind") == "cancelled":
+            self._after_cancelled(aid)
+        return result
+
+    def _cancel_signup_run(self, aid: str) -> dict:
+        if DEMO:
+            # 演示模式完全离线：固定演示结果，不起 worker、不碰学校
+            return {"ok": True, "kind": "cancelled", "demo": True}
+        problem = worker_problem()
+        if problem:
+            self._emit("log", "[X] 组件诊断 %s：组件路径 %s" % (problem, GRAB))
+            return self._cancel_refusal("precheck_failed", "worker_unavailable")
+        try:
+            res = self._run(worker_command("cancel", "--id", aid, "--json"),
+                            timeout=self.CANCEL_WORKER_TIMEOUT_S)
+        except _ClosingError:
+            return self._cancel_refusal("busy", "closing")
+        except OSError as exc:
+            # 进程没起来：学校那边什么都没发生，按前置失败说，不说「结果未知」
+            self._emit("log", "[X] 组件诊断 %s：%s" % (_component_error(exc), type(exc).__name__))
+            return self._cancel_refusal("precheck_failed", "worker_unavailable")
+        except Exception:  # noqa: BLE001 - 不知道 worker 走到了哪一步：按结果未知
+            return _cancel_rules.unknown_result()
+        # 只认 stdout 的最后一行 JSON；stderr 的日志不参与。超时（code -1、stdout 空）
+        # 与任何读不出的输出都是 unknown——worker 可能已经把请求发出去了
+        return _cancel_rules.normalize_worker_result(res.get("stdout", ""))
+
+    def _after_cancelled(self, aid: str) -> None:
+        """取消已由复查确认：缓存里这一场置未报名，并让界面立刻刷新。
+
+        发的是列表刷新同一个 activities 事件，items 是整张缓存（signed 已更新）；
+        request_id 显式留空，界面按「无 ID 的载荷放行」处理，不占用也不对账任何一轮刷新。
+        """
+        with self._lock:
+            item = self._activities.get(aid)
+            if item:
+                item = dict(item)
+                item["signed"] = False
+                item["signed_source"] = "cancelled"
+                item["sync_pending"] = False
+                self._activities[aid] = item
+            items = [dict(it) for it in self._activities.values()]
+            previous_last = self._list_last
+        self._emit("activities", {"ok": True, "items": items, "request_id": ""})
+        # _emit 会把它记成「最近一轮列表的终态」；这不是任何一轮刷新的结果，
+        # 放回去，免得之后去重跳过的刷新把它当终态交出去
+        with self._lock:
+            self._list_last = previous_last
 
     # ---------- 报名结果回写 ----------
     # 学校列表短暂滞后是常态：报名成功后立即刷新仍可能拿到 signed=false。
@@ -3386,7 +3511,7 @@ class Api:
             # 计划在跑不再一律拦：什么时候能登录由调用方先判断（手动看 100 秒窗口，
             # 自动看 _relogin_blocked_locked）。这里只防和另一个单独进程、检查、拉列表撞车。
             single = self._proc is not None and self._proc.poll() is None
-            if single or self._checking or self._listing:
+            if single or self._checking or self._listing or self._cancelling:
                 raise RuntimeError("busy")
             proc = subprocess.Popen(
                 args, cwd=str(HERE), stdin=subprocess.PIPE,
@@ -3528,6 +3653,8 @@ class Api:
 
     # ---------- 内部 ----------
     def _is_busy_locked(self) -> bool:
+        if self._cancelling:
+            return True      # 取消报名占着同一把忙碌标记（X3）
         # 只读协调器已发布的不可变状态：持 Api 锁时绝不取协调器锁（P2-1）。
         # 反向路径（协调器 → Api）同样已改为锁外发布，两条边不再成环。
         if self._proc and self._proc.poll() is None:
