@@ -751,6 +751,17 @@
   window.pywebview = { api: api };
   window.__QA_EMIT = (kind, payload) => window.onBackend[kind](payload);
   window.__QA_EMIT_STALE = injectStalePlanEvents;
+  /* 防止开两份（GL01）：照生产 Api._on_second_open 的顺序推 second_open 与运行记录，
+   * 供截图出「工具已经开着」横幅。at 是权威业务秒；失去授时时给 null，与后端同口径。
+   * 页面还没有 second_open 处理函数时只推运行记录，不抛错。 */
+  window.__QA_SECOND_OPEN = () => {
+    const down = state.clockUnavailable === true || state.clockInitialUnavailable === true;
+    const payload = { at: down ? null : clockNowS() };
+    const backend = window.onBackend || {};
+    if (typeof backend.second_open === "function") backend.second_open(payload);
+    if (typeof backend.log === "function") backend.log("又打开了一次，已切回这个窗口");
+    return payload;
+  };
   /* 权威业务时刻（秒）：QA 断言用它对照 DOM 时钟，不硬编码具体日期。
    * Date.now 被注入 ±8h/±30 天时它不受影响（只走 performance 单调外推）。 */
   window.__QA_CLOCK_NOW = clockNowS;

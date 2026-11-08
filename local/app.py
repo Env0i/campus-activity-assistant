@@ -77,6 +77,7 @@ from infrastructure import credential_store as _credential_store
 from infrastructure import phone_session_store as _phone_session_store
 from infrastructure import phone_qr as _phone_qr
 from infrastructure import tunnel_manager as _tunnel_manager
+from infrastructure import single_instance as _single_instance
 from application import login_service as _login_service
 from application import login_relay_service as _login_relay_service
 from application.auto_relogin import AutoReloginMonitor
@@ -2877,6 +2878,25 @@ class Api:
     def _on_window_restored(self) -> None:
         self._window_minimized = False
 
+    def _on_second_open(self) -> None:
+        """又打开了一次（GL01）：第二份已经退出，把这扇窗叫回前台并告诉界面。
+
+        由单实例监听线程调用。叫回复用 show_window（托盘、手机页同一入口，
+        藏到后台或最小化都能叫回来）；at 是业务时钟秒，时钟不可用给 null，
+        不拿本机墙钟冒充（决策 012）。界面据 second_open 出 note 横幅（Main:2145）。
+        """
+        try:
+            self.show_window()
+        except Exception:
+            pass
+        try:
+            at = float(self._clock_now())
+        except Exception:
+            at = None
+        self._emit("second_open", {"at": at})
+        # 运行记录句照原型 Main:1181
+        self._emit("log", "又打开了一次，已切回这个窗口")
+
     def _plan_source_of(self, plan_id) -> str:
         with self._lock:
             return self._plan_sources.get(str(plan_id or ""), "desktop")
@@ -3990,6 +4010,26 @@ def main() -> int:
     if not UI.exists():
         print("找不到界面文件：%s" % UI, file=sys.stderr)
         return 1
+    # 防止开两份（GL01）：只守图形界面启动，worker 子命令是别的进程、不经过这里。
+    # 第二份唤回第一份后直接退出（退出码 0），不建时钟、不建 Api、不起窗口。
+    # --demo 不接入：假数据、不碰学校，提交不了报名；演示数据根又是临时目录，
+    # 端口文件对不上，接入了反而会让演示和正式版互相挡住。
+    # 守卫出任何意外都放行（fail-open）：绝不能让唯一的那一份打不开。
+    instance_guard = None
+    instance_role = None
+    if not DEMO:
+        try:
+            instance_guard = _single_instance.SingleInstance(DATA_DIR)
+            instance_role = instance_guard.acquire()
+        except Exception as exc:  # noqa: BLE001
+            print("[!] 单实例守卫出错，照常启动：%s" % type(exc).__name__, file=sys.stderr)
+            instance_guard = None
+    if instance_guard is not None and instance_role == _single_instance.SECOND:
+        # 判定为第二份就一定在这里退出；hand_over 自己吞掉一切异常，恒返回 0
+        return instance_guard.hand_over()
+    if instance_guard is not None:
+        # 崩溃或异常退出时也尽量删掉自己的端口文件；互斥量由系统随进程收回
+        atexit.register(instance_guard.close)
     # 进程级生命周期：冻结上一运行周期并开始心跳（F5 重载不重置；
     # 懒创建兜底——bootstrap 先被调用时也能拿到同一实例）
     # 独立北京时间（决策 012）：主程序唯一 BusinessClock 生命周期；
@@ -4014,6 +4054,9 @@ def main() -> int:
     )
     api._window = window
     api.schedule_phone_restore(window)
+    if instance_guard is not None:
+        # 窗口对象有了再开唤回监听：show()/evaluate_js 会等窗口真正显示、加载完
+        instance_guard.start_listener(api._on_second_open)
 
     def _closing() -> bool:
         """返回 False 取消关闭。默认 ask：弹出三选，绝不静默带走正在跑的计划。"""
@@ -4032,12 +4075,18 @@ def main() -> int:
     except AttributeError:
         pass
     webview.start(debug=False)
+    if instance_guard is not None:
+        # 窗口没了就先停监听：收尾期间再开的那份连不上，弹「工具已经开着」，
+        # 互斥量留到收尾完，免得新的一份在旧 worker 还没收干净时就开跑计划
+        instance_guard.stop_listener()
     # 窗口已关（正常路径）：先收本实例登记的 worker（计划/登录/单活动/check/list）——
     # onefile 退出后运行期资源根即消失，绝不能留下还握着它的孤儿进程；
     # 再停心跳并落关闭时刻，clean/abnormal 的分界不变
     api.shutdown()
     lifecycle.finalize()
     clock.close()
+    if instance_guard is not None:
+        instance_guard.close()
     return 0
 
 
