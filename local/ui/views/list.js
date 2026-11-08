@@ -187,7 +187,7 @@ function rowHtml(item) {
   return "<div class=\"" + classes.join(" ") + "\" data-id=\"" + esc(id) + "\" aria-label=\"" + esc(item.name) + "\">" +
     "<div class=\"c-sel\"><input class=\"row-check\" type=\"checkbox\" data-id=\"" + esc(id) + "\"" + (selected ? " checked" : "") + (checkDisabled ? " disabled" : "") + " aria-label=\"选择" + esc(item.name) + "\"></div>" +
     "<div class=\"c-time\">" + timeHtml + "</div>" +
-    "<div class=\"c-main\"><div class=\"name\" title=\"" + esc(item.name) + "\">" + esc(item.name) + "</div><div class=\"sub\">" + sub.join("") + flags + "</div></div>" +
+    "<div class=\"c-main\"><div class=\"nl\"><div class=\"name\" title=\"" + esc(item.name) + "\">" + esc(item.name) + "</div>" + rewardChips(item) + "</div><div class=\"sub\">" + sub.join("") + flags + "</div></div>" +
     "<div class=\"c-place\" tabindex=\"0\" role=\"button\" aria-expanded=\"false\" aria-label=\"地点：" + esc(item.place || "地点待定") + "，按回车展开全部\" title=\"" + esc(item.place || "地点待定") + "\">" + esc(item.place || "地点待定") + "</div>" +
     "<div class=\"c-state\">" + stateCellHtml(item, state, leftText, armed) + "</div>" +
     "</div>" + cancelRxHtml(item);

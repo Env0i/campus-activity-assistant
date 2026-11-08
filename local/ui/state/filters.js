@@ -63,6 +63,27 @@ function requirementFlags(item) {
   return flags.length ? '<span class="activity-flags">' + flags.join("") + "</span>" : "";
 }
 
+/* 奖励（实践分 / 虚拟工资）：与签到信息同一次详情请求，照原型 Main.dc.html:1037-1044 的 rwOf。
+ * 详情没回来是「奖励同步中」；回来了但学校没给才是「未公布」；0 是真实回答，照实写 0。 */
+function rewardChips(item) {
+  if (!item) return "";
+  if (String(item.reward_state || "") !== "ready") {
+    return '<span class="rw"><span class="rw-p">奖励同步中</span></span>';
+  }
+  const num = (value) => {
+    if (value === null || value === undefined || value === "") return "";
+    const n = Number(value);
+    return Number.isFinite(n) ? String(n) : "";
+  };
+  const pts = num(item.points);
+  const wage = num(item.wage);
+  const title = "实践分 " + (pts || "未公布") + "，虚拟工资 " + (wage || "未公布");
+  /* 数值放 <b> 里、单位在外，照原型 .rw-c 的排版；没有数值时不画空的 <b> */
+  const ptsChip = pts ? '<span class="rw-c"><b>' + esc(pts) + "</b>分</span>" : '<span class="rw-c na">分未公布</span>';
+  const wageChip = wage ? '<span class="rw-c">工资<b>' + esc(wage) + "</b></span>" : '<span class="rw-c na">工资未公布</span>';
+  return '<span class="rw" title="' + esc(title) + '">' + ptsChip + wageChip + "</span>";
+}
+
 function selectedItems() {
   return Array.from(S.selected).map((id) => findItem(id)).filter(Boolean);
 }
