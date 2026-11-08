@@ -1065,7 +1065,7 @@ class Component extends DCLogic {
     if (scene === 'termsupdate' || scene === 'termsdoc') { s.terms = false; s.termsPrev = '2026-10-27-r3'; s.termsAgreed = '2026-10-27-r3'; s.termsAt = '10-30 14:02'; }
     if (scene === 'termsupdate') s.tuOpen = true;
     if (scene === 'popclock') { s.pop = 'clock'; s.popPin = true; }
-    if (scene === 'prewarn') { s.selected = ['t2', 'w1']; s.retry = 0; s.net = 'off'; }
+    if (scene === 'prewarn') { s.selected = ['t2', 'w1']; s.retry = 0; s.net = 'off'; s.planOpen = true; }  // 窄档也打开计划栏，NarrowWarn 才看得到开始前提醒；宽档恒双栏不受影响
     if (scene === 'netoff') { s.selected = ['t1', 't2']; s = this.startState(s); s = this.advance(s); s = this.advance(s); s.net = 'off'; s.planOpen = false; }
     if (scene === 'slept') {
       s.selected = ['t1', 't2']; s = this.startState(s); s.now = 52200 + 1380;
@@ -1647,7 +1647,7 @@ class Component extends DCLogic {
     }
     var pre = sel.filter(function (i) { return self.stOf(i, s) === 'pre'; }).map(function (i) { return i.open; });
     // 按最晚一场算：计划要一直跑到它开放，电脑得撑到那时
-    if (pre.length && Math.max.apply(null, pre) - s.now > 86400) w.push({ tone: '', text: '有场次在 24 小时以后才开放，计划要一直运行到那时。这段时间电脑不能关机或睡眠。' });
+    if (pre.length && Math.max.apply(null, pre) - s.now > 86400) w.push({ tone: '', text: '有场次在 24 小时以后才开放，计划要一直运行到那时。这段时⁠间电⁠脑不能关机或睡眠。' });
     return w.map(function (x) { return { tone: x.tone, text: x.text, label: x.label || '', hasFn: !!x.fn, fn: x.fn || function () {} }; });
   }
   onKey(e) {
