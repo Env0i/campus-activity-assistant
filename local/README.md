@@ -61,6 +61,8 @@
 > | `3-检查登录和活动.bat` | `python local/grab.py check`，再 `python local/grab.py list` |
 > | `4-图形界面.bat` | `python local/app.py` |
 
+想在源码树里图省事，双击 **`local/开发-启动界面.bat`** 也能起界面：它切到 `local/` 再跑 `python app.py`，起不来的话窗口会停在报错上。这个文件只给开发用，不进绿色版和安装包——发布用的启动模板还是 `local/launchers/` 那套。
+
 ### 完全不想装 Python：用绿色版
 
 拿到 **`campus-grab-portable.zip`**（约 59 MB，解压后 150 MB）的话，**不用装 Python、不用跑 install.bat**：
