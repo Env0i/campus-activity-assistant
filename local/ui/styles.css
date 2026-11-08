@@ -456,8 +456,6 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .dlg-help .help-head { display: flex; justify-content: space-between; gap: 16px; flex: none; padding: 18px 22px; background: var(--board); background-image: radial-gradient(rgba(236,239,234,.055) .7px, transparent .9px); background-size: 5px 5px; color: var(--on-board); }
 .dlg-help .help-head h2 { padding-left: 11px; border-left: 3px solid var(--amber); font-size: 18px; line-height: 1.3; }
 .dlg-help .help-head p { margin-top: 6px; color: var(--on-board-2); font-size: 12px; }
-.dlg-help .dlg-x { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--on-board-2); }
-.dlg-help .dlg-x:hover { background: rgba(255,255,255,.09); color: var(--on-board); }
 .dlg-help .dlg-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 0 12px; }
 /* 底边距交给 .help-keys 的上边距，避免与分隔线之间出现双倍留白 */
 .help-guide { padding: 16px 22px 0; }

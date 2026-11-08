@@ -7359,6 +7359,32 @@ out.push({ plain, ready, open: hmsDay(now + 900) });
         self.assertIn("已准备好，" + r["open"] + " 开放时提交", r["ready"]["tasks"])
 
 
+class DialogCloseButtonRuleTests(unittest.TestCase):
+    """规则：只有阅读型面板保留 ×，帮助与重新登录靠底部按钮和 Esc 关闭（用户 2026-11-08 定）。"""
+
+    @staticmethod
+    def _dialog_block(html, opener):
+        start = html.index(opener)
+        end = html.index("</dialog>", start) + len("</dialog>")
+        return html[start:end]
+
+    def test_help_dialog_has_no_x_and_uses_bottom_button(self):
+        html = read("ui/index.html")
+        block = self._dialog_block(html, '<dialog class="dlg dlg-help" id="help"')
+        self.assertNotIn("dlg-x", block, "帮助弹窗不得有 × 关闭按钮")
+        self.assertIn('<form method="dialog"><button class="btn btn-solid" type="submit">知道了</button></form>',
+                      block, "帮助弹窗底部必须有「知道了」关闭按钮")
+
+    def test_relogin_dialog_has_no_x(self):
+        html = read("ui/index.html")
+        block = self._dialog_block(html, '<dialog class="dlg dlg-relogin" id="dlg-relogin"')
+        self.assertNotIn("dlg-x", block, "重新登录弹窗不得有 × 关闭按钮")
+
+    def test_settings_drawer_keeps_close_button(self):
+        html = read("ui/index.html")
+        self.assertIn('id="btn-settings-close"', html, "设置抽屉（阅读型面板）必须保留 × 关闭按钮")
+
+
 if __name__ == "__main__":
     unittest.main()
 
