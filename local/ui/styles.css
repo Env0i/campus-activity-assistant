@@ -427,20 +427,21 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 
 /* 帮助沿用站牌与时刻表的层级：黑色标题、白纸正文、真实三步路线和普通工具行。
    只有正文滚动；[open] 才改 flex，保留原生 dialog 的关闭语义。 */
-.dlg-help { width: min(680px, calc(100vw - 32px)); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); }
+.dlg-help { width: min(38rem, calc(100vw - 32px)); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); }
 .dlg-help[open] { display: flex; flex-direction: column; }
 .dlg-help .help-head { display: flex; justify-content: space-between; gap: 16px; flex: none; padding: 18px 22px; background: var(--board); background-image: radial-gradient(rgba(236,239,234,.055) .7px, transparent .9px); background-size: 5px 5px; color: var(--on-board); }
 .dlg-help .help-head h2 { padding-left: 11px; border-left: 3px solid var(--amber); font-size: 18px; line-height: 1.3; }
 .dlg-help .help-head p { margin-top: 6px; color: var(--on-board-2); font-size: 12px; }
 .dlg-help .dlg-x { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--on-board-2); }
 .dlg-help .dlg-x:hover { background: rgba(255,255,255,.09); color: var(--on-board); }
-.dlg-help .dlg-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0; }
-.help-guide { padding: 16px 22px 12px; }
+.dlg-help .dlg-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 0 12px; }
+/* 底边距交给 .help-keys 的上边距，避免与分隔线之间出现双倍留白 */
+.help-guide { padding: 16px 22px 0; }
 .help-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
 .help-section-head h3, .help-tool-text h3 { margin: 0; font-size: 13px; font-weight: 700; }
 .help-section-head .btn { height: 30px; flex: none; }
 .dlg-help .steps { position: relative; display: block; }
-.dlg-help .steps::before { position: absolute; left: 12px; top: 22px; bottom: 28px; width: 1px; background: var(--line-2); content: ""; }
+.dlg-help .steps::before { position: absolute; left: 12px; top: 22px; bottom: 40px; width: 1px; background: var(--line-2); content: ""; }
 .dlg-help .steps li { position: relative; display: grid; grid-template-columns: 26px minmax(0,1fr); gap: 13px; padding: 8px 0; border-radius: 0; background: transparent; box-shadow: none; }
 .dlg-help .steps .no { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 1px solid var(--line-2); border-radius: 50%; background: var(--paper); color: var(--ink); font: 17px/1 var(--font-num); }
 .dlg-help .steps li:first-child .no { border-color: var(--amber-dim); }
@@ -465,6 +466,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .help-esc { color: var(--ink-3); font-size: 12px; }
 @media (max-width: 720px) {
   .dlg-help .help-head, .help-guide, .help-tools, .dlg-help .dlg-foot { padding-right: 16px; padding-left: 16px; }
+  .help-keys { margin-right: 16px; margin-left: 16px; }
   .help-tool-row { flex-wrap: wrap; gap: 9px; }
   .help-actions { flex-wrap: wrap; }
   .help-section-head .btn { max-width: 190px; height: auto; min-height: 30px; white-space: normal; }
@@ -956,9 +958,15 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .set-g:focus { outline: 0; }
 .update-actions .update-flow { display: inline-flex; gap: 6px; }
 .update-actions .update-flow[hidden] { display: none; }
-.help-keys .keys { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; margin: 6px 0 0; }
-.help-keys dt { font: 12px var(--font-num); font-weight: 700; }
-.help-keys dd { margin: 0; color: var(--ink-2); }
+/* 快捷键区与三步之间的分隔线按原型 .keys 的做法：左右各让出正文内边距，
+   线只横跨内容宽度，不是整条弹窗的边。 */
+.help-keys { margin: 14px 22px 0; padding: 12px 0 0; border-top: 1px solid var(--line); }
+.help-keys h3 { margin: 0 0 8px; font-size: 13px; font-weight: 700; }
+.help-keys .keys { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 16px; margin: 0; color: var(--ink-2); font-size: 12px; }
+.help-keys dt { white-space: nowrap; }
+.help-keys dd { margin: 0; }
+/* 键帽：与原型 kbd 一致，1.5rem 最小宽度让「F5」「Esc」这类短键看起来一样大 */
+.help-keys kbd { display: inline-block; min-width: 24px; padding: 0 6px; border-radius: 4px; background: var(--paper-2); box-shadow: inset 0 -1px 0 var(--line-2), inset 0 0 0 1px var(--line-2); color: var(--ink); font: 600 11px/1.7 var(--font-num); text-align: center; }
 .terms-withdraw-confirm { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--warn-tint); }
 
 /* ---- 条款：升版摘要、左侧章节目录、「本版新增」标记（标记只在样式里，正文文字不动） ---- */
@@ -975,13 +983,69 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .terms-section > h3[data-new]::after { content: "本版新增"; margin-left: 8px; padding: 0 6px; border-radius: 4px; background: var(--warn-tint); color: var(--warn); font-size: 11px; font-weight: 700; vertical-align: 2px; }
 @media (max-width: 719px) { .terms-body.has-toc { display: block; } .terms-toc { display: none; } }
 
-/* ---- 重新登录对话框 ---- */
-.rl-field { display: grid; gap: 4px; margin: 8px 0; font-size: 12px; color: var(--ink-2); }
-.rl-field input { height: 32px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 7px; background: var(--paper); color: var(--ink); font-size: 14px; }
-.rl-note { color: var(--ink-2); font-size: 12px; }
-.rl-privacy { color: var(--ink-3); font-size: 12px; }
-.rl-cap-img { display: block; height: 48px; margin: 6px 0; border-radius: 6px; box-shadow: 0 0 0 1px var(--line-2); image-rendering: pixelated; }
-.rl-wait { color: var(--blue); }
+/* ---- 重新登录对话框 ----
+   外壳照原型 rl-dlg（Main.dc.html:266-272、374-382）：448px、黑色站牌头、白纸正文、按钮单独一行，
+   只有正文滚动。尺寸用 rem 跟原型同一把尺子，不照抄 680px 的通用弹窗。 */
+.dlg-relogin { width: min(28rem, calc(100vw - 32px)); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); }
+.dlg-relogin[open] { display: flex; flex-direction: column; }
+.dlg-relogin .dlg-head { flex: none; padding: 18px 22px; background: var(--board); background-image: radial-gradient(rgba(236,239,234,.055) .7px, transparent .9px); background-size: 5px 5px; color: var(--on-board); }
+.dlg-relogin .dlg-head h2 { padding-left: 11px; border-left: 3px solid var(--amber); font-size: 18px; line-height: 1.3; }
+.dlg-relogin .dlg-head p { margin-top: 6px; color: var(--on-board-2); font-size: 12px; }
+.dlg-relogin .dlg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 22px 12px; }
+.dlg-relogin .dlg-foot { flex: none; padding: 11px 22px; border-top: 1px solid var(--line); }
+.dlg-relogin .btn { height: 32px; padding: 0 14px; }
+.dlg-relogin .dlg-p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.5; }
+/* 错误条：正文最上一条，红底红字，不随步骤换位置 */
+.dlg-relogin .dlg-err { margin: 0 0 12px; padding: 7px 10px; border-radius: 6px; background: var(--bad-tint); color: #7e2119; font-size: 13px; line-height: 1.55; }
+.dlg-relogin .dlg-note { margin: 10px 0 0; color: var(--ink-3); font-size: 12px; line-height: 1.5; }
+/* 第一个元素不带头距，否则正文上下会多出一截 */
+.dlg-relogin .dlg-body > :first-child { margin-top: 0; }
+.dlg-relogin .lg-form { display: grid; gap: 10px; margin-top: 12px; }
+.dlg-relogin .lg-f { display: grid; gap: 4px; color: var(--ink-2); font-size: 12px; }
+.dlg-relogin .lg-f input { width: 100%; height: 38px; padding: 0 12px; border: 0; border-radius: 8px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); font-size: 14px; }
+.dlg-relogin .lg-f input:focus { outline: 0; box-shadow: inset 0 0 0 2px var(--blue); }
+/* 保存勾选：纸色一块，标题与解释上下排（原型 .lg-save） */
+.dlg-relogin .lg-save { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; align-items: start; margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--paper-2); cursor: pointer; }
+.dlg-relogin .lg-save input { width: 15px; height: 15px; margin: 2px 0 0; accent-color: var(--blue); }
+.dlg-relogin .lg-save b { display: block; font-size: 13px; font-weight: 700; line-height: 1.4; }
+.dlg-relogin .lg-save small { display: block; margin-top: 2px; color: var(--ink-3); font-size: 11px; line-height: 1.5; }
+/* 验证码图放白底框里（原型 .captcha-d），真图按原比例居中，不拉伸 */
+.dlg-relogin .captcha-d { display: flex; align-items: center; justify-content: center; height: 64px; margin: 0 0 12px; overflow: hidden; border-radius: 8px; background: #fff; box-shadow: inset 0 0 0 1px var(--line-2); }
+.dlg-relogin .rl-cap-img { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
+.dlg-relogin .rl-code { display: grid; gap: 4px; color: var(--ink-2); font-size: 12px; }
+.dlg-relogin .rl-code input { height: 40px; padding: 0 12px; border: 0; border-radius: 8px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); font: 600 18px var(--font-num); letter-spacing: .3em; text-align: center; }
+.dlg-relogin .rl-code input:focus { outline: 0; box-shadow: inset 0 0 0 2px var(--blue); }
+/* 忙碌态：琥珀小圆点脉冲（原型 .rl-spin），比一行蓝字更像「正在跑」 */
+.dlg-relogin .rl-spin { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--ink); font-size: 13px; font-weight: 600; }
+.dlg-relogin .rl-spin i { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 4px rgba(255,176,32,.22); animation: pulse 1.1s ease-in-out infinite; }
+/* 登录学校账号（原型 login 态）：宽一档，两张方式卡并排，选中卡蓝框蓝底 */
+.dlg-relogin.wide { width: min(32rem, calc(100vw - 32px)); }
+.dlg-relogin .lg-way { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 16px; }
+.dlg-relogin .lg-opt { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 10px; row-gap: 1px; min-height: 60px; padding: 10px 12px; border: 0; border-radius: 10px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: box-shadow .15s, background .15s; }
+.dlg-relogin .lg-opt:hover { box-shadow: inset 0 0 0 1px var(--ink-3); }
+.dlg-relogin .lg-opt:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.dlg-relogin .lg-opt.on, .dlg-relogin .lg-opt.on:hover { background: var(--blue-tint); box-shadow: inset 0 0 0 2px var(--blue); }
+.dlg-relogin .lg-opt .lg-ic { grid-row: span 2; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: var(--paper-2); color: var(--ink-2); }
+.dlg-relogin .lg-opt.on .lg-ic { background: var(--paper); color: var(--blue); }
+.dlg-relogin .lg-opt .lg-ic svg { width: 18px; height: 18px; }
+.dlg-relogin .lg-opt b { font-size: 13px; line-height: 1.35; }
+.dlg-relogin .lg-opt small { color: var(--ink-3); font-size: 11px; line-height: 1.45; }
+/* 密码行右侧的眼睛：点一下在明文和圆点之间切 */
+.dlg-relogin .lg-pw { position: relative; display: block; }
+.dlg-relogin .lg-pw input { padding-right: 42px; }
+.dlg-relogin .lg-eye { position: absolute; top: 50%; right: 4px; display: grid; place-items: center; width: 32px; height: 32px; margin-top: -16px; border: 0; border-radius: 6px; background: none; color: var(--ink-3); cursor: pointer; }
+.dlg-relogin .lg-eye:hover { background: var(--paper-2); color: var(--ink); }
+.dlg-relogin .lg-eye svg { width: 17px; height: 17px; }
+.dlg-relogin .lg-eye .eye-off { display: none; }
+.dlg-relogin .lg-eye.on .eye-open { display: none; }
+.dlg-relogin .lg-eye.on .eye-off { display: block; }
+/* 三条说明：虚线分隔、勾号用成功色；用学校登录页那条没有表单，紧贴方式卡 */
+.dlg-relogin .lg-facts { display: grid; gap: 5px; margin: 14px 0 0; padding: 12px 0 0; border-top: 1px dashed var(--line-2); list-style: none; color: var(--ink-2); font-size: 12px; }
+.dlg-relogin .lg-facts li { display: grid; grid-template-columns: 14px minmax(0, 1fr); column-gap: 7px; line-height: 1.5; }
+.dlg-relogin .lg-facts svg { width: 14px; height: 14px; margin-top: 3px; color: var(--ok); }
+.dlg-relogin #lg-facts-web { margin-top: 0; padding-top: 0; border-top: 0; }
+.dlg-relogin .lg-trade { margin: 12px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--warn-tint); color: var(--warn); font-size: 12px; line-height: 1.5; }
+.dlg-relogin .lg-way + .lg-form { margin-top: 0; }
 
 /* ---- 关闭窗口对话框：先列运行中的东西，退出要再确认 ---- */
 .close-running { display: grid; gap: 4px; margin: 0 0 10px; padding: 8px 12px; border-radius: 8px; background: var(--paper-2); list-style: none; font-size: 12px; }

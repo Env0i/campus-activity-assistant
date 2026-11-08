@@ -227,7 +227,7 @@ cxTip.addEventListener("keydown", (event) => {
 $("#list").addEventListener("scroll", () => { if (S.tip.id) placeTip(); });
 $("#btn-refresh").addEventListener("click", () => refresh(false));
 /* 「登录 / 重新登录」先走重新登录对话框（四种情况）；对话框里保留「改用浏览器登录」 */
-$("#btn-login").addEventListener("click", openRelogin);
+$("#btn-login").addEventListener("click", openLogin);
 wireRelogin();
 $("#btn-help").addEventListener("click", showHelp);
 /* 条款弹窗：展开完整条款 / 同意 / 暂不使用 / 只读关闭 / 重新确认。未同意时
@@ -327,7 +327,7 @@ $("#board").addEventListener("click", (event) => {
   const act = btn.dataset.act;
   if (act === "go-cred") openSettingsSection("login");
   else if (act === "go-ocr") openSettingsSection("adv");
-  else if (act === "login") openRelogin();
+  else if (act === "login") openLogin();
   else if (act === "refresh") refresh(false);
   else if (act === "clock-open") openStatusCard("clock", true);
   /* 「还差一步：北京时间还没校准」的「重新校准」直接触发校准（原型 blockers 的 syncClock） */
@@ -388,7 +388,7 @@ $("#banners").addEventListener("click", (event) => {
       paintChecks();
     }
   }
-  if (event.target.closest('[data-act="login"]')) openRelogin();
+  if (event.target.closest('[data-act="login"]')) openLogin();
   if (event.target.closest('[data-act="clock-open"]')) openStatusCard("clock", true);
   const termsBtn = event.target.closest('[data-act="terms-open"]');
   if (termsBtn) {

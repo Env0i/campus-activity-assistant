@@ -195,13 +195,14 @@
       <form method="dialog"><button class="dlg-x" type="submit" aria-label="关闭帮助"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></form>
     </div>
     <div class="dlg-body">
-      <section class="help-guide" aria-labelledby="help-guide-title">
-        <div class="help-section-head"><h3 id="help-guide-title">三步使用说明</h3></div>
+      <!-- 与原型 Main.dc.html:796 对齐：三步不再另起分节标题，说明区直接用 ol.steps；
+           快捷键紧跟其后，用 kbd 画键帽。 -->
+      <section class="help-guide" aria-label="三步使用说明">
         <ol class="steps" id="help-steps"></ol>
       </section>
       <section class="help-keys" aria-labelledby="help-keys-title">
         <h3 id="help-keys-title">键盘快捷键</h3>
-        <dl class="keys"><dt>F5</dt><dd>刷新登录状态和活动列表</dd><dt>Ctrl + F</dt><dd>跳到搜索框</dd><dt>Esc</dt><dd>关闭弹窗和详情卡</dd><dt>Tab</dt><dd>在按钮和活动之间移动</dd><dt>空格</dt><dd>勾选或取消当前活动</dd></dl>
+        <dl class="keys"><dt><kbd>F5</kbd></dt><dd>刷新登录状态和活动列表</dd><dt><kbd>Ctrl</kbd> + <kbd>F</kbd></dt><dd>跳到搜索框</dd><dt><kbd>Esc</kbd></dt><dd>关闭弹窗和详情卡</dd><dt><kbd>Tab</kbd></dt><dd>在按钮和活动之间移动</dd><dt><kbd>空格</kbd></dt><dd>勾选或取消当前活动</dd></dl>
       </section>
     </div>
     <div class="dlg-foot"><span class="grow"></span><button class="btn btn-line" id="btn-help-tour" type="button" title="重新看一遍功能引导">重看引导</button><form method="dialog"><button class="btn btn-solid" type="submit">知道了</button></form></div>
@@ -364,37 +365,75 @@
     <dl class="sc-rows" id="phone-pop-rows"></dl>
     <div class="sc-f"><span class="sc-hint">Esc 关闭</span><button class="btn btn-line" id="btn-phone-manage" type="button">管理手机访问</button></div>
   </div>
-  <!-- 重新登录（设计 9.3）：四种情况各走一步；验证码图与进度来自后端 phone_relogin 事件，和手机同一场流程 -->
-  <dialog class="dlg dlg-sm dlg-relogin" id="dlg-relogin" aria-labelledby="dlg-relogin-title">
-    <div class="dlg-head"><h2 id="dlg-relogin-title">重新登录</h2><button class="dlg-x" id="btn-rl-close" type="button" aria-label="关闭重新登录"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <!-- 重新登录（设计 9.3，原型 Main.dc.html:826-854）：五种情况各走一步，外壳、标题和按钮位置照原型——
+       黑色站牌头（标题 + 一行副句）、白纸正文、按钮全在底部一行。原型的右上角 × 没有照搬：
+       原生 dialog 里 Esc 仍然关，底部留着「取消」，不多给一个角标。
+       验证码图与进度来自后端 phone_relogin 事件，和手机同一场流程 -->
+  <dialog class="dlg dlg-relogin" id="dlg-relogin" aria-labelledby="dlg-relogin-title">
+    <div class="dlg-head"><h2 id="dlg-relogin-title">重新登录</h2><p id="rl-sub" hidden></p></div>
     <div class="dlg-body">
-      <section id="rl-confirm" hidden>
-        <p>电脑上保存了账号，也装了验证码识别：点下面的按钮，电脑会自动登录一次，验证码由电脑认。</p>
-        <p class="rl-privacy">登录时，工具会替你勾选学校登录页上的《隐私协议》。</p>
-        <div class="help-actions"><button class="btn btn-solid" id="btn-rl-auto" type="button">自动登录一次</button></div>
+      <!-- 错误条固定在正文最上面（原型 10-外框）：换步骤时同一条横幅继续用，不跟着表单跑 -->
+      <p class="dlg-err" id="rl-err" role="alert" hidden></p>
+      <section id="rl-confirm" hidden><p class="dlg-p" id="rl-confirm-text"></p></section>
+      <!-- 登录学校账号（原型 Main.dc.html:826-854 的 login 态）：两种方式并排选，
+           在这里输入 = 窗内发账号密码；用学校登录页 = 交给浏览器。facts 与方式绑死，随选择切换 -->
+      <section id="rl-login" hidden>
+        <div class="lg-way" role="radiogroup" aria-label="登录方式">
+          <button class="lg-opt on" id="lg-here" type="button" role="radio" aria-checked="true">
+            <span class="lg-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2.5"></rect><path d="M7 10h.01M10.5 10h.01M14 10h.01M17.5 10h.01M8 14h8"></path></svg></span>
+            <b>在这里输入</b><small>直接发给学校，默认不保存</small>
+          </button>
+          <button class="lg-opt" id="lg-web" type="button" role="radio" aria-checked="false">
+            <span class="lg-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"></rect><path d="M3 9h18M6.5 6.5h.01M9.5 6.5h.01"></path><path d="M9 14.5l2 2 4-4"></path></svg></span>
+            <b>用学校登录页</b><small>在学校官方页面里输入</small>
+          </button>
+        </div>
+        <div class="lg-form" id="lg-form">
+          <label class="lg-f"><span>账号</span><input id="rl-user" type="text" autocomplete="username" spellcheck="false"></label>
+          <label class="lg-f"><span>密码</span><span class="lg-pw"><input id="rl-pass" type="password" autocomplete="current-password" aria-label="密码"><button class="lg-eye" id="lg-eye" type="button" aria-label="显示密码" title="显示密码"><svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"></path><circle cx="12" cy="12" r="2.8"></circle></svg><svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"></path><circle cx="12" cy="12" r="2.8"></circle><path d="M4 4l16 16"></path></svg></button></span></label>
+          <label class="lg-save"><input type="checkbox" id="rl-save"><span><b>登录成功后保存到这台电脑</b><small>保存了，登录失效时电脑能自己重新登录。</small></span></label>
+        </div>
+        <ul class="lg-facts" id="lg-facts-here">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"></path></svg><span>账号密码只从这台电脑发给学校站点，不经过任何其他服务器</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"></path></svg><span id="lg-fact-save">没勾保存：密码只用这一次，不写进电脑</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"></path></svg><span>工具会替你勾选学校登录页的“我已阅读并同意《隐私协议》”</span></li>
+        </ul>
+        <ul class="lg-facts" id="lg-facts-web" hidden>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"></path></svg><span>用这台电脑上的 Edge 或 Chrome 打开学校官方登录页</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"></path></svg><span>账号、密码和验证码都在学校页面里输，工具看不到</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"></path></svg><span>登录成功后，工具只取走登录状态</span></li>
+        </ul>
+        <p class="lg-trade" id="lg-trade" hidden>这种方式不保存账号：登录失效后不能自动登录，要你再登录一次。</p>
       </section>
-      <section id="rl-form" hidden>
-        <p class="rl-note" id="rl-form-note"></p>
-        <label class="rl-field"><span>账号</span><input id="rl-user" type="text" autocomplete="username"></label>
-        <label class="rl-field"><span>密码</span><input id="rl-pass" type="password" autocomplete="current-password"></label>
-        <label class="dlg-check"><input type="checkbox" id="rl-save"> 登录成功后保存到这台电脑（加密存储）</label>
-        <p class="rl-privacy">登录时，工具会替你勾选学校登录页上的《隐私协议》。</p>
-        <p class="phone-component-error" id="rl-form-err" hidden></p>
-        <div class="help-actions"><button class="btn btn-solid" id="btn-rl-form" type="button">登录</button></div>
-      </section>
+      <!-- 保存的密码学校不认（原型 bad 态） -->
+      <section id="rl-bad" hidden><p class="dlg-p" id="rl-bad-text"></p></section>
       <section id="rl-cap" hidden>
-        <p>输入图里的 4 位验证码，大小写照图里写（学校是否区分大小写还没确认）。</p>
-        <img class="rl-cap-img" id="rl-cap-img" alt="学校登录验证码">
-        <p class="rl-note" id="rl-cap-tries"></p>
-        <label class="rl-field"><span>验证码</span><input id="rl-code" type="text" inputmode="latin" maxlength="4" autocomplete="off"></label>
-        <p class="rl-privacy">登录时，工具会替你勾选学校登录页上的《隐私协议》。</p>
-        <p class="phone-component-error" id="rl-cap-err" hidden></p>
-        <div class="help-actions"><button class="btn btn-solid" id="btn-rl-code" type="button">提交验证码</button></div>
+        <div class="captcha-d"><img class="rl-cap-img" id="rl-cap-img" alt="学校登录验证码"></div>
+        <label class="rl-code"><span>照图输入 4 位字母或数字</span><input id="rl-code" type="text" inputmode="latin" maxlength="4" autocomplete="off" spellcheck="false"></label>
+        <p class="dlg-note" id="rl-cap-tries"></p>
+        <p class="dlg-note">登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。手机页也会看到这张图，谁先提交算谁的。</p>
       </section>
-      <section id="rl-wait" hidden><p class="rl-wait" id="rl-wait-text" role="status">正在登录…</p></section>
-      <section id="rl-msg" hidden><p id="rl-msg-text" role="status"></p><div class="help-actions"><button class="btn btn-line" id="btn-rl-done" type="button">知道了</button></div></section>
+      <section id="rl-wait" hidden><p class="rl-spin" role="status"><i aria-hidden="true"></i><span id="rl-wait-text">正在登录…</span></p></section>
+      <!-- 用学校登录页：浏览器打开后停在这里，登完自动收起（原型 lgwait 态） -->
+      <section id="rl-lgwait" hidden>
+        <p class="rl-spin" role="status"><i aria-hidden="true"></i><span>在浏览器里登完再回来，这里会自己更新</span></p>
+        <p class="dlg-note" id="rl-lgwait-text">没看到窗口的话，它可能在别的窗口后面。中途关掉浏览器，会保留原来的登录状态。</p>
+      </section>
+      <section id="rl-msg" hidden><p class="dlg-p" id="rl-msg-text" role="status"></p></section>
     </div>
-    <div class="dlg-foot"><button class="btn btn-ghost" id="btn-rl-browser" type="button">改用浏览器登录</button><span class="grow"></span></div>
+    <div class="dlg-foot" id="rl-foot">
+      <button class="btn" id="btn-rl-browser" type="button" hidden>改用浏览器登录</button>
+      <button class="btn btn-line" id="btn-lg-back" type="button" hidden>上一步</button>
+      <span class="grow"></span>
+      <button class="btn btn-line" id="btn-bad-browser" type="button" hidden>在浏览器里登录</button>
+      <button class="btn btn-line" id="btn-rl-cancel" type="button" hidden>取消</button>
+      <button class="btn btn-solid" id="btn-rl-auto" type="button" hidden>自动登录</button>
+      <button class="btn btn-solid" id="btn-bad-update" type="button" hidden>更新账号密码</button>
+      <button class="btn btn-solid" id="btn-lg-next" type="button" hidden>下一步</button>
+      <button class="btn btn-solid" id="btn-lg-webopen" type="button" hidden>打开学校登录页</button>
+      <button class="btn btn-solid" id="btn-rl-code" type="button" hidden>登录</button>
+      <button class="btn btn-solid" id="btn-rl-done" type="button" hidden>知道了</button>
+    </div>
   </dialog>
   <!-- 关窗四选：右上角 X 不再等于「直接退出」，三个出口 + 先不关，问清楚再动手 -->
   <dialog class="dlg dlg-close" id="dlg-close" aria-labelledby="dlg-close-title">

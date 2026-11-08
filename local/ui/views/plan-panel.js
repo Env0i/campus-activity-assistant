@@ -347,12 +347,14 @@ function paintChecks() {
 }
 
 /* 电脑自动登录要用到的三件事：保存了账号、装了验证码识别、保存的密码没被学校拒绝过。
- * 读 advanced_features_state.credential（bootstrap 与手机面板刷新都带）；读不到就当没开。 */
+ * 读 advanced_features_state.credential（bootstrap 与手机面板刷新都带）；读不到就当没开。
+ * mask 是打码账号，只在后端给了 username 时才有（打码规则与手机页同一个函数）。 */
 function autoLoginCredential() {
   const phone = window.PhonePanel && window.PhonePanel.state && window.PhonePanel.state.advanced;
   const adv = phone || S.advanced || {};
   const cred = adv.credential || {};
-  return { saved: !!cred.saved, ocr: !!cred.ocr_ready, paused: !!cred.paused };
+  const mask = cred.username && typeof maskAccount === "function" ? maskAccount(cred.username) : "";
+  return { saved: !!cred.saved, ocr: !!cred.ocr_ready, paused: !!cred.paused, mask: mask, username: String(cred.username || "") };
 }
 
 function latestSelectedOpen() {
