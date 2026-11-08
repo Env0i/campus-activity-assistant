@@ -40,7 +40,17 @@
   - 计划要先过门禁，门禁是共享桥接目录里的 `plan-validate`。门禁需要 PyYAML，本机测试用的 Python 3.12 没装 PyYAML。
 - **需求有歧义时**：只在有歧义时才问。能自己判断的，把判断写进提交正文的「放弃了什么」。
 - **收工**：
-  - 提醒提交端运行 `pwsh -NoProfile -File scrub-share.ps1 -Repo <当前项目路径>`。`.claude/` 对共享工作区可见，要先净化。
+  - 提醒提交端净化 `.claude/`（对共享工作区可见）。脚本是共享桥接目录里的 `scrub-share.ps1`，写法随 PowerShell 版本不同，两种环境不通用：
+    - PowerShell 7：`pwsh -NoProfile -File <bridge 目录>/scrub-share.ps1 -Repo <当前项目路径>`
+    - PowerShell 5.1：不能 `-File` 直跑。它按 ANSI 解码无 BOM 的脚本，中文串里的 `}` 会被吞掉，报「Try 语句缺少 Catch 或 Finally」，改用加载器：
+
+      ```powershell
+      $B = '<bridge 目录>'
+      $T = [IO.File]::ReadAllText("$B\scrub-share.ps1", [Text.Encoding]::UTF8) -replace '(?m)(param\([^)]*\)\r?\n)', ('$1' + "`$PSScriptRoot = '$B'`r`n")
+      & ([scriptblock]::Create($T)) -Repo '<当前项目路径>'
+      ```
+
+      不写 `-Repo` 就用当前目录；第二行补的是 `$PSScriptRoot`，它在 scriptblock 里是空串，缺了会在 `Split-Path` 上报空路径。
   - 交接用 `git bundle create ../handover.bundle --all`。
 - **报告**：完成后只报告五件事：
   1. 改了什么

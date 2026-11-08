@@ -15,7 +15,7 @@
 - 开工前先看 `git status --short`，发现别人留下的改动不要回滚、清理或覆盖。
 - Claude 可以在共享工作区分析、修改和使用 Git；GitHub push 需要用户明确审核，历史改写和删除 refs 仍需单独授权。
 - 真实站点地址只从运行环境的 `SCHOOL_ORIGIN` 读取，不把真实值写入 `local/config.json`、`server/config.json` 或仓库文件。
-- 每轮收工后用 `pwsh -NoProfile -File scrub-share.ps1` 运行共享桥接目录里的脚本，净化 `.claude/` 下对共享工作区可见的计划、结果和日志。
+- 每轮收工后用共享桥接目录里的 `scrub-share.ps1` 净化 `.claude/` 下对共享工作区可见的计划、结果和日志。写法随 PowerShell 版本不同，两种环境的命令见 `AGENTS.md`「收工」。
 - `local/data/`、`server/data/`、`dist/`、真实配置和认证材料不放进共享工作区。
 
 > **适用对象**：目标学校（校园）**专升本**学生。项目按目标学校学生端的接口与页面写死；换学校要改 `SCHOOL_ORIGIN` 与接口适配，不在支持范围内。
