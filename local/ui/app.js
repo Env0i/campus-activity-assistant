@@ -192,11 +192,15 @@ $("#rows").addEventListener("keydown", (event) => {
   event.preventDefault();
   togglePlace(place);
 });
-/* 「不可加入」气泡：悬停整行或聚焦标签打开，移开稍等收起；鼠标进了气泡就不收 */
+/* 「不可加入」气泡：只有指针停在标签上（或聚焦标签）才开；扫过整行不弹，
+ * 否则冲突行多时会一个接一个地冒。移开稍等收起；鼠标进了气泡就不收 */
 $("#rows").addEventListener("mouseover", (event) => {
-  const row = event.target.closest(".row");
-  if (row && row.classList.contains("is-clash")) tipOpen(row.dataset.id);
+  const tag = event.target.closest(".state-clash");
+  if (tag && tag.closest(".row")) tipSoon(tag.closest(".row").dataset.id);
   else tipLater();
+});
+$("#rows").addEventListener("mouseout", (event) => {
+  if (event.target.closest(".state-clash")) tipLater();
 });
 $("#rows").addEventListener("mouseleave", tipLater);
 $("#rows").addEventListener("focusin", (event) => {

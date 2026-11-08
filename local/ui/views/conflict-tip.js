@@ -1,5 +1,6 @@
 /* 「不可加入」的原因气泡（照原型 Main.dc.html 的 cxTipOpen / placeTip / tipView）：
- * 悬停整行或键盘聚焦「不可加入」打开，Esc 或移开收起。
+ * 只有鼠标停在「不可加入」标签上（或键盘聚焦标签）才开；扫过整行不弹，
+ * 否则冲突行多时会一个接一个地冒，反而看不清。Esc 或移开收起。
  * 气泡挂在 body 下、position: fixed，不被列表滚动容器裁掉；下面放不下就翻到行上方。 */
 function tipHtml(model) {
   const rows = model.rows.map((r) => "<dt>" + esc(r.label) + "</dt><dd><b>" + esc(r.name) + "</b>　" + esc(r.span) + "</dd>").join("");
@@ -25,13 +26,22 @@ function tipPair() {
 
 function tipOpen(id) {
   clearTimeout(S.tip.timer);
+  clearTimeout(S.tip.openTimer);
   if (S.tip.id === String(id)) return;
   S.tip.id = String(id);
   paintTip();
 }
 
+/* 指针只是扫过标签时不立刻弹：停住一会儿才开，避免沿列表往下滑时一路冒泡 */
+function tipSoon(id) {
+  clearTimeout(S.tip.openTimer);
+  if (S.tip.id === String(id)) return;
+  S.tip.openTimer = setTimeout(() => tipOpen(id), 140);
+}
+
 function tipClose() {
   clearTimeout(S.tip.timer);
+  clearTimeout(S.tip.openTimer);
   if (!S.tip.id) return;
   S.tip.id = "";
   paintTip();
