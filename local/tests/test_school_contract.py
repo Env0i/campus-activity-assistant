@@ -118,6 +118,30 @@ class GetInfoContractTests(unittest.TestCase):
         self.assertFalse(parsed["checkout_required"])
         self.assertEqual(parsed["checkout_start"], "")
 
+    def test_cancel_and_sign_flags_are_mapped_per_key(self):
+        # R2（计划 20261107-conflict-cancel）：样例里 qxbm=1、sfkybm=0，
+        # 逐键映射成 cancel_allowed=True、can_sign=False；两键只来自这两个学校字段
+        detail = _load("get-info.data.json")
+        self.assertEqual(detail["qxbm"], 1)
+        self.assertEqual(detail["sfkybm"], 0)
+        parsed = grab.parse_attendance_detail(detail)
+        self.assertIs(parsed["cancel_allowed"], True)
+        self.assertIs(parsed["can_sign"], False)
+        for qxbm, want in ((1, True), (0, False), ("1", True), ("0", False)):
+            with self.subTest(qxbm=qxbm):
+                changed = dict(detail, qxbm=qxbm, sfkybm=1 - int(qxbm))
+                got = grab.parse_attendance_detail(changed)
+                self.assertIs(got["cancel_allowed"], want)
+                self.assertIs(got["can_sign"], not want)
+        for dropped in ("qxbm", "sfkybm"):
+            with self.subTest(dropped=dropped):
+                partial = {k: v for k, v in detail.items() if k != dropped}
+                got = grab.parse_attendance_detail(partial)
+                key = "cancel_allowed" if dropped == "qxbm" else "can_sign"
+                other = "can_sign" if dropped == "qxbm" else "cancel_allowed"
+                self.assertIsNone(got[key], "字段缺失是不知道，不猜")
+                self.assertIsNotNone(got[other], "另一个键不受影响")
+
     def test_detail_sample_window_matches_list_sample(self):
         detail = _load("get-info.data.json")
         second = _load("list-activity.items.json")[1]

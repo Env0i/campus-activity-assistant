@@ -736,6 +736,12 @@ def parse_attendance_detail(raw):
         "checkout_required": flag_out,
         "checkout_start": out_start,
         "checkout_end": out_end,
+        # R2（计划 20261107-conflict-cancel）：qxbm（报名后允许取消）与 sfkybm
+        # （学校前端判「时间冲突」的开关）逐键映射成三态；缺失或认不出一律 None，
+        # 绝不猜成允许 / 不允许。can_sign 只映射不展示（学校前端分析 9.4：学校
+        # 不写冲突原因）；cancel_allowed 是取消报名的前置条件之一（分析 11.1）。
+        "cancel_allowed": _tri_state(data.get("qxbm")) if "qxbm" in data else None,
+        "can_sign": _tri_state(data.get("sfkybm")) if "sfkybm" in data else None,
     }
 
 
@@ -763,6 +769,9 @@ def _apply_attendance(item, detail):
                    for key in ("checkin_required", "checkout_required",
                                "checkin_start", "checkout_start"))
     if detail is None:
+        # R2：详情没拿到就是「不知道」，两键置 None（界面据此不写「报后可退」）
+        item["cancel_allowed"] = None
+        item["can_sign"] = None
         item.setdefault("checkin_start", "")
         item.setdefault("checkin_end", "")
         item.setdefault("checkout_start", "")
@@ -772,11 +781,16 @@ def _apply_attendance(item, detail):
         item["attendance_error"] = "detail_unavailable"
         return item
     for key, value in detail.items():
-        if key in ("checkin_required", "checkout_required"):
+        if key in ("checkin_required", "checkout_required",
+                   "cancel_allowed", "can_sign"):
+            # 三态键：只有 None 才让位给详情；False 是明确回答，不能被「真值判断」吞掉
             if item.get(key) is None:
                 item[key] = value
         elif not item.get(key):
             item[key] = value
+    # R2：列表没有这两个键，详情（或测试替身）也可能没给——补成 None，输出形状固定
+    item.setdefault("cancel_allowed", None)
+    item.setdefault("can_sign", None)
     item["attendance_source"] = "list" if list_has else "detail"
     item["attendance_state"] = "ready"
     item.pop("attendance_error", None)
@@ -930,6 +944,25 @@ def still_relevant(act, now=None):
         return parse_ts(act["sign_end"]) >= now - 3600
     except Exception:
         return True
+
+
+def keep_in_list(act, now):
+    """列表默认保留谁（R1，计划 20261107-conflict-cancel）。
+
+    still_relevant 为真照旧保留；另外「已报名、举办还没结束」的活动即使报名早已截止
+    也保留——否则它在列表里消失，界面的冲突与禁选基线、后端 signed_baseline 都看不见
+    这场已占用的举办时段，用户只能等学校拒绝才发现冲突。
+    act_end 缺失或解析不了的已报名活动仍按原规则筛：补回它们会让界面「已报名活动
+    时间待确认」的保守规则挡住所有勾选。举办恰在 now 结束算没结束（不早于 now）。
+    """
+    if still_relevant(act, now):
+        return True
+    if not act.get("signed"):
+        return False
+    try:
+        return parse_ts(act.get("act_end")) >= now
+    except Exception:
+        return False
 
 
 def sign_state(act, now=None):
@@ -1205,8 +1238,9 @@ def cmd_list(args):
             log("[!] 北京时间暂不可用：本次保留全部活动，开放状态显示未知。")
     # 默认只看报名还没截止的（历史活动几百条，混在一起没法挑）；
     # 没有可信北京时间时不能按本机时钟过滤，保留全部由用户自行判断
+    # R1：已报名且举办没结束的补回（keep_in_list）；--all 与时钟不可用分支不变
     rows = list(acts) if (args.all or now is None) \
-        else [a for a in acts if still_relevant(a, now)]
+        else [a for a in acts if keep_in_list(a, now)]
 
     def rank(a):
         # 未开放的排最前，其次开放中，已报名的垫底；时间未知时全部同档
@@ -1259,6 +1293,9 @@ def cmd_list(args):
                 "checkout_end": act.get("checkout_end") or "",
                 "attendance_source": act.get("attendance_source") or "none",
                 "attendance_state": act.get("attendance_state") or "unknown",
+                # R2：三态，详情失败或字段缺失为 None；can_sign 只透传不展示
+                "cancel_allowed": act.get("cancel_allowed"),
+                "can_sign": act.get("can_sign"),
                 "state": "已报名" if act["signed"]
                          else ("待确认" if now is None else sign_state(act, now)),
             })
