@@ -11,6 +11,7 @@ function render() {
   paintRoute();
   paintBanners();
   updateControls();
+  paintTip();
   tick();
   paintLed();
   /* 引导还开着时，列表重画可能挪动高亮目标：重新定位现有高亮，不重开、不假点击 */
@@ -22,6 +23,7 @@ function paintList() {
   const box = $("#rows");
   const listEl = $("#list");
   S.rowEls = new Map();
+  S.rowCancel = new Map();
   listEl.classList.toggle("is-loading", S.listState === "loading");
   /* 加载态一律换成骨架行，手上有旧列表也一样（原型 Main.dc.html:2138）：
    * 点刷新后必须马上看得见「在动」，否则请求挂着不回来时用户只会觉得没反应。 */
@@ -45,6 +47,8 @@ function paintList() {
     box.innerHTML = groupTimetable(rows);
   }
   S.rowStates = new Map(rows.map((item) => [String(item.id), stateOf(item)]));
+  /* 「可取消至」随报名截止消失，不改 stateOf：单记一份让心跳能发现这一刻 */
+  rows.forEach((item) => { if (item.signed) S.rowCancel.set(String(item.id), canCancelNow(item)); });
   box.querySelectorAll(".row").forEach((tr) => {
     const id = tr.dataset.id;
     S.rowEls.set(id, {
@@ -134,13 +138,17 @@ function rowHtml(item) {
   if (state === "closed") classes.push("is-closed");
   if (state === "unknown" || invalid) classes.push("is-unknown");
   if (conflict) classes.push("is-conflict");
+  if (clashOf(item, armed)) classes.push("is-clash");
+  if (S.tip.id === id) classes.push("is-tipon");
+  if (S.flashId === id) classes.push("is-flash");
   if (armed) classes.push("is-armed");
   const leftText = leftTextOf(item);
   /* 已截止活动保留在列表里查看，但复选框禁用；已报名同理 */
   /* 条款未同意时与登录/刷新/开始同一道门：勾选也算学校动作的前置，不能漏拦。 */
-  /* 与已报名活动时间重叠的直接禁选（决策 004 的外部占用基线），并写明和哪一场冲突 */
-  const clash = signedClash(item);
-  const checkDisabled = S.busy || termsLocked() || !isEligibleForPlan(item) || !!clash;
+  /* 与已报名活动时间重叠的直接禁选（决策 004 的外部占用基线）；
+   * 原因不写在行内：状态格只留「不可加入」，悬停或聚焦弹气泡（20261107-conflict-cancel U1） */
+  const clash = clashOf(item, armed);
+  const checkDisabled = S.busy || termsLocked() || !isEligibleForPlan(item) || !!signedClash(item);
   /* 学校常把开放时间定在 00:59:59 这种点：有秒就把秒写成小号 */
   /* 还不知道开放时刻就写「待公布」（原型 Main.dc.html:1944），不拿 --:-- 冒充一个时刻 */
   let timeHtml = '<span class="t">待公布</span>';
@@ -161,15 +169,17 @@ function rowHtml(item) {
     sub.push('<span class="activity-flags"><span class="activity-flag">' + esc(modeText(modeOf(item))) + "</span></span>");
   }
   sub.push("<span" + (invalid ? ' class="is-unknown"' : "") + ">" + esc(activityTimeText(item)) + "</span>");
+  /* 报后可退 / 报后不可退：未报名的等待、开放中行；cancel_allowed 为 null 时不写 */
+  const refund = refundFlag(item, state);
+  if (refund) sub.push('<span class="rf' + (refund.no ? " no" : "") + '">' + refund.text + "</span>");
   /* 学校列表还没同步回 signed=true：说清「已确认，只是列表在同步」，
    * 不把这场重新画成可报名。 */
   if (item.sync_pending && state === "signed") {
     sub.push('<span class="sync-note">报名已确认，学校列表正在同步</span>');
   }
-  const partner = clash || (conflict ? selectedClash(item) : null);
-  /* 冲突提示照原型 Main.dc.html:1928 的两句：与已报名的说「不能加入」，与已选的只说重叠 */
-  const warn = clash ? "与已报名的「" + clash.name + "」时间重叠，不能加入"
-    : (partner ? "与已选的「" + partner.name + "」时间重叠" : "");
+  /* 行内只留与已选的那一句；与已报名的冲突改由「不可加入」标签 + 气泡讲 */
+  const partner = !clash && conflict ? selectedClash(item) : null;
+  const warn = partner ? "与已选的「" + partner.name + "」时间重叠" : "";
   const flags = requirementFlags(item) + (warn ? '<span class="row-warn">' + esc(warn) + "</span>" : "");
   return "<div class=\"" + classes.join(" ") + "\" data-id=\"" + esc(id) + "\" aria-label=\"" + esc(item.name) + "\">" +
     "<div class=\"c-sel\"><input class=\"row-check\" type=\"checkbox\" data-id=\"" + esc(id) + "\"" + (selected ? " checked" : "") + (checkDisabled ? " disabled" : "") + " aria-label=\"选择" + esc(item.name) + "\"></div>" +
@@ -177,12 +187,48 @@ function rowHtml(item) {
     "<div class=\"c-main\"><div class=\"name\" title=\"" + esc(item.name) + "\">" + esc(item.name) + "</div><div class=\"sub\">" + sub.join("") + flags + "</div></div>" +
     "<div class=\"c-place\" tabindex=\"0\" role=\"button\" aria-expanded=\"false\" aria-label=\"地点：" + esc(item.place || "地点待定") + "，按回车展开全部\" title=\"" + esc(item.place || "地点待定") + "\">" + esc(item.place || "地点待定") + "</div>" +
     "<div class=\"c-state\">" + stateCellHtml(item, state, leftText, armed) + "</div>" +
-    "</div>";
+    "</div>" + cancelRxHtml(item);
+}
+
+/* 与已报名活动重叠、需要显示「不可加入」的行：只限等待开放 / 开放中的未报名行（原型 clash 条件）；
+ * 已截止、已报名、正在提交、本机时钟不可用（待校准）的行不画这个标签 */
+function clashOf(item, armed) {
+  if (armed || !isEligibleForPlan(item)) return null;
+  const state = stateOf(item);
+  if (state !== "waiting" && state !== "open") return null;
+  return signedClash(item);
+}
+
+/* 行下面的确认块 / 结果句（照原型 .rx）：只在这一场被点了取消或有结果时出现 */
+function cancelRxHtml(item) {
+  const id = String(item.id);
+  const ask = S.cancel.askId === id && !S.cancel.busyId && canCancelNow(item);
+  const result = S.cancel.res && S.cancel.res.id === id ? cancelResultView(S.cancel.res, item.name) : null;
+  if (!ask && !result) return "";
+  return '<div class="rx" data-rx="' + esc(id) + '">' +
+    (ask ? '<div class="ph-confirm" role="alert">取消「' + esc(item.name) + '」的报名？取消后名额可能被别人报走，不能撤回。' +
+      '<div class="ph-acts"><button class="btn btn-line" type="button" data-cancel-no="' + esc(id) + '">不取消</button>' +
+      '<button class="btn btn-stop" type="button" data-cancel-yes="' + esc(id) + '">确认取消报名</button></div></div>' : "") +
+    (result ? '<p class="cx-res ' + result.cls + '" role="status">' + esc(result.text) + "</p>" : "") + "</div>";
+}
+
+/* 「取消报名」按钮：条件不满足时仍画出来但置灰，title 写原因 */
+function cancelButtonHtml(item) {
+  const id = String(item.id);
+  const block = cancelBlock(id);
+  const here = S.cancel.busyId === id;
+  return '<button class="btn btn-line cx-btn" type="button" data-cancel="' + esc(id) + '"' + (block.off ? " disabled" : "") +
+    (block.why ? ' title="' + esc(block.why) + '"' : "") + ">" + (here ? "正在取消…" : "取消报名") + "</button>";
 }
 
 function stateCellHtml(item, state, leftText, armed) {
   const nextId = nextOpen().bestId;
   if (armed) return '<span class="state-tag state-armed">' + esc(taskDisplayLabel(armed)) + "</span>";
+  /* 与已报名的活动时间重叠：只剩虚线的「不可加入」，不带倒计时；可聚焦，原因在气泡里 */
+  if (clashOf(item, armed)) {
+    return '<span class="state-tag state-clash" tabindex="0" aria-describedby="cx-tip">不可加入' +
+      '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6h.01"/></svg></span>';
+  }
   if (missedBySleep(item)) {
     return '<span class="state-tag state-missed">错过了</span><span class="small">'
       + (state === "open" ? "还开着，可以重新勾选" : "电脑睡眠期间到点") + "</span>";
@@ -193,7 +239,11 @@ function stateCellHtml(item, state, leftText, armed) {
       (isNext ? '<span class="state-tag state-next">下一场</span>' : "");
   }
   if (state === "open") return '<span class="state-tag state-open">开放中</span><span class="small" data-ago>已开放 ' + durText(-leftOf(item)) + "</span>";
-  if (state === "signed") return '<span class="state-tag state-signed">已报名</span>';
+  if (state === "signed") {
+    /* 可取消（qxbm 为 1 且业务北京时间在报名窗口内）才有「可取消至」和取消按钮 */
+    return '<span class="state-tag state-signed">已报名</span>' +
+      (canCancelNow(item) ? '<span class="cx-until">' + esc(cancelUntilText(item)) + "</span>" + cancelButtonHtml(item) : "");
+  }
   if (state === "closed") return '<span class="state-tag state-closed">已截止</span>';
   return '<span class="state-tag state-unknown">' +
     (signStartKnown(item) ? "待校准" : "待公布") + "</span>";

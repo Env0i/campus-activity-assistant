@@ -17,6 +17,9 @@ function normalize(raw) {
   item.attendance_state = ["ready", "pending", "unknown"].indexOf(state) >= 0 ? state
     : (item.checkin_required !== null || item.checkout_required !== null ? "ready" : "unknown");
   item.attendance_source = String(item.attendance_source || "none");
+  /* 详情里的 qxbm（20261107-conflict-cancel R2）：true 可取消 / false 报后不能取消 / null 没查到。
+   * 后端的 can_sign（sfkybm）只映射不展示，这里不碰。 */
+  item.cancel_allowed = triState(item.cancel_allowed);
   return item;
 }
 

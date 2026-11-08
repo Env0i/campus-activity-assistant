@@ -128,6 +128,12 @@ const S = {
       { value: 0, label: "直到报名截止" },
     ],
   },
+  /* 取消报名（20261107-conflict-cancel X3/X4）：askId=确认块开在哪一场；busyId=正在取消哪一场；
+   * res=结果句（{id, kind, say?, reason?}），到下一次手动刷新或下一次点取消为止 */
+  cancel: { askId: "", busyId: "", res: null },
+  /* 「不可加入」原因气泡：id=当前打开的那一行；flashId=「去已报名那场」后短暂高亮的行 */
+  tip: { id: "", timer: null, flashTimer: null },
+  flashId: "",
   logOpen: false,
   /* 最近 40 条运行记录：成功结论只写一次，重复事件不刷第二遍（RC-06） */
   recentLogs: [],

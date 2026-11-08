@@ -89,9 +89,14 @@ function validActivityTime(item) {
   return start !== null && end !== null && end > start;
 }
 
+/* 同一天沿用原写法；跨天如实展开成绝对日期并写明跨几天（20261107-conflict-cancel，
+ * 原型 Main.dc.html actText / spanAbs）。结束恰为 00:00 时只跨一天的写成「24:00」。 */
 function activityTimeText(item) {
   if (!validActivityTime(item)) return "活动时间待确认";
-  return "活动 " + whenText(toTs(item.act_start) * 1000) + " – " + hm(toTs(item.act_end) * 1000);
+  if (spanDays(item) > 1) return "活动 " + actSpanAbs(item);
+  const start = toTs(item.act_start);
+  const end = toTs(item.act_end);
+  return "活动 " + whenText(start * 1000) + " – " + (endsAtMidnight(start, end) ? "24:00" : hm(end * 1000));
 }
 
 /* ---------------------------------------------------------------- 每秒 */

@@ -13,6 +13,7 @@
   --font-log: Consolas, "Cascadia Mono", monospace;
   /* 时刻表行五列：勾选 / 开放时刻 / 活动 / 地点 / 距开放与状态（原型密度） */
   --cols: 26px 76px minmax(0, 1fr) 156px 132px;
+  --time-w: 76px;   /* 时间列宽：取消确认块 .rx 的左缩进据此对齐活动列 */
   --gutter: 16px;
   color-scheme: light;
 }
@@ -334,7 +335,8 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .fresh { color: var(--ink-3); font-size: 12px; }
 .fresh[data-tone="warn"] { color: var(--warn); font-weight: 600; }
 .state-missed { background: var(--warn-tint); color: var(--warn); }
-.c-main .sub { display: flex; column-gap: 12px; color: var(--ink-2); font-size: 12px; white-space: nowrap; overflow: hidden; }
+/* 允许换行：跨天时段加「报后可退 / 不可退」比原来长，不能被裁掉（原型 .sub 同样 flex-wrap） */
+.c-main .sub { display: flex; flex-wrap: wrap; column-gap: 12px; row-gap: 2px; color: var(--ink-2); font-size: 12px; overflow: hidden; }
 .c-main .sub .is-unknown { color: var(--warn); }
 /* 报名已确认但学校列表还在同步：用状态色而不是警告色，避免看起来像失败 */
 .c-main .sub .sync-note { color: var(--ok); }
@@ -687,7 +689,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 
 /* 980×700 最小窗口 */
 @media (max-width: 1060px) {
-  :root { --cols: 26px 70px minmax(0, 1fr) 128px 118px; --gutter: 12px; }
+  :root { --cols: 26px 70px minmax(0, 1fr) 128px 118px; --time-w: 70px; --gutter: 12px; }
   .brand-desc { display: none; }
   .board { padding: 12px 14px 10px; }
   .b-title { font-size: 18px; }
@@ -696,7 +698,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 }
 /* 900–1060 的中间档：地点列再收窄，筛选行允许换行 */
 @media (max-width: 900px) {
-  :root { --cols: 26px 68px minmax(0, 1fr) 104px 108px; }
+  :root { --cols: 26px 68px minmax(0, 1fr) 104px 108px; --time-w: 68px; }
   .filters { gap: 6px; }
   .c-time .t { font-size: 17px; }
   .b-checks .chk { height: 22px; font-size: 11px; }
@@ -722,7 +724,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 /* 更窄视口（约 746×512，150% 缩放未换算时）：点阵缩小但仍在标题右边，
    底部操作条换行保留；地点列收起、按钮只剩图标，不出横向滚动 */
 @media (max-width: 860px) {
-  :root { --cols: 26px 64px minmax(0, 1fr) 108px; }
+  :root { --cols: 26px 64px minmax(0, 1fr) 108px; --time-w: 64px; }
   .c-place, .colhead .h-place { display: none; }
   /* 窄窗保留时间入口：只省标签与秒数，演示标记与状态图形不消失 */
   .clock { padding: 0 6px; gap: 5px; }
@@ -997,3 +999,50 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .sc-f { display: flex; align-items: center; gap: 8px; padding: 12px 14px; }
 .sc-hint { flex: 1; color: var(--ink-3); font-size: 11px; }
 @media (max-width: 719px) { .pop-card, #clock-pop { left: 12px !important; right: 12px; width: auto; } }
+
+/* ---- 冲突气泡、跨天时段、报后可退、取消报名（20261107-conflict-cancel）：照原型 Main.dc.html 的 .t-clash / .tipb / .tl-* / .rf / .cx-* / .rx，
+ *      原型的 rem 按 16px 换算，色值映射到本文件的 token ---- */
+.state-clash { gap: 4px; padding: 0 6px 0 7px; border: 1px dashed var(--ink-3); background: transparent; color: var(--ink-2); cursor: help; }
+.state-clash::before { display: none; }
+.state-clash svg.i { width: 13px; height: 13px; stroke-width: 1.9; }
+.state-clash:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.row.is-clash { cursor: default; }
+.row.is-tipon, .row.is-tipon:hover { background: #f5f8fa; }
+.row.is-flash { animation: cxflash 1.8s ease-out; }
+@keyframes cxflash { 0%, 40% { background: #ffe7ad; } 100% { background: transparent; } }
+.rf { color: var(--ink-2); }
+.rf.no { color: var(--warn); font-weight: 600; }
+.cx-until { color: var(--ink-2); font-size: 11px; line-height: 1.3; white-space: nowrap; }
+.btn.cx-btn { height: 24px; padding: 0 8px; border-radius: 6px; font-size: 12px; }
+.rx { padding: 2px 12px 10px calc(12px + 26px + 14px + var(--time-w) + 14px); border-bottom: 1px solid var(--line); background: var(--paper); }
+.rx .ph-confirm { margin-top: 4px; }
+.cx-res { margin: 4px 0 0; padding: 7px 10px; border-radius: 8px; font-size: 12px; }
+.cx-res.ok { background: var(--ok-tint); color: var(--ok); }
+.cx-res.bad { background: var(--bad-tint); color: #7e2119; }
+.cx-res.warn { background: var(--warn-tint); color: #6b4100; }
+.tk small.nr { color: var(--amber); }
+.tipb { position: fixed; z-index: 40; width: 384px; max-width: calc(100vw - 16px); padding: 12px 14px 14px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--paper); box-shadow: 0 14px 36px rgba(18, 21, 19, .2); color: var(--ink); font-size: 12px; line-height: 1.5; text-align: left; }
+.tipb-ar { position: absolute; top: -5.5px; width: 10px; height: 10px; margin-left: -5px; transform: rotate(45deg); background: var(--paper); border-top: 1px solid var(--line-2); border-left: 1px solid var(--line-2); }
+.tipb.up .tipb-ar { top: auto; bottom: -5.5px; border: 0; border-right: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); }
+.tipb-t { margin: 0 0 8px; font-size: 13px; font-weight: 700; }
+.tipb-r { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; margin: 0; }
+.tipb-r dt { color: var(--ink-3); }
+.tipb-r dd { margin: 0; color: var(--ink-2); }
+.tipb-r dd b { color: var(--ink); font-weight: 600; }
+.tl { margin: 10px 0 8px; }
+.tl-track { position: relative; height: 34px; border-radius: 4px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); }
+.tl-track i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-2); }
+.tl-ov { position: absolute; top: 0; bottom: 0; background: rgba(182, 50, 39, .2); border-left: 1.5px dashed var(--bad); border-right: 1.5px dashed var(--bad); }
+.tl-bar { position: absolute; height: 9px; border-radius: 2px; }
+.tl-bar.bar-a { top: 6px; background: #d98a00; }
+.tl-bar.bar-b { bottom: 6px; background: var(--blue); }
+.tl-d { display: flex; margin-top: 3px; color: var(--ink-3); font: 11px var(--font-num); }
+.tl-d span { flex: 1; min-width: 0; text-align: center; }
+.tl-d.is-sparse { justify-content: space-between; }
+.tl-d.is-sparse span { flex: none; }
+.tl-k { display: flex; gap: 12px; margin-top: 4px; color: var(--ink-2); font-size: 11px; }
+.tl-k span::before { content: ""; display: inline-block; width: 10px; height: 6px; margin-right: 4px; border-radius: 2px; vertical-align: 1px; }
+.tl-k .k-a::before { background: #d98a00; }
+.tl-k .k-b::before { background: var(--blue); }
+.tl-k .k-o::before { background: rgba(182, 50, 39, .2); box-shadow: inset 1.5px 0 0 var(--bad), inset -1.5px 0 0 var(--bad); }
+.tipb-s { margin: 0; }

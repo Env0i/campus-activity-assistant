@@ -1,6 +1,6 @@
 /* 计划控制器：开始/对账/接纳/停止、登录触发与 done 结果收口。 */
 function startPlan() {
-  if (S.busy || S.starting) return;
+  if (S.busy || S.starting || S.cancel.busyId) return;
   /* 条款未同意：报名计划是学校网络动作，拒绝后按钮已禁用，这里只兜底不强弹 */
   if (termsLocked()) {
     if (!S.terms.declined && !S.terms.unknown) openTerms();

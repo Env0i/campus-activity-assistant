@@ -117,6 +117,10 @@ function refresh(quiet) {
     if (!quiet) setResult({ ok: false, title: "还没有连接本机程序", text: "请从图形界面启动，再点「刷新」加载活动列表。" });
     return;
   }
+  /* 取消报名进行中：学校动作互斥（X3），F5 与自动刷新也不放行 */
+  if (S.cancel.busyId) return;
+  /* 手动刷新（点按钮 / F5 / 空态按钮）清掉上一次取消的结果句；取消成功后的自动刷新是 quiet，保留它 */
+  if (!quiet) { S.cancel.res = null; S.cancel.askId = ""; }
   /* 条款未同意：真实校验与活动列表都是学校网络动作，这一轮不发起；
    * 还没拒绝过就先弹条款，拒绝过或条款状态未知时安静返回——未知状态由
    * 横幅给重试入口，不在每次自动刷新时反复弹窗（按钮本就禁用，此处兜底） */

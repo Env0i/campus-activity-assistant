@@ -161,6 +161,14 @@ $("#rows").addEventListener("change", (event) => {
   if (check) toggleSelection(check.dataset.id, check.checked);
 });
 $("#rows").addEventListener("click", (event) => {
+  /* 取消报名：按钮只展开确认块；确认块里「不取消」不调接口，只有「确认取消报名」才调（controllers/cancel.js） */
+  const cancelBtn = event.target.closest("[data-cancel]");
+  if (cancelBtn) { cancelAsk(cancelBtn.dataset.cancel); return; }
+  const cancelNo = event.target.closest("[data-cancel-no]");
+  if (cancelNo) { cancelAskDismiss(); return; }
+  const cancelYes = event.target.closest("[data-cancel-yes]");
+  if (cancelYes) { cancelConfirm(cancelYes.dataset.cancelYes); return; }
+  if (event.target.closest(".rx")) return;
   if (event.target.closest(".row-check")) return;
   /* 地点是独立可聚焦控件：点它只展开/收起完整文本，不改变选择 */
   const place = event.target.closest(".c-place");
@@ -172,12 +180,47 @@ $("#rows").addEventListener("click", (event) => {
 });
 /* 键盘展开地点：Enter / Space 只翻转 aria-expanded，不触发开始计划或勾选 */
 $("#rows").addEventListener("keydown", (event) => {
+  /* 「不可加入」标签上的键盘：Esc 收气泡，Enter / 空格把焦点移进气泡里的链接 */
+  if (event.target.closest && event.target.closest(".state-clash")) { tipKey(event); return; }
   const place = event.target.closest(".c-place");
   if (!place) return;
   if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar") return;
   event.preventDefault();
   togglePlace(place);
 });
+/* 「不可加入」气泡：悬停整行或聚焦标签打开，移开稍等收起；鼠标进了气泡就不收 */
+$("#rows").addEventListener("mouseover", (event) => {
+  const row = event.target.closest(".row");
+  if (row && row.classList.contains("is-clash")) tipOpen(row.dataset.id);
+  else tipLater();
+});
+$("#rows").addEventListener("mouseleave", tipLater);
+$("#rows").addEventListener("focusin", (event) => {
+  const tag = event.target.closest(".state-clash");
+  const row = tag && tag.closest(".row");
+  if (row) tipOpen(row.dataset.id);
+});
+$("#rows").addEventListener("focusout", (event) => {
+  if (event.target.closest(".state-clash")) tipLater();
+});
+const cxTip = $("#cx-tip");
+cxTip.addEventListener("mouseenter", tipStay);
+cxTip.addEventListener("mouseleave", tipLater);
+cxTip.addEventListener("focusin", tipStay);
+cxTip.addEventListener("focusout", tipLater);
+cxTip.addEventListener("click", (event) => {
+  if (event.target.closest("[data-act='cx-go']")) tipGoSigned();
+});
+cxTip.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  event.preventDefault();
+  event.stopPropagation();
+  const id = S.tip.id;
+  tipClose();
+  const tag = id && S.rowEls.get(String(id)) && S.rowEls.get(String(id)).row.querySelector(".state-clash");
+  if (tag && tag.focus) tag.focus();
+});
+$("#list").addEventListener("scroll", () => { if (S.tip.id) placeTip(); });
 $("#btn-refresh").addEventListener("click", () => refresh(false));
 /* 「登录 / 重新登录」先走重新登录对话框（四种情况）；对话框里保留「改用浏览器登录」 */
 $("#btn-login").addEventListener("click", openRelogin);
@@ -267,7 +310,7 @@ $("#btn-policy").addEventListener("click", () => {
   $("#btn-policy").setAttribute("aria-expanded", open ? "true" : "false");
   $("#btn-policy").textContent = open ? "收起" : "修改";   /* 原型 policyBtn */
 });
-window.addEventListener("resize", applyBand);
+window.addEventListener("resize", () => { applyBand(); if (S.tip.id) placeTip(); });
 applyBand();
 /* 计划栏里的就地动作：移除一场、开始前提醒的「去保存 / 去安装」、「还差一步」和运行中提醒的按钮 */
 $("#plan-tickets").addEventListener("click", (event) => {
@@ -473,6 +516,8 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     /* 依次：关引导 → 关浮层 → 退输入 → 收起结论 → 清空选择；弹窗由浏览器自己收 */
     if (tourVisible()) { tourSkip(); return; }
+    /* 原因气泡开着时 Esc 先收它（鼠标悬停打开的气泡焦点不在标签上） */
+    if (S.tip.id) { tipClose(); return; }
     /* 逐层关闭：详情卡 → 对话框（浏览器自己收）→ 设置抽屉 */
     if (statusCardOpen() || clockPopOpenNow()) { closeStatusCards(true); return; }
     if (typeof settingsOpen === "function" && settingsOpen()) { closeSettings(true); return; }

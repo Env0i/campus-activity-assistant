@@ -456,6 +456,8 @@
       <button class="btn btn-solid" id="btn-comp-ocr-install" type="button" disabled>安装这份</button>
     </div>
   </dialog>
+  <!-- 「不可加入」原因气泡：挂在页面最外层、fixed 定位，不被列表滚动容器裁掉（内容由 views/conflict-tip.js 填） -->
+  <div id="cx-tip" class="tipb" role="group" aria-label="和已报名的活动时间重叠的原因" hidden></div>
   <script src="led.js"></script>
   <!-- 分层脚本加载序保持原 app.js 的顶层初始化依赖（const 初始化跨文件引用）；
        模块归属按职责：state=状态与纯规则 / controllers=用例 / views=DOM 呈现 / app=入口 -->
@@ -487,7 +489,10 @@
   <script src="controllers/update.js"></script>
   <script src="controllers/prefs.js"></script>
   <script src="state/filters.js"></script>
+  <script src="state/conflict.js"></script>
   <script src="views/selection.js"></script>
+  <script src="views/conflict-tip.js"></script>
+  <script src="controllers/cancel.js"></script>
   <script src="state/labels.js"></script>
   <script src="controllers/tick.js"></script>
   <script src="state/time.js"></script>

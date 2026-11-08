@@ -420,6 +420,8 @@ function paintPrewarn(warns) {
 function startBlocker() {
   if (S.busy) return null;
   if (S.runtime.error) return { text: "程序组件缺失，看顶部提示" };
+  /* 取消报名进行中：学校动作互斥（X3），写在最前面，与原型 blockers 的第二条一致 */
+  if (S.cancel.busyId) return { text: "正在取消报名，等它结束再开始" };
   if (termsLocked()) {
     const newer = typeof termsUpdateMode === "function" && termsUpdateMode();
     return { text: S.terms.unknown ? "先重新确认条款" : (newer ? "先同意新版条款" : "先同意使用条款"),
@@ -472,7 +474,9 @@ function paintTickets() {
     const at = toTs(group.key);
     return '<div class="bh"><b>' + esc(instant ? "现在" : (at === null ? "待公布" : hmsDay(at))) + "</b><span>" + esc(note) + "</span></div>"
       + group.items.map((item) => '<div class="tk"><div><b title="' + esc(item.name) + '">' + esc(item.name)
-        + "</b><small>" + esc(activityTimeText(item)) + '</small></div><button type="button" data-remove="'
+        + "</b><small>" + esc(activityTimeText(item)) + "</small>"
+        + (item.cancel_allowed === false ? '<small class="nr">报后不可退</small>' : "")
+        + '</div><button type="button" data-remove="'
         + esc(String(item.id)) + '" aria-label="' + esc("从计划移除「" + item.name + "」") + '">'
         + '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>').join("");
   }).join("");
@@ -1206,7 +1210,7 @@ function updateControls() {
   const termsGate = termsLocked();
   /* 缺组件：登录/开始都禁用（点了也是结构化失败）；刷新保持可用——复查组件并恢复的唯一通道 */
   $("#btn-login").disabled = S.busy || componentDown || termsGate;
-  $("#btn-refresh").disabled = S.listState === "loading" || termsGate;
+  $("#btn-refresh").disabled = S.listState === "loading" || termsGate || !!S.cancel.busyId;
   /* 帮助任何状态都可打开；运行中只禁重看引导，原因写在按钮上。 */
   paintReplayButtons();
   const validation = validateSelection();
@@ -1215,7 +1219,7 @@ function updateControls() {
    * checking 必须显式排除：新一轮检查开始时不清旧 result，
    * 不排除的话上次 valid 会放行尚未确认的检查期。 */
   const loginReady = !!S.demo || (!S.login.checking && S.login.result === "valid");
-  const canStart = !S.busy && !S.starting && !componentDown && !termsGate && loginReady && S.selected.size > 0
+  const canStart = !S.busy && !S.starting && !S.cancel.busyId && !componentDown && !termsGate && loginReady && S.selected.size > 0
     && validation.errors.length === 0 && validation.conflicts.length === 0
     && S.listState === "ready";
   /* 独立北京时间门禁（决策 012）：时钟不可读或不在 ready/holdover 时开始禁用 */
@@ -1239,6 +1243,15 @@ function updateControls() {
     const item = findItem(check.dataset.id);
     /* 与行渲染同一份判据：已报名/已截止/忙碌都禁用，已截止仍可查看 */
     check.disabled = S.busy || termsLocked() || !isEligibleForPlan(item) || !!signedClash(item);
+  });
+  /* 取消报名按钮与行渲染同一份互斥判据：计划、刷新、登录或另一场取消都会置灰并写原因 */
+  document.querySelectorAll("[data-cancel]").forEach((btn) => {
+    const id = btn.dataset && btn.dataset.cancel;
+    if (!id) return;
+    const block = cancelBlock(id);
+    btn.disabled = block.off;
+    btn.title = block.why;
+    btn.textContent = S.cancel.busyId === id ? "正在取消…" : "取消报名";
   });
   paintBoardActions();
   paintDock();

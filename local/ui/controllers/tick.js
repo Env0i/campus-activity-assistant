@@ -29,6 +29,13 @@ function tick() {
     const item = findItem(id);
     if (item && stateOf(item) !== state) dirty = true;
   });
+  /* 取消窗口开着的那一行过了报名截止：「可取消至」和按钮要收掉 */
+  if (S.rowCancel) {
+    S.rowCancel.forEach((open, id) => {
+      const item = findItem(id);
+      if (item && canCancelNow(item) !== open) dirty = true;
+    });
+  }
   if (dirty) {
     paintList();
   } else {
