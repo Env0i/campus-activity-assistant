@@ -238,19 +238,31 @@ class PhoneAccessService:
         with self._lock:
             if self._locked(ip, now):
                 self._note_pair(False, "尝试次数过多被限速")
+                # BE1（EX03）：锁定回包带剩余秒数，前端做倒计时；error/text 原文逐字不变
                 return {"ok": False, "error": "locked",
-                        "text": "尝试次数过多，请稍后再试"}
+                        "text": "尝试次数过多，请稍后再试",
+                        "locked": True,
+                        "retry_after_s": self._lock_left_s(ip, now),
+                        "remaining_attempts": 0}
             if not self._pair_code or self._pair_used or not pair_code_fresh(
                     self._pair_created, now):
                 self._note_pair(False, "配对码不存在或已用过")
+                # BE1：码失效不是试错，不计剩余次数、不声明锁定
                 return {"ok": False, "error": "no_code",
-                        "text": "配对码不可用，请在电脑上重新开启"}
+                        "text": "配对码不可用，请在电脑上重新开启",
+                        "locked": False, "retry_after_s": 0,
+                        "remaining_attempts": 0}
             if not valid_pair_code(code) or not secrets.compare_digest(
                     str(code), self._pair_code):
                 self._record_failure(ip, now)
                 self._note_pair(False, "配对码不对")
+                # BE1（EX04）：剩余次数由 _record_failure 后的计数与 IP_FAIL_LIMIT 相减；
+                # 到上限的这一次仍按 bad_code 应答（locked=False），下一次才落锁
                 return {"ok": False, "error": "bad_code",
-                        "text": "配对码不对，请核对后重试"}
+                        "text": "配对码不对，请核对后重试",
+                        "locked": False, "retry_after_s": 0,
+                        "remaining_attempts": max(
+                            0, IP_FAIL_LIMIT - int(self._fail_by_ip.get(str(ip or ""), 0)))}
             self._pair_used = True
             self._paired_count += 1      # 只在兑换成功处加一；失败、限速都不算（B1）
             self._fail_by_ip.pop(ip, None)
@@ -366,6 +378,20 @@ class PhoneAccessService:
             self._ip_lock_until[key] = now + IP_LOCK_S
         if self._global_fails >= GLOBAL_FAIL_LIMIT:
             self._global_lock_until = now + IP_LOCK_S
+
+    def _lock_left_s(self, ip: str, now: float) -> int:
+        """BE1（EX03）：IP/全局锁的剩余秒数，向上取整（锁定中至少 1 秒），没锁为 0。
+
+        now 由调用方传入（pair 在锁外已取过钟），这里绝不二次取钟；这个数就是
+        前端倒计时的权威值，前端每秒只做呈现递减。
+        """
+        until = max(float(self._global_lock_until),
+                    float(self._ip_lock_until.get(str(ip or ""), 0)))
+        left = until - now
+        if left <= 0:
+            return 0
+        whole = int(left)
+        return whole + 1 if left > whole else whole
 
     # ---------- 状态与事件 ----------
     def safe_state(self, cursor=None) -> dict:

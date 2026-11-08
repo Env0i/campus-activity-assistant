@@ -278,7 +278,7 @@ class PairAndSessionTests(PhoneServiceBase):
         self.assertEqual(paired["reason"], "paired")
         self.assertNotEqual(paired["code"], expired["code"], "兑换过就不能再用")
 
-
+    def test_concurrent_redeem_only_one_wins(self):
         self.service.start("127.0.0.1", 0)
         code = self.service.current_pair_code()
         results = []
@@ -317,6 +317,84 @@ class PairAndSessionTests(PhoneServiceBase):
             self.service.pair("000000", ip="100.64.0.2")
         blocked = self.service.pair(self.service.current_pair_code(), ip="100.64.0.9")
         self.assertEqual(blocked["error"], "locked", "换 IP 也要被全局限速拦下")
+
+    def test_pair_failure_carries_structured_fields_with_old_text(self):
+        """BE1（PA04/EX03/EX04）：失败回包在 error/text 逐字不变的前提下补结构化字段。
+
+        bad_code → (locked=False, 0, 剩余次数)；locked → (True, 锁剩余秒, 0)；
+        no_code → (False, 0, 0)；成功回包不声明锁定。
+        """
+        self.service.start("127.0.0.1", 0)
+        ok = self.service.pair(self.service.current_pair_code(), ip="127.0.0.1")
+        self.assertTrue(ok["ok"])
+        self.assertFalse(ok.get("locked", False), "成功回包不声明锁定")
+        # 一码一次：上面那张已用掉，面板换出的新码用来试错
+        good = self.service.current_pair_code()
+        wrong = "000000" if good != "000000" else "111111"
+        first = self.service.pair(wrong, ip="127.0.0.1")
+        self.assertEqual(first["error"], "bad_code")
+        self.assertEqual(first["text"], "配对码不对，请核对后重试", "text 与旧版逐字一致")
+        self.assertFalse(first["locked"])
+        self.assertEqual(first["retry_after_s"], 0)
+        self.assertEqual(first["remaining_attempts"], IP_FAIL_LIMIT - 1, "配错一次剩 2 次")
+        second = self.service.pair(wrong, ip="127.0.0.1")
+        self.assertEqual(second["remaining_attempts"], IP_FAIL_LIMIT - 2, "再错一次剩 1 次")
+        third = self.service.pair(wrong, ip="127.0.0.1")
+        self.assertEqual(third["error"], "bad_code")
+        self.assertFalse(third["locked"], "到上限的这一次仍按 bad_code 应答")
+        self.assertEqual(third["remaining_attempts"], 0, "剩余次数不出现负数")
+        # 达上限：下一次（哪怕码是对的）被锁，带锁剩余秒
+        locked = self.service.pair(good, ip="127.0.0.1")
+        self.assertEqual(locked["error"], "locked")
+        self.assertEqual(locked["text"], "尝试次数过多，请稍后再试", "text 与旧版逐字一致")
+        self.assertTrue(locked["locked"])
+        self.assertEqual(locked["retry_after_s"], int(IP_LOCK_S), "时钟冻结时整 60 秒")
+        self.assertGreater(locked["retry_after_s"], 0)
+        self.assertEqual(locked["remaining_attempts"], 0)
+        # 倒计时随钟走：过了 10 秒再问，剩 50 秒（锁剩余秒 = lock_until - now，不二次取钟）
+        self.clock["now"] += 10
+        again = self.service.pair(good, ip="127.0.0.1")
+        self.assertEqual(again["error"], "locked")
+        self.assertEqual(again["retry_after_s"], int(IP_LOCK_S) - 10)
+        # 锁过后配上，码已用过：no_code 不计剩余次数、不声明锁定
+        self.clock["now"] += IP_LOCK_S + 1
+        self.assertTrue(self.service.pair(good, ip="127.0.0.1")["ok"])
+        reused = self.service.pair(good, ip="127.0.0.1")
+        self.assertEqual(reused["error"], "no_code")
+        self.assertEqual(reused["text"], "配对码不可用，请在电脑上重新开启",
+                         "text 与旧版逐字一致")
+        self.assertFalse(reused["locked"])
+        self.assertEqual(reused["retry_after_s"], 0)
+        self.assertEqual(reused["remaining_attempts"], 0)
+
+    def test_success_resets_failure_count_so_remaining_attempts_refill(self):
+        """SEC-P3-5：配对失败 → 成功 → 再失败后 remaining_attempts 回满。
+        成功兑换清零该 IP 的失败计数（pair 内 _fail_by_ip.pop）；不清零的话，
+        成功后再错一次会在旧计数上累加，剩余次数被少算。"""
+        self.service.start("127.0.0.1", 0)
+        first_fail = self.service.pair("000000", ip="127.0.0.1")
+        self.assertEqual(first_fail["error"], "bad_code")
+        self.assertEqual(first_fail["remaining_attempts"], IP_FAIL_LIMIT - 1)
+        good = self.service.current_pair_code()
+        self.assertTrue(self.service.pair(good, ip="127.0.0.1")["ok"], "前置：配对成功")
+        # 成功后那张码已用掉，换新码再试错一次
+        good2 = self.service.current_pair_code()
+        wrong = "000000" if good2 != "000000" else "111111"
+        again = self.service.pair(wrong, ip="127.0.0.1")
+        self.assertEqual(again["error"], "bad_code")
+        self.assertEqual(again["remaining_attempts"], IP_FAIL_LIMIT - 1,
+                         "成功已把失败计数清零：再错一次剩余次数回到满额减一")
+
+    def test_lock_left_s_rounds_up_for_fractional_clock(self):
+        """锁剩余秒向上取整：锁定中还剩不到 1 秒也报 1，不出现 0 秒却仍被锁的矛盾。"""
+        self.service.start("127.0.0.1", 0)
+        self.service.pair("000000", ip="127.0.0.1")
+        self.service.pair("000000", ip="127.0.0.1")
+        self.service.pair("000000", ip="127.0.0.1")   # 第 3 次：落锁，until = 1000 + 60
+        self.clock["now"] = 1059.25
+        locked = self.service.pair(self.service.current_pair_code(), ip="127.0.0.1")
+        self.assertEqual(locked["error"], "locked")
+        self.assertEqual(locked["retry_after_s"], 1, "剩 0.75 秒向上取整报 1")
 
     def test_session_expires_in_eight_hours_and_check_does_not_refresh(self):
         self.service.start("127.0.0.1", 0)

@@ -24,8 +24,8 @@ if str(LOCAL) not in sys.path:
 
 from application.phone_service import PhoneAccessService  # noqa: E402
 from domain.phone_rules import (  # noqa: E402
-    COOKIE_NAME, CSRF_HEADER, DEVICE_COOKIE_NAME, MAX_BODY_BYTES,
-    cookie_header_value,
+    COOKIE_NAME, CSRF_HEADER, DEVICE_COOKIE_NAME, IP_FAIL_LIMIT, IP_LOCK_S,
+    MAX_BODY_BYTES, cookie_header_value,
 )
 from infrastructure.phone_http import PhoneHttpServer  # noqa: E402
 
@@ -142,6 +142,8 @@ class RoundTripTests(PhoneHttpBase):
         status, payload, cookie = self._pair()
         self.assertEqual(status, 200)
         self.assertTrue(payload["ok"])
+        # BE1：成功回包由 _post_pair 重建，锁定字段不透出，前端不会误读
+        self.assertNotIn("locked", payload)
         self.assertTrue(cookie)
 
         status, _, body = self._request("GET", "/api/state?after=0", cookie=cookie)
@@ -158,6 +160,30 @@ class RoundTripTests(PhoneHttpBase):
         self.assertEqual(status, 200)
         self.assertTrue(json.loads(body.decode("utf-8"))["ok"])
         self.assertEqual(self.api.calls, [("check", "r1")])
+
+    def test_pair_failure_passes_structured_fields_through(self):
+        """BE1（PA04/EX03/EX04）端到端：/pair 失败时 _post_pair 把服务层补的
+        {locked, retry_after_s, remaining_attempts} 整包透传进 JSON，
+        text 与旧版逐字一致——前端拼原型尾句（再错 N 次/倒计时）的数据源在这里。"""
+        wrong = "000000" if self.code != "000000" else "111111"
+        status, payload, _ = self._pair(code=wrong)
+        self.assertEqual(status, 403)
+        self.assertEqual(payload["error"], "bad_code")
+        self.assertEqual(payload["text"], "配对码不对，请核对后重试")
+        self.assertFalse(payload["locked"])
+        self.assertEqual(payload["retry_after_s"], 0)
+        self.assertEqual(payload["remaining_attempts"], IP_FAIL_LIMIT - 1,
+                         "配错一次剩 2 次")
+        for _ in range(IP_FAIL_LIMIT - 1):
+            self._pair(code=wrong)
+        status, payload, _ = self._pair(code=self.code)
+        self.assertEqual(status, 403)
+        self.assertEqual(payload["error"], "locked")
+        self.assertEqual(payload["text"], "尝试次数过多，请稍后再试")
+        self.assertTrue(payload["locked"])
+        self.assertEqual(payload["retry_after_s"], int(IP_LOCK_S),
+                         "测试时钟冻结，锁剩余秒取整")
+        self.assertEqual(payload["remaining_attempts"], 0)
 
     def test_static_pages_are_served_from_fixed_table(self):
         status, _, body = self._request("GET", "/")
@@ -203,6 +229,23 @@ class RoundTripTests(PhoneHttpBase):
         self.api.calls.clear()
         self._request("GET", "/api/state?after=0", cookie=cookie)
         self.assertEqual(self.api.calls, [], "GET state 不得触发任何 Api 动作")
+
+    def test_state_carries_pc_list_error_end_to_end(self):
+        """BE2/EX05 端到端：pc_list_error 在 app 层进 _phone_raw_state 后，
+        HTTP 层经 safe_state（project_state 投影）整包透传——本层零改动。
+        原因是固定短语、时刻是 HH:MM，投影后不含路径或凭据。"""
+        _, _, cookie = self._pair()
+        self.raw_state["pc_list_error"] = {"reason": "活动列表没能加载", "at": "14:12"}
+        status, _, body = self._request("GET", "/api/state?after=0", cookie=cookie)
+        self.assertEqual(status, 200)
+        state = json.loads(body.decode("utf-8"))
+        self.assertEqual(state["state"]["pc_list_error"],
+                         {"reason": "活动列表没能加载", "at": "14:12"})
+        # 正常态：null 原样透传
+        self.raw_state["pc_list_error"] = None
+        status, _, body = self._request("GET", "/api/state?after=0", cookie=cookie)
+        self.assertEqual(status, 200)
+        self.assertIsNone(json.loads(body.decode("utf-8"))["state"]["pc_list_error"])
 
 
 class RejectionTests(PhoneHttpBase):
