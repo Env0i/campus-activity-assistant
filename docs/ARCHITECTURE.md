@@ -194,6 +194,16 @@ controller 已零 DOM（结构契约测试 `LayerBoundaryContractTests` 守护�
 `controllers/tick.js` 仍做每秒增量 DOM 更新、`app.js` 事件绑定直接触 DOM——全局
 controller/view DOM 分离不在本轮范围。
 
+### 启动与单实例（GL01）
+
+图形界面启动（`local/app.py` 的 `main`）先过单实例守卫（`infrastructure/single_instance.py`）。`--demo` 与 worker 子命令不经过它。
+- 判定：Windows 用具名互斥量（名字只含产品标识）。拿到的是第一份；发现已存在的是第二份。
+- 第一份在 `127.0.0.1` 的随机端口开一个只收「唤回」的监听，端口、进程号与随机口令写进数据目录下的 `instance.json`，口令不进日志。口令错、格式不对的请求一律不回应。
+- 第二份读 `instance.json`、发出唤回后退出，不建时钟、不建 Api、不起窗口。唤回失败（文件缺失、连不上、超时、被拒）时弹出原生消息框「工具已经开着」再退出。
+- 第一份收到唤回：还原并显示本窗口，再推 `second_open` 事件（见 UI_SPEC §5.2）。
+- 守卫出错一律放行第一份（fail-open）；非 Windows 直接放行。窗口关闭后先停监听，收尾完成后再删 `instance.json`、放互斥量；进程崩溃时系统回收互斥量。
+- worker 子进程（`grab.py`、`grab-worker.exe`）不经过守卫，不受影响。
+
 ### 报名链路（决策 015）
 
 - **直发为主、点击兜底**：开抢前调 `runtime/profile` 取运行时密钥（`fetch_runtime_key`），
