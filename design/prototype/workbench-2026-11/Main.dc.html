@@ -602,12 +602,12 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
               <sc-if value="{{g.nowBefore}}" hint-placeholder-val="{{false}}"><div class="nowline"><span class="nowchip">现在 <b>{{g.now}}</b></span></div></sc-if>
               <div class="grp {{g.cls}}"><b>{{g.title}}</b><span>{{g.note}}</span><span class="count">{{g.n}} 场</span></div>
               <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
-                <label class="row {{r.cls}}" data-tour="{{r.tourAttr}}" data-row="{{r.id}}" onMouseEnter="{{r.tipEnter}}" onMouseLeave="{{tipLeave}}" style="grid-template-columns: {{r.cols}}">
+                <label class="row {{r.cls}}" data-tour="{{r.tourAttr}}" data-row="{{r.id}}" style="grid-template-columns: {{r.cols}}">
                   <span class="c-sel"><input type="checkbox" checked="{{r.selected}}" disabled="{{r.disabled}}" onChange="{{r.toggle}}" aria-label="{{r.aria}}"></span>
                   <sc-if value="{{r.showTime}}" hint-placeholder-val="{{true}}"><span class="c-time"><span class="ct-t {{r.timeCls}}">{{r.time}}</span><sc-if value="{{r.hasDay}}" hint-placeholder-val="{{false}}"><span class="ct-d">{{r.day}}</span></sc-if></span></sc-if>
                   <span class="c-main"><span class="nl"><span class="name" title="{{r.name}}">{{r.name}}</span><sc-if value="{{r.rwSide}}" hint-placeholder-val="{{true}}"><span class="rw" title="{{r.rw.title}}"><sc-if value="{{r.rw.pend}}" hint-placeholder-val="{{false}}"><span class="rw-p">奖励同步中</span></sc-if><sc-if value="{{r.rw.ready}}" hint-placeholder-val="{{true}}"><span class="rw-c pt {{r.rw.ptsCls}}"><b>{{r.rw.ptsN}}</b>{{r.rw.ptsU}}</span><span class="rw-c wg {{r.rw.wageCls}}">{{r.rw.wageL}}<b>{{r.rw.wageN}}</b></span></sc-if></span></sc-if></span><span class="sub"><sc-if value="{{r.inlineTime}}" hint-placeholder-val="{{false}}"><span class="it">{{r.time}}</span></sc-if><sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1"><span class="flag {{f.cls}}">{{f.text}}</span></sc-for><span>{{r.act}}</span><sc-if value="{{r.hasRf}}" hint-placeholder-val="{{false}}"><span class="{{r.rfCls}}">{{r.rf}}</span></sc-if><sc-if value="{{r.rwInline}}" hint-placeholder-val="{{false}}"><span class="{{r.rw.iCls}}" title="{{r.rw.title}}">{{r.rw.iText}}</span></sc-if><sc-if value="{{r.hasAtt}}" hint-placeholder-val="{{true}}"><span class="{{r.attCls}}">{{r.att}}</span></sc-if></span><sc-if value="{{r.hasWarn}}" hint-placeholder-val="{{false}}"><span class="note-w" style="display: block">{{r.warn}}</span></sc-if><sc-if value="{{r.hasSync}}" hint-placeholder-val="{{false}}"><span class="note-s" style="display: block">报名已确认，学校列表正在同步</span></sc-if></span>
                   <sc-if value="{{r.showPlace}}" hint-placeholder-val="{{true}}"><span class="c-place" title="{{r.place}}">{{r.place}}</span></sc-if>
-                  <span class="c-state"><sc-if value="{{r.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag {{r.tagCls}}">{{r.tag}}</span></sc-if><sc-if value="{{r.hasClash}}" hint-placeholder-val="{{false}}"><span class="tag t-clash" tabindex="0" aria-describedby="cx-tip" onFocus="{{r.tipEnter}}" onBlur="{{tipLeave}}" onKeyDown="{{r.tipKey}}">不可加入<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5.5"></path><path d="M12 7.6h.01"></path></svg></span></sc-if><sc-if value="{{r.hasLeft}}" hint-placeholder-val="{{true}}"><span class="left {{r.leftCls}}">{{r.left}}</span></sc-if><sc-if value="{{r.hasSmall}}" hint-placeholder-val="{{false}}"><span class="small">{{r.small}}</span></sc-if><sc-if value="{{r.hasUntil}}" hint-placeholder-val="{{false}}"><span class="cx-until">{{r.until}}</span></sc-if><sc-if value="{{r.hasCancel}}" hint-placeholder-val="{{false}}"><button class="btn btn-line cx-btn" type="button" disabled="{{r.cancelOff}}" title="{{r.cancelTitle}}" onClick="{{r.cancelAsk}}">{{r.cancelLabel}}</button></sc-if></span>
+                  <span class="c-state"><sc-if value="{{r.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag {{r.tagCls}}">{{r.tag}}</span></sc-if><sc-if value="{{r.hasClash}}" hint-placeholder-val="{{false}}"><span class="tag t-clash" tabindex="0" aria-describedby="cx-tip" onMouseEnter="{{r.tipHover}}" onMouseLeave="{{tipLeave}}" onFocus="{{r.tipEnter}}" onBlur="{{tipLeave}}" onKeyDown="{{r.tipKey}}">不可加入<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5.5"></path><path d="M12 7.6h.01"></path></svg></span></sc-if><sc-if value="{{r.hasLeft}}" hint-placeholder-val="{{true}}"><span class="left {{r.leftCls}}">{{r.left}}</span></sc-if><sc-if value="{{r.hasSmall}}" hint-placeholder-val="{{false}}"><span class="small">{{r.small}}</span></sc-if><sc-if value="{{r.hasUntil}}" hint-placeholder-val="{{false}}"><span class="cx-until">{{r.until}}</span></sc-if><sc-if value="{{r.hasCancel}}" hint-placeholder-val="{{false}}"><button class="btn btn-line cx-btn" type="button" disabled="{{r.cancelOff}}" title="{{r.cancelTitle}}" onClick="{{r.cancelAsk}}">{{r.cancelLabel}}</button></sc-if></span>
                 </label>
                 <sc-if value="{{r.hasAfter}}" hint-placeholder-val="{{false}}"><div class="rx" style="padding-left: {{r.rxPad}}"><sc-if value="{{r.hasAsk}}" hint-placeholder-val="{{false}}"><div class="ph-confirm" role="alert">取消「{{r.name}}」的报名？取消后名额可能被别人报走，不能撤回。<div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{r.askNo}}">不取消</button><button class="btn btn-stop" type="button" onClick="{{r.askYes}}">确认取消报名</button></div></div></sc-if><sc-if value="{{r.hasRes}}" hint-placeholder-val="{{false}}"><p class="cx-res {{r.resCls}}" role="status">{{r.res}}</p></sc-if></div></sc-if>
               </sc-for>
@@ -2034,11 +2034,13 @@ class Component extends DCLogic {
     this.setState({ clock: 'syncing' });
     setTimeout(() => this.setState({ clock: 'ready', clockJust: true, lines: this.log(this.state, '北京时间已校准') }), 900);
   };
-  // ---- 不可加入的气泡：悬停整行或键盘聚焦“不可加入”打开，Esc 或移开收起 ----
-  cxTipOpen(id) { clearTimeout(this._tt); if (this.state.tip !== id) this.setState({ tip: id, tipPos: null }); }
+  // ---- 不可加入的气泡：鼠标停在“不可加入”上（140ms）或键盘聚焦它才打开，扫过整行不弹；Esc 或移开收起 ----
+  cxTipSoon(id) { clearTimeout(this._to); if (this.state.tip === id) { clearTimeout(this._tt); return; } this._to = setTimeout(() => this.cxTipOpen(id), 140); }
+  cxTipOpen(id) { clearTimeout(this._tt); clearTimeout(this._to); if (this.state.tip !== id) this.setState({ tip: id, tipPos: null }); }
   cxTipStay = () => { clearTimeout(this._tt); };
   cxTipLeave = () => {
     clearTimeout(this._tt);
+    clearTimeout(this._to);
     if (!this.state.tip) return;
     this._tt = setTimeout(() => this.setState({ tip: '', tipPos: null }), 160);
   };
@@ -2252,7 +2254,7 @@ class Component extends DCLogic {
           if (rs && rs.kind === 'unknown') { resText = '没能确认是否已取消，请到学校网站的活动详情里核对。'; resCls = 'warn'; }
           if (rs && rs.kind === 'precheck') { resText = '现在不能取消：' + rs.reason; resCls = 'warn'; }
           var cxRow = {
-            id: i.id, hasClash: clash, tipEnter: clash ? function () { self.cxTipOpen(i.id); } : function () {},
+            id: i.id, hasClash: clash, tipEnter: clash ? function () { self.cxTipOpen(i.id); } : function () {}, tipHover: clash ? function () { self.cxTipSoon(i.id); } : function () {},
             tipKey: function (e) { self.cxTipKey(e); },
             hasRf: !!rf, rf: rf, rfCls: rfCls,
             hasUntil: canCancel, until: canCancel ? '可取消至 ' + self.fmtAbs(i.signEnd) : '',
