@@ -261,7 +261,7 @@ def _retry_options_payload() -> dict:
             {"value": 1800, "label": "30 分钟"},
             {"value": 3600, "label": "1 小时"},
             {"value": int(_retry_rules.ADAPTIVE_RETRY),
-             "label": "自动延长（最多25分钟）"},
+             "label": "自动延长（最多 25 分钟）"},
             {"value": 0, "label": "直到报名截止"},
         ],
     }

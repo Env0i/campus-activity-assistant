@@ -134,7 +134,8 @@ class IntegrationBase(unittest.TestCase):
                               "adaptive_cap_seconds": ADAPTIVE_SECONDS,
                               "choices": [{"value": 120, "label": "2 分钟"},
                                           {"value": ADAPTIVE_RETRY,
-                                           "label": "自动延长（最多25分钟）"},
+                                           # 标签与 app.py 同步补空格（GL06）；仅文案，取值不变
+                                           "label": "自动延长（最多 25 分钟）"},
                                           {"value": 0, "label": "直到报名截止"}]},
         }
         self.service = PhoneAccessService(

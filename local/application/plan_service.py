@@ -47,7 +47,14 @@ def plan_done_notice(tasks) -> tuple:
     parts = [("%d 场成功" % ok) if ok else "", ("%d 场待核对" % pending) if pending else "",
              ("%d 场名额已满" % full) if full else "", ("%d 场没成功" % other) if other else ""]
     text = "，".join(part for part in parts if part) or "这次计划没有场次。"
-    title = "报名计划部分完成" if ok and (pending or full or other) else "报名计划已结束"
+    # 标题三态照原型 Main 的 toastTitle：全成功=完成；有成功也有没成功=部分完成；
+    # 一场都没成功（含没有场次）=结束。
+    if ok and not (pending or full or other):
+        title = "报名计划完成"
+    elif ok:
+        title = "报名计划部分完成"
+    else:
+        title = "报名计划结束"
     return title, text
 
 

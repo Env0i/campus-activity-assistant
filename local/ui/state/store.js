@@ -111,7 +111,7 @@ const S = {
   lifecycle: null,
   /* 五步引导运行态：open=遮罩在场；paused=计划运行中暂停；restoreFocus=结束后要还的焦点 */
   tour: { open: false, step: 0, paused: false, restoreFocus: null },
-  /* 计划级重试策略：-1=自动延长（最多25分钟）；时长 0=直到报名截止（缺截止回退 120 秒）；次数 0=不限 */
+  /* 计划级重试策略：-1=自动延长（最多 25 分钟）；时长 0=直到报名截止（缺截止回退 120 秒）；次数 0=不限 */
   retryPolicy: { retry_for_s: 120, max_attempts: 0 },
   /* 三种重试模式的权威选项与默认值（bootstrap.retry_options 同源覆盖）：
    * 桌面白名单与手机设置都按这份口径，不各自维护第二套清单 */
@@ -124,7 +124,7 @@ const S = {
       { value: 600, label: "10 分钟" },
       { value: 1800, label: "30 分钟" },
       { value: 3600, label: "1 小时" },
-      { value: -1, label: "自动延长（最多25分钟）" },
+      { value: -1, label: "自动延长（最多 25 分钟）" },
       { value: 0, label: "直到报名截止" },
     ],
   },

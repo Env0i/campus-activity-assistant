@@ -1548,14 +1548,31 @@ class PlanDoneNoticeTests(unittest.TestCase):
         self.assertEqual(title, "报名计划部分完成")
         self.assertEqual(text, "2 场成功，1 场待核对，1 场名额已满，1 场没成功")
 
-    def test_all_success_or_none_success_says_ended(self):
+    def test_all_success_says_done(self):
         from application import plan_service
 
+        # 标题改三态（GL02，照原型 toastTitle）：全部成功由「已结束」改为「报名计划完成」
         self.assertEqual(plan_service.plan_done_notice([{"status": "success"}]),
-                         ("报名计划已结束", "1 场成功"))
+                         ("报名计划完成", "1 场成功"))
+        self.assertEqual(plan_service.plan_done_notice(
+            [{"status": "success"}, {"status": "already_signed"}])[0], "报名计划完成")
+
+    def test_partial_success_says_partly_done(self):
+        from application import plan_service
+
+        title, text = plan_service.plan_done_notice(
+            [{"status": "success"}, {"status": "failed", "stop_reason": "full"}])
+        self.assertEqual(title, "报名计划部分完成")
+        self.assertEqual(text, "1 场成功，1 场名额已满")
+
+    def test_none_success_says_ended(self):
+        from application import plan_service
+
+        # 旧标题「报名计划已结束」改为「报名计划结束」（GL02）；没有场次也算一场都没成功
         title, text = plan_service.plan_done_notice([{"status": "failed", "stop_reason": "full"}])
-        self.assertEqual(title, "报名计划已结束")
+        self.assertEqual(title, "报名计划结束")
         self.assertEqual(text, "1 场名额已满", "为 0 的项不写")
+        self.assertEqual(plan_service.plan_done_notice([]), ("报名计划结束", "这次计划没有场次。"))
 
     def test_tray_notify_without_icon_returns_false(self):
         from infrastructure import tray_icon
