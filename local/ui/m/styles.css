@@ -163,3 +163,38 @@ details.card[open] > summary::before { content: "▾"; }
 .warns { margin: 6px 0 0; padding: 0; list-style: none; }
 .warns li { margin-top: 4px; padding: 8px 10px; border-radius: 8px; background: #fff0d4; color: #8f5600; font-size: 13px; }
 .field.check { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+
+/* 冲突原因、跨天时段、报后可退、可取消至（20261107-conflict-cancel；照原型 Phone.dc.html 的 .flag.clash / .why / .tl-* / .rf / .cx-n，
+ * 色值沿用本文件 token，rem 按 16px 换算） */
+.items .meta.act { display: flex; flex-wrap: wrap; gap: 2px 6px; }
+.flag.clash { display: inline-flex; align-items: center; gap: 3px; padding: 0 4px 0 5px; border: 1px dashed var(--ink-3); border-radius: 4px; background: transparent; color: var(--ink-2); font-size: 11px; line-height: 20px; }
+.flag.clash::after { content: "i"; display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; border: 1.5px solid currentColor; border-radius: 50%; font: 700 8px/1 var(--font-ui); }
+.items li[data-clash="1"] > label { cursor: pointer; }
+.items li.flash { animation: cxflash 1.8s ease-out; }
+@keyframes cxflash { 0%, 40% { background: #ffe7ad; } 100% { background: transparent; } }
+.rf { color: var(--ink-2); }
+.rf.no { color: var(--warn); font-weight: 600; }
+.items .meta.cx-n { margin-top: 2px; color: var(--ink-2); font-size: 12px; }
+.why { display: block; margin-top: 8px; padding: 10px 12px 12px; border-radius: 8px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); font-size: 12px; line-height: 1.5; cursor: default; }
+.why-t { display: block; margin: 0 0 6px; font-size: 13px; font-weight: 700; }
+.why-r { margin: 0; }
+.why-row { display: flex; gap: 10px; margin-bottom: 2px; }
+.why-r dt { flex: none; color: var(--ink-3); }
+.why-r dd { flex: 1; min-width: 0; margin: 0; color: var(--ink-2); overflow-wrap: anywhere; }
+.why-r dd b { color: var(--ink); font-weight: 600; }
+.tl { display: block; margin: 8px 0; }
+.tl-track { position: relative; display: block; height: 34px; border-radius: 4px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); }
+.tl-track i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-2); }
+.tl-ov { position: absolute; top: 0; bottom: 0; background: rgba(182, 50, 39, .2); border-left: 1.5px dashed var(--bad); border-right: 1.5px dashed var(--bad); }
+.tl-bar { position: absolute; height: 9px; border-radius: 2px; }
+.tl-bar.bar-a { top: 6px; background: #d98a00; }
+.tl-bar.bar-b { bottom: 6px; background: var(--blue); }
+.tl-d { display: flex; margin-top: 3px; color: var(--ink-3); font-size: 11px; }
+.tl-d span { flex: 1; min-width: 0; text-align: center; }
+.tl-k { display: flex; gap: 12px; margin-top: 4px; color: var(--ink-2); font-size: 11px; }
+.tl-k span::before { content: ""; display: inline-block; width: 10px; height: 6px; margin-right: 4px; border-radius: 2px; vertical-align: 1px; }
+.tl-k .k-a::before { background: #d98a00; }
+.tl-k .k-b::before { background: var(--blue); }
+.tl-k .k-o::before { background: rgba(182, 50, 39, .2); box-shadow: inset 1.5px 0 0 var(--bad), inset -1.5px 0 0 var(--bad); }
+.why-s { display: block; margin: 0; }
+.why-go { min-height: 0; min-width: 0; margin-left: 4px; padding: 0; border: 0; background: transparent; color: var(--blue); font-size: 12px; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }

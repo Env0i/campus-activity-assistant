@@ -174,11 +174,171 @@ const PhoneModel = {
     if (item && item.signed) bits.push("已报名");
     return bits.join(" · ");
   },
-  actionable(item) {
+  /* items 可选：给了就同时按已报名活动的举办时间挡掉重叠的行（电脑上 signedClash 同一规则） */
+  actionable(item, items) {
     if (!item || item.signed) return false;
     if (!item.open_ts && !item.sign_start) return false;      // 时间未知不可执行
     if (item.closed) return false;                            // 已截止不可执行
+    if (items && PhoneModel.signedClash(item, items)) return false;   // 与已报名重叠：不可加入
     return true;
+  },
+
+  /* ---------------- 冲突原因、跨天时段、报后可退、可取消至（计划 20261107-conflict-cancel，fe-phone-page） ----------------
+   * 与电脑端 state/conflict.js 同一套规则、同一批文案（原型 Phone.dc.html 的 whyOf / spanAbs）；
+   * 手机上只读：没有取消按钮，不调任何写操作，只说去哪取消。时间只认学校时区（UTC+8）与电脑给的北京时间快照。 */
+  WJ: "\u2060",   // U+2060：连住「（跨N天）」「这一场报不了。」「学校网站取消。」，避免孤字换行
+  glue(text) { return Array.from(String(text)).join(PhoneModel.WJ); },
+  /* 学校时间文本 → epoch 秒；非法 / 空返回 null */
+  schoolSec(text) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/.exec(String(text || "").trim());
+    if (!m) return null;
+    const [y, mo, d, h, mi, s] = m.slice(1).map(Number);
+    if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || s > 59) return null;
+    const utc = Date.UTC(y, mo - 1, d, h, mi, s);
+    const back = new Date(utc);
+    if (back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) return null;   // 2 月 30 日不滚成 3 月
+    return utc / 1000 - 8 * 3600;
+  },
+  pad2(n) { return String(n).padStart(2, "0"); },
+  /* 「11月8日 22:40」：与电脑列表同一写法，不带秒 */
+  absWhen(sec) {
+    const d = new Date((sec + 8 * 3600) * 1000);
+    return (d.getUTCMonth() + 1) + "月" + d.getUTCDate() + "日 "
+      + PhoneModel.pad2(d.getUTCHours()) + ":" + PhoneModel.pad2(d.getUTCMinutes());
+  },
+  dayOf(sec) { return Math.floor((sec + 8 * 3600) / 86400); },
+  /* 结束恰为 00:00 按前一天算 */
+  endsAtMidnight(start, end) { return end > start && (end + 8 * 3600) % 86400 === 0; },
+  lastDayOf(start, end) {
+    return PhoneModel.dayOf(PhoneModel.endsAtMidnight(start, end) ? end - 1 : end);
+  },
+  /* 举办时段：{s, e}（epoch 秒）；缺失或结束不晚于开始返回 null */
+  actRange(item) {
+    const s = PhoneModel.schoolSec(item && item.act_start);
+    const e = PhoneModel.schoolSec(item && item.act_end);
+    return s !== null && e !== null && e > s ? { s, e } : null;
+  },
+  spanDays(item) {
+    const r = PhoneModel.actRange(item);
+    return r ? PhoneModel.lastDayOf(r.s, r.e) - PhoneModel.dayOf(r.s) + 1 : null;
+  },
+  /* 绝对日期时段：同一天「11月9日 08:00–17:00」，跨天「… – …（跨N天）」。行内与原因面板共用 */
+  actSpan(item) {
+    const r = PhoneModel.actRange(item);
+    if (!r) return "";
+    const n = PhoneModel.spanDays(item);
+    if (n <= 1) {
+      const end = PhoneModel.endsAtMidnight(r.s, r.e) ? "24:00" : PhoneModel.absWhen(r.e).split(" ")[1];
+      return PhoneModel.absWhen(r.s) + "–" + end;
+    }
+    const W = PhoneModel.WJ;
+    return PhoneModel.absWhen(r.s) + " – " + PhoneModel.absWhen(r.e) + "（" + W + "跨" + W + n + W + "天" + W + "）";
+  },
+  /* 电脑给的北京时间快照 → 此刻的业务北京时间（秒）。没有可信快照返回 null，不读手机时钟 */
+  mono() {
+    return (typeof performance !== "undefined" && performance && typeof performance.now === "function")
+      ? performance.now() : Date.now();
+  },
+  setClock(model, snap) {
+    const s = snap && typeof snap === "object" ? snap : {};
+    const epoch = Number(s.epoch_s);
+    const tick = Number(s.tick_s);
+    const sampled = Number(s.sampled_tick_s);
+    const ok = [epoch, tick, sampled].every(Number.isFinite)
+      && (s.state === "ready" || s.state === "holdover");
+    model.clock = ok ? { epochAtSampleS: epoch + (sampled - tick), monoAt: PhoneModel.mono(),
+                         ageS: Number.isFinite(Number(s.age_s)) ? Math.max(0, Number(s.age_s)) : 0 } : null;
+  },
+  businessNowS(model) {
+    const c = model && model.clock;
+    if (!c) return null;
+    const elapsed = (PhoneModel.mono() - c.monoAt) / 1000;
+    if (!Number.isFinite(elapsed) || elapsed < 0 || c.ageS + elapsed > 900) return null;   // 超过 900 秒不可信
+    return c.epochAtSampleS + elapsed;
+  },
+  /* 取消窗口：现在在 [报名开始, 报名截止] 内 true；时钟不可用或没有截止返回 null */
+  cancelWindowOpen(item, nowS) {
+    const end = PhoneModel.schoolSec(item && item.sign_end);
+    if (nowS === null || nowS === undefined || end === null) return null;
+    const start = PhoneModel.schoolSec(item.sign_start);
+    if (start !== null && nowS < start) return false;
+    return nowS <= end;
+  },
+  /* 与已报名活动举办时间重叠的那一场（半开区间，与电脑 signedClash 同一规则）。
+   * 已报名、已截止的行本身不算；没有完整举办时段的行无从判断，不算 */
+  signedClash(item, items) {
+    if (!item || item.signed || item.closed) return null;
+    const a = PhoneModel.actRange(item);
+    if (!a) return null;
+    return (items || []).find((other) => {
+      if (!other || !other.signed || other.id === item.id) return false;
+      const b = PhoneModel.actRange(other);
+      return !!b && a.s < b.e && b.s < a.e;
+    }) || null;
+  },
+  /* 报后可退 / 报后不可退：未报名、未截止的行；cancel_allowed 为 null 或缺失时不写 */
+  refundFlag(item) {
+    if (!item || item.signed || item.closed) return null;
+    if (item.cancel_allowed === false) return { text: "报后不可退", no: true };
+    if (item.cancel_allowed === true) return { text: "报后可退", no: false };
+    return null;
+  },
+  /* 已报名且还能取消的行：只说去哪取消，手机上没有取消按钮 */
+  cancelNote(item, nowS) {
+    if (!item || !item.signed || item.cancel_allowed !== true) return "";
+    if (PhoneModel.cancelWindowOpen(item, nowS) !== true) return "";
+    return "可取消至 " + PhoneModel.absWhen(PhoneModel.schoolSec(item.sign_end)) + "，在电脑上或" + PhoneModel.glue("学校网站取消。");
+  },
+  /* 解除路径四选一（与电脑气泡同文案） */
+  clashWay(sg, nowS) {
+    const nm = "「" + sg.name + "」";
+    const open = PhoneModel.cancelWindowOpen(sg, nowS);
+    const end = PhoneModel.schoolSec(sg.sign_end);
+    if (sg.cancel_allowed === true && open === true) {
+      return { kind: "a", hasGo: true, text: "想报这一场，要先取消" + nm + "的报名，" + PhoneModel.absWhen(end) + " 前可以取消。" };
+    }
+    if (sg.cancel_allowed === false) {
+      return { kind: "b", hasGo: false, text: nm + "报名后不能取消，" + PhoneModel.glue("这一场报不了。") };
+    }
+    if (sg.cancel_allowed === true && open === false) {
+      return { kind: "c", hasGo: false, text: nm + "的取消时间已过（截至 " + PhoneModel.absWhen(end) + "），" + PhoneModel.glue("这一场报不了。") };
+    }
+    return { kind: "d", hasGo: false, text: nm + "能不能取消还没查到，刷新后再看。" };
+  },
+  /* 原因面板的数据：两个时段、时间条（日序号换成百分比）和解除路径 */
+  whyView(item, sg, nowS) {
+    const a = PhoneModel.actRange(sg);
+    const b = PhoneModel.actRange(item);
+    const lo = Math.min(PhoneModel.dayOf(a.s), PhoneModel.dayOf(b.s));
+    const hi = Math.max(PhoneModel.lastDayOf(a.s, a.e), PhoneModel.lastDayOf(b.s, b.e));
+    const n = hi - lo + 1;
+    const base = lo * 86400 - 8 * 3600;
+    const pc = (t) => Math.round((t - base) / (n * 86400) * 10000) / 100;
+    const ov0 = Math.max(a.s, b.s);
+    const ov1 = Math.min(a.e, b.e);
+    const days = [];
+    const cuts = [];
+    for (let k = 0; k < n; k += 1) {
+      const d = new Date((lo + k) * 86400000);
+      days.push((d.getUTCMonth() + 1) + "月" + d.getUTCDate() + "日");
+      if (k) cuts.push(pc(base + k * 86400));
+    }
+    const sparse = days.length > 7;
+    const way = PhoneModel.clashWay(sg, nowS);
+    return {
+      title: "和已报名的活动时间重叠",
+      rows: [{ label: "已报名", name: sg.name, span: PhoneModel.actSpan(sg) },
+             { label: "这一场", name: item.name, span: PhoneModel.actSpan(item) }],
+      cuts: sparse ? [] : cuts, days: sparse ? [days[0], days[days.length - 1]] : days,
+      ovL: pc(ov0), ovW: pc(ov1) - pc(ov0), aL: pc(a.s), aW: pc(a.e) - pc(a.s), bL: pc(b.s), bW: pc(b.e) - pc(b.s),
+      aria: "时间线：" + PhoneModel.absWhen(a.s) + " 起的已报名活动与这一场在 " + PhoneModel.absWhen(ov0) + " 到 " + PhoneModel.absWhen(ov1) + " 重叠",
+      way: way.text, wayKind: way.kind, hasGo: way.hasGo,
+    };
+  },
+  /* 点按展开 / 收起原因：一次只开一条（再点同一行收起，点另一行上一条自动收起） */
+  toggleWhy(model, id) {
+    model.whyId = model.whyId === id ? "" : id;
+    return model.whyId;
   },
   /* 每场一句话（与电脑同一套说法，设计第 10 节）：提交方式、等自动登录、名额已满等结束结论 */
   taskText(task) {
@@ -255,6 +415,8 @@ if (typeof document !== "undefined") {
     pending: null, csrf: "", pollTimer: null,
     /* 会话是否已经建立：未配对时一个定时器都不许排，否则未配对页会一直请求 */
     paired: false, flying: false, probed: false, bannerKind: "",
+    /* 重叠行点按展开的原因（一次一条）、刚跳转到的那一行、电脑给的北京时间快照 */
+    whyId: "", flashId: "", clock: null,
   };
 
   /* 提示条带一个最小来源标签，不靠比对整句中文来区分谁写的：
@@ -319,8 +481,12 @@ if (typeof document !== "undefined") {
 
   function buildRow(list, item) {
     const li = document.createElement("li");
-    const usable = PhoneModel.actionable(item);
-    li.dataset.disabled = usable ? "0" : "1";
+    const clash = PhoneModel.signedClash(item, model.items);
+    const usable = PhoneModel.actionable(item, model.items);
+    /* 重叠行不做整行变暗：下面要展开原因面板，变暗会读不清 */
+    li.dataset.disabled = usable || clash ? "0" : "1";
+    li.dataset.id = item.id;
+    if (model.flashId === item.id) li.className = "flash";
     const label = document.createElement("label");
     const box = document.createElement("input");
     box.type = "checkbox";
@@ -341,10 +507,159 @@ if (typeof document !== "undefined") {
     meta.textContent = PhoneModel.itemMeta(item);
     span.appendChild(name);
     span.appendChild(meta);
+    /* 冲突与取消（20261107-conflict-cancel）：不可加入标签、举办时段（跨天如实写）、报后可退 / 不可退、
+     * 可取消至的去处说明。全部 textContent，手机上没有取消按钮 */
+    const nowS = PhoneModel.businessNowS(model);
+    if (clash) {
+      const flag = document.createElement("div");
+      flag.className = "meta";
+      const tag = document.createElement("span");
+      tag.className = "flag clash";
+      tag.textContent = "不可加入";
+      flag.appendChild(tag);
+      span.appendChild(flag);
+    }
+    const actText = PhoneModel.actSpan(item);
+    const refund = PhoneModel.refundFlag(item);
+    if (actText || refund) {
+      const line = document.createElement("div");
+      line.className = "meta act";
+      if (actText) {
+        const at = document.createElement("span");
+        at.textContent = actText;
+        line.appendChild(at);
+      }
+      if (refund) {
+        const rf = document.createElement("span");
+        rf.className = refund.no ? "rf no" : "rf";
+        rf.textContent = refund.text;
+        line.appendChild(rf);
+      }
+      span.appendChild(line);
+    }
+    const note = PhoneModel.cancelNote(item, nowS);
+    if (note) {
+      const noteEl = document.createElement("div");
+      noteEl.className = "meta cx-n";
+      noteEl.textContent = note;
+      span.appendChild(noteEl);
+    }
     label.appendChild(box);
     label.appendChild(span);
     li.appendChild(label);
+    /* 重叠行：点按这一行展开 / 收起原因，一次只开一条（面板在行下面，点面板本身不收） */
+    if (clash) {
+      li.dataset.clash = "1";
+      label.addEventListener("click", (event) => {
+        if (event && event.preventDefault) event.preventDefault();
+        PhoneModel.toggleWhy(model, item.id);
+        renderItems();
+      });
+      if (model.whyId === item.id) li.appendChild(buildWhy(item, clash, nowS));
+    }
     list.appendChild(li);
+  }
+
+  /* 原因面板：内容与电脑端气泡一致；手机上只有「去已报名那场」，没有取消按钮 */
+  function buildWhy(item, signedItem, nowS) {
+    const view = PhoneModel.whyView(item, signedItem, nowS);
+    const why = document.createElement("div");
+    why.className = "why";
+    why.setAttribute("role", "group");
+    why.setAttribute("aria-label", view.title);
+    const title = document.createElement("b");
+    title.className = "why-t";
+    title.textContent = view.title;
+    why.appendChild(title);
+    const rows = document.createElement("dl");
+    rows.className = "why-r";
+    view.rows.forEach((r) => {
+      const dt = document.createElement("dt");
+      dt.textContent = r.label;
+      const dd = document.createElement("dd");
+      const b = document.createElement("b");
+      b.textContent = r.name;
+      const sp = document.createElement("span");
+      sp.textContent = "\u3000" + r.span;
+      dd.appendChild(b);
+      dd.appendChild(sp);
+      /* 一对 dt/dd 包一层 div 横排：手机页样式不用多列网格（test_mobile_layout_statics 钉着单栏） */
+      const pair = document.createElement("div");
+      pair.className = "why-row";
+      pair.appendChild(dt);
+      pair.appendChild(dd);
+      rows.appendChild(pair);
+    });
+    why.appendChild(rows);
+    const tl = document.createElement("div");
+    tl.className = "tl";
+    tl.setAttribute("role", "img");
+    tl.setAttribute("aria-label", view.aria);
+    const track = document.createElement("div");
+    track.className = "tl-track";
+    view.cuts.forEach((left) => {
+      const cut = document.createElement("i");
+      cut.style.left = left + "%";
+      track.appendChild(cut);
+    });
+    [["tl-ov", view.ovL, view.ovW], ["tl-bar bar-a", view.aL, view.aW], ["tl-bar bar-b", view.bL, view.bW]].forEach((bar) => {
+      const el = document.createElement("span");
+      el.className = bar[0];
+      el.style.left = bar[1] + "%";
+      el.style.width = bar[2] + "%";
+      track.appendChild(el);
+    });
+    tl.appendChild(track);
+    const days = document.createElement("div");
+    days.className = "tl-d";
+    view.days.forEach((text) => {
+      const d = document.createElement("span");
+      d.textContent = text;
+      days.appendChild(d);
+    });
+    tl.appendChild(days);
+    const key = document.createElement("div");
+    key.className = "tl-k";
+    [["k-a", "已报名"], ["k-b", "这一场"], ["k-o", "重叠"]].forEach((k) => {
+      const s = document.createElement("span");
+      s.className = k[0];
+      s.textContent = k[1];
+      key.appendChild(s);
+    });
+    tl.appendChild(key);
+    why.appendChild(tl);
+    const way = document.createElement("p");
+    way.className = "why-s";
+    way.textContent = view.way;
+    if (view.hasGo) {
+      const go = document.createElement("button");
+      go.type = "button";
+      go.className = "why-go";
+      go.textContent = "去已报名那场";
+      go.addEventListener("click", () => goSigned(signedItem.id));
+      way.appendChild(go);
+    }
+    why.appendChild(way);
+    return why;
+  }
+
+  /* 「去已报名那场」：收起原因，放开可能藏住它的筛选，展开「已报名」折叠区并滚到那一行 */
+  function goSigned(id) {
+    model.whyId = "";
+    const shown = PhoneModel.filterItems(model.items, model.filter, Date.now() / 1000)
+      .some((it) => it.id === id);
+    if (!shown) {
+      model.filter = { q: "", status: "all", time: "all" };
+      if ($("q")) $("q").value = "";
+      document.querySelectorAll("[data-status]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.status === "all" ? "true" : "false"));
+      document.querySelectorAll("[data-time]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.time === "all" ? "true" : "false"));
+    }
+    if ($("signed-summary")) $("signed-summary").open = true;
+    model.flashId = id;
+    renderItems();
+    const row = document.querySelector('[data-id="' + String(id).replace(/(["\\])/g, "\\$1") + '"]');
+    if (row && row.scrollIntoView) row.scrollIntoView({ block: "center", behavior: "smooth" });
+    setTimeout(() => { model.flashId = ""; if (row && row.classList) row.classList.remove("flash"); }, 2000);
   }
 
   function renderItems() {
@@ -550,7 +865,10 @@ if (typeof document !== "undefined") {
     if (state.plan) model.plan = state.plan;
     if (typeof state.terms_ok === "boolean") model.termsOk = state.terms_ok;
     if (state.relogin_setup && typeof state.relogin_setup === "object") model.reloginSetup = state.relogin_setup;
-    if (state.business_clock && typeof state.business_clock === "object") model.clockState = String(state.business_clock.state || "");
+    if (state.business_clock && typeof state.business_clock === "object") {
+      model.clockState = String(state.business_clock.state || "");
+      PhoneModel.setClock(model, state.business_clock);
+    }
     if (typeof state.busy === "boolean") model.busy = state.busy;
     if (state.retry_options && Array.isArray(state.retry_options.choices)) {
       model.retryOptions = state.retry_options;
