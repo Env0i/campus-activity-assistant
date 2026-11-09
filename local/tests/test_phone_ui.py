@@ -19,6 +19,7 @@ import tempfile
 import unittest
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 LOCAL = Path(__file__).resolve().parents[1]
@@ -3798,9 +3799,11 @@ const ui = PhoneUI;
 ui.model.lastOkAt = Date.now();
 const state = { busy: false, plan: null,
   activities: [
-    { id: "a1", name: "甲活动", sign_start: "2026-11-08 10:00:00", signed: true },
-    { id: "a2", name: "乙活动", sign_start: "2026-11-09 20:00:00" },
-    { id: "a3", name: "丙活动", sign_start: "2026-11-07 09:00:00", closed: true } ] };
+    /* 相对北京时间的今天（手机页按 SCHOOL_TZ 分组，本机日期会差一天）：写死日期会随翻页把「明天」变成「今天」（2026-11-09 全量实测分组数 6→4）；
+       断言不变，只把夹具日期改成相对值。 */
+    { id: "a1", name: "甲活动", sign_start: "%s 10:00:00", signed: true },
+    { id: "a2", name: "乙活动", sign_start: "%s 20:00:00" },
+    { id: "a3", name: "丙活动", sign_start: "%s 09:00:00", closed: true } ] };
 ui.model.filter.status = "all";          // 先定段钮再拉快照：沙箱 textContent 清不空子元素，只渲染一次
 globalThis.__fetch = async () => ({ status: 200, json: async () => ({ state, events: [] }) });
 await ui.poll(true);
@@ -3815,7 +3818,8 @@ out.push({ result: {
   summaryShown: !$("signed-summary").hidden,
   count: $("signed-count").textContent,
   rows: $("signed-items").childElementCount } });
-""")
+""" % tuple((datetime.now(timezone(timedelta(hours=8))) + timedelta(days=o)).strftime("%Y-%m-%d")
+            for o in (-1, 1, -2)))
         draft, result = values
         # 组条+行的结构计数：明天(乙) + 已报名(甲) + 已截止(丙) 各占 grp+row = 6 个子元素
         self.assertEqual(draft["draft"]["upcomingKids"], 6,
