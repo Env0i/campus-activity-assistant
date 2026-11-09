@@ -108,41 +108,40 @@
     </footer>
   </div>
 
-  <!-- 使用条款与隐私告知：首次需要学校网络动作前完整展示；「暂不使用」不退出程序，
-       但登录、活动列表与报名计划保持停用，直到通过横幅或帮助里的入口重新同意。 -->
-  <dialog class="dlg dlg-terms" id="dlg-terms" aria-labelledby="dlg-terms-title" aria-describedby="dlg-terms-sub">
+  <!-- 使用条款与隐私：首次需要学校网络动作前完整展示；「暂不使用」不退出程序，
+       但登录、活动列表与报名计划保持停用，直到通过横幅或设置里的入口重新同意。
+       壳层照原型全文阅读器 .scrim.tscrim＋.dlg.tdoc（Main:386-387/887）：
+       tdoc 是原型类名映射（原生 dialog 的 ::backdrop 即原型全屏 .tscrim，
+       顶层置顶由浏览器接管，不再要 z-index），宽高见 styles.css .dlg-terms。
+       × 只等于「关闭」，不再等于拒绝；拒绝只走「暂不使用」钮（decisions 014 修订、TM01）。 -->
+  <dialog class="dlg dlg-terms tdoc" id="dlg-terms" aria-labelledby="dlg-terms-title" aria-describedby="dlg-terms-sub">
     <div class="dlg-head terms-head">
-      <h2 id="dlg-terms-title" tabindex="-1">使用条款与隐私告知</h2>
-      <form method="dialog"><button class="dlg-x" type="submit" aria-label="暂不使用并关闭条款"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></form>
+      <h2 id="dlg-terms-title" tabindex="-1">使用条款与隐私</h2>
+      <form method="dialog"><button class="dlg-x" type="submit" aria-label="关闭条款"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></form>
     </div>
     <div class="dlg-body terms-body">
       <div class="terms-feedback">
         <p class="help-status" id="dlg-terms-status" role="status" aria-live="polite" hidden></p>
         <button class="btn btn-line" id="btn-terms-recheck" type="button" hidden>重新确认状态</button>
       </div>
-      <p id="dlg-terms-sub">本份<button type="button" class="doc-link" data-doc="agreement">《用户协议》</button>与<button type="button" class="doc-link" data-doc="privacy">《隐私政策》</button> <b id="dlg-terms-document-version">2026-11-07-r5</b>；程序要求版本 <b id="dlg-terms-version">—</b>。同意后才能登录、查看活动列表与开始报名计划。</p>
-      <section class="terms-update" id="terms-update" aria-labelledby="terms-update-title" hidden>
-        <h3 id="terms-update-title">使用条款更新了</h3>
-        <p>你之前同意的是 <b id="terms-update-from">—</b>。这一版改了下面几处，正文里标「本版新增」的就是这些地方：</p>
-        <ol class="terms-update-list" id="terms-update-list"></ol>
-      </section>
-      <div class="terms-toolbar">
-        <h3 id="dlg-terms-view-title">条款要点</h3>
-        <button class="btn btn-line" id="btn-terms-full" type="button" aria-controls="dlg-terms-full-text" aria-expanded="false">查看完整条款</button>
-      </div>
-      <section class="terms-summary" id="dlg-terms-summary" aria-labelledby="dlg-terms-view-title">
-        <ul class="terms-points">
-          <li><div class="t">非官方个人作品</div><div class="d">只适用于一所目标学校。本工具与学校、学校系统运营方及飞书均无隶属、合作或授权关系，按「现状」免费提供，不承诺无缺陷或报名成功。</div></li>
-          <li><div class="t">数据与对外通信</div><div class="d">登录凭据、活动缓存与设置只存在这台电脑的数据目录；学校访问（同意后含周期刷新）、校时和手动更新会联网，没有云端备份。</div></li>
-          <li><div class="t">只做重复操作自动化</div><div class="d">报名默认直接调用学校接口，不经过学校页面。同意后会自动校验登录态并周期刷新活动列表，这些学校访问不限于你手动点击的那一次；名额与结果始终由学校系统决定。</div></li>
-          <li><div class="t">你的义务</div><div class="d">只用本人账号，遵守学校规章制度；不得干扰学校系统、牟利或代他人报名。</div></li>
-          <li><div class="t">责任限制</div><div class="d">在法律允许范围内不对未报上名、账号受限等损失承担责任；法律强制不得排除的责任（含故意或重大过失）不在此列。</div></li>
-        </ul>
-        <p class="terms-offline">本份条款可离线阅读：全文就在本窗口内，不依赖网络或仓库文档。</p>
-      </section>
-      <nav class="terms-toc" id="terms-toc" aria-label="章节目录" hidden></nav>
+      <!-- TM02（原型 Main:1571 句式）：元信息行按真实状态拼——「版本 X。」由
+           #dlg-terms-version 承载（views/terms.js 写 S.terms.version，unknown 写
+           「尚未确认」）；「本份《用户协议》与《隐私政策》＋副本版本 b 节点」
+           保留：同意契约提交的副本版本与内联跳转都靠它们。末尾状态段
+           #terms-sub-state 由 paintTermsMeta 按已同意版本填写（旧版没同意 /
+           还没同意 / 无）。 -->
+      <p id="dlg-terms-sub">版本 <b id="dlg-terms-version">—</b>。本份<button type="button" class="doc-link" data-doc="agreement">《用户协议》</button>与<button type="button" class="doc-link" data-doc="privacy">《隐私政策》</button> <b id="dlg-terms-document-version">2026-11-07-r5</b>。<span id="terms-sub-state">你还没有同意。</span></p>
+      <!-- TM03（原型 Main:888）：页签行照原型提到阅读分栏之上，第三页签叫
+           「开源许可」；右侧注逐字用弯引号（原型 .td-newnote）。 -->
+      <div class="terms-tabs"><button class="terms-tab is-on" id="tab-terms-agreement" type="button" aria-pressed="true">用户协议</button><button class="terms-tab" id="tab-terms-privacy" type="button" aria-pressed="false">隐私政策</button><button class="terms-tab" id="tab-terms-license" type="button" aria-pressed="false">开源许可</button><span class="terms-newnote">标着“本版新增”的是这次的改动</span></div>
+      <!-- decisions 第 1 条（plan 20261108-c3-dialogs）：#dlg-terms 只做全文阅读器。
+           旧的 #terms-update 内嵌区块、要点视图（5 条 ul＋离线句＋要点/全文切换钮）
+           已删除：首次同意走首次说明框（#dlg-terms-intro）、版本更新走条款更新框
+           （#dlg-terms-update），要点数据在 state/store.js 的 FIRST_USE_POINTS。 -->
+      <!-- TM01（原型 Main:394）：宽档左侧章节导航 11rem 常显，
+           ≤719px 收起——显隐交给 styles.css，不在这里写 hidden。 -->
+      <nav class="terms-toc" id="terms-toc" aria-label="章节目录"></nav>
       <section class="terms-document" id="dlg-terms-full-text" hidden aria-label="完整条款">
-        <div class="terms-tabs"><button class="terms-tab is-on" id="tab-terms-agreement" type="button" aria-pressed="true">用户协议</button><button class="terms-tab" id="tab-terms-privacy" type="button" aria-pressed="false">隐私政策</button><button class="terms-tab" id="tab-terms-license" type="button" aria-pressed="false">MIT 许可证</button></div>
         <div class="terms-doc" id="doc-terms-agreement" data-doc="agreement">
 <div class="terms-section terms-preamble"><h4>用户协议</h4><p>版本：<strong>2026-11-07-r5</strong>（程序内「用户协议」与此文件使用同一版本号；内容更新后版本号随之更新，程序会请你<strong>再次点击同意</strong>）</p><p>产品：校园活动预报名工具（本机版 / 服务器版）</p><p>开发者：个人开发者（Author），非商业、非官方作品</p><p><strong>重要提示</strong>：请完整阅读本协议，特别是第 5 条（使用提醒）与第 6 条（责任限制）——这些条款与你存在重大利害关系。</p><p>若你不同意本协议，可以继续使用帮助、设置与离线演示，但登录、活动列表和报名计划会保持停用。</p><p>本文件是产品使用说明，<strong>不是法律意见</strong>；有具体法律疑问请咨询执业律师。</p></div>
 <div class="terms-section"><h3>1. 定义</h3><ul><li><strong>本工具</strong>：校园活动预报名工具，含本机版（Windows 图形界面程序）与服务器版（自部署脚本与机器人）。</li><li><strong>开发者</strong>：编写并公开本工具源码的个人，仅通过 GitHub 与电子邮件与使用者沟通。</li><li><strong>使用者（你）</strong>：下载、运行或部署本工具的人。</li><li><strong>学校系统</strong>：你所在学校运营的学生端活动报名平台（含其 App 与网页）。本工具与该系统的运营方不存在任何隶属、合作或授权关系。</li><li><strong>飞书</strong>：服务器版用来推送消息的第三方即时通讯服务。</li><li><strong>学校动作</strong>：登录、登录态校验、活动列表拉取、报名提交与报名计划这些会访问学校系统的操作；校时、更新检查、帮助、设置与离线演示不属于学校动作。</li><li><strong>直接提交</strong>：报名开放时，程序直接调用学校的报名接口提交，不经过学校页面点击；<strong>点击报名</strong>：程序打开学校活动详情页并点击「立即报名」，只在直接提交不可用时兜底。</li><li><strong>运行时密钥</strong>：报名前向学校接口临时获取、只保存在本次运行内存里的密钥，用于计算报名请求的签名；不写入磁盘、不写日志。</li></ul></div>
@@ -180,13 +179,60 @@
       </section>
       <!-- 方案 A：条款按文档体收尾——版本、生效日期与许可单独成块。
            放在 #dlg-terms-full-text 之外，是为了不改动「全文与 docs 逐字一致」的契约；
-           它跟着全文视图一起显隐（见 toggleTermsFull / resetTermsFullView）。 -->
-      <div class="terms-doc-meta" id="terms-doc-meta" hidden><span>适用版本 <b>2026-11-07-r5</b></span><span>生效日期 2026-11-07</span><span>许可 MIT</span></div>
-      <span class="help-esc">Esc 暂不使用</span>
+           阅读器只呈现全文（要点视图已删），这一块常显，不再做显隐切换。 -->
+      <div class="terms-doc-meta" id="terms-doc-meta"><span>适用版本 <b>2026-11-07-r5</b></span><span>生效日期 2026-11-07</span><span>许可 MIT</span></div>
+      <span class="help-esc">Esc 关闭</span>
     </div>
     <!-- 方案 A：把「同意」拆成两步——先勾选确认读过，才解锁同意按钮；
-         勾选态不落盘，关闭或重开都要重新勾（不替用户记住一个未经点击的确认）。 -->
-    <div class="dlg-foot terms-foot"><div class="terms-agree-wrap"><label class="terms-agree" for="chk-terms-agree"><input type="checkbox" id="chk-terms-agree"> 我已阅读并同意<button type="button" class="doc-link" data-doc="agreement">《用户协议》</button>与<button type="button" class="doc-link" data-doc="privacy">《隐私政策》</button></label><span class="terms-agree-note" id="dlg-terms-gate-note">暂不使用后：登录、活动列表与报名计划保持停用，可随时回来同意。</span></div><button class="btn btn-line" id="btn-terms-close" type="button" hidden>关闭</button><button class="btn btn-line" id="btn-terms-decline" type="button" title="保持停用登录、活动列表与报名计划，可随时回来重新同意">暂不使用</button><button class="btn btn-blue" id="btn-terms-accept" type="button" title="同意当前版本的使用条款与隐私告知，之后才能登录和报名" disabled>我已阅读并同意</button></div>
+         勾选态不落盘，关闭或重开都要重新勾（不替用户记住一个未经点击的确认）。
+         TM04/TM05（原型 Main:894-895）：同意态＝勾选＋暂不使用＋同意并继续
+         （钮名照原型；连接词「和」照原型），只读态＝关闭＋Esc 关闭提示。 -->
+    <div class="dlg-foot terms-foot"><div class="terms-agree-wrap"><label class="terms-agree" for="chk-terms-agree"><input type="checkbox" id="chk-terms-agree"> 我已阅读并同意<button type="button" class="doc-link" data-doc="agreement">《用户协议》</button>和<button type="button" class="doc-link" data-doc="privacy">《隐私政策》</button></label><span class="terms-agree-note" id="dlg-terms-gate-note">暂不使用后：登录、活动列表与报名计划保持停用，可随时回来同意。</span></div><button class="btn btn-line" id="btn-terms-close" type="button" hidden>关闭</button><button class="btn btn-line" id="btn-terms-decline" type="button" title="保持停用登录、活动列表与报名计划，可随时回来重新同意">暂不使用</button><button class="btn btn-blue" id="btn-terms-accept" type="button" title="同意当前版本的使用条款与隐私，之后才能登录和报名" disabled>同意并继续</button></div>
+  </dialog>
+  <!-- 首次说明框（原型 FirstUse 画板，c3-dialogs-gap FU01/FU02，Main:798-807/2484）：
+       38rem 独立同意模态、深色标题栏、无右上 ×（做决定的弹窗不放 ×，UI_SPEC §5.13）。
+       正文六条要点由 views/terms.js 从 state/store.js 的 FIRST_USE_POINTS 渲染；
+       第六条「完整条款」是链接钮——先收起本框再开全文阅读器（同意态），全文
+       ×/Esc 关掉回到本框（两框不叠层）。脚部勾选居左＋暂不使用｜同意并继续
+       （勾选前禁用，Main:2484）；「暂不使用」走 declineTerms 现有拒绝路径。 -->
+  <dialog class="dlg dlg-terms-intro" id="dlg-terms-intro" aria-labelledby="dlg-terms-intro-title" aria-describedby="dlg-terms-intro-sub">
+    <div class="dlg-head">
+      <h2 id="dlg-terms-intro-title" tabindex="-1">开始前先了解这些</h2>
+      <p id="dlg-terms-intro-sub">同意后才能登录、查看活动和开始报名计划</p>
+    </div>
+    <div class="dlg-body">
+      <p class="help-status" id="dlg-terms-intro-status" role="status" aria-live="polite" hidden></p>
+      <ul class="pts" id="dlg-terms-intro-points"></ul>
+    </div>
+    <div class="dlg-foot">
+      <label class="terms-agree" for="chk-terms-intro-agree"><input type="checkbox" id="chk-terms-intro-agree"> 我已阅读并同意</label>
+      <button class="btn btn-line" id="btn-terms-intro-decline" type="button" title="保持停用登录、活动列表与报名计划，可随时回来重新同意">暂不使用</button>
+      <button class="btn btn-solid" id="btn-terms-intro-accept" type="button" title="同意当前版本的使用条款与隐私，之后才能登录和报名" disabled>同意并继续</button>
+    </div>
+  </dialog>
+  <!-- 条款更新框（原型 TermsUpdate 画板，c3-dialogs-gap TM08/TM09，Main:878-880/1828）：
+       32rem 独立模态、深色标题栏、无 ×；副题版本号读真实值（views/terms.js 写
+       S.terms.version 与已同意版本）；变更清单沿用 views/terms.js 的 TERMS_CHANGES
+       （r5 真实内容，每条琥珀「新增」徽章照原型 Main:880）；注句逐字照原型。
+       脚部 看完整条款｜弹性空隙｜暂不同意｜同意新版条款（打开时焦点落同意钮，
+       Main:1828；更新框无勾选门，照原型脚部）。 -->
+  <dialog class="dlg dlg-tu" id="dlg-terms-update" aria-labelledby="dlg-terms-update-title" aria-describedby="dlg-terms-update-sub">
+    <div class="dlg-head">
+      <h2 id="dlg-terms-update-title">使用条款更新了</h2>
+      <p id="dlg-terms-update-sub">新版 <b id="terms-update-version">—</b>，你之前同意的是 <b id="terms-update-from">—</b>。同意新版后才能继续登录和报名。</p>
+    </div>
+    <div class="dlg-body">
+      <p class="help-status" id="dlg-terms-update-status" role="status" aria-live="polite" hidden></p>
+      <p class="dlg-p" id="dlg-terms-update-lead">这次主要改了：</p>
+      <ul class="tu-list" id="terms-update-list"></ul>
+      <p class="dlg-note">不同意也可以继续用帮助和设置，但登录、自动登录、活动列表和报名计划会停用。已保存的账号密码和登录信息不会删除。</p>
+    </div>
+    <div class="dlg-foot">
+      <button class="btn" id="btn-tu-full" type="button">看完整条款</button>
+      <span class="grow"></span>
+      <button class="btn btn-line" id="btn-tu-decline" type="button" title="保持停用登录、活动列表与报名计划，可随时回来重新同意">暂不同意</button>
+      <button class="btn btn-solid" id="btn-tu-accept" type="button" title="同意新版条款，之后才能登录和报名">同意新版条款</button>
+    </div>
   </dialog>
   <!-- 一个帮助面板承载使用与辅助操作；报名状态与更新状态彼此独立。 -->
   <dialog class="dlg dlg-help" id="help" aria-labelledby="help-title">
@@ -311,34 +357,38 @@
           <div class="help-tool-text"><h3>关闭窗口时</h3><p>选了直接退出也一样：报名计划运行中，关窗口前会先问你</p></div>
           <label class="filter-select"><span class="sr-only">关闭窗口时</span><select id="close-pref" aria-label="关闭窗口时"><option value="ask">每次询问</option><option value="hide">隐藏到后台</option><option value="minimize">最小化到任务栏</option><option value="exit">直接退出</option></select></label>
         </div>
+        <!-- 版本与更新照原型 Main.dc.html:771-786 重排（UP01-UP12，c3-dialogs-gap 二）：
+             状态行下依次是错误框、新版本块、确认问句、进度块、下载注、就绪块（黄警示独立成块）、底注；
+             「打开发布页」沿用 #btn-help-latest 的既有 open_latest_release 绑定（UP10）；
+             按钮与容器 id 全部保留、显隐由 views/update.js paintUpdate 控制。 -->
         <div class="help-tool-row set-update">
-          <div class="help-tool-text"><h3>版本与更新 <span class="help-current">当前 <b id="help-version">—</b></span></h3><p id="update-status" role="status" aria-live="polite">只有点“检查更新”时才联网，下载前还会再确认。</p><p class="help-checked" id="update-checked-at" hidden></p><p class="help-checked" id="update-progress" hidden></p><p class="help-checked" id="update-download-note" hidden>下载不影响报名计划，可以关掉设置继续用。</p></div>
-          <div class="help-actions update-actions"><span class="update-flow" id="update-flow" hidden><button class="btn btn-solid" id="btn-update-install" type="button" hidden>下载并安装</button><button class="btn btn-solid" id="btn-update-confirm" type="button" hidden>确认下载</button><button class="btn btn-line" id="btn-update-launch" type="button" hidden>启动安装程序</button><button class="btn btn-line" id="btn-update-cancel" type="button" hidden>取消</button><button class="btn btn-solid" id="btn-update-close" type="button" hidden>关闭本工具…</button></span><button class="btn btn-line" id="btn-update-check" type="button">检查更新</button><button class="btn btn-line" id="btn-help-latest" type="button">前往下载页</button></div>
+          <div class="help-tool-text"><h3>版本与更新 <span class="help-current">当前 <b id="help-version">—</b></span></h3><p id="update-status" role="status" aria-live="polite">只有点“检查更新”时才联网，下载前还会再确认。</p><p class="help-checked" id="update-checked-at" hidden></p><p class="ph-err" id="update-error-box" role="alert" hidden></p><div class="up-v" id="update-version-box" hidden><b id="update-version-num"></b><span id="update-version-note"></span></div><div class="upbox" id="update-confirm-box" hidden><p id="update-confirm-question"></p></div><div class="ph-prog" id="update-progress-box" hidden><div class="ph-prog-t"><span id="update-progress-label">已下载</span><b id="update-progress-num"></b></div><div class="ph-bar" id="update-progress-bar" role="progressbar" aria-label="安装包下载进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="update-progress-fill"></i></div></div><p class="help-checked" id="update-download-note" hidden>下载不影响报名计划，可以关掉设置继续用。</p><div class="upbox" id="update-ready-box" hidden><p class="ph-warn" id="update-plan-warn" hidden>报名计划还在运行。安装时要先关闭本工具，计划会停止，建⁠议等这次计划结束再装。</p><p>启动后按安装向导操作。工具不会自己退出或重启。</p></div><p class="ph-note"><button class="ph-link" id="btn-help-latest" type="button">打开发布页</button>，看更新说明，或者手动下载完整包。</p></div>
+          <div class="help-actions update-actions"><span class="update-flow" id="update-flow" hidden><button class="btn btn-solid" id="btn-update-install" type="button" hidden>下载并安装</button><button class="btn btn-solid" id="btn-update-confirm" type="button" hidden>确认下载</button><button class="btn btn-solid" id="btn-update-launch" type="button" hidden>启动安装程序</button><button class="btn btn-line" id="btn-update-cancel" type="button" hidden>取消</button><button class="btn btn-line" id="btn-update-close" type="button" hidden>关闭本工具…</button></span><button class="btn btn-line" id="btn-update-check" type="button">检查更新</button></div>
         </div>
         <div class="help-tool-row">
           <div class="help-tool-text"><h3>本机数据</h3><p id="help-data-path">登录信息、设置、运行记录和下载的组件，都只保存在这台电脑。</p></div>
           <button class="btn btn-line" id="btn-help-data" type="button">打开数据目录</button>
         </div>
         <div class="help-tool-row">
-          <div class="help-tool-text"><h3>条款与隐私</h3><p>当前条款版本 <b id="help-terms-version">—</b>；<span id="settings-terms-state">同意记录保存在本机设置里。</span></p></div>
-          <div class="help-actions"><button class="btn btn-line" id="btn-help-terms" type="button">查看条款</button><button class="btn btn-line" id="btn-terms-withdraw" type="button">撤回同意</button></div>
+          <div class="help-tool-text"><h3>条款与隐私</h3><p>当前条款版本 <b id="help-terms-version">—</b>；<span id="settings-terms-state">同意记录保存在本机设置里。</span> <button class="ph-link" id="btn-terms-withdraw" type="button" hidden>撤回同意</button></p></div>
+          <div class="help-actions"><button class="btn btn-line" id="btn-help-terms" type="button">查看条款</button></div>
         </div>
-        <!-- 计划运行中不能撤回：原因写在按钮下方，不只放在悬停提示里（原型 :738） -->
+        <!-- 计划运行中不能撤回：原因写在句子下方，不只放在悬停提示里（TM11，原型 Main:2490 withdrawBlocked 注） -->
         <p class="help-checked" id="terms-withdraw-why" hidden>报名计划运行中不能撤回同意，先停止计划。</p>
-        <div class="terms-withdraw-confirm" id="terms-withdraw-confirm" hidden>
-          <p class="relogin-line">撤回后，登录、登录检查、自动登录、刷新活动和开始计划都会停用；保存的账号密码和登录信息不会删除，重新同意就能继续用。</p>
-          <div class="help-actions"><button class="btn btn-line" id="btn-terms-withdraw-cancel" type="button">先不撤回</button><button class="btn btn-solid" id="btn-terms-withdraw-confirm" type="button">确认撤回</button></div>
-        </div>
+        <!-- 红色确认条照原型（TM11，Main:789 文案逐字三句；.ph-confirm bad-tint 见 Main:340）；
+             「确认撤回」是红色实心 btn-stop。点句内「撤回同意」（TM10，Main:2492）只展开这里，
+             点「确认撤回」才真正调 withdraw_terms；关抽屉强制收起（views/settings.js closeSettings）。 -->
+        <div class="ph-confirm" id="terms-withdraw-confirm" role="alert" hidden>撤回后，登录、自动登录、活动列表和报名计划会停用。已保存的账号密码和登录信息不会删除。要删除账号密码，在“登录恢复”里清除。<div class="ph-acts"><button class="btn btn-line" id="btn-terms-withdraw-cancel" type="button">先不撤回</button><button class="btn btn-stop" id="btn-terms-withdraw-confirm" type="button">确认撤回</button></div></div>
       </section>
         <p class="help-status" id="help-status" role="status" hidden></p>
     </div>
   </aside>
-  <!-- 五步可重播引导：中性遮罩 + 琥珀高亮框 + 说明卡片；Esc=跳过；窄窗或目标缺失退回底部说明条 -->
+  <!-- 五步可重播引导：高亮框四周由 .tour-spot 的外扩阴影铺暗、目标区镂空（TR01，原型 Main:906-911）；
+       步数由 views/tour.js 填写；Esc=跳过；窄窗或目标缺失退回底部说明条 -->
   <div class="tour" id="tour" hidden>
-    <div class="tour-mask" aria-hidden="true"></div>
     <div class="tour-spot" id="tour-spot" aria-hidden="true"></div>
     <div class="tour-card" id="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" tabindex="-1">
-      <div class="tour-head"><span class="tour-step" id="tour-step">第 1/6 步</span><span class="tour-dots" id="tour-dots" aria-hidden="true"></span></div>
+      <div class="tour-head"><span class="tour-step" id="tour-step"></span><span class="tour-dots" id="tour-dots" aria-hidden="true"></span></div>
       <h3 id="tour-title"></h3>
       <p id="tour-text"></p>
       <div class="tour-foot">
@@ -434,36 +484,39 @@
       <button class="btn btn-solid" id="btn-rl-done" type="button" hidden>知道了</button>
     </div>
   </dialog>
-  <!-- 关窗四选：右上角 X 不再等于「直接退出」，三个出口 + 先不关，问清楚再动手 -->
+  <!-- 关窗三选（原型 closeask 画板，c3-dialogs-gap CW01–CW08、CW12、CW14）：深色点阵标题栏
+       ＋琥珀左线、无右上 ×；三张选择卡「最小化→隐藏→退出」竖排，点一行就执行；
+       确认步换标题与正文段，脚部勾选居左、主钮居右。右上角 X 只等于「请求关闭」，
+       真正关不关由这里决定。卡内数字由 window.js 按 BE1 载荷填写。 -->
   <dialog class="dlg dlg-close" id="dlg-close" aria-labelledby="dlg-close-title">
     <div class="dlg-head">
-      <h2 id="dlg-close-title">要关闭这个窗口吗？</h2>
-      <p id="dlg-close-body">关掉窗口会停掉手机访问和报名计划。</p>
+      <h2 id="dlg-close-title">要关闭窗口吗？</h2>
+      <p id="dlg-close-body">选一个关闭方式。Esc 先不关。</p>
     </div>
-    <ul class="close-running" id="dlg-close-running" aria-label="正在运行" hidden></ul>
-    <div class="close-confirm" id="dlg-close-confirm" role="alert" hidden>
-      <p><b>报名计划还在运行。</b>退出会停掉计划，还没提交的场次不会自己继续；手机也会立刻失去访问。</p>
-      <div class="help-actions"><button class="btn btn-line" id="btn-close-exit-back" type="button">返回</button><button class="btn btn-solid" id="btn-close-exit-confirm" type="button">仍然退出</button></div>
+    <div class="dlg-body">
+      <ul class="stakes" id="dlg-close-running" aria-label="正在运行的事" hidden></ul>
+      <div class="cchoices" id="dlg-close-choices">
+        <button class="cch" id="btn-close-minimize" type="button" autofocus>
+          <b>最小化到任务栏 <em class="close-rec" id="close-rec" hidden>推荐</em></b>
+          <span id="close-min-text">窗口缩到任务栏，计划和手机访问都照常。</span>
+        </button>
+        <button class="cch" id="btn-close-hide" type="button">
+          <b>隐藏到后台</b>
+          <span id="close-hide-text">窗口不见了，工具在后台继续运行。从右下角托盘图标或手机页叫回来。</span>
+          <span class="close-why" id="close-hide-why" hidden>现在叫不回来：托盘图标没建起来，手机也没连着，所以不能隐藏。</span>
+        </button>
+        <button class="cch danger" id="btn-close-exit" type="button">
+          <b>退出程序</b>
+          <span id="close-exit-text">报名计划会停止，还没提交的场次不会再报名。手机也会断开。</span>
+        </button>
+      </div>
+      <p class="dlg-p" id="dlg-close-confirm" role="alert" hidden></p>
     </div>
-    <div class="close-choices" id="dlg-close-choices">
-      <button class="close-choice" id="btn-close-hide" type="button">
-        <b>隐藏到后台运行</b>
-        <span>窗口收起来，电脑继续推送、手机照常可用、报名计划不停；托盘图标或手机页都能叫回来，两者都没有时工具不会隐藏。</span>
-        <span class="close-why" id="close-hide-why" hidden></span>
-      </button>
-      <button class="close-choice" id="btn-close-minimize" type="button" autofocus>
-        <b>最小化到任务栏 <em class="close-rec" id="close-rec" hidden>推荐</em></b>
-        <span>只是把窗口缩下去，任务栏还留着按钮，点一下就回来。</span>
-      </button>
-      <button class="close-choice is-danger" id="btn-close-exit" type="button">
-        <b>直接退出</b>
-        <span>手机访问和报名计划都会立刻停止，未完成的计划不会自己继续。</span>
-      </button>
-    </div>
-    <label class="dlg-check"><input type="checkbox" id="dlg-close-remember"> 以后都这样，别再问我</label>
     <div class="dlg-foot">
+      <label class="dlg-check close-remember" id="dlg-close-remember-row" for="dlg-close-remember"><input type="checkbox" id="dlg-close-remember"> 以后都这样，不再询问</label>
       <button class="btn btn-line" id="btn-close-cancel" type="button">先不关</button>
-      <span class="grow"></span>
+      <button class="btn btn-line" id="btn-close-exit-back" type="button" hidden>返回</button>
+      <button class="btn btn-stop" id="btn-close-exit-confirm" type="button" hidden>停止计划并退出</button>
     </div>
   </dialog>
   <!-- 导入已下载的组件包（原型 impView，settings-gap 五、IM01–IM03）：每次只导入一个组件，标题和说明随 key 变；

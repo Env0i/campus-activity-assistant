@@ -44,6 +44,7 @@ function closeSettings(restoreFocus) {
   $("#btn-settings").setAttribute("aria-expanded", "false");
   const box = $("#terms-withdraw-confirm");
   if (box) box.hidden = true;
+  termsWithdrawAskOpen = false; /* 关抽屉强制收起确认条（TM10/TM11 既有行为），链接钮显隐由下次 paintTermsRow 接管 */
   if (restoreFocus && $("#btn-settings").focus) $("#btn-settings").focus();
 }
 
@@ -68,7 +69,22 @@ function saveClosePref(value) {
   savePrefs({ window: windowPrefs });
 }
 
-/* 条款与隐私：同意了哪一版、什么时候；没同意时写清停用了什么。计划运行中不能撤回 */
+/* 条款与隐私：同意了哪一版、什么时候；没同意时写清停用了什么。计划运行中不能撤回。
+ * 已同意句照原型（TM10，Main:2490）：「你在 MM-DD HH:mm 同意了 <版本> 版。用户协议、隐私政策
+ * 和开源许可的全文都可以在这里查看。」，句尾跟句内链接钮「撤回同意」（TM10，Main:2492）。 */
+/* 确认条开合的唯一位：点「撤回同意」置真、点「先不撤回」/「确认撤回」/关抽屉置假。
+ * paintTermsRow 只读它——展开时藏句内链接钮（TM10，原型 canWithdraw 含 !termsWAsk，Main:2491），
+ * 避免句子还挂着「撤回同意」、下面却已展开确认条的两处状态打架。 */
+let termsWithdrawAskOpen = false;
+
+/* 同意时间拼「MM-DD HH:mm」（TM10，格式同 views/update.js 的 formatCheckedAt，UP03 定的连字符）。
+ * 后端存的是「YYYY-MM-DD HH:MM:SS」文本（ui.json terms_accepted_at），直接截取月日时分，
+ * 不 new Date 解析；格式对不上时退回原文，为空再退「之前」。 */
+function formatAcceptedAt(stamp) {
+  const s = String(stamp || "");
+  return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s) ? s.slice(5, 16) : "";
+}
+
 function paintTermsRow() {
   const line = $("#settings-terms-state");
   const withdraw = $("#btn-terms-withdraw");
@@ -76,12 +92,13 @@ function paintTermsRow() {
   const terms = S.terms || {};
   const accepted = typeof termsAccepted === "function" ? termsAccepted() : false;
   line.textContent = accepted
-    ? "你在 " + (terms.acceptedAt || "之前") + " 同意了这一版。"
+    ? "你在 " + (formatAcceptedAt(terms.acceptedAt) || terms.acceptedAt || "之前")
+      + " 同意了 " + terms.version + " 版。用户协议、隐私政策和开源许可的全文都可以在这里查看。"
     : "还没有同意这一版：登录、登录检查、自动登录、刷新活动和开始计划都已停用。";
-  withdraw.hidden = !accepted;
+  withdraw.hidden = !accepted || termsWithdrawAskOpen;
   withdraw.disabled = !!S.busy;
   withdraw.title = S.busy ? "计划运行中不能撤回，先停止计划" : "撤回同意（保存的账号和登录信息不会删除）";
-  /* 原因也写在按钮下方（原型 Main.dc.html:738）：悬停提示在触控板和键盘操作里看不到。 */
+  /* 原因也写在句子下方（TM11，原型 Main:2490 withdrawBlocked 注）：悬停提示在触控板和键盘操作里看不到。 */
   const why = $("#terms-withdraw-why");
   if (why) why.hidden = !(accepted && S.busy);
 }
@@ -94,9 +111,11 @@ async function withdrawTerms() {
   } catch (err) {
     result = { ok: false, text: "撤回没有完成：" + msg(err) };
   }
+  termsWithdrawAskOpen = false;
   if (box) box.hidden = true;
   if (!result || !result.ok) {
     helpStatus(String((result && result.text) || "撤回没有完成。"), "warn");
+    paintTermsRow(); /* 失败也收起确认条：句内「撤回同意」链接钮的显隐要跟上 */
     return;
   }
   /* 回执里的条款快照就是后端事实：门禁立刻按它关上，界面不另算 */
@@ -327,11 +346,19 @@ function wireSettings() {
   if (withdraw) {
     withdraw.addEventListener("click", () => {
       if (S.busy) return;
+      /* 只展开确认条，不发 withdraw_terms（TM10/TM11：点「确认撤回」才动手）；
+         展开时藏句内链接钮（TM10，原型 canWithdraw 含 !termsWAsk，Main:2491/2492） */
+      termsWithdrawAskOpen = true;
       $("#terms-withdraw-confirm").hidden = false;
+      paintTermsRow();
     });
   }
   const cancel = $("#btn-terms-withdraw-cancel");
-  if (cancel) cancel.addEventListener("click", () => { $("#terms-withdraw-confirm").hidden = true; });
+  if (cancel) cancel.addEventListener("click", () => {
+    termsWithdrawAskOpen = false;
+    $("#terms-withdraw-confirm").hidden = true;
+    paintTermsRow();
+  });
   const confirm = $("#btn-terms-withdraw-confirm");
   if (confirm) confirm.addEventListener("click", () => { void withdrawTerms(); });
   const ocrDownload = $("#btn-ocr-download");

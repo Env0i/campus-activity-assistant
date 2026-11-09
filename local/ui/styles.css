@@ -418,17 +418,40 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 /* 弹窗：分区式（原型 680 / padding 0 / 三列步骤卡） */
 .dlg { width: min(680px, calc(100vw - 32px)); max-width: calc(100vw - 32px); padding: 0; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); box-shadow: 0 24px 70px rgba(24,55,45,.2); }.dlg::backdrop { background: rgba(17,29,38,.38); }.dlg-sm { width: min(440px, 90vw); }.dlg-sm form { display: flex; gap: 8px; justify-content: flex-end; }.dlg-sm .btn { height: 36px; padding: 0 16px; }.dlg-head { padding: 22px 24px 4px; }.dlg-head h2 { margin: 0; font-size: 20px; }.dlg-head p { margin: 6px 0 0; color: var(--ink-2); font-size: 13px; }.dlg-body { padding: 14px 24px 4px; }.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }.steps li { padding: 14px 14px 16px; border-radius: 10px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); }.step-no, .steps .no { display: block; width: auto; height: auto; padding: 0; border-radius: 0; background: none; color: var(--blue); font-family: var(--font-num); font-size: 30px; font-weight: 600; line-height: 1; }.steps h3, .steps .t { margin: 10px 0 6px; font-size: 15px; font-weight: 700; }.steps p, .steps .d { margin: 0; color: var(--ink-2); font-size: 13px; }.rules { margin: 14px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--warn-tint); color: #5e3a00; font-size: 13px; }.dlg-check { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 24px 0; color: var(--ink-2); font-size: 13px; }
 .dlg-check input { width: 16px; height: 16px; }
-/* 关窗三选：竖排可选行，点一行就执行，不用再点「确定」。
-   标题写结果、说明写代价，避免三个并排按钮分不清谁更安全。 */
-.dlg-close { width: min(460px, 92vw); }
-.close-choices { display: grid; gap: 8px; padding: 14px 24px 2px; }
-.close-choice { display: grid; gap: 3px; width: 100%; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
-.close-choice b { font-size: 13px; font-weight: 700; }
-.close-choice span { color: var(--ink-3); font-size: 12px; line-height: 1.55; }
-.close-choice:hover { border-color: var(--blue); background: var(--blue-tint); }
-.close-choice:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.close-choice.is-danger b { color: var(--bad); }
-.close-choice.is-danger:hover { border-color: var(--bad); background: var(--bad-tint); }
+/* 关窗三选（原型 closeask 画板，c3-dialogs-gap CW01–CW08/CW12/CW14；Main:811-823）：
+   深色点阵标题栏＋h2 琥珀左线、无右上 ×；三张选择卡竖排，点一行就执行，不用再点「确定」；
+   确认步换标题与正文段；脚部勾选居左、主钮居右。标题写结果、说明写代价。
+   rem 按 1rem=16px 换算，点阵底与琥珀左线照 Main:266-269（.dlg.sm/.dlg-h）。 */
+.dlg-close { width: min(480px, 100%); }
+.dlg-close[open] { display: flex; flex-direction: column; }
+.dlg-close .dlg-head { flex: none; padding: 18px 22px; background: radial-gradient(circle at 1.5px 1.5px, rgba(255,255,255,.045) 1px, transparent 1.4px) 0 0/6px 6px, var(--board); color: var(--on-board); }
+.dlg-close .dlg-head h2 { margin: 0; padding-left: 11px; border-left: 3px solid var(--amber); font-size: 18px; line-height: 1.3; }
+.dlg-close .dlg-head p { margin: 6px 0 0; color: var(--on-board-2); font-size: 12px; }
+.dlg-close .dlg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 22px 12px; }
+.dlg-close .dlg-foot { flex: none; padding: 11px 22px; border-top: 1px solid var(--line); }
+.dlg-close .dlg-foot .dlg-check { margin-right: auto; padding: 0; }
+.dlg-close .dlg-p { margin: 0; color: var(--ink-2); }
+/* 利害清单照原型 .stakes（Main:473-479）：琥珀点行首，手机已连接换绿点（li.ok） */
+.stakes { margin: 0 0 14px; padding: 0; list-style: none; border-radius: 8px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; }
+.stakes li { display: grid; grid-template-columns: 8px 72px minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.stakes li:last-child { border-bottom: 0; }
+.stakes li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #d98a00; }
+.stakes li.ok::before { background: var(--ok); }
+.stakes b { font-weight: 700; }
+.stakes span { color: var(--ink-2); }
+/* 选择卡照原型 .cchoices/.cch（Main:480-487）：红卡只染标题与描边，不整块铺红 */
+.cchoices { display: grid; gap: 8px; }
+.cch { display: grid; gap: 2px; width: 100%; padding: 11px 14px; border: 0; border-radius: 10px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
+.cch:hover:not(:disabled) { background: #f8fafb; box-shadow: inset 0 0 0 1px var(--ink-3); }
+.cch:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.cch b { font-size: 14px; font-weight: 700; }
+.cch span { color: var(--ink-2); font-size: 12px; line-height: 1.55; }
+.cch.danger b { color: var(--bad); }
+.cch.danger:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--bad); }
+/* 「推荐」徽章照原型 .cch.rec b::after（Main:485）改成实体元素，由 window.js 按 plan_running 显隐 */
+.close-rec { margin-left: 8px; padding: 1px 6px; border-radius: 4px; background: var(--paper-2); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line); font-size: 11px; font-style: normal; font-weight: 700; }
+/* 隐藏不可用时的原因行：挂在隐藏卡正文下方（CW05） */
+.close-why { display: block; margin-top: 4px; color: var(--warn); font-size: 12px; }
 .dlg-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 16px 24px 20px; }.grow { flex: 1; }
 
 /* 导入已下载的组件包（原型 impView，settings-gap 五）：一次只导入一个组件，路径盒子 + 选择文件，
@@ -480,8 +503,12 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 #help-version { margin-left: 4px; color: var(--ink); font: 17px/1 var(--font-num); }
 .help-actions { display: flex; flex: none; gap: 6px; }
 .help-tool-row > .btn { flex: none; }
-#update-status[data-state="available"] { color: var(--warn); }
-#update-status[data-state="error"] { color: var(--bad); }
+/* 状态行配色照原型 .set p.up-ok/.up-warn/.up-bad（Main.dc.html:349，UP03/UP08/UP12）：
+   已最新/发现新版本/确认/就绪绿，没有安装包黄，检查失败与更新失败红。 */
+#update-status[data-state="current"], #update-status[data-state="available"],
+#update-status[data-state="confirm"], #update-status[data-state="ready_to_install"] { color: var(--ok); }
+#update-status[data-state="no_installer"] { color: var(--warn); }
+#update-status[data-state="error"], #update-status[data-state="failed"] { color: var(--bad); }
 .help-status { margin: 0; padding: 0 0 12px; color: var(--bad); overflow-wrap: anywhere; font-size: 12px; user-select: text; }
 .help-status[data-tone="warn"] { color: var(--warn); }
 .dlg-help .dlg-foot { flex: none; padding: 11px 22px; border-top: 1px solid var(--line); }
@@ -494,12 +521,15 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
   .help-section-head .btn { max-width: 190px; height: auto; min-height: 30px; white-space: normal; }
 }
 
-/* 使用条款阅读面板（设计稿 20261027-terms-consent-ui-design：方案 B，同一阅读区切换）。
-   所有规则限定在 .dlg-terms 内，帮助面板不受影响；标题沿用站牌深色与琥珀短线，
-   正文是安静的白色告知纸：不加点阵、渐变、装饰图或连续卡片。
+/* 使用条款全文阅读器（TM01，原型 Main:386-387 .scrim.tscrim＋.dlg.tdoc）：
+   宽 min(60rem)×高 min(46rem) 照原型 min() 写法换算成 px（960×736），
+   视口不够时留 32px 边距（沿用原 20261027 方案 B 的余量口径）。
+   原型的 .tscrim 全屏遮罩在原生 dialog 里就是 ::backdrop（.dlg::backdrop
+   已同色 rgba(17,29,38,.38)），顶层置顶由浏览器接管，不再要 z-index。
+   所有规则限定在 .dlg-terms 内，帮助面板不受影响；标题沿用站牌深色与琥珀短线。
    标题/工具行/反馈/底部都是固定区，只有 .terms-body 滚动（min-height:0）；
    display:flex 只挂在 [open] 上，避免关闭的原生 dialog 被 CSS 强制显示。 */
-.dlg-terms { width: min(680px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow: hidden; box-sizing: border-box; min-width: 0; }
+.dlg-terms { width: min(960px, calc(100vw - 32px)); height: min(736px, calc(100vh - 32px)); height: min(736px, calc(100dvh - 32px)); max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow: hidden; box-sizing: border-box; min-width: 0; }
 .dlg-terms[open] { display: flex; flex-direction: column; }
 .dlg-terms .terms-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex: none; padding: 18px 22px; background: var(--board); background-image: radial-gradient(rgba(236,239,234,.055) .7px, transparent .9px); background-size: 5px 5px; color: var(--on-board); }
 .dlg-terms .terms-head h2 { flex: 1; min-width: 0; margin: 0; padding-left: 11px; border-left: 3px solid var(--amber); font-size: 20px; line-height: 1.35; }
@@ -507,22 +537,12 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .dlg-terms .terms-head form { flex: none; }
 .dlg-terms .terms-head .dlg-x { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--on-board-2); }
 .dlg-terms .terms-head .dlg-x:hover { background: rgba(255,255,255,.09); color: var(--on-board); }
-/* 工具行在唯一滚动区内：常规档 sticky 吸顶，随时可切要点/全文；
-   极窄(≤360px)或极矮(≤420px)取消 sticky——读者滚过工具行，把有限阅读高度交给正文。 */
-.dlg-terms .terms-toolbar { position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 0 0 12px; padding: 0 0 8px; border-bottom: 1px solid var(--line); background: var(--paper); }
-.dlg-terms .terms-toolbar h3 { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.5; }
-.dlg-terms .terms-toolbar .btn { height: auto; min-height: 36px; flex: none; }
-/* 唯一滚动区：内容层（反馈/版本行/工具行/要点/全文/Esc）全在此流内，禁止另建滚动区 */
+/* 唯一滚动区：内容层（反馈/版本行/页签/全文/Esc）全在此流内，禁止另建滚动区
+   （要点视图与工具行已删，decisions 第 1 条：#dlg-terms 只做全文阅读器） */
 .dlg-terms .terms-body { flex: 1 1 auto; min-height: 0; min-width: 0; overflow-y: auto; padding: 16px 22px 8px; background: var(--paper); }
 /* 版本行原在深色标题区，随重排进正文流：随阅读区换行，不与标题争高 */
 .dlg-terms .terms-body > #dlg-terms-sub { margin: 0 0 12px; max-width: 68ch; color: var(--ink-2); font-size: 13px; line-height: 1.6; }
 .dlg-terms .terms-body > #dlg-terms-sub b { font-family: var(--font-num); font-weight: 600; color: var(--ink); }
-.dlg-terms .terms-points { margin: 0; padding-left: 21px; list-style: disc; }
-.dlg-terms .terms-points li { margin: 0 0 14px; }
-.dlg-terms .terms-points li:last-child { margin-bottom: 0; }
-.dlg-terms .terms-points .t { font-size: 16px; font-weight: 700; line-height: 1.5; }
-.dlg-terms .terms-points .d { margin: 4px 0 0; max-width: 68ch; color: var(--ink-2); font-size: 14px; line-height: 1.75; }
-.dlg-terms .terms-offline { margin: 0 0 6px; color: var(--ink-3); font-size: 12px; line-height: 1.6; }
 .dlg-terms .terms-section { margin: 18px 0 0; }
 .dlg-terms .terms-section h3 { margin: 0 0 6px; font-size: 16px; font-weight: 700; line-height: 1.5; }
 .dlg-terms .terms-section p { margin: 0 0 8px; max-width: 68ch; color: var(--ink); font-size: 14px; line-height: 1.75; text-align: left; overflow-wrap: anywhere; }
@@ -557,20 +577,18 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
   .dlg-terms .terms-foot { flex-wrap: wrap; row-gap: 8px; }
   .dlg-terms .terms-foot .btn { flex: 1 1 auto; min-width: 0; min-height: 36px; white-space: normal; }
 }
-/* 极窄（≤360px，含 CSS 160x320）：底部两选择纵排占满行、间距收到 8px 级，
-   工具行取消吸顶把高度让给正文；不靠隐藏按钮或截短文案腾空间。 */
+/* 极窄（≤360px，含 CSS 160x320）：底部两选择纵排占满行、间距收到 8px 级；
+   不靠隐藏按钮或截短文案腾空间（工具行已删）。 */
 @media (max-width: 360px) {
-  .dlg-terms .terms-toolbar { position: static; }
   .dlg-terms .terms-foot { flex-direction: column; align-items: stretch; gap: 8px; padding-top: 8px; padding-bottom: 10px; }
   .dlg-terms .terms-foot .btn { flex: none; width: 100%; }
 }
-/* 极矮（≤420px 高，含 CSS 340x240/373x256）：视口减 16px、头尾 8px、标题 18px，
-   工具行不吸顶——正文预算优先（≥48px 可用高度为待渲染证实目标，不以本注释冒充达成）。 */
+/* 极矮（≤420px 高，含 CSS 340x240/373x256）：视口减 16px、头尾 8px、标题 18px——
+   正文预算优先（≥48px 可用高度为待渲染证实目标，不以本注释冒充达成）。 */
 @media (max-height: 420px) {
   .dlg-terms { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
   .dlg-terms .terms-head { padding-top: 8px; padding-bottom: 8px; }
   .dlg-terms .terms-head h2 { font-size: 18px; line-height: 1.35; }
-  .dlg-terms .terms-toolbar { position: static; margin-bottom: 8px; }
   .dlg-terms .terms-foot { padding-top: 8px; padding-bottom: 8px; }
 }
 
@@ -578,17 +596,19 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
    保留站牌深色标题区作为外壳，但把法律文本当文档读：
    ①标题去荧光黄——深色区只留中性分隔线，不再用琥珀色强调法律标题；
    ②正文换成居中的文档列（66ch），标题/正文/列表共用同一条左边界；
-   ③要点去掉圆点列表，改成「小标题 + 段落」的定义式排版；
-   ④底栏先勾选再解锁「同意」，勾选态不进任何存储；
-   ⑤全文末尾给版本、生效日期与许可，读到底能确认同意的是哪一版。
+   ③底栏先勾选再解锁「同意」，勾选态不进任何存储；
+   ④全文末尾给版本、生效日期与许可，读到底能确认同意的是哪一版。
+   （要点视图的「小标题 + 段落」定义式排版已随要点视图删除，decisions 第 1 条：
+   #dlg-terms 只做全文阅读器，首次说明的要点挪进 FU01 首次说明框的 .pts 版式。）
    本段只作用于 .dlg-terms，帮助面板与页面其余部分不受影响。 */
-.dlg-terms { width: min(760px, calc(100vw - 32px)); }
 .dlg-terms .terms-head h2 { padding-left: 12px; border-left: 1px solid rgba(236,239,234,.28); font-size: 18px; }
-/* 标题与正文列同一条左边界：头部内宽减去文档列宽后居中，窄窗时收回 0。 */
-.dlg-terms .terms-head h2 { margin-left: max(0px, calc((100% - var(--terms-col)) / 2)); }
+/* 标题贴着站牌左边（用户 2026-11-09 验收反馈：要像其他弹窗横幅那样顶着左边）。
+   2026-10-30「标题与正文列同一条左边界」的居中偏移已删，不再与 540px 文档列对齐。 */
 /* 弹窗打开时脚本把焦点放到标题上（tabindex=-1），:focus-visible 会画出琥珀色焦点框，
    在深色标题区看起来就是一圈 LED 描边。标题不是可操作控件，键鼠用户不靠它定位，去掉焦点框。 */
 .dlg-terms .terms-head h2:focus, .dlg-terms .terms-head h2:focus-visible { outline: none; }
+/* 首次说明框同理：打开时焦点落在标题（tabindex=-1，读屏照读），不画焦点框；原型没有。 */
+.dlg-terms-intro .dlg-head h2:focus, .dlg-terms-intro .dlg-head h2:focus-visible { outline: none; }
 .dlg-terms .terms-body { padding: 0 30px 18px; }
 .dlg-terms .terms-body > #dlg-terms-sub { margin-top: 18px; }
 /* 文档列：所有正文块同宽同左边界；比阅读区窄，行长控制在 66ch 内 */
@@ -596,37 +616,27 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
    那样每个块会各中心一次，左边界反而更不齐。540px 约等于 14px 正文的 66ch。 */
 .dlg-terms { --terms-col: 540px; }
 .dlg-terms .terms-body > #dlg-terms-sub,
-.dlg-terms .terms-toolbar,
-.dlg-terms .terms-summary,
 .dlg-terms .terms-document,
 .dlg-terms .terms-doc-meta,
-.dlg-terms .terms-offline,
 .dlg-terms .terms-body > .help-esc { width: 100%; max-width: var(--terms-col); margin-right: auto; margin-left: auto; }
-/* 工具行是 position:sticky，底色必须不透明，否则正文会从它背后滚过去、和标题叠在一起。 */
-.dlg-terms .terms-toolbar { background: var(--paper); border-bottom: 1px solid var(--line); padding-bottom: 6px;
-  /* 不得加向上的同色投影补「吸顶上方露出的条带」：.terms-body 顶部 padding 已是 0，
-     吸顶时投影整条落在滚动夹之外本就不可见；未吸顶时它只会盖住上一块正文的末行
-     （20261031 图1：#dlg-terms-sub 末行字形下半截被裁 5.2px 的机制）。 */
-  padding-top: 12px; }
-.dlg-terms .terms-toolbar h3 { font-size: 13px; font-weight: 600; color: var(--ink-3); letter-spacing: .02em; }
-/* 要点＝定义式排版：细线分隔的小标题 + 段落，去掉圆点与缩进，左边界回到文档列 */
-.dlg-terms .terms-points { padding-left: 0; list-style: none; }
-.dlg-terms .terms-points li { margin: 0 0 12px; padding: 12px 0 0; border-top: 1px solid var(--line); }
-.dlg-terms .terms-points li:first-child { padding-top: 0; border-top: 0; }
-.dlg-terms .terms-points .t { font-size: 14px; font-weight: 700; line-height: 1.6; color: var(--ink); }
-.dlg-terms .terms-points .d { margin: 3px 0 0; max-width: none; font-size: 13px; line-height: 1.75; }
+/* 要点视图与工具行样式已随要点视图删除（decisions 第 1 条）：首次说明框的
+   六条要点改用原型 .pts 版式，样式在下方 FU01/TM08 小框段落里。 */
 /* 黄框提示改成中性的「停用说明」：不再用告警底色抢走正文，也不留孤字尾行 */
 .dlg-terms .terms-document { font-size: 14px; line-height: 1.8; }
 .dlg-terms .terms-document .terms-section { margin: 22px 0 0; }
 .dlg-terms .terms-document .terms-section h3 { font-size: 15px; }
 .dlg-terms .terms-document .terms-section p { max-width: none; }
 /* 文末元信息：版本/生效日期/许可，不与正文抢视线 */
-/* 全文区里的两份文档：tab 只切可见性，样式跟工具行同一套中性色 */
-.dlg-terms .terms-tabs { display: flex; gap: 4px; margin: 14px 0 10px; border-bottom: 1px solid var(--line); }
-.dlg-terms .terms-tab { padding: 6px 12px; border: 0; border-bottom: 2px solid transparent;
-  background: transparent; color: var(--ink-3); font-size: 13px; cursor: pointer; }
-.dlg-terms .terms-tab:hover { color: var(--ink-1); }
-.dlg-terms .terms-tab.is-on { color: var(--ink-1); border-bottom-color: var(--ink-1); font-weight: 600; }
+/* 全文区里的两份文档：tab 只切可见性。TM03（原型 Main:888-892 .td-tabs/.td-newnote）：
+   页签行提到阅读分栏之上，活动页签琥珀下划线；右侧注解释「本版新增」徽章，
+   窄档折到页签上方整行（原型 Main:413 同断点）。 */
+.dlg-terms .terms-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; border-bottom: 1px solid var(--line); }
+.dlg-terms .terms-tab { height: 38px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  background: transparent; color: var(--ink-3); font-size: 13px; font-weight: 600; cursor: pointer; }
+.dlg-terms .terms-tab:hover { color: var(--ink); }
+.dlg-terms .terms-tab.is-on { color: var(--ink); border-bottom-color: var(--amber); }
+.dlg-terms .terms-newnote { margin-left: auto; color: var(--ink-3); font-size: 12px; }
+@media (max-width: 719px) { .dlg-terms .terms-newnote { order: -1; flex-basis: 100%; margin: 6px 0 0; } }
 .dlg-terms .terms-doc[hidden] { display: none; }
 /* 正文/勾选行/第 3 条的内联文档链接：蓝色下划线、按钮外观归零、键盘焦点可见；
    委托点击负责开全文并切对应页签，preventDefault 让它不翻转勾选框。 */
@@ -649,6 +659,55 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 @media (max-width: 560px) {
   .dlg-terms .terms-body, .dlg-terms .terms-foot { padding-right: 18px; padding-left: 18px; }
   .dlg-terms .terms-agree { margin-right: 0; }
+}
+
+/* ---- FU01/TM08：两个条款小框（decisions 第 1 条，plan 20261108-c3-dialogs）----
+   首次说明框 38rem（原型 Main:800）、条款更新框 32rem（Main:878）；深色标题栏
+   照关窗框的点阵底＋琥珀左线（Main:267-269 的 .dlg-h），无右上 ×（UI_SPEC
+   §5.13：做决定的弹窗不放 ×）。两框窄档脚部按钮可换行，不截短文案。 */
+.dlg-terms-intro { width: min(38rem, calc(100vw - 32px)); }
+.dlg-tu { width: min(32rem, calc(100vw - 32px)); }
+/* 矮屏不撑出视口：正文列自身滚动（flex 列布局同阅读器） */
+.dlg-terms-intro, .dlg-tu { max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); }
+.dlg-terms-intro[open], .dlg-tu[open] { display: flex; flex-direction: column; }
+.dlg-terms-intro .dlg-head, .dlg-tu .dlg-head { flex: none; padding: 18px 22px; background: radial-gradient(circle at 1.5px 1.5px, rgba(255,255,255,.045) 1px, transparent 1.4px) 0 0/6px 6px, var(--board); color: var(--on-board); }
+.dlg-terms-intro .dlg-head h2, .dlg-tu .dlg-head h2 { margin: 0; padding-left: 11px; border-left: 3px solid var(--amber); font-size: 18px; line-height: 1.3; }
+.dlg-terms-intro .dlg-head p, .dlg-tu .dlg-head p { margin: 6px 0 0; color: var(--on-board-2); font-size: 12px; }
+.dlg-terms-intro .dlg-head p b, .dlg-tu .dlg-head p b { font-family: var(--font-num); font-weight: 600; color: var(--on-board); }
+.dlg-terms-intro .dlg-body, .dlg-tu .dlg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 22px 12px; }
+.dlg-terms-intro .help-status, .dlg-tu .help-status { margin: 0; padding: 0 0 10px; font-size: 12px; line-height: 1.6; }
+.dlg-terms-intro .help-status[data-tone="info"], .dlg-tu .help-status[data-tone="info"] { color: var(--ink-2); }
+/* FU01 六条要点照原型 .pts（Main:280-284、799-807）：粗体标题＋说明行，细线分隔 */
+.dlg-terms-intro .pts { margin: 0; padding: 0; list-style: none; }
+.dlg-terms-intro .pts li { padding: 9px 0; border-bottom: 1px solid var(--line); }
+.dlg-terms-intro .pts li:last-child { border-bottom: 0; }
+.dlg-terms-intro .pts b { display: block; font-weight: 700; }
+.dlg-terms-intro .pts span { display: block; margin-top: 2px; color: var(--ink-2); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+/* 第六条的「现在就看」入口行内链接钮：与阅读器的 .doc-link 同一观感 */
+.dlg-terms-intro .pts .doc-link { padding: 0; border: 0; background: none; color: var(--blue); font: inherit; line-height: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.dlg-terms-intro .pts .doc-link:hover { color: var(--blue-2); }
+.dlg-terms-intro .pts .doc-link:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; border-radius: 2px; }
+/* TM08 变更清单照原型 .tu-list（Main:406-408），徽章照 .td-new（Main:404）换名 .tu-new */
+.dlg-tu .dlg-p { margin: 0 0 6px; color: var(--ink); font-size: 13px; }
+.dlg-tu .tu-list { margin: 0; padding: 0; list-style: none; }
+.dlg-tu .tu-list li { display: flex; align-items: baseline; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); color: var(--ink-2); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.dlg-tu .tu-list li:last-child { border-bottom: 0; }
+.dlg-tu .tu-new { display: inline-block; flex: none; padding: 0 5px; border-radius: 4px; background: var(--warn-tint); color: var(--warn); font-size: 11px; font-weight: 700; line-height: 1.5; }
+.dlg-tu .dlg-note { margin: 10px 0 0; color: var(--ink-3); font-size: 12px; line-height: 1.6; }
+/* 脚部：FU01 勾选居左＋暂不使用｜同意并继续（Main:807/2484）；
+   TM08 看完整条款｜弹性空隙｜暂不同意｜同意新版条款（Main:881） */
+.dlg-terms-intro .dlg-foot, .dlg-tu .dlg-foot { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 11px 22px 14px; border-top: 1px solid var(--line); background: var(--paper-2); }
+.dlg-terms-intro .terms-agree { display: inline-flex; align-items: center; gap: 8px; margin-right: auto; color: var(--ink-2); font-size: 13px; line-height: 1.5; cursor: pointer; user-select: none; }
+.dlg-terms-intro .terms-agree input { width: 16px; height: 16px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+.dlg-terms-intro .terms-agree input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.dlg-terms-intro .dlg-foot .btn, .dlg-tu .dlg-foot .btn { height: auto; min-height: 36px; padding: 0 16px; font-size: 14px; }
+/* 窄档（≤560px）：脚部按钮可换行不截短文案，DOM/Tab 顺序不变 */
+@media (max-width: 560px) {
+  .dlg-terms-intro .dlg-head, .dlg-tu .dlg-head,
+  .dlg-terms-intro .dlg-body, .dlg-tu .dlg-body,
+  .dlg-terms-intro .dlg-foot, .dlg-tu .dlg-foot { padding-left: 16px; padding-right: 16px; }
+  .dlg-terms-intro .dlg-foot, .dlg-tu .dlg-foot { row-gap: 8px; }
+  .dlg-terms-intro .dlg-foot .btn, .dlg-tu .dlg-foot .btn { flex: 0 1 auto; min-width: 0; white-space: normal; }
 }
 
 /* 时钟/时间详情浮层：先给当前状态，再按需展开诊断信息。 */
@@ -691,20 +750,24 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .sync-btn:focus-visible { outline: 2px solid #4A6FBF; outline-offset: 2px; }
 .pop-feedback { margin: 6px 0 0; min-height: 0; color: var(--warn); font-size: 11px; }
 
-/* 六步可重播引导：中性遮罩 + 琥珀高亮框 + 说明卡片（Chrome 登录窗口等系统窗口只能文字说明，不能高亮） */
+/* 五步可重播引导：高亮框四周铺暗、目标区镂空 + 说明卡片（Chrome 登录窗口等系统窗口只能文字说明，不能高亮） */
 .tour { position: fixed; inset: 0; z-index: 60; }
 .tour[hidden] { display: none; }
-.tour-mask { position: absolute; inset: 0; background: rgba(17,24,20,.55); }
-.tour-spot { position: absolute; border: 2px solid var(--amber); border-radius: 10px; box-shadow: 0 0 0 3px rgba(255,176,32,.28); pointer-events: none; transition: top .18s ease, left .18s ease, width .18s ease, height .18s ease; }
-.tour-card { position: absolute; width: 340px; max-width: calc(100vw - 32px); padding: 14px 18px 16px; border-radius: 12px; background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1px var(--line-2), 0 18px 44px rgba(18,21,19,.32); }
-.tour-card h3 { margin: 8px 0 6px; font-size: 16px; }
-.tour-card p { margin: 0 0 12px; color: var(--ink-2); font-size: 13px; line-height: 1.6; }
-.tour-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.tour-step { color: var(--amber-dim); font-size: 12px; font-weight: 700; white-space: nowrap; }
+/* 挖洞照原型「四块半透明遮罩板挖洞」（c3-dialogs-gap TR01，Main:906-910）：spot 自身透明，
+ * 用 9999px 外扩 box-shadow 铺出 rgba(17,29,38,.52) 的四周（.t-pane 色），目标区留亮洞；
+ * 琥珀圈与光晕同 .t-ring（Main:508）。spot 位置由 views/tour.js 逐帧写，阴影随动。
+ * 点击拦截由 .tour 根节点承担（非 interactive 步背景不可点），无需再垫一层全遮板。 */
+.tour-spot { position: absolute; border-radius: 10px; box-shadow: 0 0 0 2px var(--amber), 0 0 0 6px rgba(255,176,32,.25), 0 0 0 9999px rgba(17,29,38,.52); pointer-events: none; transition: top .18s ease, left .18s ease, width .18s ease, height .18s ease; }
+.tour-card { position: absolute; width: 352px; max-width: calc(100vw - 32px); padding: 0; overflow: hidden; border-radius: 12px; background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1px var(--line-2), 0 18px 44px rgba(18,21,19,.32); }
+.tour-card h3 { margin: 14px 18px 6px; font-size: 16px; }
+.tour-card p { margin: 0 18px 12px; color: var(--ink-2); font-size: 13px; line-height: 1.6; }
+/* 卡头深色照原型 .t-head（Main:509：点阵底＋board 色、字色 on-2）；点阵底写法沿用 .dlg-close 的头 */
+.tour-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; font-size: 12px; background: radial-gradient(circle at 1.5px 1.5px, rgba(255,255,255,.045) 1px, transparent 1.4px) 0 0/6px 6px, var(--board); color: var(--on-board); }
+.tour-step { color: var(--on-board-2); font-size: 12px; font-weight: 700; white-space: nowrap; }
 .tour-dots { display: inline-flex; gap: 5px; }
 .tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line-2); }
 .tour-dots i.on { background: var(--amber); }
-.tour-foot { display: flex; align-items: center; gap: 8px; }
+.tour-foot { display: flex; align-items: center; gap: 8px; padding: 0 18px 16px; }
 .tour-foot .btn { height: 30px; }
 /* 窄窗口（≤980）或目标缺失：不做高亮，卡片落到底部居中的说明条。
  * 只按 no-target 隐藏高亮框：is-bottom 还表示「卡片放不下改放底部」，
@@ -846,9 +909,11 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .ph-st.ok { background: var(--ok-tint); color: var(--ok); }
 .ph-st.warn { background: var(--warn-tint); color: var(--warn); }
 .ph-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.ph-sec p.ph-err { margin-top: 10px; padding: 7px 10px; border-radius: 6px; background: var(--bad-tint); color: #7e2119; }
+/* 错误框/黄警示照原型 .set p.ph-err/.ph-warn（Main.dc.html:307/309）：手机访问区（.ph-sec）
+   与「版本与更新」（.help-tool-row，UP08/UP11）共用同一形态。 */
+.ph-sec p.ph-err, .help-tool-row p.ph-err { margin-top: 10px; padding: 7px 10px; border-radius: 6px; background: var(--bad-tint); color: #7e2119; }
 .ph-sec p.ph-ok { margin-top: 10px; padding: 7px 10px; border-radius: 6px; background: var(--ok-tint); color: var(--ok); }
-.ph-sec p.ph-warn { margin-top: 10px; color: var(--warn); }
+.ph-sec p.ph-warn, .help-tool-row p.ph-warn { margin-top: 10px; color: var(--warn); }
 .ph-sec p.ph-note { margin-top: 8px; }
 .ph-link { padding: 0; border: 0; background: transparent; color: var(--blue); font-size: 12px; text-decoration: underline; cursor: pointer; }
 .loc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; padding: 7px 12px 7px 10px; border-radius: 8px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); }
@@ -980,6 +1045,14 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .set-g:focus { outline: 0; }
 .update-actions .update-flow { display: inline-flex; gap: 6px; }
 .update-actions .update-flow[hidden] { display: none; }
+/* 版本与更新小节照原型（Main.dc.html:343-351，UP04/UP06/UP11/UP12；rem→px 按 1rem=16px）：
+   新版本块大号版本数字、确认/就绪问句盒、黄警示在盒内独立成块（进度条共用上方 .ph-prog/.ph-bar 墨色条）。 */
+.up-v { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; }
+.up-v b { color: var(--ink); font: 600 24px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.up-v span { color: var(--ink-2); font-size: 12px; }
+.upbox { margin-top: 10px; padding: 12px; border-radius: 8px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); }
+.upbox p { margin: 0; color: var(--ink-2); font-size: 12px; overflow-wrap: anywhere; }
+.upbox p.ph-warn { margin: 0 0 4px; }
 /* 快捷键区与三步之间的分隔线按原型 .keys 的做法：左右各让出正文内边距，
    线只横跨内容宽度，不是整条弹窗的边。 */
 .help-keys { margin: 14px 22px 0; padding: 12px 0 0; border-top: 1px solid var(--line); }
@@ -989,21 +1062,24 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .help-keys dd { margin: 0; }
 /* 键帽：与原型 kbd 一致，1.5rem 最小宽度让「F5」「Esc」这类短键看起来一样大 */
 .help-keys kbd { display: inline-block; min-width: 24px; padding: 0 6px; border-radius: 4px; background: var(--paper-2); box-shadow: inset 0 -1px 0 var(--line-2), inset 0 0 0 1px var(--line-2); color: var(--ink); font: 600 11px/1.7 var(--font-num); text-align: center; }
-.terms-withdraw-confirm { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--warn-tint); }
+/* 设置里的撤回确认条改用通用 .ph-confirm（红底 bad-tint，TM11，原型 Main:340）；
+   「确认撤回」复用关窗任务的 .btn-stop 红实心（styles.css:122）。旧的黄底 .terms-withdraw-confirm 已删。 */
 
-/* ---- 条款：升版摘要、左侧章节目录、「本版新增」标记（标记只在样式里，正文文字不动） ---- */
-.terms-update { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--warn-tint); }
-.terms-update h3 { margin: 0 0 4px; font-size: 14px; }
-.terms-update p { margin: 0 0 6px; font-size: 12px; }
-.terms-update-list { margin: 0; padding-left: 18px; font-size: 12px; }
-.terms-body.has-toc { display: grid; grid-template-columns: 10rem minmax(0, 1fr); column-gap: 14px; align-content: start; }
-.terms-body.has-toc > * { grid-column: 2; }
-.terms-body.has-toc > .terms-toc { grid-column: 1; grid-row: 1 / span 40; align-self: start; position: sticky; top: 0; }
-.terms-toc { display: grid; gap: 2px; }
+/* ---- 条款：左侧章节目录、「本版新增」标记（标记只在样式里，正文文字不动）；
+   升版摘要区块已删（decisions 第 1 条：#dlg-terms 只做全文阅读器，
+   变更清单挪进条款更新框 #dlg-terms-update 的 .tu-list） ---- */
+/* TM01（原型 Main:394/413）：宽档左侧章节导航 11rem 常显——全文视图所在
+   （旧的「只在全文视图显示」开关类名一并删除）；≤719px 收起导航、正文回单列。 */
+@media (min-width: 720px) {
+  .terms-body { display: grid; grid-template-columns: 11rem minmax(0, 1fr); column-gap: 14px; align-content: start; }
+  .terms-body > * { grid-column: 2; }
+  .terms-body > .terms-toc { grid-column: 1; grid-row: 1 / span 40; align-self: start; position: sticky; top: 0; }
+}
+.terms-toc { display: grid; gap: 2px; /* 目录不顶贴上边：首行文字与右侧版本行（#dlg-terms-sub）同一水平线（用户 2026-11-09 验收反馈）。25px＝空反馈条 12px＋版本行 margin-top 18px－按钮内边距 5px。 */ padding-top: 25px; }
 .terms-toc button { padding: 4px 6px; border: 0; border-radius: 5px; background: none; color: var(--ink-2); font-size: 12px; text-align: left; }
 .terms-toc button:hover { background: var(--blue-tint); color: var(--blue); }
 .terms-section > h3[data-new]::after { content: "本版新增"; margin-left: 8px; padding: 0 6px; border-radius: 4px; background: var(--warn-tint); color: var(--warn); font-size: 11px; font-weight: 700; vertical-align: 2px; }
-@media (max-width: 719px) { .terms-body.has-toc { display: block; } .terms-toc { display: none; } }
+@media (max-width: 719px) { .terms-toc { display: none; } }
 
 /* ---- 重新登录对话框 ----
    外壳照原型 rl-dlg（Main.dc.html:266-272、374-382）：448px、黑色站牌头、白纸正文、按钮单独一行，
@@ -1068,14 +1144,6 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .dlg-relogin #lg-facts-web { margin-top: 0; padding-top: 0; border-top: 0; }
 .dlg-relogin .lg-trade { margin: 12px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--warn-tint); color: var(--warn); font-size: 12px; line-height: 1.5; }
 .dlg-relogin .lg-way + .lg-form { margin-top: 0; }
-
-/* ---- 关闭窗口对话框：先列运行中的东西，退出要再确认 ---- */
-.close-running { display: grid; gap: 4px; margin: 0 0 10px; padding: 8px 12px; border-radius: 8px; background: var(--paper-2); list-style: none; font-size: 12px; }
-.close-running li::before { content: "● "; color: var(--ok); }
-.close-confirm { margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; background: var(--bad-tint); color: #7e2119; font-size: 13px; }
-.close-confirm p { margin: 0 0 8px; }
-.close-why { display: block; margin-top: 4px; color: var(--warn); font-size: 12px; }
-.close-rec { margin-left: 6px; padding: 0 6px; border-radius: 4px; background: var(--ok-tint); color: var(--ok); font-size: 11px; font-style: normal; font-weight: 700; }
 
 /* ---- 底部计划条（中、窄档）：计划栏收起时代替它 ---- */
 .dock { display: flex; flex: none; align-items: center; gap: 8px; margin: 10px var(--gutter) 0; padding: 8px 10px; border-radius: 10px; background: var(--board); color: var(--on-board); box-shadow: inset 0 0 0 1px var(--board-line); }

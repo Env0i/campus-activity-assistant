@@ -33,6 +33,11 @@ function noteTermsRequired(res) {
   if (!S.terms.declined && !S.terms.unknown) openTerms();
 }
 
+/* TM07（原型 Main:1180）：未知态补一条运行记录。未知态会经 refresh 失败、
+ * bootstrap 失败等多条路径反复触发，标志位保证同一轮未知只写一次、不刷屏；
+ * 读到有效版本后复位（ingestTerms），下一次真实的未知再写一条。 */
+let termsUnknownLogged = false;
+
 /* 条款状态未知：拦住学校动作并挂可重试横幅；没有版本时不强弹条款，
  * 只保留帮助与横幅里的显式入口（用户自己点才会打开）。 */
 function markTermsUnknown() {
@@ -42,6 +47,10 @@ function markTermsUnknown() {
   S.terms.unknown = true;
   S.terms.declined = false;
   S.terms.prompted = false;
+  if (!termsUnknownLogged) {
+    termsUnknownLogged = true;
+    addLog("[!] 没读到条款同意记录，学校相关操作已暂停");
+  }
   paintTerms();
   paintBanners();
   updateControls();
@@ -63,6 +72,8 @@ function ingestTerms(terms) {
   S.terms.acceptedVersion = String(data.accepted_version || "");
   S.terms.acceptedAt = String(data.accepted_at || "");
   S.terms.unknown = false;
+  /* 读到有效版本：未知态结束，运行记录的「只写一次」位复位（TM07） */
+  termsUnknownLogged = false;
   /* 重启后把「本版本拒绝过」恢复成会话状态：否则 refresh、F5 和可见性恢复
    * 会因为 declined=false 又把条款弹一遍（返修缺陷 1）。 */
   const declinedSaved = String(S.prefs.terms_declined_version || "");
@@ -76,28 +87,115 @@ function ingestTerms(terms) {
   updateControls();
 }
 
-/* 条款弹窗：从「要点 + 查看完整条款」开始；帮助里的「查看条款」与横幅
- * 「查看条款并同意」都走这一个入口，也是拒绝后唯一的再同意通道。 */
+/* 条款入口路由（decisions 第 1 条，FU01/TM08）：三个条款面按本机同意状态分流——
+ * 从没同意过（有版本、无同意记录）→ 首次说明框；同意过旧版 → 条款更新框；
+ * 状态未知或没有版本依据 → 直接开全文阅读器（同意态）；已同意当前版 →
+ * 只读全文。横幅/设置/帮助的「查看条款」与自动强弹都走这一个路由：
+ * 未同意时不再直接开 #dlg-terms，同意入口换成两个小框。 */
 function openTerms(source, focusBack) {
+  /* 任一条款面已开时不重置任何状态：后台 refresh→noteTermsRequired 会在
+   * 保存中/未确认期间再次调进来，重置会打断在途保存（modal 打开时用户入口
+   * 本来也点不到）；与旧 openTerms 的 termsDialogAvailable 守卫同一语义，
+   * 只是从「阅读器没开」扩展成「三个条款面都没开」。 */
+  if (termsActiveSurface()) return;
+  if (S.terms.unknown) return openTermsReader(source, focusBack);
+  if (!S.terms.version) return openTermsReader(source, focusBack);
+  if (!S.terms.acceptedVersion) return openTermsIntroBox(source, focusBack);
+  if (S.terms.acceptedVersion !== S.terms.version) return openTermsUpdateBox(source, focusBack);
+  return openTermsReader(source, focusBack);
+}
+
+/* 小框打开前的公共收口（与阅读器同一套交互态复位）：上一轮的保存/未确认/
+ * 程序性关闭标记都不带进来；请求代号 +1 作废在途回执。用例会整体替换 S.terms
+ * 为缺字段的普通对象，字段一律用「读默认＋写」的方式兜底。 */
+function resetTermsFlow() {
+  S.terms.saving = false;
+  S.terms.unconfirmed = false;
+  S.terms.closeHandled = false;
+  S.terms.requestSeq = (S.terms.requestSeq || 0) + 1;
+  S.terms.xClose = "close";
+  S.terms.box = "";
+  /* viewOnly 是阅读器只读态的标记：小框只在未同意时打开，上一轮只读查看
+   * 的残留必须清掉，否则 declineTerms 的 viewOnly 守卫会把拒绝吞成空操作 */
+  S.terms.viewOnly = false;
+}
+
+/* 已有引导遇条款暂时让位：只暂停不跳步，关闭/收口后回到原步骤。
+ * 阅读器与两个小框共用（横幅入口可能在引导在场时被点）。 */
+function yieldTourForTerms() {
+  if (tourVisible()) {
+    S.terms.tourYield = true;
+    tourPauseNow();
+  }
+}
+
+/* FU01 首次说明框：从没同意过（acceptedVersion 空）时的同意入口。
+ * 拒绝走 declineTerms 现有路径（terms_declined_version 落盘不变）；同意走
+ * acceptTerms（勾选门用 intro 自己的复选框）；「现在就看」收起本框开全文。 */
+function openTermsIntroBox(source, focusBack) {
+  if (!termsBoxAvailable("#dlg-terms-intro")) return;
+  resetTermsFlow();
+  S.terms.source = source || "auto";
+  S.terms.focusBack = focusBack || null;
+  S.terms.box = "intro";
+  closeHelpIfOpen();
+  paintTermsIntro();
+  yieldTourForTerms();
+  /* 先弹窗再收脚部：applyTermsFooter 的小框分支按「当前开着的面」
+   * 分流（termsActiveSurface 读 open 状态），焦点由 showTermsIntroBox 落定 */
+  showTermsIntroBox();
+  applyTermsFooter();
+}
+
+/* TM08 条款更新框：同意过旧版（acceptedVersion ≠ 当前版）时的再同意入口。
+ * 打开时焦点落「同意新版条款」（原型 Main:1828）；「看完整条款」收起本框开全文。 */
+function openTermsUpdateBox(source, focusBack) {
+  if (!termsBoxAvailable("#dlg-terms-update")) return;
+  resetTermsFlow();
+  S.terms.source = source || "auto";
+  S.terms.focusBack = focusBack || null;
+  S.terms.box = "update";
+  closeHelpIfOpen();
+  paintTermsUpdateBox();
+  yieldTourForTerms();
+  /* 同 openTermsIntroBox：先开面再收脚部；焦点在 showTermsUpdateBox 落同意钮 */
+  showTermsUpdateBox();
+  applyTermsFooter();
+}
+
+/* 全文阅读器（原 openTerms 本体）：unknown/无版本依据的同意态、已同意同版的
+ * 只读态，以及从两个小框「看完整条款」进来的同意态。 */
+function openTermsReader(source, focusBack) {
   /* 已打开时不重置任何状态：后台 refresh→noteTermsRequired 会在保存中/未确认
    * 期间再次调进来，重置会打断在途保存（modal 打开时用户入口本来也点不到） */
   if (!termsDialogAvailable()) return;
   /* 每次打开复位交互态：上一轮的保存/未确认/程序性关闭标记都不带进来；
-   * 请求代号 +1 作废在途回执（重新核对期间关窗再开的迟到结果不许覆盖）；
-   * 来源与焦点返回目标按入口记录（自动弹没有入口，关闭时落回 #btn-help）。 */
+   * 请求代号 +1 作废在途回执（重新核对期间关窗再开的迟到结果不许覆盖） */
   S.terms.saving = false;
   S.terms.unconfirmed = false;
   S.terms.closeHandled = false;
   /* 用例会整体替换 S.terms 为缺字段的普通对象：代号一律从 0 起算，
    * 避免 undefined+1=NaN 让回执永远对不上号 */
   S.terms.requestSeq = (S.terms.requestSeq || 0) + 1;
-  S.terms.source = source || "auto";
-  S.terms.focusBack = focusBack || null;
+  if (source === "intro" || source === "update") {
+    /* FU01/TM08（decisions 第 1 条）：从小框进来——先收起小框（两框不叠层），
+     * 来源与焦点沿用小框登记的原始入口（横幅按钮等），× 的模式位写成
+     * 「回到原来的小框」；等待返回的小框就是当前 S.terms.box
+     * （openTermsIntroBox/openTermsUpdateBox 写好的，这里不清空）。 */
+    S.terms.xClose = "back";
+    closeTermsIntroBox();
+    closeTermsUpdateBox();
+  } else {
+    S.terms.source = source || "auto";
+    S.terms.focusBack = focusBack || null;
+    S.terms.xClose = "close";
+    S.terms.box = "";
+  }
   /* 任何时刻都不叠两个 open dialog：帮助入口先关帮助（关闭后按来源重开） */
   closeHelpIfOpen();
-  resetTermsFullView();
-  /* 之前同意过旧版：先列出这一版改了什么，正文对应的节标「本版新增」（设计文档 9.4） */
-  paintTermsUpdate();
+  resetTermsReaderView();
+  /* 之前同意过旧版：正文里标出这一版改动的节（「本版新增」徽章，设计文档 9.4） */
+  paintTermsNewMarks();
   paintTermsToc();
   /* 方案 A：每次打开都回到未勾选，勾选不跨弹窗复用——上一轮勾过不等于这一轮读过 */
   resetTermsAgree();
@@ -115,11 +213,7 @@ function openTerms(source, focusBack) {
         + "点「我已阅读并同意」会按程序的当前条款版本记录。"
       : "");
   }
-  /* 已有引导遇条款暂时让位：只暂停不跳步，关闭后回到原步骤 */
-  if (tourVisible()) {
-    S.terms.tourYield = true;
-    tourPauseNow();
-  }
+  yieldTourForTerms();
   showTermsDialog();
 }
 
@@ -245,9 +339,15 @@ function acceptTerms() {
     S.terms.prompted = true;
     /* 拒绝版本标记失效：立即落盘（不因关窗丢失），条款更新前不会再弹 */
     savePrefsNow({ terms_declined_version: "" });
-    /* 程序性关闭：跳过 close 监听里的拒绝语义与焦点恢复，改走成功路径 */
+    /* 程序性关闭：跳过 close 监听里的回小框与焦点恢复，改走成功路径。
+     * FU01/TM08（decisions 第 1 条）：从小框进来的全文里同意＝与小框里同意
+     * 等效——先关全文阅读器，再关等在后面的小框，两框都关不回小框。 */
     S.terms.closeHandled = true;
     closeTermsDialog();
+    closeTermsIntroBox();
+    closeTermsUpdateBox();
+    S.terms.box = "";
+    S.terms.xClose = "close";
     paintTerms();
     paintBanners();
     updateControls();
@@ -301,8 +401,13 @@ function recheckTerms() {
       S.terms.prompted = true;
       S.terms.unconfirmed = false;
       savePrefsNow({ terms_declined_version: "" });
+      /* 程序性关闭：同 acceptTerms 成功路径——阅读器与小框都收，不回小框 */
       S.terms.closeHandled = true;
       closeTermsDialog();
+      closeTermsIntroBox();
+      closeTermsUpdateBox();
+      S.terms.box = "";
+      S.terms.xClose = "close";
       paintTerms();
       paintBanners();
       updateControls();
@@ -336,7 +441,10 @@ function recheckTerms() {
 }
 
 /* 拒绝：不退出、本版本不再强弹；把拒绝版本落盘（跨重启生效，条款版本
- * 变化时会重新提示）。登录/列表/报名计划保持禁用，横幅与帮助保留入口。 */
+ * 变化时会重新提示）。登录/列表/报名计划保持禁用，横幅与帮助保留入口。
+ * FU01/TM08：拒绝入口多了两个小框（暂不使用／暂不同意）——小框、阅读器
+ * 一起收，不回小框；焦点恢复与引导让位收口在这里做（close 监听被
+ * closeHandled 跳过，避免「回小框」把拒绝变成再弹一轮）。 */
 function declineTerms() {
   /* 保存中/超时未确认/只读查看都不记拒绝：保存中的关闭由 cancel 拦，
    * 这里再防御一次，避免任何路径把在途保存写成「同意未发生」。 */
@@ -347,9 +455,16 @@ function declineTerms() {
     /* 版本未知时没有可锚定的版本，不写空标记（写了也拦不住下一次成功读取） */
     if (S.terms.version) savePrefsNow({ terms_declined_version: S.terms.version });
   }
+  S.terms.closeHandled = true;
   closeTermsDialog();
+  closeTermsIntroBox();
+  closeTermsUpdateBox();
+  S.terms.box = "";
+  S.terms.xClose = "close";
   paintBanners();
   updateControls();
+  restoreTermsFocus();
+  resumeTermsTour();
 }
 
 /* MIT 许可证页签的懒加载：首次激活（或失败后重试）经桥读随包 LICENSE。

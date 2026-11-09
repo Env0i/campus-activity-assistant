@@ -116,19 +116,26 @@ function paintTour() {
   const step = TOUR_STEPS[S.tour.step];
   const total = TOUR_STEPS.length;
   $("#tour-step").textContent = "第 " + (S.tour.step + 1) + "/" + total + " 步";
-  $("#tour-title").textContent = step.title;
-  $("#tour-text").textContent = step.text;
   $("#tour-prev").disabled = S.tour.step === 0;
   $("#tour-next").textContent = S.tour.step === total - 1 ? "完成" : "下一步";
   $("#tour-dots").innerHTML = TOUR_STEPS.map((s, i) =>
     '<i class="' + (i === S.tour.step ? "on" : "") + '"></i>').join("");
-  /* 目标缺失/隐藏/窄窗（≤980）时不做高亮，退回底部静态说明条——
-   * 不伪造定位，也不挡运行中的操作 */
   const target = step.target === "row" ? tourRowTarget()
     : document.querySelector('[data-tour-target="' + step.target + '"]');
   S.tour.rowEl = step.target === "row" ? target : null;
+  /* TR05（原型 Main:1302）：第 2 步用户勾选高亮行后卡片换文案，再点一次取消勾选换回。
+   * 勾选经 toggleSelection → render → 这里重画，不用另挂 change 监听；
+   * 只认 interactive 那一步与高亮行自己的复选框，其余步骤文案不变。 */
+  const rowCheck = (step.interactive && target && target.querySelector)
+    ? target.querySelector(".row-check") : null;
+  const picked = !!(rowCheck && rowCheck.checked);
+  $("#tour-title").textContent = picked ? "加入计划了" : step.title;
+  $("#tour-text").textContent = picked
+    ? "右边的清单多了一场，报名还没有开始。想取消，再点一次这一行。" : step.text;
   /* 可操作那一步：遮罩不挡点击，改由 tourGuardClick 只放行那一行 */
   if (box.classList) box.classList.toggle("is-interactive", !!step.interactive);
+  /* 目标缺失/隐藏/窄窗（≤980）时不做高亮，退回底部静态说明条——
+   * 不伪造定位，也不挡运行中的操作 */
   const usable = !!target && window.innerWidth > 980 &&
                  target.offsetWidth > 0 && target.getClientRects().length > 0;
   /* 两个类各管一件事：is-bottom 只管卡片落到页面底部（目标不可用或卡片放不下），

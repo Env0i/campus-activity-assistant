@@ -8,6 +8,29 @@ function paintTerms() {
   if (inDialog) inDialog.textContent = version;
   const inHelp = $("#help-terms-version");
   if (inHelp) inHelp.textContent = version;
+  paintTermsMeta();
+}
+
+/* TM02（原型 Main:1571 句式）：元信息行的状态段按真实状态拼——
+ * unknown 不声称任何同意状态（版本位已是「尚未确认」，本机读不到记录，
+ * 不能断言「你还没有同意」）；有已同意版本且不是当前版 →
+ * 「你之前同意的是 <旧版>，新版还没同意。」；没有任何同意记录 →
+ * 「你还没有同意。」；已同意当前版不显示状态段（该态由只读合并行接管，
+ * 副行整体收起，见 paintTermsViewOnlyStatus）。 */
+function termsMetaStateHtml() {
+  const t = S.terms || {};
+  if (t.unknown) return "";
+  const prev = String(t.acceptedVersion || "");
+  if (!prev) return "你还没有同意。";
+  if (t.version && prev !== t.version) {
+    return "你之前同意的是 <b>" + esc(prev) + "</b>，新版还没同意。";
+  }
+  return "";
+}
+
+function paintTermsMeta() {
+  const state = $("#terms-sub-state");
+  if (state) state.innerHTML = termsMetaStateHtml();
 }
 
 /* 底部操作区按模式收敛：只读只显示关闭；保存中禁三控件并显示「正在保存…」；
@@ -49,15 +72,44 @@ function applyTermsFooter() {
     if (agree) agree.disabled = saving || unconfirmed;
     const agreed = !agree || agree.checked !== false;
     accept.disabled = viewOnly || saving || unconfirmed || !agreed;
-    accept.textContent = saving ? "正在保存…" : "我已阅读并同意";
+    /* TM04（原型 Main:894）：同意钮名照原型叫「同意并继续」 */
+    accept.textContent = saving ? "正在保存…" : "同意并继续";
     accept.title = (viewOnly || saving || unconfirmed || agreed)
-      ? "同意当前版本的使用条款与隐私告知，之后才能登录和报名"
+      ? "同意当前版本的使用条款与隐私，之后才能登录和报名"
       : "先勾选左边的「我已阅读以上全部条款」，才能点同意";
   }
   if (x) x.disabled = saving;
   if (esc) {
-    esc.textContent = saving ? "正在保存…"
-      : (viewOnly || unconfirmed) ? "Esc 关闭" : "Esc 暂不使用";
+    /* TM01（decisions 014 修订）：Esc 在同意态与只读态都等于「关闭」，
+     * 不再有「Esc 暂不使用」——拒绝只走「暂不使用」钮；保存中照旧提示。 */
+    esc.textContent = saving ? "正在保存…" : "Esc 关闭";
+  }
+  /* FU01/TM08（decisions 第 1 条）：小框在场的保存/未确认态同样收口——
+   * 同意、暂不（同意/使用）与勾选在途时禁点；文案照原型，禁用条件同阅读器。 */
+  const surface = termsActiveSurface();
+  if (surface === "intro") {
+    const introAccept = $("#btn-terms-intro-accept");
+    const introDecline = $("#btn-terms-intro-decline");
+    const introAgree = $("#chk-terms-intro-agree");
+    if (introAgree) introAgree.disabled = saving || unconfirmed;
+    if (introDecline) introDecline.disabled = saving || unconfirmed;
+    if (introAccept) {
+      introAccept.disabled = saving || unconfirmed || termsIntroAgreeMissing();
+      introAccept.textContent = saving ? "正在保存…" : "同意并继续";
+    }
+  }
+  if (surface === "update") {
+    const tuAccept = $("#btn-tu-accept");
+    const tuDecline = $("#btn-tu-decline");
+    const tuFull = $("#btn-tu-full");
+    if (tuDecline) tuDecline.disabled = saving || unconfirmed;
+    if (tuFull) tuFull.disabled = saving || unconfirmed;
+    if (tuAccept) {
+      /* TM08：更新框没有勾选门（原型 Main:881 脚部无勾选，焦点直接落同意钮），
+       * 只拦保存中/未确认。 */
+      tuAccept.disabled = saving || unconfirmed;
+      tuAccept.textContent = saving ? "正在保存…" : "同意新版条款";
+    }
   }
 }
 
@@ -87,8 +139,9 @@ function switchTermsDoc(which) {
   paintTermsToc();
 }
 
-/* 升版改动摘要（设计文档 9.4，按 r5 正文第 8 节变更记录归纳成 4 条）。
- * 正文文字不改（全文与 docs 逐字一致的契约），「本版新增」用节标题上的 data-new 标出。 */
+/* 升版改动摘要（TM09，设计文档 9.4，按 r5 正文第 8 节变更记录归纳成 4 条）。
+ * 正文文字不改（全文与 docs 逐字一致的契约），「本版新增」用节标题上的 data-new 标出。
+ * 条款更新框（#dlg-terms-update）的变更清单也用这一份数据（原型 Main:880 的 tu-list 版式）。 */
 const TERMS_CHANGES = [
   "报名方式的叫法统一为“直接提交”，意思不变：报名开放时，程序直接调用学校的报名接口提交，不经过学校页面。",
   "查看条款和重新同意的入口，从“帮助”改到“设置 → 条款与隐私”。",
@@ -105,17 +158,10 @@ function termsUpdateMode() {
   return !t.unknown && !!t.acceptedVersion && !!t.version && t.acceptedVersion !== t.version;
 }
 
-/* 打开条款时：之前同意过旧版，就先列出这一版改了什么，并在正文里标出对应的节 */
-function paintTermsUpdate() {
-  const box = $("#terms-update");
+/* 打开条款阅读器时：之前同意过旧版，就在正文里标出这一版改动的节
+ * （旧的 #terms-update 内嵌区块已删，改动清单挪进条款更新框 paintTermsUpdateBox）。 */
+function paintTermsNewMarks() {
   const update = termsUpdateMode();
-  if (box) {
-    box.hidden = !update;
-    const from = $("#terms-update-from");
-    if (from) from.textContent = (S.terms && S.terms.acceptedVersion) || "—";
-    const list = $("#terms-update-list");
-    if (list) list.innerHTML = update ? TERMS_CHANGES.map((text) => "<li>" + esc(text) + "</li>").join("") : "";
-  }
   Object.keys(TERMS_NEW_SECTIONS).forEach((doc) => {
     const heads = document.querySelectorAll('.terms-doc[data-doc="' + doc + '"] .terms-section > h3') || [];
     Array.from(heads).forEach((head) => {
@@ -128,16 +174,12 @@ function paintTermsUpdate() {
   });
 }
 
-/* 完整条款左侧的章节目录：跟着当前页签重画，点一下滚到那一节 */
+/* 完整条款左侧的章节目录：TM01（原型 Main:394）宽档常显——要点视图也在，
+ * 跟着当前页签重画，点一下滚到那一节；窄档（≤719px）由样式收起，
+ * 这里不再做「只在全文视图显示」的开关（旧开关类名已删）。 */
 function paintTermsToc() {
   const toc = $("#terms-toc");
   if (!toc) return;
-  const full = $("#dlg-terms-full-text");
-  const open = !!full && full.hidden === false;
-  const body = $(".terms-body");
-  if (body && body.classList) body.classList.toggle("has-toc", open);
-  toc.hidden = !open;
-  if (!open) { toc.innerHTML = ""; return; }
   const doc = document.querySelector(".terms-doc:not([hidden])");
   const heads = doc ? Array.from(doc.querySelectorAll(".terms-section > h3, .terms-section > h4") || []) : [];
   toc.innerHTML = heads.map((head, i) => '<button type="button" data-toc="' + i + '">'
@@ -174,33 +216,18 @@ function paintLicenseDoc() {
   retry.hidden = false;
 }
 
-function toggleTermsFull() {
-  const full = $("#dlg-terms-full-text");
-  const btn = $("#btn-terms-full");
-  if (!full || !btn) return;
-  full.hidden = !full.hidden;
-  /* 方案 A：文末元信息与全文同显隐——它物理上在 section 之外（全文与 docs
-   * 逐字一致的契约不许在容器里加字），所以显隐要跟着这一处一起翻。 */
-  const meta = $("#terms-doc-meta");
-  if (meta) meta.hidden = full.hidden;
-  /* 要点与全文是同一阅读区的两种视图，不是叠加：进全文时收起要点，
-   * 否则读者要先滚过整段要点才看到正文与文末版本。 */
-  const summary = $("#dlg-terms-summary");
-  if (summary) summary.hidden = !full.hidden;
-  /* 要点⇄全文在同一阅读区切换：按钮文案、aria-expanded、工具行标题三处
-   * 同步；阅读区滚回顶部，焦点留在触发按钮上（切换不抢焦点）。 */
-  btn.textContent = full.hidden ? "查看完整条款" : "返回条款要点";
-  btn.setAttribute("aria-expanded", full.hidden ? "false" : "true");
-  const title = $("#dlg-terms-view-title");
-  if (title) title.textContent = full.hidden ? "条款要点" : "完整条款";
-  const body = $(".terms-body");
-  if (body) body.scrollTop = 0;
-  paintTermsToc();
-}
+/* 阅读器只呈现全文（decisions 第 1 条：要点视图已删，原文由全文阅读器取代）。
+ * 旧的 toggleTermsFull「要点⇄全文」切换随 #btn-terms-full 一起删除。 */
 
-/* 条款弹窗里的局部反馈：保存失败只在这里说下一步，不刷大屏 */
+/* 条款弹窗里的局部反馈：保存失败只在这里说下一步，不刷大屏。
+ * FU01/TM08（decisions 第 1 条）：同意/保存也可能发生在两个小框里——
+ * 反馈跟当前开着的那个面走（阅读器/首次说明框/条款更新框互斥，同一时刻
+ * 只有一个 <dialog> open），小框不滚阅读区。 */
 function termsStatus(text, tone) {
-  const box = $("#dlg-terms-status");
+  const surface = termsActiveSurface();
+  const box = surface === "intro" ? $("#dlg-terms-intro-status")
+    : surface === "update" ? $("#dlg-terms-update-status")
+    : $("#dlg-terms-status");
   if (!box) return;
   if (!text) {
     box.hidden = true;
@@ -210,10 +237,27 @@ function termsStatus(text, tone) {
   box.hidden = false;
   box.dataset.tone = tone || "warn";
   box.textContent = text;
-  /* 反馈与阅读区同在唯一滚动区内：失败/未知/重新确认等非空消息置顶立即可见；
-   * 只归零阅读区自身 scrollTop，不碰焦点、不滚整页，清空分支的提前 return 不受影响。 */
-  const body = $(".terms-body");
-  if (body) body.scrollTop = 0;
+  /* 阅读器内的反馈与阅读区同在唯一滚动区内：失败/未知/重新确认等非空消息置顶
+   * 立即可见；只归零阅读区自身 scrollTop，不碰焦点、不滚整页，清空分支的提前
+   * return 不受影响。小框（intro/update）没有这条滚动区，不做归零——
+   * 状态行的家在阅读器里，没有面打开时也按阅读器处理（与旧行为一致）。 */
+  if (surface !== "intro" && surface !== "update") {
+    const body = $(".terms-body");
+    if (body) body.scrollTop = 0;
+  }
+}
+
+/* 当前可以交互的条款面（FU01/TM08，decisions 第 1 条）：三个 <dialog> 不叠层，
+ * 同一时刻最多开一个，DOM 的 open 状态就是唯一事实；返回 "" 表示没有条款面打开。
+ * 按钮接线与反馈路由都按它分流，不再各自维护一份「哪个框开着」的状态。 */
+function termsActiveSurface() {
+  const reader = $("#dlg-terms");
+  if (reader && reader.open) return "reader";
+  const intro = $("#dlg-terms-intro");
+  if (intro && intro.open) return "intro";
+  const update = $("#dlg-terms-update");
+  if (update && update.open) return "update";
+  return "";
 }
 
 /* 只读查看（已同意同版）的状态行文案（纯函数，用例直接断言字符串）：
@@ -254,6 +298,22 @@ function termsDialogAvailable() {
   return !!dialog && !dialog.open;
 }
 
+/* 两个小框的可打开判断（FU01/TM08）：同一时刻最多一个条款 <dialog> open，
+ * 已打开时重入是空操作（后台 refresh 的再入不许打断在途交互）。 */
+function termsBoxAvailable(id) {
+  const dialog = $(id);
+  return !!dialog && !dialog.open;
+}
+
+/* ×/Esc 的去向（TM01 三语义，decisions 014 修订）：只读打开与同意态打开都等于
+ * 「关闭」——不再等于拒绝，拒绝只走「暂不使用」钮（declineTerms 落盘）；
+ * 从首启说明框 / 条款更新框打开的等于「回到原来的小框」（FU01/TM08，本任务
+ * 已接线：S.terms.box 记着等在后面的小框）。openTermsReader 已按来源写好
+ * S.terms.xClose（back/close），这里只读。 */
+function termsCloseIntent() {
+  return S.terms.xClose === "back" ? "back" : "close";
+}
+
 function termsDialogIsOpen() {
   const dialog = $("#dlg-terms");
   return !!(dialog && dialog.open);
@@ -273,32 +333,103 @@ function closeTermsDialog() {
   if (dialog && dialog.open) dialog.close();
 }
 
+/* ---- FU01/TM08 两个小框的呈现（decisions 第 1 条，呈现在此、编排归 controllers）---- */
+
+/* FU01（原型 Main:799-807）：六条要点从 store 的 FIRST_USE_POINTS 渲染——
+ * .pts 版式（粗体标题＋说明行）由 styles.css 承担；第六条是入口行，link 标记
+ * 把句中「现在就看」换成链接钮（原型 Main:806），点击由 app.js 委托给
+ * openTermsReader("intro")。每次打开都回到未勾选（勾选不落盘，同方案 A）。 */
+function paintTermsIntro() {
+  const list = $("#dlg-terms-intro-points");
+  if (list) {
+    list.innerHTML = FIRST_USE_POINTS.map((point) => {
+      const text = String(point.text || "");
+      const body = point.link
+        ? esc(text).replace("现在就看",
+            '<button type="button" class="doc-link" id="btn-terms-intro-fulltext">现在就看</button>')
+        : esc(text);
+      return "<li><b>" + esc(String(point.title || "")) + "</b><span>" + body + "</span></li>";
+    }).join("");
+  }
+  const status = $("#dlg-terms-intro-status");
+  if (status) { status.hidden = true; status.textContent = ""; }
+  const agree = $("#chk-terms-intro-agree");
+  if (agree) agree.checked = false;
+}
+
+/* TM08（原型 Main:879-880）：副题版本读真实值（X=程序要求的当前版、Y=本机已同意版），
+ * 示意值不进产品（plan decisions 第 5 条）；变更清单用 TERMS_CHANGES 的 r5 内容，
+ * 每条琥珀「新增」徽章照原型 tu-list。 */
+function paintTermsUpdateBox() {
+  const version = $("#terms-update-version");
+  if (version) version.textContent = (S.terms && S.terms.version) || "—";
+  const from = $("#terms-update-from");
+  if (from) from.textContent = (S.terms && S.terms.acceptedVersion) || "—";
+  const list = $("#terms-update-list");
+  if (list) {
+    list.innerHTML = TERMS_CHANGES.map((text) =>
+      '<li><span class="tu-new">新增</span><span>' + esc(String(text)) + "</span></li>").join("");
+  }
+  const status = $("#dlg-terms-update-status");
+  if (status) { status.hidden = true; status.textContent = ""; }
+}
+
+function showTermsIntroBox() {
+  const dialog = $("#dlg-terms-intro");
+  if (!dialog || dialog.open) return;
+  dialog.showModal();
+  /* 焦点落标题（tabindex=-1）：Tab 从标题起遍历，与全文阅读器同规矩；
+   * 原型 FirstUse 未指定打开焦点（Main:1828 只钉了更新框的同意钮）。 */
+  const heading = $("#dlg-terms-intro-title");
+  if (heading) { try { heading.focus(); } catch (err) { /* 标题不可聚焦就算了 */ } }
+}
+
+function closeTermsIntroBox() {
+  const dialog = $("#dlg-terms-intro");
+  if (dialog && dialog.open) dialog.close();
+}
+
+function showTermsUpdateBox() {
+  const dialog = $("#dlg-terms-update");
+  if (!dialog || dialog.open) return;
+  dialog.showModal();
+  /* TM08（原型 Main:1828）：打开时焦点落「同意新版条款」 */
+  const accept = $("#btn-tu-accept");
+  if (accept) { try { accept.focus(); } catch (err) { /* 落不下就算了 */ } }
+}
+
+function closeTermsUpdateBox() {
+  const dialog = $("#dlg-terms-update");
+  if (dialog && dialog.open) dialog.close();
+}
+
+/* 全文关掉后回到等在后面的小框（FU01/TM08，decisions 第 1 条）：×/Esc 关全文
+ * ＝回到原来的小框，不等于拒绝；返回是否真有小框被唤回，没有就由调用方
+ * 走普通来源焦点恢复。 */
+function reopenTermsBox() {
+  const box = S.terms.box || "";
+  if (box === "intro") { showTermsIntroBox(); return true; }
+  if (box === "update") { showTermsUpdateBox(); return true; }
+  return false;
+}
+
 function closeHelpIfOpen() {
   /* 任何时刻都不叠两个 open dialog：帮助入口先关帮助（关闭后按来源重开） */
   const help = $("#help");
   if (help && help.open) help.close();
 }
 
-function resetTermsFullView() {
-  const full = $("#dlg-terms-full-text");
-  if (full) {
-    full.hidden = true;
-    /* 方案 A：全文收起时文末元信息也要收起，避免只留一行版本号悬在要点下面 */
-    const meta = $("#terms-doc-meta");
-    if (meta) meta.hidden = true;
-    const summary = $("#dlg-terms-summary");
-    if (summary) summary.hidden = false;
-    const btn = $("#btn-terms-full");
-    if (btn) {
-      btn.textContent = "查看完整条款";
-      btn.setAttribute("aria-expanded", "false");
-    }
-    /* 每次打开都回到「要点」视图：工具行标题与正文视图同步复位 */
-    const title = $("#dlg-terms-view-title");
-    if (title) title.textContent = "条款要点";
-  }
-  /* 全文里有两份文档，重开时回到第一份，避免上次停在哪份就停在哪份；
-     放在 if (full) 外面：全文容器缺失时 tab 高亮也不该留在上一份。 */
+function resetTermsReaderView() {
+  /* 全文常显（要点视图已删）：文末元信息块也随之常显，不再做显隐切换。
+   * 打开时阅读区滚回顶部，别停在上一轮滚到的位置。 */
+  /* 静态 HTML 里 #dlg-terms-full-text 默认 hidden（结构契约钉住默认态）；
+   * 阅读器是唯一呈现面，打开时在这里取消隐藏——否则页签/目录正常而正文空白
+   * （visual-verify 2026-11-08 截到）。 */
+  const fullText = $("#dlg-terms-full-text");
+  if (fullText) fullText.hidden = false;
+  const body = $(".terms-body");
+  if (body) body.scrollTop = 0;
+  /* 全文里有两份文档，重开时回到第一份，避免上次停在哪份就停在哪份。 */
   switchTermsDoc("agreement");
   /* 副行（版本句）是每次打开的视图态：只读态由 paintTermsViewOnlyStatus
    * 收起，其余路径打开时在这里复位显示。 */
@@ -325,11 +456,23 @@ function focusHelpButton() {
 }
 
 /* 方案 A 的勾选门：controller 只问结论、不碰 DOM。
- * fail-closed：读不到复选框、或读不到布尔 true，都算没勾。 */
+ * fail-closed：读不到复选框、或读不到布尔 true，都算没勾。
+ * FU01：首次说明框用自己的勾选框（#chk-terms-intro-agree）走同一个门；
+ * TM08：条款更新框没有勾选门（原型 Main:881 脚部无勾选，同意钮打开即可点）。 */
 function termsAgreeMissing() {
   /* fail-closed：读不到复选框、或读不到布尔 true，都算没勾。
    * 反面写法（元素不存在=已勾选）会让「HTML 被改坏」静默变成放行。 */
-  const box = $("#chk-terms-agree");
+  const surface = termsActiveSurface();
+  if (surface === "update") return false;
+  const box = surface === "intro" ? $("#chk-terms-intro-agree") : $("#chk-terms-agree");
+  return !box || box.checked !== true;
+}
+
+/* 首次说明框的勾选门（views 侧只读 DOM，供 applyTermsFooter 复算禁用态）：
+ * 与 termsAgreeMissing 同一 fail-closed 读法，但固定读 intro 的勾选框——
+ * 按钮禁用是呈现，不随「当前哪个面开着」漂移。 */
+function termsIntroAgreeMissing() {
+  const box = $("#chk-terms-intro-agree");
   return !box || box.checked !== true;
 }
 
@@ -339,14 +482,17 @@ function resetTermsAgree() {
   if (box) box.checked = false;
 }
 
-/* 关闭后按来源恢复焦点：帮助入口重开帮助并聚焦帮助里的「查看条款」；
+/* 关闭后按来源恢复焦点：help 来源是搬移遗留的兜底——查看条款入口已在
+ * 「设置 → 条款与隐私」（#btn-help-terms），仍重开帮助并把焦点交给该入口；
  * 设置入口回设置抽屉里的「查看条款」（抽屉不是模态，一直开着，不重开帮助）；
  * 横幅入口回被点的按钮（入口已消失就落回 #btn-help）；自动弹与同意成功回 #btn-help。 */
 function restoreTermsFocusTo(source, back) {
   if (source === "help") {
     const help = $("#help");
     if (help && !help.open) help.showModal();
-    const entry = $("#btn-help-terms-view");
+    /* NEEDS-HUMAN 7（c3-dialogs-gap）：旧的帮助内入口 id 已随搬移不存在，
+     * 死引用改指设置抽屉里的「查看条款」（#btn-help-terms），焦点归还不再落空。 */
+    const entry = $("#btn-help-terms");
     if (entry) { try { entry.focus(); } catch (err) { /* 入口不可聚焦就算了 */ } return; }
   }
   if (source === "settings") {

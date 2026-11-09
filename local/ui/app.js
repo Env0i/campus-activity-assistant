@@ -23,6 +23,20 @@ async function boot() {
     /* 生命周期快照（上次关闭时长/质量、登录估算）：只进时钟浮层当提示，
      * 不参与登录四态判定，也不影响开始门禁 */
     S.lifecycle = info.lifecycle || null;
+    /* MG01/MG02：本次进程真发生过旧数据迁移才有 bootstrap.migration；
+     * 运行记录照原型 Main:1182/1183，null 不写（N 用后端真实的 moved） */
+    S.migration = info.migration || null;
+    if (S.migration) {
+      /* 按实际结果分四种：全成功 / 只登录失败 / 登录和其他都失败 / 只其他失败 */
+      const mg = S.migration;
+      addLog(mg.login_failed && mg.other_failed
+        ? "[!] 旧版本的数据没能搬过来，旧文件还在原来的位置"
+        : mg.login_failed
+          ? "[!] 旧版本的登录信息没能搬过来，其他数据已搬好"
+          : mg.other_failed
+            ? "[!] 旧版本的设置或运行记录没能搬过来，登录信息已搬好"
+            : "已把 " + (Number(mg.moved) || 0) + " 个旧数据文件搬到新的数据目录");
+    }
     /* 三种重试模式的权威选项与默认值：桌面/手机共用 bootstrap 口径，
      * 覆盖 store.js 的离线兜底副本（两者由用例对照，不各写一套） */
     if (info.retry_options && info.retry_options.choices) S.retryOptions = info.retry_options;
@@ -234,10 +248,11 @@ $("#btn-refresh").addEventListener("click", () => refresh(false));
 $("#btn-login").addEventListener("click", openLogin);
 wireRelogin();
 $("#btn-help").addEventListener("click", showHelp);
-/* 条款弹窗：展开完整条款 / 同意 / 暂不使用 / 只读关闭 / 重新确认。未同意时
- * Esc、右上角 X、暂不使用都算「暂不使用」（close 监听统一收口）；保存中 Esc
- * 被 cancel 明确拒绝；同意成功由 acceptTerms 自己走程序性关闭，不会到 decline。 */
-$("#btn-terms-full").addEventListener("click", toggleTermsFull);
+/* 条款弹窗：同意 / 暂不使用 / 只读关闭 / 重新确认。TM01（decisions 014 修订）：
+ * Esc 与右上角 X 只等于「关闭」（close 监听统一收口），拒绝只走「暂不使用」钮；
+ * 保存中 Esc 被 cancel 明确拒绝；同意成功由 acceptTerms 自己走程序性关闭。
+ * 全文阅读器只呈现全文（decisions 第 1 条）：旧的「要点⇄全文」切换钮已删，
+ * 正文里的内联链接只负责切页签。 */
 /* 方案 A：勾选是解锁「同意」的唯一前置；勾选态只活在这个弹窗实例里，
  * 不写 prefs、不写 ui.json——取消勾选立刻把同意按钮压回禁用。 */
 $("#chk-terms-agree").addEventListener("change", applyTermsFooter);
@@ -246,7 +261,7 @@ $("#chk-terms-agree").addEventListener("change", applyTermsFooter);
   /* MIT 许可证：切换即懒加载（S.licenseText 已缓存/在途时是零请求） */
   $("#tab-terms-license").addEventListener("click", function () { switchTermsDoc("license"); ensureLicenseText(); });
   /* 正文/勾选行/第 3 条里的《用户协议》《隐私政策》《随包 LICENSE》内联链接：
-   * 打开全文并切到对应页签。preventDefault 同时拦下 label 把点击转成勾选翻转
+   * 切到对应页签（全文常显）。preventDefault 同时拦下 label 把点击转成勾选翻转
    * 的默认行为——点链接不改变勾选状态，点链接外的文字照常 toggle。 */
   $("#dlg-terms").addEventListener("click", (event) => {
     const link = event.target.closest(".doc-link");
@@ -254,8 +269,6 @@ $("#chk-terms-agree").addEventListener("change", applyTermsFooter);
     event.preventDefault();
     event.stopPropagation();
     const doc = link.getAttribute("data-doc");
-    const full = $("#dlg-terms-full-text");
-    if (full && full.hidden) toggleTermsFull();
     switchTermsDoc(doc);
     if (doc === "license") ensureLicenseText();
   });
@@ -293,11 +306,66 @@ if (termsDialog) {
       /* 超时后关闭 = 离开待确认界面：不记成「同意未发生」，下次按 bootstrap 事实处理 */
       S.terms.unconfirmed = false;
       applyTermsFooter();
-    } else if (!termsAccepted() && !S.terms.declined) {
-      declineTerms(); /* 未同意关闭仍按原拒绝语义（Esc / X / 暂不使用按钮） */
     }
+    /* TM01（decisions 014 修订）：× 与 Esc 统一为「关闭」——未同意的关闭不再
+     * 记成拒绝，拒绝只走「暂不使用」钮（declineTerms 自己落盘）。
+     * FU01/TM08（decisions 第 1 条）：从小框进来的全文，×/Esc＝「回到原来的
+     * 小框」（不等于拒绝）；条款流程还没结束，引导让位保持（回小框不恢复）；
+     * 没有小框在等才走来源焦点恢复。 */
+    if (termsCloseIntent() === "back" && reopenTermsBox()) {
+      S.terms.xClose = "close";
+      return;
+    }
+    S.terms.box = "";
     restoreTermsFocus();
     resumeTermsTour();
+  });
+}
+/* 首次说明框（FU01）：勾选解锁「同意并继续」；「暂不使用」走 declineTerms；
+ * 「现在就看」收起本框开全文（回小框由阅读器 close 监听按 xClose 收口）。 */
+$("#chk-terms-intro-agree").addEventListener("change", applyTermsFooter);
+$("#btn-terms-intro-accept").addEventListener("click", acceptTerms);
+$("#btn-terms-intro-decline").addEventListener("click", declineTerms);
+$("#dlg-terms-intro").addEventListener("click", (event) => {
+  if (!event.target.closest("#btn-terms-intro-fulltext")) return;
+  openTermsReader("intro");
+});
+const termsIntroDialog = $("#dlg-terms-intro");
+if (termsIntroDialog) {
+  /* FU01：Esc＝暂不使用（照原型键盘口径收进产品）；保存中照阅读器先拦；
+   * 未确认＝离开待确认界面（不记拒绝，门禁保持），同阅读器 close 语义。 */
+  termsIntroDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    if (S.terms.saving) return;
+    if (S.terms.unconfirmed) {
+      S.terms.unconfirmed = false;
+      applyTermsFooter();
+      closeTermsIntroBox();
+      S.terms.box = "";
+      return;
+    }
+    declineTerms();
+  });
+}
+/* 条款更新框（TM08）：无勾选门（原型 Main:881），「同意新版条款」打开即可点；
+ * 「看完整条款」同首次说明框的入口——收本框、开全文、关全文回本框。 */
+$("#btn-tu-accept").addEventListener("click", acceptTerms);
+$("#btn-tu-decline").addEventListener("click", declineTerms);
+$("#btn-tu-full").addEventListener("click", () => openTermsReader("update"));
+const termsUpdateDialog = $("#dlg-terms-update");
+if (termsUpdateDialog) {
+  /* TM08：Esc＝暂不同意；保存中拦、未确认＝离开待确认界面，同上。 */
+  termsUpdateDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    if (S.terms.saving) return;
+    if (S.terms.unconfirmed) {
+      S.terms.unconfirmed = false;
+      applyTermsFooter();
+      closeTermsUpdateBox();
+      S.terms.box = "";
+      return;
+    }
+    declineTerms();
   });
 }
 /* 顶栏三张详情卡（时间 / 登录 / 手机）：悬停预览、点击固定、Esc 关闭 */
@@ -376,6 +444,11 @@ $("#banners").addEventListener("click", (event) => {
   }
   if (event.target.closest('[data-act="second-ok"]')) {
     S.secondOpen = false;
+    paintBanners();
+  }
+  if (event.target.closest('[data-act="migrated-ok"]')) {
+    /* MG01「知道了」：只收本次运行内的横幅，不落盘（S 只存内存） */
+    S.migrationDismissed = true;
     paintBanners();
   }
   if (event.target.closest('[data-act="runtime-refresh"]')) {
@@ -491,9 +564,15 @@ $("#empty-action").addEventListener("click", () => {
 document.addEventListener("keydown", (event) => {
   /* 打开的条款弹窗独占键盘——第一道判断，在引导/搜索处理之前：Enter/Esc/
    * Ctrl+F/`/` 不穿透到背景业务（不开始计划、不清选择、不抢搜索框），Tab、
-   * 按钮激活与正常重载交给浏览器原生；保存中的 Esc 由 dialog 的 cancel 拦。 */
+   * 按钮激活与正常重载交给浏览器原生；保存中的 Esc 由 dialog 的 cancel 拦。
+   * FU01/TM08（UI_SPEC §5.13 第 2 条）：两个条款小框同样独占键盘——Esc 的
+   * 拒绝语义由各自 dialog 的 cancel 监听处理（原生 Esc→cancel），这里只负责
+   * 不让背景快捷键（F5/Ctrl+F//、Enter 开始计划）穿透到模态背后的业务。 */
   const termsDlg = $("#dlg-terms");
   if (termsDlg && termsDlg.open) return;
+  if (["#dlg-terms-intro", "#dlg-terms-update"].some((sel) => {
+    const box = $(sel); return !!box && box.open;
+  })) return;
   if (event.key === "F5") { event.preventDefault(); refresh(false); return; }
   const typing = event.target.closest && event.target.closest("input, select, textarea");
   /* 引导可见时键盘约束在卡片内：Esc=跳过、Tab 在卡片按钮间循环，

@@ -1316,11 +1316,53 @@ class TourAndLifecycleContractTests(unittest.TestCase):
         self.assertIn("勾选只是加入计划，不会开始报名", steps, "勾选那一步要写清选择不等于开始")
         self.assertIn("核对计划，再点开始", steps, "第 3 步要写清真正的开始动作在核对之后")
         self.assertIn("不要关闭工具或让电脑睡眠", steps, "开始以后那一步要讲清运行期间的前提")
-        self.assertIn("看到「待核对」时，到学校活动页确认", steps,
+        # 「待核对」→“待核对”：原型 tourSteps（Main:1260）用弯引号，c3-dialogs-gap TR07 照原型逐字
+        self.assertIn("看到“待核对”时，到学校活动页确认", steps,
                       "开始以后那一步要讲清待核对的下一步（工具不自动重发）")
         # 原型 :631 原话是「停止不会取消已成功的报名」，旧断言多了「计划」二字
         self.assertIn("停止不会取消已成功的报名", read("ui/index.html"),
                       "停止确认要说明不撤销学校报名")
+
+    def test_tour_steps_use_prototype_curly_quotes(self):
+        """TR03/TR07/TR08：五步文案与原型 tourSteps（Main:1255-1263）同源，弯引号逐字。
+
+        旧文案写直角引号「」，原型用弯引号“”；引号是文案的一部分，照原型逐字，
+        直角写法不得回潮。"""
+        js = read("ui/app.js")
+        steps = js[js.index("TOUR_STEPS = ["):js.index("const S = {")]
+        for phrase in ("“预报名”等开放后自动提交", "“立即报名”点开始后马上提交",
+                       "看到“待核对”时，到学校活动页确认", "想再看一遍引导，点“帮助”"):
+            self.assertIn(phrase, steps, "引导文案缺原型弯引号短语：%s" % phrase)
+        for old in ("「预报名」", "「立即报名」", "「待核对」", "「帮助」"):
+            self.assertNotIn(old, steps, "引导文案不得再出现直角引号：%s" % old)
+
+    def test_tour_overlay_matches_prototype_frame(self):
+        """TR01/TR03：卡宽 352px、遮罩色 rgba(17,29,38,.52)、卡头深色、spot 镂空挖洞；无 1/6 残留。
+
+        原型 .t-pane 遮罩色与 .t-card 22rem（Main:507-510）；挖洞由 .tour-spot 的外扩
+        box-shadow 呈现（原型四板挖洞的等价实现），不再有全遮 .tour-mask。
+        「第 1/6 步」是六步时代的静态残留，步数由 views/tour.js 在 paintTour 里现填。"""
+        css = read("ui/styles.css")
+        tour_css = css[css.index(".tour {"):css.index("@keyframes pulse")]
+        self.assertIn("width: 352px", tour_css, "引导卡宽必须照原型 22rem=352px")
+        self.assertNotIn("340px", tour_css, "旧卡宽 340px 必须删掉，不留死样式")
+        self.assertIn("rgba(17,29,38,.52)", tour_css, "遮罩色必须照原型 .t-pane（Main:507）")
+        self.assertNotIn("rgba(17,24,20,.55)", tour_css, "旧遮罩色必须删掉，不留死样式")
+        self.assertNotIn(".tour-mask", tour_css, "全遮板已由 spot 外扩阴影挖洞取代（TR01）")
+        self.assertIn("var(--board)", tour_css, "卡头必须深色（照原型 .t-head，Main:509）")
+        html = read("ui/index.html")
+        self.assertNotIn("第 1/6 步", html, "六步时代的静态步数残留必须删掉")
+        self.assertIn('id="tour-step"></span>', html, "步数 span 必须为空，由 views/tour.js 填写")
+
+    def test_tour_row_pick_swaps_card_copy(self):
+        """TR05（原型 Main:1302）：第 2 步勾选目标行后换卡文案，取消勾选换回；文案逐字。"""
+        js = read("ui/views/tour.js")
+        self.assertIn("加入计划了", js, "勾选后的卡片标题必须照原型")
+        self.assertIn("右边的清单多了一场，报名还没有开始。想取消，再点一次这一行。", js,
+                      "勾选后的卡片正文必须照原型")
+        paint = js[js.index("function paintTour()")
+                   :js.index("/* ---------------------------------------------------------------- 事件绑定 */")]
+        self.assertIn("step.interactive", paint, "换卡只许发生在第 2 步（interactive）")
 
     def test_tour_never_triggers_backend_actions(self):
         """引导只做说明：开始/推进/跳过引导的代码不得调用任何桥接动作。"""
@@ -2410,6 +2452,48 @@ tourSkip();
         self.assertTrue(res[0]["open"], "render 不得重开或关闭引导")
         self.assertTrue(res[0]["repositioned"], "render 后必须重新定位高亮框")
 
+    def test_row_pick_swaps_card_copy_and_back(self):
+        """TR05（原型 Main:1302）：第 2 步勾选高亮行→卡换「加入计划了」，取消→换回。
+
+        步数、主钮、圆点不随换卡变；第 2 步之外（第 1 步）勾选不得换卡。"""
+        res = run_js(r"""
+const row = document.querySelector("#rows .row");
+const check = document.querySelector("#rows .row .row-check");
+tourRowTarget = () => row;   /* 桩没有行结构：直接指定引导高亮的行 */
+startTour(1);
+const snap = () => ({
+  title: document.querySelector("#tour-title").textContent,
+  text: document.querySelector("#tour-text").textContent,
+  step: document.querySelector("#tour-step").textContent,
+  next: document.querySelector("#tour-next").textContent,
+  dots: document.querySelector("#tour-dots").innerHTML,
+});
+const base = snap();
+check.checked = true;
+paintTour();
+const picked = snap();
+check.checked = false;
+paintTour();
+const restored = snap();
+/* 第 2 步之外不受影响：第 1 步即使复选框为勾也不换卡 */
+check.checked = true;
+startTour(0);
+const otherStep = snap();
+tourSkip();
+out.push({ base, picked, restored, otherStep });
+""")
+        row = res[0]
+        self.assertEqual(row["base"]["title"], "勾选想报的活动", "未勾选时保持第 2 步原文案")
+        self.assertIn("勾选只是加入计划", row["base"]["text"], "未勾选时保持第 2 步原正文")
+        self.assertEqual(row["picked"]["title"], "加入计划了", "勾选后卡片标题必须照原型换句")
+        self.assertIn("右边的清单多了一场", row["picked"]["text"], "勾选后正文必须照原型换句")
+        self.assertEqual(row["restored"]["title"], "勾选想报的活动", "取消勾选换回原标题")
+        self.assertIn("点这一行试试", row["restored"]["text"], "取消勾选换回原正文")
+        self.assertEqual(row["picked"]["step"], row["base"]["step"], "步数不随换卡变")
+        self.assertEqual(row["picked"]["next"], row["base"]["next"], "主钮文案不随换卡变")
+        self.assertEqual(row["picked"]["dots"], row["base"]["dots"], "圆点不随换卡变")
+        self.assertEqual(row["otherStep"]["title"], "这是活动时刻表", "第 2 步之外不受勾选影响")
+
     def test_spot_stays_visible_when_card_falls_to_bottom(self):
         """卡片放不下改放底部时目标框仍在；只有目标缺失/不可见才藏（R1）。"""
         res = run_js(r"""
@@ -2473,7 +2557,8 @@ class SettingsEntryContractTests(unittest.TestCase):
         for needle in ("close-pref", "help-version", "btn-update-check", "update-status",
                        "btn-help-latest", "btn-help-data", "btn-terms-withdraw", "help-status"):
             self.assertIn('id="%s"' % needle, prog, "「设置 → 程序」缺组件 #%s" % needle)
-        for text in ("关闭窗口时", "版本与更新", "本机数据", "打开数据目录", "前往下载页", "撤回同意"):
+        # 「前往下载页」按 UP10 照原型改成底注句内链接钮「打开发布页」（原型 Main.dc.html:784）
+        for text in ("关闭窗口时", "版本与更新", "本机数据", "打开数据目录", "打开发布页", "撤回同意"):
             self.assertIn(text, prog, "「设置 → 程序」缺「%s」" % text)
         adv = drawer[drawer.index('id="set-adv"'):drawer.index('id="set-login"')]
         for needle in ("btn-phone-feature-install", "btn-ocr-download"):
@@ -2508,7 +2593,8 @@ class SettingsEntryContractTests(unittest.TestCase):
         js = read("ui/app.js")
         for step_title in ("确认登录", "选活动并开始", "看结果"):
             self.assertIn(step_title, js, "三步快速帮助必须保留（%s）" % step_title)
-        self.assertIn("再点「开始报名计划」", js, "三步说明必须写出真正的开始动作")
+        self.assertIn("再点“开始报名计划”", js,
+                      "三步说明必须写出真正的开始动作（HK02：引号照原型弯引号）")
 
     def test_app_js_wires_settings_actions(self):
         """两处重播共用 replayTourFrom；版本/目录仍走既有接口；忙时禁用有可见原因。"""
@@ -4221,7 +4307,7 @@ class AssistanceBehaviorTests(unittest.TestCase):
             (1, "确认登录",
              "顶部显示“已登录”就可以继续。只有提示失效时才需要重新登录。"),
             (2, "选活动并开始",
-             "在时刻表勾选活动，核对右边的计划，再点「开始报名计划」。勾选不会自动开始。"),
+             "在时刻表勾选活动，核对右边的计划，再点“开始报名计划”。勾选不会自动开始。"),
             (3, "看结果",
              "每场结果单独显示。看到“待核对”时，到学校活动页确认。"),
         ],
@@ -4670,6 +4756,250 @@ out.push({state:S.update.state,disabled:document.querySelector("#btn-update-chec
         self.assertEqual(res[0], {"state": "error", "disabled": False})
 
 
+class UpdateBoardPaintTests(unittest.TestCase):
+    """更新组画板 UP01-UP12（c3-dialogs-gap 二）：每个状态只露一枚主钮、检查时间连字符、
+    确认问句带真实体积、哈希失败专句、进度条 aria、黄警示独立块、底注句内链接钮。
+
+    原型基准：Main.dc.html:771-786（markup）、1426-1451（状态行与钮槽）、1456/1459（错误框/进度块）。
+    示意值（1.3.0、92.4 MB、11-03 14:20）不写死：全部由用例注入假数据、实现读真实回包。"""
+
+    INSTALLER = {"url": "https://example.invalid/x.exe", "bytes": 96927744}  # 92.4375 MiB -> fmtBytes 92.4 MB
+
+    def test_one_primary_action_per_state(self):
+        """UP01 钮显隐矩阵（原型 Main.dc.html:1446-1451）：每态只露该态唯一的主动作钮；
+        confirm 是中间态，确认下载与取消两枚同显；校验中禁用；error 走重试检查（原型 :1448）。"""
+        res = run_js(r"""
+const q = (id) => document.querySelector(id);
+const flow = { install: q("#btn-update-install"), confirm: q("#btn-update-confirm"),
+  launch: q("#btn-update-launch"), cancel: q("#btn-update-cancel"), close: q("#btn-update-close") };
+const installer = { url: "https://example.invalid/x.exe", bytes: 96927744 };
+function paint(state, result) {
+  S.update.state = state;
+  S.update.result = result || null;
+  S.update.paintedState = null;
+  S.update.guardUntil = 0;
+  paintUpdate();
+}
+paint("idle");
+out.push({ state: "idle", check: [!q("#btn-update-check").hidden, q("#btn-update-check").textContent],
+  flowHidden: q("#update-flow").hidden });
+paint("available", { latest_version: "9.9.9", installer: installer });
+out.push({ state: "available", install: [!flow.install.hidden, flow.install.textContent],
+  checkHidden: q("#btn-update-check").hidden, confirmHidden: flow.confirm.hidden,
+  cancelHidden: flow.cancel.hidden, launchHidden: flow.launch.hidden, closeHidden: flow.close.hidden });
+paint("confirm", { latest_version: "9.9.9", installer: installer });
+out.push({ state: "confirm", confirm: [!flow.confirm.hidden, flow.confirm.textContent],
+  cancel: [!flow.cancel.hidden, flow.cancel.textContent],
+  installHidden: flow.install.hidden, checkHidden: q("#btn-update-check").hidden });
+paint("downloading", { downloaded: 39845888, total_bytes: 96927744 });
+out.push({ state: "downloading", cancel: [!flow.cancel.hidden, flow.cancel.textContent],
+  checkHidden: q("#btn-update-check").hidden });
+paint("verifying");
+out.push({ state: "verifying", cancel: [!flow.cancel.hidden, flow.cancel.textContent, flow.cancel.disabled],
+  checkHidden: q("#btn-update-check").hidden });
+paint("ready_to_install");
+out.push({ state: "ready", launch: [!flow.launch.hidden, flow.launch.textContent] });
+S.busy = true;
+paint("ready_to_install");
+out.push({ state: "ready-busy", launch: [!flow.launch.hidden, flow.launch.textContent] });
+S.busy = false;
+paint("launching", { text: "正在启动安装程序…" });
+out.push({ state: "launching", close: [!flow.close.hidden, flow.close.textContent, flow.close.disabled],
+  launchHidden: flow.launch.hidden });
+/* 二段启动与真实时序一致：第一段先画过（paintedState 已是 launching），二段不再重置防误触 */
+S.update.guardUntil = Date.now() - 1;
+S.update.result = { text: "安装程序已启动。请先关闭本工具，再按向导完成安装。" };
+paintUpdate();
+out.push({ state: "launched", close: [!flow.close.hidden, flow.close.textContent, flow.close.disabled] });
+paint("failed", { error_code: "hash_mismatch", installer: installer });
+out.push({ state: "failed", install: [!flow.install.hidden, flow.install.textContent],
+  checkHidden: q("#btn-update-check").hidden });
+paint("error", { text: "连接超时" });
+out.push({ state: "error", check: [!q("#btn-update-check").hidden, q("#btn-update-check").textContent],
+  flowHidden: q("#update-flow").hidden });
+""")
+        r = {row["state"]: row for row in res}
+        self.assertEqual(r["idle"]["check"], [True, "检查更新"])
+        self.assertTrue(r["idle"]["flowHidden"])
+        self.assertEqual(r["available"]["install"], [True, "下载并安装"])
+        self.assertTrue(r["available"]["checkHidden"])
+        self.assertTrue(all(r["available"][k] for k in ("confirmHidden", "cancelHidden", "launchHidden", "closeHidden")))
+        self.assertEqual(r["confirm"]["confirm"], [True, "确认下载"])
+        self.assertEqual(r["confirm"]["cancel"], [True, "取消"])
+        self.assertTrue(r["confirm"]["installHidden"] and r["confirm"]["checkHidden"])
+        self.assertEqual(r["downloading"]["cancel"], [True, "取消下载"])
+        self.assertTrue(r["downloading"]["checkHidden"])
+        self.assertEqual(r["verifying"]["cancel"], [True, "校验中…", True], "校验中禁用（原型 :1449）")
+        self.assertTrue(r["verifying"]["checkHidden"])
+        self.assertEqual(r["ready"]["launch"], [True, "启动安装程序"])
+        self.assertEqual(r["ready-busy"]["launch"], [True, "仍然启动安装程序"], "计划运行中要明说会中断（UP12）")
+        self.assertEqual(r["launching"]["close"], [True, "启动中…", True], "启动段禁用（UP01）")
+        self.assertTrue(r["launching"]["launchHidden"])
+        self.assertEqual(r["launched"]["close"], [True, "关闭本工具…", False], "启动成功才交回关窗（UP10）")
+        self.assertEqual(r["failed"]["install"], [True, "重新下载"], "哈希失败或普通失败都叫重新下载（UP08）")
+        self.assertTrue(r["failed"]["checkHidden"])
+        self.assertEqual(r["error"]["check"], [True, "重试检查"], "检查失败没有安装包可重下，走重试（原型 :1448）")
+        self.assertTrue(r["error"]["flowHidden"])
+
+    def test_checked_at_is_hyphen_padded_format(self):
+        """UP03 检查时间自拼 MM-DD HH:mm（连字符、pad2），不靠 toLocaleString（Chromium 出斜杠）。"""
+        res = run_js(r"""
+out.push(formatCheckedAt(new Date(2026, 10, 3, 14, 20).getTime()));
+out.push(formatCheckedAt(new Date(2026, 0, 5, 8, 5).getTime()));
+S.update.requestId = "request";
+window.onBackend.update({request_id:"request",state:"current",checked_at:"2026-11-03T06:20:00Z"});
+const at = document.querySelector("#update-checked-at");
+out.push({ hidden: at.hidden, tail: at.textContent.slice(5),
+  pattern: /^\d{2}-\d{2} \d{2}:\d{2}$/.test(at.textContent.slice(5)) });
+""")
+        self.assertEqual(res[0], "11-03 14:20")
+        self.assertEqual(res[1], "01-05 08:05")
+        self.assertTrue(res[2]["pattern"], "回包时间也要落成连字符格式：%s" % res[2]["tail"])
+        self.assertFalse(res[2]["hidden"])
+
+    def test_confirm_question_carries_real_size(self):
+        """UP04 确认问句带真实体积（X=版本、Y=installer.bytes 换算）；无体积时去括号段。"""
+        res = run_js(r"""
+S.update.requestId = "request";
+window.onBackend.update({request_id:"request",state:"confirm",latest_version:"9.9.9",
+  installer:{url:"https://example.invalid/x.exe", bytes:96927744}});
+const withSize = document.querySelector("#update-confirm-question").textContent;
+window.onBackend.update({request_id:"request",state:"confirm",latest_version:"9.9.9",
+  installer:{url:"https://example.invalid/x.exe"}});
+const withoutSize = document.querySelector("#update-confirm-question").textContent;
+out.push({ withSize, withoutSize, boxShown: !document.querySelector("#update-confirm-box").hidden });
+""")
+        self.assertEqual(res[0]["withSize"],
+                         "下载 9.9.9 安装包（92.4 MB）？只写临时目录，不动现在的程序和你的数据。"
+                         "校验通过后，什么时候安装由你决定。")
+        self.assertEqual(res[0]["withoutSize"],
+                         "下载 9.9.9 安装包？只写临时目录，不动现在的程序和你的数据。"
+                         "校验通过后，什么时候安装由你决定。")
+        self.assertTrue(res[0]["boxShown"])
+
+    def test_available_shows_version_block_with_real_size(self):
+        """UP04 新版本块：大版本数字＋体积句；后端没带 bytes 时不显示体积句。"""
+        res = run_js(r"""
+S.update.requestId = "request";
+window.onBackend.update({request_id:"request",state:"available",latest_version:"9.9.9",
+  installer:{url:"https://example.invalid/x.exe", bytes:96927744}});
+const box = document.querySelector("#update-version-box");
+const sized = { shown: !box.hidden, num: document.querySelector("#update-version-num").textContent,
+  note: document.querySelector("#update-version-note").textContent };
+window.onBackend.update({request_id:"request",state:"available",latest_version:"9.9.9",
+  installer:{url:"https://example.invalid/x.exe"}});
+const bare = { shown: !box.hidden, num: document.querySelector("#update-version-num").textContent,
+  note: document.querySelector("#update-version-note").textContent };
+out.push({ sized, bare });
+""")
+        # 句中「安」「装」之间插了不可见的 U+2060，防止窄屏下末行只剩「装」一个字
+        self.assertEqual(res[0]["sized"], {"shown": True, "num": "9.9.9",
+                                           "note": "完整安装包 92.4 MB，下载后先校验，再由你决定什么时候安⁠装"})
+        self.assertEqual(res[0]["bare"], {"shown": True, "num": "9.9.9", "note": ""})
+
+    def test_hash_mismatch_gets_dedicated_sentence(self):
+        """UP08 哈希专句只按 error_code=hash_mismatch 显示；其余 error_code 照旧显示后端 text。"""
+        res = run_js(r"""
+S.update.requestId = "request";
+window.onBackend.update({request_id:"request",state:"failed",error_code:"hash_mismatch",
+  text:"下载内容哈希校验未通过，已放弃并清理。"});
+const box = document.querySelector("#update-error-box");
+const hash = { hidden: box.hidden, text: box.textContent,
+  status: document.querySelector("#update-status").textContent };
+window.onBackend.update({request_id:"request",state:"failed",error_code:"size_mismatch",
+  text:"下载大小与校验信息不一致（96927744 / 96927744 字节），已放弃。"});
+const other = { hidden: box.hidden, text: box.textContent };
+window.onBackend.update({request_id:"request",state:"error",text:"暂时无法连接GitHub，请检查网络后重试。"});
+const checkErr = { hidden: box.hidden, text: box.textContent };
+out.push({ hash, other, checkErr });
+""")
+        self.assertEqual(res[0]["hash"], {
+            "hidden": False, "text": "下载内容的哈希校验没通过，已放弃并删掉临时文件。旧版本和你的数据都没动。",
+            "status": "更新没有完成。"})
+        self.assertEqual(res[0]["other"]["text"], "下载大小与校验信息不一致（96927744 / 96927744 字节），已放弃。")
+        self.assertNotIn("哈希校验没通过", res[0]["other"]["text"])
+        self.assertEqual(res[0]["checkErr"]["text"], "暂时无法连接GitHub，请检查网络后重试。")
+        self.assertFalse(res[0]["checkErr"]["hidden"])
+
+    def test_progress_block_carries_aria_and_percent(self):
+        """UP06 进度块：aria-valuenow 随真实进度走，右侧「A / B MB（P%）」；
+        校验中左句换「下载完成，正在校验」、右侧数字让位。
+        （role/aria-label/aria-valuemax 是静态骨架，在 test_update_board_markup_follows_prototype 钉。）"""
+        res = run_js(r"""
+S.update.requestId = "request";
+window.onBackend.update({request_id:"request",state:"downloading",downloaded:39845888,total_bytes:96927744});
+const bar = document.querySelector("#update-progress-bar");
+const box = document.querySelector("#update-progress-box");
+const down = { shown: !box.hidden, label: document.querySelector("#update-progress-label").textContent,
+  num: document.querySelector("#update-progress-num").textContent,
+  now: bar.getAttribute("aria-valuenow"),
+  noteShown: !document.querySelector("#update-download-note").hidden };
+window.onBackend.update({request_id:"request",state:"verifying"});
+const verify = { shown: !box.hidden, label: document.querySelector("#update-progress-label").textContent,
+  num: document.querySelector("#update-progress-num").textContent,
+  now: bar.getAttribute("aria-valuenow"),
+  noteShown: !document.querySelector("#update-download-note").hidden };
+out.push({ down, verify });
+""")
+        self.assertEqual(res[0]["down"], {"shown": True, "label": "已下载", "num": "38.0 / 92.4 MB（41%）",
+                                          "now": "41", "noteShown": True})
+        # 校验中的 aria-valuenow 沿用合并结果里最后一次下载进度（真实链路末包 done==total → 100）
+        self.assertEqual(res[0]["verify"], {"shown": True, "label": "下载完成，正在校验", "num": "",
+                                            "now": "41", "noteShown": True})
+
+    def test_ready_warn_block_is_independent(self):
+        """UP11/UP12 黄警示独立成块（不再拼进进度行）：busy 才显示，向导句常驻就绪块。"""
+        res = run_js(r"""
+S.update.requestId = "request";
+S.busy = true;
+window.onBackend.update({request_id:"request",state:"ready_to_install"});
+const busy = { boxShown: !document.querySelector("#update-ready-box").hidden,
+  warnShown: !document.querySelector("#update-plan-warn").hidden,
+  progressGone: document.querySelector("#update-progress-box").hidden,
+  status: document.querySelector("#update-status").textContent };
+S.busy = false;
+paintUpdate();
+const idle = { warnShown: !document.querySelector("#update-plan-warn").hidden,
+  status: document.querySelector("#update-status").textContent };
+out.push({ busy, idle });
+""")
+        self.assertEqual(res[0]["busy"], {"boxShown": True, "warnShown": True, "progressGone": True,
+                                          "status": "安装包已通过大小和 SHA-256 校验。"})
+        self.assertFalse(res[0]["idle"]["warnShown"], "计划没跑就不该吓唬人")
+        self.assertEqual(res[0]["idle"]["status"], "安装包已通过大小和 SHA-256 校验。")
+
+    def test_update_board_markup_follows_prototype(self):
+        """UP01/UP04/UP06/UP08/UP10/UP11 静态骨架：状态行、错误框、新版本块、确认/就绪盒、
+        进度条 aria、黄警示独立块、底注句内链接钮，全部照原型 Main.dc.html:771-786 落位。"""
+        html = read("ui/index.html")
+        row = html[html.index('<div class="help-tool-row set-update">'):]
+        row = row[:row.index('<div class="help-tool-row">')]
+        for needle in ("help-version", "update-status", "update-checked-at", "update-error-box",
+                       "update-version-box", "update-confirm-box", "update-progress-box",
+                       "update-progress-bar", "update-progress-fill",
+                       "update-plan-warn", "update-ready-box", "update-download-note",
+                       "btn-update-install", "btn-update-confirm", "btn-update-launch",
+                       "btn-update-cancel", "btn-update-close", "btn-update-check", "btn-help-latest"):
+            self.assertIn('id="%s"' % needle, row, "「版本与更新」缺 #%s" % needle)
+        self.assertIn('role="progressbar"', row)
+        self.assertIn('aria-label="安装包下载进度"', row)
+        self.assertIn('aria-valuemax="100"', row)
+        self.assertIn("启动后按安装向导操作。工具不会自己退出或重启。", row, "就绪块的向导句（UP12，原型 :781）")
+        # 「建」「议」之间插了不可见的 U+2060，防止「建议」被拆到两行
+        self.assertIn("报名计划还在运行。安装时要先关闭本工具，计划会停止，建⁠议等这次计划结束再装。", row,
+                      "黄警示独立成块（UP11，原型 :781）")
+        note = row[row.index('<p class="ph-note">'):]
+        self.assertIn('<button class="ph-link" id="btn-help-latest" type="button">打开发布页</button>', note,
+                      "底注句内链接钮（UP10，原型 :784）")
+        self.assertIn("，看更新说明，或者手动下载完整包。", note)
+        self.assertNotIn("前往下载页", row, "独立「前往下载页」钮撤底（UP10）")
+        css = read("ui/styles.css")
+        for rule in (".up-v {", ".upbox {", ".help-tool-row p.ph-err", ".help-tool-row p.ph-warn"):
+            self.assertIn(rule, css, "样式缺 %s（UP04/UP08/UP11）" % rule)
+        for state in ('[data-state="available"]', '[data-state="ready_to_install"]'):
+            self.assertIn("#update-status%s" % state, css, "状态行配色缺 %s（UP03/UP12）" % state)
+
+
 class AttendanceDetailUiTests(unittest.TestCase):
     """真实详情字段：时间段、无需、同步中、待确认四种展示与三态筛选。"""
 
@@ -5088,16 +5418,24 @@ class TermsConsentContractTests(unittest.TestCase):
                                  "%s 第 %s 节标题两处必须一字不差" % (pane, no))
 
     def test_index_html_has_terms_dialog_contract(self):
-        """条款弹窗契约：弹窗、查看完整条款、同意、暂不使用与帮助内入口。"""
+        """条款契约：全文阅读器、两个小框、同意、暂不使用与帮助内入口。
+        （20261108-c3-dialogs decisions 第 1 条：#dlg-terms 只做全文阅读器，
+        要点/全文切换钮删除；首次同意入口是首次说明框、版本更新入口是条款更新框，
+        「查看完整条款」由「现在就看」（首次说明框）与「看完整条款」（更新框）取代。）"""
         html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
-        for required in ('id="dlg-terms"', 'id="btn-terms-full"', 'id="btn-terms-accept"',
+        for required in ('id="dlg-terms"', 'id="btn-terms-accept"',
                          'id="btn-terms-decline"', 'id="dlg-terms-version"',
                          'id="dlg-terms-full-text"', 'id="btn-help-terms"',
-                         'id="dlg-terms-status"'):
+                         'id="dlg-terms-status"',
+                         'id="dlg-terms-intro"', 'id="dlg-terms-update"'):
             self.assertIn(required, html, "条款弹窗缺少 %s" % required)
         self.assertIn("我已阅读并同意", html)
         self.assertIn("暂不使用", html)
-        self.assertIn("查看完整条款", html)
+        self.assertIn("看完整条款", html, "条款更新框的完整条款入口")
+        # 「现在就看」由 views/terms.js 从 store 的 FIRST_USE_POINTS 第六条渲染（原型 Main:806）
+        self.assertIn("现在就看", read("ui/state/store.js"),
+                      "首次说明框的完整条款入口句在六条要点数据里")
+        self.assertNotIn('id="btn-terms-full"', html, "要点/全文切换钮已随要点视图删除")
         # 完整条款必须覆盖两份文档各自全部节（拆开后各自从 1 编号）
         head = html.index('id="doc-terms-agreement"')
         mid = html.index('id="doc-terms-privacy"')
@@ -5109,6 +5447,54 @@ class TermsConsentContractTests(unittest.TestCase):
         # 不出现任何报名成功承诺
         for banned in ("包成功", "保证报名成功", "必定成功"):
             self.assertNotIn(banned, html)
+
+    def test_terms_reader_shell_matches_prototype(self):
+        """TM01-TM05（c3-dialogs-gap，原型 Main:386-387/886-895）：全文阅读器壳层——
+        tdoc 外框、× 只等于关闭、标题与页签、脚部两态、TOC 宽档常显与徽章样式。"""
+        html = read("ui/index.html")
+        start = html.index('id="dlg-terms"')
+        block = html[start:html.index("</dialog>", start)]
+        # TM01：壳层类名映射原型 .dlg.tdoc；× 走原生关闭，aria 只说「关闭条款」
+        self.assertIn('class="dlg dlg-terms tdoc"', html)
+        self.assertIn('method="dialog"', block)
+        self.assertIn('aria-label="关闭条款"', block)
+        self.assertNotIn("暂不使用并关闭条款", block, "× 不再等于拒绝")
+        # TM02：标题照原型（Main:887）
+        self.assertIn(">使用条款与隐私</h2>", block)
+        self.assertNotIn("使用条款与隐私告知", block)
+        # TM03：第三页签照原型叫「开源许可」，右侧注逐字弯引号（Main:888）
+        self.assertIn(">开源许可</button>", block)
+        self.assertNotIn(">MIT 许可证</button>", block,
+                         "页签名照原型改；正文与 MIT 相关字样不受影响")
+        self.assertIn("标着“本版新增”的是这次的改动", block)
+        # TM02：元信息行 = 版本句 + 本份副本版本节点 + JS 状态段
+        self.assertIn('id="dlg-terms-version"', block)
+        self.assertIn('id="dlg-terms-document-version"', block)
+        self.assertIn('id="terms-sub-state"', block)
+        # TM04/TM05：脚部两态——勾选行连接词「和」、主钮「同意并继续」、只读「关闭」
+        # （「与→和」只按任务规格改勾选行；副行的连接词不在此列）
+        foot = block[block.index('class="dlg-foot terms-foot"'):]
+        self.assertIn("我已阅读并同意<button", foot)
+        self.assertIn('《用户协议》</button>和<button type="button" class="doc-link" data-doc="privacy"',
+                      foot, "勾选行连接词照原型用「和」")
+        self.assertNotIn("《用户协议》</button>与<button", foot)
+        self.assertIn(">同意并继续</button>", block)
+        self.assertNotIn(">我已阅读并同意</button>", block)
+        self.assertIn(">关闭</button>", block)
+        self.assertIn(">Esc 关闭</span>", block)
+        self.assertNotIn("Esc 暂不使用", block)
+        # TM01：章节导航宽档常显——HTML 不写 hidden，显隐交给样式（≤719px 收起）
+        self.assertNotRegex(html, r'<nav class="terms-toc"[^>]*hidden')
+        css = read("ui/styles.css")
+        self.assertIn("grid-template-columns: 11rem minmax(0, 1fr)", css,
+                      "宽档左栏 11rem（原型 Main:394）")
+        self.assertIn("@media (max-width: 719px) { .terms-toc { display: none; } }", css)
+        self.assertNotIn("has-toc", css, "旧「只在全文视图显示」的开关删干净")
+        self.assertNotIn("has-toc", read("ui/views/terms.js"))
+        # TM03：「本版新增」徽章样式挂在 data-new 节标上（正文文字不动）
+        self.assertIn('h3[data-new]::after { content: "本版新增"', css)
+        # NEEDS-HUMAN 7：死引用清零，焦点归还改指设置里的查看条款入口
+        self.assertNotIn("btn-help-terms-view", read("ui/views/terms.js"))
 
     # ---- 内嵌全文 ↔ 规范真源逐字契约（计划 20261028-terms-embedded-exact-sync）----
 
@@ -5384,16 +5770,17 @@ class TermsConsentContractTests(unittest.TestCase):
                         "第 9 节必须以规范原文「人民法院提起诉讼。」结束")
 
     def test_offline_note_lives_outside_canonical_comparison_flow(self):
-        """「本份条款可离线阅读」是独立 UI 包装：比较容器外、真源文件里没有它。"""
+        """「本份条款可离线阅读」是独立 UI 包装：规范正文与真源文件里都没有它。
+        （20261108-c3-dialogs decisions 第 1 条：要点视图连同这句离线提示一起删除，
+        阅读器只呈现全文——界面包装里也不再出现。）"""
         html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
         for pane, _, count in self.TERMS_DOCS:
             parser = self._embedded_canonical_texts(
                 self._pane_fragment(html, pane), count)
             self.assertNotIn(self.OFFLINE_NOTE, "".join(parser.all_text),
                              "离线提示不得进入规范正文比较流：" + pane)
-        self.assertIn(self.OFFLINE_NOTE, html, "离线提示必须仍存在于界面包装")
-        self.assertLess(html.find(self.OFFLINE_NOTE), html.find('id="dlg-terms-full-text"'),
-                        "离线提示应位于全文比较容器之前的要点区")
+        self.assertNotIn(self.OFFLINE_NOTE, html,
+                         "要点视图删除后，离线提示不再出现在界面包装里")
         for path in self.TERMS_DOC_PATHS:
             docs = (LOCAL.parent / path).read_text(encoding="utf-8")
             self.assertNotIn(self.OFFLINE_NOTE, docs,
@@ -5479,8 +5866,9 @@ class TermsConsentContractTests(unittest.TestCase):
                     "area", "base", "col", "embed", "source", "track", "wbr"}
             # 结构类名按优先级取首个作为规范标记，避免 dlg-foot/terms-foot
             # 这种双类名容器被记成 .dlg-foot 导致归属断言落空
+            # （terms-toolbar/terms-summary 已随要点视图删除，decisions 第 1 条）
             STRUCT = ("terms-head", "terms-body", "terms-feedback", "terms-foot",
-                      "terms-toolbar", "terms-summary", "help-esc")
+                      "help-esc")
 
             def __init__(self):
                 super().__init__(convert_charrefs=True)
@@ -5547,7 +5935,8 @@ class TermsConsentContractTests(unittest.TestCase):
             self.assertEqual(el["parent"], "#dlg-terms",
                              key + " 必须是 dialog 的直接子级，不许塞进 body")
         # 阅读区是唯一滚动区：以下控件必须位于 terms-body 血统内
-        for key in ("#dlg-terms-sub", ".terms-toolbar", "#dlg-terms-summary",
+        # （terms-toolbar/terms-summary 已删，阅读器只呈现全文）
+        for key in ("#dlg-terms-sub",
                     "#dlg-terms-full-text", "#dlg-terms-status",
                     "#btn-terms-recheck", ".terms-feedback", ".help-esc"):
             el = parser.info.get(key)
@@ -5572,22 +5961,34 @@ class TermsConsentContractTests(unittest.TestCase):
                   ("#btn-terms-close", "#btn-terms-decline", "#btn-terms-accept")]
         self.assertEqual(orders, sorted(orders),
                          "底栏动作相对顺序必须保持 close→decline→accept")
-        # 全文默认隐藏，切换按钮的 aria-controls 正确关联
+        # 全文默认隐藏；阅读器只呈现全文（要点视图已删，无切换钮可断言）
         full = parser.info["#dlg-terms-full-text"]
         self.assertIn("hidden", full["attrs"], "全文区默认必须 hidden")
-        toggle = parser.info["#btn-terms-full"]
-        self.assertEqual(toggle["attrs"].get("aria-controls"),
-                         "dlg-terms-full-text",
-                         "要点/全文切换必须 aria-controls 指向全文区")
         # 关键 ID 全文唯一（结构契约的前提）
         for dom_id in ("dlg-terms", "dlg-terms-title", "dlg-terms-sub",
-                       "dlg-terms-view-title", "btn-terms-full",
-                       "dlg-terms-summary", "dlg-terms-full-text",
+                       "dlg-terms-full-text",
                        "dlg-terms-status", "btn-terms-recheck",
                        "btn-terms-close", "btn-terms-decline",
                        "btn-terms-accept", "dlg-terms-document-version",
                        "dlg-terms-version"):
             self.assertEqual(parser.ids.get(dom_id), 1, "ID 必须唯一：" + dom_id)
+        # FU01/TM08：两个小框的 ID 也必须唯一（不与阅读器共用节点）
+        for dom_id in ("dlg-terms-intro", "dlg-terms-intro-title",
+                       "dlg-terms-intro-sub", "chk-terms-intro-agree",
+                       "btn-terms-intro-decline", "btn-terms-intro-accept",
+                       "dlg-terms-update", "dlg-terms-update-title",
+                       "terms-update-version", "terms-update-from",
+                       "terms-update-list", "btn-tu-decline", "btn-tu-accept"):
+            self.assertEqual(parser.ids.get(dom_id), 1, "ID 必须唯一：" + dom_id)
+
+    def test_intro_title_keeps_focus_target_but_draws_no_focus_ring(self):
+        """首次说明框打开时焦点落在标题（tabindex=-1，读屏照读），但不画蓝色焦点框（原型没有）。"""
+        html = read("ui/index.html")
+        self.assertIn('<h2 id="dlg-terms-intro-title" tabindex="-1">', html, "焦点落点不变")
+        css = read("ui/styles.css")
+        self.assertRegex(
+            css,
+            r"\.dlg-terms-intro \.dlg-head h2:focus,\s*\.dlg-terms-intro \.dlg-head h2:focus-visible\s*\{\s*outline:\s*none;")
 
 
 class TermsConsentBehaviorTests(unittest.TestCase):
@@ -5608,24 +6009,144 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
-const opened = document.querySelector("#dlg-terms").open;
+/* decisions 第 1 条：首启自动弹的是首次说明框，不再直接开全文阅读器 */
+const opened = document.querySelector("#dlg-terms-intro").open;
+const readerOpen = document.querySelector("#dlg-terms").open;
 refresh(false);
 doLogin();
 startPlan();
 await Promise.resolve(); await Promise.resolve();
-out.push({ opened, calls,
+out.push({ opened, readerOpen, calls,
   loginDisabled: document.querySelector("#btn-login").disabled,
   refreshDisabled: document.querySelector("#btn-refresh").disabled,
   planDisabled: document.querySelector("#btn-plan").disabled,
   banner: document.querySelector("#banners").innerHTML });
 """)
         case = res[0]
-        self.assertTrue(case["opened"], "首次未同意必须弹条款")
+        self.assertTrue(case["opened"], "首次未同意必须弹首次说明框（FU01）")
+        self.assertFalse(case["readerOpen"], "首启不再直接开全文阅读器（decisions 第 1 条）")
         self.assertEqual(case["calls"], [], "未同意时不得发起任何学校网络动作")
         self.assertTrue(case["loginDisabled"], "登录按钮必须禁用")
         self.assertTrue(case["refreshDisabled"], "刷新按钮必须禁用")
         self.assertTrue(case["planDisabled"], "开始按钮必须禁用")
         self.assertIn("使用条款", case["banner"], "必须挂条款横幅提供再同意入口")
+
+    def test_terms_banner_splits_update_from_never_agreed(self):
+        """TM06（原型 Main:2138）：有旧版同意记录 → 「使用条款更新了，还没有同意新版。」；
+        从没同意或拒绝过 → 保留现有「还没有同意使用条款。」与各自分支正文。"""
+        res = run_js(WB_STAMP_JS + r"""
+const banner = () => { paintBanners(); return document.querySelector("#banners").innerHTML.replace(/<[^>]*>/g, ""); };
+S.terms.version = "v2"; S.terms.acceptedVersion = "v1"; S.terms.declined = false;
+const updated = banner();
+S.terms.acceptedVersion = ""; S.terms.declined = true;
+const never = banner();
+S.terms.acceptedVersion = ""; S.terms.declined = false;
+const fresh = banner();
+out.push({ updated, never, fresh });
+""")
+        r = res[0]
+        self.assertIn("使用条款更新了，还没有同意新版。", r["updated"])
+        self.assertIn("同意后才能登录、查看活动和开始报名计划。", r["updated"],
+                      "更新分支正文照原型")
+        self.assertNotIn("使用条款更新了", r["never"])
+        self.assertIn("还没有同意使用条款。", r["never"])
+        self.assertIn("登录、活动列表和报名计划保持停用。", r["never"], "拒绝过保留现有分支正文")
+        self.assertIn("还没有同意使用条款。", r["fresh"])
+        self.assertIn("同意后才能登录、查看活动列表与开始报名计划。", r["fresh"],
+                      "从没同意保留现有分支正文")
+
+    def test_terms_unknown_banner_two_sentences_and_log_once(self):
+        """TM07（原型 Main:2138/1180）：未知态横幅拆两句；运行记录只写一次，
+        标志位在重复触发与 addLog 去重窗口之外仍然成立，读到版本后复位。"""
+        res = run_js(r"""
+window.pywebview = { api: { save_prefs: () => Promise.resolve({ ok: true }) } };
+S.demo = false;
+S.prefs = {};
+markTermsUnknown();
+const banner = document.querySelector("#banners").innerHTML.replace(/<[^>]*>/g, "");
+const logText = document.querySelector("#log")._children.map((row) => row.textContent).join("\n");
+const rows1 = document.querySelector("#log")._children.length;
+S.recentLogs.length = 0;   /* 绕开 addLog 的同句去重，证明「只写一次」靠标志位 */
+markTermsUnknown();
+const rows2 = document.querySelector("#log")._children.length;
+ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+S.recentLogs.length = 0;
+markTermsUnknown();
+const rows3 = document.querySelector("#log")._children.length;
+out.push({ banner, logText, rows1, rows2, rows3 });
+""")
+        r = res[0]
+        self.assertIn("条款状态没能确认。", r["banner"])
+        self.assertIn("读不到你同意过哪一版。", r["banner"], "TM07：正文第一句照原型")
+        self.assertIn("登录、活动列表和报名计划暂时停用，打开条款重新确认后恢复。", r["banner"])
+        self.assertIn("[!] 没读到条款同意记录，学校相关操作已暂停", r["logText"])
+        self.assertEqual(r["rows1"], 1, "未知态写一条运行记录")
+        self.assertEqual(r["rows2"], 1, "重复触发不刷屏（标志位，不靠 addLog 去重）")
+        self.assertEqual(r["rows3"], 2, "读到版本后标志位复位，下一次未知再写")
+
+    def test_terms_meta_line_follows_real_state(self):
+        """TM02（原型 Main:1571 句式）：版本句恒在（unknown 写「尚未确认」），
+        状态段按真实状态拼——旧版没同意 / 还没同意 / 已同意当前版（不留旧版段）。"""
+        res = run_js(r"""
+window.pywebview = { api: { save_prefs: () => Promise.resolve({ ok: true }) } };
+S.demo = false;
+S.prefs = {};
+S.terms.prompted = true;   /* 不自动弹窗，只看元信息行 */
+ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+const fresh = { ver: document.querySelector("#dlg-terms-version").textContent,
+                state: document.querySelector("#terms-sub-state").innerHTML };
+ingestTerms({ version: "2026-10-28", accepted_version: "2026-10-27", accepted_at: "" });
+const updated = document.querySelector("#terms-sub-state").innerHTML;
+S.terms.unknown = true; S.terms.version = ""; S.terms.acceptedVersion = "";
+paintTerms();
+const unknown = { ver: document.querySelector("#dlg-terms-version").textContent,
+                  state: document.querySelector("#terms-sub-state").innerHTML };
+S.terms.unknown = false; S.terms.version = "2026-10-28"; S.terms.acceptedVersion = "2026-10-28";
+paintTerms();
+const agreed = document.querySelector("#terms-sub-state").innerHTML;
+out.push({ fresh, updated, unknown, agreed });
+""")
+        r = res[0]
+        self.assertEqual(r["fresh"], {"ver": "2026-10-27", "state": "你还没有同意。"})
+        self.assertEqual(r["updated"], "你之前同意的是 <b>2026-10-27</b>，新版还没同意。")
+        self.assertEqual(r["unknown"], {"ver": "尚未确认", "state": ""},
+                         "unknown 不声称任何同意状态")
+        self.assertEqual(r["agreed"], "", "已同意当前版不显示旧版段")
+
+    def test_terms_close_intent_mode_bit(self):
+        """TM01 × 三语义（FU01/TM08 已接线）：未知态直开的阅读器 ×＝「关闭」；
+        从首启说明框打开的 ×＝「回到原来的小框」，关掉全文小框被唤回；
+        横幅入口（未同意）按路由先进首次说明框。"""
+        res = run_js(r"""
+window.pywebview = { api: {} };
+S.demo = false; S.prefs = {}; S.terms.prompted = true;
+ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTerms("banner");   /* 从没同意过：横幅入口路由进首次说明框（FU01） */
+const routedToIntro = document.querySelector("#dlg-terms-intro").open;
+const readerWhileIntro = document.querySelector("#dlg-terms").open;
+openTermsReader("intro");   /* 「现在就看」同款入口（app.js 委托同路径） */
+const fromIntro = termsCloseIntent();
+const backTarget = S.terms.box;
+const dlg = document.querySelector("#dlg-terms");
+dlg.close(); (dlg.listeners.close || []).forEach((fn) => fn());
+const backReopened = document.querySelector("#dlg-terms-intro").open;
+const readerAfterBack = dlg.open;
+/* 未知态：直接开全文阅读器，×＝关闭 */
+markTermsUnknown();
+openTerms();
+const fromUnknown = termsCloseIntent();
+dlg.close(); (dlg.listeners.close || []).forEach((fn) => fn());
+out.push({ routedToIntro, readerWhileIntro, fromIntro, backTarget,
+  backReopened, readerAfterBack, fromUnknown });
+""")
+        r = res[0]
+        self.assertTrue(r["routedToIntro"], "未同意的横幅入口路由进首次说明框")
+        self.assertFalse(r["readerWhileIntro"], "小框在场时阅读器没被同时打开")
+        self.assertEqual(r["fromIntro"], "back", "从说明框打开的全文 ×＝回小框")
+        self.assertEqual(r["backTarget"], "intro", "等待返回的小框登记为 intro")
+        self.assertTrue(r["backReopened"], "全文关掉后首次说明框被唤回")
+        self.assertFalse(r["readerAfterBack"], "回小框后阅读器关闭")
+        self.assertEqual(r["fromUnknown"], "close", "未知态直开的全文 × 只等于关闭")
 
     def test_accept_persists_unlocks_and_reloads(self):
         """同意：走后端 accept_terms 落盘，解锁网络动作并补上首轮加载。"""
@@ -5645,6 +6166,7 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 /* 内嵌全文版本字段（生产取自 index.html）；harness 的 DOM 桩不解析 HTML，
  * 这里按真实页面写入同版，才能验证「回执版本 == 用户读到的版本」的校验 */
 document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
@@ -5655,6 +6177,7 @@ await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
 out.push({ accepted, calls, saved, sentDocVersion,
   docNode: document.querySelector("#dlg-terms-document-version").textContent,
   dialogOpen: document.querySelector("#dlg-terms").open,
+  introOpen: document.querySelector("#dlg-terms-intro").open,
   loginDisabled: document.querySelector("#btn-login").disabled,
   refreshDisabled: document.querySelector("#btn-refresh").disabled,
   banner: document.querySelector("#banners").innerHTML });
@@ -5668,6 +6191,7 @@ out.push({ accepted, calls, saved, sentDocVersion,
         self.assertIn({"terms_declined_version": ""}, case["saved"],
                       "同意后要清掉拒绝版本标记")
         self.assertFalse(case["dialogOpen"], "同意成功必须关掉条款弹窗")
+        self.assertFalse(case["introOpen"], "全文里同意＝小框里同意：首次说明框一并关闭")
         self.assertFalse(case["loginDisabled"], "同意后登录必须解锁")
         self.assertNotIn("使用条款", case["banner"], "同意后必须撤掉条款横幅")
 
@@ -5683,6 +6207,7 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
 /* 复选框保持未勾选：点同意必须什么都不做 */
 document.querySelector("#chk-terms-agree").checked = false;
@@ -5708,6 +6233,7 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
 document.querySelector("#chk-terms-agree").checked = true; /* 方案 A：先勾选再点同意 */
 document.querySelector("#btn-terms-accept").click();
@@ -5865,51 +6391,57 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
-const firstOpen = document.querySelector("#dlg-terms").open;
-document.querySelector("#btn-terms-decline").click();
+/* decisions 第 1 条：首启强弹的是首次说明框，「暂不使用」是它的拒绝钮 */
+const firstOpen = document.querySelector("#dlg-terms-intro").open;
+const readerAtBoot = document.querySelector("#dlg-terms").open;
+document.querySelector("#btn-terms-intro-decline").click();
 await Promise.resolve(); await Promise.resolve();
-const afterDecline = { open: document.querySelector("#dlg-terms").open,
+const afterDecline = { open: document.querySelector("#dlg-terms-intro").open,
+  readerOpen: document.querySelector("#dlg-terms").open,
   declined: S.terms.declined };
 refresh(false);
 doLogin();
 startPlan();
-const reopened = document.querySelector("#dlg-terms").open;
+const reopened = document.querySelector("#dlg-terms-intro").open;
 document.querySelector("#btn-help").click();
 const helpOpen = document.querySelector("#help").open;
 document.querySelector("#btn-help-terms").click();
-const termsFromHelp = document.querySelector("#dlg-terms").open;
+/* 帮助/设置里的条款入口按同一时机路由：未同意 → 首次说明框 */
+const termsFromHelp = document.querySelector("#dlg-terms-intro").open;
 /* 重复拒绝回归：从帮助重开同版条款后再点暂不使用，必须仍关闭弹窗 */
-document.querySelector("#btn-terms-decline").click();
+document.querySelector("#btn-terms-intro-decline").click();
 await Promise.resolve(); await Promise.resolve();
-const afterRepeat = { open: document.querySelector("#dlg-terms").open,
+const afterRepeat = { open: document.querySelector("#dlg-terms-intro").open,
   declined: S.terms.declined,
   declinedWrites: saved.filter((p) => p.terms_declined_version !== undefined).length };
-out.push({ firstOpen, afterDecline, reopened, helpOpen, termsFromHelp, afterRepeat,
+out.push({ firstOpen, readerAtBoot, afterDecline, reopened, helpOpen, termsFromHelp, afterRepeat,
   calls, saved,
   loginDisabled: document.querySelector("#btn-login").disabled,
   refreshDisabled: document.querySelector("#btn-refresh").disabled,
   planDisabled: document.querySelector("#btn-plan").disabled });
 """)
         case = res[0]
-        self.assertTrue(case["firstOpen"], "拒绝前条款弹窗在场")
-        self.assertFalse(case["afterDecline"]["open"], "拒绝后必须关掉弹窗")
+        self.assertTrue(case["firstOpen"], "拒绝前首次说明框在场（FU01）")
+        self.assertFalse(case["readerAtBoot"], "拒绝路径不再经过全文阅读器")
+        self.assertFalse(case["afterDecline"]["open"], "拒绝后必须关掉说明框")
+        self.assertFalse(case["afterDecline"]["readerOpen"], "拒绝后阅读器也不在场")
         self.assertTrue(case["afterDecline"]["declined"])
         self.assertFalse(case["reopened"], "拒绝后不得再强弹条款")
         self.assertEqual(case["calls"], [], "拒绝后网络动作仍全部被拦")
         self.assertTrue(case["helpOpen"], "帮助必须继续可用")
-        self.assertTrue(case["termsFromHelp"], "帮助里的条款入口必须能重新打开条款")
+        self.assertTrue(case["termsFromHelp"], "帮助里的条款入口必须能重新打开条款说明框")
         self.assertIn({"terms_declined_version": "2026-10-27"}, case["saved"],
                       "拒绝版本必须落盘（跨重启不再强弹）")
         self.assertTrue(case["loginDisabled"])
         self.assertTrue(case["refreshDisabled"])
         self.assertTrue(case["planDisabled"])
-        self.assertFalse(case["afterRepeat"]["open"], "重复拒绝必须仍关闭条款弹窗")
+        self.assertFalse(case["afterRepeat"]["open"], "重复拒绝必须仍关闭说明框")
         self.assertTrue(case["afterRepeat"]["declined"], "重复拒绝后 declined 仍为 true")
         self.assertEqual(case["afterRepeat"]["declinedWrites"], 1, "拒绝版本只写一次")
         self.assertEqual(case["calls"], [], "重复拒绝后网络动作仍全部被拦")
 
     def test_declined_version_persists_and_version_change_reprompts(self):
-        """重启后同一版本不重弹；条款版本变化时重新提示。"""
+        """重启后同一版本不重弹；条款版本变化时重新提示（更新框，FU01/TM08 路由）。"""
         res = run_js(r"""
 let saved = [];
 window.pywebview = { api: {
@@ -5918,23 +6450,25 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
-document.querySelector("#btn-terms-decline").click();
+document.querySelector("#btn-terms-intro-decline").click();
 await Promise.resolve(); await Promise.resolve();
 /* 模拟重启：全新会话，prefs 带回上次拒绝过的版本 */
 S.terms = { version: "", acceptedVersion: "", acceptedAt: "", declined: false, prompted: false };
 ingestTerms({ version: "2026-10-27", accepted_version: "" });
-const sameVersion = document.querySelector("#dlg-terms").open;
-document.querySelector("#dlg-terms").close();
-/* 条款版本变化：重新提示 */
+const sameVersion = document.querySelector("#dlg-terms-intro").open;
+document.querySelector("#dlg-terms-intro").close();
+/* 条款版本变化：重新提示（同意过旧版 → 条款更新框） */
 S.terms = { version: "", acceptedVersion: "", acceptedAt: "", declined: false, prompted: false };
 ingestTerms({ version: "2026-11-01", accepted_version: "2026-10-27" });
-const newVersion = document.querySelector("#dlg-terms").open;
-out.push({ saved, sameVersion, newVersion });
+const newVersionUpdateBox = document.querySelector("#dlg-terms-update").open;
+const newVersionReader = document.querySelector("#dlg-terms").open;
+out.push({ saved, sameVersion, newVersionUpdateBox, newVersionReader });
 """)
         case = res[0]
         self.assertIn({"terms_declined_version": "2026-10-27"}, case["saved"])
         self.assertFalse(case["sameVersion"], "重启后同一版本不得再强弹")
-        self.assertTrue(case["newVersion"], "条款版本变化必须重新提示")
+        self.assertTrue(case["newVersionUpdateBox"], "条款版本变化必须重新提示（条款更新框）")
+        self.assertFalse(case["newVersionReader"], "版本变化不再直接开全文阅读器")
 
     def test_restart_restores_declined_and_blocks_autoload_chain(self):
         """重启后刷新、F5 和可见性恢复都不再强弹，也不发学校动作（返修缺陷 1）。"""
@@ -5950,26 +6484,31 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-11-07-r5", accepted_version: "", accepted_at: "" });
-document.querySelector("#btn-terms-decline").click();
+document.querySelector("#btn-terms-intro-decline").click();
 await Promise.resolve(); await Promise.resolve();
 /* 模拟重启：全新会话状态 + prefs 带回上次拒绝过的版本 */
 S.terms = { version: "", acceptedVersion: "", acceptedAt: "", declined: false,
             prompted: false, unknown: false };
 ingestTerms({ version: "2026-11-07-r5", accepted_version: "" });
-const afterRestart = { open: document.querySelector("#dlg-terms").open,
+const afterRestart = { open: document.querySelector("#dlg-terms-intro").open,
+  readerOpen: document.querySelector("#dlg-terms").open,
   declined: S.terms.declined };
 refresh(false);
 __dispatchKey({ key: "F5" });
 doLogin();
 startPlan();
-out.push({ afterRestart, calls, open: document.querySelector("#dlg-terms").open });
+out.push({ afterRestart, calls,
+  open: document.querySelector("#dlg-terms").open,
+  introOpen: document.querySelector("#dlg-terms-intro").open });
 """)
         case = res[0]
         self.assertFalse(case["afterRestart"]["open"], "重启后同一版本不得再强弹")
+        self.assertFalse(case["afterRestart"]["readerOpen"], "重启后也不开阅读器")
         self.assertTrue(case["afterRestart"]["declined"],
                         "重启后必须把拒绝态恢复成会话状态，否则刷新会重复弹窗")
         self.assertEqual(case["calls"], [], "F5/刷新/可见性恢复都不得发学校动作")
-        self.assertFalse(case["open"], "整条自动链路都不许再弹条款")
+        self.assertFalse(case["open"], "整条自动链路都不许再弹条款阅读器")
+        self.assertFalse(case["introOpen"], "整条自动链路都不许再弹首次说明框")
 
     def test_unknown_terms_state_fails_closed_and_keeps_help_open(self):
         """bootstrap 失败、返回 null、缺 terms、空版本或结构非法：一律拦住。"""
@@ -6024,21 +6563,24 @@ out.push({ nullPayload, missing, emptyObject, badType, calls });
 S.demo = false;
 S.prefs = { terms_declined_version: "2026-10-27" };
 ingestTerms({ version: "2026-11-07-r5", accepted_version: "" });
-const firstOpen = document.querySelector("#dlg-terms").open;
-document.querySelector("#dlg-terms").close();
+/* 版本变化的强弹现在落在首次说明框（从没同意过 → FU01 路由） */
+const firstOpen = document.querySelector("#dlg-terms-intro").open;
+const firstReaderOpen = document.querySelector("#dlg-terms").open;
+document.querySelector("#dlg-terms-intro").close();
 ingestTerms({ version: "2026-11-07-r5", accepted_version: "" });
-const againOpen = document.querySelector("#dlg-terms").open;
-document.querySelector("#dlg-terms").close();
+const againOpen = document.querySelector("#dlg-terms-intro").open;
+document.querySelector("#dlg-terms-intro").close();
 /* 已拒绝过当前版本：不再弹 */
 S.prefs.terms_declined_version = "2026-11-07-r5";
 S.terms = { version: "", acceptedVersion: "", acceptedAt: "", declined: false,
             prompted: false, unknown: false };
 ingestTerms({ version: "2026-11-07-r5", accepted_version: "" });
-const declinedOpen = document.querySelector("#dlg-terms").open;
-out.push({ firstOpen, againOpen, declinedOpen });
+const declinedOpen = document.querySelector("#dlg-terms-intro").open;
+out.push({ firstOpen, firstReaderOpen, againOpen, declinedOpen });
 """)
         case = res[0]
-        self.assertTrue(case["firstOpen"], "版本变化必须重新提示一次")
+        self.assertTrue(case["firstOpen"], "版本变化必须重新提示一次（首次说明框）")
+        self.assertFalse(case["firstReaderOpen"], "强弹不再直接开全文阅读器")
         self.assertFalse(case["declinedOpen"], "本版本已拒绝过就不该再弹")
 
     def test_demo_mode_is_not_gated(self):
@@ -6075,6 +6617,7 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
 document.querySelector("#chk-terms-agree").checked = true; /* 方案 A：先勾选再点同意 */
 document.querySelector("#btn-terms-accept").click();
@@ -6107,6 +6650,7 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
 document.querySelector("#chk-terms-agree").checked = true; /* 方案 A：先勾选再点同意 */
 document.querySelector("#btn-terms-accept").click();
@@ -6123,10 +6667,13 @@ out.push({ open: dlg.open,
         case = res[0]
         self.assertTrue(case["open"], "失败必须留在弹窗里")
         self.assertFalse(case["acceptDisabled"])
-        self.assertEqual(case["acceptText"], "我已阅读并同意")
+        # TM04（原型 Main:894）：同意钮名照原型改「同意并继续」
+        self.assertEqual(case["acceptText"], "同意并继续")
         self.assertFalse(case["declineDisabled"])
         self.assertFalse(case["xDisabled"])
-        self.assertEqual(case["escText"], "Esc 暂不使用")
+        # TM01（decisions 014 修订）：× 语义改为关闭、拒绝只走「暂不使用」钮，
+        # 保存失败留在弹窗时 Esc 也只是「关闭」提示
+        self.assertEqual(case["escText"], "Esc 关闭")
         self.assertTrue(case["locked"])
         self.assertIn("设置保存失败", case["status"])
         self.assertNotIn("未确认", case["status"], "明确失败不能说成未确认")
@@ -6145,6 +6692,7 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
 S.terms.deferredIntro = { tour: false, welcome: true };
 document.querySelector("#chk-terms-agree").checked = true; /* 方案 A：先勾选再点同意 */
@@ -6180,6 +6728,7 @@ clearTimeout = () => {};
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
 document.querySelector("#chk-terms-agree").checked = true; /* 方案 A：先勾选再点同意 */
 document.querySelector("#btn-terms-accept").click();
@@ -6246,6 +6795,7 @@ clearTimeout = () => {};
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
 S.terms.deferredIntro = { tour: false, welcome: false };
 document.querySelector("#chk-terms-agree").checked = true; /* 方案 A：先勾选再点同意 */
@@ -6283,6 +6833,7 @@ clearTimeout = () => {};
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
 document.querySelector("#chk-terms-agree").checked = true; /* 方案 A：先勾选再点同意 */
 document.querySelector("#btn-terms-accept").click();
@@ -6302,7 +6853,8 @@ out.push({ open: document.querySelector("#dlg-terms").open,
         self.assertTrue(case["locked"], "明确未同意门禁保持")
         self.assertFalse(case["acceptDisabled"], "恢复同意按钮供重试")
         self.assertTrue(case["recheckHidden"], "未确认态收口后收起重新确认")
-        self.assertEqual(case["escText"], "Esc 暂不使用")
+        # TM01（decisions 014 修订）：Esc 只等于关闭，不再有「Esc 暂不使用」
+        self.assertEqual(case["escText"], "Esc 关闭")
         self.assertIn("尚未记录同意", case["status"])
         self.assertEqual(case["accepted"], 1)
 
@@ -6319,6 +6871,7 @@ clearTimeout = () => {};
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
 document.querySelector("#chk-terms-agree").checked = true; /* 方案 A：先勾选再点同意 */
 document.querySelector("#btn-terms-accept").click();
@@ -6444,8 +6997,9 @@ out.push({ sameYear, crossYear, unparsable });
         self.assertEqual(case["crossYear"], "2026-10-27 12:00", "跨年保留完整年份")
         self.assertEqual(case["unparsable"], "同意时间未记录", "不合法原文原样返回")
 
-    def test_view_toggle_never_saves(self):
-        """要点⇄全文切换零保存、零学校调用，按钮文案/aria/阅读区标题三处同步。"""
+    def test_reader_shows_full_text_only_and_never_saves(self):
+        """阅读器只呈现全文（decisions 第 1 条：要点视图与切换钮已删）——
+        打开即全文可见、阅读区滚回顶部、零保存零学校调用。"""
         res = run_js(r"""
 let calls = [];
 window.pywebview = { api: {
@@ -6455,36 +7009,31 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
-const btn = document.querySelector("#btn-terms-full");
+/* 静态 HTML 里全文区默认 hidden（结构契约钉住默认态）：打开路径必须自己取消隐藏，
+ * 否则页签/目录正常而正文空白（visual-verify 2026-11-08 截到的缺陷）。 */
+document.querySelector("#dlg-terms-full-text").hidden = true;
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 const full = document.querySelector("#dlg-terms-full-text");
 const body = document.querySelector(".terms-body");
 body.scrollTop = 40;
-btn.click();
-const mid = { hidden: full.hidden, text: btn.textContent,
-  title: document.querySelector("#dlg-terms-view-title").textContent,
-  aria: btn.getAttribute("aria-expanded"), scrollTop: body.scrollTop };
-btn.click();
-out.push({ mid, back: { hidden: full.hidden, text: btn.textContent,
-    title: document.querySelector("#dlg-terms-view-title").textContent,
-    aria: btn.getAttribute("aria-expanded") },
+resetTermsReaderView(); /* 每次打开前的复位路径（openTermsReader 内调用同一函数） */
+out.push({ fullVisible: !full.hidden, scrollTop: body.scrollTop,
+  toggleGone: !__els.has("#btn-terms-full"),
+  summaryGone: !__els.has("#dlg-terms-summary"),
   calls, open: document.querySelector("#dlg-terms").open });
 """)
         case = res[0]
-        self.assertFalse(case["mid"]["hidden"])
-        self.assertEqual(case["mid"]["text"], "返回条款要点")
-        self.assertEqual(case["mid"]["title"], "完整条款")
-        self.assertEqual(case["mid"]["aria"], "true")
-        self.assertEqual(case["mid"]["scrollTop"], 0, "切到全文滚回顶部")
-        self.assertTrue(case["back"]["hidden"])
-        self.assertEqual(case["back"]["text"], "查看完整条款")
-        self.assertEqual(case["back"]["title"], "条款要点")
-        self.assertEqual(case["back"]["aria"], "false")
-        self.assertEqual(case["calls"], [], "切换视图绝不保存")
+        self.assertTrue(case["fullVisible"], "阅读器打开即全文，无要点视图")
+        self.assertEqual(case["scrollTop"], 0, "复位把阅读区滚回顶部")
+        self.assertTrue(case["toggleGone"], "要点/全文切换钮已删")
+        self.assertTrue(case["summaryGone"], "要点视图容器已删")
+        self.assertEqual(case["calls"], [], "打开阅读器绝不保存")
         self.assertTrue(case["open"])
 
-    def test_close_without_acceptance_keeps_decline_semantics(self):
-        """未同意关闭（Esc/X 同一条 close 收口）仍记「暂不使用」：
-        版本标记落盘、门禁保持、焦点回 #btn-help。"""
+    def test_close_without_acceptance_only_closes_and_never_declines(self):
+        """TM01（decisions 014 修订）＋FU01/TM08（decisions 第 1 条）：全文里
+        未同意时 Esc/X 只等于「关闭」——不落盘、不记拒绝，并且回到等在后面的
+        首次说明框（不等于拒绝，拒绝只走「暂不使用」钮）；门禁保持、横幅还在。"""
         res = run_js(r"""
 let saved = [];
 window.pywebview = { api: {
@@ -6493,27 +7042,31 @@ window.pywebview = { api: {
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 从首启说明框进来：× 模式位＝back */
 const dlg = document.querySelector("#dlg-terms");
 const cancelEv = { defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
 (dlg.listeners.cancel || []).forEach((fn) => fn(cancelEv));
 dlg.close();
 (dlg.listeners.close || []).forEach((fn) => fn());
 out.push({ prevented: cancelEv.defaultPrevented, declined: S.terms.declined,
-  saved, locked: termsLocked(),
+  saved, locked: termsLocked(), readerOpen: dlg.open,
+  introReopened: document.querySelector("#dlg-terms-intro").open,
   banner: document.querySelector("#banners").innerHTML,
   focus: document.activeElement && document.activeElement.__sel });
 """)
         case = res[0]
         self.assertFalse(case["prevented"], "未保存时 Esc 放行原生关闭")
-        self.assertTrue(case["declined"])
-        self.assertTrue(any(p.get("terms_declined_version") == "2026-10-27"
-                            for p in case["saved"]), "拒绝版本必须落盘")
-        self.assertTrue(case["locked"], "拒绝后门禁保持")
-        self.assertIn("使用条款", case["banner"])
-        self.assertEqual(case["focus"], "#btn-help", "自动来源焦点回 #btn-help")
+        self.assertFalse(case["declined"], "×/Esc 只等于关闭，不记拒绝")
+        self.assertEqual(case["saved"], [], "关闭不得写任何偏好（拒绝版本只由暂不使用钮落盘）")
+        self.assertTrue(case["locked"], "未同意关闭后门禁保持")
+        self.assertFalse(case["readerOpen"], "全文已关闭")
+        self.assertTrue(case["introReopened"], "关全文回到等在后面的首次说明框（FU01）")
+        self.assertIn("使用条款", case["banner"], "未同意时条款横幅仍在")
+        self.assertEqual(case["focus"], "#dlg-terms-intro-title", "焦点回到说明框标题")
 
     def test_close_restores_banner_focus_without_stacking_dialogs(self):
-        """来源是横幅：关闭回原按钮；随后自动打开再关闭回 #btn-help。"""
+        """来源是横幅：说明框登记横幅来源；重入是守卫空操作；全文关掉回说明框；
+        在说明框里拒绝才把焦点还给被点的横幅按钮（decisions 第 1 条的三件套链路）。"""
         res = run_js(r"""
 window.pywebview = { api: {
   save_prefs: () => Promise.resolve({ ok: true }),
@@ -6526,38 +7079,51 @@ ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
 const dlg = document.querySelector("#dlg-terms");
 const back = document.querySelector("#btn-plan");
 const beforeBannerOpen = dlg.open;
-openTerms("banner", back);
-const bannerOpen = dlg.open;
+openTerms("banner", back);   /* 未同意：路由进首次说明框 */
+const introBox = document.querySelector("#dlg-terms-intro");
+const bannerOpen = introBox.open;
 const bannerSource = S.terms.source;
 const bannerBackIsPlan = S.terms.focusBack === back;
 const seqAfterBanner = S.terms.requestSeq;
-openTerms("auto"); // 守卫：已打开时不重置任何登记（保护首来源）
+openTerms("auto"); // 守卫：任一条款面已开时不重置任何登记（保护首来源）
 const guardSource = S.terms.source;
 const guardBackIsPlan = S.terms.focusBack === back;
 const guardSeq = S.terms.requestSeq;
+openTermsReader("intro");   /* 说明框里的「现在就看」：收小框、开全文 */
+const readerOpen = dlg.open;
+const introHiddenWhileReader = !introBox.open;
 dlg.close();
 (dlg.listeners.close || []).forEach((fn) => fn());
-const afterBanner = document.activeElement && document.activeElement.__sel;
-openTerms();
-dlg.close();
-(dlg.listeners.close || []).forEach((fn) => fn());
-const afterAuto = document.activeElement && document.activeElement.__sel;
+const afterFullClose = { readerOpen: dlg.open, introBack: introBox.open,
+  focus: document.activeElement && document.activeElement.__sel };
+document.querySelector("#btn-terms-intro-decline").click();  /* 在小框里拒绝 */
+const afterDecline = { introOpen: introBox.open, readerOpen: dlg.open,
+  focus: document.activeElement && document.activeElement.__sel };
 out.push({ beforeBannerOpen, bannerOpen, bannerSource, bannerBackIsPlan,
   seqAfterBanner, guardSource, guardBackIsPlan, guardSeq,
-  afterBanner, afterAuto, declined: S.terms.declined,
+  readerOpen, introHiddenWhileReader, afterFullClose, afterDecline,
+  declined: S.terms.declined,
   helpOpen: document.querySelector("#help").open });
 """)
         case = res[0]
         self.assertFalse(case["beforeBannerOpen"], "prompted 已置：ingestTerms 不得自动首弹")
-        self.assertTrue(case["bannerOpen"], "横幅打开必须真实打开弹窗")
+        self.assertTrue(case["bannerOpen"], "横幅打开必须真实打开说明框（FU01）")
         self.assertEqual(case["bannerSource"], "banner", "打开时必须登记横幅来源")
         self.assertTrue(case["bannerBackIsPlan"], "打开时必须登记被点按钮为焦点返回点")
         self.assertEqual(case["guardSource"], "banner", "守卫不得覆盖首来源登记")
         self.assertTrue(case["guardBackIsPlan"], "守卫不得清空焦点返回点")
         self.assertEqual(case["guardSeq"], case["seqAfterBanner"],
                          "守卫空操作：不得再次作废请求代号")
-        self.assertEqual(case["afterBanner"], "#btn-plan", "横幅来源回被点的按钮")
-        self.assertEqual(case["afterAuto"], "#btn-help", "自动来源回 #btn-help")
+        self.assertTrue(case["readerOpen"], "「现在就看」必须打开全文")
+        self.assertTrue(case["introHiddenWhileReader"], "开全文前先收起说明框（两框不叠层）")
+        self.assertFalse(case["afterFullClose"]["readerOpen"], "× 关全文")
+        self.assertTrue(case["afterFullClose"]["introBack"], "关全文回说明框")
+        self.assertEqual(case["afterFullClose"]["focus"], "#dlg-terms-intro-title")
+        self.assertFalse(case["afterDecline"]["introOpen"])
+        self.assertFalse(case["afterDecline"]["readerOpen"])
+        self.assertEqual(case["afterDecline"]["focus"], "#btn-plan",
+                         "横幅来源的拒绝把焦点还给被点的按钮")
+        # TM01（decisions 014 修订）：关闭只等于关闭，拒绝只走暂不使用钮
         self.assertTrue(case["declined"])
         self.assertFalse(case["helpOpen"], "帮助没被误开（不叠弹窗）")
 
@@ -6581,10 +7147,12 @@ window.pywebview = { api: {
 } };
 await boot();
 const schoolCalls = () => calls.filter((c) => c === "check" || c === "list");
-const atBoot = { termsOpen: document.querySelector("#dlg-terms").open,
+const atBoot = { termsOpen: document.querySelector("#dlg-terms-intro").open,
+  readerOpen: document.querySelector("#dlg-terms").open,
   helpOpen: document.querySelector("#help").open, tourOpen: S.tour.open,
   deferred: JSON.parse(JSON.stringify(S.terms.deferredIntro || null)),
   schoolCalls: schoolCalls() };
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
 document.querySelector("#chk-terms-agree").checked = true; /* 方案 A：先勾选再点同意 */
 document.querySelector("#btn-terms-accept").click();
@@ -6592,6 +7160,8 @@ await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
 await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
 const afterAccept = { tourOpen: S.tour.open, pending: !!S.tour.autoPending,
   helpOpen: document.querySelector("#help").open,
+  readerOpen: document.querySelector("#dlg-terms").open,
+  introOpen: document.querySelector("#dlg-terms-intro").open,
   deferred: S.terms.deferredIntro, schoolCalls: schoolCalls(),
   tourVersionWritten: saved.some((p) => "tour_version" in p),
   welcomeWritten: saved.some((p) => "welcome_seen" in p),
@@ -6605,13 +7175,16 @@ const afterList = { tourOpen: S.tour.open, pending: !!S.tour.autoPending, step: 
 out.push({ atBoot, afterAccept, afterCheck, afterList });
 """)
         at_boot, after = res[0]["atBoot"], res[0]["afterAccept"]
-        self.assertTrue(at_boot["termsOpen"], "首次未同意只弹条款")
+        self.assertTrue(at_boot["termsOpen"], "首次未同意只弹首次说明框（FU01）")
+        self.assertFalse(at_boot["readerOpen"], "boot 不再直接弹全文阅读器")
         self.assertFalse(at_boot["helpOpen"], "欢迎延后")
         self.assertFalse(at_boot["tourOpen"], "引导延后")
         self.assertEqual(at_boot["deferred"], {"tour": True, "welcome": False})
         self.assertEqual(at_boot["schoolCalls"], [], "首轮学校加载被条款拦下")
         # 旧断言「同意后引导立刻继续」改为：同意后登记一次，等登录确认有效、列表加载后才开始（决策 009 修订）
         self.assertFalse(after["tourOpen"], "同意后还没登录确认和列表，引导先不弹")
+        self.assertFalse(after["readerOpen"], "同意成功先关全文")
+        self.assertFalse(after["introOpen"], "同意成功再关首次说明框（两框都关）")
         self.assertTrue(after["pending"], "同意后引导登记为等着开始")
         self.assertFalse(res[0]["afterCheck"]["tourOpen"], "只有登录确认、列表没到：还不弹")
         self.assertTrue(res[0]["afterList"]["tourOpen"], "登录有效且列表到了：引导开始")
@@ -6625,8 +7198,9 @@ out.push({ atBoot, afterAccept, afterCheck, afterList });
         self.assertFalse(after["locked"])
 
     def test_decline_after_deferred_boot_does_not_fake_tour_completion(self):
-        """延后状态下关闭（暂不使用）：本会话不自动开引导、不写 tour_version，
-        引导完成状态保持未写（下次仍可正常判定）。"""
+        """延后状态下点「暂不使用」（TM01：拒绝只走这个钮；FU01 起它长在
+        首次说明框上）：本会话不自动开引导、不写 tour_version，引导完成状态
+        保持未写；拒绝收口（焦点/引导让位）由 declineTerms 自己完成。"""
         res = run_js(r"""
 let saved = [];
 window.pywebview = { api: {
@@ -6637,10 +7211,10 @@ window.pywebview = { api: {
   clock_snapshot: () => new Promise(() => {}),
 } };
 await boot();
-const dlg = document.querySelector("#dlg-terms");
-dlg.close();
-(dlg.listeners.close || []).forEach((fn) => fn());
+document.querySelector("#btn-terms-intro-decline").click();
+await Promise.resolve(); await Promise.resolve();
 out.push({ declined: S.terms.declined, tourOpen: S.tour.open,
+  introOpen: document.querySelector("#dlg-terms-intro").open,
   helpOpen: document.querySelector("#help").open,
   tourVersionWritten: saved.some((p) => "tour_version" in p),
   tourStillEligible: tourShouldAutoStart(),
@@ -6649,6 +7223,7 @@ out.push({ declined: S.terms.declined, tourOpen: S.tour.open,
 """)
         case = res[0]
         self.assertTrue(case["declined"])
+        self.assertFalse(case["introOpen"], "拒绝后说明框关闭")
         self.assertFalse(case["tourOpen"], "拒绝后本会话不自动开引导")
         self.assertFalse(case["helpOpen"])
         self.assertFalse(case["tourVersionWritten"], "拒绝不伪造引导完成")
@@ -6663,6 +7238,7 @@ out.push({ declined: S.terms.declined, tourOpen: S.tour.open,
 S.demo = false;
 S.prefs = {};
 ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro"); /* 首启说明框里的「现在就看」入口（decisions 第 1 条） */
 const eEnter = __dispatchKey({ key: "Enter" });
 const eSlash = __dispatchKey({ key: "/" });
 const eCtrlF = __dispatchKey({ key: "f", ctrlKey: true });
@@ -6702,13 +7278,59 @@ out.push({ enterPrevented: eEnter.defaultPrevented,
         self.assertIn('method="dialog"', block, "右上角 X 必须走原生关闭")
         self.assertEqual(block.count('id="dlg-terms-document-version"'), 1)
         self.assertEqual(block.count('id="dlg-terms-status"'), 1)
-        for anchor in ("terms-head", "terms-toolbar", "terms-body",
+        # 要点视图与工具行已删（decisions 第 1 条）：阅读器只呈现全文
+        for anchor in ("terms-head", "terms-body",
                        "terms-feedback", "terms-foot", "terms-section"):
             self.assertIn(anchor, block, "设计稿结构区缺失：" + anchor)
-        self.assertIn('id="dlg-terms-view-title"', block)
         self.assertIn('id="btn-terms-recheck"', block)
         self.assertIn('id="btn-terms-close"', block)
-        self.assertIn('id="btn-terms-full"', block)
+        self.assertNotIn('id="btn-terms-full"', block)
+        self.assertNotIn("terms-toolbar", block)
+        self.assertNotIn("terms-summary", block)
+        self.assertNotIn("terms-update-list", block, "内嵌更新区块已删，清单挪进条款更新框")
+
+    def test_first_use_and_update_modals_static_contract(self):
+        """FU01/TM08（c3-dialogs-gap，原型 Main:798-807/878-881/1828/2484）：
+        两个小框的骨架、无 × 规则、脚部钮排布与注句、副题版本节点。"""
+        html = read("ui/index.html")
+        # FU01：标题与副题逐字照原型（Main:800）
+        self.assertIn("开始前先了解这些", html)
+        self.assertIn("同意后才能登录、查看活动和开始报名计划", html)
+        # TM08：副题句式照原型 Main:879（X/Y 由 views 填真实版本）
+        self.assertIn("，你之前同意的是", html)
+        self.assertIn("。同意新版后才能继续登录和报名。", html)
+        # TM08：注句逐字照原型 Main:880
+        self.assertIn("不同意也可以继续用帮助和设置，但登录、自动登录、活动列表和报名计划会停用。"
+                      "已保存的账号密码和登录信息不会删除。", html)
+        intro = self._dialog_block(html, "dlg-terms-intro")
+        update = self._dialog_block(html, "dlg-terms-update")
+        # × 规则（UI_SPEC §5.13：做决定的弹窗不放 ×）——两个小框都没有 dlg-x
+        for name, block in (("首次说明框", intro), ("条款更新框", update)):
+            self.assertNotIn("dlg-x", block, name + "不放右上角 ×")
+            self.assertNotIn('method="dialog"', block, name + "没有 × 关闭表单")
+        # FU01 脚部（Main:807）：勾选居左＋暂不使用｜同意并继续（勾选前禁用）
+        self.assertIn('id="chk-terms-intro-agree"', intro)
+        self.assertIn(">暂不使用</button>", intro)
+        self.assertIn("disabled", intro)
+        self.assertIn(">同意并继续</button>", intro)
+        # TM08 脚部（Main:881）：看完整条款｜暂不同意｜同意新版条款
+        self.assertIn(">看完整条款</button>", update)
+        self.assertIn(">暂不同意</button>", update)
+        self.assertIn(">同意新版条款</button>", update)
+        # TM08（Main:880）：变更清单容器与「这次主要改了：」引导句在框内
+        self.assertIn("这次主要改了：", update)
+        self.assertIn('id="terms-update-list"', update)
+        # 验证 grep 口径：两个标题串都只落在 index.html 的对话块里
+        self.assertEqual(html.count("开始前先了解这些"), 1)
+        self.assertGreaterEqual(html.count("同意新版条款"), 1)
+
+    @staticmethod
+    def _dialog_block(html: str, dom_id: str) -> str:
+        """截取指定 dialog 元素本体（含结尾标签），供小框的逐块断言使用。"""
+        start = html.index('id="' + dom_id + '"')
+        start = html.rindex("<dialog", 0, start)
+        end = html.index("</dialog>", start) + len("</dialog>")
+        return html[start:end]
 
     def test_terms_status_feedback_resets_reading_scroll_zero_side_effects(self):
         """termsStatus 反馈与阅读区滚动（只定义、待授权运行）：
@@ -6770,6 +7392,279 @@ out.push({ enterPrevented: eEnter.defaultPrevented,
         self.assertTrue(cleared["hidden"], "清空后状态必须隐藏")
         self.assertEqual(cleared["text"], "", "清空后状态文本必须置空")
         self.assertEqual(calls["bridgeCalls"], [], "反馈路径必须零桥调用")
+
+
+class FirstUseAndUpdateModalsTests(unittest.TestCase):
+    """FU01/FU02/TM08/TM09（plan 20261108-c3-dialogs decisions 第 1/2 条）：
+    首次说明框与条款更新框的打开时机、小框⇄全文往返、勾选门、拒绝路径与数据。"""
+
+    # views/terms.js 的 TERMS_CHANGES 条数（r5 变更记录归纳 4 条，TM09 用其真实内容）
+    TERMS_CHANGES_COUNT = 4
+
+    def test_routing_three_terms_states(self):
+        """三种条款状态各开哪个框：从没同意→首次说明框；同意过旧版→条款更新框；
+        状态未知→直接开全文阅读器（同意态）。"""
+        res = run_js(r"""
+window.pywebview = { api: { save_prefs: () => Promise.resolve({ ok: true }) } };
+S.demo = false;
+S.prefs = {};
+S.terms.prompted = true;
+ingestTerms({ version: "v2", accepted_version: "", accepted_at: "" });
+openTerms("banner");
+const neverBox = document.querySelector("#dlg-terms-intro").open;
+const neverReader = document.querySelector("#dlg-terms").open;
+document.querySelector("#dlg-terms-intro").close();
+ingestTerms({ version: "v2", accepted_version: "v1", accepted_at: "" });
+openTerms("banner");
+const updateBox = document.querySelector("#dlg-terms-update").open;
+const updateReader = document.querySelector("#dlg-terms").open;
+document.querySelector("#dlg-terms-update").close();
+markTermsUnknown();
+openTerms("banner");
+const unknownReader = document.querySelector("#dlg-terms").open;
+const unknownIntro = document.querySelector("#dlg-terms-intro").open;
+out.push({ neverBox, neverReader, updateBox, updateReader, unknownReader, unknownIntro });
+""")
+        r = res[0]
+        self.assertTrue(r["neverBox"], "从没同意过 → 首次说明框（FU01）")
+        self.assertFalse(r["neverReader"], "从没同意过不开全文阅读器")
+        self.assertTrue(r["updateBox"], "同意过旧版 → 条款更新框（TM08）")
+        self.assertFalse(r["updateReader"], "同意过旧版不开全文阅读器")
+        self.assertTrue(r["unknownReader"], "状态未知 → 直接开全文阅读器（同意态）")
+        self.assertFalse(r["unknownIntro"], "状态未知不弹小框")
+
+    def test_update_box_paints_versions_changes_and_focus(self):
+        """TM08/TM09：副题版本读真实值（示意值不进产品）、变更清单 4 条带
+        「新增」徽章（r5 真实内容，原型 Main:880 版式）、打开时焦点落同意钮
+        （Main:1828）。"""
+        res = run_js(r"""
+window.pywebview = { api: {} };
+S.demo = false; S.prefs = {}; S.terms.prompted = true;
+ingestTerms({ version: "2026-11-07-r5", accepted_version: "2026-10-27-r3", accepted_at: "" });
+openTerms("banner");
+const box = document.querySelector("#dlg-terms-update");
+out.push({
+  open: box.open,
+  version: document.querySelector("#terms-update-version").textContent,
+  from: document.querySelector("#terms-update-from").textContent,
+  items: document.querySelector("#terms-update-list").innerHTML.split("<li>").length - 1,
+  badges: document.querySelector("#terms-update-list").innerHTML.split("tu-new").length - 1,
+  focus: document.activeElement && document.activeElement.__sel,
+  lead: document.querySelector("#dlg-terms-update-lead").textContent,
+});
+""")
+        r = res[0]
+        self.assertTrue(r["open"])
+        self.assertEqual(r["version"], "2026-11-07-r5", "副题新版号读 S.terms.version")
+        self.assertEqual(r["from"], "2026-10-27-r3", "副题旧版号读已同意版本")
+        self.assertEqual(r["items"], self.TERMS_CHANGES_COUNT, "变更清单条数＝TERMS_CHANGES")
+        self.assertEqual(r["badges"], self.TERMS_CHANGES_COUNT, "每条一个「新增」徽章")
+        self.assertEqual(r["focus"], "#btn-tu-accept", "打开时焦点落「同意新版条款」（Main:1828）")
+
+    def test_full_text_roundtrip_from_boxes_via_x_and_esc(self):
+        """小框→全文→关全文回小框：× 与 Esc 两种关法都回到原来的小框，
+        不记拒绝、不落盘（decisions 第 1 条）。"""
+        res = run_js(r"""
+window.pywebview = { api: { save_prefs: () => Promise.resolve({ ok: true }) } };
+S.demo = false; S.prefs = {}; S.terms.prompted = true;
+ingestTerms({ version: "v2", accepted_version: "v1", accepted_at: "" });
+openTerms("banner");
+const dlg = document.querySelector("#dlg-terms");
+const tu = document.querySelector("#dlg-terms-update");
+/* × 关法：close + 手动收口 close 监听（桩不模拟原生 close 事件） */
+openTermsReader("update");
+dlg.close(); (dlg.listeners.close || []).forEach((fn) => fn());
+const viaX = { readerOpen: dlg.open, tuBack: tu.open, declined: S.terms.declined };
+/* Esc 关法：cancel 放行 + close 收口 */
+openTermsReader("update");
+const cancelEv = { defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+(dlg.listeners.cancel || []).forEach((fn) => fn(cancelEv));
+dlg.close(); (dlg.listeners.close || []).forEach((fn) => fn());
+const viaEsc = { readerOpen: dlg.open, tuBack: tu.open, declined: S.terms.declined,
+  escPrevented: cancelEv.defaultPrevented };
+out.push({ viaX, viaEsc });
+""")
+        r = res[0]
+        self.assertFalse(r["viaX"]["readerOpen"])
+        self.assertTrue(r["viaX"]["tuBack"], "× 关全文回条款更新框")
+        self.assertFalse(r["viaX"]["declined"], "关全文不等于拒绝")
+        self.assertFalse(r["viaEsc"]["escPrevented"], "未保存时 Esc 放行原生关闭")
+        self.assertTrue(r["viaEsc"]["tuBack"], "Esc 关全文回条款更新框")
+        self.assertFalse(r["viaEsc"]["declined"])
+
+    def test_agree_in_full_text_closes_update_box_too(self):
+        """从条款更新框进全文、在全文里同意：两框都关（先关全文再关更新框）。"""
+        res = run_js(r"""
+let accepted = 0;
+window.pywebview = { api: {
+  accept_terms: () => { accepted += 1;
+    return Promise.resolve({ ok: true, terms: { version: "v2",
+      accepted_version: "v2", accepted_at: "2026-11-08 12:00:00" } }); },
+  save_prefs: () => Promise.resolve({ ok: true }),
+} };
+S.demo = false; S.prefs = {}; S.terms.prompted = true;
+ingestTerms({ version: "v2", accepted_version: "v1", accepted_at: "" });
+openTerms("banner");   /* 同意过旧版：先进条款更新框（TM08） */
+openTermsReader("update"); /* 「看完整条款」入口 */
+document.querySelector("#dlg-terms-document-version").textContent = "v2";
+document.querySelector("#chk-terms-agree").checked = true;
+document.querySelector("#btn-terms-accept").click();
+await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+out.push({ accepted, readerOpen: document.querySelector("#dlg-terms").open,
+  tuOpen: document.querySelector("#dlg-terms-update").open,
+  locked: termsLocked() });
+""")
+        r = res[0]
+        self.assertEqual(r["accepted"], 1)
+        self.assertFalse(r["readerOpen"], "全文关闭")
+        self.assertFalse(r["tuOpen"], "条款更新框一并关闭")
+        self.assertFalse(r["locked"])
+
+    def test_intro_accept_gated_by_checkbox(self):
+        """FU01（Main:2484）：勾选前「同意并继续」禁用，点不动、零请求；
+        勾选后解锁，同意成功关闭说明框。"""
+        res = run_js(r"""
+let accepted = 0;
+window.pywebview = { api: {
+  accept_terms: () => { accepted += 1;
+    return Promise.resolve({ ok: true, terms: { version: "v2",
+      accepted_version: "v2", accepted_at: "2026-11-08 12:00:00" } }); },
+  save_prefs: () => Promise.resolve({ ok: true }),
+} };
+S.demo = false; S.prefs = {}; S.terms.prompted = true;
+ingestTerms({ version: "v2", accepted_version: "", accepted_at: "" });
+openTerms("banner");
+/* accept_terms 的回执契约按内嵌全文版本校验（同阅读器路径） */
+document.querySelector("#dlg-terms-document-version").textContent = "v2";
+const intro = document.querySelector("#dlg-terms-intro");
+const accept = document.querySelector("#btn-terms-intro-accept");
+const agree = document.querySelector("#chk-terms-intro-agree");
+const disabledBefore = accept.disabled;
+accept.click();   /* 勾选前点击：桩不模拟 disabled，控制器里的勾选门必须拦 */
+const acceptedBefore = accepted;
+agree.checked = true;
+(agree.listeners.change || []).forEach((fn) => fn({ target: agree }));
+const enabledAfter = !accept.disabled;
+accept.click();
+await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+out.push({ disabledBefore, acceptedBefore, enabledAfter, accepted,
+  introOpen: intro.open, readerOpen: document.querySelector("#dlg-terms").open,
+  focus: document.activeElement && document.activeElement.__sel });
+""")
+        r = res[0]
+        self.assertTrue(r["disabledBefore"], "勾选前同意钮禁用（Main:2484）")
+        self.assertEqual(r["acceptedBefore"], 0, "勾选门前点击零请求")
+        self.assertTrue(r["enabledAfter"], "勾选后同意钮解锁")
+        self.assertEqual(r["accepted"], 1)
+        self.assertFalse(r["introOpen"], "同意成功关闭说明框")
+        self.assertFalse(r["readerOpen"])
+        self.assertEqual(r["focus"], "#btn-help")
+
+    def test_esc_on_small_boxes_is_decline_and_saving_is_blocked(self):
+        """FU01/TM08：小框 Esc＝暂不使用／暂不同意（拒绝路径落盘）；保存中
+        Esc 被 cancel 拦下不关闭；未确认＝离开待确认界面不记拒绝。"""
+        res = run_js(r"""
+let saved = [];
+window.pywebview = { api: {
+  save_prefs: (patch) => { saved.push(JSON.parse(JSON.stringify(patch))); return Promise.resolve({ ok: true }); },
+  accept_terms: () => new Promise(() => {}),
+} };
+S.demo = false; S.prefs = {}; S.terms.prompted = true;
+const intro = document.querySelector("#dlg-terms-intro");
+const tu = document.querySelector("#dlg-terms-update");
+const mkCancel = () => ({ defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } });
+/* 更新框：保存中 Esc 拦下（在途） */
+ingestTerms({ version: "v2", accepted_version: "v1", accepted_at: "" });
+openTerms("banner");
+S.terms.saving = true;
+let ev = mkCancel();
+(tu.listeners.cancel || []).forEach((fn) => fn(ev));
+const savingBlocked = ev.defaultPrevented && tu.open;
+S.terms.saving = false;
+S.terms.unconfirmed = true;
+ev = mkCancel();
+(tu.listeners.cancel || []).forEach((fn) => fn(ev));
+const unconfirmedLeave = !tu.open;
+S.terms.unconfirmed = false;
+/* 首启说明框：Esc＝暂不使用，落盘拒绝版本 */
+document.querySelector("#dlg-terms-update").close();
+S.terms.declined = false;
+S.terms.acceptedVersion = "";
+ingestTerms({ version: "v2", accepted_version: "", accepted_at: "" });
+openTerms("banner");
+ev = mkCancel();
+(intro.listeners.cancel || []).forEach((fn) => fn(ev));
+out.push({ savingBlocked, unconfirmedLeave, declined: S.terms.declined,
+  introOpen: intro.open, tuOpen: tu.open,
+  declinedSaved: saved.some((p) => p.terms_declined_version === "v2"),
+  readerOpen: document.querySelector("#dlg-terms").open });
+""")
+        r = res[0]
+        self.assertTrue(r["savingBlocked"], "保存中 Esc 必须 preventDefault 且不关闭")
+        self.assertTrue(r["unconfirmedLeave"], "未确认时 Esc＝离开待确认界面（不记拒绝）")
+        self.assertTrue(r["declined"], "Esc 在小框上等于拒绝（拒绝路径）")
+        self.assertFalse(r["introOpen"])
+        self.assertTrue(r["declinedSaved"], "拒绝版本落盘（现有拒绝路径不变）")
+        self.assertFalse(r["readerOpen"])
+
+    def test_first_use_points_data_and_rendering(self):
+        """FU02：六条要点在 store（数据）与渲染（6 条 li、第六条带「现在就看」
+        链接钮），关键句与 r5 正文一致（decisions 第 2 条）。"""
+        store = read("ui/state/store.js")
+        # 抽两条钉关键词：第 1 条的目标学校限定、第 5 条的对外通信三类口径
+        self.assertIn("只适用于一所目标学校", store)
+        self.assertIn("GitHub 发布页", store, "对外通信按 r5 隐私第 3 节三类口径")
+        self.assertIn("运行时密钥", store, "密钥叫法按 r5 用户协议第 1/3 节")
+        self.assertIn("不提供多账号、批量占位或代他人报名", store,
+                      "义务表述按 r5 用户协议第 5 节")
+        res = run_js(r"""
+window.pywebview = { api: {} };
+S.demo = false; S.prefs = {}; S.terms.prompted = true;
+ingestTerms({ version: "v2", accepted_version: "", accepted_at: "" });
+openTerms("banner");
+const list = document.querySelector("#dlg-terms-intro-points");
+out.push({
+  items: list.innerHTML.split("<li>").length - 1,
+  html: list.innerHTML,
+  open: document.querySelector("#dlg-terms-intro").open,
+  agree: document.querySelector("#chk-terms-intro-agree").checked,
+});
+""")
+        r = res[0]
+        self.assertTrue(r["open"])
+        self.assertEqual(r["items"], 6, "六条要点")
+        self.assertFalse(r["agree"], "每次打开回到未勾选")
+        # 桩不解析 HTML：标题等静态文案由 test_first_use_and_update_modals_static_contract 覆盖
+        self.assertEqual(r["html"].count('id="btn-terms-intro-fulltext"'), 1,
+                         "第六条「完整条款」只有一个入口链接钮")
+        self.assertIn("现在就看", r["html"])
+
+    def test_small_boxes_block_background_shortcuts(self):
+        """UI_SPEC §5.13 第 2 条：小框开着时 F5/Ctrl+F//、Enter 不落到背景
+        （不刷新、不抢搜索、不开始计划）。"""
+        res = run_js(r"""
+let calls = [];
+window.pywebview = { api: {
+  start_plan: () => { calls.push("start"); return Promise.resolve({ ok: true }); },
+} };
+S.demo = false; S.prefs = {}; S.terms.prompted = true;
+ingestTerms({ version: "v2", accepted_version: "", accepted_at: "" });
+openTerms("banner");
+const eF5 = __dispatchKey({ key: "F5" });
+const eEnter = __dispatchKey({ key: "Enter" });
+const eCtrlF = __dispatchKey({ key: "f", ctrlKey: true });
+const eSlash = __dispatchKey({ key: "/" });
+out.push({ f5: eF5.defaultPrevented, enter: eEnter.defaultPrevented,
+  ctrlF: eCtrlF.defaultPrevented, slash: eSlash.defaultPrevented,
+  calls, introOpen: document.querySelector("#dlg-terms-intro").open });
+""")
+        r = res[0]
+        self.assertTrue(r["introOpen"])
+        self.assertEqual(r["calls"], [], "背景 Enter 不开始计划")
+        self.assertFalse(r["f5"], "F5 保留原生语义（背景刷新按钮不响应）")
+        self.assertFalse(r["enter"], "Enter 保留原生语义")
+        self.assertFalse(r["ctrlF"], "Ctrl+F 不抢搜索框")
+        self.assertFalse(r["slash"], "斜杠不抢搜索框")
 
 
 class ClockRetryBackoffDisplayTests(unittest.TestCase):
@@ -7380,6 +8275,15 @@ class DialogCloseButtonRuleTests(unittest.TestCase):
         block = self._dialog_block(html, '<dialog class="dlg dlg-relogin" id="dlg-relogin"')
         self.assertNotIn("dlg-x", block, "重新登录弹窗不得有 × 关闭按钮")
 
+    def test_first_use_and_terms_update_dialogs_have_no_x(self):
+        """FU01/TM08（原型 Main:800/878；UI_SPEC §5.13）：两个条款小框都是
+        「做决定的弹窗」，不放右上角 ×——退出只走「暂不使用／暂不同意」与 Esc。"""
+        html = read("ui/index.html")
+        intro = self._dialog_block(html, '<dialog class="dlg dlg-terms-intro" id="dlg-terms-intro"')
+        update = self._dialog_block(html, '<dialog class="dlg dlg-tu" id="dlg-terms-update"')
+        self.assertNotIn("dlg-x", intro, "首次说明框不得有 × 关闭按钮")
+        self.assertNotIn("dlg-x", update, "条款更新框不得有 × 关闭按钮")
+
     def test_settings_drawer_keeps_close_button(self):
         html = read("ui/index.html")
         self.assertIn('id="btn-settings-close"', html, "设置抽屉（阅读型面板）必须保留 × 关闭按钮")
@@ -7487,21 +8391,85 @@ class WindowCloseChoiceContractTests(unittest.TestCase):
                        'id="btn-close-hide"', 'id="btn-close-minimize"',
                        'id="btn-close-exit"', 'id="btn-close-cancel"'):
             self.assertIn(needle, self.html, "关窗对话框缺少 %s" % needle)
-        self.assertIn("隐藏到后台运行", self.html)
+        # CW04：卡题照原型改（`隐藏到后台运行`→`隐藏到后台`、`直接退出`→`退出程序`）
+        self.assertIn("隐藏到后台", self.html)
         self.assertIn("最小化到任务栏", self.html)
-        self.assertIn("以后都这样", self.html)
+        self.assertIn("退出程序", self.html)
+        # CW14：勾选框文案照原型 Main:820（旧句「以后都这样，别再问我」已换）
+        self.assertIn("以后都这样，不再询问", self.html)
+        self.assertNotIn("别再问我", self.html)
         self.assertIn('src="controllers/window.js"', self.html)
         self.assertIn(".dlg-check", self.css)
 
     def test_choices_are_stacked_rows_not_a_button_row(self):
         """三个出口并排看不清谁更安全：改成竖排可选行，每行带一句代价说明。"""
-        self.assertEqual(3, self.html.count('class="close-choice"')
-                         + self.html.count('class="close-choice is-danger"'))
-        self.assertIn("is-danger", self.html)
-        for needle in (".close-choices", ".close-choice", ".close-choice.is-danger"):
+        # CW04：卡类名照原型 .cch/.cch.danger（Main:480-487），顺序「最小化→隐藏→退出」
+        self.assertEqual(3, self.html.count('class="cch"')
+                         + self.html.count('class="cch danger"'))
+        self.assertIn('class="cch danger"', self.html)
+        self.assertLess(self.html.index('id="btn-close-minimize"'),
+                        self.html.index('id="btn-close-hide"'),
+                        "CW04 卡序：最小化（推荐）在最前")
+        self.assertLess(self.html.index('id="btn-close-hide"'),
+                        self.html.index('id="btn-close-exit"'),
+                        "CW04 卡序：隐藏居中，退出（红）在最后")
+        for needle in (".cchoices", ".cch", ".cch.danger", ".stakes"):
             self.assertIn(needle, self.css)
         # 一行放不下三个「标题+说明」按钮，旧的窄弹窗宽度不该再被这个对话框引用
         self.assertIn('class="dlg dlg-close"', self.html)
+
+    def test_close_frame_matches_the_prototype(self):
+        """CW01/CW07（原型 Main:811-823）：深色点阵标题栏＋琥珀左线、无右上 ×；
+        勾选居左、「先不关」线框钮居右；确认步脚部「返回」＋红色 btn-stop「停止计划并退出」。"""
+        start = self.html.index('id="dlg-close"')
+        block = self.html[start:self.html.index("</dialog>", start)]
+        self.assertIn('aria-label="正在运行的事"', block, "CW03 利害清单 aria 照原型")
+        self.assertNotIn("dlg-x", block, "CW01 关窗框无右上 ×")
+        self.assertIn('id="btn-close-cancel"', block)
+        self.assertIn("先不关", block)
+        # CW07：确认步两钮沿用既有 id，主钮改红色实心 btn-stop，钮名照原型 Main:821
+        self.assertIn('class="btn btn-stop" id="btn-close-exit-confirm"', block)
+        self.assertIn("停止计划并退出", block)
+        self.assertNotIn("仍然退出", block, "旧钮名「仍然退出」已按原型换成「停止计划并退出」")
+        self.assertIn('id="btn-close-exit-back"', block)
+        self.assertIn("返回", block)
+        # CW01：勾选框挪进脚部（foot 区在 .dlg-foot 内），文案 CW14
+        foot = block[block.index('class="dlg-foot"'):]
+        self.assertIn('id="dlg-close-remember-row"', foot)
+        self.assertIn("以后都这样，不再询问", foot)
+        # 样式：宽度与深色标题栏照原型 .dlg.sm + .dlg-h（Main:811、266-269）
+        self.assertIn(".dlg-close { width: min(480px, 100%); }", self.css)
+        for needle in ('.dlg-close .dlg-head h2 { margin: 0; padding-left: 11px;'
+                       ' border-left: 3px solid var(--amber);',
+                       "radial-gradient(circle at 1.5px 1.5px, rgba(255,255,255,.045) 1px, transparent 1.4px) 0 0/6px 6px, var(--board)"):
+            self.assertIn(needle, self.css)
+
+    def test_close_copy_follows_the_prototype(self):
+        """CW02/CW04/CW05/CW08/CW12：两套标题副题、三卡正文、隐藏禁用句、确认步正文都在源码里。"""
+        # CW02/CW12：运行／空闲两套标题与副题（原型 Main:1724-1725），由 window.js 渲染
+        for needle in ("报名计划还在运行", "最小化或隐藏都不影响计划，退出会停止它。",
+                       "要关闭窗口吗？", "选一个关闭方式。Esc 先不关。",
+                       "退出会停止报名计划", "确定要退出吗？"):
+            self.assertIn(needle, self.controller)
+        self.assertNotIn("要关闭这个窗口吗？", self.html,
+                         "CW02 旧标题「要关闭这个窗口吗？」已按原型随状态切换")
+        # CW04：三卡正文逐字照原型 Main:1715-1718（数字由 JS 按 BE1 载荷填；
+        # 静态缺省写不带数字/手机在线的运行态，空闲态两卡在控制器里切换）
+        for needle in ("窗口缩到任务栏，计划和手机访问都照常。",
+                       "窗口不见了，工具在后台继续运行。从右下角托盘图标或手机页叫回来。",
+                       "报名计划会停止，还没提交的场次不会再报名。手机也会断开。"):
+            self.assertIn(needle, self.html)
+        for needle in ("窗口缩到任务栏，点一下就回来。",
+                       "登录状态会保留，下次打开不用重新登录。"):
+            self.assertIn(needle, self.controller)
+        # CW05：隐藏禁用原因照原型 Main:1715（禁用分支）
+        self.assertIn("现在叫不回来：托盘图标没建起来，手机也没连着，所以不能隐藏。", self.html)
+        # CW08：确认步正文照原型 Main:1722（数字段由 closeWaitPhrase 拼，缺字段退回「场次」）
+        for needle in ("不会再报名。已经成功的报名不受影响。", "closeWaitPhrase"):
+            self.assertIn(needle, self.controller)
+        # CW03：利害清单两行结构的行文由 JS 拼，拼接式与回退句都在控制器里
+        self.assertIn(" 场等开放，最近一批 ", self.controller)
+        self.assertIn("手机已连接", self.controller)
 
     def test_controller_routes_the_four_outcomes(self):
         self.assertIn("request_window_close", self.controller)
@@ -7761,6 +8729,144 @@ out.push({ busy, idle });
         self.assertFalse(row["idle"]["disabled"], "不忙时撤回按钮可用")
 
 
+class WithdrawRowPrototypeTests(unittest.TestCase):
+    """设置里的撤回同意照原型重排（TM10/TM11，原型 Main:788-790/2490/2492/340）：
+    条款行换句式并改句内链接钮；确认条换红色 .ph-confirm、确认钮换红色实心 btn-stop；
+    行为不变——点「撤回同意」只展开确认条，点「确认撤回」才调 withdraw_terms。"""
+
+    CONFIRM_COPY = ("撤回后，登录、自动登录、活动列表和报名计划会停用。"
+                    "已保存的账号密码和登录信息不会删除。"
+                    "要删除账号密码，在“登录恢复”里清除。")
+
+    def confirm_bar(self):
+        """确认条整块（单行 markup，含 id="terms-withdraw-confirm" 的那一行）。"""
+        html = read("ui/index.html")
+        return next(line for line in html.splitlines()
+                    if 'id="terms-withdraw-confirm"' in line)
+
+    def test_confirm_bar_copy_is_verbatim_with_red_stop_button(self):
+        """TM11：确认条三句逐字照抄原型 Main:789（含全角引号“登录恢复”），脚部
+        「先不撤回」线框｜「确认撤回」红色实心 btn-stop（复用关窗任务样式）。"""
+        bar = self.confirm_bar()
+        self.assertIn(self.CONFIRM_COPY, bar, "确认条文案必须与原型逐字一致")
+        self.assertIn('class="ph-confirm"', bar, "确认条用红色确认条样式（原型 .ph-confirm bad-tint，Main:340）")
+        self.assertIn('role="alert"', bar, "撤回是破坏性动作，确认条要有警示语义")
+        self.assertIn('class="btn btn-line"', bar, "「先不撤回」保留线框钮")
+        self.assertIn('class="btn btn-stop"', bar, "「确认撤回」必须是红色实心钮（原型 btn-stop）")
+        self.assertIn("先不撤回", bar)
+        self.assertIn("确认撤回", bar)
+
+    def test_withdraw_is_inline_link_inside_terms_sentence(self):
+        """TM10：「撤回同意」从独立线框钮改成条款句内的链接钮（原型 Main:2492 句内
+        ph-link），与状态句同段、初始隐藏；动作区只留「查看条款」。"""
+        html = read("ui/index.html")
+        p_at = html.index('id="settings-terms-state"')
+        para = html[html.rindex("<p>", 0, p_at):html.index("</p>", p_at)]
+        self.assertIn('id="btn-terms-withdraw"', para, "「撤回同意」必须在条款句同一段里")
+        btn_at = para.index('id="btn-terms-withdraw"')
+        tag = para[para.rindex("<button", 0, btn_at):para.index(">", btn_at) + 1]
+        self.assertIn('class="ph-link"', tag, "句内撤回入口是链接钮形态（原型 Main:2492）")
+        self.assertIn("hidden", tag, "链接钮初始隐藏：显隐由 paintTermsRow 按同意状态接管")
+        actions_at = html.index('id="btn-help-terms"')
+        actions = html[html.rindex('<div class="help-actions"', 0, actions_at):
+                       html.index("</div>", actions_at)]
+        self.assertNotIn("btn-terms-withdraw", actions, "动作区不再保留独立的撤回线框钮")
+        self.assertIn("查看条款", actions, "「查看条款」入口不动（terms-reader 任务已接好路由）")
+
+    def test_old_row_and_confirm_copy_are_retired(self):
+        """TM10/TM11：旧句式随原型重排退役——「同意了这一版」行文案、黄底旧确认块
+        （含「重新同意就能继续用」）不得残留在设置抽屉；未同意句保留不计入。"""
+        drawer = settings_drawer(read("ui/index.html"))
+        self.assertNotIn("同意了这一版", drawer, "旧行文案已换成原型句式（TM10）")
+        self.assertNotIn("重新同意就能继续用", drawer, "旧确认块文案已换成原型三句（TM11）")
+        self.assertNotIn('class="terms-withdraw-confirm"', drawer,
+                         "黄底旧确认条类名已换 .ph-confirm，样式规则一并删除")
+
+    def test_row_sentence_uses_real_version_and_hyphen_time(self):
+        """TM10：已同意句照原型 Main:2490——时间 MM-DD HH:mm（连字符，秒丢弃）、
+        版本读真实数据；未同意句保留现有文案，链接钮未同意时隐藏。"""
+        res = run_js(r"""
+S.terms = { version: "r9", acceptedVersion: "r9", acceptedAt: "2026-11-08 09:12:33" };
+paintTermsRow();
+const line = document.querySelector("#settings-terms-state");
+const acceptedText = line.textContent;
+const linkShown = !document.querySelector("#btn-terms-withdraw").hidden;
+S.terms.acceptedVersion = "";
+paintTermsRow();
+out.push({ acceptedText, linkShown,
+  deniedText: line.textContent,
+  linkHidden: document.querySelector("#btn-terms-withdraw").hidden });
+""")
+        row = res[0]
+        self.assertEqual(row["acceptedText"],
+                         "你在 11-08 09:12 同意了 r9 版。用户协议、隐私政策和开源许可的全文都可以在这里查看。",
+                         "已同意句必须是原型句式：连字符时间＋真实版本（原型示意值 11-03 09:12 不写死）")
+        self.assertTrue(row["linkShown"], "已同意且确认条未展开时显示句内「撤回同意」")
+        self.assertEqual(row["deniedText"],
+                         "还没有同意这一版：登录、登录检查、自动登录、刷新活动和开始计划都已停用。",
+                         "未同意句保留现有文案不动")
+        self.assertTrue(row["linkHidden"], "未同意时不显示撤回入口")
+
+    def test_link_only_expands_and_confirm_calls_api(self):
+        """TM10/TM11 行为不变（硬要求）：点「撤回同意」只展开确认条并藏起链接钮
+        （原型 canWithdraw 含 !termsWAsk），点「先不撤回」收起复原，点「确认撤回」
+        才 api("withdraw_terms") 且只调一次。"""
+        res = run_js(r"""
+const calls = [];
+window.pywebview = { api: { withdraw_terms: () => { calls.push("withdraw_terms");
+  return Promise.resolve({ ok: true, terms: { version: "r9", accepted_version: "", accepted_at: "" } }); } } };
+S.terms = { version: "r9", acceptedVersion: "r9", acceptedAt: "2026-11-08 09:12:33" };
+paintTermsRow();
+const link = document.querySelector("#btn-terms-withdraw");
+const box = document.querySelector("#terms-withdraw-confirm");
+box.hidden = true; /* 桩不解析静态 hidden 属性：按 index.html 初始态补上 */
+const before = { boxHidden: box.hidden, linkShown: !link.hidden };
+link.click();
+const afterAsk = { boxHidden: box.hidden, linkHidden: link.hidden, calls: calls.length };
+document.querySelector("#btn-terms-withdraw-cancel").click();
+const afterNo = { boxHidden: box.hidden, linkShown: !link.hidden, calls: calls.length };
+link.click();
+document.querySelector("#btn-terms-withdraw-confirm").click();
+await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+out.push({ before, afterAsk, afterNo,
+  afterConfirm: { boxHidden: box.hidden, calls: calls.length,
+    linkHidden: link.hidden } });
+""")
+        row = res[0]
+        self.assertTrue(row["before"]["boxHidden"] and row["before"]["linkShown"],
+                        "初始：确认条收起、已同意显示链接钮")
+        self.assertFalse(row["afterAsk"]["boxHidden"], "点「撤回同意」展开确认条")
+        self.assertTrue(row["afterAsk"]["linkHidden"], "确认条展开时链接钮隐藏（原型 Main:2492）")
+        self.assertEqual(row["afterAsk"]["calls"], 0, "展开确认条不得已经发出 withdraw_terms")
+        self.assertTrue(row["afterNo"]["boxHidden"], "「先不撤回」收起确认条")
+        self.assertTrue(row["afterNo"]["linkShown"], "收起后链接钮恢复")
+        self.assertEqual(row["afterNo"]["calls"], 0, "「先不撤回」不发 withdraw_terms")
+        self.assertTrue(row["afterConfirm"]["boxHidden"], "「确认撤回」后确认条收起")
+        self.assertEqual(row["afterConfirm"]["calls"], 1, "只有「确认撤回」才调用 withdraw_terms")
+        self.assertTrue(row["afterConfirm"]["linkHidden"], "撤回成功后回到未同意态，链接钮隐藏")
+
+    def test_closing_drawer_collapses_confirm_bar(self):
+        """TM10/TM11 既有行为保持：关抽屉强制收起确认条，重开抽屉时链接钮按状态恢复。"""
+        res = run_js(r"""
+S.terms = { version: "r9", acceptedVersion: "r9", acceptedAt: "2026-11-08 09:12:33" };
+paintTermsRow();
+const link = document.querySelector("#btn-terms-withdraw");
+const box = document.querySelector("#terms-withdraw-confirm");
+box.hidden = true; /* 桩不解析静态 hidden 属性：按 index.html 初始态补上 */
+link.click();
+const open = !box.hidden;
+S.settingsOpen = true;
+closeSettings(false);
+const collapsed = box.hidden;
+paintTermsRow();
+out.push({ open, collapsed, linkShownAfterRepaint: !link.hidden });
+""")
+        row = res[0]
+        self.assertTrue(row["open"], "前置：确认条已展开")
+        self.assertTrue(row["collapsed"], "关抽屉必须强制收起确认条（既有行为不变）")
+        self.assertTrue(row["linkShownAfterRepaint"], "收起后链接钮显隐恢复由 paintTermsRow 接管")
+
+
 class DocAndCopySyncTests(unittest.TestCase):
     """文档和提示文案必须跟真实能力对得上：cloudflared 只从组件包来。"""
 
@@ -7796,7 +8902,9 @@ class DocAndCopySyncTests(unittest.TestCase):
         block = self.html[start:].split("</button>")[0]
         self.assertIn("托盘", block)
         self.assertIn("手机页", block)
-        self.assertIn("不会隐藏", block)
+        # CW05：禁用原因句照原型 Main:1715 禁用分支改写（旧句「…两者都没有时工具不会隐藏」随卡文重写退役）
+        self.assertIn("叫不回来", block)
+        self.assertIn("不能隐藏", block)
 
     def test_the_install_entry_survives_a_missing_component_package(self):
         """源码版模块可用不代表组件包在：通道报缺失时入口必须还看得见。
@@ -8098,39 +9206,143 @@ out.push({ fresh, later, checkHidden, launch: document.querySelector("#btn-updat
         self.assertEqual(r["launch"], "仍然启动安装程序", "计划运行中安装要明说会中断")
 
     def test_close_dialog_three_exits(self):
-        """关窗三出口：列出正在运行的；最小化默认焦点；计划运行时标推荐、退出要再确认；托盘不可用且手机没连时不能隐藏并写原因。"""
+        """关窗三出口（CW02–CW08、CW12）：利害清单两行、最小化默认焦点、计划运行时标推荐、
+        退出要再确认（确认步换标题正文与脚部两钮）、Esc 回选择步且不出全局链、
+        托盘不可用且手机没连时不能隐藏并写原因。"""
         res = run_js(r"""
 /* 替身没有 getElementById，window.js 加载时会跳过接线：补上垫片后手动接一次（真实 DOM 加载时自动接） */
 document.getElementById = (id) => document.querySelector("#" + id);
 wireWindowClose();
 const sent = [];
 window.pywebview = { api: { request_window_close: (a) => { sent.push(a); return Promise.resolve({ ok: true }); } } };
-openWindowCloseDialog({ plan_running: true, phone_running: true, phone_live: false, tray_ok: false });
-const running = { list: document.querySelector("#dlg-close-running").innerHTML,
+const dlg = document.querySelector("#dlg-close");
+const escKeys = dlg.listeners.keydown;
+openWindowCloseDialog({ plan_running: true, phone_running: true, phone_live: false, tray_ok: false,
+                        waiting_count: 2, next_batch_at: "14:30:00" });
+const running = {
+  title: document.querySelector("#dlg-close-title").textContent,
+  sub: document.querySelector("#dlg-close-body").textContent,
+  stakes: document.querySelector("#dlg-close-running").textContent,
+  stakeRows: (document.querySelector("#dlg-close-running").innerHTML.match(/<li/g) || []).length,
+  stakesHidden: document.querySelector("#dlg-close-running").hidden,
   hideDisabled: document.querySelector("#btn-close-hide").disabled,
   why: document.querySelector("#close-hide-why").textContent,
   rec: document.querySelector("#close-rec").hidden,
-  focus: document.activeElement && document.activeElement.__sel };
+  minText: document.querySelector("#close-min-text").textContent,
+  exitText: document.querySelector("#close-exit-text").textContent,
+  focus: document.activeElement && document.activeElement.__sel,
+};
 document.querySelector("#btn-close-exit").click();
-const afterExit = { confirm: document.querySelector("#dlg-close-confirm").hidden, sent: sent.slice() };
+const confirmStep = {
+  title: document.querySelector("#dlg-close-title").textContent,
+  sub: document.querySelector("#dlg-close-body").textContent,
+  body: document.querySelector("#dlg-close-confirm").textContent,
+  confirmVisible: !document.querySelector("#dlg-close-confirm").hidden,
+  choicesHidden: document.querySelector("#dlg-close-choices").hidden,
+  rememberHidden: document.querySelector("#dlg-close-remember-row").hidden,
+  cancelHidden: document.querySelector("#btn-close-cancel").hidden,
+  backVisible: !document.querySelector("#btn-close-exit-back").hidden,
+  yesVisible: !document.querySelector("#btn-close-exit-confirm").hidden,
+  focus: document.activeElement && document.activeElement.__sel,
+  sent: sent.slice(),
+};
+/* 确认步 Esc：回选择步、不发动作（CW06，原型 Main:2446） */
+const escEvent = { key: "Escape", stopped: false, prevented: false,
+                   stopPropagation() { this.stopped = true; }, preventDefault() { this.prevented = true; } };
+escKeys[0](escEvent);
+const backToPick = {
+  stopped: escEvent.stopped, prevented: escEvent.prevented,
+  title: document.querySelector("#dlg-close-title").textContent,
+  confirmVisible: !document.querySelector("#dlg-close-confirm").hidden,
+  choicesHidden: document.querySelector("#dlg-close-choices").hidden,
+  focus: document.activeElement && document.activeElement.__sel,
+  sent: sent.slice(),
+};
+/* 选择步 Esc：只隔离全局链（stopPropagation），关闭交给原生 cancel，等价「先不关」 */
+const escEvent2 = { key: "Escape", stopped: false, prevented: false,
+                    stopPropagation() { this.stopped = true; }, preventDefault() { this.prevented = true; } };
+escKeys[0](escEvent2);
+const pickEsc = { stopped: escEvent2.stopped, prevented: escEvent2.prevented, sent: sent.slice() };
+/* 确认后真的退出：重新进确认步再点「停止计划并退出」 */
+document.querySelector("#btn-close-exit").click();
 document.querySelector("#btn-close-exit-confirm").click();
+const afterYes = { sent: sent.slice() };
+/* 空闲：手机连着就能隐藏；无利害清单、无推荐；卡文换 CW12 那套 */
 openWindowCloseDialog({ plan_running: false, phone_running: true, phone_live: true, tray_ok: false });
-const idle = { hideDisabled: document.querySelector("#btn-close-hide").disabled,
-  rec: document.querySelector("#close-rec").hidden };
-out.push({ running, afterExit, idle, sent });
+const idle = {
+  title: document.querySelector("#dlg-close-title").textContent,
+  stakesHidden: document.querySelector("#dlg-close-running").hidden,
+  hideDisabled: document.querySelector("#btn-close-hide").disabled,
+  rec: document.querySelector("#close-rec").hidden,
+  minText: document.querySelector("#close-min-text").textContent,
+  exitText: document.querySelector("#close-exit-text").textContent,
+};
+/* BE1 载荷缺字段（旧后端）：利害行整行退回「报名计划正在运行」，卡文与确认段不带数字 */
+openWindowCloseDialog({ plan_running: true, phone_running: true, phone_live: true, tray_ok: true });
+const legacy = {
+  stakes: document.querySelector("#dlg-close-running").textContent,
+  exitText: document.querySelector("#close-exit-text").textContent,
+  hideText: document.querySelector("#close-hide-text").textContent,
+};
+out.push({ running, confirmStep, backToPick, pickEsc, afterYes, idle, legacy });
 """)
         r = res[0]
-        self.assertIn("报名计划正在运行", r["running"]["list"])
-        self.assertIn("手机访问开着", r["running"]["list"])
-        self.assertTrue(r["running"]["hideDisabled"], "托盘不可用且手机没连：不能隐藏")
-        self.assertIn("叫不回来", r["running"]["why"], "不能隐藏要写原因")
-        self.assertFalse(r["running"]["rec"], "计划运行时标「推荐」")
-        self.assertEqual(r["running"]["focus"], "#btn-close-minimize", "最小化默认获得焦点")
-        self.assertFalse(r["afterExit"]["confirm"], "计划运行中退出先要再确认")
-        self.assertEqual(r["afterExit"]["sent"], [], "确认之前不发退出")
-        self.assertEqual(r["sent"], ["exit"], "确认后才真的退出")
-        self.assertFalse(r["idle"]["hideDisabled"], "手机连着就能隐藏（能从手机叫回来）")
-        self.assertTrue(r["idle"]["rec"], "没有计划时不标推荐")
+        running = r["running"]
+        self.assertEqual(running["title"], "报名计划还在运行", "CW02 运行态标题")
+        self.assertEqual(running["sub"], "最小化或隐藏都不影响计划，退出会停止它。")
+        self.assertIn("2 场等开放，最近一批 14:30:00", running["stakes"],
+                      "CW03 利害行写 BE1 的真实数字与时刻")
+        self.assertIn("手机访问开着", running["stakes"])
+        self.assertEqual(running["stakeRows"], 2, "CW03 利害清单两行（计划＋手机）")
+        self.assertFalse(running["stakesHidden"])
+        self.assertTrue(running["hideDisabled"], "托盘不可用且手机没连：不能隐藏")
+        self.assertIn("叫不回来", running["why"], "不能隐藏要写原因（CW05）")
+        self.assertFalse(running["rec"], "计划运行时标「推荐」")
+        self.assertEqual(running["minText"], "窗口缩到任务栏，计划和手机访问都照常。")
+        self.assertEqual(running["exitText"],
+                         "报名计划会停止，还没提交的 2 场不会再报名。手机也会断开。")
+        self.assertEqual(running["focus"], "#btn-close-minimize", "最小化默认获得焦点")
+        confirm = r["confirmStep"]
+        self.assertEqual(confirm["title"], "退出会停止报名计划", "确认步标题照原型 Main:1724")
+        self.assertEqual(confirm["sub"], "确定要退出吗？")
+        self.assertEqual(confirm["body"],
+                         "还没提交的 2 场不会再报名。已经成功的报名不受影响。", "CW08 确认正文")
+        self.assertTrue(confirm["confirmVisible"])
+        self.assertTrue(confirm["choicesHidden"])
+        self.assertTrue(confirm["rememberHidden"], "CW07 确认步收起勾选行")
+        self.assertTrue(confirm["cancelHidden"])
+        self.assertTrue(confirm["backVisible"])
+        self.assertTrue(confirm["yesVisible"])
+        self.assertEqual(confirm["focus"], "#btn-close-exit-back", "确认步焦点落「返回」")
+        self.assertEqual(confirm["sent"], [], "确认之前不发退出")
+        back = r["backToPick"]
+        self.assertTrue(back["stopped"], "Esc 在 dialog 层 stopPropagation，不落全局链（CW06）")
+        self.assertTrue(back["prevented"], "确认步 Esc 拦下原生关闭，改回选择步")
+        self.assertEqual(back["title"], "报名计划还在运行", "Esc 回选择步后标题还原")
+        self.assertFalse(back["confirmVisible"])
+        self.assertFalse(back["choicesHidden"])
+        self.assertEqual(back["focus"], "#btn-close-minimize")
+        self.assertEqual(back["sent"], [], "Esc 回选择步不发动作")
+        self.assertTrue(r["pickEsc"]["stopped"])
+        self.assertFalse(r["pickEsc"]["prevented"],
+                         "选择步 Esc 交给 <dialog> 原生 cancel 静默关闭（等价「先不关」）")
+        self.assertEqual(r["pickEsc"]["sent"], [])
+        self.assertEqual(r["afterYes"]["sent"], ["exit"], "确认后才真的退出")
+        idle = r["idle"]
+        self.assertEqual(idle["title"], "要关闭窗口吗？", "CW12 空闲标题")
+        self.assertTrue(idle["stakesHidden"], "空闲不渲染利害清单（CW11 保持）")
+        self.assertFalse(idle["hideDisabled"], "手机连着就能隐藏（能从手机叫回来）")
+        self.assertTrue(idle["rec"], "没有计划时不标推荐")
+        self.assertEqual(idle["minText"], "窗口缩到任务栏，点一下就回来。")
+        self.assertEqual(idle["exitText"], "登录状态会保留，下次打开不用重新登录。")
+        legacy = r["legacy"]
+        self.assertIn("报名计划正在运行", legacy["stakes"], "BE1 字段缺失整行退回现有文案")
+        self.assertNotIn("等开放", legacy["stakes"])
+        self.assertEqual(legacy["exitText"],
+                         "报名计划会停止，还没提交的场次不会再报名。手机也会断开。",
+                         "waiting_count 缺失时去掉数字")
+        self.assertEqual(legacy["hideText"],
+                         "窗口不见了，工具在后台继续运行。从右下角托盘图标或手机页叫回来。")
 
     def test_terms_unaccepted_disables_the_school_actions(self):
         """条款未同意停用清单：登录、登录检查、刷新、勾选、开始、重新登录对话框、自动引导；列表只读并标可能过时。"""
@@ -8182,3 +9394,168 @@ out.push({
             text = strip_ui_comments(path.read_text(encoding="utf-8"), path.suffix)
             hits.extend("%s：%s" % (path.relative_to(ui), word) for word in banned if word in text)
         self.assertEqual(hits, [], "演示控件不得进产品")
+
+
+class MigrationBannerTests(unittest.TestCase):
+    """MG01/MG02（原型 Main:2146/2147、1182/1183）：旧数据迁移横幅与运行记录。
+
+    bootstrap.migration = {moved, login_failed} 或 null；成功与失败互斥，
+    横幅只显示最高一条：组件缺失/条款/登录失效等既有横幅都优先于迁移横幅。
+    """
+
+    def test_banner_copy_and_mutual_exclusion(self):
+        """MG01 成功照原型 .banner.note；MG02 失败走警示档；两态互斥。"""
+        res = run_js(r"""
+const banner = () => {
+  paintBanners();
+  const h = document.querySelector("#banners").innerHTML;
+  return { html: h, text: h.replace(/<[^>]*>/g, "") };
+};
+S.migration = { moved: 3, login_failed: false };
+const ok = banner();
+S.migration = { moved: 0, login_failed: true };
+const fail = banner();
+out.push({ ok, fail });
+""")
+        ok, fail = res[0]["ok"], res[0]["fail"]
+        self.assertIn('data-tone="note"', ok["html"], "MG01 照原型 .banner.note")
+        self.assertIn("已把旧版本的数据搬到新位置。", ok["text"])
+        self.assertIn("登录、设置和运行记录都在，不用重新登录。位置在设置的“本机数据”里。",
+                      ok["text"], "MG01 正文逐字照原型（含全角引号）")
+        self.assertIn('data-act="migrated-ok"', ok["html"])
+        self.assertIn("知道了", ok["text"])
+        self.assertNotIn("旧版本的登录信息没能搬过来", ok["text"], "成功时不出失败横幅")
+        self.assertIn('data-tone="warn"', fail["html"], "MG02 是警示横幅")
+        self.assertIn("旧版本的登录信息没能搬过来。", fail["text"])
+        self.assertIn("设置和运行记录已经搬好；重新登录一次就行，旧文件还留在原来的位置。",
+                      fail["text"], "MG02 正文逐字照原型")
+        self.assertIn('data-act="login"', fail["html"])
+        self.assertIn("登录", fail["text"])
+        self.assertNotIn("已把旧版本的数据搬到新位置", fail["text"], "失败时不出成功横幅")
+
+    def test_banner_copy_for_both_and_other_failures(self):
+        """迁移横幅另两种结果：登录和其他都失败；只有其他失败（登录已搬好）。"""
+        res = run_js(r"""
+const banner = () => {
+  paintBanners();
+  const h = document.querySelector("#banners").innerHTML;
+  return { html: h, text: h.replace(/<[^>]*>/g, "") };
+};
+S.migration = { moved: 0, login_failed: true, other_failed: true };
+const both = banner();
+S.migration = { moved: 2, login_failed: false, other_failed: true };
+const other = banner();
+S.migration = { moved: 0, login_failed: true, other_failed: false };
+const loginOnly = banner();
+out.push({ both, other, loginOnly });
+""")
+        both, other, login_only = res[0]["both"], res[0]["other"], res[0]["loginOnly"]
+        wj = "\u2060"
+        self.assertIn('data-tone="warn"', both["html"])
+        self.assertIn("旧版本的数据没能搬过来。", both["text"])
+        # 「调」「一下」之间有 U+2060，防止「下」单字掉行
+        self.assertIn("旧文件还留在原来的位置；重新登录一次就行，设置要重新调" + wj + "一下。", both["text"])
+        self.assertIn('data-act="login"', both["html"])
+        self.assertNotIn("已经搬好", both["text"], "全失败时不能说搬好了")
+        self.assertIn('data-tone="note"', other["html"])
+        self.assertIn("旧版本的设置或运行记录没能搬过来。", other["text"])
+        self.assertIn("登录信息已经搬好，不用重新登录；旧文件还留在原来的位置。", other["text"])
+        self.assertIn('data-act="migrated-ok"', other["html"])
+        self.assertNotIn('data-act="login"', other["html"], "登录已搬好，不再催登录")
+        self.assertIn("设置和运行记录已经搬好", login_only["text"], "只登录失败保持原 MG02")
+
+    def test_migration_banner_loses_to_login_and_runtime_banners(self):
+        """迁移横幅低于组件缺失与登录失效：同一时刻仍只显示最高一条。"""
+        res = run_js(r"""
+const banner = () => { paintBanners(); return document.querySelector("#banners").innerHTML.replace(/<[^>]*>/g, ""); };
+S.migration = { moved: 3, login_failed: false };
+S.login.view = { state: "bad" };
+const loginBad = banner();
+S.runtime.error = "worker_missing";
+const runtimeBad = banner();
+S.runtime.error = null;
+S.login.view = { state: "ok" };
+const alone = banner();
+out.push({ loginBad, runtimeBad, alone });
+""")
+        self.assertIn("登录已失效。", res[0]["loginBad"])
+        self.assertNotIn("已把旧版本的数据搬到新位置", res[0]["loginBad"])
+        self.assertIn("程序组件缺失", res[0]["runtimeBad"])
+        self.assertNotIn("已把旧版本的数据搬到新位置", res[0]["runtimeBad"])
+        self.assertIn("已把旧版本的数据搬到新位置", res[0]["alone"])
+
+    def test_ack_hides_migration_banner_for_this_run_only(self):
+        """MG01「知道了」只收起本次运行内的横幅：S 置位，不调落盘接口。"""
+        res = run_js(r"""
+const saved = [];
+window.pywebview = { api: { save_prefs: (p) => { saved.push(p); return Promise.resolve({ ok: true }); } } };
+S.migration = { moved: 3, login_failed: false };
+paintBanners();
+const before = document.querySelector("#banners").innerHTML;
+document.querySelector("#banners").listeners.click.forEach((fn) => fn({
+  target: { closest: (sel) => (sel === '[data-act="migrated-ok"]' ? {} : null) },
+}));
+const after = document.querySelector("#banners").innerHTML;
+out.push({ before, after, dismissed: S.migrationDismissed, saved: saved.length });
+""")
+        case = res[0]
+        self.assertIn("已把旧版本的数据搬到新位置", case["before"])
+        self.assertEqual(case["after"], "", "知道了 只收起横幅")
+        self.assertTrue(case["dismissed"], "收起状态进 S")
+        self.assertEqual(case["saved"], 0, "收起状态不落盘")
+
+    def test_failed_banner_login_button_opens_the_login_entry(self):
+        """MG02「登录」复用登录失效横幅的同一入口（data-act=login → openLogin）。"""
+        res = run_js(r"""
+window.pywebview = { api: { login: () => new Promise(() => {}) } };
+S.migration = { moved: 0, login_failed: true };
+paintBanners();
+document.querySelector("#banners").listeners.click.forEach((fn) => fn({
+  target: { closest: (sel) => (sel === '[data-act="login"]' ? {} : null) },
+}));
+out.push({ open: !!(S.relogin && S.relogin.open),
+           dialog: document.querySelector("#dlg-relogin").open });
+""")
+        self.assertTrue(res[0]["open"], "点「登录」必须进入登录流程")
+        self.assertTrue(res[0]["dialog"], "登录对话框打开")
+
+    def test_boot_writes_the_migration_run_log(self):
+        """启动按 bootstrap.migration 写一条运行记录（原型 Main:1182/1183）；null 不写。"""
+        res = run_js(r"""
+const bootOnce = async (migration) => {
+  window.pywebview = { api: {
+    bootstrap: () => Promise.resolve({ demo: false,
+      prefs: { welcome_seen: true, tour_version: 9999 },
+      terms: { version: "2026-10-27", accepted_version: "2026-10-27",
+               accepted_at: "2026-10-27 12:00:00" },
+      migration }),
+    save_prefs: () => Promise.resolve({ ok: true }),
+    front_ready: () => Promise.resolve({ ok: true }),
+    clock_snapshot: () => new Promise(() => {}),
+    check: () => new Promise(() => {}),
+    list_activities: () => new Promise(() => {}),
+  } };
+  S.recentLogs.length = 0;
+  await boot();
+  return { logs: S.recentLogs.slice(), migration: S.migration };
+};
+const success = await bootOnce({ moved: 3, login_failed: false });
+const failed = await bootOnce({ moved: 0, login_failed: true });
+const bothFailed = await bootOnce({ moved: 0, login_failed: true, other_failed: true });
+const otherFailed = await bootOnce({ moved: 2, login_failed: false, other_failed: true });
+const none = await bootOnce(null);
+out.push({ success, failed, bothFailed, otherFailed, none });
+""")
+        success, failed, none = res[0]["success"], res[0]["failed"], res[0]["none"]
+        self.assertIn("已把 3 个旧数据文件搬到新的数据目录", "\n".join(success["logs"]),
+                      "成功日志用真实的 moved")
+        self.assertIn("[!] 旧版本的登录信息没能搬过来，其他数据已搬好",
+                      "\n".join(failed["logs"]), "失败日志逐字照原型")
+        self.assertIn("[!] 旧版本的数据没能搬过来，旧文件还在原来的位置",
+                      "\n".join(res[0]["bothFailed"]["logs"]))
+        self.assertIn("[!] 旧版本的设置或运行记录没能搬过来，登录信息已搬好",
+                      "\n".join(res[0]["otherFailed"]["logs"]))
+        none_logs = "\n".join(none["logs"])
+        self.assertNotIn("旧数据文件", none_logs, "migration 为 null 不写成功记录")
+        self.assertNotIn("旧版本的登录信息", none_logs, "migration 为 null 不写失败记录")
+        self.assertIsNone(none["migration"])
