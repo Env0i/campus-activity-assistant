@@ -68,7 +68,7 @@ function paintLogin() {
   } else if (ok === true) {
     cls += " is-ok";
     text = "已登录";
-    /* 只报事实：上次向学校校验的时刻；在别处登录（比如手机上的学校页面）会让这里失效 */
+    /* 只报事实：上次向学校校验的时刻；在别处登录（比如手机上的学校页面）可能让这里失效，以实际校验为准 */
     sub = lastCheckText() ? lastCheckText() + " 校验" : "";
     /* E2：有估算才补「预计约到…，以学校为准」；没有就只报学校确认事实 */
     const estimate = loginEstimateShort();

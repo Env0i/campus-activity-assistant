@@ -101,7 +101,7 @@ function renderLoginCard() {
     : "还没有向学校校验过";
   $("#login-pop-rows").innerHTML = cardRows([
     ["预计有效", loginEstimateText()],
-    ["别处登录", "会让这里失效，比如手机上的学校页面"],
+    ["别处登录", "可能让这里失效，比如手机上的学校页面；以实际登录状态为准"],
   ]);
   $("#login-pop-note").textContent = view.note || "";
   const check = $("#btn-login-check");

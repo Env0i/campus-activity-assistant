@@ -8326,6 +8326,15 @@ class DialogCloseButtonRuleTests(unittest.TestCase):
         self.assertIn('id="btn-settings-close"', html, "设置抽屉（阅读型面板）必须保留 × 关闭按钮")
 
 
+class OtherLoginWordingTests(unittest.TestCase):
+    """登录详情卡「别处登录」一行：别处登录不一定让本机下线，只说「可能」，以实际登录状态为准（用户 2026-11-09 定）。"""
+
+    def test_other_login_row_is_hedged(self):
+        js = read("ui/views/status-cards.js")
+        self.assertIn("可能让这里失效，比如手机上的学校页面；以实际登录状态为准", js)
+        self.assertNotIn("会让这里失效", js, "不能断言别处登录一定让本机失效")
+
+
 if __name__ == "__main__":
     unittest.main()
 
