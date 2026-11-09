@@ -24,9 +24,9 @@ LOCAL = Path(__file__).resolve().parents[1]
 
 # 与 local/app.py 的 TERMS_VERSION 同源的测试常量：任何一处漂移都会让
 # 「已同意版本 == 当前版本」的判定失效，测试就是要盯住这一点。
-# r5：只改说法（直接提交、条款入口改到设置、生效日期、适用范围句），仍要求重新同意，
-# 旧 r1–r4 的同意记录不再放行。
-TEST_TERMS = "2026-11-07-r5"
+# r6：只补披露（手机访问通道、GitHub 下载、手机配对记录），仍要求重新同意，
+# 旧 r1–r5 的同意记录不再放行。
+TEST_TERMS = "2026-11-09-r6"
 
 SCHOOL_METHODS = ("check", "list_activities", "login", "grab", "start_plan")
 # 手机能发起的学校动作：都经同一组 Api 方法，门禁必须在方法里而不是在手机页

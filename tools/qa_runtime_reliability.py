@@ -65,7 +65,7 @@ CTYPES = {
     ".woff2": "font/woff2",
 }
 # 与 local/app.py 的 TERMS_VERSION 必须同值，契约测试 test_qa_bridge_contract 会核对
-TERMS_VERSION = "2026-11-07-r5"
+TERMS_VERSION = "2026-11-09-r6"
 
 
 def _ui_root() -> Path:

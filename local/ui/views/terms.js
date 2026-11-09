@@ -139,18 +139,17 @@ function switchTermsDoc(which) {
   paintTermsToc();
 }
 
-/* 升版改动摘要（TM09，设计文档 9.4，按 r5 正文第 8 节变更记录归纳成 4 条）。
+/* 升版改动摘要（TM09，设计文档 9.4，按 r6 正文第 8 节变更记录归纳成 3 条）。
  * 正文文字不改（全文与 docs 逐字一致的契约），「本版新增」用节标题上的 data-new 标出。
  * 条款更新框（#dlg-terms-update）的变更清单也用这一份数据（原型 Main:880 的 tu-list 版式）。 */
 const TERMS_CHANGES = [
-  "报名方式的叫法统一为“直接提交”，意思不变：报名开放时，程序直接调用学校的报名接口提交，不经过学校页面。",
-  "查看条款和重新同意的入口，从“帮助”改到“设置 → 条款与隐私”。",
-  "程序内显示的生效日期，改为本版的版本日。",
-  "条款要点补了一句：本工具只适用于一所目标学校。",
+  "手机访问会经过的第三方：Cloudflare 临时隧道或你自己的 Tailscale 网络",
+  "下载安装包与组件包时会访问 GitHub，下载后先核对 SHA-256",
+  "手机配对记录只存摘要，保存在本机，一年后失效",
 ];
 const TERMS_NEW_SECTIONS = {
-  agreement: ["1.", "2.", "3.", "8."],
-  privacy: [],
+  agreement: ["8."],
+  privacy: ["1.", "3."],
 };
 
 function termsUpdateMode() {
@@ -358,7 +357,7 @@ function paintTermsIntro() {
 }
 
 /* TM08（原型 Main:879-880）：副题版本读真实值（X=程序要求的当前版、Y=本机已同意版），
- * 示意值不进产品（plan decisions 第 5 条）；变更清单用 TERMS_CHANGES 的 r5 内容，
+ * 示意值不进产品（plan decisions 第 5 条）；变更清单用 TERMS_CHANGES 的 r6 内容，
  * 每条琥珀「新增」徽章照原型 tu-list。 */
 function paintTermsUpdateBox() {
   const version = $("#terms-update-version");
