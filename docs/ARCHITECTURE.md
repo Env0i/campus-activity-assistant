@@ -226,7 +226,9 @@ controller/view DOM 分离不在本轮范围。
 
 ### 取消报名与列表筛选（决策 016）
 
-- **列表筛选（R1）**：`local/grab.py` 的 `keep_in_list(act, now)`。原有的 `still_relevant` 为真，或者活动已报名、`act_end` 能解析且不早于业务北京时间，这两种情况都留在列表里。已报名但 `act_end` 缺失或解析不了的，仍按原规则筛掉。`--all` 与北京时间不可用时的行为不变。补回后，界面的冲突判断和计划冲突基线都能看到这些已报名活动。
+- **列表筛选（R1）**：`local/grab.py` 的 `keep_in_list(act, now)`。原有的 `still_relevant` 为真，或者活动已报名、`act_end` 能解析且不早于业务北京时间，这两种情况都留在列表里。已报名但 `act_end` 缺失或解析不了的，仍按原规则筛掉。补回后，界面的冲突判断和计划冲突基线都能看到这些已报名活动。
+- **列表筛选的时间来源（2026-11-09，决策 012 修订）**：业务时钟可用时仍用北京时间筛选与排序。时钟不可用时，`cmd_list` 用本次列表回包的 HTTP `Date` 头（只取最近一页、每轮列表前清空，解析要求带时区）作为筛选与排序时刻，**状态仍显示「待确认」**；`Date` 只服务列表筛选，不进报名开放判定、计划启动或倒计时。没有 `Date` 或解析失败时退回旧行为：保留全部、详情全补。判定的筛选时间来源写进 `[timing] list` 行的 `filter_time_source`（`clock` / `school_date` / `none`）。`--all` 不受影响。
+- **界面等时钟（L1，2026-11-09）**：`app.Api` 拉列表前最多等约 8 秒北京时间（`LIST_CLOCK_WAIT_S`，0.25 秒轮询，关闭中立即退出），期间向界面发一次「北京时间校准中，稍后加载活动」。等不到也照常拉列表，由上面的 `Date` 兜底；列表用时行同时给等待秒数与筛选时间来源。
 - **详情映射（R2）**：`parse_attendance_detail` 追加 `cancel_allowed`（`qxbm`：1 为真、0 为假、缺失为 null）和 `can_sign`（`sfkybm`，同样三态，只映射不展示）。`list --json` 每行输出这两个键。
 - **取消子命令（X2）**：`python local/grab.py cancel --id <id> --json`，由 `cmd_cancel` 调 `run_cancel`。stdout 恰好一行 JSON，日志走 stderr；退出码为 0 仅表示 `cancelled`，其余为 2。
   - 流程：登录（只有学校明确说失效才报 `login_expired`）→ 北京时间可用 → 是否已报名（三态，只有真才往下走）→ 详情 `qxbm` 为 1 且业务北京时间在 `[报名开始, 报名截止]` 内 → 调 `GET /dr/api/rjyHdCyr/cancel/<id>` 一次，不重试 → 用 `getJoinInfo` 复查。

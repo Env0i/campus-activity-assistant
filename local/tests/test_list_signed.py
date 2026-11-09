@@ -10,6 +10,7 @@ enrich_attendance_items、fetch_activity_detail、parse_attendance_detail 全走
 from __future__ import annotations
 
 import contextlib
+import email.utils
 import io
 import json
 import os
@@ -53,16 +54,38 @@ def detail_reply(**fields):
     return {"code": 1, "message": "操作成功！", "data": data}
 
 
+class _DateResponse:
+    """列表回包替身：给 _post 读到真实 HTTP Date 头（L2：只走列表筛选）。"""
+
+    def __init__(self, payload, date_header):
+        self._body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.headers = {"Date": date_header} if date_header else {}
+
+    def read(self, *_args):
+        return self._body
+
+    def close(self):
+        pass
+
+
 class _ListHarness(unittest.TestCase):
     """cmd_list 的网络边界替身与业务时钟注入、现场还原。"""
 
-    def run_list(self, rows, details=None, *, all_rows=False, clock=True):
-        """details：id → getInfo 回包；缺省回 detail_reply()；值为 None 表示详情失败。"""
+    def run_list(self, rows, details=None, *, all_rows=False, clock=True,
+                 date_header=None):
+        """details：id → getInfo 回包；缺省回 detail_reply()；值为 None 表示详情失败。
+
+        date_header 非空时把替身下沉到 _school_open，让生产的 _post 自己读 Date 头。
+        """
         details = details or {}
         detail_calls = []
+        page = {"code": 1, "data": {"count": len(rows), "list": rows}}
 
         def fake_post(path, payload=None, tok=None, timeout=None, budget=None):
-            return {"code": 1, "data": {"count": len(rows), "list": rows}}
+            return page
+
+        def fake_open(req, timeout=None):
+            return _DateResponse(page, date_header)
 
         def fake_get(path, tok=None, timeout=None):
             aid = path.rsplit("/", 1)[-1]
@@ -77,18 +100,24 @@ class _ListHarness(unittest.TestCase):
         else:
             grab._CLOCK.update({"now": None, "bounds": None, "meta": None})
         out = io.StringIO()
+        err = io.StringIO()
+        logs = []
         try:
             grab.DETAIL_CACHE.clear()
-            with mock.patch.object(grab, "_post", fake_post), \
+            post_patch = (mock.patch.object(grab, "_school_open", fake_open)
+                          if date_header else mock.patch.object(grab, "_post", fake_post))
+            with post_patch, \
                     mock.patch.object(grab, "_get", fake_get), \
                     mock.patch.object(grab, "check_token", lambda budget=None: (True, "ok")), \
-                    mock.patch.object(grab, "log", lambda msg: None), \
-                    contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                    mock.patch.object(grab, "log", lambda msg: logs.append(msg)), \
+                    contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
                 code = grab.cmd_list(SimpleNamespace(all=all_rows, json=True))
         finally:
             grab._CLOCK.update(original_clock)
             time_contract.configure_time_source(original_now)
             grab.DETAIL_CACHE.clear()
+        self.last_stderr = err.getvalue()
+        self.last_logs = logs
         self.assertEqual(code, 0, out.getvalue())
         return json.loads(out.getvalue().strip()), detail_calls
 
@@ -181,6 +210,66 @@ class ListSignedFilterTests(_ListHarness):
                 raw_row("open", sign_end=7200)]
         data, _ = self.run_list(rows, clock=False)
         self.assertEqual(len(data), 2, "北京时间不可用：不筛选，行为不变")
+
+
+class ClockFallbackDateTests(_ListHarness):
+    """L2：时钟不可用时按学校回包 HTTP Date 筛选，只补要显示的详情。"""
+
+    def date_header(self, offset=0.0):
+        return email.utils.formatdate(NOW + offset, usegmt=True)
+
+    def history_rows(self):
+        """20 场：15 场未报名已截止、2 场已报名但举办已结束、1 场已报名未结束、2 场未截止。"""
+        rows = [raw_row("expired-%02d" % i, sign_end=-9000, act_start=-1800,
+                        act_end=3600) for i in range(15)]
+        rows += [raw_row("signed-over-%d" % i, signed=True, sign_end=-90000,
+                         act_start=-7200, act_end=-3600) for i in range(2)]
+        rows.append(raw_row("signed-open", signed=True, sign_end=-9000, act_end=3600))
+        rows += [raw_row("open-%d" % i, sign_end=3600) for i in range(2)]
+        return rows
+
+    def timing_field(self, key):
+        for line in self.last_stderr.splitlines():
+            if line.startswith("[timing] list "):
+                for part in line[len("[timing] list "):].split():
+                    if part.startswith(key + "="):
+                        return part.split("=", 1)[1]
+        return None
+
+    def test_clock_unavailable_filters_by_school_date_and_enriches_only_visible(self):
+        # 复现用例：修复前这里保留 20 场并补 20 次详情
+        data, details = self.run_list(self.history_rows(), clock=False,
+                                      date_header=self.date_header())
+        self.assertEqual(sorted(r["id"] for r in data),
+                         ["open-0", "open-1", "signed-open"],
+                         "时钟不可用也要按学校 Date 头筛掉历史活动")
+        self.assertEqual(sorted(details), ["open-0", "open-1", "signed-open"],
+                         "只给要显示的活动补详情")
+        self.assertTrue(all(r["state"] in ("待确认", "已报名") for r in data),
+                        "状态仍按「时钟不可用」显示，不拿 Date 头冒充业务时钟")
+        self.assertEqual(self.timing_field("filter_time_source"), "school_date",
+                         "用时行要写明筛选时间来自学校回包")
+
+    def test_without_date_header_keeps_old_behavior_and_says_why(self):
+        data, details = self.run_list(self.history_rows(), clock=False)
+        self.assertEqual(len(data), 20, "没有 Date 头：退回保留全部，不按本机时钟猜")
+        self.assertEqual(len(details), 20)
+        self.assertEqual(self.timing_field("filter_time_source"), "none")
+        self.assertIn("回包也没有可用的 Date 头", "".join(self.last_logs))
+
+    def test_malformed_date_header_falls_back_with_reason(self):
+        data, _ = self.run_list(self.history_rows(), clock=False,
+                                date_header="not-a-date")
+        self.assertEqual(len(data), 20, "Date 解析失败：退回旧行为")
+        self.assertEqual(self.timing_field("filter_time_source"), "none")
+
+    def test_business_clock_wins_and_date_header_is_ignored(self):
+        data, _ = self.run_list(self.history_rows(), clock=True,
+                                date_header="Thu, 01 Jan 1970 00:00:00 GMT")
+        self.assertEqual(sorted(r["id"] for r in data),
+                         ["open-0", "open-1", "signed-open"],
+                         "有业务时钟时筛选用时钟，不读学校 Date 头")
+        self.assertEqual(self.timing_field("filter_time_source"), "clock")
 
 
 class DetailCancelFlagsTests(_ListHarness):

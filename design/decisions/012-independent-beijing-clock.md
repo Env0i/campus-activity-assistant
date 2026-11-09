@@ -100,6 +100,25 @@
 - Windows 时间服务：https://learn.microsoft.com/windows/win32/sysinfo/windows-time
 - GetTickCount64：https://learn.microsoft.com/windows/win32/api/sysinfoapi/nf-sysinfoapi-gettickcount64
 
+## 2026-11-09 修订（列表筛选可读学校 HTTP Date；业务时钟不变）
+
+背景：校时尚未就绪（尤其冷启动几秒内）时，旧行为是保留 325 场历史活动并逐场补详情，
+界面既慢又难挑。本修订只解决「列表筛选与排序」，**不改变业务时钟的定义**。
+
+- 规则 1（本机时间不权威）、规则 2（单一时钟）、规则 4（时钟门禁）、规则 7（提交边界）
+  全部不变；`Date` 不参与报名开放判定、计划启动、倒计时或任何提交边界。
+- `grab.py` 的列表请求把回包 HTTP `Date` 记进模块级只读记录（只留最近一次，每轮列表
+  开始前清空；解析要求带时区）。业务时钟不可用时用该时刻做 `keep_in_list` 与排序，
+  活动状态仍显示「待确认」（不拿 `Date` 冒充北京时间），且只给筛后要显示的活动补详情。
+  没有 `Date` 或解析失败时退回旧行为：保留全部、详情全补。`filter_time_source` 写进
+  `[timing] list` 行（`clock` / `school_date` / `none`）。
+- 界面拉列表前最多等约 8 秒北京时间（0.25 秒轮询，关闭中立即退出）；等不到照常拉，
+  由 `Date` 兜底。
+- 放弃的方案：把 HTTP `Date` 提升为业务时钟（拒绝：精度 ±1 秒且受网络往返影响，
+  与「实回转矩」冲突）；无 `Date` 时按本机时钟猜（拒绝：违反规则 1）。
+- 会再坏的条件：学校列表回包不再带 `Date`（退回旧行为，功能降级但不误判）；
+  或有人把 `school_date_now()` 接进报名/计划判定（违反本修订）。
+
 ## 验收边界（implemented/verified 与真实学校分开）
 
 - 首次同步的进行/结束状态由后端快照 `sync_status` 提供，不能因已收到 bootstrap

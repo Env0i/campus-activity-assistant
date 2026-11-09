@@ -506,6 +506,42 @@ def _request_nonce() -> str:
     return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
 
 
+# L2（计划 20261109-list-time-and-estimate）：学校列表回包的 HTTP Date 头。
+# 这是学校服务器的时刻，只许用于「列表筛选与排序」，不是业务时钟——报名开放
+# 判定、计划启动、倒计时仍只认 business_clock（决策 012 修订 2026-11-09）。
+_SCHOOL_DATE = {"raw": "", "epoch": None}
+
+
+def _remember_school_date(value) -> None:
+    """记下最近一次学校回包的 Date 头；解析失败也留原文，epoch 置空。"""
+    from email.utils import parsedate_to_datetime
+
+    text = str(value or "").strip()
+    if not text:
+        return
+    epoch = None
+    try:
+        parsed = parsedate_to_datetime(text)
+        # RFC 7231 的 Date 必须带时区；不带时无法换算成唯一 epoch
+        if parsed is not None and parsed.tzinfo is not None:
+            epoch = parsed.timestamp()
+    except Exception:
+        epoch = None
+    _SCHOOL_DATE["raw"] = text
+    _SCHOOL_DATE["epoch"] = epoch
+
+
+def school_date_now():
+    """最近一次列表回包 Date 头的 epoch 秒；没有或解析不了返回 None。"""
+    value = _SCHOOL_DATE.get("epoch")
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def clear_school_date() -> None:
+    """清空 Date 记录：每轮列表开始前调用，避免拿上一轮的旧头凑数。"""
+    _SCHOOL_DATE.update({"raw": "", "epoch": None})
+
+
 def _post(path, payload=None, tok=None, timeout=None, budget=None):
     """POST/GET 共用入口；传 budget 时超时被压进剩余预算。
 
@@ -534,6 +570,10 @@ def _post(path, payload=None, tok=None, timeout=None, budget=None):
         # 一次查询就把流程拖出截止（R03）
         resp = _school_open(req, timeout=15 if timeout is None else float(timeout))
         try:
+            # L2：列表分页回包的 Date 头只侧带出来给列表筛选用，不改返回结构
+            headers = getattr(resp, "headers", None)
+            if headers is not None:
+                _remember_school_date(headers.get("Date"))
             raw = resp.read().decode("utf-8", "replace")
         finally:
             resp.close()
@@ -1236,9 +1276,10 @@ def cmd_list(args):
             total_s = _perf_counter() - t_start
             pages = max(1, math.ceil(len(acts) / PAGE_SIZE))
             _stderr_note("[timing] list token_s=%.2f pages=%d pages_s=%.2f "
-                         "details=%d details_s=%.2f total_s=%.2f"
+                         "details=%d details_s=%.2f total_s=%.2f "
+                         "filter_time_source=%s"
                          % (token_s, pages, pages_s, details_n, details_s,
-                            total_s))
+                            total_s, filter_time_source))
         except Exception:
             pass
 
@@ -1257,6 +1298,8 @@ def cmd_list(args):
         # 这里先只拉列表不发详情，详情等下面筛完再补（见 enrich 调用处）。
         with _stdout_to_stderr(json_mode):
             t0 = _perf_counter()
+            # L2：先清上一轮的 Date 记录，只认本次列表回包的 Date 头
+            clear_school_date()
             acts = fetch_activities()
             pages_s = _perf_counter() - t0
     except PermissionError as exc:
@@ -1268,26 +1311,37 @@ def cmd_list(args):
 
     try:
         now = business_now()          # 列表筛选按业务北京时间
+        filter_now = now
+        filter_time_source = "clock"
     except ClockUnavailable:
         # 校时不可用仍可完成原始数据读取：不按系统时钟筛选/排行，
         # 状态与距开放一律显示未知，绝不把本机日期当北京时间。
         now = None
+        # L2：退而使用本次列表回包的 HTTP Date 头（学校服务器时刻），
+        # 只用于筛选与排序，不冒充业务时钟，也不进报名开放判定。
+        filter_now = school_date_now()
+        filter_time_source = "school_date" if filter_now is not None else "none"
         with _stdout_to_stderr(json_mode):
-            log("[!] 北京时间暂不可用：本次保留全部活动，开放状态显示未知。")
+            if filter_now is None:
+                log("[!] 北京时间暂不可用，回包也没有可用的 Date 头："
+                    "本次保留全部活动，开放状态显示未知。")
+            else:
+                log("[!] 北京时间暂不可用：已按学校服务器时间筛选要显示的活动。")
     # 默认只看报名还没截止的（历史活动几百条，混在一起没法挑）；
-    # 没有可信北京时间时不能按本机时钟过滤，保留全部由用户自行判断
-    # R1：已报名且举办没结束的补回（keep_in_list）；--all 与时钟不可用分支不变
-    rows = list(acts) if (args.all or now is None) \
-        else [a for a in acts if keep_in_list(a, now)]
+    # R1：已报名且举办没结束的补回（keep_in_list）；--all 与三种时间都缺失时保留全部
+    if args.all or filter_now is None:
+        rows = list(acts)
+    else:
+        rows = [a for a in acts if keep_in_list(a, filter_now)]
 
     def rank(a):
         # 未开放的排最前，其次开放中，已报名的垫底；时间未知时全部同档
         if a["signed"]:
             return 2
-        if now is None:
+        if filter_now is None:
             return 1
         try:
-            return 0 if now < parse_ts(a["sign_start"]) else 1
+            return 0 if filter_now < parse_ts(a["sign_start"]) else 1
         except Exception:
             return 1
 
@@ -1302,8 +1356,8 @@ def cmd_list(args):
         return 0
 
     if json_mode:
-        # 详情只补要显示的这些：--all 或北京时间不可用时 rows 就是全部活动，
-        # 仍全补——没有可信时钟分不出谁已截止，宁可慢也不按本机时钟猜；
+        # 详情只补要显示的这些：--all 或三种时间都拿不到时 rows 就是全部活动，
+        # 仍全补——分不出谁已截止，宁可慢也不按本机时钟猜；
         # 纯文本列表只给人看活动名与状态，照旧不为每场发详情请求。
         t0 = _perf_counter()
         with _stdout_to_stderr(json_mode):

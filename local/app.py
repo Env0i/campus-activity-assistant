@@ -633,6 +633,12 @@ class _RelayTree:
         _kill_tree(self.proc)
 
 
+# L1：拉活动列表前最多等约 8 秒北京时间；等不到照常拉，由 worker 用学校
+# 回包的 HTTP Date 头兜底筛选（L2）。测试可 patch 这两个常量。
+LIST_CLOCK_WAIT_S = 8.0
+LIST_CLOCK_POLL_S = 0.25
+
+
 class Api:
     def __init__(self, clock=None) -> None:
         # 独立北京时间（决策 012）：生产 main 注入 BusinessClock；
@@ -801,6 +807,29 @@ class Api:
         except Exception:
             return False
         return bool(upper >= lower)
+
+    def _wait_for_list_clock(self) -> float:
+        """拉列表前最多等约 8 秒北京时间，返回实际等待秒数。
+
+        只为挡掉「刚启动、校时还没好」的常见情况；等不到也照常拉列表，
+        由 worker 用学校回包的 Date 头兜底筛选（L2）。关闭中立即返回。
+        """
+        if self._clock_ready():
+            return 0.0
+        self._emit("log", "北京时间校准中，稍后加载活动")
+        started = time.monotonic()
+        deadline = started + float(LIST_CLOCK_WAIT_S)
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            with self._lock:
+                if self._closing:
+                    break
+            time.sleep(min(LIST_CLOCK_POLL_S, remaining))
+            if self._clock_ready():
+                break
+        return time.monotonic() - started
 
     def _clock_payload(self) -> dict:
         """bootstrap 的时钟载荷：demo 离线给显式标注的「演示时间」快照，
@@ -2246,6 +2275,7 @@ class Api:
                 self._pc_list_ok_at = self._pc_clock_text()
             self._emit("activities", {"ok": True, "items": items})
             return
+        clock_wait_s = self._wait_for_list_clock()
         started = time.monotonic()   # 总用时含 worker 启动；联网段由 [timing] 单独给
         res = self._run(worker_command("list", "--json"), timeout=120)
         elapsed = time.monotonic() - started
@@ -2277,12 +2307,20 @@ class Api:
                         key, value = part.split("=", 1)
                         fields[key] = value
                 total_s = float(fields["total_s"])
+                extra = ""
+                if clock_wait_s >= 0.05:
+                    extra += "，等北京时间约 %.1f 秒" % clock_wait_s
+                source = fields.get("filter_time_source", "clock")
+                if source == "school_date":
+                    extra += "，按学校服务器时间筛选"
+                elif source == "none":
+                    extra += "，时钟和学校时间都不可用"
                 timing_text = (
                     "活动列表用时 %.1f 秒：程序启动约 %.1f 秒，联网约 %.1f 秒"
-                    "（列表约 %d 页，补详情 %d 场）"
+                    "（列表约 %d 页，补详情 %d 场%s）"
                     % (elapsed, max(0.0, elapsed - total_s), total_s,
                        int(fields.get("pages", 0)),
-                       int(fields.get("details", 0))))
+                       int(fields.get("details", 0)), extra))
                 break
         except Exception:
             timing_text = "活动列表用时 %.1f 秒" % elapsed

@@ -489,6 +489,103 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
                                 "demo 模式不得被组件门禁拦截")
 
 
+class ListClockWaitTests(unittest.TestCase):
+    """L1：拉列表前最多等约 8 秒北京时间；等不到也照常拉，用时行写明等待与来源。"""
+
+    def setUp(self):
+        self.app = _app()
+        for patch in (mock.patch.object(self.app, "DEMO", False),):
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def _api(self):
+        api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
+        events = []
+        api._emit = lambda kind, payload=None: events.append((kind, payload))
+        return api, events
+
+    def _run_reply(self, stderr=""):
+        return {"code": 0, "out": "[]", "stdout": "[]", "stderr": stderr}
+
+    def test_waits_until_clock_ready_then_starts_worker(self):
+        api, events = self._api()
+        checks = []
+
+        def ready():
+            checks.append(time.monotonic())
+            return len(checks) > 2          # 第三次轮询时校时已好
+
+        with mock.patch.object(self.app, "LIST_CLOCK_WAIT_S", 1.0), \
+                mock.patch.object(self.app, "LIST_CLOCK_POLL_S", 0.05), \
+                mock.patch.object(api, "_clock_ready", ready), \
+                mock.patch.object(api, "_run", lambda *a, **k: self._run_reply()):
+            elapsed = self._timed(api._do_list)
+        self.assertGreaterEqual(elapsed, 0.09, "校时没好时要先等，不立刻拉列表")
+        logs = [p for k, p in events if k == "log"]
+        self.assertIn("北京时间校准中，稍后加载活动", logs)
+        acts = [p for k, p in events if k == "activities"]
+        self.assertEqual(len(acts), 1)
+        self.assertTrue(acts[0]["ok"], "等到了就照常加载")
+
+    def test_timeout_still_loads_the_list(self):
+        api, events = self._api()
+        with mock.patch.object(self.app, "LIST_CLOCK_WAIT_S", 0.2), \
+                mock.patch.object(self.app, "LIST_CLOCK_POLL_S", 0.05), \
+                mock.patch.object(api, "_clock_ready", lambda: False), \
+                mock.patch.object(api, "_run", lambda *a, **k: self._run_reply()):
+            elapsed = self._timed(api._do_list)
+        self.assertGreaterEqual(elapsed, 0.15, "等不到也要等满上限")
+        acts = [p for k, p in events if k == "activities"]
+        self.assertEqual(len(acts), 1, "超时不得跳过列表")
+        self.assertTrue(acts[0]["ok"])
+
+    def test_ready_clock_does_not_wait_or_warn(self):
+        api, events = self._api()
+        with mock.patch.object(self.app, "LIST_CLOCK_WAIT_S", 5.0), \
+                mock.patch.object(api, "_clock_ready", lambda: True), \
+                mock.patch.object(api, "_run", lambda *a, **k: self._run_reply()):
+            elapsed = self._timed(api._do_list)
+        self.assertLess(elapsed, 0.5, "时钟已就绪：立即拉列表")
+        logs = [p for k, p in events if k == "log"]
+        self.assertNotIn("北京时间校准中，稍后加载活动", logs)
+
+    def test_close_interrupts_the_wait(self):
+        api, _events = self._api()
+        api._closing = True
+        with mock.patch.object(self.app, "LIST_CLOCK_WAIT_S", 5.0), \
+                mock.patch.object(api, "_clock_ready", lambda: False), \
+                mock.patch.object(api, "_run", lambda *a, **k: self._run_reply()):
+            elapsed = self._timed(api._do_list)
+        self.assertLess(elapsed, 0.5, "关闭中不得把退出拖到 8 秒")
+
+    def test_timing_line_reports_wait_and_filter_source(self):
+        api, events = self._api()
+        checks = []
+
+        def ready():
+            checks.append(1)
+            return len(checks) > 1
+        stderr = ("[timing] list token_s=0.10 pages=1 pages_s=0.10 details=1 "
+                  "details_s=0.10 total_s=0.20 filter_time_source=school_date\n")
+        with mock.patch.object(self.app, "LIST_CLOCK_WAIT_S", 1.0), \
+                mock.patch.object(self.app, "LIST_CLOCK_POLL_S", 0.2), \
+                mock.patch.object(api, "_clock_ready", ready), \
+                mock.patch.object(api, "_run",
+                                  lambda *a, **k: self._run_reply(stderr)):
+            api._do_list()
+        timing = [str(p) for k, p in events
+                  if k == "log" and str(p).startswith("活动列表用时")]
+        self.assertEqual(len(timing), 1)
+        self.assertIn("等北京时间约 0.2 秒", timing[0])
+        self.assertIn("按学校服务器时间筛选", timing[0])
+
+    @staticmethod
+    def _timed(fn):
+        started = time.monotonic()
+        fn()
+        return time.monotonic() - started
+
+
 class ShutdownLifecycleTests(unittest.TestCase):
     """正常关闭收尾：先停协调器，再按树终止**仅本 Api 登记**的进程。"""
 
