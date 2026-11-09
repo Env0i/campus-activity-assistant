@@ -351,7 +351,7 @@ class SignupPlanOrderingTests(unittest.TestCase):
             events.append((kind, payload))
 
         def runner(spec, cancel_event, status):
-            return {"status": "canceled", "reason": "用户取消了这一场"}
+            return {"status": "canceled", "reason": "你取消了这一场"}
 
         coordinator = PlanCoordinator("plan-4", [spec_a, spec_b], runner, emit)
         coordinator.start()

@@ -496,7 +496,7 @@ out.push({
             [{"plan_id": "p1", "task_id": "t1", "activity_id": "a1", "name": "场一",
               "sign_start": "2026-10-26 09:00:00", "sign_end": "2026-10-26 23:00:00",
               "status": "canceled", "stop_reason": "user_stopped", "attempts": 0,
-              "reason": "用户取消了这一场"}],
+              "reason": "你取消了这一场"}],
             "stopped", {"canceled": 1})
         board = data["board"]
         self.assertEqual(board["tag"], "已停止")

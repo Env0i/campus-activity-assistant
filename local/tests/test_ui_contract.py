@@ -1275,6 +1275,9 @@ class TourAndLifecycleContractTests(unittest.TestCase):
                        'id="tour-skip"', 'id="tour-prev"', 'id="tour-next"',
                        'id="tour-step"', 'id="tour-dots"'):
             self.assertIn(needle, html, "引导结构缺 %s" % needle)
+        self.assertRegex(html, r'<h3 id="tour-title">[^<\s][^<]*</h3>',
+                         "#tour-card 是 role=dialog 且 aria-labelledby=tour-title："
+                         "标题静态不能为空，否则引导没开始前读屏只念「对话框」")
         self.assertIn('id="btn-help-tour"', html, "「更多」里必须有「重看引导」入口")
         self.assertIn('id="btn-help-tour"', html,
                       "说明底部必须有重播快捷入口（与更多共用同一条处理路径）")

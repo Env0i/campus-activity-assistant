@@ -202,7 +202,7 @@ def classify_task_stop(spec, code, tail: list, canceled: bool,
                     "locally_stopped": True,
                     **retry_payload(dict(stop, attempts=attempts_seen), spec,
                                     stop_reason="unconfirmed")}
-        return {"status": "canceled", "code": code, "reason": "用户取消了这一场",
+        return {"status": "canceled", "code": code, "reason": "你取消了这一场",
                 **retry_payload(stop, spec, stop_reason="user_stopped")}
     reason = ""
     for line in reversed(tail):

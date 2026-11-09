@@ -378,7 +378,7 @@ class PlanCoordinator:
             event.set()
             if state in {"queued", "waiting"}:
                 payload = self._set_state_locked(str(task_id), "canceled",
-                                                {"reason": "用户取消了这一场"})
+                                                {"reason": "你取消了这一场"})
         if payload is not None:
             self._publish("task", payload)
         return True

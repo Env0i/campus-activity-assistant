@@ -877,7 +877,33 @@ class AdvancedComponentDialogTests(unittest.TestCase):
         # 源码版走的是已装好的 Python 依赖：组件包对它没用，必须说人话而不是装上去
         self.assertFalse(result["ok"])
         self.assertEqual(result["error"], "source_build")
-        self.assertIn("cloudflared.exe", result["text"])
+        # 裸 cloudflared.exe 的入口已从界面去掉：提示不能再指向它，也不能指向 PATH 之类走不通的路
+        self.assertNotIn("选择 cloudflared.exe", result["text"])
+        self.assertIn("发布版", result["text"])
+
+    def test_pick_dialog_offers_only_zip_for_both_features(self):
+        """手机控制和验证码识别的选择框一致：只列组件包 ZIP；打不开时不指向只读输入框。"""
+        class _Window:
+            def __init__(self):
+                self.types = []
+                self.fail = False
+
+            def create_file_dialog(self, *_args, file_types=(), **_kwargs):
+                if self.fail:
+                    raise RuntimeError("no dialog")
+                self.types.append(tuple(file_types))
+                return None
+
+        window = _Window()
+        self.api._window = window
+        for key in ("phone_control", "relogin_ocr"):
+            self.api.pick_advanced_component(key)
+        self.assertEqual(window.types, [("组件包 (*.zip)",)] * 2)
+        window.fail = True
+        result = self.api.pick_advanced_component("phone_control")
+        self.assertEqual(result["error"], "dialog_unavailable")
+        self.assertNotIn("手动填写", result["text"])
+        self.assertIn("导入已下载的组件包", result["text"])
 
     def test_an_exe_for_the_ocr_feature_is_told_to_pick_a_zip(self):
         exe = self._file("ocr.exe")

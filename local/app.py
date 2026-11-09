@@ -1356,16 +1356,13 @@ class Api:
             return {"ok": False, "text": "未知高级功能"}
         if self._window is None:
             return {"ok": False, "text": "请在电脑窗口里选择文件。"}
-        if key == _advanced_features.PHONE_CONTROL:
-            types = ("cloudflared (*.exe)", "组件包 (*.zip)")
-        else:
-            types = ("组件包 (*.zip)",)
+        types = ("组件包 (*.zip)",)
         try:
             selected = self._window.create_file_dialog(
                 webview.FileDialog.OPEN, allow_multiple=False, file_types=types)
         except Exception:  # noqa: BLE001 - 原生对话框不可用不该让整个页面崩掉
             return {"ok": False, "error": "dialog_unavailable",
-                    "text": "打不开系统的文件选择框，请改用手动填写路径。"}
+                    "text": "打不开系统的文件选择框。请关掉设置后重新打开再试；仍不行，就到发布页下载组件包，再点「导入已下载的组件包」。"}
         if not selected:
             return {"ok": True, "canceled": True, "text": "已取消选择。"}
         return {"ok": True, "path": str(selected[0])}
@@ -1435,7 +1432,7 @@ class Api:
             # 与其「装完没变化」，不如直接说清该走哪条路
             return {"ok": False, "error": "source_build",
                     "text": "源码版用的是已装好的 Python 依赖，组件包对它不起作用；"
-                            "Cloudflare 通道请改为选择 cloudflared.exe。"}
+                            "手机访问用的 cloudflared 源码版也不会从 PATH 里找，请改用发布版导入组件包。"}
         with self._credential_lock, self._phone_access_lock:
             with self._lock:
                 if self._closing:
@@ -2703,7 +2700,7 @@ class Api:
                 status("submitting", {"detail": "演示：正在提交"})
                 for _ in range(4):
                     if cancel_event.is_set():
-                        return {"status": "canceled", "reason": "用户取消了这一场"}
+                        return {"status": "canceled", "reason": "你取消了这一场"}
                     time.sleep(0.05)
                 if spec.activity_id.endswith("career"):
                     return {"status": "failed", "code": 2, "reason": "演示：名额已满"}
