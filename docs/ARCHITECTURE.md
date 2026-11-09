@@ -204,6 +204,17 @@ controller/view DOM 分离不在本轮范围。
 - 守卫出错一律放行第一份（fail-open）；非 Windows 直接放行。窗口关闭后先停监听，收尾完成后再删 `instance.json`、放互斥量；进程崩溃时系统回收互斥量。
 - worker 子进程（`grab.py`、`grab-worker.exe`）不经过守卫，不受影响。
 
+### 网络与发布物下载（G1）
+
+- **学校请求直连**：`local/grab.py` 的学校请求故意绕开系统代理（实测代理会把校内域名当外网转发，出现「浏览器能进、脚本 401」）；这一条写死，不开放配置。
+- **更新与组件下载只走 Release 资产直链**：`local/update_check.py` 读
+  `releases/latest/download/manifest.json`（检查更新）与
+  `releases/download/v<版本>/manifest.json`（已知版本下载组件），不再请求 `api.github.com`。
+  未登录接口按出口 IP 限 60 次/小时，共享代理出口很容易打满并返回 403。
+- **校验不减少**：两份清单都要求版本/标签与请求一致，资产地址必须是本仓库
+  `releases/download/<tag>/<name>`；大小与 SHA-256 仍逐项核对。
+- 代理设置项暂不提供：这些请求跟随系统代理与环境变量；遇到 PAC 或只在浏览器里开代理的环境，先按运行记录里的失败原因排查。
+
 ### 报名链路（决策 015）
 
 - **直发为主、点击兜底**：开抢前调 `runtime/profile` 取运行时密钥（`fetch_runtime_key`），

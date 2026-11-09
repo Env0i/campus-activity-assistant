@@ -12,11 +12,12 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-LATEST_API = "https://api.github.com/repos/Env0i/campus-activity-assistant/releases/latest"
-LATEST_URL = "https://github.com/Env0i/campus-activity-assistant/releases/latest"
+REPO_BASE = "https://github.com/Env0i/campus-activity-assistant"
+LATEST_URL = REPO_BASE + "/releases/latest"
+# G1：检查更新只读这份清单直链，不再碰 api.github.com（未登录请求按出口 IP 限 60 次/小时）
+LATEST_MANIFEST_URL = REPO_BASE + "/releases/latest/download/manifest.json"
 REPO_DOWNLOAD_PREFIX = "/Env0i/campus-activity-assistant/releases/download/"
 TIMEOUT_S = 8
-MAX_BYTES = 256 * 1024
 MAX_MANIFEST_BYTES = 64 * 1024
 # 与 updater.DEFAULT_MAX_BYTES 同源口径：安装包下载上限（约 300 MB）
 MAX_INSTALLER_BYTES = 300 * 1024 * 1024
@@ -31,6 +32,12 @@ def parse_version(value: str) -> tuple[int, int, int]:
     if not match:
         raise ValueError("invalid version")
     return tuple(int(part) for part in match.groups())
+
+
+def tag_manifest_url(version: str) -> str:
+    """按标签拼清单直链（G1）：资产下载地址不受未登录接口的出口 IP 限流。"""
+    parse_version(version)
+    return REPO_BASE + "/releases/download/v" + version + "/manifest.json"
 
 
 def installer_asset_name(version: str) -> str:
@@ -141,6 +148,48 @@ def parse_manifest(raw, version: str, installer_name: str) -> dict:
     return parse_manifest_entry(raw, version, installer_name)
 
 
+def payload_from_manifest(raw, version: str | None = None) -> dict:
+    """把 Release 清单组装成与接口元数据同形的 payload，供既有的纯函数挑选资产（G1）。
+
+    version 已给（下载组件时是本机版本）就要求清单版本严格一致；检查更新时留空，
+    版本从清单自身的字段取。清单里没有它自己，这里补一条合成资产，
+    select_release_assets 才能像以前一样挑出 manifest_url。
+    """
+    if not isinstance(raw, (bytes, bytearray)):
+        raise ValueError("manifest not bytes")
+    data = json.loads(bytes(raw).decode("utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("manifest not an object")
+    manifest_version = data.get("version")
+    parse_version(manifest_version)
+    if version is not None and manifest_version != version:
+        raise ValueError("manifest version mismatch")
+    tag = data.get("tag")
+    if not isinstance(tag, str) or not tag or tag != "v" + manifest_version:
+        raise ValueError("manifest tag mismatch")
+    files = data.get("files")
+    if not isinstance(files, dict) or not files:
+        raise ValueError("manifest files missing")
+    base = REPO_BASE + "/releases/download/" + tag + "/"
+    assets = []
+    for name, entry in files.items():
+        if not isinstance(name, str) or not name or len(name) > 256:
+            raise ValueError("bad asset name")
+        if not isinstance(entry, dict):
+            raise ValueError("bad asset entry")
+        sha = entry.get("sha256")
+        size = entry.get("bytes")
+        if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", sha):
+            raise ValueError("bad sha256")
+        if (not isinstance(size, int) or isinstance(size, bool)
+                or size <= 0 or size > MAX_INSTALLER_BYTES):
+            raise ValueError("bad bytes")
+        assets.append({"name": name, "size": size, "browser_download_url": base + name})
+    assets.append({"name": MANIFEST_ASSET_NAME, "size": len(raw),
+                   "browser_download_url": tag_manifest_url(manifest_version)})
+    return {"tag_name": tag, "draft": False, "prerelease": False, "assets": assets}
+
+
 def resolve_component_asset(payload: dict, version: str, raw_manifest,
                             feature: str = "phone_control") -> dict:
     """把「组件资产 + Release 清单」解析成可用于下载的结论。
@@ -184,8 +233,7 @@ def _result(current: str, state: str, text: str, latest=None, error_code="") -> 
 
 def _fetch_bytes(url: str, limit: int, user_agent: str) -> bytes:
     """按上限拉一份响应体；超限按无效响应处理，不把大响应整个读进内存。"""
-    request = Request(url, headers={"Accept": "application/vnd.github+json",
-                      "User-Agent": user_agent})
+    request = Request(url, headers={"User-Agent": user_agent})
     with urlopen(request, timeout=TIMEOUT_S) as response:
         raw = response.read(limit + 1)
     if len(raw) > limit:
@@ -207,11 +255,12 @@ def evaluate_latest_release(current_version: str, payload: dict) -> dict:
     return _result(current_version, "preview", "当前为预览版本，最新正式版 " + version, version)
 
 
-def _attach_installer(result: dict, payload: dict) -> dict:
+def _attach_installer(result: dict, payload: dict, raw_manifest=None) -> dict:
     """可用版本补上安装器与 manifest 校验信息；缺安装器或清单不可用时退回发布页状态。
 
     网络类失败重新抛出，交回 check_latest_release 统一分类成 error——
     「拿不到清单」和「清单内容不对」不是一回事，前者可重试。
+    已经拿到的那份清单直接传进来，避免检查更新时再请求一次。
     """
     version = result["latest_version"]
     picked = select_release_assets(payload, version)
@@ -220,7 +269,8 @@ def _attach_installer(result: dict, payload: dict) -> dict:
         return dict(result, state="no_installer", error_code="no_installer",
                     text="发现新版本 " + version + "，但没有可校验的安装包，请前往下载页手动下载。")
     try:
-        raw = _fetch_bytes(picked["manifest_url"], MAX_MANIFEST_BYTES, "TianSoftActivityPreRegistration-manifest")
+        raw = raw_manifest if raw_manifest is not None else _fetch_bytes(
+            picked["manifest_url"], MAX_MANIFEST_BYTES, "TianSoftActivityPreRegistration-manifest")
         entry = parse_manifest(raw, version, installer["name"])
     except (ValueError, TypeError):
         return dict(result, state="no_installer", error_code="manifest_invalid",
@@ -232,20 +282,25 @@ def _attach_installer(result: dict, payload: dict) -> dict:
 
 
 def check_latest_release(current_version: str) -> dict:
-    """用户每次主动检查最多两个 GET（Release 元数据 + manifest），失败给分类而不泄露响应原文。"""
+    """用户每次主动检查只发一个 GET（Release 清单直链），失败给分类而不泄露响应原文。
+
+    G1：不走 api.github.com。未登录接口按出口 IP 限 60 次/小时，共享代理出口很容易打满；
+    资产直链不受这个限流，清单里已有每个资产的大小与 SHA-256，校验一点不少。
+    """
     try:
         parse_version(current_version)
         user_agent = "TianSoftActivityPreRegistration/" + current_version
-        payload = json.loads(_fetch_bytes(LATEST_API, MAX_BYTES, user_agent).decode("utf-8"))
+        raw = _fetch_bytes(LATEST_MANIFEST_URL, MAX_MANIFEST_BYTES, user_agent)
+        payload = payload_from_manifest(raw)
         result = evaluate_latest_release(current_version, payload)
         if result["state"] != "available":
             return result
-        return _attach_installer(result, payload)
+        return _attach_installer(result, payload, raw_manifest=raw)
     except HTTPError as exc:
         if exc.code == 404:
             return _result(current_version, "unavailable", "暂无正式发布")
         if exc.code in (403, 429):
-            return _result(current_version, "error", "GitHub暂时限制查询，请稍后重试或查看发布页。", error_code="rate_limited")
+            return _result(current_version, "error", "GitHub 暂时限制了查询次数，过一会再试，或到发布页手动下载。", error_code="rate_limited")
         return _result(current_version, "error", "GitHub暂时无法响应，请稍后重试。", error_code="http_error")
     except (TimeoutError, socket.timeout):
         return _result(current_version, "error", "连接超时，请重试或查看发布页。", error_code="timeout")

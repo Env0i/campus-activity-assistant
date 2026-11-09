@@ -115,6 +115,13 @@ _CREDENTIAL_STORE_OK = None
 # 电脑自己识别验证码连续失败这么多次，才把图交给手机上的人来打。
 # 只改这一个数字就能调整「多信任 OCR」的程度。
 _MANUAL_RELOGIN_AFTER = 3
+# G2：组件下载失败写进运行记录的说法，与界面红条（ui/views/phone.js 的 PHONE_DOWNLOAD_REASON）同源
+_DOWNLOAD_FAIL_REASONS = {
+    "network_error": "连不上发布页",
+    "http_error": "GitHub 暂时无法响应，请稍后重试",
+    "rate_limited": "GitHub 暂时限制了查询次数，过一会再试，或到发布页手动下载后导入",
+    "timeout": "连接超时",
+}
 # 报名进程确认登录失效后等界面自动登录的秒数（决策 015）：本机自动登录要开浏览器、
 # 认验证码，留够时间；只有电脑能自己登录时才传给 worker，否则传 0、照旧直接结束
 RELOGIN_WAIT_S = 45.0
@@ -746,7 +753,7 @@ class Api:
             asset_resolver=self._resolve_component_asset,
             install=self._install_downloaded_component,
             on_installed=self._component_installed,
-            on_finished=self._component_finished,
+            on_finished=lambda: self._component_finished(_advanced_features.PHONE_CONTROL),
             log=phone_log)
         self._ocr_component_service = _advanced_component.AdvancedComponentService(
             feature=_advanced_features.RELOGIN_OCR,
@@ -756,7 +763,7 @@ class Api:
                 version, _advanced_features.RELOGIN_OCR),
             install=self._install_downloaded_ocr,
             on_installed=self._ocr_component_installed,
-            on_finished=self._component_finished,
+            on_finished=lambda: self._component_finished(_advanced_features.RELOGIN_OCR),
             log=phone_log)
         # 上一次登录真实成功后由谁完成（auto_ocr / phone_manual）：只用于说明文案
         self._last_login_origin = ""
@@ -1094,23 +1101,17 @@ class Api:
         """
         try:
             _update_check.parse_version(version)
-            release_api = _update_check.LATEST_API.rsplit("/", 1)[0] + "/tags/v" + version
-            payload = json.loads(
-                _update_check._fetch_bytes(
-                    release_api, _update_check.MAX_BYTES,
-                    "TianSoftActivityPreRegistration/component").decode("utf-8"))
-            picked = _update_check.select_release_assets(payload, version)
-            raw_manifest = b""
-            if picked["manifest_url"]:
-                raw_manifest = _update_check._fetch_bytes(
-                    picked["manifest_url"], _update_check.MAX_MANIFEST_BYTES,
-                    "TianSoftActivityPreRegistration-component-manifest")
+            # G1：按标签拼清单直链，不请求 api.github.com（未登录接口按出口 IP 限流）
+            raw_manifest = _update_check._fetch_bytes(
+                _update_check.tag_manifest_url(version), _update_check.MAX_MANIFEST_BYTES,
+                "TianSoftActivityPreRegistration-component-manifest")
+            payload = _update_check.payload_from_manifest(raw_manifest, version)
             verdict = _update_check.resolve_component_asset(
                 payload, version, raw_manifest, feature)
         except HTTPError as exc:
             if exc.code in (403, 429):
                 return {"ok": False, "error": "rate_limited",
-                        "text": "GitHub 暂时限制查询，请稍后重试或查看发布页。"}
+                        "text": "GitHub 暂时限制了查询次数，过一会再试，或到发布页手动下载。"}
             if exc.code == 404:
                 return {"ok": False, "error": "no_component",
                         "text": "这个版本没有发布%s组件包。" % _component_title(feature)}
@@ -1123,8 +1124,8 @@ class Api:
                     else "network_error")
             return {"ok": False, "error": code, "text": "暂时连不上 GitHub，请检查网络后重试。"}
         except (ValueError, UnicodeError, TypeError):
-            return {"ok": False, "error": "invalid_response",
-                    "text": "组件包信息无法识别，请查看发布页。"}
+            return {"ok": False, "error": "manifest_invalid",
+                    "text": "组件包清单不可用，已停止下载。"}
         except OSError:
             return {"ok": False, "error": "network_error",
                     "text": "暂时连不上 GitHub，请检查网络后重试。"}
@@ -1145,9 +1146,31 @@ class Api:
             self._phone_channel = ""
             return _component_packages.install(archive, key, root=root)
 
-    def _component_finished(self) -> None:
+    def _component_finished(self, feature: str = "") -> None:
+        """组件下载事务收尾（工作线程）：放开占用，并把失败原因写进运行记录。
+
+        G2：界面红条只显示当前打开的那一条，用户事后回看运行记录时也要能看到同一句原因；
+        尚未开始就失败的路径由 download_advanced_feature 的返回值直接带到界面，不在这里重复写。
+        """
         with self._lock:
             self._advanced_busy = False
+        if not feature:
+            return
+        service = (self._ocr_component_service
+                   if feature == _advanced_features.RELOGIN_OCR else self._component_service)
+        try:
+            snap = service.snapshot()
+        except Exception:
+            return
+        if str(snap.get("state")) != "failed":
+            return
+        reason = _DOWNLOAD_FAIL_REASONS.get(str(snap.get("error_code") or ""))
+        text = reason or str(snap.get("text") or "")
+        if not text:
+            return
+        if text[-1] not in "。！？":
+            text += "。"
+        self._emit("log", "下载没有完成：" + text)
 
     def _component_installed(self, version: str) -> None:
         """组件装好后的收尾（在工作线程里被调用）：写启用状态、刷新 cloudflared。"""

@@ -278,23 +278,22 @@ class UpdateNetworkTests(unittest.TestCase):
         return result, fetch
 
     def test_one_request_fixed_endpoint_and_bounded_read(self):
-        response = self.response(json.dumps(release()).encode())
+        response = self.response(json.dumps(manifest(version="1.1.0")).encode())
         with patch.object(updates, "urlopen", return_value=response) as fetch:
             result = updates.check_latest_release("1.1.0")
         fetch.assert_called_once()
         request = fetch.call_args.args[0]
-        self.assertEqual(request.full_url, updates.LATEST_API)
+        self.assertEqual(request.full_url, updates.LATEST_MANIFEST_URL)
         self.assertEqual(request.get_method(), "GET")
         self.assertEqual(fetch.call_args.kwargs["timeout"], 8)
         self.assertNotIn("Authorization", request.headers)
-        response.read.assert_called_once_with(updates.MAX_BYTES + 1)
+        response.read.assert_called_once_with(updates.MAX_MANIFEST_BYTES + 1)
         self.assertEqual(result["state"], "current")
 
     def test_available_with_installer_carries_bytes_and_sha256(self):
-        bodies = [json.dumps(stable()).encode(),
-                  json.dumps(manifest()).encode()]
-        result, fetch = self.run_check(bodies)
-        self.assertEqual(fetch.call_count, 2)
+        # 清单只取一次：检查更新拿到后直接复用，不再请求 api.github.com
+        result, fetch = self.run_check([json.dumps(manifest()).encode()])
+        self.assertEqual(fetch.call_count, 1)
         self.assertEqual(result["state"], "available")
         self.assertEqual(result["latest_version"], "1.1.1")
         self.assertEqual(result["installer"]["name"], INSTALLER)
@@ -303,87 +302,78 @@ class UpdateNetworkTests(unittest.TestCase):
         self.assertEqual(result["installer"]["sha256"], "ab" * 32)
 
     def test_no_installer_asset_returns_release_page_state(self):
-        result, fetch = self.run_check([json.dumps(stable(installer=False)).encode()])
+        result, fetch = self.run_check([json.dumps(manifest(files={COMPONENT: {
+            "sha256": "cd" * 32, "bytes": 2048}})).encode()])
         self.assertEqual(fetch.call_count, 1)
         self.assertEqual(result["state"], "no_installer")
         self.assertEqual(result["error_code"], "no_installer")
         self.assertIsNone(result["installer"])
         self.assertIn("下载页", result["text"])
 
-    def test_no_manifest_asset_returns_release_page_state(self):
-        result, _ = self.run_check([json.dumps(stable(manifest_name=None)).encode()])
-        self.assertEqual(result["state"], "no_installer")
+    def test_payload_from_manifest_rejects_version_mismatch(self):
+        raw = json.dumps(manifest(version="1.1.0")).encode()
+        with self.assertRaises(ValueError):
+            updates.payload_from_manifest(raw, "1.1.1")
 
-    def test_manifest_version_mismatch_is_not_downloadable(self):
-        bodies = [json.dumps(stable()).encode(),
-                  json.dumps(manifest(version="1.1.0")).encode()]
-        result, _ = self.run_check(bodies)
-        self.assertEqual(result["state"], "no_installer")
-        self.assertEqual(result["error_code"], "manifest_invalid")
-        self.assertIsNone(result["installer"])
+    def test_payload_from_manifest_rejects_missing_or_wrong_tag(self):
+        # 标签是必填：不能靠默认值补出 v<版本>，否则没写 tag 的清单也会被当成对得上
+        for bad in (None, "", "v1.1.0", 111):
+            data = manifest()
+            if bad is None:
+                data.pop("tag")
+            else:
+                data["tag"] = bad
+            with self.subTest(tag=bad), self.assertRaises(ValueError):
+                updates.payload_from_manifest(json.dumps(data).encode())
 
     def test_manifest_bytes_mismatch_is_not_downloadable(self):
-        bodies = [json.dumps(stable(size=2048)).encode(),
-                  json.dumps(manifest(size=1024)).encode()]
-        result, _ = self.run_check(bodies)
-        self.assertEqual(result["state"], "no_installer")
-        self.assertEqual(result["error_code"], "manifest_invalid")
+        # payload 由清单自身生成时大小天然一致；_attach_installer 仍守住这道防御
+        payload = stable(size=2048)
+        result = updates.evaluate_latest_release("1.1.0", payload)
+        attached = updates._attach_installer(
+            result, payload, raw_manifest=json.dumps(manifest(size=1024)).encode())
+        self.assertEqual(attached["state"], "no_installer")
+        self.assertEqual(attached["error_code"], "manifest_invalid")
 
-    def test_invalid_manifest_returns_release_page_state(self):
-        for raw in (b"not json", b"[]", json.dumps(manifest(files={})).encode()):
+    def test_invalid_manifest_returns_invalid_response(self):
+        for raw in (b"not json", b"[]",
+                    json.dumps(manifest(files={})).encode(),
+                    json.dumps(manifest(files={INSTALLER: {"sha256": "zz", "bytes": 1}})).encode()):
             with self.subTest(size=len(raw)):
-                result, _ = self.run_check([json.dumps(stable()).encode(), raw])
-                self.assertEqual(result["state"], "no_installer")
-                self.assertEqual(result["error_code"], "manifest_invalid")
-
-    def test_draft_and_prerelease_never_become_available(self):
-        for payload in (release("v1.1.1", draft=True, prerelease=False),
-                        release("v1.1.1", draft=False, prerelease=True)):
-            with self.subTest(payload=payload):
-                result, _ = self.run_check([json.dumps(payload).encode()])
+                result, _ = self.run_check([raw])
                 self.assertEqual(result["state"], "error")
                 self.assertEqual(result["error_code"], "invalid_response")
 
-    def test_oversized_release_payload_rejected(self):
-        result, _ = self.run_check([b"x" * (updates.MAX_BYTES + 1)])
+    def test_payload_from_manifest_builds_release_download_urls(self):
+        payload = updates.payload_from_manifest(json.dumps(manifest()).encode())
+        urls = {item["name"]: item["browser_download_url"] for item in payload["assets"]}
+        self.assertEqual(urls[INSTALLER], DOWNLOAD + INSTALLER)
+        self.assertEqual(urls["manifest.json"], updates.tag_manifest_url("1.1.1"))
+        self.assertEqual(payload["tag_name"], "v1.1.1")
+        self.assertIs(payload["draft"], False)
+        self.assertIs(payload["prerelease"], False)
+
+    def test_tag_manifest_url_rejects_bad_version(self):
+        for version in ("1.1.1-beta", "v01.1.0", "", None):
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                updates.tag_manifest_url(version)
+
+    def test_oversized_manifest_rejected(self):
+        result, _ = self.run_check([b"x" * (updates.MAX_MANIFEST_BYTES + 1)])
         self.assertEqual(result["state"], "error")
         self.assertEqual(result["error_code"], "invalid_response")
 
-    def test_oversized_manifest_rejected(self):
-        bodies = [json.dumps(stable()).encode(),
-                  b"x" * (updates.MAX_MANIFEST_BYTES + 1)]
-        result, _ = self.run_check(bodies)
-        self.assertEqual(result["state"], "no_installer")
-        self.assertEqual(result["error_code"], "manifest_invalid")
-
-    def test_manifest_fetch_failure_is_retryable_error(self):
-        # 清单 GET 失败要归成可重试的 error，不能冒充“没有安装器”
-        for error in (HTTPError(updates.LATEST_API, 500, "", {}, io.BytesIO()),
-                      URLError("offline"), TimeoutError()):
-            with self.subTest(error=error):
-                calls = {"n": 0}
-
-                def fake_open(*args, **kwargs):
-                    calls["n"] += 1
-                    if calls["n"] > 1:
-                        raise error
-                    return self.response(json.dumps(stable()).encode())
-                with patch.object(updates, "urlopen", side_effect=fake_open):
-                    result = updates.check_latest_release("1.1.0")
-                self.assertEqual(result["state"], "error")
-                self.assertIn(result["error_code"], ("http_error", "network_error", "timeout"))
-
     def test_no_release(self):
-        result, _ = self.run_check([], error=HTTPError(updates.LATEST_API, 404, "", {}, io.BytesIO()))
+        result, _ = self.run_check([], error=HTTPError(updates.LATEST_MANIFEST_URL, 404, "", {}, io.BytesIO()))
         self.assertEqual(result["state"], "unavailable")
 
     def test_rate_limit(self):
         for code in (403, 429):
-            result, _ = self.run_check([], error=HTTPError(updates.LATEST_API, code, "", {}, io.BytesIO()))
+            result, _ = self.run_check([], error=HTTPError(updates.LATEST_MANIFEST_URL, code, "", {}, io.BytesIO()))
             self.assertEqual(result["error_code"], "rate_limited")
 
     def test_other_http_error(self):
-        result, _ = self.run_check([], error=HTTPError(updates.LATEST_API, 500, "", {}, io.BytesIO()))
+        result, _ = self.run_check([], error=HTTPError(updates.LATEST_MANIFEST_URL, 500, "", {}, io.BytesIO()))
         self.assertEqual(result["error_code"], "http_error")
 
     def test_timeout_and_network(self):
@@ -396,7 +386,7 @@ class UpdateNetworkTests(unittest.TestCase):
                 fetch.assert_called_once()
 
     def test_invalid_json_and_oversize(self):
-        for body in (b"not json", b"[]", b"\xff", b"x" * (updates.MAX_BYTES + 1)):
+        for body in (b"not json", b"[]", b"\xff", b"x" * (updates.MAX_MANIFEST_BYTES + 1)):
             with self.subTest(size=len(body)):
                 result, _ = self.run_check([body])
                 self.assertEqual(result["error_code"], "invalid_response")
@@ -584,6 +574,61 @@ class UpdateBridgeTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(self.api._update_result["state"], "failed")
         self.assertEqual(self.api._update_result["error_code"], "launch_failed")
+
+
+class DirectManifestReproTests(unittest.TestCase):
+    """G1 复现：api.github.com 对未登录请求按出口 IP 限 60 次/小时，共享代理出口打到 403。
+
+    期望行为：检查更新与组件解析都不再碰这个接口，改走 Release 资产直链
+    （releases/latest/download/manifest.json 与 releases/download/v<版本>/manifest.json），
+    清单里的 name/bytes/sha256 已经够用，校验一点不少。修复前这两条用例应当是红的。
+    """
+
+    def response(self, body):
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        response.read.return_value = body
+        return response
+
+    def fake_open(self, bodies):
+        queue = list(bodies)
+
+        def opener(request, *args, **kwargs):
+            url = request.full_url if hasattr(request, "full_url") else str(request)
+            if "api.github.com" in url:
+                raise HTTPError(url, 403, "", {}, io.BytesIO())
+            return self.response(queue.pop(0) if queue else b"")
+        return opener
+
+    def update_manifest(self, version="1.1.1"):
+        return manifest(version=version, files={
+            INSTALLER: {"sha256": "ab" * 32, "bytes": 1024},
+            COMPONENT: {"sha256": "cd" * 32, "bytes": 2048},
+        })
+
+    def test_api_rate_limit_does_not_block_update_check(self):
+        body = json.dumps(self.update_manifest()).encode()
+        with patch.object(updates, "urlopen", side_effect=self.fake_open([body])) as fetch:
+            result = updates.check_latest_release("1.1.0")
+        self.assertEqual(result["state"], "available")
+        urls = [call.args[0].full_url for call in fetch.call_args_list]
+        self.assertTrue(all("api.github.com" not in url for url in urls), urls)
+
+    def test_api_rate_limit_does_not_block_component_resolve(self):
+        api = local_app.Api.__new__(local_app.Api)
+        body = json.dumps(self.update_manifest()).encode()
+
+        def fake_fetch(url, limit, user_agent):
+            if "api.github.com" in url:
+                raise HTTPError(url, 403, "", {}, io.BytesIO())
+            return body
+        with patch.object(local_app._update_check, "_fetch_bytes", side_effect=fake_fetch) as fetch:
+            verdict = api._resolve_component_asset("1.1.1", "phone_control")
+        self.assertTrue(verdict["ok"], verdict)
+        self.assertEqual(verdict["asset"]["sha256"], "cd" * 32)
+        urls = [call.args[0] for call in fetch.call_args_list]
+        self.assertTrue(all("api.github.com" not in url for url in urls), urls)
 
 
 if __name__ == "__main__":

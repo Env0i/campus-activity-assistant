@@ -42,10 +42,40 @@ class ApiComponentCoordinationTests(unittest.TestCase):
         self.assertTrue(self.api._advanced_busy)
         self.assertEqual(self.api._component_service.start.call_count, 1)
 
-    def test_component_query_uses_installed_version_tag(self):
+    def test_component_query_uses_installed_version_manifest_direct_link(self):
+        # G1：按标签拼 Release 资产直链，不请求 api.github.com（未登录接口按出口 IP 限流）
         with mock.patch.object(self.app._update_check, "_fetch_bytes", side_effect=ValueError) as fetch:
             self.api._resolve_component_asset("1.2.0")
-        self.assertTrue(fetch.call_args.args[0].endswith("/releases/tags/v1.2.0"))
+        self.assertTrue(fetch.call_args.args[0].endswith("/releases/download/v1.2.0/manifest.json"))
+
+    def test_component_failure_writes_reason_to_run_log(self):
+        # G2：界面红条只显示当前 tab 的那一条，运行记录里也要留下同一句原因
+        self.api._advanced_busy = True
+        self.api._ocr_component_service = mock.Mock()
+        self.api._ocr_component_service.snapshot.return_value = {
+            "state": "failed", "error_code": "rate_limited",
+            "text": "GitHub 暂时限制了查询次数，过一会再试，或到发布页手动下载。"}
+        self.api._component_finished(self.app._advanced_features.RELOGIN_OCR)
+        self.assertFalse(self.api._advanced_busy)
+        self.api._emit.assert_called_once()
+        kind, line = self.api._emit.call_args.args
+        self.assertEqual(kind, "log")
+        self.assertEqual(line, "下载没有完成：GitHub 暂时限制了查询次数，"
+                               "过一会再试，或到发布页手动下载后导入。")
+
+    def test_component_success_and_cancel_write_no_failure_line(self):
+        for state in ("installed", "cancelled", "available", "missing"):
+            with self.subTest(state=state):
+                self.api._emit.reset_mock()
+                self.api._ocr_component_service = mock.Mock()
+                self.api._ocr_component_service.snapshot.return_value = {
+                    "state": state, "error_code": "", "text": "组件包已安装。"}
+                self.api._component_finished(self.app._advanced_features.RELOGIN_OCR)
+                self.api._emit.assert_not_called()
+
+    def test_component_finish_without_feature_stays_silent(self):
+        self.api._component_finished()
+        self.api._emit.assert_not_called()
 
     def test_cancel_unknown_start_prevents_late_original_from_creating_plan(self):
         self.api._start_requests = {}

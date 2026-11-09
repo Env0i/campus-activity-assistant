@@ -74,6 +74,7 @@ const docListeners = {};
 const winListeners = {};
 const timers = new Map();
 let timerSeq = 0;
+let createdCount = 0;
 const sandbox = {
   console, Math, JSON, Object, Array, Number, String, Boolean, RegExp, Error,
   parseInt, parseFloat, isNaN, Date, Uint8Array, Promise, Map, Set,
@@ -92,7 +93,7 @@ const sandbox = {
     querySelector: (s) => el2(s),
     querySelectorAll: (s) => (s === "[data-status]" ? ["#s-all", "#s-free"].map(el2)
                               : s === "[data-time]" ? ["#t-all", "#t-today"].map(el2) : []),
-    createElement: (tag) => el2("<" + tag + ">"),
+    createElement: (tag) => { createdCount += 1; return el2("<" + tag + ">"); },
     addEventListener: (t, fn) => {
       (docListeners[t] = docListeners[t] || []).push(fn);
       if (t === "DOMContentLoaded") listeners.push(fn);
@@ -118,6 +119,13 @@ sandbox.__fireTimers = () => {
   timers.clear();
   due.forEach((t) => t.fn());
 };
+// P1 整秒计时用：只触发 delay≤max 的定时器，同一次回调里新排的短定时器留到下次
+sandbox.__fireTimersUnder = (max) => {
+  Array.from(timers.entries()).forEach(([id, t]) => {
+    if (t.delay <= max) { timers.delete(id); t.fn(); }
+  });
+};
+sandbox.__createdCount = () => createdCount;
 sandbox.__fetch = () => Promise.resolve({ status: 500, json: () => Promise.resolve({}) });
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(uiDir, "app.js"), "utf8"), sandbox, { filename: "m/app.js" });
@@ -938,15 +946,26 @@ PhonePanel.state.advanced.features.phone_control.download = {state:"failed", err
   text:"下载超时，请重试。"};
 PhonePanel.paint();
 out.push({error:$("#phone-component-error").textContent});
+PhonePanel.state.advanced.features.phone_control.download = {state:"failed", error_code:"rate_limited",
+  text:"GitHub 暂时限制了查询次数，过一会再试，或到发布页手动下载。"};
+PhonePanel.paint();
+out.push({error:$("#phone-component-error").textContent});
+PhonePanel.state.advanced.features.phone_control.download = {state:"failed", error_code:"http_error",
+  text:"GitHub 暂时无法响应，请稍后重试。"};
+PhonePanel.paint();
+out.push({error:$("#phone-component-error").textContent});
 '''
-        row, network, timeout = run_phone_js(snippet, files=["views/phone.js"])
+        row, network, timeout, limited, http = run_phone_js(snippet, files=["views/phone.js"])
         self.assertEqual(row["error"], "下载超时，请重试。")
         self.assertFalse(row["errorHidden"])
         self.assertFalse(row["installHidden"], "失败后必须能重试")
         self.assertEqual(row["installText"], "重新下载")
         self.assertFalse(row["importHidden"], "下载失败后才露出导入链接（PH10）")
         self.assertEqual(network["error"], "下载没有完成：连不上发布页，可以重试。")
-        self.assertEqual(timeout["error"], "下载没有完成：网络中断，可以重试。")
+        self.assertEqual(timeout["error"], "下载没有完成：连接超时，可以重试。")
+        self.assertEqual(limited["error"], "下载没有完成：GitHub 暂时限制了查询次数，"
+                                          "过一会再试，或到发布页手动下载后导入。")
+        self.assertEqual(http["error"], "下载没有完成：GitHub 暂时无法响应，请稍后重试，可以重试。")
 
     def test_missing_cloudflared_keeps_the_install_entry(self):
         # fe-phone 同步：没装时的入口改成标题行的「下载并安装」（PH07），旧的「手机控制组件：未安装」状态行删除；
@@ -4447,7 +4466,9 @@ globalThis.__fetch = async () => ({status: 200, json: async () => ({
 await ui.poll(true);
 out.push(__timerDelays());
 """)
-        self.assertEqual(values, [[15000]])
+        values = values[0]
+        self.assertEqual(values[0], 15000)
+        self.assertLessEqual(values[1], 1000, "P1：另有每秒一次、对整秒的显示计时")
 
     def test_busy_plan_syncs_every_two_seconds(self):
         values = run_phone_js("""
@@ -4461,7 +4482,9 @@ globalThis.__fetch = async () => ({status: 200, json: async () => ({
 await ui.poll(true);
 out.push(__timerDelays());
 """)
-        self.assertEqual(values, [[2000]])
+        values = values[0]
+        self.assertEqual(values[0], 2000)
+        self.assertLessEqual(values[1], 1000, "P1：另有每秒一次、对整秒的显示计时")
 
     def test_relogin_in_flight_counts_as_active(self):
         values = run_phone_js("""
@@ -4477,7 +4500,9 @@ globalThis.__fetch = async () => ({status: 200, json: async () => ({
 await ui.poll(true);
 out.push(__timerDelays());
 """)
-        self.assertEqual(values, [[2000]], "验证码在等人工，界面数字在动，同步要跟上")
+        values = values[0]
+        self.assertEqual(values[0], 2000, "验证码在等人工，界面数字在动，同步要跟上")
+        self.assertLessEqual(values[1], 1000, "P1：另有每秒一次的显示计时")
 
     def test_hidden_page_does_not_schedule(self):
         values = run_phone_js("""
@@ -4494,7 +4519,7 @@ document.hidden = false;
 await ui.poll(true);
 out.push(__timers.size);
 """)
-        self.assertEqual(values, [0, 1], "后台一个定时器都不许留")
+        self.assertEqual(values, [0, 2], "后台一个定时器都不许留；回前台补同步同时也恢复显示计时")
 
     def test_unpaired_page_never_requests(self):
         """首屏探测只在可能已有会话时才发：没 cookie 就停在配对页，一个请求都不发。"""
@@ -4575,7 +4600,108 @@ release();
 await first;
 out.push([calls, __timers.size]);
 """)
-        self.assertEqual(values, [[1, 1]], "单飞 + 只留一个定时器")
+        self.assertEqual(values, [[1, 2]], "单飞 + 只留一个同步定时器，外加 P1 的整秒计时")
+
+
+class PhoneTickTests(unittest.TestCase):
+    """P1：每秒对整秒刷新北京时间与倒计时，只改数字、不重画、不额外联网。"""
+
+    def test_second_tick_updates_clock_without_repaint_or_network(self):
+        values = run_phone_js("""
+const ui = PhoneUI;
+ui.model.paired = true;
+let fetches = 0;
+globalThis.__fetch = async () => {
+  fetches += 1;
+  return {status: 200, json: async () => ({
+    state: { activities: [], busy: false, plan: null, terms_ok: true,
+             business_clock: {state: "ready", epoch_s: 3600, tick_s: 5, sampled_tick_s: 5},
+             retry_options: { default: 120, choices: [] } },
+    events: [], reset: false, seq: 1 })};
+};
+await ui.poll(true);
+out.push({delays: __timerDelays(), paired: ui.model.paired});
+$("#plan-board").hidden = true;          // 本用例只验时间数字，不验点阵重建
+$("#board-now-text").textContent = "旧";
+const painted = __createdCount();
+__fireTimersUnder(1000);                 // 只触发整秒计时，不触发 15 秒同步
+out.push({text: $("#board-now-text").textContent, fetches: fetches,
+          created: __createdCount() - painted, delays: __timerDelays()});
+""")
+        row, tick = values
+        self.assertEqual(row["delays"][0], 15000)
+        self.assertLessEqual(row["delays"][1], 1000, "P1：排一个对整秒的显示计时")
+        self.assertTrue(row["paired"])
+        self.assertRegex(tick["text"], r"^\d{2}:\d{2}:\d{2}$", "整秒刷新后显示北京时间")
+        self.assertEqual(tick["fetches"], 1, "整秒计时不额外联网")
+        self.assertEqual(tick["created"], 0, "只改数字，不重建页面")
+        self.assertLessEqual(tick["delays"][-1], 1000, "下一整秒继续排")
+
+    def test_next_tick_delay_aligns_to_business_second(self):
+        """P1：排程起点必须和显示用的 businessNowS 同一个，不能拿 performance.now() 取整秒。"""
+        values = run_phone_js("""
+out.push([PhoneModel.nextTickDelay(100.25), PhoneModel.nextTickDelay(100.999),
+          PhoneModel.nextTickDelay(100), PhoneModel.nextTickDelay(null),
+          PhoneModel.nextTickDelay(undefined)]);
+""")
+        self.assertEqual(values[0], [750, 16, 1000, 1000, 1000])
+
+    def test_visible_board_rebuilds_dots_only_when_countdown_changes(self):
+        """点阵屏没藏起来时：跨过一秒才重建点阵，同一个整秒内重复刷新不重建。"""
+        values = run_phone_js("""
+const ui = PhoneUI;
+ui.model.paired = true;
+const state = { activities: [{id: "a1", name: "篮球赛", place: "体育馆", open_ts: 7200}],
+  busy: false, plan: null, terms_ok: true,
+  business_clock: {state: "ready", epoch_s: 3600, tick_s: 5, sampled_tick_s: 5},
+  retry_options: { default: 120, choices: [] } };
+globalThis.__fetch = async () => ({status: 200, json: async () => ({state, events: [], seq: 1})});
+await ui.poll(true);
+out.push({hidden: $("#plan-board").hidden, dots: $("#board-led")._children.length,
+          aria: $("#board-led-wrap").getAttribute("aria-label")});
+$("#plan-board").hidden = false;          // 快照没给 board（无目标）时按真实渲染再放出来
+const painted = __createdCount();
+ui.tickClock();                            // 同一整秒内：数字没变，不重建
+out.push({sameSecond: __createdCount() - painted});
+ui.model.clock.monoAt -= 1000;             // 业务时间前进一秒，倒计时数字变化
+const before = $("#board-led-wrap").getAttribute("aria-label");
+ui.tickClock();
+out.push({created: __createdCount() - painted, changed: before !== $("#board-led-wrap").getAttribute("aria-label")});
+""")
+        first, same, next = values
+        self.assertFalse(first["hidden"], "有下一场时点阵屏是可见的")
+        self.assertGreater(first["dots"], 0)
+        self.assertEqual(same["sameSecond"], 0, "同一整秒内不重建点阵")
+        self.assertGreater(next["created"], 0, "跨秒后重建点阵")
+        self.assertTrue(next["changed"], "重建是因为倒计时文本变了")
+
+    def test_back_to_foreground_reschedules_and_syncs_once(self):
+        values = run_phone_js("""
+const ui = PhoneUI;
+ui.model.paired = true;
+let fetches = 0;
+globalThis.__fetch = async () => {
+  fetches += 1;
+  return {status: 200, json: async () => ({
+    state: { activities: [], busy: false, plan: null, terms_ok: true,
+             business_clock: {state: "ready", epoch_s: 3600, tick_s: 5, sampled_tick_s: 5},
+             retry_options: { default: 120, choices: [] } },
+    events: [], reset: false, seq: 1 })};
+};
+await ui.poll(true);
+document.hidden = true;
+__fire("doc", "visibilitychange");
+out.push({hiddenTimers: __timerDelays(), fetches: fetches});
+document.hidden = false;
+__fire("doc", "visibilitychange");
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+out.push({delays: __timerDelays(), fetches: fetches});
+""")
+        hidden, shown = values
+        self.assertEqual(hidden["hiddenTimers"], [], "切到后台把同步和整秒计时都停掉")
+        self.assertEqual(shown["fetches"], hidden["fetches"] + 1, "回前台立刻补一次同步重新对时")
+        self.assertLessEqual(len(shown["delays"]), 2)
+        self.assertLessEqual(min(shown["delays"]), 1000, "恢复整秒计时")
 
 
 

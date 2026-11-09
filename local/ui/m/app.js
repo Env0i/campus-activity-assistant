@@ -107,6 +107,15 @@ const PhoneModel = {
     return PhoneModel.isActive(model) ? PhoneModel.ACTIVE_SYNC_MS
       : PhoneModel.IDLE_SYNC_MS;
   },
+  /* P1：离业务时间（北京时间）的下一个整秒还有多少毫秒。排程必须用显示时间的同一个
+     起点——performance.now() 取整秒与 businessNowS 的小数偏移对不上，首个 tick 会偏近一秒；
+     时间不可信（待校准）时退回 1 秒，仍比拉数据的周期短 */
+  nextTickDelay(nowS) {
+    const s = Number(nowS);
+    if (!Number.isFinite(s) || s < 0) return 1000;
+    const remain = 1000 - ((s * 1000) % 1000);
+    return Math.min(1000, Math.max(16, remain));
+  },
 
   /* 过时/忙/空选都禁开始；时钟完全不可用也禁（EX06，决策 012「时钟不可用时不能开始报名」，
      与电脑端开始门禁同一口径）；停止始终可点。
@@ -2408,6 +2417,7 @@ if (typeof document !== "undefined") {
     } finally {
       model.flying = false;
       schedule();
+      scheduleTick();                 // P1：每次拉到快照都重新对齐整秒
       refreshControls();
       renderItems();
       renderPlan();
@@ -2423,6 +2433,8 @@ if (typeof document !== "undefined") {
     model.paired = false;
     if (model.pollTimer) clearTimeout(model.pollTimer);
     model.pollTimer = null;
+    if (model.tickTimer) clearTimeout(model.tickTimer);
+    model.tickTimer = null;
     stopPairLock();                    // 会话都没了，旧锁定倒计时一并收回
     $("app").hidden = true;
     $("pair").hidden = false;
@@ -2448,6 +2460,97 @@ if (typeof document !== "undefined") {
     if (typeof document !== "undefined" && document.hidden) return;
     if (!model.paired || model.flying) return;
     model.pollTimer = setTimeout(() => poll(false), PhoneModel.syncDelay(model));
+  }
+  /* P1：每秒对整秒刷一次只读数字（北京时间、点阵屏倒计时、「现在 HH:MM」与行内倒计时）。
+     不整页重画、不额外联网；快照仍由 schedule() 的 poll 更新，这里只按已有快照推进。
+     后台不排；回前台由 visibilitychange 立刻同步一次，重新对时。 */
+  function scheduleTick() {
+    if (model.tickTimer) clearTimeout(model.tickTimer);
+    model.tickTimer = null;
+    if (typeof document !== "undefined" && document.hidden) return;
+    if (!model.paired) return;
+    model.tickTimer = setTimeout(() => {
+      model.tickTimer = null;
+      tickClock();
+      scheduleTick();
+    }, PhoneModel.nextTickDelay(PhoneModel.businessNowS(model)));
+  }
+  function tickClock() {
+    if (typeof document !== "undefined" && document.hidden) return;
+    const nowS = PhoneModel.businessNowS(model);
+    const clockText = nowS !== null
+      ? PhoneModel.hhmmss(PhoneModel.beijingSecOf(nowS)) : "待校准";
+    const nowEl = $("board-now-text");
+    if (nowEl && !$("board-now").hidden && nowEl.textContent !== clockText) {
+      nowEl.textContent = clockText;
+    }
+    const chipText = nowS !== null
+      ? PhoneModel.hhmmss(PhoneModel.beijingSecOf(nowS)).slice(0, 5) : "";
+    if (typeof document !== "undefined" && typeof document.querySelectorAll === "function") {
+      /* 「现在」分隔行只有一个值，草稿/明天各区相同，逐个按当前时间对齐 */
+      document.querySelectorAll(".nowchip b").forEach((el) => {
+        if (chipText && el.textContent !== chipText) el.textContent = chipText;
+      });
+    }
+    const view = PhoneModel.listView(model.items, model.filter, {
+      nowS: nowS, wallS: Date.now() / 1000,
+      selected: model.selected, busy: model.busy, termsOk: model.termsOk,
+    });
+    tickBoardLed(nowS, view);
+    tickRowLeft(view);
+  }
+  /* 点阵屏只换数字：aria 里带着两行说明与倒计时文本，内容变了才重建点阵 */
+  function tickBoardLed(nowS, view) {
+    const section = $("plan-board");
+    if (!section || section.hidden) return;
+    const pendingNow = !!(model.pending && !model.pending.done);
+    const result = PhoneModel.resultView(model.plan, model.busy);
+    if (result) return;                    // 结果板没有 LED（renderBoard 已收起）
+    let board = null;
+    if (model.busy) {
+      board = PhoneModel.runBoard(model.plan, nowS,
+        PhoneModel.connState(model, model.flying).state === "off", model.lastOkText);
+    } else if (pendingNow) {
+      board = PhoneModel.pendingBoard(model.pending, Date.now());
+    } else if (model.termsOk === false) {
+      board = PhoneModel.termsBoard();
+    } else {
+      board = view.board;
+    }
+    if (!board || !board.led) return;
+    const wrap = $("board-led-wrap");
+    if (!wrap || wrap.hidden) return;
+    if (wrap.getAttribute("aria-label") === board.led.aria) return;
+    wrap.className = "led-wrap " + board.led.tone;
+    wrap.setAttribute("aria-label", board.led.aria);
+    const led = $("board-led");
+    led.style.gridTemplateColumns = "repeat(" + board.led.cols + ", minmax(0, 1fr))";
+    led.textContent = "";
+    board.led.dots.forEach((d) => {
+      const dot = document.createElement("i");
+      if (d.cls) dot.className = d.cls;
+      led.appendChild(dot);
+    });
+    $("board-cap-text").textContent = board.led.cap;
+    $("board-cap-b").textContent = board.led.capB;
+  }
+  /* 行内倒计时只打补丁：按 data-id 找到已渲染的行，只换 .time small，不重建列表 */
+  function tickRowLeft(view) {
+    if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;
+    const nodes = {};
+    document.querySelectorAll("[data-id]").forEach((el) => {
+      if (el && el.dataset) nodes[String(el.dataset.id)] = el;
+    });
+    (view.groups || []).forEach((group) => {
+      (group.rows || []).forEach((row) => {
+        const el = nodes[String(row.id)];
+        const small = el && el.querySelector ? el.querySelector(".time small") : null;
+        if (!small || !row.hasLeft) return;
+        if (small.textContent !== row.left) small.textContent = row.left;
+        const cls = row.leftCls || "";
+        if (String(small.className || "") !== cls) small.className = cls;
+      });
+    });
   }
   /* 首屏只做一次只读探测：只有可能已有会话（csrf cookie 还在）时才发一次，
      没 cookie 就是没配对过，直接停在配对页——不发请求，也不排定时器。 */
@@ -3126,6 +3229,8 @@ if (typeof document !== "undefined") {
       if (document.hidden) {
         if (model.pollTimer) clearTimeout(model.pollTimer);
         model.pollTimer = null;
+        if (model.tickTimer) clearTimeout(model.tickTimer);   // P1：后台停表
+        model.tickTimer = null;
       } else if (model.paired) {
         void poll(false);       // 回前台立刻补一次，仍按事件游标补齐
       }
@@ -3134,6 +3239,8 @@ if (typeof document !== "undefined") {
       window.addEventListener("pagehide", () => {
         if (model.pollTimer) clearTimeout(model.pollTimer);
         model.pollTimer = null;
+        if (model.tickTimer) clearTimeout(model.tickTimer);
+        model.tickTimer = null;
       });
       window.addEventListener("pageshow", () => {
         if (!document.hidden && model.paired) void poll(false); // bfcache 恢复后按游标补齐
@@ -3149,7 +3256,8 @@ if (typeof document !== "undefined") {
                          cancelRelogin, refreshRelogin, showComputerWindow,
                          openSheet, closeSheet, renderPair, beginPairLock, pair,
                          toggleSearch, renderBoard, renderRelogin, openRelogin,
-                         renderReview, askConfirm };   // SH01/SH03/SH04：核对渲染与确认槽供 vm 用例直接驱动
+                         renderReview, askConfirm, scheduleTick, tickClock };
+                         // SH01/SH03/SH04：核对渲染与确认槽供 vm 用例直接驱动；P1：整秒计时也可直接驱动
   if (document.readyState !== "loading") wire();
   else document.addEventListener("DOMContentLoaded", wire);
 }

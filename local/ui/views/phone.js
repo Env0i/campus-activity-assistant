@@ -89,16 +89,22 @@ function importCheckText(key, path, info) {
   return String(info.text || "自检没有返回结论。");
 }
 
-/* PH11：下载失败照原型拼「下载没有完成：原因，可以重试。」。网络类错误码归成原型的两种说法，
+/* PH11：下载失败照原型拼「下载没有完成：原因，可以重试。」。G2：限流、超时和断网分开说——
+ * 限流是 GitHub 按出口 IP 限制查询次数，等一会或去发布页手动下载都能绕过，不是连不上；
+ * 超时（连上了但没在时限内回包）与连不上（根本没连上）也要分开，用户才知道该等还是查网络；
  * 认不出的码（比如这个版本没有发布组件包、校验没过）回落后端原话，不硬套。 */
 const PHONE_DOWNLOAD_REASON = {
-  network_error: "连不上发布页", http_error: "连不上发布页", rate_limited: "连不上发布页",
-  timeout: "网络中断",
+  network_error: "连不上发布页",
+  http_error: "GitHub 暂时无法响应，请稍后重试",
+  rate_limited: "GitHub 暂时限制了查询次数，过一会再试，或到发布页手动下载后导入",
+  timeout: "连接超时",
 };
 
 function downloadFailText(download) {
   const snap = download || {};
-  const reason = PHONE_DOWNLOAD_REASON[String(snap.error_code || "")];
+  const code = String(snap.error_code || "");
+  const reason = PHONE_DOWNLOAD_REASON[code];
+  if (code === "rate_limited" && reason) return "下载没有完成：" + reason + "。";
   if (reason) return "下载没有完成：" + reason + "，可以重试。";
   return String(snap.text || "下载没有完成，可以重试。");
 }
