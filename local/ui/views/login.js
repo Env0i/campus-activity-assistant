@@ -2,8 +2,8 @@
 function paintLogin() {
   const pill = $("#pill");
   const detail = $("#status-detail");
-  /* 不显示剩余时间（学校不公布有效期，工具不估算，架构方案 4.5）：
-   * 已登录时胶囊旁写上次校验时刻，详情卡写「有效多久：学校不公布」。 */
+  /* 登录胶囊旁只写上次校验时刻；详情卡写「预计有效」（锚点 + 10 小时估，
+   * 纯提示，不参与放行或过期判定；决策 006 修订 2026-11-09）。 */
   const ok = S.login.ok;
   let cls = "pill";
   let text = "未登录";
@@ -70,7 +70,11 @@ function paintLogin() {
     text = "已登录";
     /* 只报事实：上次向学校校验的时刻；在别处登录（比如手机上的学校页面）会让这里失效 */
     sub = lastCheckText() ? lastCheckText() + " 校验" : "";
-    note = "学校确认登录有效；有效多久学校不公布，工具不估算";
+    /* E2：有估算才补「预计约到…，以学校为准」；没有就只报学校确认事实 */
+    const estimate = loginEstimateShort();
+    note = estimate && estimate.indexOf("约到") === 0
+      ? "学校确认登录有效；预计" + estimate + "，以学校为准"
+      : "学校确认登录有效";
     state = "ok";
   }
   if (termsLocked() && !S.demo && state !== "pending") {

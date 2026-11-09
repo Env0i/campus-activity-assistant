@@ -17,6 +17,11 @@ from domain.time_text import parse_local_time
 # 界面「修改计划」的禁用条件用的是同一个数（local/ui 里有同名常量和契约测试盯着）。
 LATE_WINDOW_S = 100
 
+# E1（计划 20261109-list-time-and-estimate，决策 006 修订 2026-11-09）：
+# 登录预计有效时长取实测下限 10 小时，宁可提前提醒；只作提示，
+# 绝不参与放行、拦截、过期判定或清理会话。
+LOGIN_ESTIMATE_H = 10.0
+
 
 def relogin_too_late(tasks, now, open_epoch) -> bool:
     """计划里还有没有时间让用户重新登录（架构方案 4.3）。
@@ -66,16 +71,63 @@ def component_error(exc: Exception) -> str:
     return "spawn_failed"
 
 
-def build_session_state(token, saved_text, hours_left, now=None) -> dict:
+def session_estimated_expires_at(save_epoch, lifetime_h: float = LOGIN_ESTIMATE_H):
+    """按登录锚点 + 预计寿命给出的预计失效时刻（epoch 秒）；锚点不可用返回 None。
+
+    E1：这只是提醒，与学校真实校验无关——估算到点不代表会话失效。
+    """
+    if isinstance(save_epoch, bool) or not isinstance(save_epoch, (int, float)):
+        return None
+    try:
+        value = float(save_epoch)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0:
+        return None
+    return value + float(lifetime_h) * 3600.0
+
+
+def session_estimate_from_anchor(timing, token: str, now):
+    """从 v2 锚点估算剩余小时与预计失效时刻（E1，纯函数）。
+
+    返回 {hours_left, estimated_expires_at, estimate_reason}：
+    - ok：锚点与当前凭证匹配，且有可信北京时间
+    - no_anchor：没有锚点，或锚点属于别的凭证（换登录/在别处登录后复用）
+    - clock_unavailable：锚点匹配但业务时钟不可用，估算不出来
+    """
+    saved_epoch = None
+    if isinstance(timing, dict) and timing.get("credential_id") == credential_id(token):
+        raw = timing.get("saved_epoch")
+        if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+            saved_epoch = float(raw)
+    if saved_epoch is None:
+        return {"hours_left": None, "estimated_expires_at": None,
+                "estimate_reason": "no_anchor"}
+    if now is None:
+        return {"hours_left": None, "estimated_expires_at": None,
+                "estimate_reason": "clock_unavailable"}
+    return {
+        "hours_left": hours_left_from_anchor(timing, token, now, LOGIN_ESTIMATE_H),
+        "estimated_expires_at": session_estimated_expires_at(saved_epoch),
+        "estimate_reason": "ok",
+    }
+
+
+def build_session_state(token, saved_text, hours_left=None, now=None, timing=None) -> dict:
     """登录三态快照（纯函数）：区分「从没登录过」和「登录过期」。
 
     「没有登录」= 缺 token；只有 token 还在但已过期才叫登录态失效。
     缺 token 时 hours_left 必须是 None——按 saved_at 报一个假的小时数会把
     空壳会话显示成有效。saved_at / estimated_expires_at 只是估算提醒，
     登录有效性永远以学校真实校验为准，二者绝不参与放行或拦截。
+
+    E1（2026-11-09）：估算改为「v2 锚点 + LOGIN_ESTIMATE_H」，
+    session_expired 与估算彻底脱钩——估算到点也不算失效，是否失效只由
+    学校真实校验（check 事件）决定。
     """
     state = {"session_present": False, "session_expired": False, "hours_left": None,
-             "saved_at": None, "estimated_expires_at": None}
+             "saved_at": None, "estimated_expires_at": None,
+             "estimate_reason": "no_anchor"}
     token = str(token or "").strip()
     saved_text = str(saved_text or "").strip()
     if not token:
@@ -84,13 +136,11 @@ def build_session_state(token, saved_text, hours_left, now=None) -> dict:
     saved = parse_local_time(saved_text)
     if saved is not None:
         state["saved_at"] = saved_text
-    state["hours_left"] = hours_left
-    if hours_left is not None and now is not None:
-        try:
-            state["estimated_expires_at"] = now + hours_left * 3600.0
-        except Exception:
-            state["estimated_expires_at"] = None
-    state["session_expired"] = hours_left is not None and hours_left <= 0
+    if timing is not None:
+        state.update(session_estimate_from_anchor(timing, token, now))
+    else:
+        # 兼容旧调用方：没有锚点时只回传调用方给的静态值，不据此算失效
+        state["hours_left"] = hours_left
     return state
 
 

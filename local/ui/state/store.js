@@ -73,7 +73,9 @@ const S = {
   listError: "",
   /* preLoginSnapshot：一次重新登录前的完整登录结论快照。取消/超时/失败时整份
    * 回滚，避免异步尝试的中途状态把仍有效的旧凭证画成「登录已失效」。 */
-  login: { hours: null, ok: null, expireAt: null, savedAt: null, present: null, checking: false, loginPending: false, result: null, preLoginSnapshot: null },
+  /* estimateReason：预计有效的来源（E2：ok / no_anchor / clock_unavailable），
+   * 只决定详情卡写哪种提示，不参与任何放行或过期判断 */
+  login: { hours: null, ok: null, expireAt: null, savedAt: null, present: null, checking: false, loginPending: false, result: null, estimateReason: null, preLoginSnapshot: null },
   /* 程序组件自检结论（worker_missing/worker_permission/spawn_failed）：非空时组件
    * 问题优先于登录/网络文案，登录与开始禁用。check/list 两分支按「刷新轮次」
    * 协同恢复：任一分支报组件故障立即挂横幅，另一分支成功/普通 unknown 不得撤；

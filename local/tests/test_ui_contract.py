@@ -2036,7 +2036,38 @@ out.push({ h1, h2, sub1, sub2, note: document.querySelector("#status-detail").te
         self.assertEqual(r["sub2"], r["sub1"], "时钟推进不改这句话：它是事实，不是倒计时")
         for banned in ("约剩", "小时", "过期"):
             self.assertNotIn(banned, r["sub1"], "胶囊不得显示剩余时间（%s）" % banned)
-        self.assertIn("学校不公布", r["note"], "说明里要讲清楚为什么不显示剩余时间")
+        self.assertIn("预计", r["note"], "有估算时说明里要给「预计…以学校为准」")
+        self.assertIn("以学校为准", r["note"], "估算必须写明以学校校验为准")
+        self.assertNotIn("学校不公布", r["note"], "E2 起改为按锚点给预计提示")
+
+    def test_login_estimate_five_writings(self):
+        """E2：预计有效的五种写法各就各位，且只作提示（不参与失效判定）。"""
+        res = run_js(r"""
+const H = 3600;
+const t0 = 1700000000000;
+setBusinessNow(t0);
+function cardOf(anchor, result) {
+  setLogin(null, result || "valid", true, anchor || {});
+  S.login.result = result || "valid";
+  renderLoginCard();
+  return document.querySelector("#login-pop-rows").textContent;
+}
+out.push({
+  ok: cardOf({ estimated_expires_at: t0 / 1000 + H, estimate_reason: "ok" }),
+  tomorrow: cardOf({ estimated_expires_at: t0 / 1000 + 20 * H, estimate_reason: "ok" }),
+  passed: cardOf({ estimated_expires_at: t0 / 1000 - 60, estimate_reason: "ok" }),
+  noAnchor: cardOf({ estimate_reason: "no_anchor" }),
+  noClock: cardOf({ estimate_reason: "clock_unavailable" }),
+});
+""")
+        r = res[0]
+        self.assertIn("预计有效", r["ok"], "详情卡行名改为「预计有效」")
+        self.assertRegex(r["ok"], r"约到 \d{2}:\d{2}（按登录后 10 小时估，以学校为准）")
+        self.assertIn("约到明天", r["tomorrow"], "跨天的估算写「明天」")
+        self.assertIn("已过预计时间，学校仍确认有效", r["passed"],
+                      "估算过点但学校仍有效：如实说明，不改登录结论")
+        self.assertIn("不知道（这次登录不是在本工具里完成的）", r["noAnchor"])
+        self.assertIn("北京时间校准后再估", r["noClock"])
 
     def test_repeated_check_does_not_renew_anchor(self):
         """刷新同一凭证：锚点是绝对时刻，不会按「本次刷新时刻 + hours」续期。"""
@@ -2219,7 +2250,8 @@ out.push({
         self.assertNotIn("小时", r["sub"], "不得编造剩余小时数")
         self.assertIn("还没有向学校校验过", r["card"], "状态卡要明说还没校验过，不能空着")
         self.assertIn("登录有效", r["note"], "说明文字要告诉用户登录本身是有效的")
-        self.assertIn("学校不公布", r["note"], "说明文字要讲清楚有效期不估算")
+        self.assertEqual(r["note"], "学校确认登录有效",
+                         "没有估算锚点时只报学校确认事实，不编有效期")
 
     def test_failed_relogin_keeps_countdown_instead_of_invalid(self):
         """超时/登录失败：保留旧有效期与「已登录」，只显示这次失败的说明。"""

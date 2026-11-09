@@ -907,10 +907,16 @@ class LifecycleContractTests(unittest.TestCase):
                 anchor_epoch = old_saved.timestamp()
                 app.save_session_timing_anchor("t-old", anchor_epoch)
                 with_anchor = app.login_state(TestWallClock())
-                # S3 起 hours_left 恒为 None，锚点不再参与剩余时间推算
-                # （界面改读 bootstrap 的 last_check_at / last_check_state）
-                self.assertIsNone(with_anchor["hours_left"],
-                                  "S3 起 hours_left 恒为 None，锚点不再推算剩余时间")
+                # E1（2026-11-09）：锚点 + 10 小时寿命给「预计有效」提示；
+                # 12 小时前登录已过预计点，剩余按 0 显示，但绝不据此判失效
+                self.assertEqual(with_anchor["hours_left"], 0.0,
+                                 "锚点已超预计寿命：剩余小时按 0 显示")
+                self.assertEqual(with_anchor["estimate_reason"], "ok")
+                self.assertAlmostEqual(with_anchor["estimated_expires_at"],
+                                       anchor_epoch + 10 * 3600, delta=1.0,
+                                       msg="预计失效 = 锚点 + 10 小时")
+                self.assertFalse(with_anchor["session_expired"],
+                                 "估算到点不等于登录失效，失效只由学校校验决定")
                 # 复用/刷新不续期：锚点 saved_epoch 不变
                 app.login_state(TestWallClock())
                 self.assertEqual(
@@ -953,11 +959,11 @@ class LifecycleContractTests(unittest.TestCase):
         self.assertAlmostEqual(life["closed_for_s"], 36000.0, delta=5.0,
                                msg="关闭时长覆盖整段关机间隔（这里 10 小时）")
 
-    def test_login_state_hours_left_is_always_none(self):
-        """S3 起 login_state 的 hours_left 恒为 None，不再按锚点或 saved_at 推算剩余时间。
+    def test_login_state_hours_left_follows_anchor_but_never_expires(self):
+        """E1（2026-11-09）：有匹配锚点 + 可信时钟时给预计有效，但估算不做失效判定。
 
-        有效性永远以学校真实校验为准，本机只提供三态快照：session_present / session_expired /
-        saved_at + hours_left=None。界面改读 bootstrap 里的 last_check_at / last_check_state。
+        预计失效 = 锚点 + 10 小时；没有锚点给 None/no_anchor，钟不可用给
+        None/clock_unavailable。session_expired 恒为 False，是否失效只由学校校验决定。
         """
         import tempfile
         app = self._app()
@@ -969,18 +975,29 @@ class LifecycleContractTests(unittest.TestCase):
                 {"token": "t", "saved_at": self._stamp(saved)}), encoding="utf-8")
             with mock.patch.object(app, "SESSION_FILE", session), \
                  mock.patch.object(app, "PREFS", prefs):
-                # 无锚点：hours_left 为 None（旧行为本来就是 None）
+                # 无锚点：不报数，也不能显示成已失效
                 state = app.login_state(TestWallClock())
-                self.assertIsNone(state["hours_left"],
-                                  "无锚点时 hours_left 应为 None（旧行为不变）")
+                self.assertIsNone(state["hours_left"])
+                self.assertIsNone(state["estimated_expires_at"])
+                self.assertEqual(state["estimate_reason"], "no_anchor")
+                self.assertFalse(state["session_expired"])
                 self.assertEqual(state["saved_at"], self._stamp(saved))
-                # 建立 v2 锚点：S3 起 hours_left 仍是 None（锚点不再参与剩余时间推算）
+                # 建立 v2 锚点：按「锚点 + 10 小时」给预计有效
                 app.save_session_timing_anchor("t", saved.timestamp())
                 state = app.login_state(TestWallClock())
-                self.assertIsNone(state["hours_left"],
-                                  "S3 起有锚点时 hours_left 也应为 None")
-                self.assertIsNone(state.get("estimated_expires_at"),
-                                  "S3 起 estimated_expires_at 不再推算")
+                self.assertEqual(state["hours_left"], 0.0,
+                                 "10 小时前登录正好到预计点，剩余按 0")
+                self.assertEqual(state["estimate_reason"], "ok")
+                self.assertAlmostEqual(state["estimated_expires_at"],
+                                       saved.timestamp() + 10 * 3600, delta=1.0)
+                self.assertFalse(state["session_expired"],
+                                 "估算到点不等于登录失效")
+                # 锚点匹配但业务时钟不可用：不猜，提示「校准后再估」
+                no_clock = app.login_state(None)
+                self.assertIsNone(no_clock["hours_left"])
+                self.assertIsNone(no_clock["estimated_expires_at"])
+                self.assertEqual(no_clock["estimate_reason"], "clock_unavailable")
+                self.assertFalse(no_clock["session_expired"])
                 # 过期场景（25 小时前登录）：会话文件不被改写、session_present 仍为 True
                 # （有效性只由学校校验决定，本机不推算到期时间）
                 stale = datetime.now() - timedelta(hours=25)
@@ -994,8 +1011,10 @@ class LifecycleContractTests(unittest.TestCase):
                                  "login_state 不得改写 session 文件")
                 self.assertTrue(expired["session_present"],
                                 "有 token 时 session_present 仍为 True，本机不推算到期")
-                self.assertIsNone(expired["hours_left"],
-                                  "过期场景 hours_left 也应为 None（S3 起不推算）")
+                self.assertEqual(expired["hours_left"], 0.0,
+                                 "过点后剩余小时夹到 0，不再倒成负数")
+                self.assertFalse(expired["session_expired"],
+                                 "25 小时前登录也不算失效：只等学校校验结论")
 
 
 class LoginAnchorProductionPathTests(unittest.TestCase):

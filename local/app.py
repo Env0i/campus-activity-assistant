@@ -540,8 +540,10 @@ def login_state(clock=None) -> dict:
     已过期才叫登录态失效。缺 token 时 hours_left 必须是 None——按 saved_at 报
     一个假的小时数会把空壳会话显示成有效。登录有效性永远以学校真实校验为准，
     这些字段绝不参与放行或拦截（S3 起不再输出剩余小时数）。
-    分类规则在 domain.login_rules（纯函数）；这里只负责读 session.json 并
-    保持旧名兼容（测试按 app.SESSION_FILE 注入）。
+
+    E1（计划 20261109，决策 006 修订 2026-11-09）：预计有效按本机 v2 锚点
+    （session_timing_v2）+ 可信业务时钟估；估算只作提示，session_expired 恒由
+    学校校验决定，估算到点也不算失效。分类规则在 domain.login_rules。
     """
     try:
         data = json.loads(SESSION_FILE.read_text(encoding="utf-8"))
@@ -551,10 +553,18 @@ def login_state(clock=None) -> dict:
         return _login_rules.build_session_state("", "", None, None)
     if not token:
         return _login_rules.build_session_state("", "", None, None)
-    # 不再按写死寿命倒推剩余时间（S3）：hours_left 恒为 None，
-    # 界面改读 bootstrap 里的 last_check_at / last_check_state。
-    # 旧字段先保留为 null，待 UI 计划移除。
-    return _login_rules.build_session_state(token, saved_text, None, None)
+    timing = None
+    try:
+        timing = (load_prefs() or {}).get("session_timing_v2")
+    except Exception:
+        timing = None
+    now = None
+    if clock is not None:
+        try:
+            now = clock.now()
+        except Exception:
+            now = None
+    return _login_rules.build_session_state(token, saved_text, None, now, timing=timing)
 
 
 def _last_check_fields(last: dict) -> dict:
@@ -2043,6 +2053,9 @@ class Api:
         state = login_state(self._clock)
         result, clock, payload = _login_service.build_check_event(
             state, code, out, err_code)
+        # E2（计划 20261109）：估算来源随 check 事件下发，界面据此写「预计有效」；
+        # 载荷塑形留在 application 层，这里只补一个附加字段，旧字段不变。
+        payload["estimate_reason"] = state.get("estimate_reason")
         self._last_check = {"result": result, "checked_at": time.time(),
                             "runtime_error": err_code}
         # 上次校验时刻随 check 事件一起给界面（与 bootstrap.login 同一口径），胶囊和登录卡据此显示

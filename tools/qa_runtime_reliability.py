@@ -2600,13 +2600,14 @@ def _(s: Session):
     s.settle()
     s.wait("document.querySelector('#pill-text').textContent.includes('已登录')", 10000)
     s.check_contains("#pill-text", "已登录")
-    # 旧断言「剩余时间明说未知、建议重新登录恢复估算」随剩余时间一起退场（架构方案 4.5）：
-    # 现在胶囊只写上次校验时刻，说明里讲清有效期学校不公布、工具不估算。
+    # 旧断言「剩余时间明说未知、建议重新登录恢复估算」随剩余时间一起退场（架构方案 4.5）；
+    # 2026-11-09 起说明里可带「预计约到 HH:MM」，但必须注明以学校为准（决策 006 修订），
+    # 没有锚点时只写「学校确认登录有效」。
     s.check_last_check_pill()
     s.check_not_contains("#status-detail", "约剩")
     note = s.text("#status-detail")
     s.check("详情说明登录本身有效", "登录有效" in note, note)
-    s.check("详情说明有效期不估算", "学校不公布" in note, note)
+    s.check("预计有效只作提示", "预计约到" not in note or "以学校为准" in note, note)
     s.wait("document.querySelectorAll('#rows .row').length >= 5")
     # 时间详情不再有登录剩余那一行（登录看登录状态卡），旧 saved_at 更不会被拿来冒充。
     s.pointer("#clock", "open-pop-legacy")

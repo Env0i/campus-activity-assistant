@@ -1,7 +1,8 @@
 /* 顶栏三张状态详情卡（北京时间 / 登录 / 手机，决策 014 第 3 条）：
  * 悬停约 0.2 秒打开、移开关闭，点击固定，Esc 关闭；卡片贴在各自按钮下面，窄档铺满宽度。
  * 时间卡沿用 views/clock-pop.js 的渲染，这里只管登录卡、手机卡和三张卡共用的开合规则。
- * 卡里只写后端快照里有的东西：登录不显示剩余时间（学校不公布，工具不估算），
+ * 卡里只写后端快照里有的东西：登录只写「预计有效」（锚点 + 10 小时估，纯提示，
+ * 不参与放行或过期判定；决策 006 修订 2026-11-09），
  * 手机状态只读 PhonePanel.state（phone_access_state 快照）。 */
 const STATUS_HOVER_MS = 200;
 const STATUS_CARDS = {
@@ -99,7 +100,7 @@ function renderLoginCard() {
     ? "上次校验 " + at + (S.login.lastCheckState === "valid" ? "，学校确认有效" : "")
     : "还没有向学校校验过";
   $("#login-pop-rows").innerHTML = cardRows([
-    ["有效多久", "学校不公布，工具不估算"],
+    ["预计有效", loginEstimateText()],
     ["别处登录", "会让这里失效，比如手机上的学校页面"],
   ]);
   $("#login-pop-note").textContent = view.note || "";
