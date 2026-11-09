@@ -466,6 +466,112 @@ class PhoneChannelPreferenceTests(unittest.TestCase):
         self.assertEqual(events[0][0], "window_close_ask")
         self.assertEqual(events[0][1]["default_action"], "ask")
 
+    # ---------- 关窗问询的计划负担（BE1）与隐藏通知（BE2，c3-dialogs-gap） ----------
+    class _PlanStub:
+        """PlanCoordinator 的只读替身：_close_plan_burden 只读 snapshot()，不新造状态。"""
+
+        def __init__(self, tasks):
+            self.tasks = tasks
+
+        def snapshot(self):
+            return {"plan_id": "p-stub", "status": "running", "tasks": self.tasks}
+
+    def test_close_burden_counts_waiting_and_formats_next_batch(self):
+        """BE1：waiting_count 只数 queued/waiting；next_batch_at 是最近一批的北京时间 HH:MM:SS。"""
+        self.api._plan = self._PlanStub([
+            {"task_id": "t1", "status": "waiting", "sign_start": "2026-11-08 14:30:00"},
+            {"task_id": "t2", "status": "queued", "sign_start": "2026-11-09 09:00:00"},
+            {"task_id": "t3", "status": "success", "sign_start": "2026-11-08 10:00:00"},
+            {"task_id": "t4", "status": "submitting", "sign_start": "2026-11-08 10:00:00"},
+        ])
+        with mock.patch.object(self.api, "_clock_ready", lambda: True):
+            burden = self.api._close_plan_burden()
+        self.assertEqual(burden["waiting_count"], 2, "已终态与正在提交的都不算「还没提交」")
+        self.assertEqual(burden["next_batch_at"], "14:30:00")
+
+    def test_close_burden_empty_without_clock_or_batch(self):
+        """BE1：钟不可用、批次时刻读不到、没有计划——next_batch_at 一律空串。"""
+        self.api._plan = self._PlanStub([
+            {"task_id": "t1", "status": "waiting", "sign_start": "不是时间"},
+        ])
+        with mock.patch.object(self.api, "_clock_ready", lambda: False):
+            self.assertEqual(self.api._close_plan_burden(),
+                             {"waiting_count": 1, "next_batch_at": ""})
+        with mock.patch.object(self.api, "_clock_ready", lambda: True):
+            self.assertEqual(self.api._close_plan_burden(),
+                             {"waiting_count": 1, "next_batch_at": ""})
+        self.api._plan = None
+        self.assertEqual(self.api._close_plan_burden(),
+                         {"waiting_count": 0, "next_batch_at": ""})
+
+    def test_ask_window_close_keeps_old_fields_and_adds_burden(self):
+        """BE1 只增不改：旧字段原样在场，waiting_count/next_batch_at 随载荷出去。"""
+        events = []
+        self.api._emit = lambda kind, payload: events.append((kind, dict(payload)))
+        self.api._ensure_tray = lambda: False
+        self.api._plan = self._PlanStub([
+            {"task_id": "t1", "status": "waiting", "sign_start": "2026-11-08 14:30:00"},
+        ])
+        with mock.patch.object(self.api, "_clock_ready", lambda: True):
+            result = self.api.ask_window_close()
+        self.assertTrue(result["ok"])
+        self.assertEqual(events[0][0], "window_close_ask")
+        payload = events[0][1]
+        # 旧字段与旧结论不回归（只补不删）
+        self.assertEqual(payload["default_action"], "ask")
+        for key in ("plan_running", "tray_ok", "phone_running", "phone_live"):
+            self.assertIn(key, payload)
+        self.assertEqual(payload["waiting_count"], 1)
+        self.assertEqual(payload["next_batch_at"], "14:30:00")
+
+    def test_hide_window_notifies_the_tray_once(self):
+        """BE2：隐藏成功恰弹一次托盘通知，标题与正文逐字（CW10）。"""
+        window = mock.Mock()
+        window.hide = mock.Mock()
+        self.api._window = window
+        self.api._ensure_tray = lambda: True
+        notifies = []
+
+        class _Tray:
+            def notify(self, title, text):
+                notifies.append((title, text))
+
+        self.api._tray = _Tray()
+        result = self.api.hide_window()
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(notifies, [("窗口已隐藏，工具在后台运行",
+                                     "报名计划照常运行。点右下角托盘图标回来，"
+                                     "也可以在手机页点“显示电脑窗口”。")])
+
+    def test_hide_window_without_tray_skips_the_notice(self):
+        """BE2：托盘没建起来（_tray 为 None）不弹也不抛，隐藏照常成功。"""
+        window = mock.Mock()
+        window.hide = mock.Mock()
+        self.api._window = window
+        self.api._ensure_tray = lambda: False
+        self.api._phone.live = True
+        self.api._tray = None
+        result = self.api.hide_window()
+        self.assertTrue(result["ok"], result)
+        self.assertFalse(result["tray"], "托盘没建起来要如实告诉界面")
+
+    def test_hide_window_survives_a_failing_tray_notify(self):
+        """BE2：notify 抛错只吞掉，不影响隐藏结果与返回值。"""
+        window = mock.Mock()
+        window.hide = mock.Mock()
+        self.api._window = window
+        self.api._ensure_tray = lambda: True
+
+        class _BadTray:
+            def notify(self, title, text):
+                raise RuntimeError("tray gone")
+
+        self.api._tray = _BadTray()
+        result = self.api.hide_window()
+        self.assertTrue(result["ok"], result)
+        self.assertTrue(result["hidden"])
+        window.hide.assert_called_once()
+
     def test_tailscale_preference_records_autostart(self):
         result = self.api.set_phone_access_preferences("tailscale")
         self.assertTrue(result["ok"])
@@ -937,6 +1043,14 @@ class AdvancedBackendFieldsTests(unittest.TestCase):
                 self.assertNotIn(info["path"], text)
                 self.assertNotIn(escaped, text)
                 self.assertNotIn("…\\advanced", text)
+
+    def test_migration_record_stays_out_of_the_phone_snapshot(self):
+        """BE3：迁移结果只给桌面横幅与运行记录，手机快照不得多出 migration 字段。"""
+        with mock.patch.object(self.local_app, "migration_record",
+                               lambda: {"moved": 3, "login_failed": False}):
+            snapshot = self.api._phone_raw_state()
+        self.assertNotIn("migration", snapshot,
+                         "迁移字段不进手机快照（手机页没有这条横幅）")
 
     # ---------- B4 staged / staged_hint ----------
     def test_staged_reports_a_masked_hint_and_never_the_password(self):

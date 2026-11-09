@@ -23,6 +23,22 @@ from pathlib import Path
 APP_DIR_NAME = "TianSoftActivityPreRegistration"
 # 迁移白名单：登录态与偏好；grab.log 只在缺失时一并带走，方便排查
 MIGRATE_FILES = ("session.json", "storage_state.json", "ui.json", "grab.log")
+# 失败时归入「登录信息」一类的文件；其余归入「设置或运行记录」
+LOGIN_FILES = ("session.json", "storage_state.json")
+
+# 本次进程启动时的迁移结果（BE3；MG01 原型 Main:2146 / MG02 原型 Main:2147）：
+# None=没发生迁移；{"moved": int, "login_failed": bool, "other_failed": bool} 由 _migrate_legacy_data
+# 只写一次。界面 bootstrap 只读它，不另存状态、不再读 stderr 去猜。
+_MIGRATION_RECORD: dict | None = None
+
+
+def migration_record() -> dict | None:
+    """只读取值：本次进程的旧数据迁移结果；没发生迁移返回 None。
+
+    返回副本，调用方改不动模块里的记录（记录只写一次，迁移不再重跑）。
+    """
+    record = _MIGRATION_RECORD
+    return dict(record) if record else None
 
 
 def _base_dir() -> Path:
@@ -64,13 +80,23 @@ def _migrate_legacy_data() -> None:
 
     任何失败都不阻断启动（打印一句可读提示）——迁移丢了还能手动拷贝，
     启动失败才是真问题。绝不覆盖目标已有文件，避免旧数据倒灌新数据。
+    结果同时记进 _MIGRATION_RECORD（BE3），供界面横幅与运行记录读取。
     """
+    global _MIGRATION_RECORD
     legacy = _legacy_data_dir()
+    moved = 0
+    login_failed = False
+    other_failed = False
     try:
         if legacy.resolve() == DATA_DIR.resolve():
             return
-        moved = 0
-        for name in MIGRATE_FILES:
+    except Exception as exc:  # noqa: BLE001 - 迁移是尽力而为，不让它挡住启动
+        print("[!] 旧数据迁移失败（不影响启动，可手动拷贝）：%s" % exc, file=sys.stderr)
+        _MIGRATION_RECORD = {"moved": 0, "login_failed": True, "other_failed": True}
+        return
+    for name in MIGRATE_FILES:
+        # 每个文件单独 try：一个失败不影响其余文件继续搬
+        try:
             source = legacy / name
             target = DATA_DIR / name
             if not source.is_file() or target.exists():
@@ -85,9 +111,19 @@ def _migrate_legacy_data() -> None:
                 moved += 1
             finally:
                 Path(temp_name).unlink(missing_ok=True)
-        if moved:
-            print("[i] 已把 %d 个旧数据文件搬到统一数据目录：%s" % (moved, DATA_DIR),
-                  file=sys.stderr)
-    except Exception as exc:  # noqa: BLE001 - 迁移是尽力而为，不让它挡住启动
-        print("[!] 旧登录数据迁移失败（不影响启动，可手动拷贝）：%s" % exc,
+        except Exception as exc:  # noqa: BLE001 - 迁移是尽力而为，不让它挡住启动
+            is_login = name in LOGIN_FILES
+            print("[!] 旧%s没能搬过来（不影响启动，可手动拷贝）：%s"
+                  % ("登录信息" if is_login else "设置或运行记录", exc), file=sys.stderr)
+            if is_login:
+                login_failed = True
+            else:
+                other_failed = True
+    if moved:
+        print("[i] 已把 %d 个旧数据文件搬到统一数据目录：%s" % (moved, DATA_DIR),
               file=sys.stderr)
+    if moved or login_failed or other_failed:
+        # MG02（原型 Main:2147）：失败原因不给界面看原文（可能带本机路径），
+        # 只给「哪一类没搬过来」
+        _MIGRATION_RECORD = {"moved": moved, "login_failed": login_failed,
+                             "other_failed": other_failed}

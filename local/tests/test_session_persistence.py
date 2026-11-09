@@ -95,7 +95,8 @@ class DataRootResolutionTests(unittest.TestCase):
 class LegacyMigrationTests(unittest.TestCase):
     """旧 EXE 旁 data 的一次性原子迁移。"""
 
-    def _run_migration(self, tmp: Path, preset_target: dict | None = None) -> Path:
+    def _migrate(self, tmp: Path, preset_target: dict | None = None):
+        """冻结模拟下跑一次迁移，返回 (target, runtime_paths 模块)。"""
         legacy = tmp / "old-exe"
         (legacy / "data").mkdir(parents=True)
         (legacy / "campus-activity-watch.exe").write_bytes(b"fake")
@@ -111,7 +112,10 @@ class LegacyMigrationTests(unittest.TestCase):
             import runtime_paths
             module = importlib.reload(runtime_paths)
             module.ensure_data_dir()
-        return target
+        return target, module
+
+    def _run_migration(self, tmp: Path, preset_target: dict | None = None) -> Path:
+        return self._migrate(tmp, preset_target)[0]
 
     def test_migration_copies_missing_files_atomically(self):
         import tempfile
@@ -151,10 +155,134 @@ class LegacyMigrationTests(unittest.TestCase):
                 import runtime_paths
                 module = importlib.reload(runtime_paths)
                 try:
-                    module.ensure_data_dir()  # 不得抛异常
+                    self.assertEqual(module.ensure_data_dir(), module.DATA_DIR,
+                                     "迁移失败也要正常返回数据根")
                 except Exception as exc:  # pragma: no cover - 防御性断言
                     self.fail("迁移失败不得阻断启动：%s" % exc)
+                # BE3：失败留在只读记录里（MG02 横幅/运行记录的唯一来源），
+                # 搬了几个照实记（这次 copy2 全部失败，所以是 0）。
+                # 新语义：每个文件单独 try，这里只有 session.json 存在且失败，
+                # 所以只记 login_failed，other_failed 为 False。
+                self.assertEqual(module.migration_record(),
+                                 {"moved": 0, "login_failed": True, "other_failed": False})
             self.assertTrue(target.is_dir(), "数据根本身必须已创建")
+
+    def test_migration_record_counts_moved_files(self):
+        """BE3：成功迁移记下真实搬过来的文件数，login_failed=False。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            _target, module = self._migrate(tmp)
+            self.assertEqual(module.migration_record(),
+                             {"moved": 3, "login_failed": False, "other_failed": False})
+
+    def _migrate_with_copy_failing(self, tmp: Path, failing: tuple):
+        """四个旧文件都在；copy2 对 failing 里的文件名抛 PermissionError，其余照常复制。"""
+        legacy = tmp / "old"
+        (legacy / "data").mkdir(parents=True)
+        for name in ("session.json", "storage_state.json", "ui.json", "grab.log"):
+            (legacy / "data" / name).write_text('{"legacy": "%s"}' % name, encoding="utf-8")
+        target = tmp / "target"
+        target.mkdir()
+        import shutil
+        real_copy2 = shutil.copy2
+
+        def flaky(src, dst, *a, **kw):
+            if Path(src).name in failing:
+                raise PermissionError("locked")
+            return real_copy2(src, dst, *a, **kw)
+
+        with mock.patch.dict("os.environ", {"CAMPUS_DATA_DIR": str(target)}, clear=False), \
+                mock.patch.object(sys, "frozen", True, create=True), \
+                mock.patch.object(sys, "executable", str(legacy / "x.exe")), \
+                mock.patch("shutil.copy2", side_effect=flaky):
+            import runtime_paths
+            module = importlib.reload(runtime_paths)
+            module.ensure_data_dir()
+        return target, module
+
+    def test_login_file_failure_does_not_stop_other_files(self):
+        """每个文件单独 try：session.json 失败，其余三个照常搬到，moved 照实记 3。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            target, module = self._migrate_with_copy_failing(Path(name), ("session.json",))
+            self.assertFalse((target / "session.json").exists())
+            for fname in ("storage_state.json", "ui.json", "grab.log"):
+                self.assertTrue((target / fname).is_file(), "其余文件仍应搬到：%s" % fname)
+            self.assertEqual([p.name for p in target.iterdir() if p.name.endswith(".tmp")], [])
+            self.assertEqual(module.migration_record(),
+                             {"moved": 3, "login_failed": True, "other_failed": False})
+
+    def test_other_file_failure_keeps_login_moved(self):
+        """只有 ui.json 失败：登录文件搬好，记录为 other_failed 而 login_failed=False。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            target, module = self._migrate_with_copy_failing(Path(name), ("ui.json",))
+            self.assertTrue((target / "session.json").is_file())
+            self.assertTrue((target / "grab.log").is_file())
+            self.assertEqual(module.migration_record(),
+                             {"moved": 3, "login_failed": False, "other_failed": True})
+
+    def test_login_and_other_failures_both_recorded(self):
+        """登录文件与 grab.log 都失败：两类都记，session.json 与 ui.json 仍搬到。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            target, module = self._migrate_with_copy_failing(
+                Path(name), ("storage_state.json", "grab.log"))
+            self.assertTrue((target / "session.json").is_file())
+            self.assertTrue((target / "ui.json").is_file())
+            self.assertEqual(module.migration_record(),
+                             {"moved": 2, "login_failed": True, "other_failed": True})
+
+    def test_migration_record_is_none_when_no_migration_happened(self):
+        """BE3：源码态不迁移（frozen 判断不变），记录保持 None，横幅不出现。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            target = Path(name) / "dev-data"
+            with mock.patch.dict("os.environ", {"CAMPUS_DATA_DIR": str(target)}, clear=False), \
+                    mock.patch.object(sys, "frozen", False, create=True):
+                import runtime_paths
+                module = importlib.reload(runtime_paths)
+                self.assertEqual(module.ensure_data_dir(), module.DATA_DIR)
+                self.assertIsNone(module.migration_record(),
+                                  "没发生迁移时记录必须是 None")
+
+
+class MigrationBootstrapContractTests(unittest.TestCase):
+    """BE3：bootstrap.migration 两态（None / {moved, login_failed}）。
+
+    迁移记录来自 runtime_paths.migration_record()，这里按模块级名字打补丁
+    （app.py 保留再导出正是为了这种注入），不重跑真实迁移、不碰真实数据目录。
+    """
+
+    def _app(self):
+        sys.path.insert(0, str(LOCAL))
+        try:
+            import app as local_app
+        except Exception as exc:
+            self.skipTest("无法导入 local/app.py：%s" % exc)
+        finally:
+            sys.path.pop(0)
+        return local_app
+
+    def test_bootstrap_migration_field_two_states(self):
+        import tempfile
+        app = self._app()
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            with mock.patch.object(app, "PREFS", tmp / "ui.json"), \
+                    mock.patch.object(app, "SESSION_FILE", tmp / "session.json"), \
+                    mock.patch.object(app, "DEMO", True):
+                api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
+                with mock.patch.object(app, "migration_record", lambda: None):
+                    self.assertIsNone(api.bootstrap()["migration"],
+                                      "没发生迁移时 bootstrap.migration 必须是 None")
+                success = {"moved": 3, "login_failed": False, "other_failed": False}
+                with mock.patch.object(app, "migration_record", lambda: success):
+                    self.assertEqual(api.bootstrap()["migration"], success)
+                failed = {"moved": 0, "login_failed": True, "other_failed": False}
+                with mock.patch.object(app, "migration_record", lambda: failed):
+                    self.assertEqual(api.bootstrap()["migration"], failed)
 
 
 class LoginStateContractTests(unittest.TestCase):

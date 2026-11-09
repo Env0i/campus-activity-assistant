@@ -52,7 +52,8 @@ import updater
 
 # 登录态/偏好统一数据根：开发用 local/data，冻结 EXE 用 %LOCALAPPDATA%
 # （CAMPUS_DATA_DIR 可覆盖），与 grab-worker 解析出同一份登录文件
-from runtime_paths import DATA_DIR, LOG_FILE, SESSION_FILE, UI_STATE_FILE, ensure_data_dir
+from runtime_paths import (DATA_DIR, LOG_FILE, SESSION_FILE, UI_STATE_FILE,
+                           ensure_data_dir, migration_record)
 
 # 分层依赖（只准向下）：app（interface 外观）→ application → domain 纯规则；
 # 外部副作用统一走 infrastructure 适配器。旧模块级名字保留为兼容包装/再导出，
@@ -957,6 +958,10 @@ class Api:
             # 生命周期元数据（上一周期关闭时长/质量 + 登录估算）：只作提示，
             # 不参与任何放行/拦截；F5 重载重复调用拿到的是同一份进程级快照
             "lifecycle": lifecycle_info,
+            # MG01/MG02（BE3，原型 Main:2146/2147）：本次进程启动时旧数据迁移的
+            # 结果，{moved, login_failed} 或 None（没发生迁移）。只给桌面横幅与
+            # 运行记录，不进手机快照。
+            "migration": migration_record(),
             # demo 标记：界面据此放行演示计划（真实模式仍要求登录校验 valid）
             "demo": DEMO,
             # 三种重试模式的权威选项与默认值：桌面/手机共用这一份口径
@@ -2800,11 +2805,41 @@ class Api:
         except Exception:
             return False
 
+    def _close_plan_burden(self) -> dict:
+        """关窗问询用的计划负担（BE1，c3-dialogs-gap CW03/CW04/CW08）：
+        waiting_count=还没提交的场数，next_batch_at=最近一批开放的北京时间 HH:MM:SS。
+
+        只读协调器现有快照（statuses queued/waiting），不新造状态；时刻换算走
+        time_contract（决策 012），不读本机墙钟，钟不可用（_clock_ready 为假）或
+        拿不到批次时 next_batch_at 给空串。任何异常都按「拿不到」处理：这两个
+        字段只影响文案里的数字，绝不能把关窗问询本身卡死。
+        """
+        try:
+            plan = getattr(self, "_plan", None)
+            if plan is None:
+                return {"waiting_count": 0, "next_batch_at": ""}
+            tasks = (plan.snapshot() or {}).get("tasks") or []
+            pending = [task for task in tasks
+                       if str(task.get("status") or "") in {"queued", "waiting"}]
+            if not pending:
+                return {"waiting_count": 0, "next_batch_at": ""}
+            next_at = ""
+            if self._clock_ready():
+                epochs = [school_epoch(str(task.get("sign_start") or "")) for task in pending]
+                epochs = [epoch for epoch in epochs if epoch is not None]
+                if epochs:
+                    # school_time_text 输出 YYYY-MM-DD HH:MM:SS，取后段的时刻
+                    next_at = school_time_text(min(epochs))[11:]
+            return {"waiting_count": len(pending), "next_batch_at": next_at}
+        except Exception:
+            return {"waiting_count": 0, "next_batch_at": ""}
+
     def ask_window_close(self) -> dict:
         """把「要关了，你想怎样」推给界面去选；返回本次判定依据。
 
         tray_ok / phone_running / phone_live 让对话框先列出正在运行的东西，并说清
         「隐藏到后台」能不能用：托盘建不起来、手机又没连时隐藏就叫不回来（与 hide_window 同一道门）。
+        waiting_count / next_batch_at（BE1）给利害清单与退出代价写真实数字，只增不改。
         """
         plan_running = self.plan_active_for_close()
         action = resolve_close_action(load_prefs(), plan_running)
@@ -2819,6 +2854,7 @@ class Api:
             phone_running = phone_live = False
         payload = {"plan_running": plan_running, "default_action": action,
                    "tray_ok": tray_ok, "phone_running": phone_running, "phone_live": phone_live}
+        payload.update(self._close_plan_burden())
         self._emit("window_close_ask", payload)
         return dict(payload, ok=True)
 
@@ -2897,7 +2933,23 @@ class Api:
             return {"ok": False, "error": "no_window", "text": "窗口不可用，没能隐藏。"}
         phone_log("窗口已隐藏到后台；进程继续运行，托盘或手机页可以唤回")
         self._window_hidden = True
+        self._notify_window_hidden()
         return {"ok": True, "action": "hide", "hidden": True, "tray": self._tray is not None}
+
+    def _notify_window_hidden(self) -> None:
+        """隐藏成功后弹一次托盘系统通知（BE2，c3-dialogs-gap CW10）：窗口一藏，
+        任务栏上就没有按钮了，托盘气泡是「怎么叫回来」的路标。
+
+        托盘没建起来（_tray 为 None）或 notify 抛错都吞掉：通知只是路标，不影响
+        隐藏结果与返回值；同一次隐藏只在 hide_window 成功路径上调这一处。
+        """
+        try:
+            if self._tray is not None:
+                self._tray.notify("窗口已隐藏，工具在后台运行",
+                                  "报名计划照常运行。点右下角托盘图标回来，"
+                                  "也可以在手机页点“显示电脑窗口”。")
+        except Exception:
+            pass
 
     def show_window(self) -> dict:
         """把藏起来的窗口叫回来（托盘菜单、手机页都用这一个入口）。"""
