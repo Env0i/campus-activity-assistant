@@ -863,11 +863,14 @@ class AdvancedComponentDialogTests(unittest.TestCase):
         self.assertTrue((prefs.get("advanced_features") or {}).get("phone_control"))
 
     def test_a_component_zip_is_refused_in_a_source_build(self):
-        archive = self.dir / "phone_control-1.2.0-windows-x64.zip"
+        # 清单版本要跟当前程序一致：这条用例验的是「源码版不收组件包」，
+        # 写死旧版本会先撞上版本不符的分支，验不到本意
+        current = self.local_app.APP_VERSION
+        archive = self.dir / ("phone_control-%s-windows-x64.zip" % current)
         with zipfile.ZipFile(archive, "w") as package:
             package.writestr("manifest.json", json.dumps({
                 "schema": 1, "feature": "phone_control", "platform": "windows-x64",
-                "entry": "feature-helper.exe", "version": "1.2.0",
+                "entry": "feature-helper.exe", "version": current,
                 "files": {"feature-helper.exe": "0" * 64,
                           "bin/cloudflared.exe": "0" * 64},
                 "cloudflared": {"version": self.local_app._component_packages.CLOUDFLARED_VERSION,
