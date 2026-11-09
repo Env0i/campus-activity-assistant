@@ -19,7 +19,7 @@ if str(LOCAL) not in sys.path:
 import login_relay  # noqa: E402
 from domain.phone_rules import (  # noqa: E402
     MAX_IMAGE_BYTES, TEXT_LIMIT, project_event, project_state, project_text,
-    strip_sensitive,
+    redact_log_text, strip_sensitive,
 )
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -111,6 +111,93 @@ class ImageProjectionTests(unittest.TestCase):
         payload = project_event("phone_relogin",
                                 {"image": LONG_PNG, "safe_error": ""})["payload"]
         self.assertEqual(payload["image"], LONG_PNG)
+
+
+class LogRedactionTests(unittest.TestCase):
+    """运行记录经隧道转发前隐去网址与本机路径；只作用在 log 事件的文字上。"""
+
+    URL = "（网址已隐藏）"
+    PATH = "（路径已隐藏）"
+
+    def test_url_replaced_and_sentence_kept(self):
+        out = redact_log_text("请求 https://school.example.com/a/b?x=1，失败了")
+        self.assertEqual(out, "请求 %s，失败了" % self.URL)
+        self.assertEqual(redact_log_text("见(http://10.0.0.1:8080/p)."),
+                         "见(%s)." % self.URL)
+
+    def test_url_glued_to_chinese_stops_at_non_ascii(self):
+        self.assertEqual(redact_log_text("地址https://a.cn/x下一句"),
+                         "地址%s下一句" % self.URL)
+
+    def test_drive_paths_backslash_and_slash(self):
+        self.assertEqual(redact_log_text("读取 C:\\Users\\某人\\data\\a.json 失败"),
+                         "读取 %s 失败" % self.PATH)
+        self.assertEqual(redact_log_text("写入D:/work/out.log。好"),
+                         "写入%s。好" % self.PATH)
+        self.assertEqual(redact_log_text('"C:\\a\\b" 和 \'d:/q\''),
+                         '"%s" 和 \'%s\'' % (self.PATH, self.PATH))
+
+    def test_unc_path(self):
+        self.assertEqual(redact_log_text("打不开 \\\\srv\\share\\dir\\f.txt，重试"),
+                         "打不开 %s，重试" % self.PATH)
+
+    def test_spaced_drive_path_is_fully_masked(self):
+        self.assertEqual(
+            redact_log_text("C:\\Program Files\\x\\cloudflared.exe 已启动"),
+            "%s 已启动" % self.PATH)
+        self.assertEqual(
+            redact_log_text("装到 D:/My Tools/a b/c.exe，再试"),
+            "装到 %s，再试" % self.PATH)
+
+    def test_spaced_unc_path_is_fully_masked(self):
+        self.assertEqual(
+            redact_log_text("\\\\srv\\my share\\dir\\f.txt 不可达"),
+            "%s 不可达" % self.PATH)
+
+    def test_plain_words_after_path_are_not_swallowed(self):
+        self.assertEqual(redact_log_text("C:\\a\\b 已启动 成功 了"),
+                         "%s 已启动 成功 了" % self.PATH)
+        self.assertEqual(redact_log_text("读 C:\\Program Files\\x 失败 请重试"),
+                         "读 %s 失败 请重试" % self.PATH)
+
+    def test_log_payload_stays_a_string_after_redaction(self):
+        event = project_event("log", "C:\\Program Files\\x\\a.exe 已启动")
+        self.assertIsInstance(event["payload"], str)
+        self.assertEqual(event["payload"], "%s 已启动" % self.PATH)
+
+    def test_trailing_ascii_punct_kept(self):
+        self.assertEqual(redact_log_text("see C:\\a\\b."), "see %s." % self.PATH)
+
+    def test_plain_text_and_non_strings_untouched(self):
+        for text in ("普通一句话 12:30 a/b word:x", "[预报名] 活动A：开始"):
+            self.assertEqual(redact_log_text(text), text)
+        self.assertIsNone(redact_log_text(None))
+        self.assertEqual(redact_log_text(5), 5)
+
+    def test_log_event_string_and_dict_payload(self):
+        event = project_event("log", "访问 https://x.example.cn/p 于 C:\\a\\b")
+        self.assertEqual(event["payload"], "访问 %s 于 %s" % (self.URL, self.PATH))
+        event = project_event("log", {"text": "D:/x/y", "detail": "http://h/p", "n": "C:/keep"})
+        self.assertEqual(event["payload"]["text"], self.PATH)
+        self.assertEqual(event["payload"]["detail"], self.URL)
+        self.assertEqual(event["payload"]["n"], "C:/keep")
+
+    def test_redacts_before_clipping(self):
+        event = project_event("log", "x" * 190 + " https://secret.example.com/aaaa/bbbb")
+        self.assertNotIn("secret", event["payload"])
+        self.assertNotIn("https", event["payload"])
+
+    def test_non_log_events_and_state_untouched(self):
+        payload = {"name": "活动 https://a.b/c", "place": "C:\\厅", "href": "https://a.b/c"}
+        event = project_event("activities", payload)
+        self.assertEqual(event["payload"], payload)
+        self.assertEqual(project_state({"link": "https://a.b/c"})["link"], "https://a.b/c")
+
+    def test_captcha_image_in_log_payload_not_touched(self):
+        event = project_event("log", {"text": LONG_PNG})
+        self.assertEqual(event["payload"]["text"], LONG_PNG)
+        event = project_event("phone_relogin", {"image": LONG_PNG})
+        self.assertEqual(event["payload"]["image"], LONG_PNG)
 
 
 if __name__ == "__main__":

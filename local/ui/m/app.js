@@ -838,7 +838,7 @@ const PhoneModel = {
      detail 优先级照抄——等待明细 → 页点击尾注 → 提交中明细覆盖；终态场：
      RS02 三句照原型 advance 的 reason（Phone.dc.html:560/564/565，次数取 attempts），
      其余仍用电脑口径 taskText（说法不另起一套）；取消的那场：计划停止给原型整句
-     （finishState，Phone:580），手动取消透传后端 reason（signup_plan 给「用户取消了这一场」）；
+     （finishState，Phone:580），手动取消透传后端 reason（signup_plan 给「你取消了这一场」）；
      取消钮只给等待中的场（原型 canCancel=status==='waiting'） */
   taskCard(task, maxAttempts, nowS) {
     const t = task || {};
@@ -2495,7 +2495,13 @@ if (typeof document !== "undefined") {
     }
     (payload.events || []).forEach((event) => {
       model.seq = Math.max(model.seq, Number(event.seq || 0));
-      if (event.kind === "log") addLog((event.payload || {}).text || (event.payload || {}).detail || "");
+      if (event.kind === "log") {
+        /* 后端 _emit("log", 字符串) 发的是字符串；对象负载才取 text/detail；空串不进记录 */
+        const raw = event.payload;
+        const line = typeof raw === "string" ? raw
+          : String((raw && (raw.text || raw.detail)) || "");
+        if (line) addLog(line);
+      }
       if (event.kind === "phone_relogin" && !state.login_relay) ingestRelogin(event.payload || {});
     });
     if (payload.seq) model.seq = Math.max(model.seq, Number(payload.seq));

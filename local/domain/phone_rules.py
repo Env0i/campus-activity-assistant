@@ -307,8 +307,61 @@ def project_state(raw) -> dict:
     return strip_sensitive(raw if isinstance(raw, dict) else {})
 
 
+_REDACT_STOPS = (r'\s"' + "'" + r"`<>()\[\]{}|" + "（）【】「」『』《》“”‘’，。；：！？、")
+# 不用 (?i)：忽略大小写时 \u0080-\uffff 区间会折叠到 s、k 而把它们排除在外
+_URL_RE = re.compile(r"(?<![A-Za-z0-9])(?:[Hh][Tt][Tt][Pp][Ss]?|[Ff][Ii][Ll][Ee])://[^%s\u0080-\uffff]+" % _REDACT_STOPS)
+# 路径里可能有空格（Program Files）：空格后的那个词里还带 \ 或 / 就仍算路径，继续吃；
+# 否则在空格处停。宁可多掩，不可漏。
+_SPACED_TAIL = r"(?: +[^%s*?]*[\\/][^%s*?]*)*" % (_REDACT_STOPS, _REDACT_STOPS)
+_WIN_PATH_RE = re.compile(
+    r"(?<![A-Za-z0-9])[A-Za-z]:[\\/][^%s*?]*" % _REDACT_STOPS + _SPACED_TAIL)
+_UNC_PATH_RE = re.compile(
+    r"(?<![\\\w])\\\\[^%s\\/*?]+(?:\\[^%s\\*?]*)*" % (_REDACT_STOPS, _REDACT_STOPS)
+    + _SPACED_TAIL)
+_TAIL_PUNCT = ".,;:!?"
+URL_MASK = "（网址已隐藏）"
+PATH_MASK = "（路径已隐藏）"
+
+
+def _mask_keep_tail(mask):
+    def repl(match):
+        text = match.group(0)
+        tail = text[len(text.rstrip(_TAIL_PUNCT)):]
+        return mask + tail
+    return repl
+
+
+def redact_log_text(value):
+    """运行记录文字脱敏：http(s) 网址与 Windows 绝对路径（含 UNC）整段隐去。
+
+    纯函数：非字符串原样返回，data: 图片不动。网址只认 ASCII 字符，遇空白、
+    引号、括号、中文全角标点或第一个非 ASCII 字符为止；路径同理，但允许中文
+    目录名。句末的 . , ; : ! ? 留在掩码后面。先脱敏再限长，避免截半截泄露。
+    """
+    if not isinstance(value, str) or value.startswith("data:"):
+        return value
+    text = _URL_RE.sub(_mask_keep_tail(URL_MASK), value)
+    text = _UNC_PATH_RE.sub(_mask_keep_tail(PATH_MASK), text)
+    return _WIN_PATH_RE.sub(_mask_keep_tail(PATH_MASK), text)
+
+
+def _redact_log_payload(payload):
+    if isinstance(payload, str):
+        return redact_log_text(payload)
+    if isinstance(payload, dict):
+        return {key: (redact_log_text(item) if key in ("text", "detail", "message", "line")
+                      else item) for key, item in payload.items()}
+    return payload
+
+
 def project_event(kind, payload) -> dict:
-    """事件投影：同样剔除敏感字段并截断文本，供有界缓冲回放。"""
+    """事件投影：同样剔除敏感字段并截断文本，供有界缓冲回放。
+
+    只有运行记录（kind == "log"）的文字额外隐去网址与本机路径：手机经隧道
+    访问时事件会过第三方转发。其他事件的业务字段不动。
+    """
+    if str(kind or "") == "log":
+        payload = _redact_log_payload(payload)
     return {"kind": str(kind or ""), "payload": strip_sensitive(payload) if payload is not None else None}
 
 

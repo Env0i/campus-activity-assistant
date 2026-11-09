@@ -448,6 +448,28 @@ out.push(document.getElementById("retry-for").__sel ? 1 : 0);
 """)
         self.assertEqual(values, [True, "p1", False, 1, 1])
 
+    def test_log_events_accept_string_and_object_payloads(self):
+        """后端 _emit("log", 字符串) 发字符串；对象负载取 text/detail；空串不进运行记录。"""
+        values = run_phone_js("""
+const ui = globalThis.PhoneUI;
+const logs = document.getElementById("logs");
+const seen = [];
+const rawAppend = logs.appendChild.bind(logs);
+/* 测试夹具里所有 <li> 是同一个对象：追加当下记下文字 */
+logs.appendChild = (child) => { seen.push(child.textContent); return rawAppend(child); };
+ui.ingest({ reset: true, seq: 5, state: {},
+  events: [
+    { seq: 1, kind: "log", payload: "字符串一行" },
+    { seq: 2, kind: "log", payload: { text: "对象 text" } },
+    { seq: 3, kind: "log", payload: { detail: "对象 detail" } },
+    { seq: 4, kind: "log", payload: "" },
+    { seq: 5, kind: "log", payload: { text: "" } },
+    { seq: 6, kind: "log", payload: null } ] });
+out.push(seen.length);
+out.push(seen.join("|"));
+""")
+        self.assertEqual(values, [3, "字符串一行|对象 text|对象 detail"])
+
     def test_unconfirmed_start_keeps_same_request_id(self):
         values = run_phone_js("""
 globalThis.__fetch = (path, opts) => {
@@ -2773,7 +2795,7 @@ out.push(unconfirmed);
 const failed = PhoneModel.taskCard({ name: "辛", status: "failed", outcome_label: "学校拒绝" }, 0, nowS);
 out.push(failed);
 const canceled = PhoneModel.taskCard({ name: "壬", status: "canceled",
-  reason: "用户取消了这一场" }, 0, nowS);
+  reason: "你取消了这一场" }, 0, nowS);
 out.push(canceled);
 const success = PhoneModel.taskCard({ name: "癸", status: "success" }, 0, nowS);
 out.push(success);
@@ -2805,7 +2827,7 @@ out.push(success);
         self.assertEqual(failed["tone"], "bad")
         self.assertEqual(failed["detail"], "报名未成功：学校拒绝")
         self.assertEqual(canceled["label"], "已取消")
-        self.assertEqual(canceled["detail"], "用户取消了这一场")
+        self.assertEqual(canceled["detail"], "你取消了这一场")
         self.assertFalse(canceled["canCancel"], "取消钮只给等待中的场（原型 canCancel）")
         self.assertEqual(success["label"], "报名成功")
         self.assertEqual(success["tone"], "ok")
@@ -3667,7 +3689,7 @@ out.push(PhoneModel.termsBoard());
     def test_task_card_result_reasons_follow_prototype(self):
         """RS02 任务卡原因三句（原型 advance 的 reason，Phone.dc.html:560/564/565）逐字照抄，
         次数取 attempts；计划停止的取消场给原型整句（finishState，Phone:580），
-        手动取消透传后端 reason（signup_plan 给「用户取消了这一场」）。"""
+        手动取消透传后端 reason（signup_plan 给「你取消了这一场」）。"""
         values = run_phone_js("""
 out.push(PhoneModel.taskCard({ name: "甲", status: "success" }, 0, null).detail);
 out.push(PhoneModel.taskCard({ name: "乙", status: "failed", stop_reason: "full",
@@ -3675,7 +3697,7 @@ out.push(PhoneModel.taskCard({ name: "乙", status: "failed", stop_reason: "full
 out.push(PhoneModel.taskCard({ name: "丙", status: "failed", stop_reason: "unconfirmed",
   attempts: 4 }, 0, null).detail);
 out.push(PhoneModel.taskCard({ name: "丁", status: "canceled", reason: "计划已停止" }, 0, null).detail);
-out.push(PhoneModel.taskCard({ name: "戊", status: "canceled", reason: "用户取消了这一场" }, 0, null).detail);
+out.push(PhoneModel.taskCard({ name: "戊", status: "canceled", reason: "你取消了这一场" }, 0, null).detail);
 """)
         success, full, unconfirmed, stopped, manual = values
         self.assertEqual(success, "学校回“操作成功”，结束时向学校核对过：已报名")
@@ -3685,7 +3707,7 @@ out.push(PhoneModel.taskCard({ name: "戊", status: "canceled", reason: "用户�
                          "已提交 4 次，没拿到确定回应；结束时向学校核对也没查到结果。"
                          "去活动页看一眼，或稍后刷新核对。工具不会再自动重发。")
         self.assertEqual(stopped, "计划已停止，这一场没有提交")
-        self.assertEqual(manual, "用户取消了这一场")
+        self.assertEqual(manual, "你取消了这一场")
 
 
 class ResultTermsDomTests(unittest.TestCase):
