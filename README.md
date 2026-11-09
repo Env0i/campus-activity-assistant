@@ -1,256 +1,298 @@
-# 校园助手 · 校园活动推送机器人
+<div align="center">
 
-> 目标学校（专升本）学生端 `portal.school.example.edu` 的活动，自动整理后推送到飞书；可以 @ 机器人查询，可以在私聊点「预报名」到点自动报名。
+<img src="design/brand/svg/logo.svg" width="88" alt="校园活动预报名工具的标志：一张琥珀色的入场券">
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
-![Node](https://img.shields.io/badge/Node-20-339933?logo=nodedotjs&logoColor=white)
+# 校园活动预报名工具
 
-> 当前版本见 [VERSION](VERSION)。界面说明和交互契约见 [design/archive/current-ui-2026-10-25/](design/archive/current-ui-2026-10-25/) 与 [docs/UI_SPEC.md](docs/UI_SPEC.md)；公开仓库不再附带本机截图。
+**把想报的校园活动排进一张时刻表，到开放那一刻自动提交。**
 
-## 协作主工作区
+[![最新版本](https://img.shields.io/github/v/release/Env0i/campus-activity-assistant?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=e8a33d)](https://github.com/Env0i/campus-activity-assistant/releases/latest)
+[![下载次数](https://img.shields.io/github/downloads/Env0i/campus-activity-assistant/total?label=%E4%B8%8B%E8%BD%BD&color=2f3b45)](https://github.com/Env0i/campus-activity-assistant/releases)
+![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011-2f3b45?logo=windows&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-2f3b45.svg)](LICENSE)
 
-当前唯一主工作区是共享目录下的 `share/code/campus-activity-assistant`。不同协作者打开的是同一份 Git 工作区；其他副本只作为临时备份或审查副本，不作为开发来源。
+[下载](#下载) · [三步上手](#三步上手) · [常见问题](#常见问题) · [用户协议](docs/USER_AGREEMENT.md) · [隐私政策](docs/PRIVACY_POLICY.md) · [变更记录](CHANGELOG.md)
 
-- 开工前先看 `git status --short`，发现别人留下的改动不要回滚、清理或覆盖。
-- Claude 可以在共享工作区分析、修改和使用 Git；GitHub push 需要用户明确审核，历史改写和删除 refs 仍需单独授权。
-- 真实站点地址只从运行环境的 `SCHOOL_ORIGIN` 读取，不把真实值写入 `local/config.json`、`server/config.json` 或仓库文件。
-- 每轮收工后用共享桥接目录里的 `scrub-share.ps1` 净化 `.claude/` 下对共享工作区可见的计划、结果和日志。写法随 PowerShell 版本不同，两种环境的命令见 `AGENTS.md`「收工」。
-- `local/data/`、`server/data/`、`dist/`、真实配置和认证材料不放进共享工作区。
+<img src="docs/images/main-window.png" width="900" alt="主窗口：左边是按开放时间排好的活动时刻表，右边是点阵屏和报名计划">
 
-> **适用对象**：目标学校（校园）**专升本**学生。项目按目标学校学生端的接口与页面写死；换学校要改 `SCHOOL_ORIGIN` 与接口适配，不在支持范围内。
-> **不适用范围**：不代他人报名、不多账号批量占位、不占用他人的报名名额。
+</div>
 
-## 目录
+> [!IMPORTANT]
+> 这是非官方的个人作品，只适用于一所目标学校的专升本学生端，与学校及其系统运营方没有隶属、合作或授权关系。
+> 它只服务你本人的账号：不代他人报名，不做多账号批量占位。学校接口随时可能调整，工具不保证报名成功。
 
-- [这是什么](#这是什么)
-- [我该用哪个](#我该用哪个)
-- [快速开始 · 本机版](#快速开始--本机版5-分钟)
-- [快速开始 · 服务器版](#快速开始--服务器版15-分钟)
-- [功能](#功能)
-- [两版对照](#两版对照)
-- [飞书机器人怎么建](#飞书机器人怎么建)
-- [配置](#配置)
-- [常见问题](#常见问题)
-- [目录结构](#目录结构)
-- [文档](#文档)
-- [边界与安全](#边界与安全)
-- [License](#license)
+## 它能帮你做什么
 
-## 这是什么
+学生端的活动一开放就要抢，开放时间又分散在一天里的不同时刻。这个工具把要报的活动排进一张时刻表，到点替你提交，你只需要选好、开着电脑。
 
-学校学生端每天挂着各种「校园活动」：有的报名开放时间一到就要手动点，有的报上了但活动在几天后容易忘。这个项目做两件事：
+<table>
+<tr>
+<td width="50%" valign="top">
 
-1. **盯**：定时把「今天要参加的」「即将开放报名的」整理成卡片，推到飞书群，人手一份。
-2. **报名**：在报名开放的那一刻自动点「立即报名」，结果回执发到私聊。
+### 🗓️ 一张时刻表
+活动按报名开放时间分组：正在开放、今天、明天、后天……每行写清举办时段、地点、签到签退要求、实践分和虚拟工资。可以搜索、按开放时间和签到要求筛选。只列还能报的，以及你已报名、活动还没结束的。
 
-登录态寿命不稳定：实测 10.7～17.5 小时。服务器版用守护进程每 2 小时续一次，用到 8 小时主动换新；真失效了用验证码 OCR 无人值守重登，连续失败再私聊告警。
+</td>
+<td width="50%" valign="top">
 
-## 我该用哪个
+### ⏱️ 到点自动提交
+勾选几场，核对右边的计划，点「开始报名计划」。工具按开放时刻分批，到点直接向学校提交，开放瞬间会在短时间内多次尝试，页面点击只在直接提交不可用时兜底。每场结果单独显示。
 
-| 你的情况 | 用这个 | 需要什么 |
-|---|---|---|
-| 只想报某一两场，不想维护服务器 | [本机版](#快速开始--本机版5-分钟)（`local/` / Release 正式资产） | 一台 Windows，双击就能跑 |
-| 想让群里同学都能看推送，还想 @ 查询 | [服务器版](#快速开始--服务器版15-分钟)（`server/`） | 一台 7×24 Linux + 飞书自建应用 |
+</td>
+</tr>
+<tr>
+<td valign="top">
 
-两版共用同一套接口知识，报名时序完全一致（提前开详情页 → 开放前 reload → 点按钮 → 读返回码 → 复核结果）。
+### 🚧 冲突提前拦住
+和已选、已报名活动的举办时间重叠，会提前标出来。鼠标停在「不可加入」上，能看到双方时段的时间条和解决办法。还能取消的已报名场次，可以在电脑上取消：先二次确认，结果以向学校复查为准。
 
-## 快速开始 · 本机版（5 分钟）
+</td>
+<td valign="top">
 
-**不想装 Python**：到 [Releases](https://github.com/Env0i/campus-activity-assistant/releases) 下载**当前 Release 实际提供**的本机版资产（以发布页附件为准）：
+### 🕰️ 独立北京时间
+用公共网络授时校准，不读也不改你电脑的时间设置。北京时间没校准好时不让开始报名，免得掐错点；登录和查看活动不受影响。
 
-- `campus-activity-watch-vX.Y.Z-win-x64.zip`（**完整 ZIP，免安装**）：独立 EXE、README 和启动说明都在里面，解压双击主 EXE 即用；
-- `campus-activity-watch-vX.Y.Z-win-x64.exe`：**独立可用单文件**——程序组件（grab-worker）已内置，拷到任何空目录双击即可。
+</td>
+</tr>
+<tr>
+<td valign="top">
 
-> **安装版已随正式 Release 提供**：`campus-activity-watch-installer-vX.Y.Z-win-x64.exe`
-> 的构建脚本与文件清单已经就绪（`local/build/build_installer.py`），会随下一个正式版本并列发布；
-> 在那之前发布页上不会有这个附件，也请不要把它当作已发布资产去找。候选阶段只能
-> 自己在干净工作区构建试用。
->
-> 已发布的两种形态的程序本体是同一份 EXE（manifest 记录哈希可核验），登录态都只写
-> `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data`，不会写进安装目录。
-> v1.0.2 及更早的 `campus-grab-portable-*.zip` **绿色版是历史形态，已停止新增发布**：
-> 数据在程序旁边的 `data/`，仅旧版本可用，新用户请用上面两种。
-> 下载名固定用 ASCII 基名：GitHub 会把中文前缀规范化，v1.1.0 上传时就靠人工改过一次名
-> （见 `tools/release.py` 的 `exe_asset_name`）。中文产品名只出现在 Release 标题和包里说明。
-> 独立 EXE 与四成员 ZIP 形态自 v1.1.0 起生效并**已于 2026-10-26 发布**；当前工作区版本
-> 当前正式版本为 1.1.1；真实学校窗口仍属于使用者自己的验收范围，软件不对学校平台结果作保证。
+### 📱 手机遥控（可选）
+经 Tailscale 或 Cloudflare 临时地址，用手机看活动和计划进度、开始或停止计划、输入验证码、重新登录。默认关闭，不开就不监听任何端口。
 
-右上角 **「帮助」** 集中三步使用说明、重看六步引导、当前版本和本机数据目录。点「检查更新」才会查询 GitHub 最新正式版并比较版本；失败会显示原因与重试入口，当前候选比正式版新时明确提示「当前为预览版本」。检查结果附检查时间，不自动下载或安装；「查看发布页」用系统浏览器打开 [最新发布](https://github.com/Env0i/campus-activity-assistant/releases/latest)。当前版本以 [VERSION](VERSION) 为准。
+</td>
+<td valign="top">
 
-**装了 Python**：
+### 🔐 数据只在你的电脑上
+没有账号体系，没有遥测，不经过任何开发者的服务器。账号密码默认不保存；选择保存时用 Windows 当前用户加密，只有这台电脑能解开。
+
+</td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="62%" valign="top" align="center">
+<img src="docs/images/conflict-tip.png" alt="冲突提示：模拟面试与已报名的宿舍查寝时间重叠，气泡里画出双方时段和重叠部分"><br>
+<sub>和已报名活动时间重叠时，气泡里画出双方时段，并写清怎么解决</sub>
+</td>
+<td width="38%" valign="top" align="center">
+<img src="docs/images/phone.png" width="260" alt="手机页：顶部点阵屏，下面是按开放时间分组的活动列表"><br>
+<sub>手机页：和电脑同一份数据，配对后才能访问</sub>
+</td>
+</tr>
+</table>
+
+<sub>截图里的活动、地点和时间都是演示数据。</sub>
+
+## 下载
+
+到 [**Releases**](https://github.com/Env0i/campus-activity-assistant/releases/latest) 下载最新版。三种形态的程序本体是同一份 EXE，选一种就够：
+
+| 文件 | 适合谁 |
+|---|---|
+| **安装版**<br>`campus-activity-watch-installer-vX.Y.Z-win-x64.exe` | 推荐。中文安装向导；卸载时会问要不要一并删除登录数据，默认保留 |
+| **单文件**<br>`campus-activity-watch-vX.Y.Z-win-x64.exe` | 不想安装：拷进任意文件夹，双击就能用 |
+| **完整 ZIP**<br>`campus-activity-watch-vX.Y.Z-win-x64.zip` | 单文件 EXE 加使用说明和协议，解压即用 |
+
+两个可选组件，需要时再装：在「设置 → 高级功能」里一键下载，或者先从发布页下载，再点「导入已下载的组件包」。
+
+| 组件 | 用来做什么 |
+|---|---|
+| `campus-activity-watch-phone-control-vX.Y.Z-win-x64.zip` | 手机遥控；内置 Cloudflare 通道用的 cloudflared |
+| `campus-activity-watch-relogin-ocr-vX.Y.Z-win-x64.zip` | 验证码识别；保存账号后，登录失效时能自动登回来 |
+
+**系统要求**：Windows 10 或 11（64 位），需要 WebView2 运行时（Windows 11 自带，Windows 10 一般已随 Edge 装好）。
+
+> [!TIP]
+> 每个版本都附有 `manifest.json`，里面记着每个文件的大小和 SHA-256。下载后可以用 PowerShell 的 `Get-FileHash` 核对。
+
+## 三步上手
+
+1. **打开工具，读首次说明。** 勾选「我已阅读并同意」后才能登录和报名；不同意也能看帮助和设置。
+2. **登录。** 两种方式，选你放心的那种：
+   - **在这里输入**：账号密码直接发给学校，默认不保存。
+   - **用学校登录页**：在学校官方页面里输入。
+3. **勾选活动，开始报名计划。** 在时刻表里勾选想报的场次，核对右边的计划，点「开始报名计划」。到点会自动提交，右边的点阵屏显示倒计时，下面是每场的进度。
+
+> [!WARNING]
+> 计划由这台电脑执行。运行期间不要关机、睡眠或退出工具；可以最小化，也可以隐藏到右下角托盘。
+> 关窗口时工具会问你：最小化、隐藏到后台，还是退出。
+
+结果以学校为准。看到「待核对」时，到学校活动页确认一下。
+
+## 可选功能
+
+<details>
+<summary><b>📱 手机遥控</b></summary>
+
+<br>
+
+1. 先装「手机控制」组件（见[下载](#下载)）。
+2. 在「设置 → 高级功能 → 手机访问」选一种通道，点「开启手机访问」，面板会显示二维码和 6 位配对码。
+3. 手机先扫二维码打开页面，再输入配对码。配对码 5 分钟内有效，只能用一次。
+
+| 通道 | 特点 |
+|---|---|
+| **Tailscale** | 地址固定，重启后不用重新扫码；需要电脑和手机都装好、登录同一个 Tailscale 网络 |
+| **Cloudflare 临时地址** | 不用另装软件；每次重新开启都会换地址，要重新扫码配对 |
+
+> [!NOTE]
+> 走 Cloudflare 通道时，手机和电脑之间的全部往来都经 Cloudflare 的服务器转发，包括你在手机上输入的验证码和账号密码。
+> 走 Tailscale 时数据在设备之间加密传输。发给手机的运行记录会隐去网址和本机路径。详见[隐私政策](docs/PRIVACY_POLICY.md)第 3 节。
+
+更完整的说明见 [docs/PHONE_ACCESS.md](docs/PHONE_ACCESS.md)。
+
+</details>
+
+<details>
+<summary><b>🔁 登录失效后自动登回来</b></summary>
+
+<br>
+
+学校不公布登录能保持多久，实测大约 10 到 17 小时。登录详情卡里的「预计有效」按登录后 10 小时估算，只作提醒，以学校的实际校验为准。
+
+想在失效后自动登回来，需要两样：
+
+- 在「设置 → 登录」里保存账号密码（用 Windows 当前用户加密，随时可清除）；
+- 装好「验证码识别」组件。
+
+没装验证码识别组件时，失效后会提示你重新登录，验证码由你在电脑或手机上手动输入。
+
+</details>
+
+## 数据与隐私
+
+- **存在哪**：登录凭据、活动缓存、设置和运行记录都在 `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data`。换新版本、重新安装都不会丢，删掉这个文件夹就全部清除。
+- **连哪里**：只有四类对外通信——学校系统；网络授时服务；你点检查更新或下载时访问 GitHub；你开启手机访问时经你选的通道。没有遥测和统计。
+- **更新**：只在你点「检查更新」时联网查询。下载安装包后会先核对大小和 SHA-256，什么时候安装由你决定，工具不会自己升级。
+
+完整内容见[用户协议](docs/USER_AGREEMENT.md)和[隐私政策](docs/PRIVACY_POLICY.md)。条款改版后，程序会请你重新同意一次。
+
+## 常见问题
+
+<details>
+<summary><b>会不会被学校封号？</b></summary>
+
+<br>
+
+工具只操作你自己的账号，只在开放时刻短时间内提交你选好的场次。但学校登录页的协议里没有关于脚本或自动化的条款，工具不声称合规，用不用、怎么用由你自己判断。
+
+</details>
+
+<details>
+<summary><b>电脑时间不准能用吗？</b></summary>
+
+<br>
+
+能。工具用的是独立的北京时间，不看也不改你电脑的时间。顶栏会显示北京时间是否已校准；校准不了时，登录和查看活动照常，只是暂时不能开始报名。
+
+</details>
+
+<details>
+<summary><b>在手机上登了学校页面，电脑这边会掉线吗？</b></summary>
+
+<br>
+
+可能会，也可能不会，以实际登录状态为准。反过来，用本工具登录可能让同一账号在别处的登录失效。掉线了点「重新登录」即可；计划运行中登录失效，工具会提醒你。
+
+</details>
+
+<details>
+<summary><b>报名结果是「待核对」怎么办？</b></summary>
+
+<br>
+
+说明提交后学校的回答不明确，工具没法确认。到学校活动页看一眼就知道报没报上。
+
+</details>
+
+<details>
+<summary><b>可以开两份，或者帮室友报名吗？</b></summary>
+
+<br>
+
+都不行。同一台电脑只运行一份，再次打开会切回已经开着的窗口，免得同一场提交两遍。多账号代报属于占位，会挤掉其他同学的名额，请让室友在自己的电脑上用自己的账号。
+
+</details>
+
+<details>
+<summary><b>换电脑或重装系统，要注意什么？</b></summary>
+
+<br>
+
+保存的账号密码用 Windows 当前用户加密，换电脑或换用户后解不开，在新电脑上重新登录一次即可。
+
+</details>
+
+## 服务器版（自行部署）
+
+<details>
+<summary>用飞书机器人定时推送活动、群里 @ 查询、私聊预报名</summary>
+
+<br>
+
+仓库里的 `server/` 是另一个独立的版本：跑在一台常驻的 Linux 上，每天定时把「今天要参加的」「即将开放报名的」活动整理成卡片推到飞书群，可以在群里 @ 机器人查询，部署者本人还可以在私聊里点「预报名」，到点自动报名。
+
+| 需要 | 说明 |
+|---|---|
+| 一台 7×24 的 Linux | Ubuntu 22.04，Python 3、Node 20、cron、systemd |
+| 飞书应用 | 只推送用群机器人；要 @ 查询和私聊预报名，需要企业自建应用 |
+
+按顺序看：[飞书机器人](docs/FEISHU_BOT.md) → [配置](docs/CONFIG.md) → [部署与运维](docs/OPERATIONS.md)。
+
+</details>
+
+## 从源码运行
+
+<details>
+<summary>开发者看这里</summary>
+
+<br>
+
+需要 Windows 10/11 和 Python 3.10 或更高（测试统一用 3.12）。
 
 ```bash
 git clone https://github.com/Env0i/campus-activity-assistant.git
 cd campus-activity-assistant
+python -m pip install -r local/requirements.txt
+python -m playwright install chromium
+
+# 不登录，用演示数据看界面
+python local/app.py --demo
+
+# 本机版全量测试（不联网）
+python -m unittest discover -s local/tests -p "test_*.py"
 ```
 
-1. 运行 `python -m pip install -r local/requirements.txt` 和 `python -m playwright install chromium`：安装 Playwright、Pillow、pywebview，并准备浏览器（只第一次）；再把 `local/config.example.json` 复制成 `local/config.json`（以前 `install.bat` 替你做的那一步）
-2. 运行 `python local/grab.py login` 或在图形界面点「登录」：弹出真实 Chrome，手动登录一次，登录态存本地
-3. 运行 `python local/app.py`（窗口名「校园活动预报名工具」）：筛选活动并勾选多场，点「开始报名计划」
-4. 计划按报名开放时间分批执行；同一开放时刻的非冲突活动并发提交，每场结果独立显示
+真实站点地址只从环境变量 `SCHOOL_ORIGIN` 读，不写进仓库。打包和发版用 `tools/release.py`：不带参数只做只读检查，`--prepare` 在本地构建全部资产，`--publish` 才对外发布。
 
-> `local/launchers/` 里的 `install.bat`、`4-图形界面.bat` 等是绿色版包根目录的启动文件模板，源码里不直接双击；它们对应的命令见 [local/README.md](local/README.md)。
-
-> 登录只做一次。登录态位置：bat/python 运行在本机 `local/data/`；EXE 版统一在
-> `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data`——同一台电脑上关闭重开、替换或重建 EXE，
-> 打开时会先真实校验并复用已有登录态（界面提示「已复用本机登录态」），不会重复弹登录窗口。
-> 只有学校接口明确返回失效（4001）才需要重新登录；网络异常显示「暂时无法确认登录态」，点「刷新」再试即可。
-> 「约 10–17 小时」是实测提醒，不是保证值。详见 [local/README.md](local/README.md)。
-> 工具只有命令行和 GUI，没有密码落盘，也不会动你浏览器里的账号。
-
-本机 GUI 现在是一张报名时间队列：可以按关键词、报名状态、开放时间、排序方式以及“是否要求签到/签退”筛选。活动的报名开放时间只决定提交批次，活动举办起止时间独立用于冲突检查；缺少签到/签退字段时显示为未知，不会误判成无需。
-
-## 快速开始 · 服务器版（15 分钟）
-
-前置：Ubuntu 22.04 / root / 能访问学校站点与 `open.feishu.cn`。
-
-```bash
-# 1) 依赖
-apt install -y python3 cron tesseract-ocr
-cd /tmp && curl -fsSLO https://npmmirror.com/mirrors/node/v20.20.2/node-v20.20.2-linux-x64.tar.xz \
-  && tar -xJf node-v20.20.2-linux-x64.tar.xz -C /usr/local --strip-components=1
-
-# 2) 目录
-mkdir -p /root/campus-activity-watch /root/campus-bot /root/campus-login
-
-# 3) 代码（main 中的 server/ 子目录）
-git clone https://github.com/Env0i/campus-activity-assistant.git /root/campus-activity-watch
-```
-
-4. **建飞书机器人** → 跟着 [docs/FEISHU_BOT.md](docs/FEISHU_BOT.md) 走（两条路线：只推送 / 全功能）
-5. **填配置** → [docs/CONFIG.md](docs/CONFIG.md)：`server/config.json` + systemd 环境变量
-6. **装服务与定时任务** → [docs/OPERATIONS.md](docs/OPERATIONS.md)：3 个 systemd 单元 + 9 条 cron
-7. **验证**：
-
-```bash
-cd /root/campus-activity-watch
-python3 server/scripts/selfcheck.py          # 凭据/锁/卡片自检
-python3 server/scripts/run.py --dry          # 看这一轮会推什么（不发）
-python3 server/scripts/run.py --force        # 真推一次
-```
-
-群里收到卡片就说明通了。之后每天四个时点自动推送，登录态自己续。
-
-## 功能
-
-| 能力 | 从哪触发 | 说明 |
-|---|---|---|
-| 定时日报 | cron 07:00 / 10:30 / 16:30 / 21:30 | 先推群卡片，再给 owner 私发带「预报名」按钮的卡片 |
-| 群里 @ 查询 | 飞书群 @机器人 | 待开放 / 已开放 / 全部活动，卡片回复 |
-| 私人提醒 | cron 07:05 | 只发 owner 私聊：今天要参加的活动 |
-| 预报名 | 私聊卡片按钮 | 点一下排队，可再点「取消预报名」 |
-| 到点自动报名 | watchlist_runner（每分钟） | 到开放时刻自动点「立即报名」并私聊回报 |
-| 本机多活动计划 | `local/app.py` 图形界面（校园活动预报名工具） | 多选活动、跨批次等待、同批非冲突并发、逐场取消和整计划停止 |
-| 登录态续期 | campus-login 守护进程 | 每 2 小时校验一次，成功即刷新会话文件 |
-| 失效重登 | campus-autologin.timer（每 5 分钟） | 探针判失效才动作；用满 8h 主动换新；验证码 OCR（ddddocr 主 + Tesseract 兜底），最多 5 次、间隔 30 秒 |
-| 监控告警 | token 探针 / 出网自检 | 连续 2 次失败才私聊告警，同一失效周期只提醒一次 |
-
-## 两版对照
-
-| | 服务器版 `server/` | 本机版 `local/` |
-|---|---|---|
-| 跑在哪 | 一台常驻 Linux（systemd + cron） | 自己电脑，用的时候才开 |
-| 登录 | 无人值守：探针判失效 → 验证码 OCR 重登，5 次失败私聊告警（30 分钟后下一轮继续试） | 手动弹真实 Chrome 登录一次，token 存本地 |
-| 能力 | 定时日报、群 @ 查询、私聊预报名、到点自动报名、失效重登、断网自检 | 多活动报名计划、活动时段冲突检查、签到/签退要求筛选、图形界面 |
-| 依赖 | Python + Node 20 + Chromium + ddddocr + Tesseract + cron | Python + Playwright（或本机 Chrome） |
-| 适合 | 7×24 盯着，群里同学都能看 | 只想报某一两场，不想维护服务器 |
-
-## 飞书机器人怎么建
-
-一句话：**只想推送**用群自定义机器人（webhook，2 分钟）；**要 @ 查询和私聊预报名**必须建企业自建应用（长连接，约 30 分钟）。完整步骤、权限清单、事件订阅、`chat_id`/`open_id` 怎么拿、错误码对照，全在 [docs/FEISHU_BOT.md](docs/FEISHU_BOT.md)。
-
-最容易踩的三个坑：
-
-1. 事件订阅选成「发送到开发者服务器」而不是「长连接」→ 永远收不到消息
-2. 权限开了但没「发布版本」并过审 → 一条消息都发不出去
-3. `PRIVATE_OWNER_OPEN_ID` 与 `bot/data/users.json` 里的记录对不上 → 私聊静默关闭
-
-## 配置
-
-所有可调项（10 个 config 键 + 13 个环境变量 + 三套可抄示例）见 [docs/CONFIG.md](docs/CONFIG.md)。
-
-```bash
-cp server/config.example.json server/config.json   # 再填 webhook / 应用凭据
-```
-
-`config.json` 含密钥，已在 `.gitignore` 中，**不要提交**。
-
-## 常见问题
-
-**Q：自动报名会不会被学校查到/封号？**
-只操作你自己的账号、只在开放时刻点一次、不批量。请求量和人工点几下差不多（每天约 400 次业务接口，含 288 次带 token 的探针）。
-
-**Q：推送没样式，是一段纯文本？**
-飞书整点会限流（`11232`），代码已重试 1.5/3/6 秒；仍失败会退回纯文本。错峰或等下一轮即可。
-
-**Q：登录态多久过期？**
-实测 10.7～17.5 小时（不稳定，最短那次只活了 10 小时 40 分）。服务器版用到 8 小时主动换新，避免失效后 15-20 分钟的盲窗。
-
-**Q：本机版 EXE 关掉重开、换新版还要再登录吗？**
-不用。EXE 登录态统一存在 `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data`，关闭重开、替换甚至重建 EXE 都不丢；重新打开时先真实校验一次，通过就直接复用（界面提示「已复用本机登录态」）。只有学校返回 4001 才需要重登；网络异常显示「暂时无法确认登录态」，恢复后点「刷新」即可，不会清掉已有登录。
-
-**Q：验证码识别率多少？**
-20 张人工标注样本：ddddocr beta 模型 19/20，默认模型 16/20，Tesseract 多变体投票 14/20，三者串联 20/20。每次失败隔 30 秒再换一张、最多 5 次；仍失败会私聊喊你人工登一次。
-
-**Q：私聊一条都收不到？**
-先查 `data/remind.log` 有没有 `[i] 未配置 PRIVATE_OWNER_OPEN_ID`；再对照 [docs/CONFIG.md](docs/CONFIG.md) 的四条判据。
-
-**Q：能代我舍友的账号报名吗？**
-不能。多账号批量报名属于占位，会损害其他同学，也容易触发平台风控。本机版给舍友自己跑，各自处理各自账号的报名。
-
-## 目录结构
+参与开发前请先读 [AGENTS.md](AGENTS.md)（授权边界、提交规范、测试注意事项），架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
 ```
-campus-activity-watch/
-├── server/        # 服务器版：scripts/（生产脚本）bot/（飞书机器人）deploy/（systemd、登录）tests/
-├── local/         # 本机版：app.py + grab.py + signup_plan.py + ui/；build/ 是打包脚本，launchers/ 是绿色版启动文件模板
-├── docs/          # 工程文档：架构、运维、登录、自动报名、时点推导、飞书机器人、配置；archive/ 放历史与过程记录
-├── design/        # 产品决策、规格、流程、新工作台原型、验收证据、品牌；archive/ 放旧原型
-├── contracts/     # 学校接口的脱敏样例
-├── tools/         # 发版工具（拆分支、打 zip、发 Release）与 QA 脚本
-└── README.md / CHANGELOG.md / LICENSE / VERSION / AGENTS.md / CLAUDE.md
+├── local/       本机版：图形界面（local/ui/）、报名 worker、打包脚本
+├── server/      服务器版：定时脚本、飞书机器人、部署文件
+├── contracts/   学校接口的脱敏样例
+├── docs/        工程文档：架构、登录、报名、配置、运维、条款
+├── design/      产品决策、规格、界面原型与验收截图
+└── tools/       发版与 QA 脚本
 ```
-
-运行时生成 `server/data/`（会话、状态、日志）与 `reports/`，不入库；本机版开发/bat 运行在 `local/data/`，EXE 版在 `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data`（重建 EXE 不会删除登录态）。
-
-## Git 分支与发布边界
-
-| 分支 | 角色 | 能不能直接改 | 来源/更新方式 |
-|---|---|---|---|
-| `main` | 唯一开发、评审和发布真源 | ✅ 可以 | 所有代码、docs、design 改动先进入这里 |
-| `design` | 短期设计工作分支 | ⚠️ 只在设计评审期间使用 | 设计确认后合并回 `main` 并删除 |
-| `local` / `server` | 远端分支已删除；代码保留在 `main` 的对应子目录 | 不作为开发分支 | Release 资产从 `main` 生成，目录内代码回 main 修改 |
-
-开发时始终使用 `main`（或从 `main` 开出的短期 feature 分支），不要再 clone 已删除的 `local` / `server` 分支。发布脚本从 `main` 生成分发资产，并拒绝从有未提交改动的工作区生成快照。
-
-## 文档
 
 | 文档 | 内容 |
 |---|---|
-| [docs/FEISHU_BOT.md](docs/FEISHU_BOT.md) | 机器人创建、权限、事件订阅、拿 chat_id/open_id、排错码 |
-| [docs/CONFIG.md](docs/CONFIG.md) | 配置项与环境变量全表、三套示例 |
-| [docs/OPERATIONS.md](docs/OPERATIONS.md) | 服务器布局、systemd、crontab、日志、部署更新、回滚、故障处理 |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 数据流、模块职责、接口清单、去重机制 |
-| [docs/LOGIN.md](docs/LOGIN.md) | token 寿命实测、守护续期、验证码 OCR 无人值守登录 |
-| [docs/GRAB.md](docs/GRAB.md) | 预报名状态机、到点自动报名时间线、结果回执 |
-| [docs/TIMING_AND_DEDUP_ANALYSIS.md](docs/TIMING_AND_DEDUP_ANALYSIS.md) | 推送时点与去重的设计推导、请求量账本 |
-| [docs/USER_AGREEMENT.md](docs/USER_AGREEMENT.md) | 用户协议（软件性质、授权范围、使用提醒、责任限制） |
-| [docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md) | 隐私政策（数据边界、存储位置、对外通信、日志与你的权利） |
-| [CHANGELOG.md](CHANGELOG.md) | 变更记录 |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 数据流、模块职责、接口清单 |
+| [docs/LOGIN.md](docs/LOGIN.md) | 登录态、校验与自动重新登录 |
+| [docs/GRAB.md](docs/GRAB.md) | 报名链路与结果判定 |
+| [docs/PHONE_ACCESS.md](docs/PHONE_ACCESS.md) | 手机访问的通道、配对与安全边界 |
+| [docs/UI_SPEC.md](docs/UI_SPEC.md) | 界面与接口契约 |
+| [design/decisions/](design/decisions/) | 已拍板的产品决策 |
 
-## 边界与安全
+</details>
 
-- 只服务**本人账号**：不代他人报名、不做多账号批量报名、不占位。
-- 日志不写账号、密码、验证码、token、姓名；`credentials.json` 与 `storage_state.json` 权限 600。
-- 自动报名只在用户明确点了「预报名」的清单内动作，不会无差别提交。
-- 本项目与学校无关，接口若有调整，随时可能失效。
-
-## License
+## 许可
 
 [MIT](LICENSE)
 
-
-## 本机时间不对能用吗？（决策 012）
-
-能。工具按**独立北京时间**运行（公共网络授时 + 应用内经过时长），不读取也不修改你电脑的时间设置。顶栏只有一个时间入口：正常显示「北京时间 + 时分秒」，未校准显示「待校准」，点开「时间详情」可看校准来源、估计误差并「重新校准时间」。网络授时不可用时登录与列表照常可用，只是自动报名会暂停，并不会因此清除登录或误报失效。版本仍为未发布 1.1.1 候选。
+<div align="center">
+<sub>校园活动预报名工具 · 非官方个人作品 · 只服务本人账号</sub>
+</div>
