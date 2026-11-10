@@ -1357,7 +1357,8 @@ if (typeof document !== "undefined") {
   const model = {
     /* G08：默认段钮＝可报名（原型 init 的 seg:'free'，Phone.dc.html:499） */
     items: [], selected: [], filter: { q: "", status: "free", time: "all" },
-    retry: { retry_for_s: 120, max_attempts: 0 }, busy: false,
+    retry: { retry_for_s: 120, max_attempts: 0 }, retryHydrated: false, retryDirty: false,
+    seenEventSeq: new Set(), busy: false,
     /* SH05 登录行（loginLine）的 state.login 快照 */
     login: null,
     lastOkAt: 0, nowMs: 0, backoff: 1000, seq: 0,
@@ -2562,6 +2563,8 @@ if (typeof document !== "undefined") {
   }
   function ingest(payload) {
     if (payload.reset) {
+      // reset 开启新的事件缓冲周期，清掉上一轮的去重记录。
+      model.seenEventSeq.clear();
       model.seq = 0;
       // 断得太久服务端已丢中间事件：日志整体重置，不把旧事件再叠一遍
       const logs = $("logs");
@@ -2572,7 +2575,18 @@ if (typeof document !== "undefined") {
     if (state.login_relay && typeof state.login_relay === "object") {
       ingestRelogin(state.login_relay);
     }
-    if (Array.isArray(state.activities)) model.items = state.activities;
+    if (Array.isArray(state.activities)) {
+      model.items = state.activities;
+      const before = model.selected.slice();
+      const businessNow = PhoneModel.businessNowS(model);
+      model.selected = before.filter((id) => {
+        const item = model.items.find((candidate) => candidate && candidate.id === id);
+        if (!item || !PhoneModel.actionable(item, model.items)) return false;
+        const status = PhoneModel.stOf(item, businessNow);
+        return status === "open" || status === "pre";
+      });
+      if (model.selected.length !== before.length) model.notice = "";
+    }
     /* RS01：用户在结果态收起过的计划不再回头（服务端快照会一直带终态计划）；
        新计划 plan_id 不同，照常接纳 */
     if (state.plan && String(state.plan.plan_id || "") !== model.dismissedPlanId) {
@@ -2592,12 +2606,28 @@ if (typeof document !== "undefined") {
     /* EX05/BE2：电脑侧最近一次拉活动列表失败（原因短语 + 北京 HH:MM），正常为 null */
     model.pcListError = state.pc_list_error || null;
     if (typeof state.busy === "boolean") model.busy = state.busy;
+    if (state.retry_policy && typeof state.retry_policy === "object"
+        && !model.retryHydrated && !model.retryDirty) {
+      model.retry = {
+        retry_for_s: Number(state.retry_policy.retry_for_s),
+        max_attempts: Number(state.retry_policy.max_attempts || 0),
+      };
+      model.retryHydrated = true;
+    }
     if (state.retry_options && Array.isArray(state.retry_options.choices)) {
       model.retryOptions = state.retry_options;
       fillRetryOptions(state.retry_options);
     }
     (payload.events || []).forEach((event) => {
-      model.seq = Math.max(model.seq, Number(event.seq || 0));
+      const eventSeq = Number(event.seq || 0);
+      model.seq = Math.max(model.seq, eventSeq);
+      if (eventSeq > 0) {
+        if (model.seenEventSeq.has(eventSeq)) return;
+        model.seenEventSeq.add(eventSeq);
+        while (model.seenEventSeq.size > 400) {
+          model.seenEventSeq.delete(Math.min.apply(null, Array.from(model.seenEventSeq)));
+        }
+      }
       if (event.kind === "log") {
         /* 后端 _emit("log", 字符串) 发的是字符串；对象负载才取 text/detail；空串不进记录 */
         const raw = event.payload;
@@ -2660,16 +2690,18 @@ if (typeof document !== "undefined") {
   }
   async function reconcile() {
     if (model.reconciling) return;
-    const requestId = model.pending && model.pending.request_id;
+    const pending = model.pending;
+    const requestId = pending && pending.request_id;
     if (!requestId) return;
     model.reconciling = true;
     try {
     const { body } = await postAction({
       action: "start_request_state", args: { request_id: requestId } });
+    if (model.pending !== pending || pending.request_id !== requestId || pending.done || pending.canceling) return;
     if (body && (body.state === "accepted" || body.state === "rejected"
                  || body.state === "canceled")) {
-      model.pending.done = true;
-      model.pending.outcome = body.state;   // A-BUG-1：终态原因随 pending 记下
+      pending.done = true;
+      pending.outcome = body.state;   // A-BUG-1：终态原因随 pending 记下
       /* A-BUG-3：rejected/canceled 不能静默收口——回包文本（有则）或状态词亮到
          banner；accepted 照旧清掉「核对中」一类的提示 */
       if (body.state === "accepted") setBanner("");
@@ -2690,6 +2722,7 @@ if (typeof document !== "undefined") {
     // UI-F5：失败经 showSheetError 就地说明并回 false，成功收 sheet
     if (!model.pending || model.pending.done || model.cancelingStart) return false;
     const pending = model.pending;
+    pending.canceling = true;
     model.cancelingStart = true;
     try {
       const { body } = await postAction({action:"cancel_start_request",
@@ -2704,6 +2737,7 @@ if (typeof document !== "undefined") {
         return false;
       }
     } finally {
+      pending.canceling = false;
       model.cancelingStart = false;
       refreshControls();
     }
@@ -2791,6 +2825,7 @@ if (typeof document !== "undefined") {
         retry_for_s: Number(model.retry.retry_for_s),
         max_attempts: Number(model.retry.max_attempts || 0) } } });
     if (body && body.error) addLog("没能保存重试设置：" + String(body.text || body.error));
+    else model.retryDirty = false;
   }
   function fillRetryOptions(options) {
     const sel = $("retry-for");
@@ -3218,11 +3253,13 @@ if (typeof document !== "undefined") {
     });
     $("retry-for").addEventListener("change", () => {
       model.retry.retry_for_s = Number($("retry-for").value);
+      model.retryDirty = true;
       void saveRetry();
       refreshControls();
     });
     $("max-attempts").addEventListener("change", () => {
       model.retry.max_attempts = Number($("max-attempts").value || 0);
+      model.retryDirty = true;
       void saveRetry();
     });
     document.addEventListener("visibilitychange", () => {
@@ -3254,7 +3291,7 @@ if (typeof document !== "undefined") {
   globalThis.PhoneUI = { model, poll, wire, renderItems, refreshControls,
                          ingest, startPlan, cancelPendingStart, submitRelogin, beginRelogin,
                          cancelRelogin, refreshRelogin, showComputerWindow,
-                         openSheet, closeSheet, renderPair, beginPairLock, pair,
+                         openSheet, closeSheet, renderPair, beginPairLock, pair, reconcile,
                          toggleSearch, renderBoard, renderRelogin, openRelogin,
                          renderReview, askConfirm, scheduleTick, tickClock };
                          // SH01/SH03/SH04：核对渲染与确认槽供 vm 用例直接驱动；P1：整秒计时也可直接驱动

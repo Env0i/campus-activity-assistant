@@ -337,7 +337,7 @@ function uniqueErrors(errors) {
 }
 
 function toggleSelection(id, checked) {
-  if (S.busy) return;
+  if (S.busy || S.starting) return;
   /* 条款门对「选中」同样生效：大屏「选这一场」走的是同一条选择路径，
    * 只拦列表复选框会自相矛盾。 */
   if (termsLocked()) return;
@@ -383,7 +383,7 @@ function toggleSelection(id, checked) {
 }
 
 function clearSelection() {
-  if (S.busy) return;
+  if (S.busy || S.starting) return;
   S.selected.clear();
   S.selectionNotice = "";
   S.plan = { id: null, status: "idle", tasks: new Map() };

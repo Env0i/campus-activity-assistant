@@ -143,6 +143,45 @@ out.push({ editing, one, after });
         self.assertEqual(out["after"]["title"], "已选 1 场", "修改结束回到普通草稿")
         self.assertEqual(out["after"]["sub"], "1 场预报名等开放")
 
+    def test_start_plan_clears_editing_even_when_plan_id_stays(self):
+        """修改 → 重新开始后，即使 plan_id 没变，editing 也必须立刻清掉。
+        旧实现只等 handlePlan 收到新事件且 plan_id 变了才清，stop+restart 共用 id 时
+        修改态说明会一直挂在屏上（2026-11-10 用户复现）。"""
+        out = run_js(PLAN_SETUP + r"""
+/* 假计时器：保存所有 setTimeout 回调但不触发，让 startPlan 的 15 秒 reconcile
+   计时器保持待执行，只验证同 plan_id 接纳后的 editing 清理——不把计时器当成立即执行 */
+const __pendingTimers = new Map();
+let __nextTimerId = 1;
+setTimeout = (fn, ms) => { const id = __nextTimerId++; __pendingTimers.set(id, { fn, ms }); return id; };
+setInterval = (fn, ms) => 0;
+clearTimeout = (id) => { __pendingTimers.delete(id); };
+clearInterval = () => {};
+window.pywebview = { api: {
+  start_plan: () => Promise.resolve({ ok: true, plan_id: "ph1", plan_generation: 3 }),
+  stop_plan: () => Promise.resolve({ ok: true }),
+} };
+load([mk("pre1", "晚点开放甲", { sign_start: "2026-11-06 16:00:00" })]);
+S.selected.add("pre1");
+S.plan = { id: "ph1", status: "stopped", gen: 2, tasks: new Map() };
+/* 先进入修改态——editPlan 里的 S.editing = {...} + doStopPlan 简化为直接赋值 */
+S.editing = { ids: ["pre1"], doneN: 0 };
+render();
+const before = dock();
+startPlan();
+/* startPlan 里的 Promise.then 是微任务，flush 一下再看 */
+await Promise.resolve();
+/* state/plan.js 正常事件没跑（没 emit），所以 S.plan.id 还是 "ph1"，
+   但 editing 必须在 startPlan 的 then 分支里被立刻清掉 */
+const cleared = S.editing;
+render();
+const after = dock();
+out.push({ before, cleared, after, planStatus: S.plan.status });
+""")[0]
+        self.assertEqual(out["before"]["title"], "修改中：已选 1 场")
+        self.assertIsNone(out["cleared"], "startPlan 成功接纳后 editing 必须立刻清掉")
+        self.assertNotEqual(out["after"]["title"], "修改中：已选 1 场", "重新开始后 dock 不应再是修改中")
+        self.assertNotIn("计划已暂停", out["after"]["sub"], "修改态子说明必须消失")
+
     def test_result_dock_shows_the_conclusion_from_the_result_page(self):
         out = run_js(PLAN_SETUP + r"""
 load([

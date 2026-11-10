@@ -111,6 +111,7 @@ class PhoneServiceBase(unittest.TestCase):
             "plan": {"plan_id": "p1"},
             "business_clock": {"state": "ready"},
             "retry_options": {"default": 120},
+            "retry_policy": {"retry_for_s": 600, "max_attempts": 3},
             "terms": {"version": "1", "accepted_version": "1"},
             "help": {"steps": [{"text": "路径 C:/x"}]},
             "update_check": {"installer_path": "C:/setup.exe"},
@@ -175,6 +176,13 @@ class ProjectionTests(PhoneServiceBase):
         self.assertNotIn("help", projected)
         self.assertNotIn("update_check", projected)
         self.assertIn("retry_options", projected)
+
+    def test_state_keeps_only_retry_policy_for_phone_hydration(self):
+        projected = self.service.safe_state()["state"]
+        self.assertEqual(projected["retry_policy"],
+                         {"retry_for_s": 600, "max_attempts": 3})
+        self.assertNotIn("help", projected)
+        self.assertNotIn("update_check", projected)
 
     def test_state_is_read_from_local_cache_only(self):
         """GET state 只读本机缓存：不调用任何学校/刷新动作。"""

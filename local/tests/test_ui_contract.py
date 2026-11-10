@@ -990,8 +990,8 @@ class DualModeUiContractTests(unittest.TestCase):
         self.assertIn("function isEligibleForPlan(", js,
                       "缺少统一可报名判据 isEligibleForPlan")
         # 复选框与整行点击共用同一份判据
-        self.assertIn("check.disabled = S.busy || termsLocked() || !isEligibleForPlan(item)", js,
-                      "复选框必须同时受忙、条款门与已截止三道限制")
+        self.assertIn("check.disabled = S.busy || S.starting || termsLocked() || !isEligibleForPlan(item)", js,
+                      "复选框必须同时受忙、启动中、条款门与已截止四道限制")
         start = js.index("function toggleSelection(")
         body = js[start:js.index("function clearSelection", start)]
         self.assertIn("!isEligibleForPlan(item)", body,
@@ -1100,6 +1100,25 @@ out.push(taskHtml({ ...task }));
                 self.assertNotIn(label, card, "原型 card 不显示阶段名，任何 phase 都不编造文案")
             self.assertIn("已提交 1 次（不限次数）。", card, "提交中说明照原型 card：次数与上限")
             self.assertNotIn(" · 黄金", card)
+
+    def test_starting_gates_selection_contract(self):
+        """S.starting 期间锁定所有选择入口与可见控件：函数级门禁 + DOM disabled 一致。"""
+        js = read("ui/app.js")
+        # 函数级：toggleSelection 与 clearSelection 的第一道门禁必须同时拦 S.busy 与 S.starting
+        self.assertIn("function toggleSelection(", js)
+        start = js.index("function toggleSelection(")
+        body = js[start:js.index("function clearSelection", start)]
+        self.assertIn("if (S.busy || S.starting) return;", body,
+                      "toggleSelection 必须在第一行同时拦截 busy 与 starting")
+        clear_start = js.index("function clearSelection(")
+        clear_body = js[clear_start:clear_start + 200]
+        self.assertIn("if (S.busy || S.starting) return;", clear_body,
+                      "clearSelection 必须在第一行同时拦截 busy 与 starting")
+        # DOM 控件：清空按钮与 row-check disabled 必须包含 S.starting
+        self.assertIn('$("#btn-clear-plan").disabled = S.busy || S.starting ||', js,
+                      "清空按钮 disabled 必须包含 S.starting")
+        self.assertIn("check.disabled = S.busy || S.starting ||", js,
+                      "row-check disabled 必须包含 S.starting")
 
 
 class TimetableGroupingBehaviorTests(unittest.TestCase):

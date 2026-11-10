@@ -85,6 +85,9 @@ function startPlan() {
     } else if (ackGen > (Number(S.plan.gen) || 0)) {
       S.plan.gen = ackGen;
     }
+    /* 修改后的「重新开始」不能等 plan 事件再清 editing：plan_id 没变时
+       state/plan.js 的 handlePlan 会跳过 editing 清理，修改中的说明会一直留在屏上 */
+    S.editing = null;
     S.stopping = false;
     /* ack 只证明「已接纳」，不证明「此刻仍在运行」：该计划已经通过 plan_done
      * 到达终态时（终态早于 ack），保持终态呈现与 busy=false——没有第二个

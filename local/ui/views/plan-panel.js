@@ -1255,11 +1255,11 @@ function updateControls() {
   /* 运行中底部换成「修改计划 / 停止计划」；草稿时是开始前提醒、检查和主按钮 */
   const runActions = $("#run-actions");
   if (runActions) runActions.hidden = !S.busy;
-  $("#btn-clear-plan").disabled = S.busy || (!S.selected.size && !S.plan.tasks.size);
+  $("#btn-clear-plan").disabled = S.busy || S.starting || (!S.selected.size && !S.plan.tasks.size);
   document.querySelectorAll(".row-check").forEach((check) => {
     const item = findItem(check.dataset.id);
     /* 与行渲染同一份判据：已报名/已截止/忙碌都禁用，已截止仍可查看 */
-    check.disabled = S.busy || termsLocked() || !isEligibleForPlan(item) || !!signedClash(item);
+    check.disabled = S.busy || S.starting || termsLocked() || !isEligibleForPlan(item) || !!signedClash(item);
   });
   /* 取消报名按钮与行渲染同一份互斥判据：计划、刷新、登录或另一场取消都会置灰并写原因 */
   document.querySelectorAll("[data-cancel]").forEach((btn) => {

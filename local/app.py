@@ -3300,6 +3300,16 @@ class Api:
         with self._lock:
             last_check = dict(self._last_check)
         login.update(_last_check_fields(last_check))
+        prefs = load_prefs()
+        retry_pref = prefs.get("retry_policy") if isinstance(prefs, dict) else None
+        retry_pref = retry_pref if isinstance(retry_pref, dict) else {}
+        retry_policy = {
+            "retry_for_s": _retry_rules.policy_int(
+                retry_pref.get("retry_for_s"), 120,
+                minimum=_retry_rules.ADAPTIVE_RETRY),
+            "max_attempts": _retry_rules.policy_int(
+                retry_pref.get("max_attempts"), 0),
+        }
         return {
             "activities": activities,
             "login": login,
@@ -3307,6 +3317,7 @@ class Api:
             "busy": busy,
             "business_clock": self._clock_payload(),
             "retry_options": _retry_options_payload(),
+            "retry_policy": retry_policy,
             "terms": terms_state(load_prefs()),
             # 手机端条款门和电脑同源：没同意当前版本时手机停在缓存，不能开始计划或重新登录
             "terms_ok": self._terms_gate() is None,

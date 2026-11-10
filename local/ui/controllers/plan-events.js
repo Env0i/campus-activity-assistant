@@ -41,6 +41,10 @@ function handlePlanDone(payload) {
   /* 同计划已定终态：重复终态只补任务详情，不把结论改成另一状态（P1） */
   if (S.plan.id === String(data.plan_id || "")
       && PLAN_TERMINAL.indexOf(S.plan.status) >= 0) {
+    /* 重复终态：合并任务详情但不重开结果页。
+     * doStopPlan 曾把 S.stopping 置 true，presentPlanDone 不会走到这里，
+     * 所以必须在这个早返回分支自己收口停止标记。 */
+    S.stopping = false;
     (data.tasks || []).forEach((task) => {
       S.plan.tasks.set(String(task.task_id),
                        mergeTask(S.plan.tasks.get(String(task.task_id)) || null, task));

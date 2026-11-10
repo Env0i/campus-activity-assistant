@@ -1152,6 +1152,88 @@ out.push({ id: S.plan.id, busy: S.busy, status: S.plan.status, title: JSON.parse
         self.assertEqual(data["status"], "completed")
 
 
+class StoppingEarlyReturnTests(unittest.TestCase):
+    """S.stopping：同计划终态已定时，重复终态事件通过早返回分支到达，
+    presentPlanDone 不会被调。doStopPlan 曾置 S.stopping=true，早返回必须自己收口。"""
+
+    def test_duplicate_done_clears_stopping_flag(self):
+        """doStopPlan 后收到同 plan_id 的重复 plan_done(stopped)：S.stopping 必须归 false。"""
+        res = run_js(r"""
+/* 先把计划推到 running，再模拟用户点停止留下的停止标记 */
+window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running",
+  tasks: [{ task_id: "t1", activity_id: "a1", name: "场一", status: "running" }] });
+S.stopping = true;
+/* 先到 plan 终态：plan 事件应解除 busy 并保留 stopped 结论 */
+window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "stopped",
+  tasks: [{ task_id: "t1", activity_id: "a1", name: "场一", status: "canceled" }] });
+const afterPlan = { stopping: S.stopping, busy: S.busy, status: S.plan.status };
+/* 随后的同 plan_id plan_done 走早返回，补齐任务详情并收口 stopping */
+window.onBackend.plan_done({ plan_id: "p1", plan_generation: 1,
+                             status: "stopped", summary: {}, tasks: [{ task_id: "t1",
+                             activity_id: "a1", name: "场一", status: "canceled" }] });
+out.push({ afterPlan, stopping: S.stopping, busy: S.busy, status: S.plan.status,
+           taskCount: S.plan.tasks.size, taskCanceled: (S.plan.tasks.get("t1") || {}).status });
+""")
+        data = res[0]
+        self.assertTrue(data["afterPlan"]["stopping"],
+                        "plan 事件只推进终态，保留等待 plan_done 的停止标记")
+        self.assertFalse(data["afterPlan"]["busy"], "plan 终态后 busy 必须解除")
+        self.assertEqual(data["afterPlan"]["status"], "stopped", "plan 事件保持 stopped 结论")
+        self.assertFalse(data["stopping"],
+                         "早返回分支必须自己清 S.stopping，不能让停止标记残留")
+        self.assertFalse(data["busy"], "终态后 busy 必须解除")
+        self.assertEqual(data["status"], "stopped", "计划保持 stopped 结论不变")
+        self.assertEqual(data["taskCount"], 1, "重复终态仍能合并任务详情")
+        self.assertEqual(data["taskCanceled"], "canceled", "后端推来的 canceled 状态应覆盖旧 task")
+
+
+class StartingSelectionRaceTests(unittest.TestCase):
+    """S.starting 期间选择入口锁定：toggleSelection / clearSelection 都要早退，
+    防止 startPlan 到 ack 之间用户乱改选择导致 stale selection 被 adoptPlan 恢复。"""
+
+    def test_toggle_selection_refuses_when_starting(self):
+        """S.starting=true + busy=false 时，toggleSelection(id,true/false) 都不得改动 selected 集合。"""
+        res = run_js(r"""
+window.onBackend.activities({ ok: true, items: [
+  { id: "a1", name: "活动甲", signed: false,
+    sign_start: "2099-01-01 09:00:00", sign_end: "2099-01-02 09:00:00",
+    act_start: "2099-01-03 09:00:00", act_end: "2099-01-03 11:00:00" },
+  { id: "a2", name: "活动乙", signed: false,
+    sign_start: "2099-01-01 09:00:00", sign_end: "2099-01-02 09:00:00",
+    act_start: "2099-01-04 09:00:00", act_end: "2099-01-04 11:00:00" },
+] });
+S.busy = false; S.starting = true;
+S.selected.add("a1");
+const before = S.selected.size;
+toggleSelection("a1", false);   /* 取消已选中的 */
+toggleSelection("a2", true);    /* 勾选新的 */
+out.push({ before, after: S.selected.size, ids: Array.from(S.selected).sort() });
+""")
+        data = res[0]
+        self.assertEqual(data["before"], 1)
+        self.assertEqual(data["after"], 1, "starting 期间选择集合不得被改动")
+        self.assertEqual(data["ids"], ["a1"], "a1 保留、a2 不得被勾上")
+
+    def test_clear_selection_refuses_when_starting(self):
+        """S.starting=true 时 clearSelection 不得清空 selected 或重置 plan。"""
+        res = run_js(r"""
+window.onBackend.activities({ ok: true, items: [
+  { id: "a1", name: "活动甲", signed: false,
+    sign_start: "2099-01-01 09:00:00", sign_end: "2099-01-02 09:00:00",
+    act_start: "2099-01-03 09:00:00", act_end: "2099-01-03 11:00:00" },
+] });
+S.busy = false; S.starting = true;
+S.selected.add("a1");
+S.plan = { id: "ph1", status: "running", gen: 1, tasks: new Map() };
+clearSelection();
+out.push({ selectedSize: S.selected.size, planId: S.plan.id, planStatus: S.plan.status });
+""")
+        data = res[0]
+        self.assertEqual(data["selectedSize"], 1, "starting 期间 clearSelection 不得清选择")
+        self.assertEqual(data["planId"], "ph1", "starting 期间 clearSelection 不得重置 plan")
+        self.assertEqual(data["planStatus"], "running")
+
+
 class TerminalBeforeAckTests(unittest.TestCase):
     """终态早于开始 ack：ack 只证明「已接纳」，不得把已结束计划重新置忙。
 

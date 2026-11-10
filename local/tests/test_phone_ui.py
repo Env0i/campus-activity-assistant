@@ -503,6 +503,66 @@ out.push(firstId.length);
         self.assertEqual(values[3], 24)
 
 
+    def test_ingest_deduplicates_event_seq_but_reset_accepts_new_round(self):
+        values = run_phone_js('''
+const ui = PhoneUI;
+const logs = $("logs");
+const appended = [];
+const rawAppend = logs.appendChild.bind(logs);
+logs.appendChild = (child) => { appended.push(child.textContent); return rawAppend(child); };
+ui.ingest({state: {}, events: [{seq: 7, kind: "log", payload: "一次"}], seq: 7});
+ui.ingest({state: {}, events: [{seq: 7, kind: "log", payload: "一次"}], seq: 7});
+ui.ingest({reset: true, state: {}, events: [{seq: 7, kind: "log", payload: "新一轮"}], seq: 7});
+out.push([appended, Array.from(ui.model.seenEventSeq), ui.model.seq]);
+''')
+        self.assertEqual(values, [[["一次", "新一轮"], [7], 7]])
+
+    def test_retry_policy_hydrates_and_is_sent_after_refresh(self):
+        values = run_phone_js('''
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now(); ui.model.selected = ["a1"];
+ui.ingest({state: {activities: [{id: "a1", name: "甲", sign_start: "2026-11-01 09:00:00"}],
+  retry_policy: {retry_for_s: 600, max_attempts: 3},
+  retry_options: {choices: [{value: 600, label: "10 分钟"}]},
+  business_clock: {state: "ready", epoch_s: Date.now() / 1000, tick_s: 1, sampled_tick_s: 1}}, events: []});
+let posted = null;
+globalThis.__fetch = async (_p, opts) => { posted = JSON.parse(opts.body); return {status: 200, json: async () => ({ok: true, state: "accepted", seq: 1, events: [], state: {}})}; };
+await ui.startPlan();
+out.push([ui.model.retry, posted && posted.args && posted.args.retry_policy]);
+''')
+        self.assertEqual(values[0][0], {"retry_for_s": 600, "max_attempts": 3})
+        self.assertEqual(values[0][1], {"retry_for_s": 600, "max_attempts": 3})
+
+    def test_reconcile_late_reply_cannot_overwrite_canceled_pending(self):
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.paired = true;
+ui.model.pending = {request_id: "r1", at: Date.now(), done: false};
+let release;
+globalThis.__fetch = async (_p, opts) => {
+  const body = JSON.parse(opts.body);
+  if (body.action === "start_request_state") return await new Promise((resolve) => { release = () => resolve({status: 200, json: async () => ({state: "accepted"})}); });
+  return {status: 200, json: async () => ({ok: true, state: "canceled"})};
+};
+const old = ui.reconcile();
+await ui.cancelPendingStart();
+release(); await old;
+out.push([ui.model.pending.done, ui.model.pending.outcome, ui.model.bannerKind]);
+''')
+        self.assertEqual(values, [[True, "canceled", "info"]])
+
+    def test_ingest_prunes_missing_signed_and_closed_selection(self):
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.selected = ["a1", "a2", "a3", "a4"];
+ui.ingest({state: {activities: [
+  {id: "a1", signed: false, sign_start: "2026-11-01 09:00:00", sign_end: "2099-11-01 09:00:00"},
+  {id: "a3", signed: true, sign_start: "2026-11-01 09:00:00", sign_end: "2099-11-01 09:00:00"},
+  {id: "a4", signed: false, closed: true, sign_start: "2026-11-01 09:00:00", sign_end: "2026-11-02 09:00:00"}
+]}, events: []});
+out.push(ui.model.selected);
+''')
+        self.assertEqual(values, [["a1"]])
+
+
 class HelpAdvancedBehaviorTests(unittest.TestCase):
     def test_import_disabled_and_failure_states_are_independent(self):
         values = run_phone_js('''
