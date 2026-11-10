@@ -5,6 +5,7 @@
 """
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -74,6 +75,149 @@ class BuilderTests(unittest.TestCase):
                 self.assertFalse(result["ok"])
                 self.assertNotIn("fake", json.dumps(result))
             self.assertTrue(advanced_helper.run("phone_control", probe=True)["ok"])
+
+    def test_artifact_registry_has_four_fixed_entries(self):
+        self.assertEqual(set(builder.ARTIFACTS), {
+            "phone_control_runtime", "phone_control_cloudflared",
+            "relogin_ocr_runtime", "relogin_ocr_model",
+        })
+        self.assertEqual(builder.ARTIFACTS["relogin_ocr_model"]["role"], "model")
+
+    def test_phone_runtime_artifact_does_not_require_cloudflared(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
+            root = Path(tmp)
+            run_root = root / "phone_control_runtime"
+
+            def fake_pyinstaller(feature, location, dependencies):
+                folder = location / "dist" / "feature-helper"
+                folder.mkdir(parents=True)
+                (folder / "feature-helper.exe").write_bytes(b"MZfake")
+                return folder
+
+            with mock.patch.object(builder.importlib.util, "find_spec", return_value=object()), \
+                    mock.patch.object(builder, "_pyinstaller_directory", side_effect=fake_pyinstaller), \
+                    mock.patch.object(builder.cp, "_helper", return_value={"ok": True}):
+                result = builder.build("phone_control_runtime", root)
+            manifest = json.loads((run_root / "dist/feature-helper/manifest.json").read_text())
+            self.assertEqual(manifest["schema"], 2)
+            self.assertEqual(manifest["artifact_id"], "phone_control_runtime")
+            self.assertEqual(manifest["role"], "runtime")
+            self.assertNotIn("cloudflared", manifest)
+            self.assertTrue(Path(result["archive"]).is_file())
+
+    def test_phone_cloudflared_artifact_is_standalone_tool(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
+            root = Path(tmp)
+            binary = root / "cloudflared.exe"
+            binary.write_bytes(b"MZcloudflared")
+
+            def fake_run(command, **kwargs):
+                self.assertIn("--version", command)
+                return mock.Mock(stdout="cloudflared version %s (built x)" %
+                                 builder.cp.CLOUDFLARED_VERSION, stderr="")
+
+            with mock.patch.object(builder.subprocess, "run", side_effect=fake_run):
+                result = builder.build("phone_control_cloudflared", root, str(binary))
+            folder = root / "phone_control_cloudflared/dist/phone_control_cloudflared"
+            manifest = json.loads((folder / "manifest.json").read_text())
+            self.assertEqual(manifest["role"], "tool")
+            self.assertEqual(manifest["tool"]["name"], "cloudflared")
+            self.assertEqual(manifest["tool"]["version"], builder.cp.CLOUDFLARED_VERSION)
+            self.assertEqual(manifest["tool"]["sha256"],
+                             builder.cp.sha256(folder / builder.cp.CLOUDFLARED_NAME))
+            self.assertEqual(set(manifest["files"]), {builder.cp.CLOUDFLARED_NAME})
+            self.assertTrue(Path(result["archive"]).is_file())
+
+    def test_ocr_runtime_artifact_removes_common_onnx(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
+            root = Path(tmp)
+
+            def fake_pyinstaller(feature, location, dependencies):
+                folder = location / "dist" / "feature-helper"
+                folder.mkdir(parents=True)
+                (folder / "feature-helper.exe").write_bytes(b"MZfake")
+                (folder / "common.onnx").write_bytes(b"model")
+                (folder / "common_old.onnx").write_bytes(b"old-model")
+                (folder / "onnxruntime.dll").write_bytes(b"runtime")
+                return folder
+
+            with mock.patch.object(builder.importlib.util, "find_spec", return_value=object()), \
+                    mock.patch.object(builder, "_pyinstaller_directory", side_effect=fake_pyinstaller), \
+                    mock.patch.object(builder.cp, "_helper", return_value={"ok": True}):
+                result = builder.build("relogin_ocr_runtime", root)
+            folder = root / "relogin_ocr_runtime/dist/feature-helper"
+            self.assertFalse((folder / "common.onnx").exists())
+            self.assertFalse((folder / "common_old.onnx").exists())
+            self.assertTrue((folder / "onnxruntime.dll").is_file())
+            manifest = json.loads((folder / "manifest.json").read_text())
+            self.assertEqual(manifest["feature"], "relogin_ocr")
+            self.assertNotIn("common.onnx", manifest["files"])
+            self.assertTrue(Path(result["archive"]).is_file())
+
+    def test_ocr_model_artifact_contains_models_and_charsets(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            source.mkdir()
+            beta = source / "common.onnx"
+            old = source / "common_old.onnx"
+            beta.write_bytes(b"beta")
+            old.write_bytes(b"old")
+            sources = {"common.onnx": beta, "common_old.onnx": old}
+            metadata = {
+                "charsets-beta.json": {"charset": ["", "A"], "word": False,
+                                       "image": [64, 64], "channel": 1},
+                "charsets-old.json": {"charset": ["", "B"], "word": False,
+                                      "image": [64, 64], "channel": 1},
+            }
+            with mock.patch.object(builder, "_model_source_files", return_value=(sources, metadata)):
+                result = builder.build("relogin_ocr_model", root)
+            folder = root / "relogin_ocr_model/dist/relogin_ocr_model"
+            self.assertEqual(set(p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()), {
+                "models/common.onnx", "models/common_old.onnx",
+                "models/charsets-beta.json", "models/charsets-old.json", "manifest.json",
+            })
+            manifest = json.loads((folder / "manifest.json").read_text())
+            self.assertEqual(manifest["role"], "model")
+            self.assertIsNone(manifest["entry"])
+            self.assertTrue(Path(result["archive"]).is_file())
+
+    def test_external_ocr_model_is_passed_to_ddddocr(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
+            model_root = Path(tmp)
+            (model_root / "common.onnx").write_bytes(b"model")
+            (model_root / "charsets-beta.json").write_text("{}", encoding="utf-8")
+            captured = {}
+
+            class FakeEngine:
+                def __init__(self, **kwargs):
+                    captured.update(kwargs)
+
+                def classification(self, raw):
+                    self.raw = raw
+                    return "Ab12"
+
+            fake_ddddocr = mock.Mock(DdddOcr=FakeEngine)
+            payload = {"op": "ocr", "image": "data:image/png;base64,WA=="}
+            with mock.patch.dict(os.environ, {"CAMPUS_OCR_MODEL_ROOT": str(model_root)}), \
+                    mock.patch.dict(sys.modules, {"ddddocr": fake_ddddocr, "onnxruntime": mock.Mock()}):
+                result = advanced_helper.run("relogin_ocr",
+                                            stream=io.BytesIO(json.dumps(payload).encode()))
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["code"], "Ab12")
+            self.assertEqual(captured["import_onnx_path"], str(model_root / "common.onnx"))
+            self.assertEqual(captured["charsets_path"], str(model_root / "charsets-beta.json"))
+
+    def test_external_ocr_model_missing_uses_legacy_classifier(self):
+        payload = {"op": "ocr", "image": "data:image/png;base64,WA=="}
+        with mock.patch.object(advanced_helper, "_external_model_candidates", return_value=()), \
+                mock.patch.dict(sys.modules, {"ddddocr": mock.Mock(), "onnxruntime": mock.Mock()}), \
+                mock.patch("infrastructure.advanced_features.classify_captcha", return_value="Cd34") as legacy:
+            result = advanced_helper.run("relogin_ocr",
+                                        stream=io.BytesIO(json.dumps(payload).encode()))
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["code"], "Cd34")
+        legacy.assert_called_once_with(payload["image"], frozen=False)
 
 
 if __name__ == "__main__":

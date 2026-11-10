@@ -51,7 +51,8 @@ class AdvancedComponentService:
 
     def __init__(self, *, download, asset_resolver, root=None, version=None,
                  inspect=None, install=None, status=None,
-                  remover=None, on_installed=None, on_finished=None, log=None,
+                  remover=None, inspect_artifact=None, install_artifact=None,
+                  on_installed=None, on_finished=None, log=None,
                  feature=FEATURE):
         if feature not in _TITLES:
             raise ValueError("unknown component feature")
@@ -62,7 +63,9 @@ class AdvancedComponentService:
         self._download = download
         self._inspect = inspect or _packages.inspect_archive
         self._install = install or _packages.install
-        self._status = status or _packages.status
+        self._inspect_artifact = inspect_artifact or _packages.inspect_artifact
+        self._install_artifact = install_artifact or _packages.install_artifact
+        self._status = status or _packages.feature_status
         self._remover = remover or _packages.remove
         self._on_installed = on_installed
         self._on_finished = on_finished
@@ -226,6 +229,9 @@ class AdvancedComponentService:
                 self._fail(str(resolved.get("error") or "no_component"),
                            str(resolved.get("text") or "这个版本没有发布组件包。"))
                 return
+            if isinstance(resolved.get("assets"), list):
+                self._run_split_assets(resolved["assets"])
+                return
             asset = resolved["asset"]
             self._set(total=int(asset.get("bytes") or 0))
             last_progress = [0]
@@ -289,6 +295,72 @@ class AdvancedComponentService:
             with self._lock:
                 self._installing = False
                 self._active = False
+
+    def _run_split_assets(self, assets) -> None:
+        """按资产顺序下载并提交；旧单体组件目录始终保留作回退。"""
+        assets = [asset for asset in assets if isinstance(asset, dict)]
+        if not assets:
+            self._fail("no_component", "这个版本没有可用的拆分组件资产。")
+            return
+        total = sum(int(asset.get("bytes") or 0) for asset in assets)
+        offset = 0
+        installed_versions = []
+        for asset in assets:
+            if self._cancelled():
+                return
+            artifact_id = str(asset.get("artifact_id") or "")
+            if not artifact_id:
+                self._fail("bad_artifact", "拆分组件资产缺少类型。")
+                return
+            self._set(total=total, state="downloading", text="")
+            last_progress = [offset]
+            def progress(done, _expect):
+                current = offset + int(done or 0)
+                if current - last_progress[0] < PROGRESS_STEP_BYTES and current < offset + int(asset.get("bytes") or 0):
+                    return
+                last_progress[0] = current
+                self._set(downloaded=current, total=total)
+            got = self._download(
+                asset["url"], name=asset["name"], expect_bytes=asset["bytes"],
+                expect_sha256=asset["sha256"], root=self._root,
+                progress=progress, cancel=lambda: self._cancel_flag)
+            if not got.get("ok"):
+                code = str(got.get("error_code") or "download_failed")
+                if code == "cancelled":
+                    self._set(state="cancelled", text="", error_code="")
+                else:
+                    self._fail(code, str(got.get("text") or "下载失败。"))
+                return
+            archive = str(got.get("path") or "")
+            try:
+                self._set(state="verifying", text="正在校验组件资产…")
+                info = self._inspect_artifact(archive, artifact_id)
+                if not (isinstance(info, dict) and info.get("ok") is True):
+                    self._fail(str((info or {}).get("kind") or "bad_artifact"),
+                               str((info or {}).get("text") or "拆分组件资产不合规。"))
+                    return
+                with self._lock:
+                    if self._cancel_flag:
+                        self._state = "cancelled"
+                        self._text = ""
+                        return
+                    self._installing = True
+                self._install_artifact(archive, artifact_id, root=self._root)
+                installed_versions.append(str(info.get("version") or ""))
+            finally:
+                self._cleanup(archive)
+            offset += int(asset.get("bytes") or 0)
+        with self._lock:
+            self._state = "installed"
+            self._installed = True
+            self._version_text = installed_versions[-1] if installed_versions else ""
+            self._error_code = ""
+            self._text = ""
+        if self._on_installed is not None:
+            try:
+                self._on_installed(self._version_text)
+            except Exception as exc:
+                self._note("拆分组件已安装，但启用状态没保存：%s" % type(exc).__name__)
 
     def _cancelled(self) -> bool:
         with self._lock:

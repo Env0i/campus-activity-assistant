@@ -239,6 +239,19 @@ def delta_asset_name(base_version: str, target_version: str) -> str:
         base_version, target_version)
 
 
+SPLIT_ARTIFACTS = (
+    "phone_control_runtime", "phone_control_cloudflared",
+    "relogin_ocr_runtime", "relogin_ocr_model",
+)
+
+
+def artifact_asset_name(artifact_id: str, version: str) -> str:
+    if artifact_id not in SPLIT_ARTIFACTS:
+        raise ValueError("unknown artifact")
+    return "campus-activity-watch-%s-v%s-win-x64.zip" % (
+        artifact_id.replace("_", "-"), version)
+
+
 def run(cmd: list[str], cwd: Path = ROOT, env: dict | None = None) -> str:
     res = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, env=env,
                          encoding="utf-8", errors="replace")
@@ -290,7 +303,8 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
                    deltas: list[dict] | None = None,
                    base_version: str | None = None,
                    target_manifest_sha256: str | None = None,
-                   target_manifest: dict | None = None) -> Path:
+                   target_manifest: dict | None = None,
+                   split_assets: dict | None = None) -> Path:
     """资产证据：版本、tag、来源分支、**完整 HEAD**、来源是否干净、每个文件的 SHA-256 与大小。
 
     source_dirty=true 的产物只能当预览：main 干净不等于资产来自干净提交，
@@ -336,6 +350,9 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
         manifest["base_version"] = base_version
     if target_manifest_sha256 is not None:
         manifest["target_manifest_sha256"] = target_manifest_sha256
+    if split_assets is not None:
+        manifest["split_assets"] = {key: dict(value)
+                                     for key, value in split_assets.items()}
     path = stage_dir / "manifest.json"
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2),
                     encoding="utf-8")
@@ -458,6 +475,24 @@ def build_ocr_component(version: str, work_dir: Path) -> Path:
     return produced[0]
 
 
+def build_split_artifact(artifact_id: str, version: str, work_dir: Path,
+                         cloudflared: Path | str | None = None) -> Path:
+    """构建单个 schema2 资产，旧 feature 构建入口不受影响。"""
+    work_dir.mkdir(parents=True, exist_ok=True)
+    command = [sys.executable, str(ROOT / "local" / "build" / "build_advanced.py"),
+               "--artifact", artifact_id, "--output-dir", str(work_dir)]
+    if artifact_id == "phone_control_cloudflared":
+        binary = Path(cloudflared) if cloudflared else _default_cloudflared()
+        if not binary.is_file():
+            raise SystemExit("[prepare] 缺 cloudflared 二进制：%s" % binary)
+        command += ["--cloudflared", str(binary)]
+    run(command)
+    produced = sorted(work_dir.glob("%s-*-windows-x64.zip" % artifact_id))
+    if len(produced) != 1:
+        raise SystemExit("[prepare] 拆分资产构建产物不唯一：%s" % (produced or "（没有产物）"))
+    return produced[0]
+
+
 # 可替换的构建入口：测试用假构建器验证装配契约，不跑 PyInstaller、不打包几十兆二进制
 BUILD_COMPONENT = build_phone_component
 BUILD_OCR_COMPONENT = build_ocr_component
@@ -506,10 +541,38 @@ def stage_ocr_component(version: str, stage_dir: Path) -> Path:
     return target
 
 
+def stage_split_artifacts(version: str, stage_dir: Path,
+                          cloudflared: Path | str | None = None) -> tuple[list[Path], dict]:
+    """构建四种 schema2 资产并返回发布资产与 manifest 元数据。"""
+    packages = component_modules()["component_packages"]
+    assets = []
+    metadata = {}
+    for artifact_id in SPLIT_ARTIFACTS:
+        with tempfile.TemporaryDirectory(prefix="campus-%s-" % artifact_id) as directory:
+            produced = build_split_artifact(artifact_id, version, Path(directory), cloudflared)
+            target = stage_dir / artifact_asset_name(artifact_id, version)
+            shutil.copy2(produced, target)
+        inspected = packages.inspect_artifact(target, artifact_id)
+        if not inspected.get("ok"):
+            raise SystemExit("[prepare] 拆分资产不合规：%s" % target.name)
+        assets.append(target)
+        metadata[artifact_id] = {
+            "artifact_id": artifact_id,
+            "name": target.name,
+            "bytes": target.stat().st_size,
+            "sha256": sha256_of(target),
+            "target_version": version,
+            "compatibility_id": "campus-activity-1",
+            "role": inspected.get("role", ""),
+        }
+    return assets, metadata
+
+
 def stage_local_assets(version: str, *, with_component: bool = True,
                        cloudflared: Path | str | None = None,
                        delta_base: Path | str | None = None,
-                       delta_base_version: str | None = None) -> dict:
+                       delta_base_version: str | None = None,
+                       split_components: bool = False) -> dict:
     """准备阶段：构建 + 组装完整 ZIP、单文件 EXE 与 onedir payload，写 manifest。
 
     只产生本地文件：不打 tag、不上传、不访问网络；OUT/data 里的旧登录态
@@ -606,6 +669,11 @@ def stage_local_assets(version: str, *, with_component: bool = True,
         print("[prepare] 跳过两个组件包（--without-component）："
               "这次发布里手机控制和验证码识别的「下载并安装」都会不可用")
 
+    split_paths = []
+    split_info = None
+    if split_components:
+        split_paths, split_info = stage_split_artifacts(version, stage_dir, cloudflared)
+
     assets = [zip_path, exe_path, installer_path, payload_path]
     if delta_path is not None:
         assets.append(delta_path)
@@ -613,6 +681,7 @@ def stage_local_assets(version: str, *, with_component: bool = True,
         assets.append(component_path)
     if ocr_component_path is not None:
         assets.append(ocr_component_path)
+    assets.extend(split_paths)
     manifest = write_manifest(stage_dir, version, tag, assets,
                               build_state=post,
                               component_included=component_path is not None,
@@ -622,7 +691,8 @@ def stage_local_assets(version: str, *, with_component: bool = True,
                               deltas=[delta_info] if delta_info is not None else None,
                               base_version=delta_base_version,
                               target_manifest_sha256=target_manifest_sha256,
-                              target_manifest=target_manifest)
+                              target_manifest=target_manifest,
+                              split_assets=split_info)
     for path in assets:
         print("   %s  %.1f MB" % (path.name, path.stat().st_size / 1024 / 1024))
     print("[prepare] 资产就绪：%s" % stage_dir)
@@ -631,6 +701,7 @@ def stage_local_assets(version: str, *, with_component: bool = True,
     return {"zip": zip_path, "exe": exe_path, "installer": installer_path,
             "payload": payload_path,
             "delta": delta_path,
+            "split_assets": split_paths,
             "component": component_path, "ocr_component": ocr_component_path,
             "manifest": manifest}
 
@@ -872,9 +943,35 @@ def verify_release_assets(version: str) -> dict:
                          "请重新 --prepare")
     ocr_component_path = _verified_component(stage_dir, manifest,
                                              ocr_component_asset_name(version), OCR_FEATURE)
+    delta_paths = []
+    for item in manifest.get("deltas", []) or []:
+        if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+            raise SystemExit("[publish] delta 条目不合法")
+        path = stage_dir / item["name"]
+        meta = (manifest.get("files") or {}).get(path.name)
+        if not path.is_file() or not isinstance(meta, dict):
+            raise SystemExit("[publish] delta 资产缺失或没有 manifest 记录：%s" % path.name)
+        if path.stat().st_size != meta.get("bytes") or sha256_of(path) != meta.get("sha256"):
+            raise SystemExit("[publish] delta 资产哈希或大小不一致：%s" % path.name)
+        delta_paths.append(path)
+    split_paths = []
+    for artifact_id, item in (manifest.get("split_assets") or {}).items():
+        if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+            raise SystemExit("[publish] 拆分资产条目不合法：%s" % artifact_id)
+        path = stage_dir / item["name"]
+        meta = (manifest.get("files") or {}).get(path.name)
+        if not path.is_file() or not isinstance(meta, dict):
+            raise SystemExit("[publish] 拆分资产缺失或没有 manifest 记录：%s" % path.name)
+        if path.stat().st_size != meta.get("bytes") or sha256_of(path) != meta.get("sha256"):
+            raise SystemExit("[publish] 拆分资产哈希或大小不一致：%s" % path.name)
+        inspected = component_modules()["component_packages"].inspect_artifact(path, artifact_id)
+        if not inspected.get("ok"):
+            raise SystemExit("[publish] 拆分资产自检失败：%s" % path.name)
+        split_paths.append(path)
     return {"stage": stage_dir, "exe": exe_path, "zip": zip_path,
             "installer": installer_path, "component": component_path,
-            "ocr_component": ocr_component_path, "manifest": manifest_path}
+            "ocr_component": ocr_component_path, "delta": delta_paths,
+            "split_assets": split_paths, "manifest": manifest_path}
 
 
 def _verified_component(stage_dir: Path, manifest: dict, name: str, feature: str) -> Path:
@@ -1020,10 +1117,15 @@ def asset_digest(assets: dict) -> dict:
     组件必须一起算：少算一项时，那个组件 ZIP 在确认等待期被替换不会让指纹变化，
     发布前门禁就无法证明「用户拿到的组件包」还是核验过的那一份。
     """
-    return {
+    digest = {
         key: sha256_of(assets[key])
         for key in ("zip", "exe", "installer", "component", "ocr_component", "manifest")
     }
+    if "delta" in assets:
+        digest["delta"] = [sha256_of(path) for path in assets.get("delta", [])]
+    if "split_assets" in assets:
+        digest["split_assets"] = [sha256_of(path) for path in assets.get("split_assets", [])]
+    return digest
 
 
 def do_publish(tag: str, assume_yes: bool, version: str, clobber: bool = False) -> None:
@@ -1066,8 +1168,12 @@ def do_publish(tag: str, assume_yes: bool, version: str, clobber: bool = False) 
     if asset_digest(verify_release_assets(version)) != digest_before:
         raise SystemExit("[publish] 上传前发现候选资产被替换（哈希变化）：已中止上传")
     print("[2/2] 上传 Release ...")
-    publish(tag, [assets["zip"], assets["exe"], assets["installer"],
-                  assets["component"], assets["ocr_component"], assets["manifest"]], clobber)
+    upload_assets = [assets["zip"], assets["exe"], assets["installer"],
+                     assets["component"], assets["ocr_component"]]
+    upload_assets.extend(assets.get("delta", []))
+    upload_assets.extend(assets.get("split_assets", []))
+    upload_assets.append(assets["manifest"])
+    publish(tag, upload_assets, clobber)
 
     print("\n完成：https://github.com/Env0i/campus-activity-assistant/releases/tag/%s" % tag)
     print("[提示] 绿色版/服务器版打包与 local/server 分发分支同步属兼容发行流程，需另行授权执行。")
@@ -1093,6 +1199,8 @@ def main() -> int:
                     help="prepare 时使用历史 onedir 版本目录生成 delta 资产（默认不生成）")
     ap.add_argument("--delta-base-version",
                     help="--delta-base 对应的三段版本号")
+    ap.add_argument("--split-components", action="store_true",
+                    help="prepare 时同时构建 schema2 runtime/model/tool 资产")
     args = ap.parse_args()
     stages = [args.check, args.prepare, args.publish]
     if sum(1 for s in stages if s) > 1:
@@ -1116,7 +1224,8 @@ def main() -> int:
                            with_component=not args.without_component,
                            cloudflared=args.cloudflared,
                            delta_base=args.delta_base,
-                           delta_base_version=args.delta_base_version)
+                           delta_base_version=args.delta_base_version,
+                           split_components=args.split_components)
         return 0
     check_only(version)   # 默认与 --check：零副作用
     return 0

@@ -24,6 +24,23 @@ if str(LOCAL) not in sys.path:
 from infrastructure import component_packages as cp  # noqa: E402
 
 
+ARTIFACTS = {
+    "phone_control_runtime": {
+        "feature": "phone_control", "role": "runtime", "dependencies": ("segno",),
+    },
+    "phone_control_cloudflared": {
+        "feature": "phone_control", "role": "tool", "dependencies": (),
+    },
+    "relogin_ocr_runtime": {
+        "feature": "relogin_ocr", "role": "runtime",
+        "dependencies": ("ddddocr", "onnxruntime"),
+    },
+    "relogin_ocr_model": {
+        "feature": "relogin_ocr", "role": "model", "dependencies": (),
+    },
+}
+
+
 def output_root(value):
     requested = Path(value)
     root = requested.resolve()
@@ -33,7 +50,151 @@ def output_root(value):
     return root
 
 
-def build(feature, output_dir, cloudflared=None):
+def _check_platform_and_dependencies(dependencies, *, require_pyinstaller=True):
+    if not cp.supported():
+        raise ValueError("Windows x64 is required")
+    names = ("PyInstaller",) if require_pyinstaller else ()
+    missing = [name for name in names + tuple(dependencies)
+               if importlib.util.find_spec(name) is None]
+    if missing:
+        raise ValueError("Missing dependencies: " + ", ".join(missing))
+
+
+def _pyinstaller_directory(feature, run_root, dependencies):
+    wrapper = run_root / "entry.py"
+    wrapper.write_text("from advanced_helper import main\nraise SystemExit(main(%r))\n" % feature,
+                       encoding="utf-8")
+    command = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--onedir", "--console",
+               "--name", "feature-helper", "--paths", str(LOCAL),
+               "--distpath", str(run_root / "dist"), "--workpath", str(run_root / "work"),
+               "--specpath", str(run_root)]
+    for name in dependencies:
+        command.extend(["--collect-all", name])
+    if feature == "phone_control":
+        command.extend(["--exclude-module", "ddddocr", "--exclude-module", "onnxruntime"])
+    else:
+        command.extend(["--exclude-module", "segno"])
+    command.append(str(wrapper))
+    subprocess.run(command, check=True)
+    directory = run_root / "dist" / "feature-helper"
+    if not directory.is_dir():
+        raise ValueError("PyInstaller output missing: %s" % directory)
+    return directory
+
+
+def _remove_ocr_models(directory):
+    """runtime 只带推理代码；common*.onnx 全部由 model artifact 提供。"""
+    for path in directory.rglob("*.onnx"):
+        if path.name.casefold().startswith("common"):
+            path.unlink()
+
+
+def _model_source_files():
+    spec = importlib.util.find_spec("ddddocr")
+    if spec is None or not spec.origin:
+        raise ValueError("Missing dependency: ddddocr")
+    package = Path(spec.origin).resolve().parent
+    sources = {
+        "common.onnx": package / "common.onnx",
+        "common_old.onnx": package / "common_old.onnx",
+    }
+    if any(not path.is_file() for path in sources.values()):
+        raise ValueError("ddddocr model files are missing")
+    charsets = importlib.import_module("ddddocr.charsets")
+    metadata = {
+        "charsets-beta.json": {"charset": list(charsets.CHARSET_BETA), "word": False,
+                               "image": [64, 64], "channel": 1},
+        "charsets-old.json": {"charset": list(charsets.CHARSET_OLD), "word": False,
+                              "image": [64, 64], "channel": 1},
+    }
+    return sources, metadata
+
+
+def _artifact_manifest(artifact, files, *, entry=None, extra=None):
+    spec = ARTIFACTS[artifact]
+    data = {
+        "schema": 2,
+        "artifact": artifact,
+        "artifact_id": artifact,
+        "feature": spec["feature"],
+        "role": spec["role"],
+        "version": cp.version(),
+        "asset_version": cp.version(),
+        "app_version": cp.version(),
+        "target": "win-x64",
+        "platform": "windows-x64",
+        "protocol": 1,
+        "compatibility_id": "campus-activity-1",
+        "entry": entry or "",
+        "requires": [],
+        "files": files,
+    }
+    if extra:
+        data.update(extra)
+    return data
+
+
+def _write_manifest(directory, manifest):
+    (directory / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _validate_artifact_directory(directory, artifact):
+    manifest_path = directory / "manifest.json"
+    if not manifest_path.is_file():
+        raise ValueError("artifact manifest missing")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    spec = ARTIFACTS[artifact]
+    if (manifest.get("schema") != 2 or manifest.get("artifact") != artifact
+            or manifest.get("artifact_id") != artifact
+            or manifest.get("feature") != spec["feature"]
+            or manifest.get("role") != spec["role"]
+            or manifest.get("platform") != "windows-x64"):
+        raise ValueError("artifact manifest incompatible")
+    files = manifest.get("files")
+    if not isinstance(files, dict):
+        raise ValueError("artifact manifest files missing")
+    actual = {p.relative_to(directory).as_posix(): cp.sha256(p)
+              for p in sorted(directory.rglob("*")) if p.is_file() and p.name != "manifest.json"}
+    if set(actual) != set(files):
+        raise ValueError("artifact file list mismatch")
+    if any(actual[name] != digest for name, digest in files.items()):
+        raise ValueError("artifact hash mismatch")
+    entry = manifest.get("entry")
+    if entry and entry not in files:
+        raise ValueError("artifact entry missing")
+    return manifest
+
+
+def _zip_directory(directory, archive):
+    with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED) as package:
+        for path in sorted(directory.rglob("*")):
+            if path.is_file():
+                package.write(path, path.relative_to(directory).as_posix())
+
+
+def _finish_artifact(artifact, output, run_root, directory, manifest):
+    _write_manifest(directory, manifest)
+    _validate_artifact_directory(directory, artifact)
+    entry = manifest.get("entry")
+    if entry and manifest["role"] == "runtime":
+        cp._helper(directory / entry, feature=manifest["feature"], probe=True)
+    archive = output / ("%s-%s-windows-x64.zip" % (artifact, cp.version()))
+    _zip_directory(directory, archive)
+    total = sum(p.stat().st_size for p in directory.rglob("*") if p.is_file())
+    if archive.stat().st_size > cp.MAX_ARCHIVE:
+        raise ValueError("Archive exceeds import size limit")
+    report = {"archive": str(archive), "sha256": cp.sha256(archive),
+              "compressed_bytes": archive.stat().st_size, "extracted_bytes": total,
+              "files": len(manifest["files"]) + 1, "version": cp.version(),
+              "feature": manifest["feature"], "artifact": artifact,
+              "role": manifest["role"]}
+    (run_root / "build-result.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
+    return report
+
+
+def _build_legacy(feature, output_dir, cloudflared=None):
     cp._key(feature)
     if not cp.supported():
         raise ValueError("Windows x64 is required")
@@ -111,14 +272,78 @@ def build(feature, output_dir, cloudflared=None):
     return report
 
 
+def _build_artifact(artifact, output_dir, cloudflared=None):
+    spec = ARTIFACTS.get(artifact)
+    if spec is None:
+        raise ValueError("unknown_artifact")
+    _check_platform_and_dependencies(
+        spec["dependencies"], require_pyinstaller=spec["role"] == "runtime")
+    output = output_root(output_dir)
+    run_root = output / artifact
+    run_root.mkdir(parents=True, exist_ok=False)
+    directory = run_root / "dist" / artifact
+    directory.mkdir(parents=True)
+    extra = {}
+    entry = None
+    if spec["role"] == "runtime":
+        directory.rmdir()
+        directory = _pyinstaller_directory(spec["feature"], run_root, spec["dependencies"])
+        if artifact == "relogin_ocr_runtime":
+            _remove_ocr_models(directory)
+        entry = "feature-helper.exe"
+    elif artifact == "phone_control_cloudflared":
+        if not cloudflared:
+            raise ValueError("cloudflared_required：独立 phone_control tool artifact 需要 --cloudflared")
+        binary = Path(cloudflared).resolve(strict=True)
+        info = subprocess.run([str(binary), "--version"], check=True, capture_output=True,
+                              text=True, encoding="utf-8", timeout=10,
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        found = cp.parse_cloudflared_version((info.stdout or "") + " " + (info.stderr or ""))
+        if found != cp.CLOUDFLARED_VERSION:
+            raise ValueError("cloudflared %s required, got %s" %
+                             (cp.CLOUDFLARED_VERSION, found or (info.stdout or "").strip()[:60]))
+        target = directory / cp.CLOUDFLARED_NAME
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(binary, target)
+        extra["tool"] = {"name": "cloudflared", "version": found}
+        entry = cp.CLOUDFLARED_NAME
+    elif artifact == "relogin_ocr_model":
+        sources, metadata = _model_source_files()
+        models = directory / "models"
+        models.mkdir(parents=True)
+        for name, source in sources.items():
+            shutil.copy2(source, models / name)
+        for name, value in metadata.items():
+            (models / name).write_text(json.dumps(value, ensure_ascii=False, indent=2),
+                                        encoding="utf-8")
+    files = {p.relative_to(directory).as_posix(): cp.sha256(p)
+             for p in sorted(directory.rglob("*")) if p.is_file()}
+    manifest = _artifact_manifest(artifact, files, entry=entry, extra=extra)
+    if spec["role"] == "tool":
+        manifest["tool"]["sha256"] = files[entry]
+    return _finish_artifact(artifact, output, run_root, directory, manifest)
+
+
+def build(feature, output_dir, cloudflared=None, *, artifact=None):
+    """兼容旧的 feature 调用，并接受四种 artifact 名称。"""
+    selected = artifact or feature
+    if selected in ARTIFACTS:
+        return _build_artifact(selected, output_dir, cloudflared)
+    return _build_legacy(selected, output_dir, cloudflared)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--feature", required=True, choices=sorted(cp.FEATURES))
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--feature", choices=sorted(cp.FEATURES),
+                       help="兼容入口：构建 schema=1 单体组件 ZIP")
+    group.add_argument("--artifact", choices=sorted(ARTIFACTS),
+                       help="构建 schema=2 可复用 artifact ZIP")
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--cloudflared")
     args = parser.parse_args()
     try:
-        build(args.feature, args.output_dir, args.cloudflared)
+        build(args.feature or args.artifact, args.output_dir, args.cloudflared)
     except (ValueError, OSError, subprocess.SubprocessError) as exc:
         parser.exit(1, "Build failed: %s\n" % exc)
 

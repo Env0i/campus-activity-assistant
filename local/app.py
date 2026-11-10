@@ -804,6 +804,8 @@ class Api:
             download=updater.download_installer,
             asset_resolver=self._resolve_component_asset,
             install=self._install_downloaded_component,
+            inspect_artifact=_component_packages.inspect_artifact,
+            install_artifact=self._install_downloaded_artifact,
             on_installed=self._component_installed,
             on_finished=lambda: self._component_finished(_advanced_features.PHONE_CONTROL),
             log=phone_log)
@@ -814,6 +816,8 @@ class Api:
             asset_resolver=lambda version: self._resolve_component_asset(
                 version, _advanced_features.RELOGIN_OCR),
             install=self._install_downloaded_ocr,
+            inspect_artifact=_component_packages.inspect_artifact,
+            install_artifact=self._install_downloaded_ocr_artifact,
             on_installed=self._ocr_component_installed,
             on_finished=lambda: self._component_finished(_advanced_features.RELOGIN_OCR),
             log=phone_log)
@@ -1158,6 +1162,10 @@ class Api:
                 _update_check.tag_manifest_url(version), _update_check.MAX_MANIFEST_BYTES,
                 "TianSoftActivityPreRegistration-component-manifest")
             payload = _update_check.payload_from_manifest(raw_manifest, version)
+            split_verdict = _update_check.resolve_component_assets(
+                payload, version, raw_manifest, feature)
+            if split_verdict.get("state") == "available":
+                return {"ok": True, "assets": split_verdict["assets"]}
             verdict = _update_check.resolve_component_asset(
                 payload, version, raw_manifest, feature)
         except HTTPError as exc:
@@ -1197,6 +1205,17 @@ class Api:
             self._phone.shutdown(preserve_devices=True)
             self._phone_channel = ""
             return _component_packages.install(archive, key, root=root)
+
+    def _install_downloaded_artifact(self, archive, artifact_id, *, root=None):
+        """拆分手机资产换位前复用 legacy 组件的进程收口。"""
+        with self._credential_lock, self._phone_access_lock:
+            with self._lock:
+                if self._closing:
+                    raise RuntimeError("application_closing")
+            self._cloudflare.stop()
+            self._phone.shutdown(preserve_devices=True)
+            self._phone_channel = ""
+            return _component_packages.install_artifact(archive, artifact_id, root=root)
 
     def _component_finished(self, feature: str = "") -> None:
         """组件下载事务收尾（工作线程）：放开占用，并把失败原因写进运行记录。
@@ -1243,6 +1262,16 @@ class Api:
             self._relay.cancel(origin="auto")
             self._auto_relogin.reset()
             return _component_packages.install(archive, key, root=root)
+
+    def _install_downloaded_ocr_artifact(self, archive, artifact_id, *, root=None):
+        """拆分 OCR 资产换位前停止自动登录，避免模型文件被占用。"""
+        with self._credential_lock:
+            with self._lock:
+                if self._closing:
+                    raise RuntimeError("application_closing")
+            self._relay.cancel(origin="auto")
+            self._auto_relogin.reset()
+            return _component_packages.install_artifact(archive, artifact_id, root=root)
 
     def _ocr_component_installed(self, version: str) -> None:
         """验证码识别装好后写启用状态（在工作线程里被调用）。"""

@@ -23,6 +23,19 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 FEATURES = {"phone_control", "relogin_ocr"}
+ARTIFACTS = {
+    "phone_control_runtime": {"feature": "phone_control", "role": "runtime",
+                               "entry": "feature-helper.exe"},
+    "phone_control_cloudflared": {"feature": "phone_control", "role": "tool",
+                                   "entry": "bin/cloudflared.exe"},
+    "relogin_ocr_runtime": {"feature": "relogin_ocr", "role": "runtime",
+                             "entry": "feature-helper.exe"},
+    "relogin_ocr_model": {"feature": "relogin_ocr", "role": "model",
+                           "entry": ""},
+}
+ARTIFACT_ROOT = "assets"
+ARTIFACT_SCHEMA = 2
+ARTIFACT_PROTOCOL = 1
 MAX_ARCHIVE = 512 * 1024 * 1024
 MAX_EXTRACTED = 1024 * 1024 * 1024
 MAX_FILES = 5000
@@ -82,9 +95,20 @@ def _key(key):
     return key
 
 
+def _artifact_key(artifact_id):
+    if artifact_id not in ARTIFACTS:
+        raise PackageError("unknown_artifact")
+    return artifact_id
+
+
 def install_dir(key, *, root=None):
     """组件的安装目录（数据目录下 advanced/<功能>）；只给电脑端的位置接口用，不查磁盘。"""
     return _root(root) / _key(key)
+
+
+def artifact_dir(artifact_id, *, root=None):
+    """拆分资产目录；旧 feature 目录保持独立，作为 legacy 回退。"""
+    return _root(root) / ARTIFACT_ROOT / _artifact_key(artifact_id)
 
 
 def _linked(path):
@@ -174,6 +198,85 @@ def _manifest(raw, key):
     return data
 
 
+def _artifact_manifest(raw, artifact_id):
+    """校验 schema2 拆分资产清单；不把资产版本误当主程序版本。"""
+    artifact_id = _artifact_key(artifact_id)
+    if len(raw) > 2 * 1024 * 1024:
+        raise PackageError("manifest_limit")
+    try:
+        data = json.loads(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
+    except (ValueError, UnicodeError) as exc:
+        raise PackageError("bad_manifest") from exc
+    spec = ARTIFACTS[artifact_id]
+    if (not isinstance(data, dict) or data.get("schema") != ARTIFACT_SCHEMA
+            or data.get("artifact_id") != artifact_id
+            or data.get("feature") != spec["feature"]
+            or data.get("role") != spec["role"]
+            or data.get("protocol") != ARTIFACT_PROTOCOL
+            or not isinstance(data.get("asset_version"), str)
+            or not re.fullmatch(r"\d+\.\d+\.\d+", data["asset_version"])
+            or not isinstance(data.get("compatibility_id"), str)
+            or not data["compatibility_id"]
+            or not isinstance(data.get("files"), dict)):
+        raise PackageError("incompatible_artifact_manifest")
+    entry = data.get("entry")
+    if entry != spec["entry"]:
+        raise PackageError("bad_entry")
+    if not isinstance(data.get("requires", []), list):
+        raise PackageError("bad_requires")
+    files = data["files"]
+    if not files or len(files) >= MAX_FILES:
+        raise PackageError("bad_files")
+    names = set()
+    for name, digest in files.items():
+        _name(name)
+        folded = name.casefold()
+        if (folded in names or folded == "manifest.json"
+                or not isinstance(digest, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", digest)):
+            raise PackageError("bad_files")
+        names.add(folded)
+    if spec["entry"] and spec["entry"] not in files:
+        raise PackageError("entry_missing")
+    if spec["role"] == "tool":
+        tool = data.get("tool")
+        if (not isinstance(tool, dict) or tool.get("name") != "cloudflared"
+                or parse_cloudflared_version(tool.get("version")) != CLOUDFLARED_VERSION
+                or files.get(spec["entry"]) != tool.get("sha256")):
+            raise PackageError("bad_tool")
+    return data
+
+
+def validate_artifact_directory(directory, artifact_id):
+    """校验 schema2 资产目录，不执行 runtime helper。"""
+    directory = Path(directory)
+    _artifact_key(artifact_id)
+    if _linked(directory) or _linked(directory.parent) or not directory.is_dir():
+        raise PackageError("missing_artifact")
+    manifest_path = directory / "manifest.json"
+    if (not manifest_path.is_file() or _linked(manifest_path)
+            or manifest_path.stat().st_size > 2 * 1024 * 1024):
+        raise PackageError("bad_manifest")
+    manifest = _artifact_manifest(manifest_path.read_bytes(), artifact_id)
+    actual = {}
+    total = 0
+    for path in directory.rglob("*"):
+        if _linked(path):
+            raise PackageError("unsafe_path")
+        if path.is_file():
+            relative = _name(path.relative_to(directory).as_posix())
+            actual[relative.casefold()] = relative
+            total += path.stat().st_size
+    if len(actual) > MAX_FILES or total > MAX_EXTRACTED:
+        raise PackageError("size_limit")
+    if set(actual.values()) != set(manifest["files"]) | {"manifest.json"}:
+        raise PackageError("file_mismatch")
+    for name, digest in manifest["files"].items():
+        if sha256(directory / name) != digest:
+            raise PackageError("hash_mismatch")
+    return manifest
+
+
 def validate_directory(directory, key):
     directory = Path(directory)
     _key(key)
@@ -204,14 +307,18 @@ def validate_directory(directory, key):
     return manifest
 
 
-def _helper(executable, *, feature, payload=None, timeout=30, probe=False):
+def _helper(executable, *, feature, payload=None, timeout=30, probe=False, env=None):
     """用有界 reader 防止 helper stdout/stderr 无限堆进主进程内存。"""
     body = b"" if probe else json.dumps(payload, ensure_ascii=True).encode("utf-8")
     if len(body) > 2 * 1024 * 1024 + 4096:
         raise PackageError("input_limit")
     args = [str(executable)] + (["--probe"] if probe else [])
+    child_env = None
+    if env:
+        child_env = os.environ.copy()
+        child_env.update({str(k): str(v) for k, v in env.items()})
     proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT,
+                            stderr=subprocess.STDOUT, env=child_env,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     output = bytearray()
     overflow = threading.Event()
@@ -384,27 +491,205 @@ def install(archive, key, *, root=None):
                 shutil.rmtree(stage)
 
 
+def _recover_artifact_replacement(base, artifact_id):
+    assets = base / ARTIFACT_ROOT
+    target = assets / artifact_id
+    backup = assets / (".backup-" + artifact_id)
+    if _linked(assets) or _linked(target) or _linked(backup):
+        raise PackageError("unsafe_path")
+    for stage in assets.glob(".stage-%s-*" % artifact_id):
+        if _linked(stage):
+            raise PackageError("unsafe_path")
+        if stage.is_dir():
+            shutil.rmtree(stage, ignore_errors=True)
+    if backup.exists() and not target.exists():
+        os.replace(backup, target)
+    elif backup.exists() and target.exists():
+        if not backup.is_dir():
+            raise PackageError("unsafe_path")
+        shutil.rmtree(backup, ignore_errors=True)
+
+
+def artifact_status(artifact_id, *, root=None):
+    """读取单个 schema2 资产状态，不把它当成完整 feature。"""
+    artifact_id = _artifact_key(artifact_id)
+    if not supported():
+        return {"available": False, "artifact_id": artifact_id,
+                "source": "imported", "error": "unsupported_platform"}
+    base = _root(root)
+    try:
+        _recover_artifact_replacement(base, artifact_id)
+        directory = artifact_dir(artifact_id, root=root)
+        manifest = validate_artifact_directory(directory, artifact_id)
+        return {"available": True, "artifact_id": artifact_id,
+                "feature": manifest["feature"], "role": manifest["role"],
+                "source": "split", "error": "",
+                "version": manifest["asset_version"],
+                "compatibility_id": manifest["compatibility_id"],
+                "path": str(directory)}
+    except (PackageError, OSError):
+        return {"available": False, "artifact_id": artifact_id,
+                "source": "split", "error": "artifact_invalid"}
+
+
+def install_artifact(archive, artifact_id, *, root=None):
+    """安装单个 schema2 资产，旧 feature 目录不参与换位。"""
+    artifact_id = _artifact_key(artifact_id)
+    if not supported():
+        raise PackageError("unsupported_platform")
+    archive = Path(archive)
+    if archive.stat().st_size > MAX_ARCHIVE:
+        raise PackageError("archive_limit")
+    base = _root(root)
+    assets = base / ARTIFACT_ROOT
+    if _linked(base) or _linked(assets):
+        raise PackageError("unsafe_path")
+    assets.mkdir(parents=True, exist_ok=True)
+    _recover_artifact_replacement(base, artifact_id)
+    stage = Path(tempfile.mkdtemp(prefix=".stage-%s-" % artifact_id, dir=assets))
+    target = assets / artifact_id
+    backup = assets / (".backup-" + artifact_id)
+    try:
+        with zipfile.ZipFile(archive) as package:
+            infos = package.infolist()
+            if len(infos) > MAX_FILES or sum(i.file_size for i in infos) > MAX_EXTRACTED:
+                raise PackageError("size_limit")
+            files = {}
+            names = set()
+            for info in infos:
+                name = _name(info.filename.rstrip("/") if info.is_dir() else info.filename)
+                if name.casefold() in names or stat.S_ISLNK(info.external_attr >> 16):
+                    raise PackageError("unsafe_path")
+                names.add(name.casefold())
+                if not info.is_dir():
+                    files[name] = info
+            if "manifest.json" not in files:
+                raise PackageError("bad_manifest")
+            manifest = _artifact_manifest(package.read(files["manifest.json"]), artifact_id)
+            if set(files) != set(manifest["files"]) | {"manifest.json"}:
+                raise PackageError("file_mismatch")
+            for name, info in files.items():
+                path = stage / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with package.open(info) as source, path.open("wb") as dest:
+                    shutil.copyfileobj(source, dest, 1024 * 1024)
+        validate_artifact_directory(stage, artifact_id)
+        if backup.exists():
+            shutil.rmtree(backup)
+        if target.exists():
+            if _linked(target):
+                raise PackageError("unsafe_path")
+            os.replace(target, backup)
+        try:
+            os.replace(stage, target)
+        except OSError:
+            if backup.exists():
+                os.replace(backup, target)
+            raise
+        if backup.exists():
+            shutil.rmtree(backup, ignore_errors=True)
+        return {"ok": True, "artifact_id": artifact_id,
+                "feature": manifest["feature"], "text": "拆分组件资产已安装。"}
+    finally:
+        if stage.exists():
+            shutil.rmtree(stage)
+
+
+def inspect_artifact(archive, artifact_id):
+    """只读识别 schema2 资产，供下载服务在落盘前复核。"""
+    path = Path(archive)
+    try:
+        with zipfile.ZipFile(path) as package:
+            info = package.getinfo("manifest.json")
+            if info.file_size > 2 * 1024 * 1024:
+                raise PackageError("manifest_limit")
+            manifest = _artifact_manifest(package.read(info), artifact_id)
+    except (OSError, zipfile.BadZipFile, KeyError, PackageError, ValueError) as exc:
+        return {"ok": False, "kind": str(exc.args[0] if exc.args else "bad_artifact"),
+                "artifact_id": artifact_id, "text": "拆分组件资产清单不合法。"}
+    return {"ok": True, "kind": "artifact", "artifact_id": artifact_id,
+            "feature": manifest["feature"], "role": manifest["role"],
+            "version": manifest["asset_version"],
+            "compatibility_id": manifest["compatibility_id"],
+            "text": "拆分组件资产清单有效。"}
+
+
+def _split_group(feature, *, root=None):
+    feature = _key(feature)
+    ids = [artifact_id for artifact_id, spec in ARTIFACTS.items()
+           if spec["feature"] == feature]
+    states = [artifact_status(artifact_id, root=root) for artifact_id in ids]
+    if feature == "relogin_ocr":
+        required = {"relogin_ocr_runtime", "relogin_ocr_model"}
+    else:
+        required = {"phone_control_runtime"}
+    by_id = {state["artifact_id"]: state for state in states}
+    if not required.issubset({key for key, state in by_id.items() if state["available"]}):
+        return {"available": False, "source": "split", "feature": feature,
+                "error": "artifact_incomplete", "artifacts": by_id}
+    compatibility = {by_id[key].get("compatibility_id") for key in required}
+    if len(compatibility) != 1:
+        return {"available": False, "source": "split", "feature": feature,
+                "error": "artifact_incompatible", "artifacts": by_id}
+    return {"available": True, "source": "split", "feature": feature,
+            "error": "", "version": next(iter({by_id[key]["version"] for key in required})),
+            "compatibility_id": next(iter(compatibility)), "artifacts": by_id}
+
+
+def feature_status(key, *, root=None):
+    """优先返回完整拆分组，组不完整时退回旧单体 feature 包。"""
+    split = _split_group(key, root=root)
+    if split["available"]:
+        return split
+    legacy = status(key, root=root)
+    if legacy.get("available"):
+        legacy["source"] = "legacy"
+        legacy["split"] = split
+        return legacy
+    return split
+
+
 def remove(key, *, root=None):
     with _LOCK:
         base = _root(root)
-        target = base / _key(key)
-        _recover_replacement(base, key)
+        feature = _key(key)
+        target = base / feature
+        _recover_replacement(base, feature)
         if _linked(base) or _linked(target):
             raise PackageError("unsafe_path")
         if target.exists():
             shutil.rmtree(target)
-        backup = base / (".backup-" + key)
+        backup = base / (".backup-" + feature)
         if backup.exists():
             shutil.rmtree(backup)
         _STATUS_CACHE.pop(str(target), None)
+        assets = base / ARTIFACT_ROOT
+        for artifact_id, spec in ARTIFACTS.items():
+            if spec["feature"] != feature:
+                continue
+            _recover_artifact_replacement(base, artifact_id)
+            artifact = assets / artifact_id
+            if artifact.exists():
+                if _linked(artifact):
+                    raise PackageError("unsafe_path")
+                shutil.rmtree(artifact)
         return {"ok": True, "text": "组件已移除；本机保存的账号可另行清除。"}
 
 
 def invoke(key, payload, *, root=None):
     with _LOCK:
-        directory = _root(root) / _key(key)
-        validate_directory(directory, key)
-        return _helper(directory / "feature-helper.exe", feature=key, payload=payload)
+        feature = _key(key)
+        split = _split_group(feature, root=root)
+        if split["available"]:
+            runtime_id = feature + "_runtime"
+            runtime = artifact_dir(runtime_id, root=root)
+            return _helper(
+                runtime / "feature-helper.exe", feature=feature, payload=payload,
+                env={"CAMPUS_OCR_MODEL_ROOT": str(
+                    _root(root) / ARTIFACT_ROOT / "relogin_ocr_model" / "models")})
+        directory = _root(root) / feature
+        validate_directory(directory, feature)
+        return _helper(directory / "feature-helper.exe", feature=feature, payload=payload)
 
 
 def probe_cloudflared_version(path) -> str:
@@ -635,6 +920,11 @@ def inspect_archive(archive, key) -> dict:
 def cloudflared(*, root=None, probe=None):
     """返回可用的 cloudflared 路径；版本不符、缺文件、probe 失败都返回空串。"""
     probe = probe or probe_cloudflared_version
+    split_tool = artifact_status("phone_control_cloudflared", root=root)
+    if split_tool.get("available"):
+        target = artifact_dir("phone_control_cloudflared", root=root) / CLOUDFLARED_NAME
+        if parse_cloudflared_version(probe(target)) == CLOUDFLARED_VERSION:
+            return str(target)
     with _LOCK:
         directory = _root(root) / "phone_control"
         try:

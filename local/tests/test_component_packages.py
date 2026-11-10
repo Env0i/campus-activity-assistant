@@ -68,6 +68,87 @@ class PackageTests(unittest.TestCase):
                 z.writestr(name, raw)
         return archive
 
+    def artifact_archive(self, artifact_id, files=None):
+        spec = cp.ARTIFACTS[artifact_id]
+        files = files or ({spec["entry"]: b"MZruntime"} if spec["entry"]
+                          else {"models/common.onnx": b"model",
+                                "models/charset.json": b"{}"})
+        manifest = {
+            "schema": cp.ARTIFACT_SCHEMA,
+            "artifact_id": artifact_id,
+            "feature": spec["feature"],
+            "role": spec["role"],
+            "protocol": cp.ARTIFACT_PROTOCOL,
+            "asset_version": cp.version(),
+            "compatibility_id": "campus-activity-1",
+            "entry": spec["entry"],
+            "requires": [],
+            "files": {name: hashlib.sha256(raw).hexdigest()
+                      for name, raw in files.items()},
+        }
+        if spec["role"] == "tool":
+            manifest["tool"] = {"name": "cloudflared",
+                                 "version": cp.CLOUDFLARED_VERSION,
+                                 "sha256": manifest["files"][spec["entry"]]}
+        archive = self.root / (artifact_id + ".zip")
+        with zipfile.ZipFile(archive, "w") as package:
+            package.writestr("manifest.json", json.dumps(manifest))
+            for name, raw in files.items():
+                package.writestr(name, raw)
+        return archive
+
+    def test_split_artifacts_install_as_a_complete_legacy_safe_group(self):
+        runtime = self.artifact_archive("relogin_ocr_runtime")
+        model = self.artifact_archive("relogin_ocr_model")
+        cp.install_artifact(runtime, "relogin_ocr_runtime", root=self.root)
+        self.assertFalse(cp.feature_status("relogin_ocr", root=self.root)["available"])
+        cp.install_artifact(model, "relogin_ocr_model", root=self.root)
+        state = cp.feature_status("relogin_ocr", root=self.root)
+        self.assertTrue(state["available"])
+        self.assertEqual(state["source"], "split")
+        self.assertTrue((self.root / "advanced" / "assets" /
+                         "relogin_ocr_model" / "models" / "common.onnx").is_file())
+
+    def test_split_artifact_mismatch_does_not_replace_existing_asset(self):
+        good = self.artifact_archive("relogin_ocr_model")
+        cp.install_artifact(good, "relogin_ocr_model", root=self.root)
+        bad = self.artifact_archive("relogin_ocr_runtime")
+        with self.assertRaises(cp.PackageError):
+            cp.install_artifact(bad, "relogin_ocr_model", root=self.root)
+        self.assertTrue(cp.artifact_status("relogin_ocr_model", root=self.root)["available"])
+
+    def test_split_invoke_prefers_complete_group_and_passes_model_root(self):
+        cp.install_artifact(self.artifact_archive("relogin_ocr_runtime"),
+                            "relogin_ocr_runtime", root=self.root)
+        cp.install_artifact(self.artifact_archive("relogin_ocr_model"),
+                            "relogin_ocr_model", root=self.root)
+        result = cp.invoke("relogin_ocr", {"op": "ocr", "image": "data:image/png;base64,AA=="},
+                           root=self.root)
+        self.assertTrue(result["ok"])
+        args = self.helper.call_args.kwargs
+        self.assertIn("CAMPUS_OCR_MODEL_ROOT", args["env"])
+        self.assertIn("relogin_ocr_model", args["env"]["CAMPUS_OCR_MODEL_ROOT"])
+
+    def test_split_cloudflared_precedes_legacy_sources(self):
+        cp.install_artifact(self.artifact_archive("phone_control_cloudflared",
+                                                   {cp.CLOUDFLARED_NAME: BINARY}),
+                            "phone_control_cloudflared", root=self.root)
+        found = cp.cloudflared(root=self.root,
+                               probe=lambda _path: cp.CLOUDFLARED_VERSION)
+        self.assertTrue(found.replace("\\", "/").endswith(cp.CLOUDFLARED_NAME))
+
+    def test_remove_feature_also_removes_split_artifacts(self):
+        cp.install_artifact(self.artifact_archive("phone_control_runtime"),
+                            "phone_control_runtime", root=self.root)
+        cp.install_artifact(self.artifact_archive(
+            "phone_control_cloudflared", {cp.CLOUDFLARED_NAME: BINARY}),
+            "phone_control_cloudflared", root=self.root)
+        cp.remove("phone_control", root=self.root)
+        self.assertFalse((self.root / "advanced" / "assets" /
+                          "phone_control_runtime").exists())
+        self.assertFalse((self.root / "advanced" / "assets" /
+                          "phone_control_cloudflared").exists())
+
     def test_valid_install_tamper_and_independent_remove(self):
         cp.install(self.archive(), self.key, root=self.root)
         self.assertTrue(cp.status(self.key, root=self.root)["available"])

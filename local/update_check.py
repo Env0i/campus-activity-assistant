@@ -50,6 +50,10 @@ def installer_asset_name(version: str) -> str:
 # 可在线下载的组件包：每个都是独立 Release 资产，命名、清单校验规则相同
 COMPONENT_FEATURES = ("phone_control", "relogin_ocr")
 COMPONENT_TITLES = {"phone_control": "手机控制", "relogin_ocr": "验证码识别"}
+ARTIFACTS_BY_FEATURE = {
+    "phone_control": ("phone_control_runtime", "phone_control_cloudflared"),
+    "relogin_ocr": ("relogin_ocr_runtime", "relogin_ocr_model"),
+}
 
 
 def component_asset_name(feature: str, version: str) -> str:
@@ -63,6 +67,15 @@ def component_asset_name(feature: str, version: str) -> str:
 def phone_control_asset_name(version: str) -> str:
     """手机控制组件包的资产名（旧函数名，发布脚本与既有测试仍在用）。"""
     return component_asset_name("phone_control", version)
+
+
+def artifact_asset_name(artifact_id: str, version: str) -> str:
+    """schema2 拆分资产名；旧 feature ZIP 名称保持不变。"""
+    if artifact_id not in {item for values in ARTIFACTS_BY_FEATURE.values() for item in values}:
+        raise ValueError("unknown artifact")
+    parse_version(version)
+    return "campus-activity-watch-%s-v%s-win-x64.zip" % (
+        artifact_id.replace("_", "-"), version)
 
 
 def is_release_asset_url(url, name) -> bool:
@@ -314,6 +327,53 @@ def resolve_component_asset(payload: dict, version: str, raw_manifest,
                 "text": "组件包大小与清单不一致，已停止下载。"}
     return {"state": "available", "error_code": "", "text": "",
             "asset": dict(asset, sha256=entry["sha256"], bytes=entry["bytes"])}
+
+
+def resolve_component_assets(payload: dict, version: str, raw_manifest,
+                             feature: str = "phone_control") -> dict:
+    """优先解析完整 schema2 资产组，缺组时交给旧单体 resolver 回退。"""
+    if feature not in ARTIFACTS_BY_FEATURE:
+        return {"state": "no_component", "error_code": "no_component",
+                "assets": None, "text": "这个功能没有可用的拆分组件资产。"}
+    try:
+        data = json.loads(bytes(raw_manifest).decode("utf-8"))
+    except (ValueError, UnicodeError, TypeError):
+        return {"state": "manifest_invalid", "error_code": "manifest_invalid",
+                "assets": None, "text": "组件包清单不可用，已停止下载。"}
+    raw_assets = data.get("split_assets")
+    if not isinstance(raw_assets, dict):
+        return {"state": "legacy", "error_code": "", "assets": None, "text": ""}
+    files = data.get("files") if isinstance(data.get("files"), dict) else {}
+    base_url = REPO_BASE + "/releases/download/v" + version + "/"
+    assets = []
+    for artifact_id in ARTIFACTS_BY_FEATURE[feature]:
+        meta = raw_assets.get(artifact_id)
+        if not isinstance(meta, dict):
+            return {"state": "legacy", "error_code": "", "assets": None, "text": ""}
+        name = meta.get("name") or artifact_asset_name(artifact_id, version)
+        entry = files.get(name)
+        if not isinstance(entry, dict):
+            return {"state": "legacy", "error_code": "", "assets": None, "text": ""}
+        checked = _verified_manifest_asset(entry, name, version)
+        if checked is None or meta.get("target_version", version) != version:
+            return {"state": "legacy", "error_code": "", "assets": None, "text": ""}
+        assets.append(dict(meta, artifact_id=artifact_id, name=name,
+                           url=base_url + name, bytes=checked["bytes"],
+                           sha256=checked["sha256"]))
+    return {"state": "available", "error_code": "", "assets": assets, "text": ""}
+
+
+def _verified_manifest_asset(entry: dict, name: str, version: str) -> dict | None:
+    if (not isinstance(entry.get("sha256"), str)
+            or not re.fullmatch(r"[0-9a-fA-F]{64}", entry["sha256"])
+            or not isinstance(entry.get("bytes"), int)
+            or isinstance(entry["bytes"], bool)
+            or entry["bytes"] <= 0 or entry["bytes"] > MAX_INSTALLER_BYTES):
+        return None
+    url = REPO_BASE + "/releases/download/v" + version + "/" + name
+    if not is_release_asset_url(url, name):
+        return None
+    return {"sha256": entry["sha256"].lower(), "bytes": entry["bytes"]}
 
 
 def resolve_phone_control_asset(payload: dict, version: str, raw_manifest) -> dict:

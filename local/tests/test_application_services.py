@@ -1511,6 +1511,28 @@ class AdvancedComponentServiceTests(unittest.TestCase):
         self.assertEqual(state["hooks"], ["1.2.3"])
         self.assertIn("1.2.3", snap["text"])
 
+    def test_split_assets_download_and_install_as_one_feature_transaction(self):
+        assets = [dict(self.ASSET, artifact_id="relogin_ocr_runtime",
+                       name="runtime.zip"),
+                  dict(self.ASSET, artifact_id="relogin_ocr_model",
+                       name="model.zip")]
+        service, state = self._service(
+            feature="relogin_ocr",
+            asset_resolver=lambda _version: {"ok": True, "assets": assets},
+            inspect_artifact=lambda archive, artifact_id: {
+                "ok": True, "artifact_id": artifact_id, "version": "1.2.3"},
+            install_artifact=lambda archive, artifact_id, root=None: (
+                state["installs"].append((str(archive), artifact_id)),
+                state.__setitem__("installed", True)),
+        )
+        import tempfile
+        state["tmp"] = tempfile.mkdtemp(prefix="advanced-artifacts-")
+        self.assertTrue(service.start()["ok"])
+        snap = self._wait(service, "installed")
+        self.assertEqual(snap["state"], "installed")
+        self.assertEqual([item[1] for item in state["installs"]],
+                         ["relogin_ocr_runtime", "relogin_ocr_model"])
+
     def test_second_click_while_downloading_is_busy(self):
         service, state = self._service()
         import tempfile

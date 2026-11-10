@@ -73,7 +73,7 @@ def feature_state(prefs: dict | None = None, *, root=None, frozen=None) -> dict:
     result = {}
     frozen = bool(getattr(sys, "frozen", False)) if frozen is None else bool(frozen)
     for key, spec in FEATURES.items():
-        package = component_packages.status(key, root=root) if frozen else {
+        package = component_packages.feature_status(key, root=root) if frozen else {
             "available": module_available(spec.module), "source": "source", "error": "",
             "version": ""}
         available = package["available"]

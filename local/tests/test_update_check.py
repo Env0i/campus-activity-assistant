@@ -204,6 +204,27 @@ class PhoneControlAssetTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             updates.component_asset_name("segno", "1.2.3")
 
+    def test_split_artifact_asset_names_and_group_resolution(self):
+        version = "1.1.1"
+        runtime = updates.artifact_asset_name("relogin_ocr_runtime", version)
+        model = updates.artifact_asset_name("relogin_ocr_model", version)
+        self.assertTrue(runtime.endswith("relogin-ocr-runtime-v1.1.1-win-x64.zip"))
+        self.assertTrue(model.endswith("relogin-ocr-model-v1.1.1-win-x64.zip"))
+        data = manifest(version=version, files={
+            runtime: {"sha256": "aa" * 32, "bytes": 1024},
+            model: {"sha256": "bb" * 32, "bytes": 2048},
+        })
+        data["split_assets"] = {
+            "relogin_ocr_runtime": {"name": runtime, "target_version": version},
+            "relogin_ocr_model": {"name": model, "target_version": version},
+        }
+        payload = updates.payload_from_manifest(json.dumps(data).encode())
+        resolved = updates.resolve_component_assets(
+            payload, version, json.dumps(data).encode(), "relogin_ocr")
+        self.assertEqual(resolved["state"], "available")
+        self.assertEqual([item["artifact_id"] for item in resolved["assets"]],
+                         ["relogin_ocr_runtime", "relogin_ocr_model"])
+
     def test_ocr_component_is_selected_and_resolved_separately(self):
         ocr = "campus-activity-watch-relogin-ocr-v1.1.1-win-x64.zip"
         payload = stable("v1.1.1", assets_extra=[asset(COMPONENT, size=2048), asset(ocr, size=4096)])
