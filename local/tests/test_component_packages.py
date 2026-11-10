@@ -6,6 +6,7 @@
 import hashlib
 import json
 import os
+import shutil
 import stat
 import sys
 import subprocess
@@ -109,6 +110,21 @@ class PackageTests(unittest.TestCase):
         self.assertTrue(cp.status(self.key, root=self.root)["available"])
         self.assertEqual((self.target / "feature-helper.exe").read_bytes(), b"old")
         self.assertFalse(backup.exists())
+
+    def test_recovery_discards_backup_after_new_target_is_in_place(self):
+        cp.install(self.archive(data=b"old"), self.key, root=self.root)
+        backup = self.target.parent / (".backup-" + self.key)
+        shutil.copytree(self.target, backup)
+        self.assertTrue(cp.status(self.key, root=self.root)["available"])
+        self.assertTrue(self.target.is_dir())
+        self.assertFalse(backup.exists(), "新目录已落位后不应留下旧 backup")
+
+    def test_recovery_removes_orphaned_component_stage(self):
+        stage = self.target.parent / (".stage-%s-orphan" % self.key)
+        stage.mkdir(parents=True)
+        (stage / "partial").write_bytes(b"partial")
+        self.assertFalse(cp.status(self.key, root=self.root)["available"])
+        self.assertFalse(stage.exists(), "崩溃留下的阶段目录应在下次读取时回收")
 
     def test_untrusted_paths_extras_duplicates_platform_and_feature(self):
         for name in ("../evil", "/evil", "C:/evil", "a\\evil", "nul.exe", "file:stream", "x./y"):
@@ -285,6 +301,22 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(path, str(store / cp.CLOUDFLARED_FILE))
         self.assertTrue(store.is_dir(), "读取时应把 .bak 恢复成正式目录")
         self.assertFalse(backup.exists(), "恢复后不应残留 .bak")
+
+    def test_stored_cloudflared_discards_backup_and_stage_after_new_store_is_in_place(self):
+        source = self.root / "cloudflared.exe"
+        source.write_bytes(BINARY)
+        text = "cloudflared version 2026.10.7"
+        cp.install_cloudflared(source, root=self.root, probe=lambda _p: text,
+                               probe_text=lambda _p: text)
+        store = cp._root(self.root) / cp.CLOUDFLARED_STORE
+        backup = store.with_name(cp.CLOUDFLARED_STORE + ".bak")
+        shutil.copytree(store, backup)
+        stage = cp._root(self.root) / ".stage-cf-orphan"
+        stage.mkdir()
+        (stage / "partial").write_bytes(b"partial")
+        self.assertTrue(cp.stored_cloudflared(root=self.root, probe=lambda _p: text))
+        self.assertFalse(backup.exists(), "新目录已落位后不应留下 cloudflared backup")
+        self.assertFalse(stage.exists(), "崩溃留下的 cloudflared 阶段目录应回收")
 
     def test_inspect_archive_names_the_component_it_found(self):
         good = self.archive()

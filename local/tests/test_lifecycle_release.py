@@ -159,6 +159,10 @@ class AssetNamingTests(unittest.TestCase):
                          "campus-activity-watch-v1.2.3-win-x64.zip")
         self.assertEqual(self.rel.installer_asset_name(version),
                          "campus-activity-watch-installer-v1.2.3-win-x64.exe")
+        self.assertEqual(self.rel.payload_asset_name(version),
+                         "campus-activity-watch-payload-v1.2.3-win-x64.zip")
+        self.assertEqual(self.rel.delta_asset_name("1.2.1", version),
+                         "campus-activity-watch-delta-v1.2.1-to-v1.2.3-win-x64.zip")
         self.assertEqual(self.rel.tag_of(version), "v1.2.3")
         for name in (self.rel.exe_asset_name(version), self.rel.zip_asset_name(version),
                      self.rel.installer_asset_name(version)):
@@ -315,6 +319,38 @@ class PortableBundleTests(unittest.TestCase):
                                                   build_state=clean).read_text(encoding="utf-8"))
             self.assertFalse(data2["source_dirty"])
 
+    def test_manifest_records_full_payload_and_delta_metadata(self):
+        """版本目录完整包与 delta 资产沿用同一份哈希/大小证据。"""
+        import hashlib
+        import json
+        with tempfile.TemporaryDirectory() as name:
+            rel = load_release()
+            stage = Path(name)
+            payload = stage / rel.payload_asset_name("1.2.3")
+            payload.write_bytes(b"full-payload")
+            delta = stage / rel.delta_asset_name("1.2.1", "1.2.3")
+            delta.write_bytes(b"delta-payload")
+            target_hash = hashlib.sha256(b"target-manifest").hexdigest()
+            manifest = rel.write_manifest(
+                stage, "1.2.3", "v1.2.3", [payload, delta],
+                build_state={"branch": "main", "dirty": "", "commit": "f" * 7,
+                             "full": "f" * 40},
+                full_payload=payload,
+                base_version="1.2.1",
+                target_manifest_sha256=target_hash,
+                deltas=[{"name": delta.name, "base_version": "1.2.1",
+                          "target_version": "1.2.3", "bytes": delta.stat().st_size,
+                          "sha256": rel.sha256_of(delta),
+                          "target_manifest_sha256": target_hash}],
+            )
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+            self.assertEqual(data["base_version"], "1.2.1")
+            self.assertEqual(data["target_manifest_sha256"], target_hash)
+            self.assertEqual(data["full_payload"]["name"], payload.name)
+            self.assertEqual(data["full_payload"]["sha256"], rel.sha256_of(payload))
+            self.assertEqual(data["deltas"][0]["name"], delta.name)
+            self.assertEqual(data["deltas"][0]["sha256"], rel.sha256_of(delta))
+
 
 class InstallerSourceIntegrationTests(unittest.TestCase):
     """安装器纳入发布流水线：同一份冻结 EXE 派生三资产，manifest 全量记账。
@@ -355,10 +391,13 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
         def __init__(self):
             self.calls = []
 
-        def build(self, exe, out_dir, version=None, iscc=None):
+        def build(self, exe, out_dir, version=None, iscc=None,
+                  payload_dir=None, updater=None):
             from pathlib import Path as _P
             # 暂存目录在装配完成后会被整体删除，字节必须在被喂进来时就读下
-            self.calls.append((_P(exe).name, _P(exe).read_bytes(), version))
+            self.calls.append((_P(exe).name, _P(exe).read_bytes(), version,
+                               _P(payload_dir) if payload_dir else None,
+                               _P(updater) if updater else None))
             out = _P(out_dir)
             out.mkdir(parents=True, exist_ok=True)
             stub = out / ("%s-安装版-%s.exe" % (self.PRODUCT_NAME, version))
@@ -404,11 +443,17 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
         out = Path(tmp) / "campus-grab-exe"
         out.mkdir(parents=True)
         (out / "campus-activity-watch.exe").write_bytes(frozen_body)
+        onedir = Path(tmp) / "campus-grab-exe-onedir" / self.VERSION
+        (onedir / "_internal").mkdir(parents=True)
+        (onedir / "campus-activity-watch.exe").write_bytes(frozen_body)
+        (onedir / "_internal" / "grab-worker.exe").write_bytes(b"worker")
+        (onedir / "update-launcher.exe").write_bytes(b"launcher")
         fake = self._FakeBuilder()
         state = {"branch": "main", "dirty": "", "commit": "f" * 7, "full": "f" * 40}
         with mock.patch.object(rel, "DIST", Path(tmp)), \
                 mock.patch.object(rel, "git_state", lambda: state), \
                 mock.patch.object(rel, "build_exe_onefile", lambda: out), \
+                mock.patch.object(rel, "build_exe_onedir", lambda version: onedir), \
                 mock.patch.object(rel, "BUILD_INSTALLER", fake), \
                 mock.patch.object(rel, "BUILD_COMPONENT", self._FakeComponent()), \
                 mock.patch.object(rel, "BUILD_OCR_COMPONENT", self._FakeOcrComponent()), \
@@ -422,20 +467,23 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as name:
             rel, got, fake, frozen = self._stage(name)
             self.assertEqual(len(fake.calls), 1, "安装器恰构建一次")
-            fed_name, fed_bytes, fed_version = fake.calls[0]
+            fed_name, fed_bytes, fed_version, fed_payload, fed_updater = fake.calls[0]
             self.assertEqual(fed_version, self.VERSION, "版本必须显式传给安装器")
             self.assertEqual(fed_name, rel.exe_asset_name(self.VERSION),
                              "喂给安装器的必须是暂存区那份冻结 EXE（白名单净地）")
             self.assertEqual(fed_bytes, frozen,
                              "喂给安装器的必须是本次冻结 EXE 的字节")
+            self.assertEqual(fed_payload,
+                             Path(name) / "campus-grab-exe-onedir" / self.VERSION)
+            self.assertEqual(fed_updater, fed_payload / "update-launcher.exe")
             self.assertEqual(fed_bytes, got["exe"].read_bytes(),
                              "独立 EXE 资产与安装器来源必须是同一份字节")
             self.assertEqual(got["installer"].read_bytes(), b"installer-stub")
             self.assertEqual(got["installer"].name, rel.installer_asset_name(self.VERSION),
                              "上传资产统一 ASCII 名（本地中文名只留在构建目录）")
 
-    def test_manifest_records_all_four_assets(self):
-        """manifest 必须同时记账 ZIP、独立 EXE、安装器、两个组件包的哈希与大小。"""
+    def test_manifest_records_all_assets_and_payload_metadata(self):
+        """manifest 必须记账传统资产、组件包及完整 onedir payload。"""
         import json
         import tempfile
         with tempfile.TemporaryDirectory() as name:
@@ -445,6 +493,7 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             for key in (rel.zip_asset_name(self.VERSION),
                         rel.exe_asset_name(self.VERSION),
                         rel.installer_asset_name(self.VERSION),
+                        rel.payload_asset_name(self.VERSION),
                         rel.component_asset_name(self.VERSION),
                         rel.ocr_component_asset_name(self.VERSION)):
                 self.assertIn(key, data["files"],
@@ -456,12 +505,19 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
                           "装配了组件包就必须在清单里显式记账")
             self.assertIs(data.get("ocr_component_included"), True,
                           "验证码识别组件包同样要显式记账")
-            # 安装器与组件包的中间目录不留残骸：stage 里只有六份上传物
+            self.assertEqual(data["full_payload"]["name"],
+                             rel.payload_asset_name(self.VERSION))
+            self.assertEqual(data["full_payload"]["sha256"],
+                             rel.sha256_of(got["payload"]))
+            self.assertEqual(data["full_payload"]["target_manifest_sha256"],
+                             data["target_manifest_sha256"])
+            # 安装器、组件包与 payload 的中间目录不留残骸
             leftovers = sorted(p.name for p in stage_dir.iterdir())
             self.assertEqual(leftovers,
                              sorted([rel.zip_asset_name(self.VERSION),
                                      rel.exe_asset_name(self.VERSION),
                                      rel.installer_asset_name(self.VERSION),
+                                     rel.payload_asset_name(self.VERSION),
                                      rel.component_asset_name(self.VERSION),
                                      rel.ocr_component_asset_name(self.VERSION),
                                      "manifest.json"]),
@@ -475,6 +531,9 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             out = Path(name) / "campus-grab-exe"
             out.mkdir(parents=True)
             (out / "campus-activity-watch.exe").write_bytes(b"frozen")
+            onedir = Path(name) / "onedir"
+            onedir.mkdir()
+            (onedir / "campus-activity-watch.exe").write_bytes(b"frozen")
             state = {"branch": "main", "dirty": "", "commit": "f" * 7, "full": "f" * 40}
 
             class BrokenBuilder:
@@ -484,6 +543,7 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             with mock.patch.object(rel, "DIST", Path(name)), \
                     mock.patch.object(rel, "git_state", lambda: state), \
                     mock.patch.object(rel, "build_exe_onefile", lambda: out), \
+                    mock.patch.object(rel, "build_exe_onedir", lambda version: Path(name) / "onedir"), \
                     mock.patch.object(rel, "BUILD_INSTALLER", BrokenBuilder()):
                 with self.assertRaises(SystemExit):
                     rel.stage_local_assets(self.VERSION)
@@ -497,6 +557,9 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             out = Path(name) / "campus-grab-exe"
             out.mkdir(parents=True)
             (out / "campus-activity-watch.exe").write_bytes(b"frozen")
+            onedir = Path(name) / "onedir"
+            onedir.mkdir()
+            (onedir / "campus-activity-watch.exe").write_bytes(b"frozen")
             state = {"branch": "main", "dirty": "", "commit": "f" * 7, "full": "f" * 40}
 
             class BrokenComponent:
@@ -510,6 +573,7 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             with mock.patch.object(rel, "DIST", Path(name)), \
                     mock.patch.object(rel, "git_state", lambda: state), \
                     mock.patch.object(rel, "build_exe_onefile", lambda: out), \
+                    mock.patch.object(rel, "build_exe_onedir", lambda version: onedir), \
                     mock.patch.object(rel, "BUILD_INSTALLER", self._FakeBuilder()), \
                     mock.patch.object(rel, "BUILD_COMPONENT", BrokenComponent()), \
                     env_patch, site_patch:

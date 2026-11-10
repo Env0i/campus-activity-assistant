@@ -9,12 +9,16 @@ import sys
 import tempfile
 import unittest
 import uuid
+import json
+import zipfile
 from unittest.mock import patch
 
 LOCAL = Path(__file__).resolve().parents[1]
 if str(LOCAL) not in sys.path:
     sys.path.insert(0, str(LOCAL))
 import updater  # noqa: E402
+import update_delta  # noqa: E402
+import update_launcher  # noqa: E402
 
 NAME = "campus-activity-watch-installer-v1.1.1-win-x64.exe"
 URL = "https://github.com/Env0i/campus-activity-assistant/releases/download/v1.1.1/" + NAME
@@ -164,6 +168,14 @@ class DownloadTests(UpdaterDirTests):
         self.assertTrue(result["ok"])
         self.assertEqual(steps, [(8, len(BODY)), (16, len(BODY)), (len(BODY), len(BODY))])
 
+    def test_cleanup_download_removes_payload_and_temp_parent(self):
+        work = self.root / (updater.TEMP_PREFIX + "payload")
+        work.mkdir()
+        payload = work / "payload.zip"
+        payload.write_bytes(b"payload")
+        self.assertTrue(updater.cleanup_download(payload))
+        self.assertFalse(work.exists())
+
 
 class LaunchTests(UpdaterDirTests):
     def test_launch_success_returns_path(self):
@@ -202,6 +214,189 @@ class LaunchTests(UpdaterDirTests):
                                        launcher=lambda p: self.fail("不该启动"))
         self.assertFalse(got["ok"])
         self.assertEqual(got["error_code"], "launch_failed")
+
+
+class VersionUpdateTests(unittest.TestCase):
+    """版本目录更新只操作程序目录，失败时保留 current.json 与旧版本。"""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix="campus-version-test-"))
+        self.versions = self.root / "versions"
+        self.versions.mkdir()
+        self.data = self.root / "data"
+        self.data.mkdir()
+        self.old = self.versions / "1.0.0"
+        self.old.mkdir()
+        (self.old / "app.exe").write_bytes(b"old")
+        (self.data / "session.json").write_bytes(b"session")
+        (self.root / "current.json").write_text(
+            json.dumps({"version": "1.0.0"}), encoding="utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def _target(self):
+        target = self.root / "target"
+        target.mkdir()
+        (target / "app.exe").write_bytes(b"new")
+        (target / "new.dll").write_bytes(b"dll")
+        return target
+
+    def test_delta_is_preferred_and_switch_keeps_previous_version(self):
+        target = self._target()
+        delta = update_delta.build_delta(self.old, target, "1.0.0", "1.2.2")
+        archive = self.root / "delta.zip"
+        update_delta.write_delta_zip(delta, archive)
+        staging = self.root / "staging"
+        result = updater.stage_update(
+            self.old, archive, staging, mode="delta", base_version="1.0.0")
+        self.assertTrue(result["ok"])
+        switched = updater.switch_version(
+            self.versions, staging, "1.2.2", current_file=self.root / "current.json")
+        self.assertTrue(switched["ok"])
+        self.assertTrue((self.versions / "1.0.0" / "app.exe").is_file())
+        self.assertEqual((self.versions / "1.2.2" / "app.exe").read_bytes(), b"new")
+        self.assertEqual(json.loads((self.root / "current.json").read_text())["version"], "1.2.2")
+        self.assertEqual((self.data / "session.json").read_bytes(), b"session")
+
+    def test_corrupt_delta_falls_back_to_full_payload(self):
+        target = self._target()
+        manifest = update_delta.manifest_from_directory(target, version="1.2.2")
+        full = self.root / "full.zip"
+        with zipfile.ZipFile(full, "w") as archive:
+            for path in target.rglob("*"):
+                if path.is_file():
+                    archive.write(path, path.relative_to(target).as_posix())
+        staging = self.root / "staging"
+        bad = updater.stage_update(
+            self.old, self.root / "missing.delta.zip", staging,
+            mode="delta", base_version="1.0.0")
+        self.assertFalse(bad["ok"])
+        good = updater.stage_update(
+            self.old, full, staging, mode="full", target_manifest=manifest,
+            target_version="1.2.2")
+        self.assertTrue(good["ok"])
+        self.assertEqual((staging / "app.exe").read_bytes(), b"new")
+
+    def test_switch_failure_does_not_change_current(self):
+        staging = self.root / "staging"
+        staging.mkdir()
+        (staging / "app.exe").write_bytes(b"new")
+        with patch.object(updater, "_atomic_write_json", side_effect=OSError("disk")):
+            result = updater.switch_version(
+                self.versions, staging, "1.2.2", current_file=self.root / "current.json")
+        self.assertFalse(result["ok"])
+        self.assertEqual(json.loads((self.root / "current.json").read_text())["version"], "1.0.0")
+        self.assertTrue((self.old / "app.exe").is_file())
+
+    def test_cleanup_staging_accepts_only_versions_staging(self):
+        staging = self.versions / ".staging-request"
+        staging.mkdir()
+        (staging / "partial").write_bytes(b"partial")
+        self.assertTrue(updater.cleanup_staging(staging))
+        self.assertFalse(staging.exists())
+        foreign = self.root / ".staging-foreign"
+        foreign.mkdir()
+        self.assertFalse(updater.cleanup_staging(foreign))
+        self.assertTrue(foreign.exists())
+        custom_root = self.root / "program-releases"
+        custom_root.mkdir()
+        custom = custom_root / ".staging-custom"
+        custom.mkdir()
+        self.assertTrue(updater.cleanup_staging(custom, version_root=custom_root))
+        self.assertFalse(custom.exists())
+
+    def test_launcher_starts_current_fixed_exe(self):
+        exe = self.old / "campus-activity-watch.exe"
+        exe.write_bytes(b"old-exe")
+        launched = []
+        result = update_launcher.launch_current(
+            self.versions, current_file=self.root / "current.json",
+            launcher=lambda path: launched.append(path))
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["version"], "1.0.0")
+        self.assertEqual(launched, [str(exe)])
+
+    def test_launcher_rejects_version_path_escape_and_wrong_exe(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "campus-activity-watch.exe").write_bytes(b"outside")
+        with self.assertRaises(ValueError):
+            update_launcher.validate_version_dir(self.versions, "..")
+        (self.old / "campus-activity-watch.exe").write_bytes(b"old-exe")
+        (self.old / "campus-activity-watch.exe").unlink()
+        with self.assertRaises(ValueError):
+            update_launcher.validate_version_dir(self.versions, "1.0.0")
+
+    def test_cli_uses_explicit_start_flag(self):
+        with patch.object(update_launcher, "launch_current",
+                          return_value={"ok": True}), \
+                patch.object(update_launcher, "_default_launcher"):
+            self.assertEqual(update_launcher.main([
+                "--start", "--version-root", str(self.versions),
+                "--current-file", str(self.root / "current.json")]), 0)
+
+    def test_cli_uses_explicit_apply_flag(self):
+        staging = self.root / "staging"
+        with patch.object(update_launcher, "apply_staged",
+                          return_value={"ok": True}), \
+                patch.object(update_launcher, "_default_launcher"):
+            self.assertEqual(update_launcher.main([
+                "--apply", "--version-root", str(self.versions),
+                "--current-file", str(self.root / "current.json"),
+                "--staging", str(staging), "--target-version", "1.2.2",
+                "--parent-pid", "123"]), 0)
+
+    def test_cli_requires_start_or_apply_flag(self):
+        with self.assertRaises(SystemExit):
+            update_launcher.main(["--version-root", str(self.versions)])
+
+    def test_apply_waits_parent_switches_and_starts_target(self):
+        staging = self.root / "staging"
+        staging.mkdir()
+        (staging / "campus-activity-watch.exe").write_bytes(b"new-exe")
+        waited = []
+        launched = []
+        result = update_launcher.apply_and_launch(
+            self.versions, staging, "1.2.2",
+            current_file=self.root / "current.json", parent_pid=123,
+            wait_parent=lambda pid, timeout_s: waited.append((pid, timeout_s)) or {"ok": True},
+            launcher=lambda path: launched.append(path), wait_timeout_s=4)
+        self.assertTrue(result["ok"])
+        self.assertEqual(waited, [(123, 4)])
+        self.assertEqual(launched, [str(self.versions / "1.2.2" / "campus-activity-watch.exe")])
+        self.assertTrue((self.versions / "1.0.0" / "app.exe").is_file())
+        self.assertEqual(json.loads((self.root / "current.json").read_text())["version"], "1.2.2")
+
+    def test_apply_parent_timeout_keeps_staging_and_current(self):
+        staging = self.root / "staging"
+        staging.mkdir()
+        (staging / "campus-activity-watch.exe").write_bytes(b"new-exe")
+        result = update_launcher.apply_and_launch(
+            self.versions, staging, "1.2.2",
+            current_file=self.root / "current.json", parent_pid=123,
+            wait_parent=lambda pid, timeout_s: {"ok": False, "error_code": "parent_timeout",
+                                                "text": "timeout"},
+            launcher=lambda path: self.fail("不应启动"))
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error_code"], "parent_timeout")
+        self.assertTrue(staging.is_dir())
+        self.assertEqual(json.loads((self.root / "current.json").read_text())["version"], "1.0.0")
+
+    def test_apply_current_write_failure_restores_staging_and_old_version(self):
+        staging = self.root / "staging"
+        staging.mkdir()
+        (staging / "campus-activity-watch.exe").write_bytes(b"new-exe")
+        with patch.object(update_launcher, "_atomic_current", side_effect=OSError("disk")):
+            result = update_launcher.apply_and_launch(
+                self.versions, staging, "1.2.2",
+                current_file=self.root / "current.json", parent_pid=None,
+                launcher=lambda path: self.fail("不应启动"))
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error_code"], "switch_failed")
+        self.assertTrue(staging.is_dir())
+        self.assertTrue((self.versions / "1.0.0" / "app.exe").is_file())
+        self.assertEqual(json.loads((self.root / "current.json").read_text())["version"], "1.0.0")
 
 
 if __name__ == "__main__":

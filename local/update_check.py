@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 import json
 import re
 import socket
@@ -18,7 +19,7 @@ LATEST_URL = REPO_BASE + "/releases/latest"
 LATEST_MANIFEST_URL = REPO_BASE + "/releases/latest/download/manifest.json"
 REPO_DOWNLOAD_PREFIX = "/Env0i/campus-activity-assistant/releases/download/"
 TIMEOUT_S = 8
-MAX_MANIFEST_BYTES = 64 * 1024
+MAX_MANIFEST_BYTES = 256 * 1024
 # 与 updater.DEFAULT_MAX_BYTES 同源口径：安装包下载上限（约 300 MB）
 MAX_INSTALLER_BYTES = 300 * 1024 * 1024
 MANIFEST_ASSET_NAME = "manifest.json"
@@ -146,6 +147,101 @@ def parse_manifest_entry(raw, version: str, name: str) -> dict:
 def parse_manifest(raw, version: str, installer_name: str) -> dict:
     """安装器清单条目；保留旧函数名给安装流程与既有测试使用。"""
     return parse_manifest_entry(raw, version, installer_name)
+
+
+def _validate_payload_manifest(value, version: str) -> dict:
+    """校验版本目录清单的最小结构；最终目录哈希仍由 updater 再核一次。"""
+    if not isinstance(value, dict) or value.get("version") != version:
+        raise ValueError("payload manifest version mismatch")
+    files = value.get("files")
+    target_hash = value.get("target_manifest_sha256")
+    if not isinstance(files, list) or not files:
+        raise ValueError("payload manifest files missing")
+    if not isinstance(target_hash, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", target_hash):
+        raise ValueError("payload manifest hash missing")
+    normalized = []
+    seen = set()
+    for item in files:
+        if not isinstance(item, dict):
+            raise ValueError("payload manifest entry invalid")
+        path = item.get("path")
+        if (not isinstance(path, str) or not path or "\\" in path
+                or path.startswith("/")
+                or any(part in ("", ".", "..") for part in path.split("/"))):
+            raise ValueError("payload manifest path invalid")
+        if path in seen:
+            raise ValueError("payload manifest path duplicated")
+        seen.add(path)
+        size = item.get("bytes")
+        sha = item.get("sha256")
+        if (not isinstance(size, int) or isinstance(size, bool) or size < 0
+                or not isinstance(sha, str)
+                or not re.fullmatch(r"[0-9a-fA-F]{64}", sha)):
+            raise ValueError("payload manifest entry invalid")
+        normalized.append({"path": path, "bytes": size, "sha256": sha.lower()})
+    normalized.sort(key=lambda item: item["path"])
+    canonical = json.dumps({"version": version, "files": normalized},
+                           ensure_ascii=False, sort_keys=True,
+                           separators=(",", ":")).encode("utf-8")
+    actual_hash = hashlib.sha256(canonical).hexdigest()
+    if actual_hash != target_hash.lower():
+        raise ValueError("payload manifest hash mismatch")
+    result = dict(value)
+    result["files"] = normalized
+    result["target_manifest_sha256"] = actual_hash
+    return result
+
+
+def _verified_payload_asset(data: dict, version: str, metadata: dict,
+                            base_url: str) -> dict | None:
+    """从发布清单取一份带目标 manifest 的版本目录资产。"""
+    if not isinstance(metadata, dict):
+        return None
+    name = metadata.get("name")
+    files = data.get("files")
+    if (not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,120}", name)
+            or not isinstance(files, dict)):
+        return None
+    entry = files.get(name)
+    if not isinstance(entry, dict):
+        return None
+    try:
+        checked = parse_manifest_entry(json.dumps({"version": version,
+                                                   "files": {name: entry}}).encode(),
+                                       version, name)
+        if metadata.get("target_version") != version:
+            return None
+        target = _validate_payload_manifest(metadata.get("target_manifest"), version)
+    except (ValueError, TypeError, UnicodeError):
+        return None
+    url = base_url + name
+    if not is_release_asset_url(url, name):
+        return None
+    return {"name": name, "url": url, "bytes": checked["bytes"],
+            "sha256": checked["sha256"], "target_version": version,
+            "target_manifest": target}
+
+
+def _verified_deltas(data: dict, version: str, base_url: str) -> list[dict]:
+    """取出目标版本的可应用 delta；单个坏条目只禁用该条目。"""
+    raw = data.get("deltas")
+    if not isinstance(raw, list):
+        return []
+    result = []
+    for metadata in raw:
+        if not isinstance(metadata, dict):
+            continue
+        base_version = metadata.get("base_version")
+        try:
+            parse_version(base_version)
+        except (ValueError, TypeError):
+            continue
+        asset = _verified_payload_asset(data, version, metadata, base_url)
+        if asset is None:
+            continue
+        asset["base_version"] = base_version
+        result.append(asset)
+    return result
 
 
 def payload_from_manifest(raw, version: str | None = None) -> dict:
@@ -278,7 +374,16 @@ def _attach_installer(result: dict, payload: dict, raw_manifest=None) -> dict:
     if entry["bytes"] != installer["bytes"]:
         return dict(result, state="no_installer", error_code="manifest_invalid",
                     text="发现新版本 " + version + "，但安装包大小与校验信息不一致，请前往下载页手动下载。")
-    return dict(result, installer=dict(installer, sha256=entry["sha256"], bytes=entry["bytes"]))
+    data = json.loads(bytes(raw).decode("utf-8"))
+    base_url = REPO_BASE + "/releases/download/v" + version + "/"
+    attached = dict(installer, sha256=entry["sha256"], bytes=entry["bytes"])
+    full = _verified_payload_asset(data, version, data.get("full_payload"), base_url)
+    if full is not None:
+        attached["full"] = full
+    deltas = _verified_deltas(data, version, base_url)
+    if deltas:
+        attached["deltas"] = deltas
+    return dict(result, installer=attached)
 
 
 def check_latest_release(current_version: str) -> dict:

@@ -3,6 +3,7 @@
 @author Author
 """
 import io
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -301,6 +302,56 @@ class UpdateNetworkTests(unittest.TestCase):
         self.assertEqual(result["installer"]["bytes"], 1024)
         self.assertEqual(result["installer"]["sha256"], "ab" * 32)
 
+    def test_available_with_payload_and_delta_metadata(self):
+        target_files = [{"path": "campus-activity-watch.exe", "bytes": 3,
+                         "sha256": "aa" * 32}]
+        canonical = json.dumps({"version": "1.1.1", "files": target_files},
+                               ensure_ascii=False, sort_keys=True,
+                               separators=(",", ":")).encode("utf-8")
+        target = {"version": "1.1.1", "files": target_files,
+                  "target_manifest_sha256": hashlib.sha256(canonical).hexdigest()}
+        payload_name = "campus-activity-watch-payload-v1.1.1-win-x64.zip"
+        delta_name = "campus-activity-watch-delta-v1.1.0-to-v1.1.1-win-x64.zip"
+        files = {
+            INSTALLER: {"sha256": "ab" * 32, "bytes": 1024},
+            payload_name: {"sha256": "cd" * 32, "bytes": 2048},
+            delta_name: {"sha256": "ef" * 32, "bytes": 512},
+        }
+        data = manifest(files=files)
+        data["full_payload"] = {
+            "name": payload_name, "bytes": 2048, "sha256": "cd" * 32,
+            "target_version": "1.1.1", "target_manifest": target,
+            "target_manifest_sha256": target["target_manifest_sha256"],
+        }
+        data["deltas"] = [{
+            "name": delta_name, "bytes": 512, "sha256": "ef" * 32,
+            "base_version": "1.1.0", "target_version": "1.1.1",
+            "target_manifest": target,
+            "target_manifest_sha256": target["target_manifest_sha256"],
+        }]
+        result, _ = self.run_check([json.dumps(data).encode()])
+        self.assertEqual(result["state"], "available")
+        self.assertEqual(result["installer"]["full"]["name"], payload_name)
+        self.assertEqual(result["installer"]["full"]["target_manifest"], target)
+        self.assertEqual(result["installer"]["deltas"][0]["base_version"], "1.1.0")
+        self.assertEqual(result["installer"]["deltas"][0]["sha256"], "ef" * 32)
+
+    def test_bad_payload_metadata_keeps_verified_installer_fallback(self):
+        payload_name = "campus-activity-watch-payload-v1.1.1-win-x64.zip"
+        data = manifest(files={
+            INSTALLER: {"sha256": "ab" * 32, "bytes": 1024},
+            payload_name: {"sha256": "cd" * 32, "bytes": 2048},
+        })
+        data["full_payload"] = {
+            "name": payload_name, "bytes": 2048, "sha256": "cd" * 32,
+            "target_version": "1.1.1",
+            "target_manifest": {"version": "1.1.1", "files": []},
+        }
+        result, _ = self.run_check([json.dumps(data).encode()])
+        self.assertEqual(result["state"], "available")
+        self.assertEqual(result["installer"]["name"], INSTALLER)
+        self.assertNotIn("full", result["installer"])
+
     def test_no_installer_asset_returns_release_page_state(self):
         result, fetch = self.run_check([json.dumps(manifest(files={COMPONENT: {
             "sha256": "cd" * 32, "bytes": 2048}})).encode()])
@@ -441,6 +492,17 @@ class UpdateBridgeTests(unittest.TestCase):
         self.assertEqual(self.api._update_installer["name"], INSTALLER)
         self.assertEqual(self.api._update_installer_path, "")
 
+    def test_new_check_reclaims_stale_version_staging(self):
+        stale = str(Path("D:/program/versions/.staging-old"))
+        self.api._update_staging_path = stale
+        with patch.object(local_app.threading, "Thread") as thread, \
+                patch.object(local_app.updater, "cleanup_staging") as cleanup:
+            self.api.check_update("request")
+            thread.assert_called_once()
+        cleanup.assert_called_once_with(stale,
+                                        version_root=local_app.update_version_paths()["root"])
+        self.assertEqual(self.api._update_staging_path, "")
+
     def test_unexpected_error_or_bad_checker_return_unlocks(self):
         for options in ({"side_effect": RuntimeError()}, {"return_value": None}):
             with self.subTest(options=options):
@@ -518,6 +580,56 @@ class UpdateBridgeTests(unittest.TestCase):
         self.assertTrue(self.api._update_installer_path.endswith(INSTALLER))
         states = [call.args[1]["state"] for call in self.api._emit.call_args_list]
         self.assertEqual(states, ["downloading", "downloading", "ready_to_install"])
+
+    def test_version_payload_cleans_archive_after_staging(self):
+        target_files = [{"path": "campus-activity-watch.exe", "bytes": 3,
+                         "sha256": "aa" * 32}]
+        target = {"version": "1.1.1", "files": target_files,
+                  "target_manifest_sha256": "00" * 32}
+        installer = {"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
+                     "bytes": 1024, "sha256": "ab" * 32,
+                     "full": {"name": "payload.zip", "url": DOWNLOAD + "payload.zip",
+                              "bytes": 4, "sha256": "cd" * 32,
+                              "target_version": "1.1.1", "target_manifest": target}}
+        self.api._update_installer = installer
+        self.api._update_result = {"request_id": "check-1", "state": "available",
+                                   "latest_version": "1.1.1", "installer": installer}
+        downloaded = str(Path(tempfile.gettempdir()) / "campus-update-payload" / "payload.zip")
+        cleanup = Mock()
+        with patch.object(local_app.updater, "download_payload", return_value={
+                "ok": True, "path": downloaded, "bytes": 4, "sha256": "cd" * 32}), \
+                patch.object(local_app.updater, "stage_update", return_value={
+                    "ok": True, "path": "D:/versions/.staging-dl-1"}), \
+                patch.object(local_app.updater, "cleanup_download", cleanup):
+            self.api._do_update_download("dl-1", installer)
+        self.assertEqual(self.api._update_result["state"], "ready_to_restart")
+        cleanup.assert_called_once_with(downloaded)
+
+    def test_version_payload_failure_falls_back_to_inno_installer(self):
+        target = {"version": "1.1.1", "files": [{"path": "app.exe", "bytes": 1,
+                                                     "sha256": "aa" * 32}],
+                  "target_manifest_sha256": "00" * 32}
+        installer = {"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
+                     "bytes": 1024, "sha256": "ab" * 32,
+                     "full": {"name": "payload.zip", "url": DOWNLOAD + "payload.zip",
+                              "bytes": 4, "sha256": "cd" * 32,
+                              "target_version": "1.1.1", "target_manifest": target}}
+        self.api._update_installer = installer
+        self.api._update_result = {"request_id": "check-1", "state": "available",
+                                   "latest_version": "1.1.1", "installer": installer}
+        payload_path = str(Path(tempfile.gettempdir()) / "campus-update-payload" / "payload.zip")
+        installer_path = str(Path(tempfile.gettempdir()) / "campus-update-installer" / INSTALLER)
+        with patch.object(local_app.updater, "download_payload", return_value={
+                "ok": True, "path": payload_path, "bytes": 4, "sha256": "cd" * 32}), \
+                patch.object(local_app.updater, "stage_update", return_value={
+                    "ok": False, "text": "目标清单不一致"}), \
+                patch.object(local_app.updater, "cleanup_download") as cleanup, \
+                patch.object(local_app.updater, "download_installer", return_value={
+                    "ok": True, "path": installer_path, "bytes": 1024, "sha256": "ab" * 32}):
+            self.api._do_update_download("dl-1", installer)
+        self.assertEqual(self.api._update_result["state"], "ready_to_install")
+        self.assertEqual(self.api._update_installer_path, installer_path)
+        cleanup.assert_called_once_with(payload_path)
 
     def test_download_hash_failure_goes_to_failed(self):
         installer = {"name": INSTALLER, "url": DOWNLOAD + INSTALLER,

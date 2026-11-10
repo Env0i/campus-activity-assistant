@@ -228,6 +228,17 @@ def installer_asset_name(version: str) -> str:
     return "campus-activity-watch-installer-v%s-win-x64.exe" % version
 
 
+def payload_asset_name(version: str) -> str:
+    """版本目录完整 payload 的 ASCII 资产名。"""
+    return "campus-activity-watch-payload-v%s-win-x64.zip" % version
+
+
+def delta_asset_name(base_version: str, target_version: str) -> str:
+    """文件级增量包的 ASCII 资产名（明确记录基础版本与目标版本）。"""
+    return "campus-activity-watch-delta-v%s-to-v%s-win-x64.zip" % (
+        base_version, target_version)
+
+
 def run(cmd: list[str], cwd: Path = ROOT, env: dict | None = None) -> str:
     res = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, env=env,
                          encoding="utf-8", errors="replace")
@@ -274,7 +285,12 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
                    build_state: dict | None = None,
                    component_included: bool | None = None,
                    site_configured: bool | None = None,
-                   ocr_component_included: bool | None = None) -> Path:
+                   ocr_component_included: bool | None = None,
+                   full_payload: Path | None = None,
+                   deltas: list[dict] | None = None,
+                   base_version: str | None = None,
+                   target_manifest_sha256: str | None = None,
+                   target_manifest: dict | None = None) -> Path:
     """资产证据：版本、tag、来源分支、**完整 HEAD**、来源是否干净、每个文件的 SHA-256 与大小。
 
     source_dirty=true 的产物只能当预览：main 干净不等于资产来自干净提交，
@@ -302,6 +318,24 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
         manifest["ocr_component_included"] = bool(ocr_component_included)
     if site_configured is not None:
         manifest["site_configured"] = bool(site_configured)
+    if full_payload is not None:
+        full_payload = Path(full_payload)
+        manifest["full_payload"] = {
+            "name": full_payload.name,
+            "bytes": full_payload.stat().st_size,
+            "sha256": sha256_of(full_payload),
+            "target_version": version,
+            **({"target_manifest_sha256": target_manifest_sha256}
+               if target_manifest_sha256 else {}),
+            **({"target_manifest": target_manifest}
+               if target_manifest is not None else {}),
+        }
+    if deltas is not None:
+        manifest["deltas"] = [dict(item) for item in deltas]
+    if base_version is not None:
+        manifest["base_version"] = base_version
+    if target_manifest_sha256 is not None:
+        manifest["target_manifest_sha256"] = target_manifest_sha256
     path = stage_dir / "manifest.json"
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2),
                     encoding="utf-8")
@@ -317,6 +351,40 @@ def build_exe_onefile() -> Path:
     if not main.is_file():
         raise SystemExit("构建产物缺失：%s" % main)
     return out
+
+
+def build_exe_onedir(version: str) -> Path:
+    """构建版本隔离的 onedir 主程序，供完整 payload 与增量更新共用。"""
+    print("[prepare] 构建 onedir payload（内置 grab-worker）...")
+    run([sys.executable, str(ROOT / "local" / "build" / "build_exe.py"),
+         "--mode", "onedir"])
+    out = DIST / "campus-grab-exe-onedir" / version
+    main = out / "campus-activity-watch.exe"
+    if not main.is_file():
+        raise SystemExit("构建产物缺失：%s" % main)
+    return out
+
+
+def _target_manifest(directory: Path, version: str) -> dict:
+    """按更新器同一实现生成 onedir 目录清单，避免两边哈希口径漂移。"""
+    module = _load_local_module("release_update_delta", "update_delta.py")
+    if module is None:
+        raise SystemExit("[prepare] 找不到 local/update_delta.py：payload 清单无法生成")
+    try:
+        return module.manifest_from_directory(directory, version=version)
+    except Exception as exc:
+        raise SystemExit("[prepare] onedir payload 清单生成失败：%s" % exc)
+
+
+def stage_full_payload(version: str, stage_dir: Path, onedir_dir: Path) -> tuple[Path, str, dict]:
+    """把 onedir 版本目录打成完整 payload，并返回资产路径、哈希与目标清单。"""
+    target = stage_dir / payload_asset_name(version)
+    manifest = _target_manifest(onedir_dir, version)
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
+        for entry in manifest["files"]:
+            relative = entry["path"]
+            archive.write(onedir_dir / Path(*relative.split("/")), relative)
+    return target, manifest["target_manifest_sha256"], manifest
 
 
 def _default_cloudflared() -> Path:
@@ -410,7 +478,7 @@ def stage_ocr_component(version: str, stage_dir: Path) -> Path:
 
 def stage_local_assets(version: str, *, with_component: bool = True,
                        cloudflared: Path | str | None = None) -> dict:
-    """准备阶段：构建 + 按白名单组装完整 ZIP 与单文件 EXE 资产，写 manifest。
+    """准备阶段：构建 + 组装完整 ZIP、单文件 EXE 与 onedir payload，写 manifest。
 
     只产生本地文件：不打 tag、不上传、不访问网络；OUT/data 里的旧登录态
     永远进不了 ZIP（白名单按文件名收集，data 目录不在清单里）。
@@ -427,6 +495,7 @@ def stage_local_assets(version: str, *, with_component: bool = True,
         print("[prepare] 已注入构建环境 SCHOOL_ORIGIN（值只进发布物，不进仓库）")
     try:
         out = build_exe_onefile()
+        onedir_out = build_exe_onedir(version)
     finally:
         # 生成文件绝不留在工作区：构建成功/失败都删，避免真实地址落进源码树
         if site_origin:
@@ -465,6 +534,9 @@ def stage_local_assets(version: str, *, with_component: bool = True,
     exe_path = stage_dir / exe_asset_name(version)
     shutil.copy2(out / "campus-activity-watch.exe", exe_path)
 
+    payload_path, target_manifest_sha256, target_manifest = stage_full_payload(
+        version, stage_dir, onedir_out)
+
     # 安装版：从暂存区里**同一份冻结 EXE**（copy2 自 out，与独立 EXE 字节一致）
     # 派生安装器。喂暂存副本而不是 dist 原件：暂存目录是白名单净地，check_source
     # 的运行期残留检查不会误伤 build 目录里留给登录迁移的旧 data/。
@@ -472,7 +544,9 @@ def stage_local_assets(version: str, *, with_component: bool = True,
     installer_path = stage_dir / installer_asset_name(version)
     try:
         built = BUILD_INSTALLER.build(
-            staging / exe_asset_name(version), installer_build_dir, version=version)
+            staging / exe_asset_name(version), installer_build_dir, version=version,
+            payload_dir=onedir_out,
+            updater=onedir_out / "update-launcher.exe")
         # 本地 Inno 产物是中文名；上传资产统一 ASCII（GitHub 会规范化中文前缀）
         shutil.copy2(built, installer_path)
     finally:
@@ -490,7 +564,7 @@ def stage_local_assets(version: str, *, with_component: bool = True,
         print("[prepare] 跳过两个组件包（--without-component）："
               "这次发布里手机控制和验证码识别的「下载并安装」都会不可用")
 
-    assets = [zip_path, exe_path, installer_path]
+    assets = [zip_path, exe_path, installer_path, payload_path]
     if component_path is not None:
         assets.append(component_path)
     if ocr_component_path is not None:
@@ -499,13 +573,17 @@ def stage_local_assets(version: str, *, with_component: bool = True,
                               build_state=post,
                               component_included=component_path is not None,
                               site_configured=bool(site_origin),
-                              ocr_component_included=ocr_component_path is not None)
+                              ocr_component_included=ocr_component_path is not None,
+                              full_payload=payload_path,
+                              target_manifest_sha256=target_manifest_sha256,
+                              target_manifest=target_manifest)
     for path in assets:
         print("   %s  %.1f MB" % (path.name, path.stat().st_size / 1024 / 1024))
     print("[prepare] 资产就绪：%s" % stage_dir)
     print("[prepare] 清单：%s（版本/完整 HEAD/来源%s/SHA-256）"
           % (manifest, "脏（仅供预览，不得发布）" if post["dirty"] else "干净"))
     return {"zip": zip_path, "exe": exe_path, "installer": installer_path,
+            "payload": payload_path,
             "component": component_path, "ocr_component": ocr_component_path,
             "manifest": manifest}
 

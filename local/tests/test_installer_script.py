@@ -111,6 +111,19 @@ class RenderTest(unittest.TestCase):
         self.exe = Path("C:/fake/src/campus-activity-watch-v9.9.9-win-x64.exe")
         self.text = bi.render_iss("9.9.9", self.exe, self.out)
 
+    def _render_with_payload(self):
+        payload = self.out / "onedir" / "9.9.9"
+        payload.mkdir(parents=True)
+        (payload / "campus-activity-watch.exe").write_bytes(b"onedir-app")
+        (payload / "update-launcher.exe").write_bytes(b"launcher")
+        (payload / "_internal").mkdir()
+        (payload / "_internal" / "runtime.dll").write_bytes(b"runtime")
+        (payload / "data").mkdir()
+        (payload / "data" / "session.json").write_bytes(b"must-not-ship")
+        text = bi.render_iss("9.9.9", self.exe, self.out,
+                             onedir_source=payload)
+        return payload, text
+
     def test_no_placeholder_left(self):
         self.assertEqual(re.findall(r"@@[A-Z_]+@@", self.text), [])
 
@@ -133,6 +146,37 @@ class RenderTest(unittest.TestCase):
         """喂进来的 EXE 可能带版本号资产名，装到用户机器上必须仍是固定名。"""
         self.assertIn('Source: "%s"' % self.exe, self.text)
         self.assertIn('DestName: "%s"' % bi.EXE_NAME, self.text)
+
+    def test_initial_onedir_payload_current_and_launcher_are_listed(self):
+        payload, text = self._render_with_payload()
+        self.assertIn('DestDir: "{app}\\versions\\9.9.9"', text)
+        self.assertIn('Source: "%s"' % (payload / "campus-activity-watch.exe"), text)
+        self.assertIn('Source: "%s"' % (payload / "update-launcher.exe"), text)
+        self.assertIn('DestName: "update-launcher.exe"', text)
+        self.assertIn('DestName: "current.json"', text)
+        self.assertNotIn("session.json", text)
+        self.assertNotIn("{app}\\data", text)
+        self.assertEqual((self.out / "current.json").read_text(encoding="utf-8"),
+                         '{"version": "9.9.9"}\n')
+
+    def test_payload_shortcuts_start_current_version(self):
+        payload, _ = self._render_with_payload()
+        text = bi.render_iss("9.9.9", self.exe, self.out,
+                             payload_dir=payload,
+                             updater=payload / "update-launcher.exe")
+        self.assertIn(
+            'Filename: "{app}\\update-launcher.exe"; '
+            'Parameters: "--start --version-root ""{app}\\versions"" '
+            '--current-file ""{app}\\current.json"""',
+            text)
+        self.assertNotIn(
+            'Name: "{group}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"',
+            text)
+
+    def test_full_exe_fallback_remains_at_install_root(self):
+        _, text = self._render_with_payload()
+        self.assertIn('Source: "%s"; DestDir: "{app}"; DestName: "%s"' %
+                      (self.exe, bi.EXE_NAME), text)
 
     def test_files_are_listed_one_by_one(self):
         """[Files] 必须逐个列文件；通配符拷贝会把构建目录里的杂物一起带走。"""

@@ -269,9 +269,20 @@ def _recover_replacement(base, key):
     backup = base / (".backup-" + key)
     if _linked(base) or _linked(target) or _linked(backup):
         raise PackageError("unsafe_path")
+    # 阶段目录只在进程崩溃时留下；名称带组件键，避免清理另一组件正在提交的事务。
+    for stage in base.glob(".stage-%s-*" % key):
+        if _linked(stage):
+            raise PackageError("unsafe_path")
+        if stage.is_dir():
+            shutil.rmtree(stage, ignore_errors=True)
     if backup.exists() and not target.exists():
         os.replace(backup, target)
         _STATUS_CACHE.pop(str(target), None)
+    elif backup.exists() and target.exists():
+        # 新目录已落位后进程若死在清理前，backup 只是旧副本，不能长期占位。
+        if not backup.is_dir():
+            raise PackageError("unsafe_path")
+        shutil.rmtree(backup, ignore_errors=True)
 
 
 def status(key, *, root=None):
@@ -323,7 +334,7 @@ def install(archive, key, *, root=None):
             raise PackageError("unsafe_path")
         base.mkdir(parents=True, exist_ok=True)
         _recover_replacement(base, key)
-        stage = Path(tempfile.mkdtemp(prefix=".stage-", dir=base))
+        stage = Path(tempfile.mkdtemp(prefix=".stage-%s-" % key, dir=base))
         target = base / key
         backup = base / (".backup-" + key)
         try:
@@ -517,8 +528,17 @@ def _recover_cloudflared_store(base):
     backup = store.with_name(CLOUDFLARED_STORE + ".bak")
     if _linked(base) or _linked(store) or _linked(backup):
         raise PackageError("unsafe_path")
+    for stage in base.glob(".stage-cf-*"):
+        if _linked(stage):
+            raise PackageError("unsafe_path")
+        if stage.is_dir():
+            shutil.rmtree(stage, ignore_errors=True)
     if backup.exists() and not store.exists():
         os.replace(backup, store)
+    elif backup.exists() and store.exists():
+        if not backup.is_dir():
+            raise PackageError("unsafe_path")
+        shutil.rmtree(backup, ignore_errors=True)
 
 
 def stored_cloudflared(*, root=None, probe=None) -> str:

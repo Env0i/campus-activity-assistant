@@ -5001,6 +5001,36 @@ out.push({ down, verify });
         self.assertEqual(res[0]["verify"], {"shown": True, "label": "下载完成，正在校验", "num": "",
                                             "now": "41", "noteShown": True})
 
+    def test_versioned_update_states_show_delta_progress_and_switch_action(self):
+        """版本目录更新的增量下载与重启切换状态不能退回未知态。"""
+        res = run_js(r"""
+S.update.requestId = "request";
+window.onBackend.update({request_id:"request",state:"downloading_delta",
+  downloaded:524288,total_bytes:1048576});
+const delta = {state:S.update.state,
+  text:document.querySelector("#update-status").textContent,
+  progress:!document.querySelector("#update-progress-box").hidden,
+  label:document.querySelector("#update-progress-label").textContent};
+S.update.guardUntil = Date.now() - 1;
+window.onBackend.update({request_id:"request",state:"ready_to_restart",
+  text:"更新目录已准备好，关闭程序后完成切换。"});
+S.update.guardUntil = Date.now() - 1;
+paintUpdate();
+const ready = {state:S.update.state,
+  launch:!document.querySelector("#btn-update-launch").hidden,
+  label:document.querySelector("#btn-update-launch").textContent,
+  text:document.querySelector("#update-status").textContent};
+out.push({delta,ready});
+""")
+        self.assertEqual(res[0]["delta"], {"state": "downloading_delta",
+                                             "text": "正在下载增量包…",
+                                             "progress": True,
+                                             "label": "已下载增量包"})
+        self.assertEqual(res[0]["ready"], {"state": "ready_to_restart",
+                                             "launch": True,
+                                             "label": "重启并切换版本",
+                                             "text": "更新目录已准备好，关闭程序后完成切换。"})
+
     def test_ready_warn_block_is_independent(self):
         """UP11/UP12 黄警示独立成块（不再拼进进度行）：busy 才显示，向导句常驻就绪块。"""
         res = run_js(r"""

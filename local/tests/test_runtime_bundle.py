@@ -1739,7 +1739,7 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
                          "不得把 --add-binary 参数传给 PyInstaller 重新分析 worker 依赖")
         self.assertNotIn('OUT / "grab-worker.exe"', assemble,
                          "OUT 根目录不再放置外置 worker（独立 EXE 定位）")
-        self.assertIn("prune_output(OUT)", assemble, "重建清理通路保留")
+        self.assertIn("prune_output(out,", assemble, "重建清理通路保留")
         self.assertIn('if child.name == "data":', src, "prune_output 仍跳过 data")
 
     def test_assemble_embeds_worker_and_skips_sidecar(self):
@@ -1762,7 +1762,8 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
 
             with mock.patch.object(self.be, "OUT", out), \
                     mock.patch.object(self.be, "run_pyinstaller", fake_run):
-                self.be.assemble("onefile")
+                result = self.be.assemble("onefile")
+            self.assertEqual(result, out, "onefile 输出路径保持既有 dist/campus-grab-exe")
             self.assertEqual([c[0] for c in calls],
                              ["grab-worker", "campus-activity-watch"],
                              "构建顺序：worker 先于主程序")
@@ -1777,6 +1778,45 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
                              "OUT 根目录不再有外置 worker")
             self.assertTrue((out / "data").is_dir(), "data 占位目录维持旧布局")
 
+    def test_assemble_onedir_uses_versioned_output_without_runtime_dirs(self):
+        """onedir 输出隔离到版本目录，发行目录不预建运行时 data/config/log。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            onefile_out = tmp / "onefile"
+            onedir_root = tmp / "campus-grab-exe-onedir"
+            stale_output = onedir_root / "1.2.2"
+            for runtime_name in ("data", "config", "log"):
+                (stale_output / runtime_name).mkdir(parents=True)
+            fake_worker = tmp / "stage-worker" / "dist" / "grab-worker.exe"
+            fake_worker.parent.mkdir(parents=True)
+            fake_worker.write_bytes(b"worker")
+            fake_app = (tmp / "stage-app" / "dist" / "campus-activity-watch"
+                        / "campus-activity-watch.exe")
+            fake_app.parent.mkdir(parents=True)
+            fake_app.write_bytes(b"app")
+            calls = []
+
+            def fake_run(name_, source, mode, add_ui, extra_data=None):
+                calls.append((name_, mode, list(extra_data or [])))
+                return fake_worker if name_ == "grab-worker" else fake_app
+
+            with mock.patch.object(self.be, "OUT", onefile_out), \
+                    mock.patch.object(self.be, "OUT_ONEDIR", onedir_root,
+                                      create=True), \
+                    mock.patch.object(self.be, "read_version",
+                                      return_value="1.2.2"), \
+                    mock.patch.object(self.be, "run_pyinstaller", fake_run):
+                result = self.be.assemble("onedir")
+
+            expected = onedir_root / "1.2.2"
+            self.assertEqual(result, expected)
+            self.assertTrue((expected / "campus-activity-watch.exe").is_file())
+            for runtime_name in ("data", "config", "log"):
+                self.assertFalse((expected / runtime_name).exists(),
+                                 "onedir 发行目录不得预建运行时目录：%s" % runtime_name)
+            self.assertFalse(onefile_out.exists(), "onedir 构建不得触碰 onefile 输出根")
+
     def test_resource_locations_match_app_resolution(self):
         """两模式资源位置与 app.py 解析同源：onedir 在 _internal，onefile 在运行期 _MEIPASS。"""
         app_src = read("local/app.py")
@@ -1787,6 +1827,89 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
         be_src = read("local/build/build_exe.py")
         self.assertIn('extra_data=[(worker, "."), (VERSION_FILE, ".")]', be_src,
                       "--add-data 落点与 app.py 解析是同一个资源根（dest=\".\" + basename）")
+
+    def test_onedir_builds_fixed_update_launcher_payload(self):
+        """onedir 版本目录必须携带固定名称的更新启动器；onefile 不新增旁路入口。"""
+        src = read("local/build/build_exe.py")
+        assemble = src[src.index("def assemble"):src.index("def main(")]
+        self.assertIn('run_pyinstaller("update-launcher"', assemble,
+                      "onedir 必须从 update_launcher.py 构建独立入口")
+        self.assertIn('LOCAL / "update_launcher.py"', assemble,
+                      "更新入口源码必须来自 local/update_launcher.py")
+        self.assertIn('shutil.copy2(launcher, out / "update-launcher.exe")', assemble,
+                      "启动器必须放进版本 payload 根目录")
+
+    def test_version_paths_from_version_dir_keep_shared_root(self):
+        """从版本目录启动时，更新仍写安装根的 current.json。"""
+        app = _app()
+        paths = app.update_version_paths(
+            here=Path("D:/program/versions/1.2.2"), version="1.2.2")
+        self.assertEqual(paths["root"], Path("D:/program/versions"))
+        self.assertEqual(paths["current_file"], Path("D:/program/current.json"))
+        self.assertEqual(paths["base_dir"], Path("D:/program/versions/1.2.2"))
+
+    def test_ready_to_restart_launches_apply_launcher_with_checked_paths(self):
+        """ready_to_restart 启动 apply，并把 staging/版本根/目标版本/父 PID 一起传给入口。"""
+        app = _app()
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
+        api._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2",
+                              "request_id": "rid-update"}
+        api._update_staging_path = "D:/versions/.staging-rid-update"
+        launched = []
+        with tempfile.TemporaryDirectory() as name:
+            launcher = Path(name) / "update-launcher.exe"
+            launcher.write_bytes(b"launcher")
+            with mock.patch.object(app.sys, "frozen", True, create=True), \
+                    mock.patch.object(app, "resolve_update_launcher_path",
+                                      return_value=launcher):
+                with mock.patch.object(app, "update_version_paths", return_value={
+                        "root": Path("D:/versions"), "current_file": Path("D:/current.json"),
+                        "base_dir": Path("D:/versions/1.2.1")}):
+                    with mock.patch.object(app.subprocess, "Popen",
+                                           side_effect=lambda args, **kwargs: launched.append((args, kwargs))):
+                        result = api.update_launch("rid-update")
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(len(launched), 1)
+        args, kwargs = launched[0]
+        self.assertIn("--apply", args)
+        self.assertIn("--staging", args)
+        self.assertIn("D:/versions/.staging-rid-update", args)
+        self.assertIn("--version-root", args)
+        self.assertTrue(any(str(item).replace("\\", "/") == "D:/versions" for item in args))
+        self.assertIn("--target-version", args)
+        self.assertIn("1.2.2", args)
+        self.assertIn("--parent-pid", args)
+        self.assertIn(str(os.getpid()), args)
+        self.assertEqual(kwargs.get("cwd"), str(app.HERE))
+
+    def test_ready_to_restart_stays_ready_in_development(self):
+        """开发态没有旁路启动器时不切换目录，保留 ready_to_restart。"""
+        app = _app()
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
+        api._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2"}
+        api._update_staging_path = "D:/versions/.staging-rid-update"
+        with mock.patch.object(app.sys, "frozen", False, create=True), \
+                mock.patch.object(app.subprocess, "Popen") as popen:
+            result = api.update_launch("rid-update")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["state"], "ready_to_restart")
+        self.assertEqual(api._update_result["state"], "ready_to_restart")
+        popen.assert_not_called()
+
+    def test_ready_to_restart_stays_ready_when_frozen_launcher_is_missing(self):
+        """冻结 onefile 或残缺 onedir 没有旁路入口时不得误切换。"""
+        app = _app()
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
+        api._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2"}
+        api._update_staging_path = "D:/versions/.staging-rid-update"
+        with mock.patch.object(app.sys, "frozen", True, create=True), \
+                mock.patch.object(app, "resolve_update_launcher_path",
+                                  return_value=Path("D:/missing/update-launcher.exe")), \
+                mock.patch.object(app.subprocess, "Popen") as popen:
+            result = api.update_launch("rid-update")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["state"], "ready_to_restart")
+        popen.assert_not_called()
 
 
 class BusyLockOrderContractTests(unittest.TestCase):

@@ -10,15 +10,24 @@ from __future__ import annotations
 
 import hashlib
 from http.client import HTTPException
+import json
 import os
 import re
 import shutil
 import socket
+import stat
 import tempfile
+import uuid
+import zipfile
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
+
+try:
+    from update_delta import DeltaError, apply_delta, validate_relative_path, verify_directory
+except ImportError:  # 源码模块由 app.py 注入 local 到 sys.path；独立测试仍可导入
+    from .update_delta import DeltaError, apply_delta, validate_relative_path, verify_directory
 
 CHUNK_BYTES = 64 * 1024
 # 与 update_check.MAX_INSTALLER_BYTES 同源口径：安装包下载上限（约 300 MB）
@@ -27,6 +36,7 @@ DOWNLOAD_TIMEOUT_S = 60
 TEMP_PREFIX = "campus-update-"
 _NAME_RE = re.compile(r"[A-Za-z0-9._-]{1,120}")
 _SHA256_RE = re.compile(r"[0-9a-fA-F]{64}")
+_VERSION_RE = re.compile(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)")
 
 
 def temp_root() -> Path:
@@ -159,3 +169,198 @@ def launch_installer(path, *, root=None, launcher=None) -> dict:
         return {"ok": False, "error_code": "launch_failed",
                 "text": "安装程序没能启动（%s）。" % type(exc).__name__}
     return {"ok": True, "path": str(target)}
+
+
+def download_payload(url, *, name, expect_bytes, expect_sha256, **kwargs) -> dict:
+    """通用 payload 下载入口；与完整安装器共用大小、哈希和取消边界。"""
+    return download_installer(url, name=name, expect_bytes=expect_bytes,
+                              expect_sha256=expect_sha256, **kwargs)
+
+
+def download_delta(url, *, name, expect_bytes, expect_sha256, **kwargs) -> dict:
+    """文件级 delta 包下载入口。"""
+    return download_payload(url, name=name, expect_bytes=expect_bytes,
+                            expect_sha256=expect_sha256, **kwargs)
+
+
+def download_full(url, *, name, expect_bytes, expect_sha256, **kwargs) -> dict:
+    """完整 onedir payload 下载入口。"""
+    return download_payload(url, name=name, expect_bytes=expect_bytes,
+                            expect_sha256=expect_sha256, **kwargs)
+
+
+def cleanup_download(path) -> bool:
+    """删除已校验但已用完的 payload，并回收它的临时目录。"""
+    target = Path(path) if path else None
+    if target is None:
+        return False
+    removed = False
+    try:
+        if target.is_file() and not target.is_symlink():
+            target.unlink()
+            removed = True
+        parent = target.parent
+        if (parent.is_dir() and parent.name.startswith(TEMP_PREFIX)
+                and not any(parent.iterdir())):
+            parent.rmdir()
+    except OSError:
+        return removed
+    return removed
+
+
+def cleanup_staging(path, *, version_root=None) -> bool:
+    """回收未再使用的版本 staging；只接受受控版本根下的名称。"""
+    target = Path(path) if path else None
+    if target is None or not target.name.startswith(".staging-") or target.is_symlink():
+        return False
+    if version_root is None:
+        if target.parent.name != "versions":
+            return False
+    else:
+        try:
+            if target.parent.resolve() != Path(version_root).resolve():
+                return False
+        except OSError:
+            return False
+    try:
+        if target.is_dir():
+            shutil.rmtree(target)
+            return True
+    except OSError:
+        return False
+    return False
+
+
+def _atomic_write_json(path: Path, payload: dict) -> None:
+    """在同一目录内原子写 current.json，切换失败不留下半份状态。"""
+    path = Path(path)
+    part = path.with_name(path.name + ".part-" + uuid.uuid4().hex)
+    try:
+        part.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+        os.replace(part, path)
+    finally:
+        part.unlink(missing_ok=True)
+
+
+def _safe_zip_extract(archive: Path, destination: Path) -> None:
+    """解压完整 onedir payload，拒绝绝对路径、目录逃逸和符号链接。"""
+    destination = Path(destination)
+    destination.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive, "r") as zf:
+        for info in zf.infolist():
+            name = info.filename
+            if not name:
+                continue
+            relative = name[:-1] if name.endswith("/") else name
+            try:
+                validate_relative_path(relative)
+            except DeltaError as exc:
+                raise ValueError("完整包存在越界路径") from exc
+            if name.endswith("/"):
+                continue
+            mode = (info.external_attr >> 16) & 0o170000
+            if mode == stat.S_IFLNK:
+                raise ValueError("完整包不允许符号链接")
+            target = destination.joinpath(*relative.split("/"))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open("wb") as handle:
+                handle.write(zf.read(info))
+
+
+def _manifest_for_target(target_manifest):
+    if isinstance(target_manifest, dict) and isinstance(target_manifest.get("target_manifest"), dict):
+        target_manifest = target_manifest["target_manifest"]
+    if not isinstance(target_manifest, dict) or not isinstance(target_manifest.get("files"), list):
+        raise ValueError("目标 manifest 无效")
+    return target_manifest
+
+
+def stage_update(base_dir, payload, staging_dir, *, mode, base_version=None,
+                 target_manifest=None, target_version=None) -> dict:
+    """在隔离临时目录应用 delta 或完整 onedir 包，并校验目标 manifest。"""
+    staging = Path(staging_dir)
+    work = staging.parent / (staging.name + ".stage-" + uuid.uuid4().hex)
+    try:
+        expected_manifest = _manifest_for_target(target_manifest) if target_manifest is not None else None
+        if (target_version and expected_manifest is not None
+                and expected_manifest.get("version") != target_version):
+            raise ValueError("目标版本与 manifest 不一致")
+        if mode == "delta":
+            apply_delta(base_dir, payload, work, base_version=base_version)
+        elif mode == "full":
+            if expected_manifest is None:
+                raise ValueError("完整包缺少目标 manifest")
+            if not isinstance(payload, (str, Path)):
+                raise ValueError("完整包路径无效")
+            source = Path(payload)
+            if not source.is_file():
+                raise FileNotFoundError(str(source))
+            _safe_zip_extract(source, work)
+            if expected_manifest is not None and not verify_directory(work, expected_manifest):
+                raise ValueError("完整包目标 manifest 不一致")
+        else:
+            raise ValueError("未知更新类型")
+        if expected_manifest is not None and mode == "delta":
+            if not verify_directory(work, expected_manifest):
+                raise ValueError("增量包目标 manifest 不一致")
+        if target_version and not _VERSION_RE.fullmatch(str(target_version)):
+            raise ValueError("目标版本无效")
+        if staging.exists() or staging.is_symlink():
+            if staging.is_symlink() or not staging.is_dir():
+                raise ValueError("staging 不是目录")
+            shutil.rmtree(staging)
+        os.replace(work, staging)
+        return {"ok": True, "path": str(staging), "mode": mode,
+                "version": target_version or ""}
+    except Exception as exc:  # noqa: BLE001 - 对外返回可读失败状态并清理隔离目录
+        shutil.rmtree(work, ignore_errors=True)
+        return {"ok": False, "error_code": "apply_failed",
+                "text": str(exc) or "更新包应用失败。", "mode": mode}
+
+
+def switch_version(version_root, staging_dir, target_version, *, current_file=None) -> dict:
+    """把 staging 原子纳入版本目录；旧版本与 current.json 失败时均保留。"""
+    if not isinstance(target_version, str) or not _VERSION_RE.fullmatch(target_version):
+        return {"ok": False, "error_code": "invalid_version", "text": "目标版本无效。"}
+    root = Path(version_root)
+    staging = Path(staging_dir)
+    current = Path(current_file) if current_file is not None else root.parent / "current.json"
+    target = root / target_version
+    if not staging.is_dir() or staging.is_symlink() or target.exists():
+        return {"ok": False, "error_code": "switch_failed", "text": "版本目录切换前置条件不满足。"}
+    previous = ""
+    try:
+        if current.is_file():
+            raw = json.loads(current.read_text(encoding="utf-8"))
+            previous = str(raw.get("version") or "") if isinstance(raw, dict) else ""
+        root.mkdir(parents=True, exist_ok=True)
+        os.replace(staging, target)
+        _atomic_write_json(current, {"version": target_version})
+        return {"ok": True, "path": str(target), "version": target_version,
+                "previous_version": previous}
+    except Exception as exc:  # noqa: BLE001 - 还原目录后保留旧 current.json
+        if target.exists() and not staging.exists():
+            try:
+                os.replace(target, staging)
+            except OSError:
+                pass
+        return {"ok": False, "error_code": "switch_failed",
+                "text": str(exc) or "版本目录切换失败。", "previous_version": previous}
+
+
+def select_payload(installer: dict, current_version: str) -> tuple[str, dict]:
+    """从发布清单选择同基础版本的 delta；否则返回完整包作为回退。"""
+    if not isinstance(installer, dict):
+        raise ValueError("更新资产无效")
+    candidates = installer.get("deltas")
+    if isinstance(candidates, list):
+        for item in candidates:
+            if isinstance(item, dict) and item.get("base_version") == current_version:
+                return "delta", item
+    delta = installer.get("delta")
+    if isinstance(delta, dict) and delta.get("base_version") == current_version:
+        return "delta", delta
+    full = installer.get("full")
+    if isinstance(full, dict):
+        return "full", full
+    return "full", installer

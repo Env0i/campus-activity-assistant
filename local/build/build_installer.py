@@ -31,6 +31,7 @@ make_portable.py 的构建能力。
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shutil
 import subprocess
@@ -46,6 +47,7 @@ ICON_FILE = LOCAL / "ui" / "brand" / "app.ico"
 DEFAULT_SOURCE = PROJECT / "dist" / "campus-grab-exe"
 DEFAULT_OUT = PROJECT / "dist" / "installer"
 EXE_NAME = "campus-activity-watch.exe"
+VERSION_ROOT_NAME = "versions"
 # 产品名唯一来源：与 GUI 窗口标题同口径（local/README.md），安装向导、卸载项、
 # 安装包文件名、开始菜单全部用它。改它 = 改对外品牌，需同步 UI 与文档。
 PRODUCT_NAME = "校园活动预报名工具"
@@ -206,12 +208,13 @@ Name: "desktopicon"; Description: "在桌面上创建快捷方式"; GroupDescrip
 ; 装到用户机器上的名字必须仍是固定的 EXE_NAME，否则快捷方式对不上。
 Source: "@@EXE_SRC@@"; DestDir: "{app}"; DestName: "@@EXE_NAME@@"; Flags: ignoreversion
 @@DOC_LINES@@
+@@PAYLOAD_LINES@@
 
 [Icons]
-Name: "{group}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"
+@@MAIN_ICON_LINES@@
 Name: "{group}\\遇到问题先看我"; Filename: "{app}\\遇到问题先看我.txt"
 Name: "{group}\\卸载 {#MyAppName}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"; Tasks: desktopicon
+@@DESKTOP_ICON_LINES@@
 
 [Code]
 // 卸载收尾：数据目录不在安装目录下（Program Files 不可写），所以必须单独处理。
@@ -301,7 +304,65 @@ def doc_lines() -> str:
     return "\n".join(lines)
 
 
-def render_iss(version: str, exe: Path, out_dir: Path) -> str:
+def payload_lines(payload_dir: "Path | None", version: str,
+                  updater: "Path | None" = None,
+                  out_dir: "Path | None" = None) -> str:
+    """渲染首个 onedir 版本目录、current.json 与独立启动器清单。"""
+    lines = []
+    if payload_dir is not None:
+        root = Path(payload_dir).resolve()
+        if not root.is_dir():
+            raise SystemExit("[iss] onedir payload 目录不存在：%s" % root)
+        for path in sorted(root.rglob("*")):
+            if not path.is_file() or path.is_symlink():
+                continue
+            relative = path.relative_to(root).as_posix()
+            parts = relative.split("/")
+            if any(part.casefold() in {"data", "config", "logs", "log"}
+                   for part in parts):
+                continue
+            relative_path = Path(relative)
+            parent = str(relative_path.parent).replace(".", "").replace("/", "\\")
+            dest_dir = "{app}\\%s\\%s%s" % (
+                VERSION_ROOT_NAME, version,
+                ("\\" + parent) if parent else "")
+            dest_name = relative_path.name
+            lines.append('Source: "%s"; DestDir: "%s"; DestName: "%s"; '
+                         'Flags: ignoreversion' % (path, dest_dir, dest_name))
+        current = (Path(out_dir) if out_dir is not None else root.parent) / "current.json"
+        current.write_text(json.dumps({"version": version}, ensure_ascii=False) + "\n",
+                           encoding="utf-8")
+        lines.append('Source: "%s"; DestDir: "{app}"; DestName: "current.json"; '
+                     'Flags: ignoreversion' % current)
+    if updater is not None:
+        updater = Path(updater).resolve()
+        if not updater.is_file():
+            raise SystemExit("[iss] updater 入口不存在：%s" % updater)
+        lines.append('Source: "%s"; DestDir: "{app}"; DestName: "update-launcher.exe"; '
+                     'Flags: ignoreversion' % updater)
+    return ("\n".join(lines) + "\n") if lines else ""
+
+
+def icon_lines(payload_dir: "Path | None", updater: "Path | None") -> tuple[str, str]:
+    """有完整版本 payload 时让快捷方式走启动器，否则保留旧的 onefile 入口。"""
+    if payload_dir is not None and updater is not None:
+        parameters = ('Parameters: "--start --version-root ""{app}\\versions"" '
+                      '--current-file ""{app}\\current.json"""')
+        main = ('Name: "{group}\\{#MyAppName}"; Filename: "{app}\\update-launcher.exe"; '
+                + parameters)
+        desktop = ('Name: "{autodesktop}\\{#MyAppName}"; '
+                   'Filename: "{app}\\update-launcher.exe"; ' + parameters +
+                   '; Tasks: desktopicon')
+        return main, desktop
+    return ('Name: "{group}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"',
+            'Name: "{autodesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"; '
+            'Tasks: desktopicon')
+
+
+def render_iss(version: str, exe: Path, out_dir: Path,
+               payload_dir: "Path | None" = None,
+               updater: "Path | None" = None,
+               onedir_source: "Path | None" = None) -> str:
     """把模板里的 @@KEY@@ 全部替换掉；漏一个就报错，绝不产出半成品。
 
     exe 是**显式给定的冻结 EXE 文件**（不是目录）：调用方负责它和独立 EXE
@@ -319,6 +380,10 @@ def render_iss(version: str, exe: Path, out_dir: Path) -> str:
     # 图标缺失必须明确报错：安装向导图标不能凭空来，兜底 PyInstaller 那边同样会拦
     if not ICON_FILE.is_file():
         raise SystemExit("[iss] 品牌图标不存在：%s\n      先把 design/brand/ico/app.ico 复制到 local/ui/brand/" % ICON_FILE)
+    if payload_dir is None:
+        payload_dir = onedir_source
+    payload = payload_lines(payload_dir, version, updater, out_dir)
+    main_icon, desktop_icon = icon_lines(payload_dir, updater)
     mapping = {
         "@@VERSION@@": version,
         "@@PRODUCT_NAME@@": PRODUCT_NAME,
@@ -327,6 +392,9 @@ def render_iss(version: str, exe: Path, out_dir: Path) -> str:
         "@@APP_ID@@": APP_ID,
         "@@EXE_SRC@@": str(Path(exe)),
         "@@DOC_LINES@@": doc_lines(),
+        "@@PAYLOAD_LINES@@": payload,
+        "@@MAIN_ICON_LINES@@": main_icon,
+        "@@DESKTOP_ICON_LINES@@": desktop_icon,
         "@@OUT_DIR@@": str(out_dir),
         "@@LICENSE_LINE@@": license_line,
         "@@LANGUAGES@@": languages_block(out_dir),
@@ -370,7 +438,9 @@ def check_source(exe: Path) -> None:
 
 
 def build(exe: "Path | str", out_dir: "Path | str",
-          version: "str | None" = None, iscc: "Path | str | None" = None) -> Path:
+          version: "str | None" = None, iscc: "Path | str | None" = None,
+          payload_dir: "Path | str | None" = None,
+          updater: "Path | str | None" = None) -> Path:
     """从一份显式冻结 EXE 构建安装包，返回安装包路径（tools/release.py 的同源入口）。
 
     版本缺省读 VERSION；ISCC 缺省自动探测（找不到就报错停止，绝不假装成功）。
@@ -384,7 +454,10 @@ def build(exe: "Path | str", out_dir: "Path | str",
     check_source(exe)
     iscc = probe_iscc() if iscc is None else Path(iscc)
     iss_path = out_dir / "installer.generated.iss"
-    iss_path.write_text(render_iss(version, exe, out_dir), encoding="utf-8")
+    iss_path.write_text(render_iss(
+        version, exe, out_dir,
+        Path(payload_dir) if payload_dir else None,
+        Path(updater) if updater else None), encoding="utf-8")
     print("[iss] 已渲染：%s" % iss_path, flush=True)
     print("[iss] 版本（VERSION 唯一来源）：%s　源 EXE：%s" % (version, exe), flush=True)
     print("[iss] 编译器：%s" % iscc, flush=True)

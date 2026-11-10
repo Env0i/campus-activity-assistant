@@ -30,6 +30,7 @@ from pathlib import Path
 LOCAL = Path(__file__).resolve().parent.parent
 PROJECT = LOCAL.parent
 OUT = PROJECT / "dist" / "campus-grab-exe"
+OUT_ONEDIR = PROJECT / "dist" / "campus-grab-exe-onedir"
 WORK = PROJECT / "dist" / ".pyinstaller-work"
 VERSION_FILE = PROJECT / "VERSION"
 
@@ -94,19 +95,20 @@ def run_pyinstaller(name: str, source: Path, mode: str, add_ui: bool,
     return stage / "dist" / name / (name + ".exe")
 
 
-def prune_output(out: Path) -> None:
-    """清掉旧构建产物，但绝不动 out/data。
+def prune_output(out: Path, *, preserve_data: bool = True) -> None:
+    """清掉旧构建产物；onefile 可保留 out/data，onedir 不保留运行时目录。
 
     data 里可能有上一版 EXE 留下的 session.json / storage_state.json，
-    重建后由 runtime_paths 首次启动迁移到统一数据根——先删数据等于替用户
-    注销登录。构建失败/文件锁定时同样不会碰 data（删除按条目进行，
-    出错直接抛，不吞）。
+    重建后由 runtime_paths 首次启动迁移到统一数据根——onefile 先删数据等于
+    替用户注销登录。构建失败/文件锁定时同样不会碰保留中的 data（删除按条目
+    进行，出错直接抛，不吞）。
     """
     if not out.exists():
         return
     for child in out.iterdir():
         if child.name == "data":
-            continue
+            if preserve_data:
+                continue
         if child.is_dir():
             shutil.rmtree(child)
         else:
@@ -114,8 +116,10 @@ def prune_output(out: Path) -> None:
 
 
 def assemble(mode: str) -> Path:
-    prune_output(OUT)
-    OUT.mkdir(parents=True, exist_ok=True)
+    # onefile 沿用既有目录；onedir 按版本隔离，避免覆盖其他候选产物。
+    out = OUT if mode == "onefile" else OUT_ONEDIR / read_version()
+    prune_output(out, preserve_data=(mode == "onefile"))
+    out.mkdir(parents=True, exist_ok=True)
     # 先构建现有 worker（onefile），再把它当普通数据资源随 VERSION 一起进主程序
     # 资源根：不用 --add-binary（那会让 PyInstaller 重新分析 worker 依赖），
     # 主程序冻结态按 RESOURCE_ROOT/grab-worker.exe 解析——单 EXE 与 onedir 同源自足
@@ -125,22 +129,31 @@ def assemble(mode: str) -> Path:
     # 写成 dest="grab-worker.exe" 会解包成同名目录，冻结态解析直接 worker_missing
     app = run_pyinstaller("campus-activity-watch", LOCAL / "app.py", mode, True,
                           extra_data=[(worker, "."), (VERSION_FILE, ".")])
+    # onedir 版本目录需要一个独立入口：主程序退出后它才有权限切换 staging，
+    # 再按 current.json 启动固定版本 EXE。onefile 仍沿用旧的完整安装器路径，
+    # 不额外生成旁路启动器，避免改变既有单文件资产形态。
+    launcher = None
+    if mode == "onedir":
+        launcher = run_pyinstaller("update-launcher", LOCAL / "update_launcher.py",
+                                   "onefile", False)
     if mode == "onefile":
-        shutil.copy2(app, OUT / app.name)
+        shutil.copy2(app, out / app.name)
     else:
-        shutil.copytree(app.parent, OUT, dirs_exist_ok=True)
+        shutil.copytree(app.parent, out, dirs_exist_ok=True)
+        shutil.copy2(launcher, out / "update-launcher.exe")
     # worker 已内置进主程序资源根：OUT 不再放置外置 grab-worker.exe，
     # 构建失败会在这里之前直接退出，绝不退回「外置 worker 入口」假称独立
-    shutil.copy2(LOCAL / "README.md", OUT / "README.md")
+    shutil.copy2(LOCAL / "README.md", out / "README.md")
     # 发行说明 / 预览 / 协议：与 Release ZIP 的清单保持同一套来源
-    shutil.copy2(PROJECT / "CHANGELOG.md", OUT / "CHANGELOG.md")
+    shutil.copy2(PROJECT / "CHANGELOG.md", out / "CHANGELOG.md")
     if (LOCAL / "gui-preview.png").is_file():
-        shutil.copy2(LOCAL / "gui-preview.png", OUT / "gui-preview.png")
+        shutil.copy2(LOCAL / "gui-preview.png", out / "gui-preview.png")
     if (PROJECT / "LICENSE").is_file():
-        shutil.copy2(PROJECT / "LICENSE", OUT / "LICENSE")
+        shutil.copy2(PROJECT / "LICENSE", out / "LICENSE")
     # data 只是占位目录：已有（旧版数据）原样保留，全新构建维持旧布局
-    (OUT / "data").mkdir(exist_ok=True)
-    return OUT
+    if mode == "onefile":
+        (out / "data").mkdir(exist_ok=True)
+    return out
 
 
 def main() -> int:
