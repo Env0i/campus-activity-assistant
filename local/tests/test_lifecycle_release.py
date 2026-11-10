@@ -384,6 +384,33 @@ class InstallerSourceIntegrationTests(unittest.TestCase):
             self.assertFalse(seen[0].exists())
             self.assertFalse(seen[0].is_relative_to(stage))
 
+    def test_stage_delta_payload_records_real_base_and_target_manifest(self):
+        """显式历史 onedir 基线能生成可应用的 delta 资产条目。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            base = root / "base"
+            target = root / "target"
+            stage = root / "release"
+            base.mkdir()
+            target.mkdir()
+            stage.mkdir()
+            (base / "keep.txt").write_bytes(b"same")
+            (base / "old.txt").write_bytes(b"old")
+            (target / "keep.txt").write_bytes(b"same")
+            (target / "new.txt").write_bytes(b"new")
+            rel = load_release()
+            archive, metadata = rel.stage_delta_payload(
+                "1.2.1", "1.2.2", stage, base, target)
+            self.assertEqual(archive.name,
+                             rel.delta_asset_name("1.2.1", "1.2.2"))
+            self.assertEqual(metadata["base_version"], "1.2.1")
+            self.assertEqual(metadata["target_version"], "1.2.2")
+            self.assertEqual(metadata["bytes"], archive.stat().st_size)
+            self.assertEqual(metadata["target_manifest_sha256"],
+                             metadata["target_manifest"]["target_manifest_sha256"])
+            self.assertTrue(archive.is_file())
+
     class _FakeBuilder:
         """替身 build_installer：记录被喂的 EXE，吐出约定命名的假安装包。"""
         PRODUCT_NAME = "校园活动预报名工具"

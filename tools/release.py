@@ -387,6 +387,36 @@ def stage_full_payload(version: str, stage_dir: Path, onedir_dir: Path) -> tuple
     return target, manifest["target_manifest_sha256"], manifest
 
 
+def stage_delta_payload(base_version: str, target_version: str,
+                        stage_dir: Path, base_dir: Path,
+                        target_dir: Path) -> tuple[Path, dict]:
+    """从显式历史 onedir 基线生成 delta 资产和发布清单条目。"""
+    module = _load_local_module("release_update_delta", "update_delta.py")
+    if module is None:
+        raise SystemExit("[prepare] 找不到 local/update_delta.py：delta 无法生成")
+    base_dir = Path(base_dir)
+    target_dir = Path(target_dir)
+    if not base_dir.is_dir() or not target_dir.is_dir():
+        raise SystemExit("[prepare] delta 基线或目标目录不存在")
+    target = stage_dir / delta_asset_name(base_version, target_version)
+    try:
+        delta = module.build_delta(base_dir, target_dir, base_version, target_version)
+        module.write_delta_zip(delta, target, target_dir=target_dir)
+    except Exception as exc:
+        raise SystemExit("[prepare] delta 生成失败：%s" % exc)
+    target_manifest = delta["target_manifest"]
+    metadata = {
+        "name": target.name,
+        "bytes": target.stat().st_size,
+        "sha256": sha256_of(target),
+        "base_version": base_version,
+        "target_version": target_version,
+        "target_manifest_sha256": delta["target_manifest_sha256"],
+        "target_manifest": target_manifest,
+    }
+    return target, metadata
+
+
 def _default_cloudflared() -> Path:
     return ROOT / "local" / "bin" / "cloudflared.exe"
 
@@ -477,7 +507,9 @@ def stage_ocr_component(version: str, stage_dir: Path) -> Path:
 
 
 def stage_local_assets(version: str, *, with_component: bool = True,
-                       cloudflared: Path | str | None = None) -> dict:
+                       cloudflared: Path | str | None = None,
+                       delta_base: Path | str | None = None,
+                       delta_base_version: str | None = None) -> dict:
     """准备阶段：构建 + 组装完整 ZIP、单文件 EXE 与 onedir payload，写 manifest。
 
     只产生本地文件：不打 tag、不上传、不访问网络；OUT/data 里的旧登录态
@@ -536,6 +568,16 @@ def stage_local_assets(version: str, *, with_component: bool = True,
 
     payload_path, target_manifest_sha256, target_manifest = stage_full_payload(
         version, stage_dir, onedir_out)
+    delta_path = None
+    delta_info = None
+    if delta_base is not None or delta_base_version is not None:
+        if delta_base is None or not delta_base_version:
+            raise SystemExit("[prepare] 生成 delta 需要同时提供 --delta-base 和 --delta-base-version")
+        delta_path, delta_info = stage_delta_payload(
+            delta_base_version, version, stage_dir, Path(delta_base), onedir_out)
+        print("[prepare] delta 资产：%s  %.1f MB（基线 %s）"
+              % (delta_path.name, delta_path.stat().st_size / 1024 / 1024,
+                 delta_base_version))
 
     # 安装版：从暂存区里**同一份冻结 EXE**（copy2 自 out，与独立 EXE 字节一致）
     # 派生安装器。喂暂存副本而不是 dist 原件：暂存目录是白名单净地，check_source
@@ -565,6 +607,8 @@ def stage_local_assets(version: str, *, with_component: bool = True,
               "这次发布里手机控制和验证码识别的「下载并安装」都会不可用")
 
     assets = [zip_path, exe_path, installer_path, payload_path]
+    if delta_path is not None:
+        assets.append(delta_path)
     if component_path is not None:
         assets.append(component_path)
     if ocr_component_path is not None:
@@ -575,6 +619,8 @@ def stage_local_assets(version: str, *, with_component: bool = True,
                               site_configured=bool(site_origin),
                               ocr_component_included=ocr_component_path is not None,
                               full_payload=payload_path,
+                              deltas=[delta_info] if delta_info is not None else None,
+                              base_version=delta_base_version,
                               target_manifest_sha256=target_manifest_sha256,
                               target_manifest=target_manifest)
     for path in assets:
@@ -584,6 +630,7 @@ def stage_local_assets(version: str, *, with_component: bool = True,
           % (manifest, "脏（仅供预览，不得发布）" if post["dirty"] else "干净"))
     return {"zip": zip_path, "exe": exe_path, "installer": installer_path,
             "payload": payload_path,
+            "delta": delta_path,
             "component": component_path, "ocr_component": ocr_component_path,
             "manifest": manifest}
 
@@ -1042,6 +1089,10 @@ def main() -> int:
                     help="prepare 时不打手机控制组件包（会让「安装手机控制」不可用）")
     ap.add_argument("--cloudflared",
                     help="prepare 打包组件时内置的 cloudflared.exe（默认 local/bin/cloudflared.exe）")
+    ap.add_argument("--delta-base",
+                    help="prepare 时使用历史 onedir 版本目录生成 delta 资产（默认不生成）")
+    ap.add_argument("--delta-base-version",
+                    help="--delta-base 对应的三段版本号")
     args = ap.parse_args()
     stages = [args.check, args.prepare, args.publish]
     if sum(1 for s in stages if s) > 1:
@@ -1063,7 +1114,9 @@ def main() -> int:
     if args.prepare:
         stage_local_assets(version,
                            with_component=not args.without_component,
-                           cloudflared=args.cloudflared)
+                           cloudflared=args.cloudflared,
+                           delta_base=args.delta_base,
+                           delta_base_version=args.delta_base_version)
         return 0
     check_only(version)   # 默认与 --check：零副作用
     return 0
