@@ -293,18 +293,31 @@ def kill_tree(proc: subprocess.Popen) -> bool:
     return killed or proc.poll() is not None
 
 
-def spawn_owned_worker(args: list[str], *, cwd: str, env: dict) -> ProcessTree:
-    """创建报名 worker：先挂起，取得进程树所有权后再让它跑。
+def _close_streams(proc: subprocess.Popen) -> None:
+    """关闭自有管道句柄；失败不抛（失败路径不制造新异常）。"""
+    for stream in (proc.stdin, proc.stdout, proc.stderr):
+        if stream:
+            try:
+                stream.close()
+            except Exception:
+                pass
 
+
+def spawn_owned(args: list[str], *, cwd: str, env: dict, stdin=None,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                bufsize: int = 1) -> ProcessTree:
+    """创建受管 worker：先挂起，取得进程树所有权后再让它跑。
+
+    stdio 由调用方指定：计划/单活动只要 stdout，relay 还要往 stdin 写。
     任何一步（挂起创建 / 建 Job / 归属 / 恢复线程）失败，都先把仍挂起的
-    自有进程结束掉、关掉所有自有句柄，再抛 :class:`SpawnFailure`；
+    自有进程结束掉、关掉所有自有管道与句柄，再抛 :class:`SpawnFailure`；
     调用方据此把这一场记成「本机没能启动」，不产生任何网络或浏览器动作。
     """
     if os.name != "nt":
         raise SpawnFailure("非 Windows 环境无法取得进程树所有权")
     proc = subprocess.Popen(
-        args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, encoding="utf-8", errors="replace", bufsize=1,
+        args, cwd=cwd, stdin=stdin, stdout=stdout, stderr=stderr,
+        text=True, encoding="utf-8", errors="replace", bufsize=bufsize,
         env=env, creationflags=CREATE_NO_WINDOW | _CREATE_SUSPENDED)
     job = None
     try:
@@ -332,10 +345,11 @@ def spawn_owned_worker(args: list[str], *, cwd: str, env: dict) -> ProcessTree:
             proc.wait(timeout=5)
         except Exception:
             pass
-        if proc.stdout:
-            try:
-                proc.stdout.close()
-            except Exception:
-                pass
+        _close_streams(proc)
         raise
     return ProcessTree(proc, job)
+
+
+def spawn_owned_worker(args: list[str], *, cwd: str, env: dict) -> ProcessTree:
+    """创建报名 worker：默认只读 stdout（stderr 并入），行为与旧入口一致。"""
+    return spawn_owned(args, cwd=cwd, env=env)

@@ -176,6 +176,56 @@ class LegacyMigrationTests(unittest.TestCase):
             self.assertEqual(module.migration_record(),
                              {"moved": 3, "login_failed": False, "other_failed": False})
 
+    def _frozen_module(self, tmp: Path):
+        """冻结模拟下只加载模块、不自动迁移，方便手工控制迁移时机。"""
+        legacy = tmp / "old-exe"
+        (legacy / "data").mkdir(parents=True)
+        (legacy / "campus-activity-watch.exe").write_bytes(b"fake")
+        for name in ("session.json", "storage_state.json", "ui.json"):
+            (legacy / "data" / name).write_text('{"legacy": "%s"}' % name, encoding="utf-8")
+        target = tmp / "target-data"
+        target.mkdir()
+        for patcher in (mock.patch.dict("os.environ", {"CAMPUS_DATA_DIR": str(target)},
+                                        clear=False),
+                        mock.patch.object(sys, "frozen", True, create=True),
+                        mock.patch.object(sys, "executable",
+                                          str(legacy / "campus-activity-watch.exe"))):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        import runtime_paths
+        return target, importlib.reload(runtime_paths)
+
+    def test_concurrent_start_waits_for_the_migration_lock(self):
+        """两个 GUI 同时首次启动：后到者必须等前一个搬完再检查，不得覆盖新文件。"""
+        with tempfile.TemporaryDirectory() as name:
+            target, module = self._frozen_module(Path(name))
+            holder = open(str(module.MIGRATION_LOCK_FILE), "a+b")
+            module.acquire_file_lock(holder, 1.0)
+            try:
+                with mock.patch.object(module, "MIGRATION_LOCK_TIMEOUT_S", 0.2):
+                    module._migrate_legacy_data()
+                self.assertFalse((target / "session.json").exists(),
+                                 "另一个进程迁移中，后到者不得一边检查一边复制")
+                self.assertTrue(module.migration_record()["login_failed"])
+            finally:
+                module.release_file_lock(holder)
+                holder.close()
+            # 前一个进程已经搬完并写入新登录态：后到者不得用旧文件盖掉
+            (target / "session.json").write_text('{"new": 1}', encoding="utf-8")
+            module._MIGRATION_RECORD = None
+            module._migrate_legacy_data()
+            self.assertEqual(json.loads((target / "session.json").read_text(encoding="utf-8")),
+                             {"new": 1}, "新登录态不得被旧文件覆盖")
+            self.assertTrue((target / "storage_state.json").is_file())
+            self.assertEqual(module.migration_record()["moved"], 2)
+            # 锁必须已释放：再拿一次不会超时
+            again = open(str(module.MIGRATION_LOCK_FILE), "a+b")
+            try:
+                module.acquire_file_lock(again, 1.0)
+                module.release_file_lock(again)
+            finally:
+                again.close()
+
     def _migrate_with_copy_failing(self, tmp: Path, failing: tuple):
         """四个旧文件都在；copy2 对 failing 里的文件名抛 PermissionError，其余照常复制。"""
         legacy = tmp / "old"

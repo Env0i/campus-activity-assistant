@@ -32,6 +32,7 @@ sys.path.insert(0, str(LOCAL))
 
 import grab  # noqa: E402
 import time_contract  # noqa: E402
+from infrastructure import process_tree  # noqa: E402
 
 # 站点地址不在测试里写死：跟着运行时的 site_target/config.json 走，
 # 否则本机配置了真实域名时，这里写占位值会让 URL 归属判断全部落空
@@ -3859,6 +3860,155 @@ class OpenTimingTests(unittest.TestCase):
         self.assertEqual(res.stop_reason, "max_attempts")
         self.assertEqual(res.attempts, 4)
         self.assertNotIn("学校还没开门", "\n".join(res.logs))
+
+
+class _FakeStd:
+    def __init__(self):
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+class _FakePopen:
+    """受管创建用的假进程：只记录参数与收尾调用，不真的起进程。"""
+
+    instances = []
+
+    def __init__(self, args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.pid = 4242
+        self.stdin = _FakeStd()
+        self.stdout = _FakeStd()
+        self.stderr = _FakeStd()
+        self.killed = False
+        self.waited = False
+        _FakePopen.instances.append(self)
+
+    def kill(self):
+        self.killed = True
+
+    def wait(self, timeout=None):
+        self.waited = True
+        return 1
+
+    def poll(self):
+        return 1 if self.killed else None
+
+
+class _FakeKernel32:
+    def __init__(self):
+        self.calls = []
+        self.resume_fails = False
+
+    def CreateJobObjectW(self, *args):
+        self.calls.append("create")
+        return 1
+
+    def SetInformationJobObject(self, *args):
+        self.calls.append("limit")
+        return 1
+
+    def OpenProcess(self, *args):
+        self.calls.append("open")
+        return 2
+
+    def AssignProcessToJobObject(self, *args):
+        self.calls.append("assign")
+        return 1
+
+    def ResumeThread(self, *args):
+        self.calls.append("resume")
+        return 0xFFFFFFFF if self.resume_fails else 0
+
+    def TerminateJobObject(self, *args):
+        self.calls.append("terminate")
+        return 1
+
+    def CloseHandle(self, *args):
+        self.calls.append("close")
+
+
+class ProcessTreeCloseTests(unittest.TestCase):
+    """受管 aux tree 的超时终止与句柄关闭只作用于本树。"""
+
+    def test_terminate_then_close_releases_job_once(self):
+        proc = _FakePopen(["worker"])
+        kernel = _FakeKernel32()
+        closed = []
+        with patch.object(process_tree, "win_kernel32", lambda: kernel), \
+                patch.object(process_tree, "kill_tree", lambda target: True), \
+                patch.object(process_tree, "close_handle", closed.append):
+            tree = process_tree.ProcessTree(proc, 77)
+            self.assertTrue(tree.terminate())
+            tree.close()
+            tree.close()
+            self.assertTrue(tree.terminate(), "重复超时收尾应保持幂等")
+        self.assertEqual(kernel.calls, ["terminate"])
+        self.assertEqual(closed, [77], "Job 句柄必须只关闭一次")
+
+
+@unittest.skipUnless(sys.platform == "win32", "受管进程树只在 Windows 上创建")
+class SpawnOwnedStdioTests(unittest.TestCase):
+    """受管创建入口：stdio 可配、所有权先于执行、失败回收不留半截。"""
+
+    def setUp(self):
+        _FakePopen.instances = []
+        self.kernel = _FakeKernel32()
+        self.closed_handles = []
+        self.patches = [
+            patch.object(process_tree, "subprocess",
+                         SimpleNamespace(Popen=_FakePopen, PIPE=-1, STDOUT=-2,
+                                         DEVNULL=-3)),
+            patch.object(process_tree, "os", SimpleNamespace(name="nt")),
+            patch.object(process_tree, "win_kernel32", lambda: self.kernel),
+            patch.object(process_tree, "open_primary_thread", lambda pid: 99),
+            patch.object(process_tree, "close_handle", self.closed_handles.append),
+            patch.object(process_tree, "create_job_for",
+                         lambda proc: (self.kernel.calls.append("job"), 77)[1]),
+        ]
+        for patcher in self.patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_configured_stdio_is_passed_through(self):
+        tree = process_tree.spawn_owned(
+            ["worker", "login"], cwd="c", env={"A": "1"}, stdin=-1, bufsize=1)
+        kwargs = _FakePopen.instances[0].kwargs
+        self.assertEqual(kwargs["stdin"], -1)
+        self.assertEqual(kwargs["stdout"], -1)
+        self.assertEqual(kwargs["stderr"], -2)
+        self.assertEqual(kwargs["bufsize"], 1)
+        self.assertTrue(kwargs["creationflags"] & process_tree.CREATE_NO_WINDOW)
+        self.assertEqual(self.kernel.calls, ["job", "resume"],
+                         "必须先取得 Job 所有权再恢复执行")
+        self.assertTrue(tree.owned)
+
+    def test_default_worker_stdio_matches_old_entry(self):
+        process_tree.spawn_owned_worker(["worker"], cwd="c", env={})
+        kwargs = _FakePopen.instances[0].kwargs
+        self.assertIsNone(kwargs["stdin"])
+        self.assertEqual(kwargs["stdout"], -1)
+        self.assertEqual(kwargs["stderr"], -2)
+        self.assertEqual(kwargs["bufsize"], 1)
+
+    def test_resume_failure_kills_suspended_proc_and_closes_handles(self):
+        self.kernel.resume_fails = True
+        with self.assertRaises(process_tree.SpawnFailure):
+            process_tree.spawn_owned(["worker"], cwd="c", env={})
+        proc = _FakePopen.instances[0]
+        self.assertTrue(proc.killed, "失败路径必须结束仍挂起的自有进程")
+        self.assertTrue(proc.waited, "失败路径必须回收进程句柄")
+        self.assertTrue(proc.stdin.closed and proc.stdout.closed and proc.stderr.closed)
+        self.assertIn(77, self.closed_handles, "失败路径必须关掉 Job 句柄")
+        self.assertIn(99, self.closed_handles, "失败路径必须关掉主线程句柄")
+
+    def test_non_windows_refuses_ownership_before_spawning(self):
+        with patch.object(process_tree, "os", SimpleNamespace(name="posix")):
+            with self.assertRaises(process_tree.SpawnFailure):
+                process_tree.spawn_owned(["worker"], cwd="c", env={})
+        self.assertEqual(_FakePopen.instances, [], "取不到所有权就不得创建进程")
 
 
 if __name__ == "__main__":

@@ -52,8 +52,8 @@ import updater
 
 # 登录态/偏好统一数据根：开发用 local/data，冻结 EXE 用 %LOCALAPPDATA%
 # （CAMPUS_DATA_DIR 可覆盖），与 grab-worker 解析出同一份登录文件
-from runtime_paths import (DATA_DIR, LOG_FILE, SESSION_FILE, UI_STATE_FILE,
-                           ensure_data_dir, migration_record)
+from runtime_paths import (DATA_DIR, LOG_FILE, LOG_LOCK_FILE, SESSION_FILE,
+                           UI_STATE_FILE, ensure_data_dir, migration_record)
 
 # 分层依赖（只准向下）：app（interface 外观）→ application → domain 纯规则；
 # 外部副作用统一走 infrastructure 适配器。旧模块级名字保留为兼容包装/再导出，
@@ -641,13 +641,18 @@ def get_lifecycle(now_fn=None) -> AppLifecycle:
 
 
 class _RelayTree:
-    """relay worker 的最小进程句柄：收尾走既有树终止，不另起第二套收尸。"""
+    """relay worker 的受管句柄：终止走 Job Object，没有所有权时才回退到 Popen。"""
 
-    def __init__(self, proc: subprocess.Popen):
-        self.proc = proc
+    def __init__(self, tree):
+        self.proc = tree.proc
+        self._tree = tree
 
     def terminate(self) -> None:
-        _kill_tree(self.proc)
+        try:
+            if not self._tree.terminate():
+                _kill_tree(self.proc)
+        finally:
+            self._tree.close()
 
 
 # L1：拉活动列表前最多等约 8 秒北京时间；等不到照常拉，由 worker 用学校
@@ -663,13 +668,19 @@ class Api:
         self._clock = clock if clock is not None else _UnavailableClock()
         self._clock_syncing = False
         self._window: webview.Window | None = None
-        self._proc: subprocess.Popen | None = None
+        self._proc = None
+        # 与 _proc 配套的受管进程树：stop/shutdown 用它一网打尽 Playwright 后代
+        self._proc_tree = None
         self._plan: PlanCoordinator | None = None
-        self._plan_procs: dict[str, subprocess.Popen] = {}
+        self._plan_procs: dict[str, object] = {}
+        # 计划任务的受管树句柄（task_id -> ProcessTree）：stop 优先走它
+        self._plan_trees: dict = {}
         # 最近一个已结束计划的快照（只读展示用；_plan 只表示当前计划）
         self._last_plan: dict | None = None
-        # check/list 这类短命 worker 的登记表：正常关闭时一并树终止，不留孤儿
+        # check/list 这类短命 worker 的登记表：正常关闭时一并树终止，不留孤儿。
+        # key 是进程对象，value 是在它真正运行前取得的受管进程树。
         self._aux_procs: set = set()
+        self._aux_trees: dict = {}
         self._activities: dict[str, dict] = {}
         # EX05/BE2：电脑侧最近一次拉活动列表失败（安全原因短语 + 北京 HH:MM）。
         # 只进手机快照（_phone_raw_state），不写日志；成功刷新即清空（None）。
@@ -1711,8 +1722,9 @@ class Api:
         """自动登录的关键动作落盘到 grab.log（行格式与 worker 同源，见 domain.log_events）。
 
         界面进程不 import grab（冻结主程序里没有它），所以这里自己追加一行；
-        字段先过黑名单（不带账号、密码、验证码）。写失败至少打到 stderr，
-        绝不影响登录流程本身。演示模式完全离线，不写。
+        字段先过黑名单（不带账号、密码、验证码）。追加前要先拿 grab.log.lock：
+        worker 的轮转也在同一把锁里，否则轮转会把刚写的行挪走。写失败至少打到
+        stderr，绝不影响登录流程本身。演示模式完全离线，不写。
         """
         if DEMO:
             return
@@ -1722,8 +1734,13 @@ class Api:
             stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         line = "%s %s" % (stamp, _log_events.format_event_line(
             event, "auto_relogin", level=level, fields=fields))
+        lock_handle = None
+        locked = False
         try:
             ensure_data_dir()
+            lock_handle = open(LOG_LOCK_FILE, "a+b")
+            _acquire_prefs_file_lock(lock_handle, 2.0)
+            locked = True
             with open(LOG_FILE, "a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
         except Exception as exc:  # noqa: BLE001 - 日志写不进去不能拖垮登录
@@ -1733,6 +1750,11 @@ class Api:
                           file=sys.stderr, flush=True)
                 except Exception:
                     pass
+        finally:
+            if locked:
+                _release_prefs_file_lock(lock_handle)
+            if lock_handle is not None:
+                lock_handle.close()
 
     def _begin_auto_relogin(self) -> dict:
         """发起一轮自动登录，并把发起结果写进 grab.log（带耗时和失败分类，不带账号）。
@@ -2432,8 +2454,24 @@ class Api:
         for plan_id in list(self._finished_plan_ids)[:-self.FINISHED_PLAN_KEEP]:
             self._finished_plan_ids.pop(plan_id, None)
 
+    def _protect_start(self, request_id: str) -> bool:
+        """留档淘汰候选的保护：待确认请求，以及仍在运行的最新已接纳请求。
+
+        运行中的计划会持续用它的 request_id 发 task/plan_done 事件；一旦记录被
+        大量拒绝请求挤出上限，对账就只剩 unknown，客户端无法确认「到底启没启」。
+        """
+        record = self._start_requests.get(request_id) or {}
+        state = record.get("state")
+        if state == "pending":
+            return True
+        if state != "accepted":
+            return False
+        plan_id = str(record.get("plan_id") or "")
+        return bool(plan_id and plan_id == self._latest_plan_id
+                    and self._plan is not None and self._plan.plan_id == plan_id)
+
     def _remember_start(self, request_id: str, state: str, **extra) -> None:
-        """登记开始请求的结论（调用方持锁）。只保留最近 32 条，pending 不驱逐。"""
+        """登记开始请求的结论（调用方持锁）。只保留最近 32 条，受保护记录不驱逐。"""
         record = dict(self._start_requests.get(request_id) or {})
         record.update({"state": state, "at": record.get("at") or time.time()})
         record.update(extra)
@@ -2443,7 +2481,7 @@ class Api:
         self._start_order.append(request_id)
         while len(self._start_order) > self.START_KEEP:
             victim = next((rid for rid in self._start_order
-                           if self._start_requests.get(rid, {}).get("state") != "pending"), None)
+                           if not self._protect_start(rid)), None)
             if victim is None:
                 break
             self._start_order.remove(victim)
@@ -2861,11 +2899,21 @@ class Api:
         return {"ok": True, "text": "已停止计划"}
 
     def _terminate_plan_procs(self) -> None:
-        """立刻按进程树终止计划里所有活着的 worker。"""
+        """立刻按进程树终止计划里所有活着的 worker（登记表只含本实例的句柄）。"""
         with self._lock:
+            trees = list(self._plan_trees.values())
             procs = list(self._plan_procs.values())
+        covered = set()
+        for tree in trees:
+            # 父进程已经退出时 kill_tree 会提前返回；Job 端口才能收走 Playwright 后代
+            try:
+                if tree.terminate():
+                    covered.add(id(tree.proc))
+            except Exception:
+                pass
         for proc in procs:
-            _kill_tree(proc)
+            if id(proc) not in covered:
+                _kill_tree(proc)
 
     def plan_active_for_close(self) -> bool:
         """计划在跑或已就绪：关窗必须先问，不能静默最小化/退出。"""
@@ -3117,7 +3165,7 @@ class Api:
         等死。重复/并发 shutdown：后到调用在锁外等待首次收尾的完成 Event，
         返回即代表收尾真正完成——入口置位不算 done，主正常退出不会先于收尾
         完成继续 finalize。
-        覆盖登录/单活动（_proc）、计划任务（_plan_procs）与 check/list（_aux_procs）；
+        覆盖登录/单活动（_proc）、计划任务（_plan_procs）与 check/list（_aux_trees）；
         onefile 主程序退出后运行期资源根即消失，留下还握着它的孤儿 worker 只会
         拿着旧资源继续跑——必须先收干净再 finalize 生命周期。
         绝不按进程名扫杀：用户可能同时开着别的实例或别的程序，只动自己登记的进程。
@@ -3134,8 +3182,11 @@ class Api:
                 self._closing = True
                 plan = self._plan
                 plan_procs = list(self._plan_procs.values())
+                plan_trees = list(self._plan_trees.values())
                 aux_procs = list(self._aux_procs)
+                aux_trees = list(self._aux_trees.items())
                 proc = self._proc
+                proc_tree = self._proc_tree
         if done_event is not None:
             done_event.wait()
             return
@@ -3164,9 +3215,41 @@ class Api:
                     plan.stop()
                 except Exception:
                     pass   # 窗口已在关闭，收尾尽力而为，不让异常挡住生命周期写入
-            for orphan in plan_procs + aux_procs:
-                _kill_tree(orphan)
-            if proc and proc.poll() is None:
+            covered = set()
+            for tree in plan_trees:
+                # 受管树先走 Job 端口：父进程已退出时它仍能收走 Playwright 后代
+                try:
+                    if tree.terminate():
+                        covered.add(id(tree.proc))
+                except Exception:
+                    pass
+            for orphan in plan_procs:
+                if id(orphan) not in covered:
+                    _kill_tree(orphan)
+            aux_covered = set()
+            for proc_, tree in aux_trees:
+                try:
+                    if tree.terminate():
+                        aux_covered.add(id(proc_))
+                except Exception:
+                    pass
+            for orphan in aux_procs:
+                if id(orphan) not in aux_covered:
+                    # 兼容旧登记：只有没有可用 aux tree 时才按 PID 兜底。
+                    _kill_tree(orphan)
+            for _proc, tree in aux_trees:
+                try:
+                    tree.close()
+                except Exception:
+                    pass
+            if proc_tree is not None:
+                try:
+                    proc_tree.terminate()
+                except Exception:
+                    pass
+                finally:
+                    proc_tree.close()
+            elif proc and proc.poll() is None:
                 _kill_tree(proc)
         finally:
             # 完成信号在收尾 finally 发出：提前置位会让后到调用先于真正收尾返回
@@ -3179,6 +3262,12 @@ class Api:
             return self.stop_plan(plan.plan_id)
         with self._lock:
             proc = self._proc
+            tree = self._proc_tree
+        if tree is not None:
+            # 受管树：父进程已经退出也要收，残留后代仍握着一半资源
+            tree.terminate()
+            self._emit("log", "已请求停止")
+            return {"ok": True}
         if proc and proc.poll() is None:
             _kill_tree(proc)
             self._emit("log", "已请求停止")
@@ -3706,19 +3795,23 @@ class Api:
             single = self._proc is not None and self._proc.poll() is None
             if single or self._checking or self._listing or self._cancelling:
                 raise RuntimeError("busy")
-            proc = subprocess.Popen(
-                args, cwd=str(HERE), stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, encoding="utf-8", errors="replace", bufsize=1,
-                env=_env(), creationflags=CREATE_NO_WINDOW)
-            self._proc = proc       # 占住 busy 位：原有 login/计划不能同跑
-        return _RelayTree(proc)
+            tree = spawn_owned(args, cwd=str(HERE), env=_env(),
+                               stdin=subprocess.PIPE, bufsize=1)
+            self._proc = tree.proc       # 占住 busy 位：原有 login/计划不能同跑
+            self._proc_tree = tree
+        return _RelayTree(tree)
 
     def _relay_finished(self) -> None:
         with self._lock:
             if self._proc is not None and self._proc.poll() is not None:
                 self._proc = None
+                tree = self._proc_tree
+                self._proc_tree = None
+            else:
+                tree = None
             began = self._auto_relogin_started_at
+        if tree is not None:
+            tree.close()
         # 自动登录这一轮没成：落盘失败分类（中继给的安全错误码，不含账号和验证码）
         try:
             last = self._relay.state()
@@ -3872,6 +3965,7 @@ class Api:
         return _plan_service.run_plan_task(
             spec, cancel_event, status,
             emit=self._emit, lock=self._lock, plan_procs=self._plan_procs,
+            plan_trees=self._plan_trees,
             clock_now=self._clock_now, is_closing=lambda: self._closing,
             worker_command=worker_command, env=_env, spawn=spawn_owned_worker,
             cwd=str(HERE), grace_s=SUPERVISE_GRACE_S,
@@ -3894,24 +3988,31 @@ class Api:
     def _run(self, args: list[str], timeout: int) -> dict:
         """同步跑一个短命 worker（check/list）：创建、登记与关闭屏障同锁。
 
-        Popen 在锁内：关闭先发生则拒绝创建（_ClosingError，取消语义）；
+        spawn_owned 在锁内：关闭先发生则拒绝创建（_ClosingError，取消语义）；
         创建已开始则 shutdown 必等登记完成才能取快照，不会留下未登记孤儿。
         OSError（缺文件/权限）原样抛给调用方归类成结构化组件错误。
         """
         with self._lock:
             if self._closing:
                 raise _ClosingError("程序正在关闭，已取消本次 worker 调用")
-            proc = subprocess.Popen(
-                args, cwd=str(HERE), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                text=True, encoding="utf-8", errors="replace",
-                env=_env(), creationflags=CREATE_NO_WINDOW)
+            tree = spawn_owned(
+                args, cwd=str(HERE), env=_env(), stdin=None,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            proc = tree.proc
+            self._aux_trees[proc] = tree
             self._aux_procs.add(proc)
         try:
             try:
                 out, err = proc.communicate(timeout=timeout)
             except subprocess.TimeoutExpired:
-                # 超时同样按进程树终止：onefile 引导进程死后真实 worker 可能还活着
-                _kill_tree(proc)
+                # 超时优先走受管树；只有旧登记没有 tree 或树终止失败才按 PID 兜底。
+                terminated = False
+                try:
+                    terminated = bool(tree.terminate())
+                except Exception:
+                    pass
+                if not terminated:
+                    _kill_tree(proc)
                 try:
                     proc.communicate(timeout=5)
                 except Exception:
@@ -3921,6 +4022,9 @@ class Api:
         finally:
             with self._lock:
                 self._aux_procs.discard(proc)
+                registered_tree = self._aux_trees.pop(proc, None)
+            if registered_tree is not None:
+                registered_tree.close()
         return {"code": proc.returncode, "out": (out or "") + (err or ""),
                 # stdout/stderr 分开交：列表 JSON 只认 stdout，stderr 混着辅助
                 # 日志，不能整段拿去 json.loads（旧键 out 保留原行为不动）
@@ -3939,11 +4043,14 @@ class Api:
                     return {"ok": False, "text": "程序正在关闭，已取消本次「%s」" % label}
                 if self._is_busy_locked():
                     return {"ok": False, "text": "已经有一个任务在跑，先等它结束"}
-                self._proc = subprocess.Popen(
-                    args, cwd=str(HERE), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    text=True, encoding="utf-8", errors="replace", bufsize=1,
-                    env=_env(), creationflags=CREATE_NO_WINDOW)
-                proc = self._proc
+                tree = spawn_owned(args, cwd=str(HERE), env=_env())
+                self._proc = tree.proc
+                self._proc_tree = tree
+                proc = tree.proc
+        except _SpawnFailure as exc:
+            # 取不到进程树所有权就不放行：没有所有权的 worker 收不干净
+            self._emit("log", "[X] worker 没能取得进程树所有权：%s" % exc)
+            return {"ok": False, "text": "worker 没能启动（本机不允许接管子进程），请重试"}
         except OSError as exc:
             # Popen 竞态失败（文件在自检后被删/被锁）：同样给结构化结论，不冒充成功
             err_code = _component_error(exc)
@@ -3986,7 +4093,7 @@ class Api:
         save_session_timing_anchor(token, (lower + upper) / 2.0,
                                    (upper - lower) / 2.0)
 
-    def _pump(self, proc: subprocess.Popen, label: str, kind: str = "grab") -> None:
+    def _pump(self, proc, label: str, kind: str = "grab") -> None:
         self._emit("log", "▶ " + label)
         tail: list[str] = []
         for line in proc.stdout or []:
@@ -4017,6 +4124,13 @@ class Api:
         with self._lock:
             if self._proc is proc:
                 self._proc = None
+                tree = self._proc_tree
+                self._proc_tree = None
+            else:
+                tree = None
+        if tree is not None:
+            # 父进程已退出，Job 里可能还挂着 Playwright 后代：关句柄即整树收走
+            tree.close()
 
 
 # ---- 兼容包装：已下沉 domain / infrastructure 的纯规则与进程树适配器 ----
@@ -4028,6 +4142,7 @@ _kill_tree = _process_tree.kill_tree
 _SpawnFailure = _process_tree.SpawnFailure
 _ProcessTree = _process_tree.ProcessTree
 spawn_owned_worker = _process_tree.spawn_owned_worker
+spawn_owned = _process_tree.spawn_owned
 _win_kernel32 = _process_tree.win_kernel32
 _parse_checkpoint_line = _worker_lines.parse_checkpoint_line
 _parse_clock_line = _worker_lines.parse_clock_line

@@ -167,6 +167,7 @@ class FakeDeps:
         self.post_result = {"code": "1"}
         self.sessions = []
         self.states = []
+        self.verified = []
         self.ids = 0
         self.fail_open = False
 
@@ -194,6 +195,9 @@ class FakeDeps:
 
     def save_state(self, state):
         self.states.append(state)
+
+    def save_verified(self, state, session):
+        self.verified.append((state, session))
 
 
 def run_scripted(deps, stdin, lines):
@@ -326,8 +330,33 @@ class RelaySessionTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertTrue(any(line.get("kind") == "success" for line in lines))
         self.assertEqual(deps.posts[0][2], "new-token-1")
-        self.assertEqual(deps.sessions[0]["token"], "new-token-1")
-        self.assertEqual(deps.sessions[0]["name"], "张三")
+        self.assertEqual(deps.verified[0][1]["token"], "new-token-1")
+        self.assertEqual(deps.verified[0][1]["name"], "张三")
+
+    def test_success_saves_both_files_through_one_transaction(self):
+        """普通 relay 成功也必须走双文件事务端口，不得分两次单文件写。"""
+        deps = FakeDeps()
+        self._happy(deps)
+        code, _lines = run_scripted(deps, FakeStdin(), [credentials(), self._submit()])
+        self.assertEqual(code, 0)
+        self.assertEqual(len(deps.verified), 1)
+        state, session = deps.verified[0]
+        self.assertEqual(state, {"cookies": []})
+        self.assertEqual(session["token"], "new-token-1")
+        self.assertEqual(deps.states + deps.sessions, [], "不得绕过事务端口分别写单文件")
+
+    def test_persistence_failure_never_reports_success(self):
+        deps = FakeDeps()
+        self._happy(deps)
+
+        def boom(_state, _session):
+            raise OSError("lock timeout")
+
+        deps.save_verified = boom
+        code, lines = run_scripted(deps, FakeStdin(), [credentials(), self._submit()])
+        self.assertEqual(code, 4)
+        self.assertEqual(lines[-1]["error"], "internal")
+        self.assertNotIn("success", [line.get("kind") for line in lines])
 
     def test_old_token_passing_probe_is_not_success(self):
         """旧 token 轮询成功不得冒充新登录成功。"""
@@ -338,7 +367,8 @@ class RelaySessionTests(unittest.TestCase):
         code, lines = run_scripted(deps, stdin, [credentials(), self._submit()])
         self.assertEqual(code, 3)
         self.assertEqual(lines[-1]["error"], "token_unverified")
-        self.assertEqual(deps.sessions, [], "失败不得改写旧会话")
+        self.assertEqual(deps.verified, [], "失败不得改写旧会话")
+        self.assertEqual(deps.sessions, [])
         self.assertEqual(deps.states, [])
 
     def test_new_token_failing_probe_is_not_success(self):
@@ -349,6 +379,7 @@ class RelaySessionTests(unittest.TestCase):
         code, lines = run_scripted(deps, stdin, [credentials(), self._submit()])
         self.assertEqual(code, 3)
         self.assertEqual(lines[-1]["error"], "token_unverified")
+        self.assertEqual(deps.verified, [])
         self.assertEqual(deps.sessions, [])
         self.assertEqual(deps.states, [], "校验失败不得覆盖 storage_state")
 
@@ -369,6 +400,7 @@ class RelaySessionTests(unittest.TestCase):
             {"kind": "cancel", "flow_id": "flow-1"},
         ])
         self.assertEqual(code, 5)
+        self.assertEqual(deps.verified, [])
         self.assertEqual(deps.sessions, [])
 
     def test_credentials_never_appear_in_output(self):
@@ -389,6 +421,7 @@ class RelaySessionTests(unittest.TestCase):
         code, lines = run_scripted(deps, stdin, [credentials(), self._submit()])
         self.assertEqual(code, 2)
         self.assertEqual(lines[-1]["error"], "bad_page")
+        self.assertEqual(deps.verified, [], "页面结构不符不得假成功")
         self.assertEqual(deps.sessions, [], "页面结构不符不得假成功")
 
     def test_open_page_failure_and_cancel_and_eof_cleanup(self):
@@ -438,7 +471,7 @@ class RelaySessionTests(unittest.TestCase):
         code, lines = run_scripted(deps, stdin, [credentials(), self._submit()])
         self.assertEqual(code, 0)
         self.assertTrue(any(line.get("kind") == "success" for line in lines))
-        self.assertEqual(len(deps.sessions), 1)
+        self.assertEqual(len(deps.verified), 1)
 
     def test_duplicate_code_and_old_challenge_rejected(self):
         deps = FakeDeps()

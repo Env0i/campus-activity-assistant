@@ -253,7 +253,7 @@ def run_relay(*, deps, stdin, stdout) -> int:
     """worker 登录编排主循环。返回 0=成功；其余都是安全失败。
 
     deps 需提供：open_page() -> (page, ctx, browser)、post(path, payload, tok)、
-    save_session(dict)、save_state(dict)、now()、sleep(s)、new_id()、login_url。
+    save_verified(state, session)、now()、sleep(s)、new_id()、login_url。
     stdin/stdout 是文本管道；stdout 只允许 [login] JSON 行。
     """
     inbox: "queue.Queue" = queue.Queue()
@@ -436,8 +436,8 @@ def _settle_success(deps, stdout, page, ctx, flow_id, book):
     try:
         items = page_local_storage(page)
         state = ctx.storage_state()
-        deps.save_state(state)
-        deps.save_session(_session_from_items(items, token))
+        # 双文件走事务端口：两份一起落位，失败时回到保存前状态
+        deps.save_verified(state, _session_from_items(items, token))
     except Exception:  # noqa: BLE001
         _emit_line(stdout, flow_id, kind="failed", error="internal")
         return 4

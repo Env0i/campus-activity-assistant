@@ -472,6 +472,8 @@ def install_cloudflared(source, *, root=None, probe=None, probe_text=None) -> di
         if _linked(base):
             raise PackageError("unsafe_path")
         base.mkdir(parents=True, exist_ok=True)
+        # 上一次换位可能停在「store 已挪走、stage 还没落位」：先恢复再开装
+        _recover_cloudflared_store(base)
         store = base / CLOUDFLARED_STORE
         stage = Path(tempfile.mkdtemp(prefix=".stage-cf-", dir=base))
         try:
@@ -505,24 +507,44 @@ def install_cloudflared(source, *, root=None, probe=None, probe_text=None) -> di
                 shutil.rmtree(stage)
 
 
+def _recover_cloudflared_store(base):
+    """进程在受管 cloudflared 换位中断时，把 .bak 恢复成正式目录。
+
+    换位顺序是 store → .bak、stage → store；在两步之间崩溃就只剩 .bak。
+    不恢复的话，读取方会把「已经装好」当成没装，用户还得重新选一次文件。
+    """
+    store = base / CLOUDFLARED_STORE
+    backup = store.with_name(CLOUDFLARED_STORE + ".bak")
+    if _linked(base) or _linked(store) or _linked(backup):
+        raise PackageError("unsafe_path")
+    if backup.exists() and not store.exists():
+        os.replace(backup, store)
+
+
 def stored_cloudflared(*, root=None, probe=None) -> str:
     """返回受管目录里那份 cloudflared 的路径；版本或哈希对不上就返回空串。"""
     probe = probe or probe_cloudflared_version
-    store = _root(root) / CLOUDFLARED_STORE
-    target = store / CLOUDFLARED_FILE
-    try:
-        if not target.is_file() or _linked(target):
+    with _LOCK:
+        base = _root(root)
+        try:
+            _recover_cloudflared_store(base)
+        except (PackageError, OSError):
             return ""
-        manifest = json.loads((store / "manifest.json").read_text(encoding="utf-8"))
-        if parse_cloudflared_version(manifest.get("version")) != CLOUDFLARED_VERSION:
+        store = base / CLOUDFLARED_STORE
+        target = store / CLOUDFLARED_FILE
+        try:
+            if not target.is_file() or _linked(target):
+                return ""
+            manifest = json.loads((store / "manifest.json").read_text(encoding="utf-8"))
+            if parse_cloudflared_version(manifest.get("version")) != CLOUDFLARED_VERSION:
+                return ""
+            if str(manifest.get("sha256") or "") != sha256(target):
+                return ""
+            if parse_cloudflared_version(probe(target)) != CLOUDFLARED_VERSION:
+                return ""
+            return str(target)
+        except (OSError, ValueError):
             return ""
-        if str(manifest.get("sha256") or "") != sha256(target):
-            return ""
-        if parse_cloudflared_version(probe(target)) != CLOUDFLARED_VERSION:
-            return ""
-        return str(target)
-    except (OSError, ValueError):
-        return ""
 
 
 def remove_cloudflared(*, root=None) -> dict:
@@ -531,6 +553,7 @@ def remove_cloudflared(*, root=None) -> dict:
         store = base / CLOUDFLARED_STORE
         if _linked(base) or _linked(store):
             raise PackageError("unsafe_path")
+        _recover_cloudflared_store(base)
         if store.exists():
             shutil.rmtree(store)
         return {"ok": True, "text": "已移除单独安装的 cloudflared。"}

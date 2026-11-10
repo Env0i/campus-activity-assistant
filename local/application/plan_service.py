@@ -62,10 +62,12 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
                   emit, lock, plan_procs: dict, clock_now, is_closing,
                   worker_command, env, spawn, cwd: str, grace_s: float,
                   epoch_of, time_text_of, clock_unavailable,
-                  relogin_wait_s: float = 0.0, on_login_wait=None) -> dict:
+                  relogin_wait_s: float = 0.0, on_login_wait=None,
+                  plan_trees: dict | None = None) -> dict:
     """运行一个单活动脚本；取消只终止对应进程，不影响同批其他任务。
 
     emit(kind, payload) 发结构化事件；lock/plan_procs 是 Api 的进程登记表；
+    plan_trees 是配套的受管树登记表（Api 的 stop/shutdown 用它收后代）；
     spawn(args, cwd=..., env=...) 创建并取得进程树所有权（infrastructure）。
     epoch_of/time_text_of 是学校时间换算纯函数（app.py 注入 time_contract）；
     clock_unavailable 是业务时钟读数失败的异常类型（app.py 注入 business_clock）。
@@ -122,6 +124,9 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
         tree = spawn(args, cwd=cwd, env=env())
         proc = tree.proc
         plan_procs[spec.task_id] = proc
+        if plan_trees is not None:
+            # 与 Popen 同临界区登记：stop 拿到的要么是「还没创建」，要么是完整树
+            plan_trees[spec.task_id] = tree
     if status and business_now is not None:
         # Popen 只是「父进程把 worker 拉起来了」，不是 worker 自己的入口时间：
         # run_started_at 必须等 [checkpoint] worker_started 到达再写（R10）。
@@ -396,6 +401,8 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
             pass
         with lock:
             plan_procs.pop(spec.task_id, None)
+            if plan_trees is not None:
+                plan_trees.pop(spec.task_id, None)
     # 结构化终态行是策略信息的第一来源：只认带 stop_reason 的那一条，
     # 进度行（窗口确定/请求发起）不得冒充终态
     stop: dict = {}

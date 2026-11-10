@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -16,6 +17,7 @@ LOCAL = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(LOCAL))
 import grab  # noqa: E402
 from domain import log_events  # noqa: E402
+from infrastructure import prefs_store  # noqa: E402
 
 
 class _LogBase(unittest.TestCase):
@@ -24,7 +26,10 @@ class _LogBase(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
         self.log_file = self.root / "grab.log"
+        self.lock_file = self.root / "grab.log.lock"
         for patcher in (mock.patch.object(grab, "LOG_FILE", self.log_file),
+                        mock.patch.object(grab, "LOG_LOCK_FILE", self.lock_file,
+                                          create=True),
                         mock.patch.object(grab, "ensure_data_dir", lambda: None)):
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -60,7 +65,8 @@ class RotationTests(_LogBase):
         with mock.patch.object(grab, "LOG_MAX_BYTES", 200):
             for index in range(60):
                 self._log("第 %d 行 " % index + "内容" * 10)
-        names = sorted(p.name for p in self.root.iterdir())
+        names = sorted(p.name for p in self.root.iterdir()
+                       if not p.name.endswith(".lock"))
         self.assertIn("grab.log", names)
         self.assertIn("grab.log.1", names)
         self.assertLessEqual(len([n for n in names if n != "grab.log"]), 5)
@@ -74,6 +80,79 @@ class RotationTests(_LogBase):
         self.assertIn("照常写", self.log_file.read_text(encoding="utf-8"))
         self.assertIn("日志轮转失败", err)
         self.assertIn("照常写", out)
+
+
+class LogLockTests(_LogBase):
+    """轮转与追加必须在同一把跨进程锁内，拿不到锁时降级但不丢当前行。"""
+
+    def _hold_lock(self):
+        holder = open(str(self.lock_file), "a+b")
+        self.addCleanup(holder.close)
+        prefs_store.acquire_file_lock(holder, 1.0)
+        self.addCleanup(prefs_store.release_file_lock, holder)
+        return holder
+
+    def test_lock_timeout_does_not_append_without_the_lock(self):
+        self._hold_lock()
+        with mock.patch.object(grab, "LOG_LOCK_TIMEOUT_S", 0.2, create=True):
+            out, err = self._log("锁住时也要写")
+        self.assertIn("锁", err, "拿不到日志锁要留一条降级提示")
+        self.assertFalse(self.log_file.exists(), "没拿到日志锁时不得无锁追加")
+        self.assertIn("锁住时也要写", err, "当前行要落到 stderr/console 降级出口")
+        self.assertIn("锁住时也要写", out)
+
+    def test_rotation_waits_until_the_lock_is_released(self):
+        self.log_file.write_text("x" * 100, encoding="utf-8")
+        holder = open(str(self.lock_file), "a+b")
+        self.addCleanup(holder.close)
+        prefs_store.acquire_file_lock(holder, 1.0)
+        with mock.patch.object(grab, "LOG_MAX_BYTES", 10), \
+                mock.patch.object(grab, "LOG_LOCK_TIMEOUT_S", 0.2, create=True):
+            try:
+                self._log("锁内不轮转")
+                self.assertFalse((self.root / "grab.log.1").exists(),
+                                 "另一个进程持锁时不得轮转")
+            finally:
+                prefs_store.release_file_lock(holder)
+            self._log("放锁后轮转")
+        self.assertTrue((self.root / "grab.log.1").exists())
+
+    def test_two_processes_append_and_rotate_without_losing_lines(self):
+        code = (
+            "import sys\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from pathlib import Path\n"
+            "import grab\n"
+            "grab.LOG_FILE = Path(sys.argv[2])\n"
+            "grab.LOG_LOCK_FILE = Path(sys.argv[3])\n"
+            "grab.ensure_data_dir = lambda: None\n"
+            "grab.LOG_MAX_BYTES = 512\n"
+            "grab.LOG_KEEP = 20\n"
+            "tag = sys.argv[4]\n"
+            "for i in range(80):\n"
+            "    grab.log('%s-%03d' % (tag, i))\n"
+        )
+        procs = [subprocess.Popen(
+            [sys.executable, "-X", "utf8", "-c", code, str(LOCAL),
+             str(self.log_file), str(self.lock_file), tag],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            encoding="utf-8") for tag in ("a", "b")]
+        outputs = [proc.communicate(timeout=180) for proc in procs]
+        for proc, (out, err) in zip(procs, outputs):
+            self.assertEqual(proc.returncode, 0, err)
+        files = [path for path in self.root.glob("grab.log*")
+                 if not path.name.endswith(".lock")]
+        lines = []
+        for path in files:
+            lines.extend(path.read_text(encoding="utf-8").splitlines())
+        self.assertEqual(len(lines), 160, "两个进程各 80 行，一行都不能丢")
+        for line in lines:
+            self.assertRegex(line, r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [ab]-\d{3}$",
+                             "轮转与追加交错时不得留下半截行")
+        for tag in ("a", "b"):
+            self.assertEqual(
+                len([line for line in lines if line.split()[-1].startswith(tag + "-")]),
+                80)
 
 
 class WriteFailureTests(_LogBase):

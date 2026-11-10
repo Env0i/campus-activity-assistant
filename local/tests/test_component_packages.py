@@ -271,6 +271,21 @@ class PackageTests(unittest.TestCase):
         target.write_bytes(b"MZtampered")
         self.assertEqual(cp.stored_cloudflared(root=self.root, probe=lambda _p: text), "")
 
+    def test_stored_cloudflared_recovers_interrupted_swap(self):
+        """换位中断后只剩 cloudflared.bak：读取前先恢复，不能当成没装。"""
+        source = self.root / "cloudflared.exe"
+        source.write_bytes(BINARY)
+        text = "cloudflared version 2026.10.7"
+        cp.install_cloudflared(source, root=self.root, probe=lambda _p: text,
+                               probe_text=lambda _p: text)
+        store = cp._root(self.root) / cp.CLOUDFLARED_STORE
+        backup = store.with_name(cp.CLOUDFLARED_STORE + ".bak")
+        os.replace(store, backup)       # 模拟 store → .bak 之后、stage → store 之前崩溃
+        path = cp.stored_cloudflared(root=self.root, probe=lambda _p: text)
+        self.assertEqual(path, str(store / cp.CLOUDFLARED_FILE))
+        self.assertTrue(store.is_dir(), "读取时应把 .bak 恢复成正式目录")
+        self.assertFalse(backup.exists(), "恢复后不应残留 .bak")
+
     def test_inspect_archive_names_the_component_it_found(self):
         good = self.archive()
         info = cp.inspect_archive(good, "phone_control")

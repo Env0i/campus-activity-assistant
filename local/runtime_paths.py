@@ -19,6 +19,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+from infrastructure.prefs_store import (PrefsLockTimeout, acquire_file_lock,
+                                        release_file_lock)
+
 # 统一数据根的应用目录名（%LOCALAPPDATA% 下）
 APP_DIR_NAME = "TianSoftActivityPreRegistration"
 # 迁移白名单：登录态与偏好；grab.log 只在缺失时一并带走，方便排查
@@ -60,6 +63,11 @@ SESSION_FILE = DATA_DIR / "session.json"
 STATE_FILE = DATA_DIR / "storage_state.json"
 UI_STATE_FILE = DATA_DIR / "ui.json"
 LOG_FILE = DATA_DIR / "grab.log"
+# 日志轮转与追加共用的跨进程锁；与 session.json.lock 分开，日志不占登录态写锁
+LOG_LOCK_FILE = DATA_DIR / "grab.log.lock"
+# 旧数据迁移的跨进程锁：两个 GUI 同时首次启动时只能有一个在搬文件
+MIGRATION_LOCK_FILE = DATA_DIR / "migration.lock"
+MIGRATION_LOCK_TIMEOUT_S = 5.0
 
 
 def ensure_data_dir() -> Path:
@@ -94,36 +102,58 @@ def _migrate_legacy_data() -> None:
         print("[!] 旧数据迁移失败（不影响启动，可手动拷贝）：%s" % exc, file=sys.stderr)
         _MIGRATION_RECORD = {"moved": 0, "login_failed": True, "other_failed": True}
         return
-    for name in MIGRATE_FILES:
-        # 每个文件单独 try：一个失败不影响其余文件继续搬
+    # 迁移是跨进程的一次性动作：两个 GUI 同时首次启动时，后到者必须等前者
+    # 收工后再检查目标，否则会把对方刚写入的新登录态当成缺失、再拿旧文件覆盖。
+    try:
+        lock_handle = open(MIGRATION_LOCK_FILE, "a+b")
+    except OSError as exc:
+        print("[!] 旧数据迁移失败（不影响启动，可手动拷贝）：%s" % exc, file=sys.stderr)
+        _MIGRATION_RECORD = {"moved": 0, "login_failed": True, "other_failed": True}
+        return
+    acquired = False
+    try:
         try:
-            source = legacy / name
-            target = DATA_DIR / name
-            if not source.is_file() or target.exists():
-                continue
-            # 先拷成数据根同盘的临时文件再原子替换：中途断电不会留下半个文件
-            handle, temp_name = tempfile.mkstemp(dir=str(DATA_DIR),
-                                                 prefix=name + ".", suffix=".tmp")
-            os.close(handle)
+            acquire_file_lock(lock_handle, MIGRATION_LOCK_TIMEOUT_S)
+            acquired = True
+        except (PrefsLockTimeout, OSError) as exc:
+            print("[!] 旧数据迁移失败（不影响启动，可手动拷贝）：另一个进程正在迁移（%s）"
+                  % type(exc).__name__, file=sys.stderr)
+            _MIGRATION_RECORD = {"moved": 0, "login_failed": True, "other_failed": True}
+            return
+        for name in MIGRATE_FILES:
+            # 每个文件单独 try：一个失败不影响其余文件继续搬
             try:
-                shutil.copy2(source, temp_name)
-                os.replace(temp_name, target)
-                moved += 1
-            finally:
-                Path(temp_name).unlink(missing_ok=True)
-        except Exception as exc:  # noqa: BLE001 - 迁移是尽力而为，不让它挡住启动
-            is_login = name in LOGIN_FILES
-            print("[!] 旧%s没能搬过来（不影响启动，可手动拷贝）：%s"
-                  % ("登录信息" if is_login else "设置或运行记录", exc), file=sys.stderr)
-            if is_login:
-                login_failed = True
-            else:
-                other_failed = True
-    if moved:
-        print("[i] 已把 %d 个旧数据文件搬到统一数据目录：%s" % (moved, DATA_DIR),
-              file=sys.stderr)
-    if moved or login_failed or other_failed:
-        # MG02（原型 Main:2147）：失败原因不给界面看原文（可能带本机路径），
-        # 只给「哪一类没搬过来」
-        _MIGRATION_RECORD = {"moved": moved, "login_failed": login_failed,
-                             "other_failed": other_failed}
+                source = legacy / name
+                target = DATA_DIR / name
+                if not source.is_file() or target.exists():
+                    continue
+                # 先拷成数据根同盘的临时文件再原子替换：中途断电不会留下半个文件
+                handle, temp_name = tempfile.mkstemp(dir=str(DATA_DIR),
+                                                     prefix=name + ".", suffix=".tmp")
+                os.close(handle)
+                try:
+                    shutil.copy2(source, temp_name)
+                    os.replace(temp_name, target)
+                    moved += 1
+                finally:
+                    Path(temp_name).unlink(missing_ok=True)
+            except Exception as exc:  # noqa: BLE001 - 迁移是尽力而为，不让它挡住启动
+                is_login = name in LOGIN_FILES
+                print("[!] 旧%s没能搬过来（不影响启动，可手动拷贝）：%s"
+                      % ("登录信息" if is_login else "设置或运行记录", exc), file=sys.stderr)
+                if is_login:
+                    login_failed = True
+                else:
+                    other_failed = True
+        if moved:
+            print("[i] 已把 %d 个旧数据文件搬到统一数据目录：%s" % (moved, DATA_DIR),
+                  file=sys.stderr)
+        if moved or login_failed or other_failed:
+            # MG02（原型 Main:2147）：失败原因不给界面看原文（可能带本机路径），
+            # 只给「哪一类没搬过来」
+            _MIGRATION_RECORD = {"moved": moved, "login_failed": login_failed,
+                                 "other_failed": other_failed}
+    finally:
+        if acquired:
+            release_file_lock(lock_handle)
+        lock_handle.close()

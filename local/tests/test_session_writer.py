@@ -4,12 +4,16 @@
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+import types
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -166,6 +170,127 @@ class SaveVerifiedUnderLockTests(_Base):
         self.assertTrue(any("没拿到" in line or "没写成" in line for line in self.logs))
         self.assertFalse(state.exists())
         self.assertFalse(self.session.exists())
+
+
+class _FakePage:
+    """命令行登录的最小页面替身：只回答 token 轮询与 localStorage 快照。"""
+
+    def __init__(self, token="tok-new", items=None):
+        self.token = token
+        self.items = dict(items or {"xgUniToken": token, "xm": "张三"})
+        self.closed = False
+
+    def goto(self, url, wait_until=None, timeout=None):
+        self.url = url
+
+    def is_closed(self):
+        return self.closed
+
+    def evaluate(self, js):
+        if "xgUniToken" in js:
+            return self.token
+        return dict(self.items)
+
+    def wait_for_timeout(self, ms):
+        pass
+
+
+class _FakeCtx:
+    def __init__(self):
+        self.closed = False
+        self.new_state = {"cookies": [{"name": "new"}]}
+
+    def new_page(self):
+        return _FakePage()
+
+    def storage_state(self):
+        return dict(self.new_state)
+
+    def close(self):
+        self.closed = True
+
+
+class _FakeBrowser:
+    def close(self):
+        pass
+
+
+class _FakePlaywright:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _fake_playwright_modules():
+    """cmd_login 在函数里导入 playwright：没有真依赖时用替身模块顶上。"""
+    module = types.ModuleType("playwright.sync_api")
+    module.sync_playwright = lambda: _FakePlaywright()
+    package = types.ModuleType("playwright")
+    package.sync_api = module
+    return {"playwright": package, "playwright.sync_api": module}
+
+
+class CmdLoginTransactionTests(_Base):
+    """命令行登录成功必须把 state+session 当一笔事务落盘，失败不报成功。"""
+
+    def setUp(self):
+        super().setUp()
+        self.state = self.root / "storage_state.json"
+        self.session_path = self.root / "session.json"
+        self.state.write_bytes(b'{"old": "state"}')
+        self.session_path.write_bytes(b'{"old": "session"}')
+        self.browser = _FakeBrowser()
+        self.ctx = _FakeCtx()
+        for patcher in (
+            mock.patch.object(grab, "STATE_FILE", self.state),
+            mock.patch.object(grab, "SESSION_FILE", self.session_path),
+            mock.patch.object(grab, "ensure_data_dir", lambda: None),
+            mock.patch.object(grab, "launch_browser", lambda pw, headless: self.browser),
+            mock.patch.object(grab, "new_context", lambda browser, with_state=True: self.ctx),
+            mock.patch.object(grab, "check_token", lambda: (True, "ok")),
+            mock.patch.dict(sys.modules, _fake_playwright_modules()),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def _login(self):
+        out = io.StringIO()
+        args = types.SimpleNamespace(relay=False, timeout=5)
+        with contextlib.redirect_stdout(out):
+            code = grab.cmd_login(args)
+        return code, out.getvalue()
+
+    def test_success_writes_both_files_in_one_transaction(self):
+        code, output = self._login()
+        self.assertEqual(code, 0, output)
+        self.assertIn("[OK] 登录成功", output)
+        self.assertEqual(json.loads(self.state.read_text(encoding="utf-8")),
+                         {"cookies": [{"name": "new"}]})
+        saved = json.loads(self.session_path.read_text(encoding="utf-8"))
+        self.assertEqual(saved["token"], "tok-new")
+        self.assertEqual(list(self.root.glob("*.tmp")), [])
+
+    def test_second_file_failure_keeps_old_pair_and_reports_failure(self):
+        originals = {self.state: self.state.read_bytes(),
+                     self.session_path: self.session_path.read_bytes()}
+        real_replace = os.replace
+        calls = []
+
+        def fail_second(src, dst):
+            calls.append(dst)
+            if len(calls) == 2:
+                raise OSError("second replace failed")
+            return real_replace(src, dst)
+
+        with mock.patch("grab.os.replace", side_effect=fail_second):
+            code, output = self._login()
+        self.assertEqual(code, 2, output)
+        self.assertNotIn("[OK] 登录成功", output)
+        for path, blob in originals.items():
+            self.assertEqual(path.read_bytes(), blob, "旧的两份登录态组合必须保持不变")
+        self.assertEqual(list(self.root.glob("*.tmp")), [], "回滚后不留临时文件")
 
 
 class ReadJsonTests(_Base):

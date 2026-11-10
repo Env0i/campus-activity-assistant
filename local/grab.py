@@ -66,7 +66,7 @@ HERE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) el
 # 登录态/偏好统一走 runtime_paths：开发与绿色版仍是脚本旁 data，
 # 冻结 worker 默认 %LOCALAPPDATA%（CAMPUS_DATA_DIR 可覆盖），与主程序同一根
 from runtime_paths import DATA_DIR as DATA
-from runtime_paths import LOG_FILE, SESSION_FILE, STATE_FILE, ensure_data_dir
+from runtime_paths import LOG_FILE, LOG_LOCK_FILE, SESSION_FILE, STATE_FILE, ensure_data_dir
 # 登录态写入的跨进程锁：沿用 ui.json.lock 用的同一对加解锁函数（标准库实现，S5）
 from infrastructure.prefs_store import (PrefsLockTimeout, acquire_file_lock,
                                         release_file_lock)
@@ -183,6 +183,37 @@ def _school_open(request, timeout=None):
 
 LOG_MAX_BYTES = 5 * 1024 * 1024   # grab.log 超过这个大小就轮转（S2）
 LOG_KEEP = 5                      # 保留 grab.log.1 … grab.log.5，更老的丢掉
+LOG_LOCK_TIMEOUT_S = 2.0          # 拿不到日志锁就走 stderr/控制台降级，不能卡住 worker
+_LOG_THREAD_LOCK = threading.Lock()
+
+
+@contextlib.contextmanager
+def _log_file_lock(timeout_s=LOG_LOCK_TIMEOUT_S):
+    """grab.log 的轮转与追加共用的跨进程锁。
+
+    界面进程与 worker 打开同一个 grab.log.lock：轮转时不会把对方刚写的行挪走，
+    追加也不会落在轮转中间。拿不到锁抛 PrefsLockTimeout，由 log() 降级处理。
+    """
+    deadline = time.monotonic() + max(0.0, float(timeout_s))
+    if not _LOG_THREAD_LOCK.acquire(timeout=max(0.0, deadline - time.monotonic())):
+        raise PrefsLockTimeout("日志正在被本进程另一线程写入")
+    try:
+        try:
+            Path(LOG_LOCK_FILE).parent.mkdir(parents=True, exist_ok=True)
+            handle = open(LOG_LOCK_FILE, "a+b")
+        except OSError:
+            raise PrefsLockTimeout("日志锁文件不可创建")
+        acquired = False
+        try:
+            acquire_file_lock(handle, max(0.0, deadline - time.monotonic()))
+            acquired = True
+            yield
+        finally:
+            if acquired:
+                release_file_lock(handle)
+            handle.close()
+    finally:
+        _LOG_THREAD_LOCK.release()
 
 
 def rotate_log_file(path, max_bytes=None, keep=None):
@@ -254,15 +285,26 @@ def log(msg):
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = "%s %s" % (stamp, msg)
     try:
-        rotate_log_file(LOG_FILE)
-    except Exception as exc:  # noqa: BLE001 - 轮转失败下次写入再试，不丢这一行
-        _stderr_note("[log] 日志轮转失败（%s）" % type(exc).__name__)
+        with _log_file_lock():
+            # 轮转与追加在同一临界区：另一个进程不会读到挪到一半的日志
+            try:
+                rotate_log_file(LOG_FILE)
+            except Exception as exc:  # noqa: BLE001 - 轮转失败下次写入再试，不丢这一行
+                _stderr_note("[log] 日志轮转失败（%s）" % type(exc).__name__)
+            _append_log_line_unlocked(line)
+    except PrefsLockTimeout:
+        # 另一个进程正占着日志锁：不能无锁追加，当前行只走 stderr/控制台降级。
+        _stderr_note("[log] 没拿到日志文件锁，本次跳过轮转")
+        _stderr_note("[log] 当前行未写入 grab.log：%s" % line)
+    print(line, flush=True)
+
+
+def _append_log_line_unlocked(line):
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line + "\n")
     except Exception as exc:  # noqa: BLE001 - 不再静默：至少让控制台看到这一行没落盘
         _stderr_note("[log] 写日志文件失败（%s）：%s" % (type(exc).__name__, line))
-    print(line, flush=True)
 
 
 # 事件日志里的活动 ID：cmd_grab 查到目标后设置一次，之后本进程的事件都带上它
@@ -1151,18 +1193,8 @@ def _cmd_login_relay(args):
         def post(self, path, payload, tok):
             return _post(path, payload, tok)
 
-        def save_state(self, state):
-            # 拿不到写锁就抛：中继把它当持久化失败，不会报告登录成功
-            if not save_storage_state(state):
-                raise OSError("登录态写入超时")
-
-        def save_session(self, session):
-            session["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            if not save_session(session):
-                raise OSError("登录态写入超时")
-
         def save_verified(self, state, session):
-            # HTTP 路径的事务端口：两文件一起落位，失败回滚到保存前状态
+            # 两文件的事务端口：一起落位，失败回滚到保存前状态
             session["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             save_verified_files(state, session)
 
@@ -1230,7 +1262,10 @@ def cmd_login(args):
 
     session = session_from_items(items)
     session["token"] = tok
-    if not (save_storage_state(state) and save_session(session)):
+    try:
+        # 两文件一笔事务：第二份失败时回滚，不留新旧混合的登录态
+        save_verified_files(state, session)
+    except OSError:
         print("[X] 登录成功，但登录态没能写入（另一个进程正在写），请稍后重新登录。")
         log_event("login_failed", "cli", level="ERROR", reason="session_not_saved",
                   elapsed_s=time.monotonic() - login_started)

@@ -58,6 +58,13 @@ def read(rel: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _owned_tree(proc):
+    """把既有假进程包成 _run 使用的受管树替身。"""
+    tree = mock.Mock()
+    tree.proc = proc
+    return tree
+
+
 # ---- 条款同意夹具（计划 repair-terms-test-fixtures）----
 # check、list、login、start_plan 与协调器生命周期都先过 app._terms_gate，而门禁
 # 只读 app.PREFS：不把偏好钉到临时文件，这些用例就会去读开发者真实的 ui.json，
@@ -224,7 +231,7 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
     def test_list_spawn_exception_maps_to_spawn_failed(self):
         """非文件缺失类异常（权限/占用）同样给终态并归 spawn_failed。"""
         api, events = self._api_with_events()
-        with mock.patch.object(self.app.subprocess, "Popen",
+        with mock.patch.object(self.app, "spawn_owned",
                                mock.Mock(side_effect=OSError("boom"))):
             api._do_list()
         acts = [payload for kind, payload in events if kind == "activities"]
@@ -234,7 +241,7 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
     def test_list_permission_error_maps_to_worker_permission(self):
         """权限类进程创建异常归 worker_permission（组件码只来自进程创建 OSError）。"""
         api, events = self._api_with_events()
-        with mock.patch.object(self.app.subprocess, "Popen",
+        with mock.patch.object(self.app, "spawn_owned",
                                mock.Mock(side_effect=PermissionError("denied"))):
             api._do_list()
         acts = [payload for kind, payload in events if kind == "activities"]
@@ -249,7 +256,8 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
         fake.returncode = 0
         fake.communicate.return_value = ('[{"id": "a1", "name": "活动"}]', "")
         fake.poll.return_value = 0
-        with mock.patch.object(self.app.subprocess, "Popen", mock.Mock(return_value=fake)), \
+        with mock.patch.object(self.app, "spawn_owned",
+                               mock.Mock(return_value=_owned_tree(fake))), \
                 mock.patch.object(self.app, "_seconds_until",
                                   mock.Mock(side_effect=TypeError("bad data shape"))):
             api._do_list()
@@ -277,8 +285,8 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
             [{"id": "a1", "name": "活动", "sign_start": "2099-01-01 00:00:00"}],
             ensure_ascii=False), "")
         fake.poll.return_value = 0
-        with mock.patch.object(self.app.subprocess, "Popen",
-                               mock.Mock(return_value=fake)):
+        with mock.patch.object(self.app, "spawn_owned",
+                               mock.Mock(return_value=_owned_tree(fake))):
             api._do_list()
         acts = [payload for kind, payload in events if kind == "activities"]
         self.assertEqual(len(acts), 1, "成功路径也只发一次列表终态")
@@ -299,8 +307,8 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
             "[i] 一行辅助日志\n[timing] list token_s=0.40 pages=7 pages_s=2.80 "
             "details=3 details_s=1.20 total_s=4.50\n")
         fake.poll.return_value = 0
-        with mock.patch.object(self.app.subprocess, "Popen",
-                               mock.Mock(return_value=fake)):
+        with mock.patch.object(self.app, "spawn_owned",
+                               mock.Mock(return_value=_owned_tree(fake))):
             api._do_list()
         acts = [payload for kind, payload in events if kind == "activities"]
         self.assertEqual(len(acts), 1)
@@ -322,8 +330,8 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
             '[{"id": "a1", "name": "活动", "sign_start": "", "sign_end": ""}]',
             "[i] 只有一行杂音，没有用时分段\n")
         fake.poll.return_value = 0
-        with mock.patch.object(self.app.subprocess, "Popen",
-                               mock.Mock(return_value=fake)):
+        with mock.patch.object(self.app, "spawn_owned",
+                               mock.Mock(return_value=_owned_tree(fake))):
             api._do_list()
         acts = [payload for kind, payload in events if kind == "activities"]
         self.assertEqual(len(acts), 1)
@@ -356,7 +364,7 @@ class ComponentFailureCloseoutTests(unittest.TestCase):
     def test_list_unknown_exception_closes_out_once(self):
         """未知类型异常：恰一次终态收尾，不因空错误码取字典二次抛错。"""
         api, events = self._api_with_events()
-        with mock.patch.object(self.app.subprocess, "Popen",
+        with mock.patch.object(self.app, "spawn_owned",
                                mock.Mock(side_effect=RuntimeError("weird"))):
             api._do_list()   # 不向上抛即通过：兜底分支不得让异常冲出收尾
         acts = [payload for kind, payload in events if kind == "activities"]
@@ -636,14 +644,109 @@ class ShutdownLifecycleTests(unittest.TestCase):
         plan.stop.assert_called_once_with()
 
     def test_spawn_registers_proc_inside_lock(self):
-        """Popen 与 _proc 登记在同一把锁内：关闭与异步启动竞态不留孤儿（结构锁死）。"""
+        """受管创建与 _proc 登记在同一把锁内：关闭与异步启动竞态不留孤儿（结构锁死）。"""
         src = read("local/app.py")
-        spawn = src[src.index("def _spawn"):src.index("def _pump")]
+        spawn = src[src.index("\n    def _spawn(self"):
+                    src.index("\n    def _anchor_login_success")]
         self.assertIn("with self._lock:", spawn)
         self.assertLess(spawn.index("with self._lock:"),
-                        spawn.index("subprocess.Popen"),
-                        "Popen 必须在锁内构造（登记与创建原子，关闭快照才能看到它）")
-        self.assertIn("self._proc = subprocess.Popen", spawn)
+                        spawn.index("spawn_owned("),
+                        "受管创建必须在锁内（所有权与登记原子，关闭快照才能看到它）")
+        self.assertIn("self._proc = tree.proc", spawn)
+        self.assertIn("self._proc_tree = tree", spawn)
+        self.assertNotIn("subprocess.Popen", spawn, "_spawn 不得绕开受管进程树")
+
+    def test_relay_worker_uses_managed_spawn_with_stdin(self):
+        """relay 的 stdin/stdout 也要走受管入口，不能再用裸 Popen。"""
+        src = read("local/app.py")
+        relay = src[src.index("\n    def _spawn_relay_worker"):
+                    src.index("\n    def _relay_finished")]
+        self.assertIn("spawn_owned(", relay)
+        self.assertIn("stdin=subprocess.PIPE", relay)
+        self.assertIn("self._proc_tree = tree", relay)
+        self.assertNotIn("subprocess.Popen", relay)
+
+    def test_plan_stop_prefers_managed_tree(self):
+        """停计划先走 Job 端口；对已退出的 Popen 调 kill_tree 只能当兜底。"""
+        src = read("local/app.py")
+        term = src[src.index("def _terminate_plan_procs"):
+                   src.index("def plan_active_for_close")]
+        self.assertIn("self._plan_trees", term)
+        self.assertIn("tree.terminate()", term)
+        self.assertIn("_kill_tree(proc)", term, "旧 Popen 只作兼容回退")
+        self.assertIn("plan_trees=self._plan_trees", src)
+
+    def test_aux_run_uses_owned_tree_and_closes_it_after_success(self):
+        """check/list worker 成功收尾：受管树登记、stdio 分离、句柄关闭。"""
+        app = self.app
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
+        proc = mock.Mock()
+        proc.returncode = 0
+        proc.communicate.return_value = ("[]", "[i] aux\n")
+        tree = mock.Mock()
+        tree.proc = proc
+        with mock.patch.object(app, "spawn_owned", return_value=tree) as spawn:
+            result = api._run(["worker", "list", "--json"], timeout=3)
+        self.assertEqual(result["stdout"], "[]")
+        self.assertEqual(result["stderr"], "[i] aux\n")
+        self.assertEqual(api._aux_trees, {}, "正常收尾后不得残留 aux tree 登记")
+        self.assertEqual(api._aux_procs, set(), "兼容进程表也必须清理")
+        tree.close.assert_called_once_with()
+        spawn.assert_called_once()
+        self.assertIs(spawn.call_args.kwargs["stdout"], app.subprocess.PIPE)
+        self.assertIs(spawn.call_args.kwargs["stderr"], app.subprocess.PIPE)
+
+    def test_aux_run_timeout_terminates_tree_before_legacy_fallback(self):
+        """check/list 超时优先终止受管树，旧 kill_tree 不再成为主路径。"""
+        app = self.app
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
+        proc = mock.Mock()
+        proc.communicate.side_effect = [subprocess.TimeoutExpired("worker", 1), ("", "")]
+        proc.returncode = -9
+        tree = mock.Mock()
+        tree.proc = proc
+        with mock.patch.object(app, "spawn_owned", return_value=tree), \
+                mock.patch.object(app, "_kill_tree") as legacy_kill:
+            result = api._run(["worker", "check"], timeout=1)
+        self.assertEqual(result["code"], -1)
+        tree.terminate.assert_called_once_with()
+        tree.close.assert_called_once_with()
+        legacy_kill.assert_not_called()
+        self.assertEqual(api._aux_trees, {})
+
+    def test_aux_run_contract_keeps_tree_registration_and_stdio_split(self):
+        """_run 的关键收口顺序固定在组合根，避免回到裸 Popen。"""
+        src = read("local/app.py")
+        run = src[src.index("    def _run("):src.index("    def _spawn(")]
+        self.assertIn("spawn_owned(", run)
+        self.assertIn("self._aux_trees[proc] = tree", run)
+        self.assertIn("tree.terminate()", run)
+        self.assertIn("tree.close()", run)
+        self.assertIn("stdout=subprocess.PIPE", run)
+        self.assertIn("stderr=subprocess.PIPE", run)
+
+    def test_shutdown_terminates_aux_trees_before_legacy_processes(self):
+        """关闭收尾先用 aux tree，只有无树或树失败的旧登记才走 kill_tree。"""
+        app = self.app
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
+        p_owned, p_failed, p_legacy = (_FakeProc(31), _FakeProc(32), _FakeProc(33))
+        owned = mock.Mock()
+        owned.proc = p_owned
+        owned.terminate.return_value = True
+        failed = mock.Mock()
+        failed.proc = p_failed
+        failed.terminate.return_value = False
+        api._aux_trees = {p_owned: owned, p_failed: failed}
+        api._aux_procs = {p_owned, p_failed, p_legacy}
+        with mock.patch.object(app, "_kill_tree") as kill:
+            api.shutdown()
+        self.assertEqual({id(call.args[0]) for call in kill.call_args_list},
+                         {id(p_failed), id(p_legacy)})
+        self.assertEqual(kill.call_count, 2)
+        owned.terminate.assert_called_once_with()
+        failed.terminate.assert_called_once_with()
+        owned.close.assert_called_once_with()
+        failed.close.assert_called_once_with()
 
     def test_kill_tree_is_pid_only(self):
         """树终止只按 PID：不得出现按映像名扫杀（用户可能开着别的实例）。
@@ -707,6 +810,21 @@ class _GatePopen:
         return ("[]", "")
 
 
+class _AuxTreeGate:
+    def __init__(self, proc, terminated):
+        self.proc = proc
+        self.terminated = terminated
+        self.closed = False
+
+    def terminate(self):
+        self.proc.killed = True
+        self.terminated.append(self.proc)
+        return True
+
+    def close(self):
+        self.closed = True
+
+
 class ShutdownBarrierTests(unittest.TestCase):
     """关闭屏障的行为回归（事件/屏障驱动，不靠 sleep 碰竞态、不只断言源码含锁）。
 
@@ -739,7 +857,7 @@ class ShutdownBarrierTests(unittest.TestCase):
 
         with mock.patch.object(app, "worker_command", lambda *a: ["fake-worker"]), \
                 mock.patch.object(app, "worker_problem", lambda: ""), \
-                mock.patch.object(app.subprocess, "Popen", counting_popen):
+                mock.patch.object(app, "spawn_owned", counting_popen):
             api.shutdown()
             r_check = api.check()
             r_list = api.list_activities()
@@ -763,16 +881,12 @@ class ShutdownBarrierTests(unittest.TestCase):
                                     threading.Event())
         made = []
 
-        def gate_popen(args, **kwargs):
+        def gate_spawn(args, **kwargs):
             proc = _GatePopen(entered, release, finish, args, **kwargs)
             made.append(proc)
-            return proc
+            return _AuxTreeGate(proc, kills)
 
         kills = []
-
-        def recorder(proc):
-            proc.killed = True
-            kills.append(proc)
 
         done = threading.Event()
 
@@ -780,8 +894,7 @@ class ShutdownBarrierTests(unittest.TestCase):
             api.shutdown()
             done.set()
 
-        with mock.patch.object(app.subprocess, "Popen", gate_popen), \
-                mock.patch.object(app, "_kill_tree", recorder), \
+        with mock.patch.object(app, "spawn_owned", gate_spawn), \
                 mock.patch.object(app, "worker_command", lambda *a: ["fake-worker"]):
             worker = threading.Thread(target=api._do_list, daemon=True)
             worker.start()
@@ -817,7 +930,7 @@ class ShutdownBarrierTests(unittest.TestCase):
         events = []
         api._emit = lambda kind, payload=None: events.append((kind, payload))
         with mock.patch.object(app, "worker_command", gate_cmd), \
-                mock.patch.object(app.subprocess, "Popen", counting_popen):
+                mock.patch.object(app, "spawn_owned", counting_popen):
             worker = threading.Thread(target=do_request, args=(api,), daemon=True)
             worker.start()
             self.assertTrue(entered.wait(5), "排队线程必须先到达创建点之前")
@@ -1400,6 +1513,41 @@ class PlanDoneCommitOrderTests(unittest.TestCase):
                          "旧计划迟到的 plan_done 不得清空后来计划")
         self.assertIsNone(api._last_plan,
                           "新计划在运行时不该被旧计划的终态快照覆盖")
+
+    def test_live_accepted_request_survives_rejection_flood(self):
+        """运行中的已接纳请求不能被大量拒绝请求挤出留档，否则对账只剩 unknown。"""
+        app = self.app
+        api, item = self._api()
+        emitted = {}
+
+        def fake_coord(plan_id, specs, runner, emit, now=None):
+            inst = mock.Mock()
+            inst.plan_id = plan_id
+            inst.snapshot = mock.Mock(return_value={"status": "running", "tasks": []})
+            emitted["emit"] = emit
+            return inst
+
+        with mock.patch.object(app, "PlanCoordinator", fake_coord):
+            first = api.start_plan([item], request_id="rid-live")
+            self.assertTrue(first["ok"], first)
+            for index in range(40):
+                with api._lock:
+                    api._remember_start("rid-flood-%d" % index, "rejected",
+                                        result={"ok": False, "text": "busy"})
+            live = api.start_request_state("rid-live")
+            self.assertEqual(live["state"], "accepted",
+                             "运行中的已接纳请求不得被拒绝请求挤出留档")
+            self.assertEqual(live["plan_id"], first["plan_id"])
+            # plan_done 写入终态后保护才解除，之后允许按上限淘汰
+            emitted["emit"]("plan_done", {"plan_id": first["plan_id"],
+                                          "status": "completed",
+                                          "summary": {"total": 0, "counts": {}}})
+            for index in range(40, 80):
+                with api._lock:
+                    api._remember_start("rid-flood-%d" % index, "rejected",
+                                        result={"ok": False, "text": "busy"})
+        self.assertEqual(api.start_request_state("rid-live")["state"], "unknown",
+                         "plan_done 之后应按留档上限正常淘汰")
 
     # ---------- P1：旧计划事件隔离与终态快照归属 ----------
 
