@@ -1038,6 +1038,13 @@ def verify_release_assets(version: str) -> dict:
         inspected = component_modules()["component_packages"].inspect_artifact(path, artifact_id)
         if not inspected.get("ok"):
             raise SystemExit("[publish] 拆分资产自检失败：%s" % path.name)
+        # 发布清单里写的标识必须与包内 manifest 的实际值一致：客户端按清单挑包、
+        # 按兼容标识配组，清单写错会让用户装到配不上的一组而本地自检全绿。
+        for field in ("content_sha256", "compatibility_id"):
+            if item.get(field) != inspected.get(field):
+                raise SystemExit("[publish] 拆分资产 %s 的 %s 与包内 manifest 不一致"
+                                 "（发布清单 %s ≠ 包内 %s）：请重新 --prepare"
+                                 % (path.name, field, item.get(field), inspected.get(field)))
         split_paths.append(path)
     return {"stage": stage_dir, "exe": exe_path, "zip": zip_path,
             "installer": installer_path, "component": component_path,

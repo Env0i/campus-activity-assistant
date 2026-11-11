@@ -105,6 +105,34 @@ class DeltaTests(unittest.TestCase):
         self.assertTrue((self.staging / "add.txt").is_file())
         self.assertFalse((self.staging / "remove.txt").exists())
 
+    def test_path_segment_with_colon_is_rejected(self):
+        """NTFS 备用数据流写法 name:stream 会把内容藏进别的文件，含冒号的路径一律拒绝。"""
+        for bad in ("lib/app.dll:evil", "a:b", "dir:s/file.txt", "file.txt::$DATA"):
+            with self.subTest(path=bad), self.assertRaises(update_delta.DeltaError):
+                update_delta.validate_relative_path(bad)
+        self.assertEqual(update_delta.validate_relative_path("lib/app.dll"), "lib/app.dll")
+
+    def test_archive_member_larger_than_declared_size_is_rejected(self):
+        """ZIP 里某文件实际大小超过清单声明时，解出之前就拒绝（防压缩炸弹撑满磁盘）。"""
+        import json
+        import zipfile
+        delta = update_delta.build_delta(self.base, self.target, "1.0.0", "1.2.2")
+        manifest = {key: value for key, value in delta.items() if not key.startswith("_")}
+        manifest["files"] = [dict(item, bytes=1) if item["path"] == "add.txt" else item
+                             for item in manifest["files"]]
+        archive = self.root / "lying.zip"
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False))
+            for item in manifest["files"]:
+                zf.write(self.target / item["path"], "files/" + item["path"])
+        extraction = None
+        try:
+            with self.assertRaises(update_delta.DeltaError):
+                _manifest, extraction, _ = update_delta._load_archive(archive)
+        finally:
+            if extraction is not None:
+                shutil.rmtree(extraction, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()

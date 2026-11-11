@@ -847,10 +847,10 @@ class AssetVerificationTests(unittest.TestCase):
         import hashlib
         import io
         import json
-        import subprocess
         import tempfile
         import types
-        source = subprocess.check_output(["git", "show", "b39b81e:local/update_check.py"])
+        # 1.2.1 检查器原文存在仓库夹具里，不再依赖 git 历史（浅克隆/源码包里没有它）
+        source = (LOCAL / "tests" / "fixtures" / "update_check_v121.py").read_bytes()
         old = types.ModuleType("historical_update_check")
         exec(compile(source, "historical_update_check", "exec"), old.__dict__)
         with tempfile.TemporaryDirectory() as name:
@@ -884,6 +884,61 @@ class AssetVerificationTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 self.rel.write_manifest(stage, self.VERSION, "v" + self.VERSION,
                     [installer], build_state=self._state(), target_manifest=target)
+
+    def _candidate_with_split(self, tmp, content="aa" * 32, compat="compat-1"):
+        """在合格候选上追加一份拆分资产：包内真实标识由替身 inspect_artifact 给出。"""
+        import json
+        stage, exe, zp, manifest = self._candidate(tmp)
+        name = "campus-activity-watch-relogin-ocr-model-v%s-win-x64.zip" % self.VERSION
+        split = stage / name
+        split.write_bytes(b"split-asset-body")
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        data["files"][name] = {"sha256": self.rel.sha256_of(split),
+                               "bytes": split.stat().st_size}
+        data["split_assets"] = {"relogin_ocr_model": {
+            "artifact_id": "relogin_ocr_model", "name": name,
+            "bytes": split.stat().st_size, "sha256": self.rel.sha256_of(split),
+            "target_version": self.VERSION,
+            "content_sha256": content, "compatibility_id": compat}}
+        manifest.write_text(json.dumps(data), encoding="utf-8")
+        return name
+
+    def _verify_split(self, packed_content, packed_compat, *, listed_content="aa" * 32,
+                      listed_compat="compat-1"):
+        import tempfile
+        packages = self.rel.component_modules()["component_packages"]
+        fake = {"ok": True, "kind": "artifact", "role": "model",
+                "content_sha256": packed_content, "compatibility_id": packed_compat}
+        with tempfile.TemporaryDirectory() as tmp:
+            for p in self._patched(tmp):
+                p.start()
+            try:
+                name = self._candidate_with_split(tmp, listed_content, listed_compat)
+                with mock.patch.object(packages, "inspect_artifact", return_value=fake):
+                    return name, self.rel.verify_release_assets(self.VERSION)
+            finally:
+                mock.patch.stopall()
+
+    def test_verify_accepts_split_asset_whose_package_ids_match_the_manifest(self):
+        name, got = self._verify_split("aa" * 32, "compat-1")
+        self.assertEqual([path.name for path in got["split_assets"]], [name])
+
+    def test_verify_rejects_split_asset_with_other_content_sha256(self):
+        """包内 manifest 的 content_sha256 与发布清单不一致：客户端会按清单挑到错的包。"""
+        with self.assertRaises(SystemExit) as refused:
+            self._verify_split("bb" * 32, "compat-1")
+        self.assertIn("content_sha256", str(refused.exception))
+
+    def test_verify_rejects_split_asset_with_other_compatibility_id(self):
+        with self.assertRaises(SystemExit) as refused:
+            self._verify_split("aa" * 32, "compat-2")
+        self.assertIn("compatibility_id", str(refused.exception))
+
+    def test_legacy_reader_replay_does_not_need_git(self):
+        """1.2.1 检查器的回放读仓库里的夹具：浅克隆、源码包里没有 git 也能跑。"""
+        boom = FileNotFoundError("git")
+        with mock.patch.object(subprocess, "check_output", side_effect=boom),                 mock.patch.object(subprocess, "run", side_effect=boom),                 mock.patch.object(subprocess, "Popen", side_effect=boom):
+            self.test_manifest_shared_target_fits_legacy_reader_and_rejects_oversize()
 
     def test_verify_rejects_candidate_without_ocr_component(self):
         """没有验证码识别组件包的候选一律拒绝：缺它设置里「下载并安装」点了没东西。"""

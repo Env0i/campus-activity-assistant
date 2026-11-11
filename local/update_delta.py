@@ -49,6 +49,9 @@ def validate_relative_path(value: str) -> str:
     parts = value.split("/")
     if any(part in ("", ".", "..") for part in parts):
         raise DeltaError("路径包含目录逃逸或空段")
+    if any(":" in part for part in parts):
+        # NTFS 备用数据流（文件名:流名）会把内容写进别的文件的隐藏流，正常文件名不含冒号
+        raise DeltaError("路径不能包含冒号")
     return value
 
 
@@ -233,9 +236,14 @@ def _load_archive(archive: Path):
             }
             if names != expected:
                 raise DeltaError("增量 ZIP 文件条目与 manifest 不一致")
+            declared = {FILES_PREFIX + item["path"]: item["bytes"]
+                        for item in manifest["files"]}
             for info in infos:
                 if info.filename == MANIFEST_NAME:
                     continue
+                # 解出之前先比大小：条目实际大小超过清单声明就拒绝，防压缩炸弹撑满磁盘
+                if info.file_size > declared[info.filename]:
+                    raise DeltaError("增量 ZIP 条目超过清单声明的大小")
                 target = extraction / info.filename[len(FILES_PREFIX):]
                 target.parent.mkdir(parents=True, exist_ok=True)
                 with target.open("wb") as handle:
