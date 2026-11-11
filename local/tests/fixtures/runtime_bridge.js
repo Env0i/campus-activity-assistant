@@ -614,6 +614,7 @@
       return Promise.resolve({ ok: true, queued: true });
     },
     open_data: () => { record("open_data", []); return Promise.resolve({ ok: true }); },
+    window_visibility: () => { record("window_visibility", []); return Promise.resolve({ hidden: false }); },
     /* 这些是生产 UI 的本机操作桥：QA 不打开文件选择框、不启动下载或关窗，
      * 但必须返回真实调用方能消费的最小回执，否则拆分后的页面一点击就抛
      * no_such_method，场景连到业务断言之前就失真。 */

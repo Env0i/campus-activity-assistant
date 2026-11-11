@@ -160,6 +160,7 @@
 | `set_hide_window(value)` | `value: bool` | `{ok:true}` / `{ok:false, text}` | 直接返回，写 ui.json `hide_window_on_start` |
 | `get_update_status()` | — | `{state, version, checked_at}` | 直接返回（读后端内存快照，不触发新检查） |
 | `get_terms_status()` | — | `{version, accepted_version, accepted_at, withdrawn_at}` | 直接返回（只读查询，不进学校 API） |
+| `window_visibility()` | — | `{hidden: bool}` | 直接返回（只读：窗口是否藏在托盘里，界面自动刷新活动列表前问一次；不带别的字段、不进学校 API） |
 
 > `bootstrap()`/`help()`/`get_*()` 系列是唯一可以同步返回的；其余异步。
 > `relogin_begin` 仅在 `login.result ∈ {valid, expired}` 时可用（有真实会话才自动登录）；`source="auto"` 由后端自动发起（等开放前 100 秒内或开放时），前端只显示胶囊"自动登录中"，不弹浏览器。
@@ -810,6 +811,18 @@
 - Tab / Shift+Tab 只在两个按钮之间循环；Enter 交给当前按钮；Ctrl+F 和 / 不抢焦点；Esc 不会穿透去清空选择。
 - 点遮罩里的「停止计划」：关遮罩（不还焦点），随即按钮变成「正在停止…」；若此时计划恰好已结束或已在停止，只关遮罩，不再发停止请求。
 - 遮罩开着时计划结束，遮罩自动收起；焦点原本在遮罩里就移到「完成，回到活动列表」（不可见则落到计划栏本身）。
+
+
+### 5.20 活动列表后台自动刷新（现行验收契约，2026-11-12）
+
+活动列表每 10 分钟在后台自动刷新一次，等于替用户点一次顶栏「刷新」，但画面不能闪。实现在 `controllers/refresh.js` 末尾（`autoRefreshDue` / `autoRefreshTick` / `startAutoRefresh`），`app.js` 只在启动流程里起一次，并在窗口变为可见时补看一拍。
+
+1. **周期**：距上一次列表刷新满 10 分钟才刷。「上一次」取列表成功与刷新尝试（成功或失败、手动或后台）中较晚者；手动刷新、登录成功后的刷新、取消报名后的刷新都会重新计时。由一个 30 秒的 `setInterval` 逐拍判断条件，不用 10 分钟的长定时器；刚尝试过的同一时刻不会被第二个 tick 连发。间隔用单调钟 `_monoMs`，「离开放多久」用业务钟 `bnowS` 与 `toTs`，不读本机墙钟。
+2. **跳过条件**（任一成立这一拍不刷新，下一拍再看）：演示模式；没连上本机程序；条款未同意；已知断网；登录结论不是 `valid`，或登录窗口还开着；刷新按钮当前不可用（加载中、条款门、取消报名进行中，同 `updateControls` 对 `#btn-refresh` 的规则，直接读按钮本身）；开始请求正在提交（`S.starting`）；正在检查登录或正在拉列表；计划里还没终态的场次离开放不到 5 分钟、已过开放时刻、开放时间读不出来或业务钟不可用。计划运行中本身不拦（手动刷新也可用），只按场次时间判断；已终态的场次和已有终态的计划不算。
+3. **窗口不可见**：`document.hidden` 为真，或后端 `window_visibility()` 返回 `hidden:true`（pywebview 隐藏窗口时 WebView2 是否把 `document.hidden` 置真无法离线验证，所以两个都问；老后端没有这个接口时当作可见）。不可见期间不刷新；从不可见变可见时，若已满 10 分钟，立即补刷一次（`visibilitychange` 里在原有 bootstrap 同步之后调一次 `autoRefreshTick`；那一步刚刷新过的话会因「正在拉列表」自己跳过，不连刷两次）。
+4. **后台不闪**：`refresh(true, {background:true})` 不置 `S.listState="loading"`（不出骨架）、不置 `S.login.checking`（不进「检查中」）、不 `render()`、不开条款弹窗、不开结果框或横幅；兜底计时器（100 / 130 秒）改看内部 pending 标志收口。成功时走既有 `applyActivities` 成功路径：勾选保留仍在列表里的场次，筛选与滚动容器不动；「N 分钟前更新」照常显示上次成功时刻。
+5. **后台失败**：保留原有列表与勾选，不切错误空态、不挂横幅、不写失败日志。回包失败、桥接异常、入队被拒、130 秒无回应四条路径统一累计次数，**连续 3 次**才在运行记录写一条「活动列表自动刷新连续 3 次没成功，列表还是 HH:MM 的；可以点「刷新」重试」（HH:MM 是最近一次列表成功的北京时间，不可得时写「列表还是上次的」），之后继续失败不再刷屏；任何一次列表成功（手动或后台）都把计数清零，要重新连续 3 次才再写。手动刷新失败的老行为不变（清空列表并显示错误空态）。
+6. **验收**：`local/tests/test_ui_reliability.py::AutoListRefreshTests`（node 沙箱，逐条跳过条件都有「单独成立不刷、撤掉立即刷」的对照）与 `test_application_services.py::WindowVisibilityTests`。真实窗口里隐藏到托盘时 `document.hidden` 的取值、10 分钟后台刷新是否无闪烁，需要真机确认。
 
 ## 6. 文案要求
 

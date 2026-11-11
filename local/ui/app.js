@@ -82,6 +82,7 @@ async function boot() {
     startClockPolling();
     pollClockNow();
     refresh(true);
+    startAutoRefresh();   /* 活动列表每 10 分钟后台自动刷新（条件见 controllers/refresh.js） */
   }
 }
 
@@ -634,11 +635,15 @@ document.addEventListener("visibilitychange", () => {
   tick();
   if (!hasBridge()) return;
   api("bootstrap").then((info) => {
-    if (!info) return;
-    ingestBootstrapPlan(info);
-    if (!!info.busy !== S.busy) setBusy(!!info.busy);
-    if (!info.busy) refresh(true);
-  }).catch(() => {});
+    if (info) {
+      ingestBootstrapPlan(info);
+      if (!!info.busy !== S.busy) setBusy(!!info.busy);
+      if (!info.busy) refresh(true);
+    }
+    /* 窗口变为可见：计划运行中上面不会刷新，隐藏期间错过的那次自动刷新在这里立即补上；
+     * 上面刚刷新过的话，autoRefreshTick 会因为「正在拉列表」自己跳过，不会连刷两次 */
+    autoRefreshTick().catch(() => {});
+  }).catch(() => { autoRefreshTick().catch(() => {}); });
 });
 
 setInterval(tick, 1000);

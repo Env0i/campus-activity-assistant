@@ -1784,5 +1784,424 @@ out.push({ rows: rows });
         self.assertIn("活动甲", rows[0])
 
 
+AUTO_REFRESH_PRELUDE = TIMER_HARNESS + r"""
+/* 自动刷新用例的公共前置：条款已同意、在线、登录有效、列表已成功加载一次（10:00 的）。
+ * 后端桥接全是桩：window_visibility 可由用例切换，check / list_activities 只记调用。 */
+let __backendHidden = false;
+const __calls = { check: [], list: [], visibility: 0 };
+window.pywebview = { api: {
+  window_visibility: () => { __calls.visibility += 1; return Promise.resolve({ hidden: __backendHidden }); },
+  check: (id) => { __calls.check.push(id); return Promise.resolve({ ok: true, queued: true }); },
+  list_activities: (id) => { __calls.list.push(id); return Promise.resolve({ ok: true, queued: true }); },
+} };
+const __ITEMS = [
+  { id: "a1", name: "活动一", sign_start: "2026-11-12 20:00:00", sign_end: "2026-11-12 22:00:00",
+    act_start: "2026-11-13 09:00:00", act_end: "2026-11-13 11:00:00", signed: false },
+  { id: "a2", name: "活动二", sign_start: "2026-11-13 20:00:00", sign_end: "2026-11-13 22:00:00",
+    act_start: "2026-11-14 09:00:00", act_end: "2026-11-14 11:00:00", signed: false },
+];
+/* 把当前这一轮的 check 与 list 终态按真实事件入口送回来 */
+const __checkOk = () => window.onBackend.check({ request_id: S.round.check, ok: true,
+  result: "valid", session_present: true, hours_left: 5 });
+const __finish = (items) => {
+  __checkOk();
+  window.onBackend.activities({ request_id: S.round.list, ok: true, items: items || __ITEMS });
+};
+const __failList = (text) => {
+  __checkOk();
+  window.onBackend.activities({ request_id: S.round.list, ok: false, text: text || "连不上学校站点" });
+};
+/* 单调钟与业务钟一起走：业务锚点每次推进后重新注入，长时间推进也不会因锚点过期变成「待校准」 */
+let __bizEpochMs = toTs("2026-11-12 10:00:00") * 1000;
+const __advance = (minutes) => {
+  __advanceMono(minutes * 60000);
+  __bizEpochMs += minutes * 60000;
+  setBusinessNow(__bizEpochMs);
+};
+const __schoolText = (epochSec) => new Date((Math.floor(epochSec) + 8 * 3600) * 1000)
+  .toISOString().slice(0, 19).replace("T", " ");
+const __tick = async () => { const fired = await autoRefreshTick(); await __flush(); return fired; };
+const __autoLogs = () => S.recentLogs.filter((line) => /活动列表/.test(line));
+const __ids = () => S.items.map((item) => item.id);
+
+S.terms.version = "v1";
+S.terms.acceptedVersion = "v1";
+S.online = true;
+S.demo = false;
+setBusinessNow(__bizEpochMs);
+refresh(true);
+__finish();
+"""
+
+# 只记录调用的 refresh 桩：验证「触发了什么」，不真的发请求
+STUB_REFRESH = r"""
+const __rc = [];
+refresh = (quiet, options) => { __rc.push({ quiet: quiet, background: !!(options && options.background) }); };
+"""
+
+# 跳过条件的统一骨架：先满 10 分钟，套上条件后不触发；撤掉条件后同一时刻立即触发。
+# 这样每条跳过条件都是「唯一原因」，不会被别的条件顶替。
+SKIP_TEMPLATE = AUTO_REFRESH_PRELUDE + STUB_REFRESH + r"""
+__advance(10.5);
+const __at = (sec) => __schoolText(bnowS() + sec);
+const __row = {};
+__APPLY__
+__row.skipped = await __tick();
+__row.callsWhileSkipped = __rc.length;
+__REVERT__
+__row.fired = await __tick();
+__row.callsAfter = __rc.length;
+out.push(__row);
+"""
+
+_PLAN_WITH_TASK = (
+    'S.plan = { id: "p1", gen: 1, status: "running", tasks: new Map([["t1", '
+    '{ task_id: "t1", activity_id: "a1", name: "活动一", status: "%s", sign_start: %s }]]) }; '
+    'S.busy = true;')
+
+SKIP_CASES = [
+    ("条款未同意", 'S.terms.acceptedVersion = "";', 'S.terms.acceptedVersion = "v1";'),
+    ("断网", 'S.online = false;', 'S.online = true;'),
+    ("登录结论不是 valid", 'S.login.result = "expired"; S.login.ok = false;',
+     'S.login.result = "valid"; S.login.ok = true;'),
+    ("刷新按钮当前不可用", '$("#btn-refresh").disabled = true;', '$("#btn-refresh").disabled = false;'),
+    ("取消报名进行中", 'S.cancel.busyId = "a1";', 'S.cancel.busyId = "";'),
+    ("正在提交开始请求", 'S.starting = true;', 'S.starting = false;'),
+    ("正在检查登录", 'S.login.checking = true;', 'S.login.checking = false;'),
+    ("正在拉列表", 'S.listState = "loading";', 'S.listState = "ready";'),
+    ("演示模式", 'S.demo = true;', 'S.demo = false;'),
+    ("页面不可见 document.hidden", 'document.hidden = true;', 'document.hidden = false;'),
+    ("后端报告窗口已隐藏", '__backendHidden = true;', '__backendHidden = false;'),
+    ("计划场次离开放不到 5 分钟",
+     _PLAN_WITH_TASK % ("waiting", "__at(240)"),
+     'S.plan.tasks.get("t1").sign_start = __at(360);'),
+    ("计划场次离开放 299 秒（边界内）",
+     _PLAN_WITH_TASK % ("waiting", "__at(299)"),
+     'S.plan.tasks.get("t1").sign_start = __at(301);'),
+    ("计划场次已过开放时刻但没有终态",
+     _PLAN_WITH_TASK % ("submitting", "__at(-30)"),
+     'S.plan.tasks.get("t1").status = "success";'),
+    ("计划场次开放时间读不出来",
+     _PLAN_WITH_TASK % ("waiting", '""'),
+     'S.plan.tasks.get("t1").sign_start = __at(900);'),
+]
+
+
+class AutoListRefreshTests(unittest.TestCase):
+    """活动列表每 10 分钟后台自动刷新（计划 20261112-auto-list-refresh）。
+
+    每个用例都在 node 沙箱里驱动生产 refresh.js / app.js：时间用 __advanceMono 推单调钟，
+    业务时刻用 setBusinessNow 注入，不读墙钟。"""
+
+    # ---- 周期 ----
+
+    def test_fires_one_background_refresh_after_ten_minutes(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + STUB_REFRESH + r"""
+__advance(9.9);
+const early = await __tick();
+__advance(0.2);
+const due = await __tick();
+const again = await __tick();     /* 刚尝试过：同一刻不能再触发第二次 */
+out.push({ early: early, due: due, again: again, calls: __rc });
+""")
+        data = res[0]
+        self.assertFalse(data["early"], "未满 10 分钟不触发")
+        self.assertTrue(data["due"], "满 10 分钟触发")
+        self.assertFalse(data["again"], "触发后重新计时，不连发")
+        self.assertEqual(data["calls"], [{"quiet": True, "background": True}],
+                         "只触发一次，且是 quiet 加 background 的 refresh")
+
+    def test_manual_login_and_cancel_refreshes_restart_the_clock(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + r"""
+const legs = [];
+/* 手动刷新（点按钮）与登录成功 / 取消报名后的 quiet 刷新都走 refresh()，都要重新计时 */
+for (const quiet of [false, true]) {
+  __advance(9);
+  refresh(quiet);
+  __finish();
+  __advance(2);                         /* 距开机超过 10 分钟，距刚才的刷新只有 2 分钟 */
+  const early = await __tick();
+  const callsEarly = __calls.list.length;
+  __advance(8.1);
+  const due = await __tick();
+  legs.push({ quiet: quiet, early: early, due: due, callsEarly: callsEarly,
+              callsDue: __calls.list.length });
+  __finish();
+}
+out.push(legs);
+""")
+        for leg in res[0]:
+            self.assertFalse(leg["early"], "刚刷新过 2 分钟，不能因为开机早就满 10 分钟而触发: %r" % leg)
+            self.assertTrue(leg["due"], "距上次刷新满 10 分钟才触发: %r" % leg)
+            self.assertEqual(leg["callsDue"], leg["callsEarly"] + 1)
+
+    # ---- 跳过条件 ----
+
+    def test_each_skip_condition_blocks_the_tick_on_its_own(self):
+        for name, apply_js, revert_js in SKIP_CASES:
+            with self.subTest(skip=name):
+                code = SKIP_TEMPLATE.replace("__APPLY__", apply_js).replace("__REVERT__", revert_js)
+                row = run_js(code)[0]
+                self.assertFalse(row["skipped"], "「%s」成立时这一拍不能刷新" % name)
+                self.assertEqual(row["callsWhileSkipped"], 0)
+                self.assertTrue(row["fired"], "「%s」撤掉后同一时刻就该刷新（说明跳过的唯一原因是它）" % name)
+                self.assertEqual(row["callsAfter"], 1)
+
+    def test_terminal_and_far_plan_tasks_do_not_block(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + STUB_REFRESH + r"""
+__advance(10.5);
+const at = (sec) => __schoolText(bnowS() + sec);
+S.busy = true;
+S.plan = { id: "p1", gen: 1, status: "running", tasks: new Map([
+  ["t1", { task_id: "t1", activity_id: "a1", name: "活动一", status: "success", sign_start: at(-3600) }],
+  ["t2", { task_id: "t2", activity_id: "a2", name: "活动二", status: "waiting", sign_start: at(7200) }],
+]) };
+out.push({ fired: await __tick(), calls: __rc.length });
+""")
+        self.assertTrue(res[0]["fired"], "已结束的场次和远未开放的场次都不该拦住自动刷新")
+
+    # ---- 窗口不可见与恢复 ----
+
+    def test_hidden_window_never_refreshes_and_catches_up_on_return(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + STUB_REFRESH + r"""
+__advance(12);
+document.hidden = true;
+const hiddenDoc = await __tick();
+__advance(1);
+const hiddenDoc2 = await __tick();
+document.hidden = false;
+__backendHidden = true;                /* 藏到托盘：document.hidden 不一定为真，后端说了算 */
+const hiddenBackend = await __tick();
+const callsWhileHidden = __rc.length;
+__backendHidden = false;               /* 回到可见：已满 10 分钟，立即补刷一次 */
+const back = await __tick();
+const again = await __tick();
+out.push({ hiddenDoc, hiddenDoc2, hiddenBackend, callsWhileHidden, back, again, calls: __rc });
+""")
+        data = res[0]
+        self.assertFalse(data["hiddenDoc"])
+        self.assertFalse(data["hiddenDoc2"])
+        self.assertFalse(data["hiddenBackend"])
+        self.assertEqual(data["callsWhileHidden"], 0, "不可见期间一次都不刷新")
+        self.assertTrue(data["back"], "恢复可见且已满 10 分钟：立即补刷")
+        self.assertFalse(data["again"], "补刷只补一次")
+        self.assertEqual(data["calls"], [{"quiet": True, "background": True}])
+
+    def test_backend_without_window_visibility_counts_as_visible(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + STUB_REFRESH + r"""
+delete window.pywebview.api.window_visibility;     /* 老后端没有这个接口 */
+__advance(10.5);
+out.push({ fired: await __tick(), calls: __rc.length });
+""")
+        self.assertTrue(res[0]["fired"], "问不到后端时只看 document.hidden，不能永远不刷新")
+
+    # ---- 后台不闪 ----
+
+    def test_background_round_has_no_skeleton_checking_capsule_or_result_box(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + r"""
+S.selected.add("a1");
+S.selected.add("a2");
+__advance(10.5);
+const seen = [];
+const realRender = render;
+render = () => { seen.push(S.listState); realRender(); };
+let loginPaints = 0;
+const realPaintLogin = paintLogin;
+paintLogin = () => { loginPaints += 1; realPaintLogin(); };
+const resultBefore = document.querySelector("#result").innerHTML;
+const calls0 = { check: __calls.check.length, list: __calls.list.length };
+const fired = await __tick();
+paintFreshness();
+const during = {
+  fired: fired, listState: S.listState, checking: S.login.checking,
+  renders: seen.length, loginPaints: loginPaints,
+  pill: document.querySelector("#pill").dataset.state,
+  isLoading: document.querySelector("#list").classList.contains("is-loading"),
+  result: document.querySelector("#result").innerHTML === resultBefore,
+  freshHidden: document.querySelector("#fresh").hidden,
+  items: S.items.length, selected: Array.from(S.selected),
+  newCheck: __calls.check.length - calls0.check, newList: __calls.list.length - calls0.list,
+};
+const a3 = Object.assign({}, __ITEMS[0], { id: "a3", name: "活动三" });
+const monoBefore = S.listAtMono;
+__advance(0.5);
+__finish([__ITEMS[0], a3]);            /* a2 下线、a3 新增 */
+out.push({ during: during, seen: seen, after: {
+  listState: S.listState, ids: __ids(), selected: Array.from(S.selected),
+  advancedMono: S.listAtMono > monoBefore, checking: S.login.checking,
+  result: document.querySelector("#result").innerHTML === resultBefore } });
+""")
+        data = res[0]
+        during = data["during"]
+        self.assertTrue(during["fired"])
+        self.assertEqual(during["newCheck"], 1, "后台轮照常查登录并拉列表，各发一次")
+        self.assertEqual(during["newList"], 1)
+        self.assertEqual(during["listState"], "ready", "后台刷新不进 loading，不出骨架")
+        self.assertFalse(during["isLoading"])
+        self.assertFalse(during["checking"], "后台刷新不进「检查中」")
+        self.assertNotEqual(during["pill"], "checking")
+        self.assertEqual(during["renders"], 0, "发起后台轮不重画")
+        self.assertEqual(during["loginPaints"], 0, "发起后台轮不重画登录胶囊")
+        self.assertTrue(during["result"], "不弹结果框")
+        self.assertFalse(during["freshHidden"], "「N 分钟前更新」照常显示上次成功时刻")
+        self.assertEqual(during["items"], 2, "等待期间原列表原样在")
+        self.assertEqual(sorted(during["selected"]), ["a1", "a2"])
+        after = data["after"]
+        self.assertNotIn("loading", data["seen"], "整个后台轮里没有任何一帧是加载态")
+        self.assertEqual(after["listState"], "ready")
+        self.assertEqual(after["ids"], ["a1", "a3"])
+        self.assertEqual(after["selected"], ["a1"], "勾选保留仍在列表里的场次，下线的移出")
+        self.assertTrue(after["advancedMono"], "成功后「N 分钟前更新」重新计时")
+        self.assertFalse(after["checking"])
+        self.assertTrue(after["result"])
+
+    # ---- 后台失败 ----
+
+    def test_background_failure_keeps_list_and_selection_without_noise(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + r"""
+S.selected.add("a1");
+S.selected.add("a2");
+__advance(10.5);
+const resultBefore = document.querySelector("#result").innerHTML;
+const logsBefore = S.recentLogs.length;
+const fired = await __tick();
+__failList("连不上学校站点");
+await __flush();
+out.push({ fired: fired, listState: S.listState, listError: S.listError, ids: __ids(),
+  selected: Array.from(S.selected), newLogs: S.recentLogs.slice(logsBefore),
+  runtimeError: S.runtime.error, listPending: S.runtime.listPending,
+  result: document.querySelector("#result").innerHTML === resultBefore,
+  isLoading: document.querySelector("#list").classList.contains("is-loading") });
+""")
+        data = res[0]
+        self.assertTrue(data["fired"])
+        self.assertEqual(data["ids"], ["a1", "a2"], "后台失败不清列表")
+        self.assertEqual(sorted(data["selected"]), ["a1", "a2"], "后台失败不清勾选")
+        self.assertEqual(data["listState"], "ready", "不切到错误空态")
+        self.assertEqual(data["listError"], "")
+        self.assertEqual([line for line in data["newLogs"] if "活动列表" in line], [],
+                         "单次后台失败不写失败日志")
+        self.assertIsNone(data["runtimeError"], "不挂横幅")
+        self.assertTrue(data["result"], "不弹结果框")
+        self.assertFalse(data["listPending"], "这一轮要收口，不能一直挂着")
+        self.assertFalse(data["isLoading"])
+
+    def test_manual_refresh_failure_still_clears_the_list(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + r"""
+S.selected.add("a1");
+refresh(false);
+const during = S.listState;
+__failList("连不上学校站点");
+out.push({ during: during, listState: S.listState, ids: __ids(), selected: Array.from(S.selected) });
+""")
+        data = res[0]
+        self.assertEqual(data["during"], "loading", "手动刷新仍然出骨架")
+        self.assertEqual(data["listState"], "error", "手动刷新失败的老行为不变")
+        self.assertEqual(data["ids"], [])
+        self.assertEqual(data["selected"], [])
+
+    def test_every_failure_channel_keeps_the_list_and_counts_toward_three(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + r"""
+S.selected.add("a1");
+const channels = [
+  /* 桥接抛错 */
+  async () => {
+    window.pywebview.api.list_activities = () => Promise.reject(new Error("桥接断了"));
+    return await __tick();
+  },
+  /* 入队被同步拒绝 */
+  async () => {
+    window.pywebview.api.list_activities = () => Promise.resolve({ ok: false, text: "正在关闭" });
+    return await __tick();
+  },
+  /* 130 秒没有回应 */
+  async () => {
+    window.pywebview.api.list_activities = () => Promise.resolve({ ok: true, queued: true });
+    const fired = await __tick();
+    return { fired: fired, timer: __fire(130000) };
+  },
+];
+const rows = [];
+for (const channel of channels) {
+  __advance(10.5);
+  const got = await channel();
+  await __flush();
+  __checkOk();
+  rows.push({ got: got, listState: S.listState, ids: __ids(), selected: Array.from(S.selected),
+    logs: __autoLogs(), listPending: S.runtime.listPending, checkPending: S.runtime.checkPending });
+}
+out.push(rows);
+""")
+        rows = res[0]
+        self.assertEqual(len(rows), 3)
+        for index, row in enumerate(rows):
+            self.assertEqual(row["listState"], "ready", row)
+            self.assertEqual(row["ids"], ["a1", "a2"], row)
+            self.assertEqual(row["selected"], ["a1"], row)
+            self.assertFalse(row["listPending"], "每条失败路径都要把本轮列表分支收口: %r" % row)
+            self.assertFalse(row["checkPending"])
+            self.assertEqual(len(row["logs"]), 1 if index == 2 else 0,
+                             "三条不同路径的失败合起来算连续 3 次，只在第 3 次写一条: %r" % row)
+        self.assertTrue(rows[2]["got"]["timer"], "超时兜底必须真的挂着计时器")
+
+    def test_three_consecutive_failures_write_exactly_one_record(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + r"""
+const counts = [];
+for (let i = 0; i < 5; i += 1) {
+  __advance(10.5);
+  const fired = await __tick();
+  __failList();
+  await __flush();
+  counts.push({ fired: fired, logs: __autoLogs() });
+}
+out.push(counts);
+""")
+        rows = res[0]
+        self.assertTrue(all(row["fired"] for row in rows))
+        self.assertEqual([len(row["logs"]) for row in rows], [0, 0, 1, 1, 1],
+                         "第 3 次失败写一条，之后继续失败也不刷屏")
+        self.assertEqual(rows[2]["logs"][0],
+                         "活动列表自动刷新连续 3 次没成功，列表还是 10:00 的；可以点「刷新」重试")
+
+    def test_a_success_resets_the_failure_count(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + r"""
+const round = async (ok) => {
+  __advance(10.5);
+  const fired = await __tick();
+  if (ok) __finish(); else __failList();
+  await __flush();
+  return { fired: fired, logs: __autoLogs().length };
+};
+const rows = [];
+for (const ok of [false, false, true, false, false, false]) rows.push(await round(ok));
+out.push(rows);
+""")
+        rows = res[0]
+        self.assertTrue(all(row["fired"] for row in rows))
+        self.assertEqual([row["logs"] for row in rows], [0, 0, 0, 0, 0, 1],
+                         "失败、失败、成功之后重新数：再连续失败 3 次才写")
+
+    # ---- 接线 ----
+
+    def test_start_auto_refresh_installs_a_single_30_second_check(self):
+        res = run_js(AUTO_REFRESH_PRELUDE + r"""
+const made = [];
+setInterval = (fn, ms) => { made.push(ms); return made.length; };
+autoRefreshTimer = null;
+startAutoRefresh();
+startAutoRefresh();
+out.push({ made: made });
+""")
+        self.assertEqual(res[0]["made"], [30000], "只起一个 30 秒检查，重复调用不叠加")
+
+    def test_app_js_starts_the_loop_and_ticks_when_the_window_returns(self):
+        source = (TESTS.parent / "ui" / "app.js").read_text(encoding="utf-8")
+        boot = source[source.index("async function boot()"):source.index("window.onBackend = {")]
+        self.assertIn("startAutoRefresh()", boot, "启动流程里要起一次自动刷新检查")
+        listener = source[source.index('document.addEventListener("visibilitychange"'):
+                          source.index("setInterval(tick, 1000)")]
+        self.assertIn("autoRefreshTick()", listener, "窗口变为可见时要立即看一次是否该补刷")
+
+
 if __name__ == "__main__":
     unittest.main()

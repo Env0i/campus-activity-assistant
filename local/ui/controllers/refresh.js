@@ -115,7 +115,12 @@ function settleRefreshBranch(branch) {
   }
 }
 
-function refresh(quiet) {
+/* options.background 为真是「后台自动刷新」（见文件末尾的 autoRefreshTick）：
+ * 它和手动刷新走同一套 check + list 双分支，但不能让画面闪——不置 loading（不出骨架）、
+ * 不置 S.login.checking（不进「检查中」）、不 render、不开条款弹窗；
+ * 失败时也不清列表和勾选（见 applyActivities / settleSynchronous 里的 S.round.background 分支）。 */
+function refresh(quiet, options) {
+  const background = !!(options && options.background);
   if (!hasBridge()) {
     if (!quiet) setResult({ ok: false, title: "还没有连接本机程序", text: "请从图形界面启动，再点「刷新」加载活动列表。" });
     return;
@@ -128,7 +133,8 @@ function refresh(quiet) {
    * 还没拒绝过就先弹条款，拒绝过或条款状态未知时安静返回——未知状态由
    * 横幅给重试入口，不在每次自动刷新时反复弹窗（按钮本就禁用，此处兜底） */
   if (termsLocked()) {
-    if (!S.terms.declined && !S.terms.unknown) openTerms();
+    /* 后台轮绝不替用户弹条款：这类打扰只留给用户自己点的刷新 */
+    if (!background && !S.terms.declined && !S.terms.unknown) openTerms();
     return;
   }
   /* 已经知道断网就不要再发学校请求：结果只会是失败，用户看到的反馈是横幅
@@ -137,6 +143,10 @@ function refresh(quiet) {
     paintBanners();
     return;
   }
+  /* 只要真发出了一轮刷新（手动、登录成功后、取消报名后、后台自己），自动刷新的 10 分钟就从此刻重新数 */
+  autoRefreshState.attemptMono = _monoMs();
+  /* 记下这一轮是不是后台轮：回包、超时、失败分支都按它决定要不要动界面 */
+  S.round.background = background;
   const checkId = newRoundId("check");
   const listId = newRoundId("list");
   /* 每轮各自一个消费代次：这一轮的 ack/catch/终态只能收口这一轮，
@@ -147,19 +157,28 @@ function refresh(quiet) {
   S.round.list = listId;
   clearTimeout(S.round.checkTimer);
   clearTimeout(S.round.listTimer);
-  S.listState = "loading";
-  S.listError = "";
+  if (!background) {
+    S.listState = "loading";
+    S.listError = "";
+  }
   /* 开启新一轮复查：两分支 pending、故障累计清零；旧横幅保持到本轮收口 */
   S.runtime.checkPending = true;
   S.runtime.listPending = true;
   S.runtime.roundError = null;
-  /* 先进「检查中」：本机有会话也不提前说「登录有效」，等真实校验回来 */
-  S.login.checking = true;
-  paintLogin();
-  render();
+  if (!background) {
+    /* 先进「检查中」：本机有会话也不提前说「登录有效」，等真实校验回来 */
+    S.login.checking = true;
+    paintLogin();
+    render();
+  }
   /* 失联兜底：确认入队却丢终态时，不能永远停在「检查中」/骨架（R11） */
   S.round.checkTimer = setTimeout(() => {
-    if (S.round.check !== checkId || !S.login.checking) return;
+    if (S.round.check !== checkId || !checkRoundOpen()) return;
+    if (S.round.background) {
+      /* 后台轮没回应：登录结论保持上次，不改成「待确认」也不写日志，只把本轮收口 */
+      settleRefreshBranch("check");
+      return;
+    }
     S.login.checking = false;
     S.login.ok = false;
     S.login.result = "unknown";
@@ -168,7 +187,13 @@ function refresh(quiet) {
     settleRefreshBranch("check");
   }, 100000);
   S.round.listTimer = setTimeout(() => {
-    if (S.round.list !== listId || S.listState !== "loading") return;
+    if (S.round.list !== listId || !listRoundOpen()) return;
+    if (S.round.background) {
+      /* 后台轮没回应：按一次后台失败算，原列表原勾选不动 */
+      noteBackgroundListFailed();
+      settleRefreshBranch("list");
+      return;
+    }
     S.listState = "error";
     S.listError = "活动列表超过 130 秒没有回应";
     noteListFailed(S.listError);
@@ -185,6 +210,10 @@ function refresh(quiet) {
      * paintLogin 的 unknown 分支（要求 ok===false）接不住，顶栏会继续显示「登录有效」。 */
     if (S.round.gen.check !== checkGen || S.round.check !== checkId) return;
     clearTimeout(S.round.checkTimer);
+    if (S.round.background) {
+      settleRefreshBranch("check");   /* 后台轮桥接异常：登录结论保持上次，静默收口 */
+      return;
+    }
     S.login.checking = false;
     S.login.ok = false;
     S.login.result = "unknown";
@@ -201,6 +230,11 @@ function refresh(quiet) {
      * 不再为同一列表错误额外弹结果框 */
     if (S.round.gen.list !== listGen || S.round.list !== listId) return;
     clearTimeout(S.round.listTimer);
+    if (S.round.background) {
+      noteBackgroundListFailed();     /* 后台轮桥接异常：保留原列表，只累计失败次数 */
+      settleRefreshBranch("list");
+      return;
+    }
     S.listState = "error";
     S.listError = msg(err);
     noteListFailed(S.listError);
@@ -221,7 +255,8 @@ function settleSynchronous(res, branch) {
       if (id) S.round.check = id;
       clearTimeout(S.round.checkTimer);
       S.round.checkTimer = setTimeout(() => {
-        if (S.round.check !== id || !S.login.checking) return;
+        if (S.round.check !== id || !checkRoundOpen()) return;
+        if (S.round.background) { settleRefreshBranch("check"); return; }
         S.login.checking = false;
         S.login.ok = false;
         S.login.result = "unknown";
@@ -244,7 +279,12 @@ function settleSynchronous(res, branch) {
     if (id) S.round.list = id;
     clearTimeout(S.round.listTimer);
     S.round.listTimer = setTimeout(() => {
-      if (S.round.list !== id || S.listState !== "loading") return;
+      if (S.round.list !== id || !listRoundOpen()) return;
+      if (S.round.background) {
+        noteBackgroundListFailed();
+        settleRefreshBranch("list");
+        return;
+      }
       S.listState = "error";
       S.listError = "活动列表超过 130 秒没有回应";
       noteListFailed(S.listError);
@@ -263,6 +303,13 @@ function settleSynchronous(res, branch) {
   /* 后端条款回绝（terms_required）：按钮可能被脚本、快捷键或旧界面绕过，
    * 这条路径必须把界面拉回条款门禁，而不是只把报错丢进结果框。 */
   if (res.error === "terms_required") {
+    if (S.round.background) {
+      /* 后台轮被条款拦下：不改列表和登录结论，只让界面跟上后端的条款状态 */
+      clearTimeout(branch === "check" ? S.round.checkTimer : S.round.listTimer);
+      settleRefreshBranch(branch);
+      noteTermsRequired(res);
+      return;
+    }
     if (branch === "check") {
       clearTimeout(S.round.checkTimer);
       S.login.checking = false;
@@ -282,6 +329,10 @@ function settleSynchronous(res, branch) {
   }
   if (branch === "check") {
     clearTimeout(S.round.checkTimer);
+    if (S.round.background) {
+      settleRefreshBranch("check");   /* 后台轮没能开始：不改登录结论、不写日志 */
+      return;
+    }
     S.login.checking = false;
     S.login.result = "unknown";
     S.login.ok = false;
@@ -291,6 +342,11 @@ function settleSynchronous(res, branch) {
     return;
   }
   clearTimeout(S.round.listTimer);
+  if (S.round.background) {
+    noteBackgroundListFailed();       /* 后台轮没能开始：保留原列表，只累计失败次数 */
+    settleRefreshBranch("list");
+    return;
+  }
   S.listState = "error";
   S.listError = (res && res.text) || "活动列表没能开始加载";
   noteListFailed(S.listError);
@@ -413,6 +469,13 @@ function applyActivities(payload, quiet) {
     clearTimeout(S.round.listTimer);
   }
   if (!res.ok) {
+    if (S.round.background) {
+      /* 后台轮失败：用户正在看的列表、勾选、筛选一概不动，不挂横幅、不切错误空态、不写失败日志；
+       * 只累计次数，连续 3 次才在运行记录里说一句（noteBackgroundListFailed） */
+      noteBackgroundListFailed();
+      settleRefreshBranch("list");
+      return;
+    }
     S.items = [];
     S.byId = new Map();
     S.selected.clear();
@@ -439,7 +502,113 @@ function applyActivities(payload, quiet) {
   syncResultSelection();   /* 列表里没了的场次自动移出，不关结果页 */
   S.listState = "ready";
   S.listAtMono = _monoMs();   /* 时刻表上方的「N 分钟前更新」从这一刻算 */
+  /* 任何一次列表成功（手动或后台）都让后台失败计数清零，并记下这份列表的北京时间 HH:MM，
+   * 供「连续 3 次没成功」那句说清列表还是几点的 */
+  autoRefreshState.fails = 0;
+  const loadedAt = businessNowMs();
+  autoRefreshState.okLabel = loadedAt === null ? "" : hm(loadedAt);
   render();
   maybeStartTour();   /* 列表到了：等着的首次引导看看能不能开始 */
   settleRefreshBranch("list");
+}
+
+/* ================================================================ 后台自动刷新
+ * 活动列表每 10 分钟自动刷新一次，等于替用户点一次顶栏「刷新」，但不能让画面闪
+ * （计划 20261112-auto-list-refresh）。
+ * 做法：一个 30 秒的 setInterval 只负责「看条件」，条件满足才发一轮 refresh(true, {background:true})；
+ * 不用 10 分钟的长定时器，是因为窗口隐藏、断网、临近开放这些状态随时在变，每 30 秒重新判断才跟得上。 */
+const AUTO_REFRESH_INTERVAL_MS = 600000;   /* 距上一次列表刷新满 10 分钟才刷 */
+const AUTO_REFRESH_CHECK_MS = 30000;       /* 每 30 秒看一眼条件 */
+const AUTO_REFRESH_GUARD_S = 300;          /* 计划场次离开放不到 5 分钟，不碰学校接口 */
+const AUTO_REFRESH_NOTE_AFTER = 3;         /* 连续 3 次后台失败才写一条运行记录 */
+/* attemptMono：上一次刷新（手动或后台，成功与否）发出的单调时刻；
+ * fails：连续后台失败次数；okLabel：最近一次列表成功的北京时间 HH:MM */
+const autoRefreshState = { attemptMono: 0, fails: 0, okLabel: "" };
+let autoRefreshTimer = null;
+
+/* 本轮 check / list 还在不在等结果。前台轮看可见状态（检查中 / loading）；
+ * 后台轮刻意不碰这两个可见状态，改看内部的 pending 标志，否则兜底计时器永远等不到条件。 */
+function checkRoundOpen() {
+  return S.round.background ? !!S.runtime.checkPending : !!S.login.checking;
+}
+
+function listRoundOpen() {
+  return S.round.background ? !!S.runtime.listPending : S.listState === "loading";
+}
+
+/* 后台列表轮没成功（回包失败 / 桥接异常 / 入队被拒 / 130 秒无回应）统一在这里记数：
+ * 只在第 3 次写一条运行记录，之后继续失败也不刷屏；任何一次列表成功会把计数清零。 */
+function noteBackgroundListFailed() {
+  autoRefreshState.fails += 1;
+  if (autoRefreshState.fails !== AUTO_REFRESH_NOTE_AFTER) return;
+  const when = autoRefreshState.okLabel ? "列表还是 " + autoRefreshState.okLabel + " 的" : "列表还是上次的";
+  addLogFresh("活动列表自动刷新连续 " + AUTO_REFRESH_NOTE_AFTER + " 次没成功，" + when + "；可以点「刷新」重试");
+}
+
+/* 计划里有场次不适合此刻打扰学校：还没终态的场次，离开放不到 5 分钟，或已过开放时刻。
+ * 临近和刚过开放时刻正是报名链路最忙的时候，列表刷新既不急也不该和它抢网络与登录态。 */
+function planTaskBlocksAutoRefresh() {
+  if (!S.plan || !S.plan.tasks || !S.plan.tasks.size) return false;
+  /* 计划已经有终态，worker 都收了，残留的任务行不再算「还在跑」 */
+  if (PLAN_TERMINAL.indexOf(String(S.plan.status)) >= 0) return false;
+  const now = bnowS();   /* 业务钟，不读本机墙钟 */
+  let blocked = false;
+  S.plan.tasks.forEach((task) => {
+    if (RUNNING_STATUSES.indexOf(String(task && task.status)) < 0) return;   /* 已有终态的场次不拦 */
+    const open = toTs(task.sign_start);
+    /* 时钟不可用或开放时间读不出来：判断不了离开放多久，宁可这一拍不刷 */
+    if (now === null || open === null || open - now < AUTO_REFRESH_GUARD_S) blocked = true;
+  });
+  return blocked;
+}
+
+/* 这一拍该不该后台刷新（不含窗口是否可见，那一项要问后端，见 autoRefreshTick）。
+ * 任一跳过条件成立就返回 false，下一拍（30 秒后）再看。 */
+function autoRefreshDue() {
+  if (S.demo) return false;                    /* 演示模式没有真实学校请求 */
+  if (!hasBridge()) return false;              /* 没连上本机程序，refresh 也发不出去 */
+  if (termsLocked()) return false;             /* 条款未同意：学校动作一律不发 */
+  if (!S.online) return false;                 /* 已知断网：结果只会是失败 */
+  if (S.login.result !== "valid") return false;   /* 登录结论不是 valid：该由登录流程处理，不是列表刷新 */
+  if (S.login.loginPending) return false;      /* 登录窗口开着，别和它抢 */
+  /* 刷新按钮当前不可用 = 手动刷新也点不了。这里复用 plan-panel.js updateControls 里同一条规则
+   * （加载中、条款门、取消报名中），并直接读按钮本身，那条规则以后改了这里自动跟着走。
+   * 注意计划运行中按钮仍可用，所以计划运行不在这里拦，由下面按场次时间判断。 */
+  if (S.listState === "loading" || S.cancel.busyId) return false;
+  if ($("#btn-refresh").disabled) return false;
+  if (S.starting) return false;                /* 开始请求正在提交 */
+  /* 正在检查登录或正在拉列表（前台轮看可见状态，后台轮看内部 pending 标志） */
+  if (S.login.checking) return false;
+  if (S.round.background && (S.runtime.checkPending || S.runtime.listPending)) return false;
+  /* 满 10 分钟：以上一次列表成功与上一次刷新尝试中较晚者为准；从没锚定过就不刷 */
+  const last = Math.max(Number(S.listAtMono) || 0, autoRefreshState.attemptMono);
+  if (!last || _monoMs() - last < AUTO_REFRESH_INTERVAL_MS) return false;
+  if (planTaskBlocksAutoRefresh()) return false;
+  return true;
+}
+
+/* 每 30 秒一拍（以及窗口从不可见变可见时）：条件满足就发一轮后台刷新，返回是否发了。
+ * 窗口不可见时不刷新，恢复可见后若已满 10 分钟，下一拍（或可见事件里的这一拍）立即补刷。
+ * 可见性有两个来源：document.hidden，以及后端的 _window_hidden（pywebview 隐藏窗口时
+ * WebView2 是否把 document.hidden 置真无法离线验证，所以两个都问）。 */
+function autoRefreshTick() {
+  if (!autoRefreshDue()) return Promise.resolve(false);
+  if (document.hidden) return Promise.resolve(false);
+  const go = (hiddenByBackend) => {
+    if (hiddenByBackend) return false;
+    /* 等后端回答的这一小会儿，状态可能变了（用户点了刷新、窗口又被隐藏）：再判一次 */
+    if (document.hidden || !autoRefreshDue()) return false;
+    autoRefreshState.attemptMono = _monoMs();   /* 先记下尝试时刻：同一刻不会被第二个 tick 连发 */
+    refresh(true, { background: true });
+    return true;
+  };
+  /* 老后端没有 window_visibility：问不到就当可见，只看 document.hidden */
+  return api("window_visibility").then((res) => go(!!(res && res.hidden)), () => go(false));
+}
+
+function startAutoRefresh() {
+  if (autoRefreshTimer !== null) return;   /* 只起一个 */
+  /* 开机后第一次刷新从此刻算起；启动时的 refresh(true) 也会再记一次 */
+  autoRefreshState.attemptMono = autoRefreshState.attemptMono || _monoMs();
+  autoRefreshTimer = setInterval(() => { autoRefreshTick().catch(() => {}); }, AUTO_REFRESH_CHECK_MS);
 }
