@@ -7,7 +7,8 @@
 /* 验证码识别一节的状态、按钮和文案在 views/settings.js（paintOcrDownload）；这里管手机访问、登录恢复和导入弹窗。 */
 
 /* 手机访问状态机（settings-gap PH07，原型 phView，Main.dc.html 1244–1308）：
- * missing 没装 / downloading 下载中 / verifying 校验中 / off 装好未开启（含开启中）/ on 已开启。
+ * missing 没装 / downloading 下载中 / verifying 校验中 / checking 检查中（组件事务锁被占、还没结论，不是没装）/
+ * off 装好未开启（含开启中）/ on 已开启。
  * 原型没画、代码里真有的两档保留现状（kept_not_in_prototype）：broken 已装但加载失败（PH14b）、
  * disabled 组件在本机但启用位没开（换机迁移、手动改过设置）。 */
 function phonePhase(st, row) {
@@ -15,6 +16,7 @@ function phonePhase(st, row) {
   if (st && st.running) return "on";
   if (dl === "downloading") return "downloading";
   if (dl === "verifying") return "verifying";
+  if (row && row.status === "checking") return "checking";
   if (row && row.status === "failed") return "broken";
   if (row && row.ready) return "off";
   if (row && row.available) return "disabled";
@@ -351,6 +353,8 @@ const PhonePanel = {
       } else if (ocrInstalled) {
         text = "失效后自动登录：验证码识别本机已装，还没启用（在上面“高级功能”里点“启用”）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。";
         cls = "up-warn";
+      } else if (String(ocrRow.status || "") === "checking") {
+        text = "失效后自动登录：正在检查验证码识别组件。";
       } else {
         text = "失效后自动登录：还缺验证码识别组件（在上面的“高级功能”里一键安装）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。";
         cls = "up-warn";
@@ -429,7 +433,8 @@ const PhonePanel = {
     const download = phoneRow.download || {};
     const dl = String(download.state || "");
     const phase = phonePhase(st, phoneRow);
-    const loading = phase === "downloading" || phase === "verifying";
+    const downloading = phase === "downloading" || phase === "verifying";
+    const loading = downloading || phase === "checking";
     const linked = phoneLinkedNow(st);
     const notes = PhonePanel.notes;
     const channels = (st.advanced && st.advanced.channels) || {};
@@ -464,7 +469,7 @@ const PhonePanel = {
     }
     const cancel = $("#btn-phone-component-cancel");
     if (cancel) {
-      cancel.hidden = !loading;
+      cancel.hidden = !downloading;
       cancel.disabled = busy || phase === "verifying";
       cancel.textContent = phase === "verifying" ? "校验中…" : "取消下载";
     }
@@ -501,7 +506,7 @@ const PhonePanel = {
           : "第一次连接要扫码和配对。扫码只负责打开页面，配对靠这 6 位数。")
         : phase === "off"
           ? (starting ? "正在开启，先不要切换通道。" : "选一条通道再开启。没开启时不监听端口，手机连不上电脑。")
-          : loading ? "可以关掉设置继续用，下载和报名计划互不影响。"
+          : downloading ? "可以关掉设置继续用，下载和报名计划互不影响。"
             : "从手机查看活动、开始和停止计划。手机只是遥控器，真正报名的还是这台电脑，所以电脑要开着、不能睡眠。";
     }
     phoneText("#phone-feature-error", (phase === "broken" || phase === "disabled") ? notes.feature : "");
@@ -539,7 +544,8 @@ const PhonePanel = {
     const done = Number(download.downloaded || 0);
     const pct = phase === "verifying" ? 100
       : (total > 0 ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : 0);
-    phoneText("#phone-prog-text", phase === "verifying" ? "下载完成，正在校验组件…" : "正在下载手机控制组件");
+    phoneText("#phone-prog-text", phase === "checking" ? "正在检查组件…"
+      : (phase === "verifying" ? "下载完成，正在校验组件…" : "正在下载手机控制组件"));
     const num = $("#phone-prog-num");
     if (num) {
       num.textContent = phase === "downloading" && total > 0

@@ -1359,6 +1359,25 @@ out.push([calls.filter((c) => c[0] === "enable_advanced_feature"), opened]);
 """, files=["views/phone.js"])
         self.assertEqual(values, [[[["enable_advanced_feature", "phone_control"]], 0]])
 
+    def test_checking_component_is_not_missing_and_offers_no_install_or_enable(self):
+        """后端 status=checking（组件事务锁被别的进程占着，还没查到结论）：不是没装，不给下载/启用入口，说「正在检查组件…」。"""
+        values = run_phone_js(self._state({"ready": False, "available": False, "status": "checking",
+                                           "busy": True, "error": ""}) + """
+PhonePanel.state.running = false;
+PhonePanel.paint();
+out.push({phase: phonePhase(PhonePanel.state, PhonePanel.feature("phone_control")),
+          install: $("#btn-phone-component-install").hidden,
+          featureBtn: $("#btn-phone-feature-install").hidden,
+          cancel: $("#btn-phone-component-cancel").hidden,
+          missing: $("#phone-missing").hidden,
+          loading: $("#phone-loading").hidden,
+          text: $("#phone-prog-text").textContent,
+          start: $("#btn-phone-start").disabled});
+""", files=["views/phone.js"])
+        self.assertEqual(values[0], {"phase": "checking", "install": True, "featureBtn": True,
+                                     "cancel": True, "missing": True, "loading": False,
+                                     "text": "正在检查组件…", "start": True})
+
     def test_static_copy_follows_the_prototype(self):
         """PH04、PH08、IM02：多出的二级行删掉；体积只做「现在读不到」形态；导入弹窗不再说本程序不联网下载。"""
         html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
@@ -1435,6 +1454,24 @@ for (let i = 0; i < 12; i += 1) await Promise.resolve();
 out.push([$("#ocr-download-error").hidden, $("#ocr-download-error").textContent]);
 """)
         self.assertEqual(values[-1], [False, "这个组件还没装好，不能启用。"])
+
+    def test_checking_ocr_component_is_not_missing_in_settings_or_login_line(self):
+        """后端 status=checking：验证码识别一节不给「下载并安装」，写「正在检查组件…」；自动登录一句不说「还缺组件」。"""
+        values = self._run("""
+PhonePanel.state.advanced = {features:{relogin_ocr:{available:false, ready:false, status:"checking", busy:true, error:""}},
+                             credential:{staged:true}};
+PhonePanel.paint();
+out.push({phase: ocrPhase(PhonePanel.feature("relogin_ocr")),
+          btn: $("#btn-ocr-download").hidden,
+          missing: $("#ocr-missing").hidden,
+          loading: $("#ocr-loading").hidden,
+          text: $("#ocr-prog-text").textContent,
+          cancel: $("#btn-ocr-cancel").hidden,
+          auto: $("#relogin-auto-path").textContent});
+""")
+        self.assertEqual(values[0], {"phase": "checking", "btn": True, "missing": True, "loading": False,
+                                     "text": "正在检查组件…", "cancel": True,
+                                     "auto": "失效后自动登录：正在检查验证码识别组件。"})
 
     def test_missing_is_one_click_and_the_import_link_only_follows_a_failure(self):
         """OC04、OC10–OC13：没装时「下载并安装」，失败后「重新下载」+ 红条 + 导入链接；取消后回到没装态。"""

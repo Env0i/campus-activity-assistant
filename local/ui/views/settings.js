@@ -148,11 +148,12 @@ const OcrPanel = {
 };
 
 /* 状态机：downloading / verifying 下载中 / broken 已装但加载失败（原型没画，保留，OC14）/
- * on 已启用 / off 已装好还没启用（R3，冲突 6）/ missing 没装。 */
+ * on 已启用 / off 已装好还没启用（R3，冲突 6）/ missing 没装 / checking 检查中（组件事务锁被占，还没结论，不是没装）。 */
 function ocrPhase(feature) {
   const dl = String(((feature && feature.download) || {}).state || "");
   if (dl === "downloading") return "downloading";
   if (dl === "verifying") return "verifying";
+  if (feature && String(feature.status || "") === "checking") return "checking";
   if (feature && String(feature.status || "") === "failed") return "broken";
   if (feature && feature.ready) return "on";
   if (feature && feature.available) return "off";
@@ -193,7 +194,8 @@ function paintOcrDownload() {
   const download = feature.download || {};
   const dlState = String(download.state || "");
   const phase = ocrPhase(feature);
-  const loading = phase === "downloading" || phase === "verifying";
+  const downloading = phase === "downloading" || phase === "verifying";
+  const loading = downloading || phase === "checking";
   const failed = dlState === "failed";
   const busy = !!OcrPanel.busy || !!(window.PhonePanel && window.PhonePanel.busy);
   const version = String(feature.package_version || "");
@@ -235,7 +237,7 @@ function paintOcrDownload() {
   }
   const cancel = $("#btn-ocr-cancel");
   if (cancel) {
-    cancel.hidden = !loading;
+    cancel.hidden = !downloading;
     cancel.disabled = busy || phase === "verifying";
     cancel.textContent = phase === "verifying" ? "校验中…" : "取消下载";
   }
@@ -266,7 +268,8 @@ function paintOcrDownload() {
   const done = Number(download.downloaded || 0);
   const pct = phase === "verifying" ? 100
     : (total > 0 ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : 0);
-  ocrText("#ocr-prog-text", phase === "verifying" ? "下载完成，正在校验组件…" : "正在下载验证码识别组件");
+  ocrText("#ocr-prog-text", phase === "checking" ? "正在检查组件…"
+    : (phase === "verifying" ? "下载完成，正在校验组件…" : "正在下载验证码识别组件"));
   const num = $("#ocr-prog-num");
   if (num) {
     num.textContent = phase === "downloading" && total > 0
