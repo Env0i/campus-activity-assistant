@@ -436,6 +436,94 @@ class LanguageFileTest(unittest.TestCase):
             self.assertIn(key, text)
 
 
+class PayloadDestDirTest(unittest.TestCase):
+    """[Files] 的 DestDir 必须与 payload 目录结构逐字一致（2026-11-11 返修 B）。
+
+    旧写法对父目录做 .replace(".", "")，`numpy.libs` 装成 `numpylibs`，
+    `pkg-1.2.3.dist-info` 装成 `pkg-123dist-info`；并且任何层级叫 data 的目录
+    都被跳过，`_internal/cv2/data` 里的文件整体丢失。装出来的版本目录与目标清单
+    永远对不上，增量包对安装版用户永远不可用。
+    """
+
+    RELATIVE_FILES = (
+        "campus-activity-watch.exe",
+        "_internal/numpy.libs/a.dll",
+        "_internal/pkg-1.2.3.dist-info/RECORD",
+        "_internal/cv2/data/__init__.py",
+        "_internal/logs/keep.txt",
+        "data/x.txt",
+        "Config/y.txt",
+        "logs/z.log",
+        "log/w.log",
+    )
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        self.payload = root / "onedir" / "9.9.9"
+        for relative in self.RELATIVE_FILES:
+            path = self.payload / Path(*relative.split("/"))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"x")
+        self.out = root / "out"
+        self.out.mkdir()
+        text = bi.payload_lines(self.payload, "9.9.9", out_dir=self.out)
+        self.entries = {}
+        for line in text.splitlines():
+            match = re.match(r'Source: "(.*?)"; DestDir: "(.*?)"; DestName: "(.*?)"', line)
+            self.assertIsNotNone(match, line)
+            source = Path(match.group(1))
+            try:
+                key = source.relative_to(self.payload.resolve()).as_posix()
+            except ValueError:
+                continue   # current.json 等不在 payload 里的行
+            self.entries[key] = (match.group(2), match.group(3))
+
+    def test_dotted_parent_dirs_keep_their_names(self):
+        base = "{app}\\versions\\9.9.9"
+        self.assertEqual(self.entries["_internal/numpy.libs/a.dll"],
+                         (base + "\\_internal\\numpy.libs", "a.dll"))
+        self.assertEqual(self.entries["_internal/pkg-1.2.3.dist-info/RECORD"],
+                         (base + "\\_internal\\pkg-1.2.3.dist-info", "RECORD"))
+
+    def test_nested_dir_named_data_is_kept(self):
+        base = "{app}\\versions\\9.9.9"
+        self.assertEqual(self.entries["_internal/cv2/data/__init__.py"],
+                         (base + "\\_internal\\cv2\\data", "__init__.py"))
+        self.assertIn("_internal/logs/keep.txt", self.entries)
+
+    def test_top_level_runtime_dirs_are_skipped(self):
+        for relative in ("data/x.txt", "Config/y.txt", "logs/z.log", "log/w.log"):
+            self.assertNotIn(relative, self.entries, relative)
+
+    def test_root_files_land_directly_in_version_dir(self):
+        self.assertEqual(self.entries["campus-activity-watch.exe"],
+                         ("{app}\\versions\\9.9.9", "campus-activity-watch.exe"))
+
+
+class UninstallDeleteTest(unittest.TestCase):
+    """D3：版本目录是安装后才产生的，卸载要带走它，但绝不碰用户数据目录。"""
+
+    def setUp(self):
+        self.text = bi.render_iss("9.9.9", Path("C:/fake/src/app.exe"), Path(tempfile.gettempdir()))
+
+    def _section(self):
+        start = self.text.index("[UninstallDelete]")
+        end = self.text.index(chr(10) + "[Code]")
+        return self.text[start:end]
+
+    def test_uninstall_removes_version_dir(self):
+        self.assertIn('Type: filesandordirs; Name: "{app}\\versions"', self._section())
+
+    def test_uninstall_delete_never_targets_data_dir(self):
+        entries = [line for line in self._section().splitlines()
+                   if line.strip() and not line.startswith(("[", ";"))]
+        self.assertEqual(len(entries), 1, entries)
+        self.assertNotIn("localappdata", entries[0].lower())
+        self.assertNotIn("MyDataDirName", entries[0])
+
+
 class VersionTest(unittest.TestCase):
     def test_repo_version_is_semver(self):
         self.assertRegex(bi.read_version(), r"^\d+\.\d+\.\d+$")

@@ -216,6 +216,12 @@ Name: "{group}\\遇到问题先看我"; Filename: "{app}\\遇到问题先看我.
 Name: "{group}\\卸载 {#MyAppName}"; Filename: "{uninstallexe}"
 @@DESKTOP_ICON_LINES@@
 
+[UninstallDelete]
+; 版本目录是更新器在安装之后才创建的（安装器的文件清单里没有），卸载不会自动带走。
+; 只删 {app} 下的 versions；用户数据在 {localappdata} 的数据目录，不在这里，
+; 是否删除仍只由下面 [Code] 的那道确认决定。
+Type: filesandordirs; Name: "{app}\\versions"
+
 [Code]
 // 卸载收尾：数据目录不在安装目录下（Program Files 不可写），所以必须单独处理。
 // 只问一次、默认「否」——保留登录态是安全侧，删掉是不可逆的。
@@ -316,17 +322,19 @@ def payload_lines(payload_dir: "Path | None", version: str,
         for path in sorted(root.rglob("*")):
             if not path.is_file() or path.is_symlink():
                 continue
-            relative = path.relative_to(root).as_posix()
-            parts = relative.split("/")
-            if any(part.casefold() in {"data", "config", "logs", "log"}
-                   for part in parts):
+            parts = path.relative_to(root).as_posix().split("/")
+            # 只跳过 payload 顶层的运行期目录（data/config/logs/log）：它们是用户数据
+            # 的位置，不该被装进版本目录。更深层同名目录（如 _internal/cv2/data）是
+            # 程序自带文件，必须照装，否则安装版目录与目标清单永远对不上。
+            if parts[0].casefold() in {"data", "config", "logs", "log"}:
                 continue
-            relative_path = Path(relative)
-            parent = str(relative_path.parent).replace(".", "").replace("/", "\\")
+            # 父目录原样保留：numpy.libs、pkg-1.2.3.dist-info 这类带点的目录名不能动，
+            # 只把 / 换成 Inno 的 \。
+            parent = "\\".join(parts[:-1])
             dest_dir = "{app}\\%s\\%s%s" % (
                 VERSION_ROOT_NAME, version,
                 ("\\" + parent) if parent else "")
-            dest_name = relative_path.name
+            dest_name = parts[-1]
             lines.append('Source: "%s"; DestDir: "%s"; DestName: "%s"; '
                          'Flags: ignoreversion' % (path, dest_dir, dest_name))
         current = (Path(out_dir) if out_dir is not None else root.parent) / "current.json"
