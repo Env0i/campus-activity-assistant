@@ -420,10 +420,12 @@ def device_cookie_header_value(token) -> str:
 
 # ---- 事件回放（重连对账）--------------------------------------------------
 def select_events(events, cursor):
-    """按序号回放：cursor 太旧返回 (全量, True)；否则返回 (增量, False)。
+    """按序号回放：cursor 太旧或超前返回 (全量, True)；否则返回 (增量, False)。
 
     事件缓冲只有 400 条，断线太久时旧事件已被挤掉——这时必须整体重置，
     让手机重新拉权威快照，而不是漏掉中间状态装作连续。
+    游标比服务端最新序号还大（H3）说明电脑端重启过、序号从 1 重来：这时手机拿着
+    上一轮的大游标，增量回放会一直是空，静默丢掉新一轮的事件，同样整体重置。
     """
     seqs = [int(event.get("seq") or 0) for event in events]
     if not seqs:
@@ -436,5 +438,7 @@ def select_events(events, cursor):
         return list(events), True
     oldest = min(seqs)
     if wanted < oldest - 1:
+        return list(events), True
+    if wanted > max(seqs):
         return list(events), True
     return [event for event in events if int(event.get("seq") or 0) > wanted], False

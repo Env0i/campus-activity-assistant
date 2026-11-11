@@ -574,6 +574,27 @@ class EventBufferTests(PhoneServiceBase):
         self.assertTrue(stale["reset"], "cursor 太旧必须整体重置，不漏中间状态")
         self.assertEqual(len(stale["events"]), EVENT_BUFFER_LIMIT)
 
+    def test_cursor_ahead_of_server_resets_and_returns_full_buffer(self):
+        """H3：电脑端重启后序号从 1 重来，手机游标比服务端最新序号还大时必须整体重置。
+
+        此前返回空增量且不重置，手机页会静默丢掉新一轮最多 400 条事件。
+        """
+        from domain.phone_rules import select_events
+        events = [{"seq": n, "kind": "log", "payload": {"text": "e%d" % n}} for n in range(1, 6)]
+        picked, reset = select_events(events, 50)
+        self.assertTrue(reset, "游标超前于服务端最新序号必须重置")
+        self.assertEqual([e["seq"] for e in picked], [1, 2, 3, 4, 5], "重置时返回全量缓冲")
+        # 游标恰好等于最新序号仍是「没有新事件」，不能被误判成超前
+        same, reset_same = select_events(events, 5)
+        self.assertEqual((same, reset_same), ([], False))
+
+    def test_safe_state_with_cursor_ahead_reports_reset(self):
+        """H3：经 safe_state 走同一条路径，手机拿到 reset=True 与新一轮事件。"""
+        self.service.record_event("log", {"text": "after restart"})
+        state = self.service.safe_state(cursor=50)
+        self.assertTrue(state["reset"])
+        self.assertEqual([e["payload"]["text"] for e in state["events"]], ["after restart"])
+
     def test_incremental_cursor_returns_only_new(self):
         self.service.record_event("log", {"text": "one"})
         self.service.record_event("log", {"text": "two"})
