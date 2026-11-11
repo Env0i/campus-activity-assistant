@@ -4004,6 +4004,13 @@ class SpawnOwnedStdioTests(unittest.TestCase):
         self.assertIn(77, self.closed_handles, "失败路径必须关掉 Job 句柄")
         self.assertIn(99, self.closed_handles, "失败路径必须关掉主线程句柄")
 
+    def test_spawn_failure_is_an_oserror(self):
+        """G2：SpawnFailure 同时是 OSError，调用方「进程没起来」的 except OSError 才接得住它。"""
+        self.assertTrue(issubclass(process_tree.SpawnFailure, OSError))
+        with patch.object(process_tree, "os", SimpleNamespace(name="posix")):
+            with self.assertRaises(OSError):
+                process_tree.spawn_owned(["worker"], cwd="c", env={})
+
     def test_non_windows_refuses_ownership_before_spawning(self):
         with patch.object(process_tree, "os", SimpleNamespace(name="posix")):
             with self.assertRaises(process_tree.SpawnFailure):

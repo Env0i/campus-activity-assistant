@@ -35,8 +35,11 @@ _INVALID_HANDLE_VALUE = (1 << 64) - 1
 _RESUME_FAILED = 0xFFFFFFFF
 
 
-class SpawnFailure(RuntimeError):
+class SpawnFailure(OSError):
     """worker 创建/归属/恢复失败：本场没有启动。
+
+    继承 OSError（G2）：调用方把 OSError 当作「进程没起来」处理——取消报名说前置失败，
+    检查登录/拉列表带组件诊断码；此前继承 RuntimeError，会掉进「结果未知」的兜底分支。
 
     失败不降级成「父进程活着才 taskkill」——那种运行方式在父进程被杀后
     会留下脱管的后代，正是「停止不了」的来源。宁可这一场明确失败。

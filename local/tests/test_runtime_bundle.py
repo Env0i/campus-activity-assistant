@@ -2018,5 +2018,52 @@ class MigrationOncePerProcessTests(unittest.TestCase):
         self.assertFalse(rp.migration_record()["login_failed"])
 
 
+class SpawnFailureClassificationTests(unittest.TestCase):
+    """G2：SpawnFailure 是「worker 根本没启动」，取消报名/检查/拉列表都按进程没起来处理。"""
+
+    def setUp(self):
+        self.app = _app()
+        for patch in (mock.patch.object(self.app, "DEMO", False),
+                      mock.patch.object(self.app, "worker_problem", lambda: ""),
+                      mock.patch.object(self.app, "worker_command", lambda *a: ["W"] + list(a))):
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.api = stop_auto_relogin_on_cleanup(self, self.app.Api(clock=TestWallClock()))
+        self.events = []
+        self.api._emit = lambda kind, payload=None: self.events.append((kind, payload))
+        self.failure = self.app._SpawnFailure("worker 没能加入进程树（Job 创建或归属失败）")
+
+    def test_spawn_failure_is_an_oserror_with_a_component_code(self):
+        """类型关系：SpawnFailure 要被各调用点的 except OSError 接住，并拿到已有组件码。"""
+        self.assertIsInstance(self.failure, OSError)
+        self.assertEqual(self.app._component_error(self.failure), "spawn_failed")
+
+    def test_cancel_with_spawn_failure_is_a_precheck_failure_not_unknown(self):
+        """取消报名遇到 SpawnFailure：说前置失败，不能说「结果未知，可能已经发出」。"""
+        self.api._activities = {"a1": {"id": "a1", "name": "活动", "signed": True}}
+        with mock.patch.object(self.app, "spawn_owned", mock.Mock(side_effect=self.failure)):
+            got = self.api._cancel_signup_run("a1")
+        self.assertEqual(got, {"ok": False, "kind": "precheck_failed",
+                               "reason": "worker_unavailable"})
+        logs = [payload for kind, payload in self.events if kind == "log"]
+        self.assertTrue(any("spawn_failed" in str(text) for text in logs), "组件诊断写进运行记录")
+
+    def test_check_with_spawn_failure_carries_the_component_code(self):
+        with mock.patch.object(self.app, "spawn_owned", mock.Mock(side_effect=self.failure)):
+            self.api._do_check()
+        checks = [payload for kind, payload in self.events if kind == "check"]
+        self.assertEqual(len(checks), 1)
+        self.assertEqual(checks[0]["result"], "unknown")
+        self.assertEqual(checks[0]["runtime_error"], "spawn_failed")
+
+    def test_list_with_spawn_failure_carries_the_component_code(self):
+        with mock.patch.object(self.app, "spawn_owned", mock.Mock(side_effect=self.failure)):
+            self.api._do_list()
+        acts = [payload for kind, payload in self.events if kind == "activities"]
+        self.assertEqual(len(acts), 1)
+        self.assertFalse(acts[0]["ok"])
+        self.assertEqual(acts[0]["runtime_error"], "spawn_failed")
+
+
 if __name__ == "__main__":
     unittest.main()
