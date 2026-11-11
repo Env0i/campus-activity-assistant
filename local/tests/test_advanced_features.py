@@ -23,6 +23,7 @@ if str(LOCAL) not in sys.path:
     sys.path.insert(0, str(LOCAL))
 
 from infrastructure import advanced_features as af  # noqa: E402
+from infrastructure.prefs_store import PrefsLockTimeout  # noqa: E402
 
 
 PNG_URI = "data:image/png;base64," + base64.b64encode(b"\x89PNG-fake").decode("ascii")
@@ -298,6 +299,61 @@ class CaptchaGateTests(unittest.TestCase):
         af.install_feature(af.PHONE_CONTROL, runner=runner)
         self.assertNotIn("ddddocr", sys.modules,
                          "基础探测与安装路径都不得顺手导入 ddddocr")
+
+
+class FeatureStateLockBusyTests(unittest.TestCase):
+    """K1：组件事务锁被别的进程占着时，界面状态查询不能冒异常，也不能报成装坏。"""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(dir=tempfile.gettempdir())
+        self.addCleanup(self._tmp.cleanup)
+        # 每个用例用独立 root，进程内缓存互不串
+        self.root = self._tmp.name
+
+    def _installed(self):
+        return {"available": True, "source": "imported", "error": "", "version": "1.2.3"}
+
+    def test_busy_returns_cached_copy_marked_busy(self):
+        prefs = {"advanced_features": {af.PHONE_CONTROL: True}}
+        with mock.patch.object(af.component_packages, "feature_status",
+                               return_value=self._installed()):
+            first = af.feature_state(prefs, root=self.root, frozen=True)
+        self.assertFalse(first[af.PHONE_CONTROL].get("busy"))
+        busy = PrefsLockTimeout("组件锁被占用")
+        with mock.patch.object(af.component_packages, "feature_status", side_effect=busy):
+            second = af.feature_state(prefs, root=self.root, frozen=True)
+        row = second[af.PHONE_CONTROL]
+        self.assertTrue(row["busy"])
+        self.assertTrue(row["available"])
+        self.assertTrue(row["ready"])
+        self.assertEqual(row["status"], "ready")
+        self.assertEqual(row["package_version"], "1.2.3")
+        self.assertEqual(row["error"], "")
+
+    def test_cached_package_does_not_freeze_user_preferences(self):
+        with mock.patch.object(af.component_packages, "feature_status",
+                               return_value=self._installed()):
+            af.feature_state({}, root=self.root, frozen=True)
+        with mock.patch.object(af.component_packages, "feature_status",
+                               side_effect=PrefsLockTimeout("busy")):
+            row = af.feature_state({"advanced_features": {af.PHONE_CONTROL: True}},
+                                   root=self.root, frozen=True)[af.PHONE_CONTROL]
+        self.assertTrue(row["enabled"], "缓存只存组件状态，启用开关要按本次偏好算")
+        self.assertTrue(row["ready"])
+
+    def test_busy_without_cache_reports_checking_not_failed(self):
+        with mock.patch.object(af.component_packages, "feature_status",
+                               side_effect=PrefsLockTimeout("busy")):
+            state = af.feature_state({"advanced_features": {af.RELOGIN_OCR: True}},
+                                     root=self.root, frozen=True)
+        for key in (af.PHONE_CONTROL, af.RELOGIN_OCR):
+            row = state[key]
+            self.assertEqual(row["status"], "checking")
+            self.assertEqual(row["error"], "")
+            self.assertTrue(row["busy"])
+            self.assertFalse(row["available"])
+            self.assertFalse(row["ready"])
+            self.assertTrue(row["installable"])
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from infrastructure import component_packages
+from infrastructure.prefs_store import PrefsLockTimeout
 
 
 PHONE_CONTROL = "phone_control"
@@ -48,6 +49,10 @@ FEATURES = {
 _CAPTCHA_RE = re.compile(r"^[0-9A-Za-z]{4}$")
 _OCR_LOCK = threading.Lock()
 _OCR_ENGINES = {}
+# 组件状态的上一次成功结果，只存进程内存：组件事务锁被别的进程占着时，
+# 界面状态查询拿它顶一下，不能让一次锁等待超时变成「组件装坏了」。
+_PACKAGE_CACHE = {}
+_PACKAGE_CACHE_LOCK = threading.Lock()
 
 
 def _enabled(prefs: dict | None, key: str) -> bool:
@@ -68,12 +73,35 @@ def feature_ready(prefs: dict | None, key: str, *, root=None, frozen=None) -> bo
     return bool(state.get(str(key), {}).get("ready"))
 
 
+def _frozen_package(key: str, root) -> dict:
+    """冻结态的组件状态；拿事务锁超时（PrefsLockTimeout）时不向界面抛异常。
+
+    有上一次成功的结果就返回它的副本并标 busy；一次都没成功过就返回 checking，
+    不报 failed，也不报 missing：此刻并不知道组件是什么状态。
+    """
+    cache_key = (str(root) if root is not None else "", key)
+    try:
+        package = component_packages.feature_status(key, root=root)
+    except PrefsLockTimeout:
+        with _PACKAGE_CACHE_LOCK:
+            cached = _PACKAGE_CACHE.get(cache_key)
+        if cached is not None:
+            return dict(cached, busy=True)
+        return {"available": False, "source": "imported", "error": "", "version": "",
+                "busy": True, "checking": True}
+    slim = {"available": package["available"], "source": package["source"],
+            "error": package["error"], "version": str(package.get("version") or "")}
+    with _PACKAGE_CACHE_LOCK:
+        _PACKAGE_CACHE[cache_key] = slim
+    return package
+
+
 def feature_state(prefs: dict | None = None, *, root=None, frozen=None) -> dict:
     """返回可直接给桌面 UI 的状态，不暴露安装路径或凭据。"""
     result = {}
     frozen = bool(getattr(sys, "frozen", False)) if frozen is None else bool(frozen)
     for key, spec in FEATURES.items():
-        package = component_packages.feature_status(key, root=root) if frozen else {
+        package = _frozen_package(key, root) if frozen else {
             "available": module_available(spec.module), "source": "source", "error": "",
             "version": ""}
         available = package["available"]
@@ -92,9 +120,12 @@ def feature_state(prefs: dict | None = None, *, root=None, frozen=None) -> dict:
             "package_version": str(package.get("version") or ""),
             "error": error,
             "status": ("unsupported" if error == "unsupported_platform" else
+                       "checking" if package.get("checking") else
                        "failed" if error else "ready" if available else "missing"),
             "install_mode": "import" if frozen else "pip",
         }
+        if package.get("busy"):
+            result[key]["busy"] = True
     return result
 
 
