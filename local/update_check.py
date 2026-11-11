@@ -222,9 +222,21 @@ def _verified_payload_asset(data: dict, version: str, metadata: dict,
         checked = parse_manifest_entry(json.dumps({"version": version,
                                                    "files": {name: entry}}).encode(),
                                        version, name)
+        if (("bytes" in metadata and metadata["bytes"] != checked["bytes"])
+                or ("sha256" in metadata and metadata["sha256"] != checked["sha256"])):
+            return None
         if metadata.get("target_version") != version:
             return None
-        target = _validate_payload_manifest(metadata.get("target_manifest"), version)
+        embedded = metadata.get("target_manifest")
+        target = _validate_payload_manifest(
+            embedded if embedded is not None else data.get("target_manifest"), version)
+        for expected in (metadata.get("target_manifest_sha256"),
+                         data.get("target_manifest_sha256")):
+            if expected is not None and expected != target["target_manifest_sha256"]:
+                return None
+        if embedded is None and (metadata.get("target_manifest_sha256") is None
+                                 or data.get("target_manifest_sha256") is None):
+            return None
     except (ValueError, TypeError, UnicodeError):
         return None
     url = base_url + name

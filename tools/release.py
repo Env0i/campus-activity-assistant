@@ -341,21 +341,25 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
             "target_version": version,
             **({"target_manifest_sha256": target_manifest_sha256}
                if target_manifest_sha256 else {}),
-            **({"target_manifest": target_manifest}
-               if target_manifest is not None else {}),
         }
     if deltas is not None:
-        manifest["deltas"] = [dict(item) for item in deltas]
+        manifest["deltas"] = [{key: value for key, value in item.items()
+                               if key != "target_manifest"} for item in deltas]
     if base_version is not None:
         manifest["base_version"] = base_version
     if target_manifest_sha256 is not None:
         manifest["target_manifest_sha256"] = target_manifest_sha256
+    if target_manifest is not None:
+        manifest["target_manifest"] = target_manifest
     if split_assets is not None:
         manifest["split_assets"] = {key: dict(value)
                                      for key, value in split_assets.items()}
     path = stage_dir / "manifest.json"
-    path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2),
-                    encoding="utf-8")
+    encoded = json.dumps(manifest, ensure_ascii=False, sort_keys=True,
+                         separators=(",", ":")).encode("utf-8")
+    if len(encoded) > 65536:
+        raise SystemExit("[prepare] manifest 超过旧客户端 65536 字节读取上限")
+    path.write_bytes(encoded)
     return path
 
 
@@ -944,6 +948,20 @@ def verify_release_assets(version: str) -> dict:
                          "请重新 --prepare")
     ocr_component_path = _verified_component(stage_dir, manifest,
                                              ocr_component_asset_name(version), OCR_FEATURE)
+    full_payload_path = None
+    if "full_payload" in manifest:
+        item = manifest["full_payload"]
+        name = item.get("name") if isinstance(item, dict) else None
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,120}", name):
+            raise SystemExit("[publish] full_payload 条目不合法")
+        full_payload_path = stage_dir / name
+        meta = (manifest.get("files") or {}).get(name)
+        if (not full_payload_path.is_file() or not isinstance(meta, dict)
+                or item.get("bytes") != meta.get("bytes")
+                or item.get("sha256") != meta.get("sha256")
+                or full_payload_path.stat().st_size != meta.get("bytes")
+                or sha256_of(full_payload_path) != meta.get("sha256")):
+            raise SystemExit("[publish] full_payload 缺失或哈希、大小不一致")
     delta_paths = []
     for item in manifest.get("deltas", []) or []:
         if not isinstance(item, dict) or not isinstance(item.get("name"), str):
@@ -971,7 +989,7 @@ def verify_release_assets(version: str) -> dict:
         split_paths.append(path)
     return {"stage": stage_dir, "exe": exe_path, "zip": zip_path,
             "installer": installer_path, "component": component_path,
-            "ocr_component": ocr_component_path, "delta": delta_paths,
+            "ocr_component": ocr_component_path, "full_payload": full_payload_path, "delta": delta_paths,
             "split_assets": split_paths, "manifest": manifest_path}
 
 
@@ -1124,6 +1142,8 @@ def asset_digest(assets: dict) -> dict:
     }
     if "delta" in assets:
         digest["delta"] = [sha256_of(path) for path in assets.get("delta", [])]
+    if assets.get("full_payload") is not None:
+        digest["full_payload"] = sha256_of(assets["full_payload"])
     if "split_assets" in assets:
         digest["split_assets"] = [sha256_of(path) for path in assets.get("split_assets", [])]
     return digest
@@ -1171,6 +1191,8 @@ def do_publish(tag: str, assume_yes: bool, version: str, clobber: bool = False) 
     print("[2/2] 上传 Release ...")
     upload_assets = [assets["zip"], assets["exe"], assets["installer"],
                      assets["component"], assets["ocr_component"]]
+    if assets.get("full_payload") is not None:
+        upload_assets.append(assets["full_payload"])
     upload_assets.extend(assets.get("delta", []))
     upload_assets.extend(assets.get("split_assets", []))
     upload_assets.append(assets["manifest"])

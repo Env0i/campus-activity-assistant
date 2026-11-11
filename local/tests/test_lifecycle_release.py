@@ -685,6 +685,97 @@ class AssetVerificationTests(unittest.TestCase):
             finally:
                 mock.patch.stopall()
 
+    def test_full_payload_is_verified_and_uploaded(self):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as name:
+            for p in self._patched(name):
+                p.start()
+            try:
+                stage, _, _, manifest = self._candidate(name)
+                payload = stage / "payload.zip"
+                payload.write_bytes(b"payload")
+                data = json.loads(manifest.read_text(encoding="utf-8"))
+                meta = {"bytes": payload.stat().st_size, "sha256": self.rel.sha256_of(payload)}
+                data["files"][payload.name] = meta
+                data["full_payload"] = dict(meta, name=payload.name, target_version=self.VERSION)
+                manifest.write_text(json.dumps(data), encoding="utf-8")
+                uploads = []
+                with mock.patch.object(self.rel, "source_commit", return_value="f" * 40), \
+                     mock.patch.object(self.rel, "confirm_publish"), \
+                     mock.patch.object(self.rel, "ensure_tag"), \
+                     mock.patch.object(self.rel, "publish", side_effect=lambda tag, assets, clobber: uploads.extend(assets)):
+                    self.rel.do_publish(self.rel.tag_of(self.VERSION), True, self.VERSION)
+                self.assertEqual(uploads.count(payload), 1)
+                payload.unlink()
+                with self.assertRaises(SystemExit):
+                    self.rel.verify_release_assets(self.VERSION)
+                payload.write_bytes(b"payload")
+                payload.write_bytes(b"changed")
+                with self.assertRaises(SystemExit):
+                    self.rel.verify_release_assets(self.VERSION)
+                payload.write_bytes(b"payload")
+                calls = []
+                with mock.patch.object(self.rel, "source_commit", return_value="f" * 40), \
+                     mock.patch.object(self.rel, "confirm_publish", side_effect=lambda *a: payload.write_bytes(b"changed")), \
+                     mock.patch.object(self.rel, "ensure_tag", side_effect=lambda *a: calls.append("tag")), \
+                     mock.patch.object(self.rel, "publish", side_effect=lambda *a: calls.append("upload")):
+                    with self.assertRaises(SystemExit):
+                        self.rel.do_publish(self.rel.tag_of(self.VERSION), True, self.VERSION)
+                self.assertEqual(calls, [])
+                payload.write_bytes(b"payload")
+                with mock.patch.object(self.rel, "source_commit", return_value="f" * 40), \
+                     mock.patch.object(self.rel, "confirm_publish"), \
+                     mock.patch.object(self.rel, "ensure_tag", side_effect=lambda *a: payload.write_bytes(b"changed")), \
+                     mock.patch.object(self.rel, "publish", side_effect=lambda *a: calls.append("upload")):
+                    with self.assertRaises(SystemExit):
+                        self.rel.do_publish(self.rel.tag_of(self.VERSION), True, self.VERSION)
+                self.assertEqual(calls, [])
+            finally:
+                mock.patch.stopall()
+
+    def test_manifest_shared_target_fits_legacy_reader_and_rejects_oversize(self):
+        import hashlib
+        import io
+        import json
+        import subprocess
+        import tempfile
+        import types
+        source = subprocess.check_output(["git", "show", "b39b81e:local/update_check.py"])
+        old = types.ModuleType("historical_update_check")
+        exec(compile(source, "historical_update_check", "exec"), old.__dict__)
+        with tempfile.TemporaryDirectory() as name:
+            stage = Path(name)
+            installer = stage / self.rel.installer_asset_name(self.VERSION)
+            payload = stage / "payload.zip"
+            installer.write_bytes(b"installer")
+            payload.write_bytes(b"payload")
+            entries = [{"path": "lib/item%04d.bin" % i, "bytes": i,
+                        "sha256": "ab" * 32} for i in range(400)]
+            target = {"version": self.VERSION, "files": entries}
+            canonical = json.dumps(target, ensure_ascii=False, sort_keys=True,
+                                   separators=(",", ":")).encode("utf-8")
+            target_hash = hashlib.sha256(canonical).hexdigest()
+            target["target_manifest_sha256"] = target_hash
+            path = self.rel.write_manifest(stage, self.VERSION, "v" + self.VERSION,
+                     [installer, payload], build_state=self._state(), full_payload=payload,
+                     target_manifest=target, target_manifest_sha256=target_hash,
+                     deltas=[{"name": "delta.zip", "target_manifest": target,
+                              "target_manifest_sha256": target_hash}])
+            raw = path.read_bytes()
+            data = json.loads(raw)
+            self.assertLessEqual(len(raw), 65536)
+            self.assertNotIn("target_manifest", data["full_payload"])
+            self.assertNotIn("target_manifest", data["deltas"][0])
+            old.urlopen = lambda *args, **kwargs: io.BytesIO(raw)
+            result = old.check_latest_release("1.2.1")
+            self.assertEqual(result["state"], "available")
+            self.assertEqual(result["installer"]["sha256"], self.rel.sha256_of(installer))
+            target["files"] = entries * 3
+            with self.assertRaises(SystemExit):
+                self.rel.write_manifest(stage, self.VERSION, "v" + self.VERSION,
+                    [installer], build_state=self._state(), target_manifest=target)
+
     def test_verify_rejects_candidate_without_ocr_component(self):
         """没有验证码识别组件包的候选一律拒绝：缺它设置里「下载并安装」点了没东西。"""
         import tempfile

@@ -363,6 +363,25 @@ class UpdateNetworkTests(unittest.TestCase):
         self.assertEqual(result["installer"]["full"]["target_manifest"], target)
         self.assertEqual(result["installer"]["deltas"][0]["base_version"], "1.1.0")
         self.assertEqual(result["installer"]["deltas"][0]["sha256"], "ef" * 32)
+        data["target_manifest"] = target
+        data["target_manifest_sha256"] = target["target_manifest_sha256"]
+        del data["full_payload"]["target_manifest"]
+        del data["deltas"][0]["target_manifest"]
+        result, _ = self.run_check([json.dumps(data).encode()])
+        self.assertEqual(result["installer"]["full"]["target_manifest"], target)
+        self.assertEqual(result["installer"]["deltas"][0]["target_manifest"], target)
+        for field, bad in (("target_manifest_sha256", "00" * 32), ("bytes", 1),
+                           ("sha256", "00" * 32)):
+            with self.subTest(field=field):
+                original = data["full_payload"][field]
+                data["full_payload"][field] = bad
+                result, _ = self.run_check([json.dumps(data).encode()])
+                self.assertNotIn("full", result["installer"])
+                data["full_payload"][field] = original
+        data["target_manifest"]["files"][0]["path"] = "../bad"
+        result, _ = self.run_check([json.dumps(data).encode()])
+        self.assertNotIn("full", result["installer"])
+        self.assertNotIn("deltas", result["installer"])
 
     def test_bad_payload_metadata_keeps_verified_installer_fallback(self):
         payload_name = "campus-activity-watch-payload-v1.1.1-win-x64.zip"
