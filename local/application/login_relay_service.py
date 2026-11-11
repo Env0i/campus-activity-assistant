@@ -70,7 +70,8 @@ def public_state(flow, now=None) -> dict:
         return {"ready": False, "state": STATE_IDLE, "flow_id": "",
                 "challenge_id": "", "image": "", "expires_in": 0,
                 "attempts": 0, "max_attempts": 0, "safe_error": "",
-                "submit_pending": False, "origin": "", "live": False}
+                "submit_pending": False, "origin": "", "live": False,
+                "handoff": False}
     state = str(flow.get("state") or STATE_IDLE)
     terminal = state in _TERMINAL_STATES
     return {
@@ -87,6 +88,9 @@ def public_state(flow, now=None) -> dict:
         "safe_error": str(flow.get("safe_error") or ""),
         "submit_pending": False if terminal else bool(flow.get("submit_pending")),
         "live": not terminal,
+        # 电脑自动发起的这一场已经交给用户输验证码：界面据此把「自动登录中」
+        # 换回「登录已失效」并提示输入验证码。
+        "handoff": False if terminal else bool(flow.get("handoff")),
     }
 
 
@@ -116,7 +120,7 @@ class LoginRelayService:
         self._spawn = spawn          # (args) -> 进程树句柄（stdin/stdout 在 proc 上）
         self._now = now              # 单调秒读数（deadline 用）
         self._emit = emit or (lambda _kind, _payload: None)
-        self._log = log or (lambda _msg: None)
+        self._log = log or (lambda _event, **_fields: None)
         self._on_success = on_success or (lambda: None)
         self._success_takes_origin = _accepts_origin(self._on_success)
         self._on_finish = on_finish or (lambda: None)
@@ -199,7 +203,7 @@ class LoginRelayService:
                     "image": "", "expires_in": None, "deadline": None,
                     "attempts": 0, "max_attempts": 0,
                     "safe_error": "", "tree": None, "success_fired": False,
-                    "submit_pending": False,
+                    "submit_pending": False, "handoff": False,
                     "mode": "manual" if manual or not callable(self._classify_captcha) else "auto",
                     "origin": str(origin or "phone"), "stdin": None,
                     "lines": queue.Queue(), "reader_done": threading.Event()}
@@ -400,6 +404,8 @@ class LoginRelayService:
             return                      # 旧 flow 的行不得改写当前会话
         kind = str(data.get("kind") or "")
         success = False
+        handoff_attempts = None
+        rejected_reason = None
         with self._lock:
             if self._flow is not flow or flow["state"] in (
                     STATE_SUCCESS, STATE_FAILED, STATE_CANCELED):
@@ -424,12 +430,17 @@ class LoginRelayService:
                     flow["deadline"] = None
                     flow["attempts"] = max(0, int(data.get("attempts") or 0))
                     if self._manual_after and flow["attempts"] >= self._manual_after:
+                        # 自动识别连续认错到上限：这一场转人工，记下交接事实
+                        if flow.get("mode") == "auto":
+                            handoff_attempts = flow["attempts"]
+                            flow["handoff"] = True
                         flow["mode"] = "manual"
                     flow["max_attempts"] = 0
                 elif kind == "rejected":
                     flow["submit_pending"] = False
                     flow["attempts"] = max(0, int(data.get("attempts") or 0))
                     flow["safe_error"] = _safe(data.get("reason"))
+                    rejected_reason = flow["safe_error"]
                 elif kind == "verifying":
                     flow["state"] = STATE_VERIFYING
                 elif kind == "success":
@@ -448,24 +459,37 @@ class LoginRelayService:
             except (TypeError, ValueError, OverflowError):
                 return
             snapshot = public_state(flow, self._now())
+        if handoff_attempts is not None:
+            self._log("auto_relogin_handoff", attempts=handoff_attempts)
+        if rejected_reason is not None:
+            self._log("auto_relogin_ocr_attempt",
+                      attempt=int(snapshot.get("attempts") or 0), result=rejected_reason)
         if (kind == "challenge" and snapshot.get("mode") == "auto"
                 and callable(self._classify_captcha) and snapshot["image"]):
             try:
                 code = str(self._classify_captcha(snapshot["image"]) or "")
             except Exception:
                 code = ""
+            ocr_result = None
             if not _VALID_CODE_RE.fullmatch(code):
                 with self._lock:
                     if self._flow is flow and flow.get("challenge_id") == snapshot["challenge_id"]:
                         flow["mode"] = "manual"
+                        flow["handoff"] = True
                         snapshot = public_state(flow, self._now())
-            if _VALID_CODE_RE.fullmatch(code) and self._send_submit(flow, {
+                ocr_result = "invalid"
+            elif self._send_submit(flow, {
                     "kind": "submit", "flow_id": snapshot["flow_id"],
                     "challenge_id": snapshot["challenge_id"], "code": code}, automatic=True) == "sent":
                 with self._lock:
                     if self._flow is flow:
                         flow["state"] = STATE_VERIFYING
                         snapshot = public_state(flow, self._now())
+                ocr_result = "submitted"
+            else:
+                ocr_result = "failed"
+            self._log("auto_relogin_ocr_attempt",
+                      attempt=int(snapshot.get("attempts") or 0), result=ocr_result)
         if success:
             self._notify_success(flow)
         self._emit("phone_relogin", snapshot)

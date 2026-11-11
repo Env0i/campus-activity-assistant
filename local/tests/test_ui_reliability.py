@@ -333,6 +333,180 @@ out.push({ round: S.round.check, checking: S.login.checking,
         self.assertEqual(data["result"], "valid")
 
 
+class SilentReloginUiTests(unittest.TestCase):
+    """静默自动登录（计划 20261111）：电脑能自己登录时，用户不该看见「登录已失效」。"""
+
+    def test_expired_check_stays_silent_until_the_relogin_finishes(self):
+        res = run_js(r"""
+S.login.present = true;
+window.onBackend.check({ ok: true, result: "valid" });
+window.onBackend.check({ ok: false, result: "expired", reason: "4001", recovering: true });
+const silent = { text: document.querySelector("#pill-text").textContent,
+                 state: document.querySelector("#pill").dataset.state,
+                 banners: document.querySelector("#banners").innerHTML };
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "auto", live: true,
+  origin: "auto", flow_id: "f1", challenge_id: "c1", attempts: 1, image: "" });
+const running = { text: document.querySelector("#pill-text").textContent,
+                  state: document.querySelector("#pill").dataset.state,
+                  banners: document.querySelector("#banners").innerHTML };
+window.onBackend.check({ ok: true, result: "valid" });
+const done = { text: document.querySelector("#pill-text").textContent,
+               state: document.querySelector("#pill").dataset.state };
+out.push({ silent, running, done });
+""")
+        data = res[0]
+        self.assertEqual(data["silent"]["text"], "自动登录中…")
+        self.assertEqual(data["silent"]["state"], "pending")
+        self.assertNotIn("登录已失效", data["silent"]["banners"],
+                         "静默恢复期间不该出现失效横幅")
+        self.assertEqual(data["running"]["state"], "pending", "自动登录期间保持自动登录中")
+        self.assertNotIn("登录已失效", data["running"]["banners"])
+        self.assertNotEqual(data["done"]["state"], "bad")
+        self.assertNotEqual(data["done"]["text"], "登录已失效")
+
+    def test_first_silent_failure_puts_the_reminder_back(self):
+        res = run_js(r"""
+S.login.present = true;
+window.onBackend.check({ ok: false, result: "expired", recovering: true });
+const silent = document.querySelector("#pill-text").textContent;
+window.onBackend.check({ ok: false, result: "expired", recovering: false,
+  recover_block: "retry_pending" });
+out.push({ silent,
+  text: document.querySelector("#pill-text").textContent,
+  state: document.querySelector("#pill").dataset.state,
+  banners: document.querySelector("#banners").innerHTML,
+  auto: !!S.autoLogin });
+""")
+        data = res[0]
+        self.assertEqual(data["silent"], "自动登录中…")
+        self.assertEqual(data["text"], "登录已失效", "第一次静默失败后要回到失效提醒")
+        self.assertEqual(data["state"], "bad")
+        self.assertIn("登录已失效", data["banners"])
+        self.assertFalse(data["auto"])
+
+    def test_handoff_restores_the_reminder_and_asks_for_the_captcha(self):
+        res = run_js(r"""
+S.login.present = true;
+S.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+if (window.PhonePanel && window.PhonePanel.state) {
+  window.PhonePanel.state.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+}
+let beginCalls = 0;
+window.pywebview = { api: { relogin_begin: () => { beginCalls += 1;
+  return Promise.resolve({ ok: true, flow_id: "f2" }); } } };
+window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "auto", flow_id: "f1", challenge_id: "c1", attempts: 3, handoff: true,
+  image: "data:image/png;base64,AAA" });
+const handoff = { text: document.querySelector("#pill-text").textContent,
+  state: document.querySelector("#pill").dataset.state,
+  banners: document.querySelector("#banners").innerHTML,
+  auto: !!S.autoLogin, mark: !!S.login.handoff };
+document.querySelector("#btn-login").click();
+out.push({ handoff, beginCalls, step: S.relogin.step, flow: S.relogin.flowId,
+  prompt: document.querySelector("#rl-err").textContent,
+  img: document.querySelector("#rl-cap-img").src });
+""")
+        data = res[0]
+        self.assertEqual(data["handoff"]["text"], "登录已失效")
+        self.assertEqual(data["handoff"]["state"], "bad")
+        self.assertIn("登录已失效", data["handoff"]["banners"])
+        self.assertFalse(data["handoff"]["auto"], "转人工后不能还显示自动登录中")
+        self.assertTrue(data["handoff"]["mark"])
+        self.assertEqual(data["beginCalls"], 0, "已有进行中的一场，不能另开一场")
+        self.assertEqual(data["step"], "cap")
+        self.assertEqual(data["flow"], "f1")
+        self.assertEqual(data["prompt"], "自动识别 3 次没认对，请输入验证码。")
+        self.assertTrue(data["img"].endswith("AAA"))
+
+    def test_saved_account_goes_straight_to_the_captcha_without_confirming(self):
+        res = run_js(r"""
+S.login.present = true;
+S.login.result = "expired";
+S.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+if (window.PhonePanel && window.PhonePanel.state) {
+  window.PhonePanel.state.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+}
+let beginCalls = 0;
+const asked = [];
+window.pywebview = { api: {
+  relogin_begin: () => { beginCalls += 1; return Promise.resolve({ ok: true, flow_id: "f-new" }); },
+  relogin_auto_once: () => { asked.push("auto"); return Promise.resolve({ ok: true }); } } };
+document.querySelector("#btn-login").click();
+const opened = { step: S.relogin.step, open: S.relogin.open,
+                 confirmHidden: document.querySelector("#rl-confirm").hidden };
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "manual", flow_id: "f-new", challenge_id: "c1", attempts: 1,
+  image: "data:image/png;base64,AAA" });
+out.push({ opened, beginCalls, asked, step: S.relogin.step,
+  capHidden: document.querySelector("#rl-cap").hidden });
+""")
+        data = res[0]
+        self.assertTrue(data["opened"]["open"])
+        self.assertTrue(data["opened"]["confirmHidden"], "不再先问「自动登录一次？」")
+        self.assertEqual(data["opened"]["step"], "wait")
+        self.assertEqual(data["beginCalls"], 1, "保存过账号就直接开一场")
+        self.assertEqual(data["asked"], [], "不再调用relogin_auto_once")
+        self.assertEqual(data["step"], "cap")
+        self.assertFalse(data["capHidden"])
+
+    def test_wrong_code_only_swaps_the_image(self):
+        res = run_js(r"""
+S.login.present = true;
+S.login.result = "expired";
+S.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+if (window.PhonePanel && window.PhonePanel.state) {
+  window.PhonePanel.state.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+}
+window.pywebview = { api: { relogin_begin: () => Promise.resolve({ ok: true, flow_id: "f1" }) } };
+document.querySelector("#btn-login").click();
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "manual", flow_id: "f1", challenge_id: "c1", attempts: 1,
+  image: "data:image/png;base64,AAA" });
+document.querySelector("#rl-code").value = "ZZZZ";
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "manual", flow_id: "f1", challenge_id: "c2", attempts: 2,
+  image: "data:image/png;base64,BBB" });
+out.push({ step: S.relogin.step, img: document.querySelector("#rl-cap-img").src,
+  code: document.querySelector("#rl-code").value,
+  userHidden: document.querySelector("#rl-login").hidden,
+  err: document.querySelector("#rl-err").textContent });
+""")
+        data = res[0]
+        self.assertEqual(data["step"], "cap", "验证码错只换图，不退出这一屏")
+        self.assertTrue(data["img"].endswith("BBB"))
+        self.assertEqual(data["code"], "", "换图后要把上一张的输入清掉")
+        self.assertTrue(data["userHidden"], "不回到账号密码表单")
+        self.assertFalse(data["err"], "验证码错是平常事，不显示成错误")
+
+    def test_network_error_can_be_retried_with_a_new_captcha(self):
+        res = run_js(r"""
+S.login.present = true;
+S.login.result = "expired";
+S.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+if (window.PhonePanel && window.PhonePanel.state) {
+  window.PhonePanel.state.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+}
+let beginCalls = 0;
+window.pywebview = { api: { relogin_begin: () => { beginCalls += 1;
+  return Promise.resolve({ ok: true, flow_id: "f" + beginCalls }); } } };
+document.querySelector("#btn-login").click();
+window.onBackend.phone_relogin({ state: "failed", live: false, origin: "manual",
+  flow_id: "f1", safe_error: "timeout" });
+const failed = { step: S.relogin.step, text: document.querySelector("#rl-msg-text").textContent };
+document.querySelector("#btn-rl-done").click();
+document.querySelector("#btn-login").click();
+out.push({ failed, again: { step: S.relogin.step, beginCalls,
+  userHidden: document.querySelector("#rl-login").hidden } });
+""")
+        data = res[0]
+        self.assertEqual(data["failed"]["step"], "msg")
+        self.assertIn("可以再试一次", data["failed"]["text"])
+        self.assertEqual(data["again"]["step"], "wait")
+        self.assertEqual(data["again"]["beginCalls"], 2, "再试一次要真开新的一场")
+        self.assertTrue(data["again"]["userHidden"], "不回到账号密码表单")
+
+
 # 计划栏结果页（计划 20261106-plan-panel 的 result-panel，P1 / P8）：计划结论不再写进 #result 条，
 # 改由计划栏的标签、标题、副行和五类大数字承担（原型 Main.dc.html 渲染函数 res 段）。
 # 用例从这里读同一份结论；#result 只剩登录、开始请求这类非计划提示。

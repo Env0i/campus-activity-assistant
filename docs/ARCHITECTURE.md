@@ -235,6 +235,29 @@ controller/view DOM 分离不在本轮范围。
 - **日志**：`log_event` 每行带北京时间、级别、来源、活动 ID、事件名；`grab.log`
   超过 5 MB 轮转成 `grab.log.1…5`；界面进程的自动登录事件也追加到同一份日志。
 
+### 登录失效与静默自动登录（2026-11-11）
+
+- **一处判据**：`app.Api._silent_relogin_ready()` 回答「电脑能不能自己把登录补回来」——条款已同意、
+  `relogin_ocr` 已装、有保存的账号或这次手输的账号、密码没被学校拒绝过。能否**此刻**发起由
+  `_auto_relogin_eligible()` 在它之上再排除检查/拉列表/取消/关窗这类瞬时忙碌；`_relogin_wait_s()`
+  （worker 拿 `--relogin-wait` 等多久）也取同一个能力判据。
+- **确认失效就发起**：`_do_check` 判出 `expired` 且判据为真时，check 载荷带 `recovering=true`、
+  `recover_block=""`，并调 `AutoReloginMonitor.request_recover()` 把等待清零，不再等调度线程下一拍。
+- **失败一次就把提醒还回来**：`_silent_relogin_state()` 在「已经失败过」或「这一场已转人工」时给
+  `recovering=false`（`recover_block` 为 `retry_pending` / `handoff`），界面恢复「登录已失效」；
+  后台仍按 60/120/300/900 秒退避重试。
+- **瞬时忙碌不算失败**：调度线程在资格判据处就跳过；若资格判过之后才撞上忙碌（并发窗口），
+  `_begin_auto_relogin` 回 `error=busy`，监视器记 `deferred`，不累加失败次数、不进 60 秒退避，下一拍重试。
+- **转人工**：中继在 `_MANUAL_RELOGIN_AFTER`（3 次）或识别结果不合规时把 `mode` 切成 `manual` 并置
+  `handoff`；`public_state` 带出 `handoff`，界面据此收掉「自动登录中」，点「重新登录」接上同一场输验证码。
+- **界面分流**：所有登录入口走 `loginEntry()`——`expired` 或 `handoff` 进重新登录对话框（保存过账号
+  直接到验证码步，不再走确认步），从没登录过才进登录表单。
+- **日志**：`login_expired_detected{silent,reason}`、`auto_relogin_deferred{cause}`、
+  `auto_relogin_started`、`auto_relogin_ocr_attempt{attempt,result}`、`auto_relogin_handoff{attempts}`、
+  `auto_relogin_failed{reason,failures}`、`auto_relogin_backoff{retry_in_s}`、`auto_relogin_ok{elapsed_s}`、
+  `relogin_manual_started{case,origin}`、`relogin_manual_result{state,safe_error}`；只记次数与安全错误码，
+  不记账号、密码、验证码。
+
 ### 取消报名与列表筛选（决策 016）
 
 - **列表筛选（R1）**：`local/grab.py` 的 `keep_in_list(act, now)`。原有的 `still_relevant` 为真，或者活动已报名、`act_end` 能解析且不早于业务北京时间，这两种情况都留在列表里。已报名但 `act_end` 缺失或解析不了的，仍按原规则筛掉。补回后，界面的冲突判断和计划冲突基线都能看到这些已报名活动。

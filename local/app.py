@@ -826,6 +826,8 @@ class Api:
         # 登录失效推飞书：本次运行里校验过有效，之后变成失效才推；同一次失效只推一次
         self._login_seen_valid = False
         self._expiry_pushed = False
+        # 同一段失效只落一次 login_expired_detected：检查每 60 秒一轮，不重复刷日志
+        self._login_expired_logged = False
         # 窗口不在眼前（最小化或隐藏到后台）时，计划结束要发系统通知
         self._window_hidden = False
         self._window_minimized = False
@@ -848,7 +850,7 @@ class Api:
         # 手机重登中继：凭据只在进程内存，singleflight，成功才建时钟锚点
         self._relay = _login_relay_service.LoginRelayService(
             spawn=self._spawn_relay_worker, now=time.monotonic,
-            emit=self._emit, log=lambda _msg: None,
+            emit=self._emit, log=self._log_event,
             on_success=self._anchor_login_success,
             on_finish=self._relay_finished,
             classify_captcha=self._classify_captcha, manual_after=_MANUAL_RELOGIN_AFTER)
@@ -862,7 +864,7 @@ class Api:
         self._auto_relogin = AutoReloginMonitor(
             now=time.monotonic, check=self.check, start=self._begin_auto_relogin,
             eligible=self._auto_relogin_eligible, state=self._relay.state,
-            paused=self._auto_relogin_paused)
+            paused=self._auto_relogin_paused, log=self._log_event)
         if not DEMO:
             self._auto_relogin.start()
 
@@ -1674,19 +1676,61 @@ class Api:
             self._auto_relogin.reset()
         return {"ok": True, "saved": False}
 
+    def _silent_relogin_ready(self) -> tuple[bool, str]:
+        """电脑能不能自己把登录补回来；不能时附一个给界面看的原因。
+
+        只看「能力」：条款已同意、验证码识别已装、有可用账号（保存的或这次手输的）、
+        密码没被学校拒绝过。正在检查、拉列表这类瞬时忙碌不算——那由
+        _auto_relogin_eligible 另判，改到下一拍再发起。
+        """
+        if DEMO:
+            return False, "demo"
+        try:
+            if self._terms_gate() is not None:
+                return False, "terms"
+            if not (_credential_store.has_credentials(CREDENTIAL_FILE)
+                    or self._once_credentials_staged()):
+                return False, "no_credentials"
+            if not _advanced_features.feature_ready(
+                    load_prefs(), _advanced_features.RELOGIN_OCR, root=DATA_DIR):
+                return False, "ocr_missing"
+            if self._auto_relogin_paused():
+                return False, "paused"
+        except Exception:  # noqa: BLE001 - 判据读不到就按「不能」处理，界面照旧提醒
+            return False, "unknown"
+        return True, ""
+
+    def _silent_relogin_state(self) -> tuple[bool, str]:
+        """check 载荷里的静默恢复态：能自己登录、还没失败过、也不是在等人输验证码。
+
+        界面的失效提醒在第一次静默失败后就要回来（后台仍会退避重试）；转人工以后
+        也不该再把胶囊画成「自动登录中」。
+        """
+        ready, reason = self._silent_relogin_ready()
+        if not ready:
+            return False, reason
+        try:
+            relay = self._relay.state() or {}
+        except Exception:
+            relay = {}
+        if relay.get("live") and relay.get("mode") == "manual":
+            return False, "handoff"
+        try:
+            failures = int(self._auto_relogin.snapshot().get("failures") or 0)
+        except Exception:
+            failures = 0
+        if failures > 0:
+            return False, "retry_pending"
+        return True, ""
+
     def _auto_relogin_eligible(self) -> bool:
-        if DEMO or self._terms_gate() is not None:
-            return False
         with self._lock:
             if (self._closing or self._advanced_busy or self._checking or self._listing
                     or self._cancelling or self._relogin_blocked_locked()):
                 return False
         # 冲突 5（CR20）：保存过的账号，或这次运行内存里「只用这一次」的账号，有其一即可；
-        # 其余条件（条款、识别已启用、计划阶段、暂停）一条不放宽
-        return bool(_advanced_features.feature_ready(
-            load_prefs(), _advanced_features.RELOGIN_OCR, root=DATA_DIR)
-            and (_credential_store.has_credentials(CREDENTIAL_FILE)
-                 or self._once_credentials_staged()))
+        # 其余条件（条款、识别已启用、暂停）一条不放宽
+        return self._silent_relogin_ready()[0]
 
     def _once_credentials_staged(self) -> bool:
         """这次运行内存里有没有「只用这一次」（手输、没保存）的账号密码。
@@ -1730,19 +1774,7 @@ class Api:
 
     def _relogin_wait_s(self) -> float:
         """worker 确认登录失效后能等多久：电脑能自己登录（有账号密码、验证码识别已装）才等。"""
-        if DEMO:
-            return 0.0
-        try:
-            # 保存的密码被学校拒绝过：自动登录已暂停，报名进程等了也白等
-            # 只用这一次的账号也算电脑能自己登录（冲突 5），与 _auto_relogin_eligible 同口径
-            ready = bool(_advanced_features.feature_ready(
-                load_prefs(), _advanced_features.RELOGIN_OCR, root=DATA_DIR)
-                and (_credential_store.has_credentials(CREDENTIAL_FILE)
-                     or self._once_credentials_staged())
-                and not self._auto_relogin_paused())
-        except Exception:
-            return 0.0
-        return RELOGIN_WAIT_S if ready else 0.0
+        return RELOGIN_WAIT_S if self._silent_relogin_ready()[0] else 0.0
 
     def _relogin_ocr_ready(self) -> bool:
         """电脑这边有没有「自己认验证码」的能力。"""
@@ -2145,20 +2177,43 @@ class Api:
                     self._checking = True
             self._auto_relogin.observe_check(conclusion)
             self._note_login_conclusion(conclusion)
+            if conclusion == "expired" and self._silent_relogin_state()[0]:
+                # 检查刚确认失效就发起，不等调度线程下一拍（最多 1 秒）才动手。
+                # request_recover 只是把等待时间清零，真正的发起仍在调度线程里。
+                self._auto_relogin.request_recover()
             if again:
                 threading.Thread(target=self._do_check, daemon=True).start()
 
     def _note_login_conclusion(self, conclusion: str) -> None:
         """记下登录结论的变化：本次运行里有效过、之后变成失效，推一次飞书。"""
+        push = False
+        first_expired = False
         with self._lock:
             if conclusion == "valid":
                 self._login_seen_valid = True
                 self._expiry_pushed = False
+                self._login_expired_logged = False
                 return
-            if conclusion != "expired" or not self._login_seen_valid or self._expiry_pushed:
+            if conclusion != "expired":
                 return
-            self._expiry_pushed = True
-        self._push_login_expired()
+            push = bool(self._login_seen_valid and not self._expiry_pushed)
+            if push:
+                self._expiry_pushed = True
+            # 用 getattr 读：这个方法的既有替身只带 _login_seen_valid/_expiry_pushed
+            first_expired = not getattr(self, "_login_expired_logged", False)
+            self._login_expired_logged = True
+        if first_expired:
+            # 只记「要不要静默恢复」这个判断结果，不带账号和验证码；同一段失效只落一次。
+            # 日志是尽力而为：写不进去不能影响上面的飞书推送判定。
+            try:
+                silent, reason = self._silent_relogin_state()
+                self._log_event("login_expired_detected",
+                                silent="true" if silent else "false",
+                                reason=reason or "none")
+            except Exception:  # noqa: BLE001
+                pass
+        if push:
+            self._push_login_expired()
 
     def _push_login_expired(self) -> None:
         """配了飞书机器人才推；消息只说失效和怎么办，不带账号。在后台线程里发，不拖界面。"""
@@ -2245,6 +2300,12 @@ class Api:
                             "runtime_error": err_code}
         # 上次校验时刻随 check 事件一起给界面（与 bootstrap.login 同一口径），胶囊和登录卡据此显示
         payload = dict(payload, **_last_check_fields(self._last_check))
+        if result == "expired":
+            # 静默自动登录（计划 20261111）：电脑能自己把登录补回来时，界面不弹
+            # 「登录已失效」，胶囊改显示「自动登录中」；补不回来时给出原因照旧提醒。
+            silent, block = self._silent_relogin_state()
+            payload["recovering"] = silent
+            payload["recover_block"] = block
         self._emit("check", payload)
 
     def _pc_clock_text(self) -> str:
@@ -3816,6 +3877,15 @@ class Api:
                 return {"ok": False, "text": "程序正在关闭，已取消本次重新登录"}
         return self._relogin_late_answer()
 
+    def _relogin_manual_case(self) -> str:
+        """用户是从哪一步开始重新登录的，只用于日志与文案，不参与判断。"""
+        try:
+            if _credential_store.has_credentials(CREDENTIAL_FILE):
+                return "bad" if _credential_store.is_bad(CREDENTIAL_FILE) else "captcha"
+        except Exception:
+            pass
+        return "login"
+
     def _begin_typed_relogin(self, username: str, password: str, save: bool,
                              origin: str) -> dict:
         """用这次手输的账号密码登录：只进内存，save=True 才在成功后写进电脑。"""
@@ -3826,7 +3896,9 @@ class Api:
         extra = {} if origin == "phone" else {"origin": origin}
         result = self._relay.begin(plan_active=False, worker_command=worker_command("login"),
                                    manual=manual, **extra)
-        if not result.get("ok"):
+        if result.get("ok"):
+            self._log_event("relogin_manual_started", case="login", origin=origin)
+        else:
             with self._lock:
                 self._pending_save = None
         return dict(result, mode="manual" if manual else "auto")
@@ -3856,6 +3928,9 @@ class Api:
         manual = not self._relogin_ocr_ready()
         result = self._relay.begin(plan_active=False, worker_command=worker_command("login"),
                                    manual=manual, origin="desktop")
+        if result.get("ok"):
+            self._log_event("relogin_manual_started",
+                            case=self._relogin_manual_case(), origin="desktop")
         return dict(result, mode="manual" if manual else "auto")
 
     def relogin_submit(self, flow_id: str = "", challenge_id: str = "", code: str = "") -> dict:
@@ -3991,8 +4066,13 @@ class Api:
         if last.get("origin") == "auto" and last.get("state") in ("failed", "canceled"):
             self._log_event("auto_relogin_failed", level="WARN",
                             reason=str(last.get("safe_error") or last.get("state") or "unknown"),
+                            failures=int(self._auto_relogin.snapshot().get("failures") or 0),
                             **({"elapsed_s": time.monotonic() - began}
                                if began is not None else {}))
+        elif last.get("origin") != "auto" and state in ("success", "failed", "canceled"):
+            # 人工重登的结果也落一条，便于事后对时间线；只记状态与安全错误码
+            self._log_event("relogin_manual_result", state=state,
+                            safe_error=str(last.get("safe_error") or ""))
 
     def open_data(self) -> dict:
         """打开数据目录，并把**真实路径**回给界面。

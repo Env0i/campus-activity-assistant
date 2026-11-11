@@ -517,6 +517,7 @@ class AutoReloginTermsGateTests(unittest.TestCase):
         ast.fix_missing_locations(helpers)
         exec(compile(helpers, "<terms-helpers>", "exec"), namespace)  # noqa: S102
         methods = ast.Module(body=[_function_node("_terms_gate"),
+                                   _function_node("_silent_relogin_ready"),
                                    _function_node("_auto_relogin_eligible")], type_ignores=[])
         ast.fix_missing_locations(methods)
         exec(compile(methods, "<auto-eligible>", "exec"), namespace)  # noqa: S102
@@ -524,6 +525,12 @@ class AutoReloginTermsGateTests(unittest.TestCase):
         api._advanced_busy = False
         api._relogin_blocked_locked = lambda: False
         api._terms_gate = types.MethodType(namespace["_terms_gate"], api)
+        # 2026-11-11 起资格判据与 _silent_relogin_ready 共用一份口径，
+        # 两个只影响「这次手输的账号」「密码被拒过」的旁支在替身里按「没有」处理
+        api._once_credentials_staged = lambda: False
+        api._auto_relogin_paused = lambda: False
+        api._silent_relogin_ready = types.MethodType(
+            namespace["_silent_relogin_ready"], api)
         return types.MethodType(namespace["_auto_relogin_eligible"], api)()
 
     def test_auto_relogin_blocked_without_current_terms(self):

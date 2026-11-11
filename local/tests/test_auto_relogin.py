@@ -162,6 +162,32 @@ class MonitorTests(unittest.TestCase):
         self.assertFalse(thread.is_alive())
         self.assertEqual(len(self.starts), 1)
 
+    def test_busy_start_is_not_a_failure_and_retries_next_beat(self):
+        # R3：拉列表这类瞬时忙碌时发起会被拒，不能算一次失败，也不能进退避
+        self.monitor._start_relogin = lambda: {"ok": False, "error": "busy"}
+        self.monitor.observe_check("expired")
+        self.monitor.tick()
+        snapshot = self.monitor.snapshot()
+        self.assertEqual(snapshot["failures"], 0, "busy 不该累加失败次数")
+        self.assertNotEqual(snapshot["state"], "backoff", "busy 不该进退避")
+        self.assertEqual(snapshot["retry_in"], 0)
+        started = []
+        self.monitor._start_relogin = lambda: started.append(1) or {
+            "ok": True, "flow_id": "f"}
+        self.monitor.tick()
+        self.assertEqual(started, [1], "下一拍就要重试，不白等 60 秒")
+
+    def test_handoff_when_our_flow_turns_manual(self):
+        # R4：自动发起的一场转人工后，界面要能读出来（不只是日志）
+        self.monitor.observe_check("expired")
+        self.monitor.tick()
+        self.assertFalse(self.monitor.snapshot()["handoff"])
+        self.flow = {"state": "waiting_code", "flow_id": "1", "live": True,
+                     "mode": "manual"}
+        self.monitor.tick()
+        self.assertTrue(self.monitor.snapshot()["handoff"],
+                        "转人工要给界面一个可读的信号")
+
     def test_stop_wakes_wait_and_prevents_more_work(self):
         self.monitor.start()
         self.monitor.stop()

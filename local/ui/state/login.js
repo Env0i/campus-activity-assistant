@@ -24,6 +24,16 @@ function setLogin(hours, ok, present, anchor) {
   /* present 是后端 session_present 的回声：false=从没登录过，true=登录过。
    * 不传（undefined）表示这次事件没说，保留上一次的判断。 */
   if (present !== undefined) S.login.present = !!present;
+  /* 静默自动登录（计划 20261111）：登录已失效、但电脑能自己补回来时，胶囊显示
+   * 「自动登录中」，失效横幅也不出现（paintLogin 读 S.autoLogin）。
+   * recovering 只由后端在本次 check 结论为 expired 时给出：第一次静默失败或已转人工
+   * 输验证码时是 false，提醒照旧回来。转人工后（S.login.handoff）不再画回自动登录中。 */
+  if (anchor && typeof anchor === "object" && "recovering" in anchor) {
+    S.login.recovering = !!anchor.recovering;
+    S.login.recoverBlock = anchor.recover_block ? String(anchor.recover_block) : "";
+    if (S.login.result === "expired" && !S.login.handoff) S.autoLogin = !!anchor.recovering;
+  }
+  if (S.login.result === "valid") S.login.handoff = false;
   /* 估算锚点（绝对时刻）：bootstrap.login / check 事件 / 登录完成后都带同一来源的
    * estimated_expires_at（epoch 秒）。收到就整份替换（重新登录=新锚点），
    * 显式 null 且本机无会话时清掉旧锚点；事件没带（undefined）保持现状。

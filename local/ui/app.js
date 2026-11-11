@@ -126,7 +126,9 @@ window.onBackend = {
     }
     /* 时钟只认结构化载荷：没有结论就落 unknown，绝不从文本猜「慢几秒」（R08） */
     applyClock(data.clock);
-    if (!data.ok && firstNotice("check", data.request_id, "fail")) {
+    /* 静默恢复中（recovering）不刷失败日志：登录失效这件事已由「自动登录中」表达，
+     * 用户不需要看到一条他没法处理的错误。静默失败、转人工后照常记。 */
+    if (!data.ok && !data.recovering && firstNotice("check", data.request_id, "fail")) {
       const reason = String(data.reason || data.text || "登录状态检查没通过");
       addLog(reason.startsWith("[X]") ? reason : "[X] " + reason);
     }
@@ -244,8 +246,8 @@ cxTip.addEventListener("keydown", (event) => {
 });
 $("#list").addEventListener("scroll", () => { if (S.tip.id) placeTip(); });
 $("#btn-refresh").addEventListener("click", () => refresh(false));
-/* 「登录 / 重新登录」先走重新登录对话框（四种情况）；对话框里保留「改用浏览器登录」 */
-$("#btn-login").addEventListener("click", openLogin);
+/* 「登录 / 重新登录」先走重新登录对话框（三种情况）；对话框里保留「改用浏览器登录」 */
+$("#btn-login").addEventListener("click", loginEntry);
 wireRelogin();
 $("#btn-help").addEventListener("click", showHelp);
 /* 条款弹窗：同意 / 暂不使用 / 只读关闭 / 重新确认。TM01（decisions 014 修订）：
@@ -399,7 +401,7 @@ $("#board").addEventListener("click", (event) => {
   const act = btn.dataset.act;
   if (act === "go-cred") openSettingsSection("login");
   else if (act === "go-ocr") openSettingsSection("adv");
-  else if (act === "login") openLogin();
+  else if (act === "login") loginEntry();
   else if (act === "refresh") refresh(false);
   else if (act === "clock-open") openStatusCard("clock", true);
   /* 「还差一步：北京时间还没校准」的「重新校准」直接触发校准（原型 blockers 的 syncClock） */
@@ -465,7 +467,7 @@ $("#banners").addEventListener("click", (event) => {
       paintChecks();
     }
   }
-  if (event.target.closest('[data-act="login"]')) openLogin();
+  if (event.target.closest('[data-act="login"]')) loginEntry();
   if (event.target.closest('[data-act="clock-open"]')) openStatusCard("clock", true);
   const termsBtn = event.target.closest('[data-act="terms-open"]');
   if (termsBtn) {

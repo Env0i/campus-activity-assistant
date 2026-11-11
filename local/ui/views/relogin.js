@@ -1,6 +1,6 @@
-/* 重新登录对话框（设计文档 9.3，电脑和手机同一套规则）：按「有没有保存账号 × 有没有验证码识别」分四种情况。
- * - 有账号 + 有识别：先确认，再让电脑自动登录一次（relogin_auto_once）；
- * - 有账号 + 没识别：电脑填账号密码，用户只输验证码（relogin_begin → relogin_submit）；
+/* 重新登录对话框（设计文档 9.3，电脑和手机同一套规则）：按「有没有保存账号 × 有没有验证码识别」分三种情况。
+ * - 有账号（识别装没装都一样）：直接进验证码步，电脑填账号密码，用户只输验证码；
+ *   登录过又失效时后台本来就在自动恢复，不让用户再确认一次「自动登录一次？」；
  * - 没账号：填账号密码（默认只用一次，勾「保存到这台电脑」才在登录成功后保存），没识别再输验证码；
  * - 保存的密码学校不认：自动登录已暂停，要输新密码。
  * 计划来不及（有场次在提交或离开放不到 100 秒）时后端回 plan_late，这里只说明原因。
@@ -12,6 +12,12 @@ const RELOGIN_PRIVACY_NOTE = "登录时，工具会替你勾选学校登录页�
  * 与哨兵空串区分「还没刷新过」）。 */
 let reloginRefreshedFlow = null;
 
+/* 后端最近推来的这一场进度：对话框没开时也要记着，点「重新登录」才能接上同一场，
+ * 不新开一场把电脑正在跑的那场顶掉。 */
+let reloginRelay = null;
+/* 转人工只提醒一次：中继会重放快照，同一个 handoff 不能每来一条就刷一条运行记录 */
+let reloginHandoffSeen = false;
+
 function reloginDialog() {
   return $("#dlg-relogin");
 }
@@ -19,7 +25,7 @@ function reloginDialog() {
 function reloginCase() {
   const cred = typeof autoLoginCredential === "function" ? autoLoginCredential() : {};
   if (cred.saved && cred.paused) return "bad";
-  if (cred.saved && cred.ocr) return "confirm";
+  /* 保存过账号就直接进验证码步：装了识别也一样，后台已经在自动认，不再先问一次 */
   if (cred.saved) return "captcha";
   return "login";
 }
@@ -247,7 +253,33 @@ function watchBrowserLogin() {
   }, 1000);
 }
 
-/* 打开对话框：按当前四种情况落到对应的第一步。计划来不及时直接说明，不开表单 */
+/* 验证码那一屏：图、已试次数、转人工提示都在这里画，打开对话框和收事件共用一份 */
+function reloginShowChallenge(data) {
+  const payload = data || {};
+  S.relogin.challengeId = String(payload.challenge_id || "");
+  const img = $("#rl-cap-img");
+  if (img) img.src = String(payload.image || "");
+  const tries = $("#rl-cap-tries");
+  if (tries) tries.textContent = Number(payload.attempts) > 0 ? "已经试过 " + Number(payload.attempts) + " 次，换了一张新图。" : "";
+  reloginStep("cap");
+  /* 电脑自动发起的一场认不出来就交给用户：不另开一场，直接让用户输这一张的验证码 */
+  if (payload.handoff) {
+    const times = Number(payload.attempts) || 0;
+    reloginError(times >= 3 ? "自动识别 3 次没认对，请输入验证码。" : "电脑没认出这张验证码，请输入验证码。");
+  }
+  const code = $("#rl-code");
+  if (code) { code.value = ""; reloginCodeReady(); if (typeof code.focus === "function") code.focus(); }
+}
+
+/* 所有「登录 / 重新登录」入口走这里：登录过又失效（含已转人工）走重新登录，
+ * 从没登录过的走登录表单。 */
+function loginEntry() {
+  const login = S.login || {};
+  if (login.result === "expired" || login.handoff) { openRelogin(); return; }
+  openLogin();
+}
+
+/* 打开对话框：按当前情况落到对应的第一步。计划来不及时直接说明，不开表单 */
 function openRelogin() {
   const dlg = reloginDialog();
   /* 条款没同意：登录是学校动作，交给 doLogin 的条款门（弹条款或安静返回），不开对话框 */
@@ -258,8 +290,17 @@ function openRelogin() {
   const kind = reloginCase();
   if (typeof dlg.showModal === "function") { if (!dlg.open) dlg.showModal(); }
   else dlg.setAttribute("open", "");
-  if (kind === "confirm") reloginStep("confirm");
-  else if (kind === "bad") reloginStep("bad");
+  /* 中继里已经有一场在跑（电脑正在自动登录，或刚转人工等用户输码）：接上这一场，不另开 */
+  if (reloginRelay && reloginRelay.live) {
+    S.relogin.flowId = String(reloginRelay.flow_id || "");
+    if (reloginRelay.state === "waiting_code" && reloginRelay.mode !== "auto" && reloginRelay.image) {
+      reloginShowChallenge(reloginRelay);
+      return;
+    }
+    reloginStep("wait", reloginRelay.mode === "auto" ? "电脑正在识别验证码…" : "正在登录…");
+    return;
+  }
+  if (kind === "bad") reloginStep("bad");
   else if (kind === "captcha") { reloginStep("wait", "正在打开学校登录页…"); void beginRelogin(); }
   else reloginStep("login");
 }
@@ -390,11 +431,28 @@ function reloginSucceeded(flowId) {
 /* 后端推来的这一场进度（与手机同一份 public_state）：只在对话框开着时接管画面 */
 function receiveReloginState(payload) {
   const data = payload || {};
-  /* 顶栏「自动登录中…」：这一场是电脑自动发起的、还在进行就亮，结束就收（架构方案 4.3） */
-  const auto = String(data.origin || "") === "auto" && !!data.live;
+  reloginRelay = data;
+  const handoff = !!data.handoff;
+  /* 转人工：后台不另开一场，等用户在对话框里输这张验证码；只提醒一次 */
+  if (handoff && !reloginHandoffSeen) {
+    reloginHandoffSeen = true;
+    addLog("[!] 自动识别 3 次没认对，请点「重新登录」输入验证码");
+  }
+  if (!handoff) reloginHandoffSeen = false;
+  if (S.login) {
+    /* 一场走完（成功/失败/取消）就不再是「等用户输码」，下一段失效还能重新静默恢复 */
+    if (data.state === "success" || data.live === false) S.login.handoff = false;
+    else if (handoff) S.login.handoff = true;
+  }
+  /* 顶栏「自动登录中…」：这一场是电脑自动发起的、还在进行就亮，结束或转人工就收
+   * （架构方案 4.3；转人工以后要让「登录已失效」和重新登录入口回来） */
+  const auto = String(data.origin || "") === "auto" && !!data.live && !handoff;
   if (auto !== !!S.autoLogin) {
     S.autoLogin = auto;
     paintLogin();
+    /* 横幅读 S.login.view（paintLogin 刚按 autoLogin 重算过）：转人工、静默失败时
+     * 失效横幅要当场回来，不能等下一次 check。 */
+    paintBanners();
   }
   if (!S.relogin || !S.relogin.open) {
     if (data.state === "success") {
@@ -407,14 +465,7 @@ function receiveReloginState(payload) {
   if (data.flow_id) S.relogin.flowId = String(data.flow_id);
   const state = String(data.state || "");
   if (state === "waiting_code" && data.mode !== "auto" && data.image) {
-    S.relogin.challengeId = String(data.challenge_id || "");
-    const img = $("#rl-cap-img");
-    if (img) img.src = String(data.image);
-    const tries = $("#rl-cap-tries");
-    if (tries) tries.textContent = Number(data.attempts) > 0 ? "已经试过 " + Number(data.attempts) + " 次，换了一张新图。" : "";
-    reloginStep("cap");
-    const code = $("#rl-code");
-    if (code) { code.value = ""; reloginCodeReady(); if (typeof code.focus === "function") code.focus(); }
+    reloginShowChallenge(data);
     return;
   }
   if (state === "verifying" || state === "starting" || (state === "waiting_code" && data.mode === "auto")) {
