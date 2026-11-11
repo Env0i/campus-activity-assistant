@@ -294,6 +294,12 @@ def sha256_of(path: Path) -> str:
     return digest.hexdigest()
 
 
+# 已发布的 1.2.0/1.2.1 客户端（local/update_check.py 的 MAX_INSTALLER_BYTES）会遍历
+# 清单 files 的每一项，任何一项超过 300 MiB 就把整份清单当作无效，老用户从此看不到更新。
+# 这个口径是已经发出去的客户端行为，只能在发版这一侧挡住。
+MAX_MANIFEST_ASSET_BYTES = 300 * 1024 * 1024
+
+
 def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
                    build_state: dict | None = None,
                    component_included: bool | None = None,
@@ -314,6 +320,14 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
     site_configured 只记有没有把站点地址注入发布物，**不写地址本身**。
     """
     state = build_state or git_state()
+    # 先量大小再算哈希：超限资产不值得再读一遍几百 MB。超限时一个字节的清单都不写。
+    sizes = {p.name: p.stat().st_size for p in files}
+    for asset_name, size in sizes.items():
+        if size > MAX_MANIFEST_ASSET_BYTES:
+            raise SystemExit(
+                "[prepare] 资产 %s 为 %.1f MiB，超过旧客户端清单校验上限 %d MiB：已发布的 "
+                "1.2.0/1.2.1 客户端会把整份清单当作无效，老用户将看不到更新。请先缩小该资产。"
+                % (asset_name, size / 1024 / 1024, MAX_MANIFEST_ASSET_BYTES // 1024 // 1024))
     manifest = {
         "version": version,
         "tag": tag,
@@ -322,7 +336,7 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
         "commit_short": state["commit"],
         "source_dirty": bool(state["dirty"]),
         "built_at": datetime.now().isoformat(timespec="seconds"),
-        "files": {p.name: {"sha256": sha256_of(p), "bytes": p.stat().st_size}
+        "files": {p.name: {"sha256": sha256_of(p), "bytes": sizes[p.name]}
                   for p in files},
     }
     if component_included is not None:
@@ -406,6 +420,40 @@ def stage_full_payload(version: str, stage_dir: Path, onedir_dir: Path) -> tuple
             relative = entry["path"]
             archive.write(onedir_dir / Path(*relative.split("/")), relative)
     return target, manifest["target_manifest_sha256"], manifest
+
+
+def verify_delta_base(base_dir, base_version: str, base_manifest) -> None:
+    """核对 --delta-base 目录就是基线版本当年发布出去的那一份，不符就中止。
+
+    PyInstaller 构建不可复现：自己重建出来的 onedir 与用户机器上装的哈希不同，
+    据它生成的增量包对谁都套不上。所以必须拿基线版本已发布的 manifest.json
+    （本地副本）当真相，用与更新器同一实现算出基线目录的目标清单哈希来比。
+    """
+    if not base_manifest:
+        raise SystemExit(
+            "[prepare] 生成 delta 必须同时提供 --delta-base-manifest：基线版本 %s 已发布的 "
+            "manifest.json 本地副本。重建出的基线与用户机器上的不一致，增量包会对谁都不匹配。"
+            % base_version)
+    path = Path(base_manifest)
+    try:
+        published = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise SystemExit("[prepare] 读不出基线清单 %s：%s" % (path.name, exc))
+    if not isinstance(published, dict):
+        raise SystemExit("[prepare] 基线清单 %s 格式不对" % path.name)
+    if published.get("version") != base_version:
+        raise SystemExit("[prepare] 基线清单是 %s 的，与 --delta-base-version %s 不一致"
+                         % (published.get("version"), base_version))
+    full_payload = published.get("full_payload")
+    expected = published.get("target_manifest_sha256") or (
+        full_payload.get("target_manifest_sha256") if isinstance(full_payload, dict) else None)
+    if not isinstance(expected, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected):
+        raise SystemExit("[prepare] 基线清单没有 target_manifest_sha256，无法核对 --delta-base")
+    actual = _target_manifest(Path(base_dir), base_version)["target_manifest_sha256"]
+    if actual.lower() != expected.lower():
+        raise SystemExit(
+            "[prepare] --delta-base 目录与基线版本 %s 已发布的清单不符（目标清单哈希不同）："
+            "请用当年发布的那份 onedir，而不是重新构建的" % base_version)
 
 
 def stage_delta_payload(base_version: str, target_version: str,
@@ -577,6 +625,7 @@ def stage_local_assets(version: str, *, with_component: bool = True,
                        cloudflared: Path | str | None = None,
                        delta_base: Path | str | None = None,
                        delta_base_version: str | None = None,
+                       delta_base_manifest: Path | str | None = None,
                        split_components: bool = False) -> dict:
     """准备阶段：构建 + 组装完整 ZIP、单文件 EXE 与 onedir payload，写 manifest。
 
@@ -585,6 +634,11 @@ def stage_local_assets(version: str, *, with_component: bool = True,
     构建前后来源（HEAD/脏状态）必须一致：构建中途改代码的产物不能当候选。
     """
     tag = tag_of(version)
+    if delta_base is not None or delta_base_version is not None:
+        # 基线核对放在构建之前：基线不对时不值得再等几十分钟的构建
+        if delta_base is None or not delta_base_version:
+            raise SystemExit("[prepare] 生成 delta 需要同时提供 --delta-base 和 --delta-base-version")
+        verify_delta_base(delta_base, delta_base_version, delta_base_manifest)
     pre = git_state()
     # 来源脏 = 预览构建：允许不注入站点地址；干净来源的正式候选必须注入，
     # 缺 SCHOOL_ORIGIN 或不是 https 时在构建**之前**直接失败（不产出任何资产）。
@@ -638,9 +692,7 @@ def stage_local_assets(version: str, *, with_component: bool = True,
         version, stage_dir, onedir_out)
     delta_path = None
     delta_info = None
-    if delta_base is not None or delta_base_version is not None:
-        if delta_base is None or not delta_base_version:
-            raise SystemExit("[prepare] 生成 delta 需要同时提供 --delta-base 和 --delta-base-version")
+    if delta_base is not None:
         delta_path, delta_info = stage_delta_payload(
             delta_base_version, version, stage_dir, Path(delta_base), onedir_out)
         print("[prepare] delta 资产：%s  %.1f MB（基线 %s）"
@@ -1222,6 +1274,9 @@ def main() -> int:
                     help="prepare 时使用历史 onedir 版本目录生成 delta 资产（默认不生成）")
     ap.add_argument("--delta-base-version",
                     help="--delta-base 对应的三段版本号")
+    ap.add_argument("--delta-base-manifest",
+                    help="基线版本已发布的 manifest.json 本地副本；给了 --delta-base 就必须给，"
+                         "用来核对基线目录就是当年发布的那一份")
     ap.add_argument("--split-components", action="store_true",
                     help="prepare 时同时构建 schema2 runtime/model/tool 资产")
     args = ap.parse_args()
@@ -1248,6 +1303,7 @@ def main() -> int:
                            cloudflared=args.cloudflared,
                            delta_base=args.delta_base,
                            delta_base_version=args.delta_base_version,
+                           delta_base_manifest=args.delta_base_manifest,
                            split_components=args.split_components)
         return 0
     check_only(version)   # 默认与 --check：零副作用

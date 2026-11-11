@@ -352,6 +352,115 @@ class PortableBundleTests(unittest.TestCase):
             self.assertEqual(data["deltas"][0]["sha256"], rel.sha256_of(delta))
 
 
+class ReleaseGuardTests(unittest.TestCase):
+    """发版前门禁（2026-11-11 返修 E1/E2）：超限资产与错误基线必须在 prepare 阶段被拦。"""
+
+    MIB = 1024 * 1024
+
+    class _FakeAsset:
+        """只带名字和大小的资产替身：不落盘 300 MiB，也不读内容。"""
+
+        def __init__(self, name, size):
+            self.name = name
+            self._size = size
+
+        def stat(self):
+            import types
+            return types.SimpleNamespace(st_size=self._size)
+
+    def _state(self):
+        return {"branch": "main", "full": "a" * 40, "commit": "a" * 7, "dirty": ""}
+
+    def test_manifest_rejects_asset_over_old_client_limit(self):
+        """已发布的 1.2.0/1.2.1 客户端遍历 files 每一项，任何一项超过 300 MiB 整份清单作废。"""
+        rel = load_release()
+        with tempfile.TemporaryDirectory() as name:
+            big = self._FakeAsset("big-installer.exe", 300 * self.MIB + 1)
+            with mock.patch.object(rel, "sha256_of", return_value="ab" * 32):
+                with self.assertRaises(SystemExit) as refused:
+                    rel.write_manifest(Path(name), "1.2.3", "v1.2.3", [big],
+                                       build_state=self._state())
+            self.assertIn("big-installer.exe", str(refused.exception))
+            self.assertFalse((Path(name) / "manifest.json").exists())
+
+    def test_manifest_accepts_asset_exactly_at_limit(self):
+        rel = load_release()
+        with tempfile.TemporaryDirectory() as name:
+            edge = self._FakeAsset("edge.exe", 300 * self.MIB)
+            with mock.patch.object(rel, "sha256_of", return_value="ab" * 32):
+                path = rel.write_manifest(Path(name), "1.2.3", "v1.2.3", [edge],
+                                          build_state=self._state())
+            self.assertTrue(path.is_file())
+
+    def _base_with_published_manifest(self, root, *, version="1.2.1", field="top"):
+        """造一个历史基线目录和它已发布的 manifest.json 本地副本。"""
+        import json
+        rel = load_release()
+        base = root / "base"
+        base.mkdir()
+        (base / "keep.txt").write_bytes(b"same")
+        (base / "old.txt").write_bytes(b"old")
+        digest = rel._target_manifest(base, version)["target_manifest_sha256"]
+        published = {"version": version}
+        if field == "top":
+            published["target_manifest_sha256"] = digest
+        else:
+            published["full_payload"] = {"target_manifest_sha256": digest}
+        manifest = root / "published-manifest.json"
+        manifest.write_text(json.dumps(published), encoding="utf-8")
+        return rel, base, manifest
+
+    def test_delta_base_without_published_manifest_is_refused(self):
+        with tempfile.TemporaryDirectory() as name:
+            rel, base, _ = self._base_with_published_manifest(Path(name))
+            with self.assertRaises(SystemExit) as refused:
+                rel.verify_delta_base(base, "1.2.1", None)
+            self.assertIn("--delta-base-manifest", str(refused.exception))
+
+    def test_delta_base_matching_published_manifest_is_accepted(self):
+        for field in ("top", "full_payload"):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as name:
+                rel, base, manifest = self._base_with_published_manifest(
+                    Path(name), field=field)
+                rel.verify_delta_base(base, "1.2.1", manifest)
+
+    def test_rebuilt_base_with_different_hash_is_refused(self):
+        with tempfile.TemporaryDirectory() as name:
+            rel, base, manifest = self._base_with_published_manifest(Path(name))
+            (base / "old.txt").write_bytes(b"rebuilt-differently")
+            with self.assertRaises(SystemExit) as refused:
+                rel.verify_delta_base(base, "1.2.1", manifest)
+            self.assertIn("1.2.1", str(refused.exception))
+
+    def test_manifest_of_another_version_is_refused(self):
+        with tempfile.TemporaryDirectory() as name:
+            rel, base, manifest = self._base_with_published_manifest(
+                Path(name), version="1.2.0")
+            with self.assertRaises(SystemExit):
+                rel.verify_delta_base(base, "1.2.1", manifest)
+
+    def test_prepare_refuses_delta_base_without_manifest_before_any_build(self):
+        rel = load_release()
+        with tempfile.TemporaryDirectory() as name:
+            no_build = AssertionError("不应开始构建")
+            with mock.patch.object(rel, "build_exe_onefile", side_effect=no_build):
+                with mock.patch.object(rel, "build_exe_onedir", side_effect=no_build):
+                    with self.assertRaises(SystemExit) as refused:
+                        rel.stage_local_assets("1.2.2", with_component=False,
+                                               delta_base=Path(name),
+                                               delta_base_version="1.2.1")
+            self.assertIn("--delta-base-manifest", str(refused.exception))
+
+    def test_cli_passes_delta_base_manifest_to_prepare(self):
+        rel = load_release()
+        argv = ["release.py", "--prepare", "--delta-base", "base-dir",
+                "--delta-base-version", "1.2.1", "--delta-base-manifest", "m.json"]
+        with mock.patch.object(sys, "argv", argv):
+            with mock.patch.object(rel, "stage_local_assets") as prepared:
+                self.assertEqual(rel.main(), 0)
+        self.assertEqual(prepared.call_args.kwargs["delta_base_manifest"], "m.json")
+
+
 class InstallerSourceIntegrationTests(unittest.TestCase):
     """安装器纳入发布流水线：同一份冻结 EXE 派生三资产，manifest 全量记账。
 
