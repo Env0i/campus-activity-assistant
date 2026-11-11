@@ -231,17 +231,33 @@ class ProcessTree:
         失败不置「已成功」标志：watchdog 失败后 finally 还能再试一次。
         加锁串行化 watchdog 与 finally 的并发调用，避免一个正在
         TerminateJobObject 时另一个已经走进了 close()。
+
+        TerminateJobObject 返回后 Job 里的进程是异步收尾的，紧接着看 poll() 几乎总是
+        还没退，旧写法因此每次都再跑一遍 taskkill /T（最多 3 秒，还持着 tree 锁）。
+        现在发完 Job 终止先等父进程最多 1 秒；等的时候不持锁（锁只管句柄的使用，
+        等待不碰句柄），等完仍没退才按需 taskkill。
         """
+        job_terminated = False
         with self._lock:
             if self._ended:
                 return True
             ok = True
             if self._job is not None:
                 try:
-                    if not win_kernel32().TerminateJobObject(self._job, 1):
+                    if win_kernel32().TerminateJobObject(self._job, 1):
+                        job_terminated = True
+                    else:
                         ok = False
                 except Exception:
                     ok = False
+        if job_terminated and self.proc.poll() is None:
+            try:
+                self.proc.wait(timeout=1)
+            except Exception:
+                pass
+        with self._lock:
+            if self._ended:
+                return True
             if self.proc.poll() is None:
                 if not kill_tree(self.proc):
                     ok = False
@@ -308,10 +324,12 @@ def _close_streams(proc: subprocess.Popen) -> None:
 
 def spawn_owned(args: list[str], *, cwd: str, env: dict, stdin=None,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                bufsize: int = 1) -> ProcessTree:
+                bufsize: int = 1, creationflags: int = 0) -> ProcessTree:
     """创建受管 worker：先挂起，取得进程树所有权后再让它跑。
 
     stdio 由调用方指定：计划/单活动只要 stdout，relay 还要往 stdin 写。
+    creationflags 是调用方额外要的创建标志（比如新进程组），与本函数必须的
+    CREATE_NO_WINDOW、CREATE_SUSPENDED 按位或，不会替换它们。
     任何一步（挂起创建 / 建 Job / 归属 / 恢复线程）失败，都先把仍挂起的
     自有进程结束掉、关掉所有自有管道与句柄，再抛 :class:`SpawnFailure`；
     调用方据此把这一场记成「本机没能启动」，不产生任何网络或浏览器动作。
@@ -321,7 +339,7 @@ def spawn_owned(args: list[str], *, cwd: str, env: dict, stdin=None,
     proc = subprocess.Popen(
         args, cwd=cwd, stdin=stdin, stdout=stdout, stderr=stderr,
         text=True, encoding="utf-8", errors="replace", bufsize=bufsize,
-        env=env, creationflags=CREATE_NO_WINDOW | _CREATE_SUSPENDED)
+        env=env, creationflags=int(creationflags) | CREATE_NO_WINDOW | _CREATE_SUSPENDED)
     job = None
     try:
         thread = open_primary_thread(proc.pid)

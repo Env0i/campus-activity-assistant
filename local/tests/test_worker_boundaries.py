@@ -3949,6 +3949,115 @@ class ProcessTreeCloseTests(unittest.TestCase):
         self.assertEqual(closed, [77], "Job 句柄必须只关闭一次")
 
 
+class _JobExitPopen:
+    """TerminateJobObject 之后才异步退出的父进程替身：wait 被调用时才算退出。"""
+
+    pid = 4242
+
+    def __init__(self, *, exited=False, exits_on_wait=True):
+        self.exited = exited
+        self.exits_on_wait = exits_on_wait
+        self.waits = []
+        self.tree = None
+        self.lock_free_during_wait = None
+
+    def poll(self):
+        return 0 if self.exited else None
+
+    def wait(self, timeout=None):
+        import subprocess
+        self.waits.append(timeout)
+        if self.tree is not None:
+            # 另一个线程此刻必须能拿到 tree 锁：等待期间不得持锁，否则 close() 与别的 terminate 都被拖住
+            seen = []
+
+            def probe():
+                got = self.tree._lock.acquire(blocking=False)
+                seen.append(got)
+                if got:
+                    self.tree._lock.release()
+
+            thread = threading.Thread(target=probe)
+            thread.start()
+            thread.join()
+            self.lock_free_during_wait = seen[0]
+        if not self.exits_on_wait:
+            raise subprocess.TimeoutExpired("worker", timeout)
+        self.exited = True
+        return 0
+
+
+class ProcessTreeJobExitTests(unittest.TestCase):
+    """P1/P5：Job 收尾是异步的，terminate 不能因此每次都多跑一遍 taskkill。"""
+
+    def _tree(self, proc):
+        kernel = _FakeKernel32()
+        closed = []
+        tree = process_tree.ProcessTree(proc, 77)
+        proc.tree = tree
+        patches = [patch.object(process_tree, "win_kernel32", lambda: kernel),
+                   patch.object(process_tree, "close_handle", closed.append)]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        return tree, kernel, closed
+
+    def test_job_terminate_then_short_wait_skips_taskkill(self):
+        proc = _JobExitPopen()
+        tree, kernel, closed = self._tree(proc)
+        with patch.object(process_tree, "kill_tree", return_value=True) as kill:
+            self.assertTrue(tree.terminate())
+        self.assertEqual(kernel.calls, ["terminate"])
+        self.assertEqual(proc.waits, [1], "Job 终止后只等 1 秒")
+        kill.assert_not_called()
+        self.assertTrue(proc.lock_free_during_wait, "等待期间不得持 tree 锁")
+        tree.close()
+        self.assertEqual(closed, [77])
+
+    def test_slow_exit_still_falls_back_to_taskkill(self):
+        proc = _JobExitPopen(exits_on_wait=False)
+        tree, kernel, _closed = self._tree(proc)
+        with patch.object(process_tree, "kill_tree", return_value=True) as kill:
+            self.assertTrue(tree.terminate())
+        kill.assert_called_once_with(proc)
+        self.assertEqual(proc.waits, [1])
+        with patch.object(process_tree, "kill_tree", return_value=True) as again:
+            self.assertTrue(tree.terminate(), "已确认终止后重复调用保持幂等")
+        again.assert_not_called()
+        self.assertEqual(kernel.calls, ["terminate"])
+
+    def test_failed_taskkill_is_not_marked_ended(self):
+        proc = _JobExitPopen(exits_on_wait=False)
+        tree, _kernel, _closed = self._tree(proc)
+        with patch.object(process_tree, "kill_tree", return_value=False):
+            self.assertFalse(tree.terminate())
+        with patch.object(process_tree, "kill_tree", return_value=True) as retry:
+            self.assertTrue(tree.terminate(), "失败后 finally 还要能再试一次")
+        retry.assert_called_once_with(proc)
+
+    def test_parent_already_exited_still_terminates_the_job(self):
+        """父进程先退出：靠 Job 收走后代，不依赖父 PID 走树。"""
+        proc = _JobExitPopen(exited=True)
+        tree, kernel, closed = self._tree(proc)
+        with patch.object(process_tree, "kill_tree", return_value=True) as kill:
+            self.assertTrue(tree.terminate())
+        self.assertEqual(kernel.calls, ["terminate"], "父进程已退出时仍要对 Job 发终止")
+        kill.assert_not_called()
+        self.assertEqual(proc.waits, [], "父进程已退出就不用再等")
+        tree.close()
+        self.assertEqual(closed, [77])
+
+    def test_parent_already_exited_close_alone_releases_the_job(self):
+        """没人调 terminate 时，关句柄（KILL_ON_JOB_CLOSE）就是兜底的收尸。"""
+        proc = _JobExitPopen(exited=True)
+        tree, kernel, closed = self._tree(proc)
+        tree.close()
+        self.assertEqual(closed, [77])
+        self.assertEqual(kernel.calls, [])
+        self.assertTrue(tree.terminate(), "句柄已关、父进程已退时 terminate 不再有事可做")
+        self.assertEqual(kernel.calls, [])
+
+
 @unittest.skipUnless(sys.platform == "win32", "受管进程树只在 Windows 上创建")
 class SpawnOwnedStdioTests(unittest.TestCase):
     """受管创建入口：stdio 可配、所有权先于执行、失败回收不留半截。"""

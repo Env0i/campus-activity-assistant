@@ -172,6 +172,64 @@ class SaveVerifiedUnderLockTests(_Base):
         self.assertFalse(self.session.exists())
 
 
+class SaveVerifiedRollbackTests(_Base):
+    """P2：第二个文件没写成、回滚也出问题时，调用方看到的仍是最初那个异常。"""
+
+    def setUp(self):
+        super().setUp()
+        self.state = self.root / "storage_state.json"
+        self.state.write_bytes(b'{"old": "state"}')
+        self.session.write_bytes(b'{"old": "session"}')
+        self.calls = []
+        real_replace = os.replace
+
+        def flaky_replace(src, dst):
+            self.calls.append(Path(dst).name)
+            if len(self.calls) == 1:
+                return real_replace(src, dst)
+            if len(self.calls) == 2:
+                raise OSError("second replace failed")
+            raise OSError("rollback replace failed")
+
+        patcher = mock.patch("grab.os.replace", side_effect=flaky_replace)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _save(self):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            with self.assertRaises(OSError) as caught:
+                grab.save_verified_files({"new": "state"}, {"token": "new"},
+                                         self.state, self.session)
+        return caught.exception, out.getvalue(), err.getvalue()
+
+    def test_failed_rollback_does_not_mask_the_original_error(self):
+        real_open = open
+
+        def refuse_rewrite(path, mode="r", *args, **kwargs):
+            if "wb" in mode:
+                raise OSError("rewrite failed")
+            return real_open(path, mode, *args, **kwargs)
+
+        with mock.patch.object(grab, "open", refuse_rewrite, create=True):
+            error, out, err = self._save()
+        self.assertEqual(str(error), "second replace failed")
+        self.assertEqual(out, "", "grab.py 的 stdout 是协议，回滚诊断不能写到这里")
+        self.assertEqual(self.logs, [], "诊断只走 stderr，不经 log()")
+        self.assertTrue(err.strip(), "回滚失败要在 stderr 留一句")
+        self.assertNotIn("new", err, "诊断里不写登录态内容")
+        self.assertEqual(list(self.root.glob("*.tmp")), [])
+
+    def test_rollback_falls_back_to_in_place_restore(self):
+        error, out, _err = self._save()
+        self.assertEqual(str(error), "second replace failed")
+        self.assertEqual(out, "")
+        self.assertEqual(self.state.read_bytes(), b'{"old": "state"}',
+                         "换位回滚失败时仍要尽力把已落位的文件写回原样")
+        self.assertEqual(self.session.read_bytes(), b'{"old": "session"}')
+        self.assertEqual(list(self.root.glob("*.tmp")), [])
+
+
 class _FakePage:
     """命令行登录的最小页面替身：只回答 token 轮询与 localStorage 快照。"""
 

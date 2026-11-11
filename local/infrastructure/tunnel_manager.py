@@ -202,7 +202,9 @@ def spawn_cloudflared(args, **kwargs):
     tree = process_tree.spawn_owned(
         args, cwd=str(Path(args[0]).resolve().parent), env=os.environ.copy(),
         stdin=kwargs.get("stdin"), stdout=kwargs.get("stdout", subprocess.PIPE),
-        stderr=kwargs.get("stderr", subprocess.STDOUT))
+        stderr=kwargs.get("stderr", subprocess.STDOUT),
+        # 调用方要的创建标志（新进程组等）并进受管创建，不能被它自己的标志顶掉
+        creationflags=int(kwargs.get("creationflags") or 0))
 
     def watch_exit():
         try:
@@ -282,6 +284,12 @@ class CloudflareTunnel:
             )
         except Exception as exc:  # noqa: BLE001
             self._release_usage()
+            from infrastructure import component_packages
+            if (isinstance(exc, component_packages.PackageError)
+                    and exc.args and exc.args[0] == "component_in_use"):
+                # 另一个进程正在装/删/用手机控制组件：这是可以稍后重试的忙，不是故障
+                return {"ok": False, "error": "component_in_use",
+                        "text": "手机控制组件正在使用，稍后再试"}
             return {"ok": False, "error": "tunnel_start_failed",
                     "text": "Cloudflare 隧道启动失败：%s" % type(exc).__name__}
         self._proc = proc

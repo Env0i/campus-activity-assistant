@@ -24,7 +24,7 @@ LOCAL = Path(__file__).resolve().parents[1]
 if str(LOCAL) not in sys.path:
     sys.path.insert(0, str(LOCAL))
 
-from infrastructure import component_packages, phone_qr, tunnel_manager  # noqa: E402
+from infrastructure import component_packages, phone_qr, process_tree, tunnel_manager  # noqa: E402
 
 
 class FakeCompleted:
@@ -322,6 +322,47 @@ class SpawnCloudflaredTests(unittest.TestCase):
         proc.wait.assert_called_once_with()
         tree.close.assert_called_once_with()
 
+    def test_caller_creationflags_reach_the_real_popen(self):
+        """P4：调用方要的创建标志（新进程组等）不能在受管创建里被丢掉。"""
+        instances = []
+
+        class RecordingPopen:
+            pid = 4242
+            stdout = None
+
+            def __init__(self, args, **kwargs):
+                self.args, self.kwargs = args, kwargs
+                self.stdin = self.stderr = None
+                instances.append(self)
+
+            def wait(self, timeout=None):
+                return 0
+
+            def poll(self):
+                return 0
+
+        kernel = mock.Mock()
+        kernel.ResumeThread.return_value = 0
+        wanted = 0x00000200       # CREATE_NEW_PROCESS_GROUP
+        patches = [
+            mock.patch.object(process_tree, "subprocess", types.SimpleNamespace(
+                Popen=RecordingPopen, PIPE=-1, STDOUT=-2, DEVNULL=-3)),
+            mock.patch.object(process_tree, "os", types.SimpleNamespace(name="nt")),
+            mock.patch.object(process_tree, "win_kernel32", lambda: kernel),
+            mock.patch.object(process_tree, "open_primary_thread", lambda pid: 99),
+            mock.patch.object(process_tree, "create_job_for", lambda proc: 77),
+            mock.patch.object(process_tree, "close_handle", lambda handle: None),
+            mock.patch.object(tunnel_manager.threading, "Thread"),
+        ]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        tunnel_manager.spawn_cloudflared(["cf.exe", "tunnel"], creationflags=wanted)
+        flags = instances[0].kwargs["creationflags"]
+        self.assertTrue(flags & wanted, "调用方的 creationflags 要出现在实际 Popen 参数里")
+        self.assertTrue(flags & process_tree.CREATE_NO_WINDOW, "不弹窗的标志仍要保留")
+        self.assertTrue(flags & process_tree._CREATE_SUSPENDED, "先挂起再入 Job 的顺序不能丢")
+
     def test_thread_start_failure_terminates_and_closes_tree(self):
         tree = mock.Mock()
         with mock.patch("infrastructure.process_tree.spawn_owned", return_value=tree):
@@ -347,6 +388,39 @@ class CloudflareTunnelTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(result["error"], "tunnel_start_failed")
         self.assertIn("OSError", result["text"])
+
+    def test_component_in_use_gets_a_plain_message(self):
+        """P4：另一个进程正占用手机控制组件时，用户看到的是可操作的提示而不是异常类名。"""
+        class Busy:
+            def __enter__(self):
+                raise component_packages.PackageError("component_in_use")
+
+            def __exit__(self, *exc):
+                return False
+
+        popen = FakePopen()
+        tunnel = tunnel_manager.CloudflareTunnel(
+            "cf.exe", popen=popen, usage=lambda _path: Busy())
+        result = tunnel.start("http://127.0.0.1:8765")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "component_in_use")
+        self.assertEqual(result["text"], "手机控制组件正在使用，稍后再试")
+        self.assertNotIn("PackageError", result["text"])
+        self.assertEqual(popen.calls, [])
+
+    def test_other_package_errors_keep_the_type_only_message(self):
+        class Broken:
+            def __enter__(self):
+                raise component_packages.PackageError("unsafe_path")
+
+            def __exit__(self, *exc):
+                return False
+
+        tunnel = tunnel_manager.CloudflareTunnel(
+            "cf.exe", popen=FakePopen(), usage=lambda _path: Broken())
+        result = tunnel.start("http://127.0.0.1:8765")
+        self.assertEqual(result["error"], "tunnel_start_failed")
+        self.assertIn("PackageError", result["text"])
 
     def test_quick_tunnel_url_is_parsed_and_kept(self):
         popen = FakePopen(lines=[

@@ -478,16 +478,47 @@ def _save_verified_files_locked(state, session, state_path=None, session_path=No
     except Exception:
         for _path, tmp in prepared:
             _unlink_quiet(tmp)
+        # 每个已落位的文件各自尽力恢复：一个恢复失败不能让另一个也留成新内容，
+        # 更不能让回滚的异常盖掉最初那个异常（调用方要看到的是真正的失败原因）
         for path in replaced:
-            blob = originals.get(path)
-            if blob is None:
-                _unlink_quiet(path)
-            else:
-                tmp = path.with_suffix(path.suffix + ".tmp")
-                with open(tmp, "wb") as f:
-                    f.write(blob)
-                os.replace(tmp, path)
+            _restore_original(path, originals.get(path))
         raise
+
+
+def _restore_original(path, blob):
+    """把已落位的文件恢复成保存前的字节（None 表示原本不存在）；失败只写 stderr。
+
+    先走临时文件加替换；替换不成再原地覆盖写回。stdout 是 worker 协议，
+    回滚诊断不能打到那里，也不记任何登录态内容，只留文件名和异常类型。
+    """
+    if blob is None:
+        try:
+            Path(path).unlink(missing_ok=True)
+        except Exception as exc:  # noqa: BLE001
+            _rollback_note(path, exc)
+        return
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        with open(tmp, "wb") as f:
+            f.write(blob)
+        os.replace(tmp, path)
+        return
+    except Exception:  # noqa: BLE001 - 换位不成就退到原地覆盖
+        _unlink_quiet(tmp)
+    try:
+        with open(path, "wb") as f:
+            f.write(blob)
+    except Exception as exc:  # noqa: BLE001
+        _rollback_note(path, exc)
+
+
+def _rollback_note(path, exc):
+    try:
+        sys.stderr.write("[X] 登录态回滚没成功：%s 可能还是新内容（%s）\n"
+                         % (Path(path).name, type(exc).__name__))
+        sys.stderr.flush()
+    except Exception:
+        pass
 
 
 def token():
