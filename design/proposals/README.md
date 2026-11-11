@@ -18,6 +18,7 @@
 |---|---|
 | [replayable-product-tour.md](replayable-product-tour.md) 可重播分步功能引导 | proposed（尚未实现） |
 | [activity-description-info-button.md](activity-description-info-button.md) 活动简介问号入口 | proposed（尚未实现） |
+| [auto-relogin-failure-notice.md](auto-relogin-failure-notice.md) 自动登录失败后怎么告知用户 | proposed（尚未实现） |
 
 ## 生命周期
 
