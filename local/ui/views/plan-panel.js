@@ -1258,8 +1258,9 @@ function updateControls() {
   $("#btn-clear-plan").disabled = S.busy || S.starting || (!S.selected.size && !S.plan.tasks.size);
   document.querySelectorAll(".row-check").forEach((check) => {
     const item = findItem(check.dataset.id);
-    /* 与行渲染同一份判据：已报名/已截止/忙碌都禁用，已截止仍可查看 */
-    check.disabled = S.busy || S.starting || termsLocked() || !isEligibleForPlan(item) || !!signedClash(item);
+    /* 与行渲染同一份判据：已报名/已截止/忙碌都禁用，已截止仍可查看。
+     * 与 list.js rowHtml 的 checkDisabled 同一条判据，改一处要同步另一处（H2：此前这里缺 signStartPending） */
+    check.disabled = S.busy || S.starting || termsLocked() || !isEligibleForPlan(item) || !!signedClash(item) || signStartPending(item);
   });
   /* 取消报名按钮与行渲染同一份互斥判据：计划、刷新、登录或另一场取消都会置灰并写原因 */
   document.querySelectorAll("[data-cancel]").forEach((btn) => {

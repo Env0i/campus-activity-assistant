@@ -151,7 +151,8 @@ function rowHtml(item) {
    * 原因不写在行内：状态格只留「不可加入」，悬停或聚焦弹气泡（20261107-conflict-cancel U1） */
   const clash = clashOf(item, armed);
   /* LS14：开放时间待公布的行也禁勾（原型 off 含 unknown），见 signStartPending */
-  const checkDisabled = S.busy || termsLocked() || !isEligibleForPlan(item) || !!signedClash(item) || signStartPending(item);
+  /* 与 plan-panel.js updateControls 同一条判据，改一处要同步另一处（H2：此前这里缺 S.starting） */
+  const checkDisabled = S.busy || S.starting || termsLocked() || !isEligibleForPlan(item) || !!signedClash(item) || signStartPending(item);
   /* 学校常把开放时间定在 00:59:59 这种点：有秒就把秒写成小号 */
   /* 还不知道开放时刻就写「待公布」（原型 Main.dc.html:1944），不拿 --:-- 冒充一个时刻 */
   let timeHtml = '<span class="t">待公布</span>';

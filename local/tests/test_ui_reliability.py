@@ -1443,6 +1443,57 @@ out.push({ selectedSize: S.selected.size, planId: S.plan.id, planStatus: S.plan.
         self.assertEqual(data["planStatus"], "running")
 
 
+class RowCheckGateConsistencyTests(unittest.TestCase):
+    """H2：行渲染与 updateControls 对复选框用同一份禁用判据。
+
+    此前行渲染缺 S.starting，updateControls 缺 signStartPending：开放时间待公布的行
+    在 updateControls 之后会被重新启用，提交中重画列表时勾选框又能点。
+    """
+
+    LIST = r"""
+const rows = [
+  { id: "a1", name: "正常活动", sign_start: "2099-01-01 09:00:00", sign_end: "2099-01-02 09:00:00",
+    act_start: "2099-01-03 09:00:00", act_end: "2099-01-03 11:00:00", signed: false },
+  { id: "a2", name: "待公布活动", sign_start: "", sign_end: "2099-01-02 09:00:00",
+    act_start: "2099-01-04 09:00:00", act_end: "2099-01-04 11:00:00", signed: false },
+];
+window.onBackend.activities({ ok: true, items: rows });
+S.busy = false; S.starting = false;
+"""
+
+    def test_update_controls_keeps_pending_sign_start_row_disabled(self):
+        """开放时间待公布的行：updateControls 之后仍禁用（此前被重新启用）。"""
+        res = run_js(self.LIST + r"""
+const pending = findItem("a2");
+const check = document.querySelector(".row-check");
+check.dataset.id = "a2";
+updateControls();
+const pendingDisabled = check.disabled;
+check.dataset.id = "a1";
+updateControls();
+out.push({ precondition: signStartPending(pending), pendingDisabled,
+           normalDisabled: check.disabled });
+""")
+        data = res[0]
+        self.assertTrue(data["precondition"], "夹具里 a2 必须是开放时间待公布的行")
+        self.assertTrue(data["pendingDisabled"], "待公布的行勾选框必须保持禁用")
+        self.assertFalse(data["normalDisabled"], "正常的行不受影响")
+
+    def test_starting_disables_row_checkbox_on_rerender(self):
+        """提交中（S.starting）重画列表：行勾选框必须是禁用的。"""
+        res = run_js(self.LIST + r"""
+const item = findItem("a1");
+const idle = rowHtml(item);
+S.starting = true;
+const starting = rowHtml(item);
+const re = /<input class="row-check"[^>]*disabled/;
+out.push({ idleDisabled: re.test(idle), startingDisabled: re.test(starting) });
+""")
+        data = res[0]
+        self.assertFalse(data["idleDisabled"], "空闲时正常行可勾")
+        self.assertTrue(data["startingDisabled"], "提交中重画列表，勾选框必须禁用")
+
+
 class TerminalBeforeAckTests(unittest.TestCase):
     """终态早于开始 ack：ack 只证明「已接纳」，不得把已结束计划重新置忙。
 
