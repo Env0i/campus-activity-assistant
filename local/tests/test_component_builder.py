@@ -22,6 +22,60 @@ TMP_ROOT = tempfile.gettempdir()
 
 
 class BuilderTests(unittest.TestCase):
+    def test_artifact_identity_is_stable_across_app_versions(self):
+        files = {"models/common.onnx": "a" * 64}
+        with mock.patch.object(builder.cp, "version", return_value="1.2.2"):
+            first = builder._artifact_manifest("relogin_ocr_model", files)
+        with mock.patch.object(builder.cp, "version", return_value="1.2.3"):
+            second = builder._artifact_manifest("relogin_ocr_model", files)
+        self.assertEqual(first["content_sha256"], second["content_sha256"])
+        self.assertEqual(first["content_sha256"], builder.cp.artifact_content_sha256(first))
+        runtime = builder._artifact_manifest("relogin_ocr_runtime", {"feature-helper.exe": "b" * 64}, entry="feature-helper.exe")
+        self.assertEqual(runtime["requires"], ["relogin_ocr_model"])
+
+    def test_external_ocr_failures_are_not_empty_success(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp, \
+                mock.patch.dict(os.environ, {"CAMPUS_OCR_MODEL_ROOT": tmp}), \
+                mock.patch.dict(sys.modules, {"ddddocr": mock.Mock(), "onnxruntime": mock.Mock()}) as modules:
+            for name in ("common.onnx", "common_old.onnx", "charsets-beta.json", "charsets-old.json"):
+                (Path(tmp) / name).write_bytes(b"present")
+            payload = json.dumps({"op": "ocr", "image": "data:image/png;base64,eA=="}).encode()
+            modules["ddddocr"].DdddOcr.side_effect = ValueError("failed")
+            self.assertFalse(advanced_helper.run("relogin_ocr", stream=io.BytesIO(payload))["ok"])
+            modules["ddddocr"].DdddOcr.side_effect = None
+            modules["ddddocr"].DdddOcr.return_value.classification.return_value = ""
+            result = advanced_helper.run("relogin_ocr", stream=io.BytesIO(payload))
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["code"], "")
+
+    def test_model_metadata_preserves_default_aspect_ratio(self):
+        _, metadata = builder._model_source_files()
+        for value in metadata.values():
+            self.assertEqual(value["image"], [-1, 64])
+            self.assertFalse(value["word"])
+            self.assertEqual(value["channel"], 1)
+
+    def test_controlled_model_root_requires_both_usable_models(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp, \
+                mock.patch.dict(os.environ, {"CAMPUS_OCR_MODEL_ROOT": tmp}), \
+                mock.patch.dict(sys.modules, {"ddddocr": mock.Mock(), "onnxruntime": mock.Mock()}) as modules:
+            self.assertFalse(advanced_helper.run("relogin_ocr", probe=True)["ok"])
+            for name in ("common.onnx", "common_old.onnx", "charsets-beta.json", "charsets-old.json"):
+                (Path(tmp) / name).write_bytes(b"present")
+            modules["ddddocr"].DdddOcr.side_effect = [object(), ValueError("damaged")]
+            self.assertFalse(advanced_helper.run("relogin_ocr", probe=True)["ok"])
+            modules["ddddocr"].DdddOcr.side_effect = None
+            self.assertTrue(advanced_helper.run("relogin_ocr", probe=True)["ok"])
+
+    def test_controlled_model_rejects_non_png_prefix_before_inference(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp, \
+                mock.patch.dict(os.environ, {"CAMPUS_OCR_MODEL_ROOT": tmp}), \
+                mock.patch.object(advanced_helper, "_classify_with_external_model") as classify, \
+                mock.patch.dict(sys.modules, {"ddddocr": mock.Mock(), "onnxruntime": mock.Mock()}):
+            result = advanced_helper.run("relogin_ocr", stream=io.BytesIO(json.dumps({"op": "ocr", "image": "x"}).encode()))
+            self.assertEqual(result.get("code"), "")
+            classify.assert_not_called()
+
     def test_output_is_restricted_to_explicit_temp_subdirectory(self):
         for path in ("relative", "<tmp>", "<tmp>/../elsewhere", "C:/bad"):
             with self.subTest(path=path), self.assertRaises(ValueError):
@@ -179,7 +233,7 @@ class BuilderTests(unittest.TestCase):
             })
             manifest = json.loads((folder / "manifest.json").read_text())
             self.assertEqual(manifest["role"], "model")
-            self.assertIsNone(manifest["entry"])
+            self.assertEqual(manifest["entry"], "")
             self.assertTrue(Path(result["archive"]).is_file())
 
     def test_external_ocr_model_is_passed_to_ddddocr(self):

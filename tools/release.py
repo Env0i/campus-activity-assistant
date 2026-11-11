@@ -562,7 +562,8 @@ def stage_split_artifacts(version: str, stage_dir: Path,
             "bytes": target.stat().st_size,
             "sha256": sha256_of(target),
             "target_version": version,
-            "compatibility_id": "campus-activity-1",
+            "content_sha256": inspected["content_sha256"],
+            "compatibility_id": inspected["compatibility_id"],
             "role": inspected.get("role", ""),
         }
     return assets, metadata

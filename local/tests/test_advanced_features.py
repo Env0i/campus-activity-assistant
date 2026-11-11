@@ -110,7 +110,7 @@ class FeatureStateTests(unittest.TestCase):
         original = af.module_available
         af.module_available = lambda _m: available
         self.addCleanup(lambda: setattr(af, "module_available", original))
-        with mock.patch.object(af.component_packages, "status", return_value={
+        with mock.patch.object(af.component_packages, "feature_status", return_value={
                 "available": available, "source": "imported", "error": ""}):
             return af.feature_state(prefs, frozen=frozen)
 
@@ -220,7 +220,7 @@ class InstallBehaviourTests(unittest.TestCase):
         result = af.install_feature(af.PHONE_CONTROL, frozen=True, runner=runner)
         self.assertFalse(result["ok"])
         self.assertEqual(runner.calls, [])
-        with mock.patch.object(af.component_packages, "status", return_value={
+        with mock.patch.object(af.component_packages, "feature_status", return_value={
                 "available": True, "source": "imported", "error": ""}) as status:
             self.assertTrue(af.feature_ready({"advanced_features": {af.PHONE_CONTROL: True}},
                                              af.PHONE_CONTROL, frozen=True, root="isolated"))

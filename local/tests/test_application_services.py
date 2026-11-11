@@ -15,6 +15,8 @@ import time
 import unittest
 from unittest import mock
 import json
+import hashlib
+import shutil
 import zipfile
 from pathlib import Path
 
@@ -1516,14 +1518,22 @@ class AdvancedComponentServiceTests(unittest.TestCase):
                        name="runtime.zip"),
                   dict(self.ASSET, artifact_id="relogin_ocr_model",
                        name="model.zip")]
+        commits = []
+        def cache_artifact(archive, artifact_id, **kwargs):
+            state["installs"].append((str(archive), artifact_id))
+            return {"artifact_id": artifact_id, "version": "1.2.3"}
+        def commit_artifact_group(feature, artifacts, **kwargs):
+            commits.append((feature, [item["artifact_id"] for item in artifacts]))
+            state["installed"] = True
+            return {"ok": True}
         service, state = self._service(
             feature="relogin_ocr",
             asset_resolver=lambda _version: {"ok": True, "assets": assets},
             inspect_artifact=lambda archive, artifact_id: {
                 "ok": True, "artifact_id": artifact_id, "version": "1.2.3"},
-            install_artifact=lambda archive, artifact_id, root=None: (
-                state["installs"].append((str(archive), artifact_id)),
-                state.__setitem__("installed", True)),
+            find_cached_artifact=lambda asset, **kwargs: None,
+            cache_artifact=cache_artifact,
+            commit_artifact_group=commit_artifact_group,
         )
         import tempfile
         state["tmp"] = tempfile.mkdtemp(prefix="advanced-artifacts-")
@@ -1532,6 +1542,139 @@ class AdvancedComponentServiceTests(unittest.TestCase):
         self.assertEqual(snap["state"], "installed")
         self.assertEqual([item[1] for item in state["installs"]],
                          ["relogin_ocr_runtime", "relogin_ocr_model"])
+        self.assertEqual(commits, [("relogin_ocr", ["relogin_ocr_runtime", "relogin_ocr_model"])])
+
+    def _split_package(self, directory, artifact_id, name, marker):
+        from infrastructure import component_packages as packages
+        spec = packages.ARTIFACTS[artifact_id]
+        if spec["role"] == "model":
+            files = {"models/common.onnx": marker, "models/common_old.onnx": marker,
+                     "models/charsets-beta.json": b"{}", "models/charsets-old.json": b"{}"}
+        else:
+            files = {spec["entry"]: marker}
+        manifest = {"schema": 2, "artifact_id": artifact_id, "feature": spec["feature"],
+                    "role": spec["role"], "protocol": 1, "asset_version": "1.2.2",
+                    "compatibility_id": "campus-activity-1", "entry": spec["entry"],
+                    "requires": [], "files": {path: hashlib.sha256(raw).hexdigest()
+                                               for path, raw in files.items()}}
+        archive = directory / (name + ".zip")
+        with zipfile.ZipFile(archive, "w") as package:
+            package.writestr("manifest.json", json.dumps(manifest))
+            for path, raw in files.items():
+                package.writestr(path, raw)
+        metadata = {"artifact_id": artifact_id, "name": archive.name,
+                    "url": "https://example.invalid/" + archive.name,
+                    "bytes": archive.stat().st_size, "sha256": packages.sha256(archive),
+                    "content_sha256": packages.artifact_content_sha256(manifest),
+                    "compatibility_id": manifest["compatibility_id"]}
+        return archive, metadata
+
+    def test_split_second_download_failure_preserves_current_group(self):
+        from application import advanced_component_service as svc
+        from infrastructure import component_packages as packages
+        temp = tempfile.TemporaryDirectory(prefix="component-group-failure-")
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        runtime_id, model_id = "relogin_ocr_runtime", "relogin_ocr_model"
+        old_runtime, _ = self._split_package(root, runtime_id, "old-runtime", b"old-runtime")
+        old_model, _ = self._split_package(root, model_id, "old-model", b"old-model")
+        new_runtime, runtime_meta = self._split_package(root, runtime_id, "new-runtime", b"new-runtime")
+        _, model_meta = self._split_package(root, model_id, "new-model", b"new-model")
+        with mock.patch.object(packages, "_helper", return_value={"ok": True}), \
+                mock.patch.object(packages, "supported", return_value=True):
+            packages.install_artifact(old_runtime, runtime_id, root=root)
+            packages.install_artifact(old_model, model_id, root=root)
+            before = packages.feature_status("relogin_ocr", root=root)
+            calls = []
+            def download(url, *, name, **kwargs):
+                calls.append(name)
+                if name == model_meta["name"]:
+                    return {"ok": False, "error_code": "network_error", "text": "模拟断流"}
+                folder = root / "download"
+                folder.mkdir()
+                path = folder / name
+                shutil.copy2(new_runtime, path)
+                return {"ok": True, "path": str(path)}
+            service = svc.AdvancedComponentService(
+                feature="relogin_ocr", root=root, version=lambda: "1.2.2", download=download,
+                asset_resolver=lambda version: {"ok": True, "assets": [runtime_meta, model_meta]})
+            service._run()
+            self.assertEqual(service._state, "failed")
+            self.assertTrue(before["available"])
+            self.assertEqual((packages.artifact_dir(runtime_id, root=root) /
+                              "feature-helper.exe").read_bytes(), b"old-runtime")
+            self.assertTrue(packages.feature_status("relogin_ocr", root=root)["available"])
+
+    def test_split_identical_installed_assets_download_zero_bytes(self):
+        from application import advanced_component_service as svc
+        from infrastructure import component_packages as packages
+        temp = tempfile.TemporaryDirectory(prefix="component-group-reuse-")
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        assets = []
+        with mock.patch.object(packages, "_helper", return_value={"ok": True}), \
+                mock.patch.object(packages, "supported", return_value=True):
+            for artifact_id in ("relogin_ocr_runtime", "relogin_ocr_model"):
+                archive, metadata = self._split_package(root, artifact_id, artifact_id, b"same")
+                packages.install_artifact(archive, artifact_id, root=root)
+                assets.append(metadata)
+            download = mock.Mock(side_effect=AssertionError("相同资产不应下载"))
+            service = svc.AdvancedComponentService(
+                feature="relogin_ocr", root=root, version=lambda: "1.2.2", download=download,
+                asset_resolver=lambda version: {"ok": True, "assets": assets})
+            service._run()
+            download.assert_not_called()
+            self.assertEqual(service._state, "installed")
+            self.assertEqual(service.snapshot()["total_bytes"], 0)
+
+    def test_split_cancel_after_preparation_never_commits_group(self):
+        assets = [dict(self.ASSET, artifact_id="relogin_ocr_runtime", name="runtime.zip"),
+                  dict(self.ASSET, artifact_id="relogin_ocr_model", name="model.zip")]
+        committed = mock.Mock()
+        def cache_artifact(archive, artifact_id, **kwargs):
+            self.assertTrue(service.cancel()["ok"])
+            return {"artifact_id": artifact_id, "version": "1.2.3"}
+        service, state = self._service(
+            feature="relogin_ocr", asset_resolver=lambda version: {"ok": True, "assets": assets},
+            find_cached_artifact=lambda asset, **kwargs: None,
+            inspect_artifact=lambda archive, artifact_id: {"ok": True, "version": "1.2.3"},
+            cache_artifact=cache_artifact, commit_artifact_group=committed)
+        with tempfile.TemporaryDirectory(prefix="component-group-cancel-") as tmp:
+            state["tmp"] = tmp
+            service._run()
+        self.assertEqual(service._state, "cancelled")
+        committed.assert_not_called()
+        self.assertEqual(state["hooks"], [])
+
+    def test_split_runtime_change_reuses_installed_model(self):
+        from application import advanced_component_service as svc
+        from infrastructure import component_packages as packages
+        temp = tempfile.TemporaryDirectory(prefix="component-model-reuse-")
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        runtime_id, model_id = "relogin_ocr_runtime", "relogin_ocr_model"
+        old_runtime, _ = self._split_package(root, runtime_id, "old-runtime", b"old-runtime")
+        model, model_meta = self._split_package(root, model_id, "model", b"same-model")
+        new_runtime, runtime_meta = self._split_package(root, runtime_id, "new-runtime", b"new-runtime")
+        with mock.patch.object(packages, "_helper", return_value={"ok": True}), \
+                mock.patch.object(packages, "supported", return_value=True):
+            packages.install_artifact(old_runtime, runtime_id, root=root)
+            packages.install_artifact(model, model_id, root=root)
+            downloaded = []
+            def download(url, *, name, **kwargs):
+                downloaded.append(name)
+                folder = root / "download"
+                folder.mkdir()
+                path = folder / name
+                shutil.copy2(new_runtime, path)
+                return {"ok": True, "path": str(path)}
+            service = svc.AdvancedComponentService(
+                feature="relogin_ocr", root=root, version=lambda: "1.2.2", download=download,
+                asset_resolver=lambda version: {"ok": True, "assets": [runtime_meta, model_meta]})
+            service._run()
+            self.assertEqual(service._state, "installed")
+            self.assertEqual(downloaded, [new_runtime.name])
+            self.assertEqual(service.snapshot()["total_bytes"], runtime_meta["bytes"])
 
     def test_second_click_while_downloading_is_busy(self):
         service, state = self._service()

@@ -103,9 +103,9 @@ def _model_source_files():
     charsets = importlib.import_module("ddddocr.charsets")
     metadata = {
         "charsets-beta.json": {"charset": list(charsets.CHARSET_BETA), "word": False,
-                               "image": [64, 64], "channel": 1},
+                               "image": [-1, 64], "channel": 1},
         "charsets-old.json": {"charset": list(charsets.CHARSET_OLD), "word": False,
-                              "image": [64, 64], "channel": 1},
+                              "image": [-1, 64], "channel": 1},
     }
     return sources, metadata
 
@@ -126,11 +126,12 @@ def _artifact_manifest(artifact, files, *, entry=None, extra=None):
         "protocol": 1,
         "compatibility_id": "campus-activity-1",
         "entry": entry or "",
-        "requires": [],
+        "requires": ["relogin_ocr_model"] if artifact == "relogin_ocr_runtime" else [],
         "files": files,
     }
     if extra:
         data.update(extra)
+    data["content_sha256"] = cp.artifact_content_sha256(data)
     return data
 
 
@@ -140,29 +141,9 @@ def _write_manifest(directory, manifest):
 
 
 def _validate_artifact_directory(directory, artifact):
-    manifest_path = directory / "manifest.json"
-    if not manifest_path.is_file():
-        raise ValueError("artifact manifest missing")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    spec = ARTIFACTS[artifact]
-    if (manifest.get("schema") != 2 or manifest.get("artifact") != artifact
-            or manifest.get("artifact_id") != artifact
-            or manifest.get("feature") != spec["feature"]
-            or manifest.get("role") != spec["role"]
-            or manifest.get("platform") != "windows-x64"):
-        raise ValueError("artifact manifest incompatible")
-    files = manifest.get("files")
-    if not isinstance(files, dict):
-        raise ValueError("artifact manifest files missing")
-    actual = {p.relative_to(directory).as_posix(): cp.sha256(p)
-              for p in sorted(directory.rglob("*")) if p.is_file() and p.name != "manifest.json"}
-    if set(actual) != set(files):
-        raise ValueError("artifact file list mismatch")
-    if any(actual[name] != digest for name, digest in files.items()):
-        raise ValueError("artifact hash mismatch")
-    entry = manifest.get("entry")
-    if entry and entry not in files:
-        raise ValueError("artifact entry missing")
+    manifest = cp.validate_artifact_directory(directory, artifact)
+    if manifest.get("content_sha256") != cp.artifact_content_sha256(manifest):
+        raise ValueError("artifact content hash mismatch")
     return manifest
 
 
@@ -321,6 +302,7 @@ def _build_artifact(artifact, output_dir, cloudflared=None):
     manifest = _artifact_manifest(artifact, files, entry=entry, extra=extra)
     if spec["role"] == "tool":
         manifest["tool"]["sha256"] = files[entry]
+        manifest["content_sha256"] = cp.artifact_content_sha256(manifest)
     return _finish_artifact(artifact, output, run_root, directory, manifest)
 
 

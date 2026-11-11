@@ -215,8 +215,10 @@ class PhoneControlAssetTests(unittest.TestCase):
             model: {"sha256": "bb" * 32, "bytes": 2048},
         })
         data["split_assets"] = {
-            "relogin_ocr_runtime": {"name": runtime, "target_version": version},
-            "relogin_ocr_model": {"name": model, "target_version": version},
+            "relogin_ocr_runtime": {"name": runtime, "target_version": version,
+                                    "compatibility_id": "campus-activity-1", "content_sha256": "cc" * 32},
+            "relogin_ocr_model": {"name": model, "target_version": version,
+                                  "compatibility_id": "campus-activity-1", "content_sha256": "dd" * 32},
         }
         payload = updates.payload_from_manifest(json.dumps(data).encode())
         resolved = updates.resolve_component_assets(
@@ -224,6 +226,11 @@ class PhoneControlAssetTests(unittest.TestCase):
         self.assertEqual(resolved["state"], "available")
         self.assertEqual([item["artifact_id"] for item in resolved["assets"]],
                          ["relogin_ocr_runtime", "relogin_ocr_model"])
+        self.assertEqual(resolved["assets"][1]["content_sha256"], "dd" * 32)
+        for bad in ("bad-hash", ["not-a-hash"]):
+            data["split_assets"]["relogin_ocr_model"]["content_sha256"] = bad
+            checked = updates.resolve_component_assets(payload, version, json.dumps(data).encode(), "relogin_ocr")
+            self.assertEqual(checked["state"], "legacy")
 
     def test_ocr_component_is_selected_and_resolved_separately(self):
         ocr = "campus-activity-watch-relogin-ocr-v1.1.1-win-x64.zip"

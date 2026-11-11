@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import types
 import unittest
 from pathlib import Path
@@ -302,6 +303,36 @@ class FakePopen:
         return self.proc
 
 
+class SpawnCloudflaredTests(unittest.TestCase):
+    def test_spawn_owns_process_until_exit(self):
+        proc = mock.Mock()
+        proc.wait = mock.Mock()
+        tree = mock.Mock(proc=proc)
+        with mock.patch("infrastructure.process_tree.spawn_owned", return_value=tree) as spawn:
+            with mock.patch.object(tunnel_manager.threading, "Thread") as thread:
+                result = tunnel_manager.spawn_cloudflared(
+                    ["cf.exe", "tunnel"], stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT, text=True, creationflags=123)
+        self.assertIs(result, proc)
+        self.assertEqual(spawn.call_args.kwargs["cwd"], str(Path("cf.exe").resolve().parent))
+        self.assertEqual(spawn.call_args.kwargs["env"], os.environ.copy())
+        self.assertEqual(spawn.call_args.kwargs["stdout"], subprocess.PIPE)
+        tree.close.assert_not_called()
+        thread.call_args.kwargs["target"]()
+        proc.wait.assert_called_once_with()
+        tree.close.assert_called_once_with()
+
+    def test_thread_start_failure_terminates_and_closes_tree(self):
+        tree = mock.Mock()
+        with mock.patch("infrastructure.process_tree.spawn_owned", return_value=tree):
+            with mock.patch.object(tunnel_manager.threading, "Thread") as thread:
+                thread.return_value.start.side_effect = RuntimeError("thread failed")
+                with self.assertRaises(RuntimeError):
+                    tunnel_manager.spawn_cloudflared(["cf.exe"])
+        tree.terminate.assert_called_once_with()
+        tree.close.assert_called_once_with()
+
+
 class CloudflareTunnelTests(unittest.TestCase):
     def test_missing_executable_is_explicit(self):
         tunnel = tunnel_manager.CloudflareTunnel("", popen=FakePopen())
@@ -461,6 +492,83 @@ class CloudflareTunnelTests(unittest.TestCase):
         again = tunnel.start("http://127.0.0.1:8765")
         self.assertFalse(again["ok"])
         self.assertEqual(again["error"], "already_running")
+
+    def test_usage_covers_start_and_stop(self):
+        events = []
+
+        class Usage:
+            def __enter__(self):
+                events.append("enter")
+                return "trusted.exe"
+
+            def __exit__(self, *args):
+                events.append("exit")
+
+        popen = FakePopen(lines=["INF https://x.trycloudflare.com\n"])
+        def verify(path):
+            self.assertEqual(events, ["enter"])
+            return path
+        tunnel = tunnel_manager.CloudflareTunnel(
+            "cf.exe", popen=popen, verify=verify, usage=lambda path: Usage())
+        self.assertTrue(tunnel.start("http://127.0.0.1:8765")["ok"])
+        self.assertEqual(popen.calls[0][0][0], "trusted.exe")
+        self.assertEqual(events, ["enter"])
+        self.assertTrue(tunnel.stop()["ok"])
+        self.assertEqual(events, ["enter", "exit"])
+
+    def test_usage_released_on_verify_start_and_timeout_failures(self):
+        for mode in ("verify", "popen", "timeout"):
+            with self.subTest(mode=mode):
+                events = []
+                class Usage:
+                    def __enter__(self):
+                        events.append("enter")
+                        return "cf.exe"
+                    def __exit__(self, *args):
+                        events.append("exit")
+                popen = FakePopen(raises=OSError() if mode == "popen" else None)
+                tunnel = tunnel_manager.CloudflareTunnel(
+                    "cf.exe", popen=popen, usage=lambda path: Usage(),
+                    verify=lambda path: "" if mode == "verify" else path)
+                self.assertFalse(tunnel.start("http://localhost", timeout_s=0.1)["ok"])
+                self.assertEqual(events, ["enter", "exit"])
+
+    def test_usage_released_after_natural_exit_without_status_call(self):
+        released = threading.Event()
+        class Usage:
+            def __enter__(self):
+                return "cf.exe"
+            def __exit__(self, *args):
+                released.set()
+        popen = FakePopen(lines=["INF https://x.trycloudflare.com\n"])
+        tunnel = tunnel_manager.CloudflareTunnel("cf.exe", popen=popen,
+                                                usage=lambda path: Usage())
+        self.assertTrue(tunnel.start("http://localhost")["ok"])
+        popen.proc.exit = 0
+        self.assertTrue(released.wait(2))
+        self.assertEqual(tunnel.status()["state"], "exited")
+
+    def test_failed_stop_retains_process_and_usage_until_exit(self):
+        released = threading.Event()
+        class Usage:
+            def __enter__(self):
+                return "cf.exe"
+            def __exit__(self, *args):
+                released.set()
+        popen = FakePopen(lines=["INF https://x.trycloudflare.com\n"])
+        def fail():
+            raise OSError("still running")
+        popen.proc.terminate = fail
+        popen.proc.kill = fail
+        tunnel = tunnel_manager.CloudflareTunnel("cf.exe", popen=popen,
+                                                usage=lambda path: Usage())
+        self.assertTrue(tunnel.start("http://localhost")["ok"])
+        self.assertFalse(tunnel.stop()["ok"])
+        self.assertFalse(released.is_set())
+        self.assertTrue(tunnel.status()["running"])
+        self.assertEqual(tunnel.start("http://localhost")["error"], "already_running")
+        popen.proc.exit = 0
+        self.assertTrue(released.wait(2))
 
     def test_url_re_matches_only_trycloudflare(self):
         line = "x https://a-b-c.trycloudflare.com y https://a-b-c.trycloudflare.com"

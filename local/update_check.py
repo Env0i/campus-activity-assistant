@@ -351,6 +351,15 @@ def resolve_component_assets(payload: dict, version: str, raw_manifest,
         if not isinstance(meta, dict):
             return {"state": "legacy", "error_code": "", "assets": None, "text": ""}
         name = meta.get("name") or artifact_asset_name(artifact_id, version)
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,120}", name):
+            return {"state": "legacy", "error_code": "", "assets": None, "text": ""}
+        content = meta.get("content_sha256")
+        if content is not None and (not isinstance(content, str)
+                                    or not re.fullmatch(r"[0-9a-f]{64}", content)):
+            return {"state": "legacy", "error_code": "", "assets": None, "text": ""}
+        compatible = meta.get("compatibility_id")
+        if compatible is not None and (not isinstance(compatible, str) or not compatible):
+            return {"state": "legacy", "error_code": "", "assets": None, "text": ""}
         entry = files.get(name)
         if not isinstance(entry, dict):
             return {"state": "legacy", "error_code": "", "assets": None, "text": ""}
@@ -360,6 +369,9 @@ def resolve_component_assets(payload: dict, version: str, raw_manifest,
         assets.append(dict(meta, artifact_id=artifact_id, name=name,
                            url=base_url + name, bytes=checked["bytes"],
                            sha256=checked["sha256"]))
+    compatibility = {asset.get("compatibility_id") for asset in assets}
+    if len(compatibility) != 1:
+        return {"state": "legacy", "error_code": "", "assets": None, "text": ""}
     return {"state": "available", "error_code": "", "assets": assets, "text": ""}
 
 

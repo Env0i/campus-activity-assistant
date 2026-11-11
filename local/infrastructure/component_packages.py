@@ -6,6 +6,8 @@ SHA256 只验证完整性，用户必须自行确认组件来源可信。
 """
 from __future__ import annotations
 
+import contextlib
+import functools
 import hashlib
 import json
 import os
@@ -51,6 +53,8 @@ CLOUDFLARED_STORE = "cloudflared"
 CLOUDFLARED_FILE = "cloudflared.exe"
 _LOCK = threading.RLock()
 _STATUS_CACHE = {}
+_ARTIFACT_STATUS_CACHE = {}
+_TRANSACTION_LOCAL = threading.local()
 
 
 class PackageError(ValueError):
@@ -87,6 +91,78 @@ def _root(root):
         from runtime_paths import DATA_DIR
         root = DATA_DIR
     return Path(root).resolve() / "advanced"
+
+
+@contextlib.contextmanager
+def _file_transaction(root):
+    from infrastructure.prefs_store import acquire_file_lock, release_file_lock
+    base = _root(root)
+    held = getattr(_TRANSACTION_LOCAL, "held", set())
+    if str(base) in held:
+        yield
+        return
+    assets = base / ARTIFACT_ROOT
+    if _linked(base) or _linked(assets):
+        raise PackageError("unsafe_path")
+    # 锁独立于安装目录，查询尚未安装的组件时不能凭空造出 advanced 目录。
+    base.parent.mkdir(parents=True, exist_ok=True)
+    lock = base.parent / ".advanced.lock"
+    if _linked(lock):
+        raise PackageError("unsafe_path")
+    with lock.open("a+b") as handle:
+        acquire_file_lock(handle, 30.0)
+        try:
+            _TRANSACTION_LOCAL.held = held | {str(base)}
+            yield
+        finally:
+            _TRANSACTION_LOCAL.held = held
+            release_file_lock(handle)
+
+
+def _transactional(function):
+    @functools.wraps(function)
+    def guarded(*args, **kwargs):
+        with _LOCK, _file_transaction(kwargs.get("root")):
+            return function(*args, **kwargs)
+    return guarded
+
+
+@contextlib.contextmanager
+def _cloudflared_use_lock(root):
+    from infrastructure.prefs_store import (
+        PrefsLockTimeout, acquire_file_lock, release_file_lock)
+    base = _root(root)
+    base.parent.mkdir(parents=True, exist_ok=True)
+    lock = base.parent / ".advanced-phone-control.use.lock"
+    if _linked(lock):
+        raise PackageError("unsafe_path")
+    with lock.open("a+b") as handle:
+        try:
+            acquire_file_lock(handle, 0.0)
+        except PrefsLockTimeout as exc:
+            raise PackageError("component_in_use") from exc
+        try:
+            yield
+        finally:
+            release_file_lock(handle)
+
+
+def _assert_unused(feature, root):
+    # 写入口已持事务锁；检查后到写入完成之间，新通道必须等待同一把事务锁。
+    if feature == "phone_control":
+        with _cloudflared_use_lock(root):
+            pass
+
+
+@contextlib.contextmanager
+def cloudflared_usage(path, *, root=None):
+    """从启动前核验到进程退出持有租约，阻止另一进程拆掉正在使用的组件。"""
+    with _cloudflared_use_lock(root):
+        with _LOCK, _file_transaction(root):
+            trusted = cloudflared(root=root)
+            if not trusted or Path(trusted).resolve() != Path(path).resolve():
+                raise PackageError("cloudflared_untrusted")
+        yield trusted
 
 
 def _key(key):
@@ -244,6 +320,9 @@ def _artifact_manifest(raw, artifact_id):
                 or parse_cloudflared_version(tool.get("version")) != CLOUDFLARED_VERSION
                 or files.get(spec["entry"]) != tool.get("sha256")):
             raise PackageError("bad_tool")
+    declared_content = data.get("content_sha256")
+    if declared_content is not None and declared_content != artifact_content_sha256(data):
+        raise PackageError("content_mismatch")
     return data
 
 
@@ -376,12 +455,42 @@ def _recover_replacement(base, key):
     backup = base / (".backup-" + key)
     if _linked(base) or _linked(target) or _linked(backup):
         raise PackageError("unsafe_path")
-    # 阶段目录只在进程崩溃时留下；名称带组件键，避免清理另一组件正在提交的事务。
-    for stage in base.glob(".stage-%s-*" % key):
-        if _linked(stage):
-            raise PackageError("unsafe_path")
-        if stage.is_dir():
-            shutil.rmtree(stage, ignore_errors=True)
+    journal = base / (".transaction-" + key + ".json")
+    pointer = base / ARTIFACT_ROOT / ".groups" / (key + ".json")
+    if _linked(journal) or _linked(pointer.parent) or _linked(pointer):
+        raise PackageError("unsafe_path")
+    if journal.exists():
+        try:
+            transaction = json.loads(journal.read_text(encoding="utf-8"))
+            transaction_id = transaction["transaction_id"]
+            had_target = transaction["had_target"]
+            if (not isinstance(transaction_id, str)
+                    or not re.fullmatch(r"[0-9a-f]{32}", transaction_id)
+                    or type(had_target) is not bool):
+                raise ValueError("bad_transaction")
+            selection = json.loads(pointer.read_text(encoding="utf-8")) if pointer.exists() else {}
+            committed = (isinstance(selection, dict) and selection.get("feature") == key
+                         and selection.get("selection") == "legacy"
+                         and selection.get("transaction_id") == transaction_id)
+        except (ValueError, KeyError, TypeError, OSError) as exc:
+            raise PackageError("bad_transaction") from exc
+        if committed:
+            if not target.is_dir():
+                raise PackageError("bad_transaction")
+            if backup.exists():
+                shutil.rmtree(backup)
+        elif had_target:
+            if backup.exists():
+                if target.exists():
+                    shutil.rmtree(target)
+                os.replace(backup, target)
+            elif not target.is_dir():
+                raise PackageError("bad_transaction")
+        elif target.exists():
+            shutil.rmtree(target)
+        journal.unlink()
+        _STATUS_CACHE.pop(str(target), None)
+        return
     if backup.exists() and not target.exists():
         os.replace(backup, target)
         _STATUS_CACHE.pop(str(target), None)
@@ -392,6 +501,7 @@ def _recover_replacement(base, key):
         shutil.rmtree(backup, ignore_errors=True)
 
 
+@_transactional
 def status(key, *, root=None):
     with _LOCK:
         if not supported():
@@ -428,9 +538,11 @@ def status(key, *, root=None):
                 "version": installed_version}
 
 
+@_transactional
 def install(archive, key, *, root=None):
     with _LOCK:
         _key(key)
+        _assert_unused(key, root)
         if not supported():
             raise PackageError("unsupported_platform")
         archive = Path(archive)
@@ -470,20 +582,21 @@ def install(archive, key, *, root=None):
                         shutil.copyfileobj(source, dest, 1024 * 1024)
             validate_directory(stage, key)
             _helper(stage / "feature-helper.exe", feature=key, probe=True)
-            if backup.exists():
-                shutil.rmtree(backup)
-            if target.exists():
-                if _linked(target):
-                    raise PackageError("unsafe_path")
-                os.replace(target, backup)
+            transaction_id = uuid.uuid4().hex
+            journal = base / (".transaction-" + key + ".json")
+            _atomic_json(journal, {"transaction_id": transaction_id, "had_target": target.exists()})
             try:
+                if target.exists():
+                    if _linked(target):
+                        raise PackageError("unsafe_path")
+                    os.replace(target, backup)
                 os.replace(stage, target)
-            except OSError:
-                if backup.exists():
-                    os.replace(backup, target)
+                _write_group_pointer(key, {"feature": key, "selection": "legacy",
+                                           "transaction_id": transaction_id}, root)
+            except BaseException:
+                _recover_replacement(base, key)
                 raise
-            if backup.exists():
-                shutil.rmtree(backup, ignore_errors=True)
+            _recover_replacement(base, key)
             _STATUS_CACHE.pop(str(target), None)
             return {"ok": True, "feature": key, "text": "组件已导入并启用。"}
         finally:
@@ -497,11 +610,6 @@ def _recover_artifact_replacement(base, artifact_id):
     backup = assets / (".backup-" + artifact_id)
     if _linked(assets) or _linked(target) or _linked(backup):
         raise PackageError("unsafe_path")
-    for stage in assets.glob(".stage-%s-*" % artifact_id):
-        if _linked(stage):
-            raise PackageError("unsafe_path")
-        if stage.is_dir():
-            shutil.rmtree(stage, ignore_errors=True)
     if backup.exists() and not target.exists():
         os.replace(backup, target)
     elif backup.exists() and target.exists():
@@ -510,6 +618,7 @@ def _recover_artifact_replacement(base, artifact_id):
         shutil.rmtree(backup, ignore_errors=True)
 
 
+@_transactional
 def artifact_status(artifact_id, *, root=None):
     """读取单个 schema2 资产状态，不把它当成完整 feature。"""
     artifact_id = _artifact_key(artifact_id)
@@ -517,6 +626,14 @@ def artifact_status(artifact_id, *, root=None):
         return {"available": False, "artifact_id": artifact_id,
                 "source": "imported", "error": "unsupported_platform"}
     base = _root(root)
+    feature = ARTIFACTS[artifact_id]["feature"]
+    pointer = _group_pointer(feature, root)
+    if pointer.exists() or _linked(pointer):
+        try:
+            return _resolve_group(feature, root=root)[artifact_id]
+        except (PackageError, OSError, ValueError, KeyError, TypeError):
+            return {"available": False, "artifact_id": artifact_id,
+                    "source": "split", "error": "artifact_invalid"}
     try:
         _recover_artifact_replacement(base, artifact_id)
         directory = artifact_dir(artifact_id, root=root)
@@ -532,9 +649,11 @@ def artifact_status(artifact_id, *, root=None):
                 "source": "split", "error": "artifact_invalid"}
 
 
+@_transactional
 def install_artifact(archive, artifact_id, *, root=None):
     """安装单个 schema2 资产，旧 feature 目录不参与换位。"""
     artifact_id = _artifact_key(artifact_id)
+    _assert_unused(ARTIFACTS[artifact_id]["feature"], root)
     if not supported():
         raise PackageError("unsupported_platform")
     archive = Path(archive)
@@ -565,6 +684,8 @@ def install_artifact(archive, artifact_id, *, root=None):
                     files[name] = info
             if "manifest.json" not in files:
                 raise PackageError("bad_manifest")
+            if files["manifest.json"].file_size > 2 * 1024 * 1024:
+                raise PackageError("manifest_limit")
             manifest = _artifact_manifest(package.read(files["manifest.json"]), artifact_id)
             if set(files) != set(manifest["files"]) | {"manifest.json"}:
                 raise PackageError("file_mismatch")
@@ -595,6 +716,268 @@ def install_artifact(archive, artifact_id, *, root=None):
             shutil.rmtree(stage)
 
 
+def artifact_content_sha256(manifest):
+    keys = ("artifact_id", "feature", "role", "protocol", "compatibility_id",
+            "entry", "requires", "tool", "files")
+    content = {key: manifest[key] for key in keys if key in manifest}
+    return hashlib.sha256(json.dumps(content, ensure_ascii=True, sort_keys=True,
+                                     separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _artifact_fingerprint(directory):
+    paths = [directory, *sorted(directory.rglob("*"))]
+    result = []
+    for path in paths:
+        if _linked(path):
+            raise PackageError("unsafe_path")
+        info = path.stat(follow_symlinks=False)
+        result.append((str(path.relative_to(directory)), info.st_size, info.st_mtime_ns,
+                       info.st_ctime_ns, info.st_ino, info.st_mode,
+                       getattr(info, "st_file_attributes", 0),
+                       getattr(info, "st_reparse_tag", 0)))
+    return tuple(result)
+
+
+def _handle(directory, artifact_id, digest=None, *, allow_cache=False):
+    directory = Path(directory)
+    if any(_linked(parent) for parent in list(directory.parents)[:3]):
+        raise PackageError("unsafe_path")
+    cache_key = (str(directory), artifact_id, digest)
+    if not allow_cache:
+        # 执行前重新核验时撤销展示缓存，失败后下一次展示也必须反映真实损坏。
+        _ARTIFACT_STATUS_CACHE.pop(cache_key, None)
+    fingerprint = _artifact_fingerprint(directory) if allow_cache else None
+    cached = _ARTIFACT_STATUS_CACHE.get(cache_key) if allow_cache else None
+    if cached and cached[0] == fingerprint:
+        return dict(cached[1])
+    manifest = validate_artifact_directory(directory, artifact_id)
+    actual = artifact_content_sha256(manifest)
+    if digest is not None and actual != digest:
+        raise PackageError("content_mismatch")
+    handle = {"available": True, "source": "split", "artifact_id": artifact_id, "content_sha256": actual,
+              "path": str(directory), "version": manifest["asset_version"],
+              "compatibility_id": manifest["compatibility_id"],
+              "feature": manifest["feature"], "role": manifest["role"],
+              "requires": tuple(manifest.get("requires", []))}
+    if allow_cache:
+        if _artifact_fingerprint(directory) != fingerprint:
+            raise PackageError("artifact_changed")
+        if len(_ARTIFACT_STATUS_CACHE) >= 64:
+            _ARTIFACT_STATUS_CACHE.pop(next(iter(_ARTIFACT_STATUS_CACHE)))
+        _ARTIFACT_STATUS_CACHE[cache_key] = (fingerprint, handle)
+    return dict(handle)
+
+
+@_transactional
+def find_cached_artifact(asset_metadata, *, root=None):
+    try:
+        artifact_id = _artifact_key(asset_metadata["artifact_id"])
+        digest = asset_metadata["content_sha256"]
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            return None
+        base = _root(root) / ARTIFACT_ROOT
+        cache_root = base / ".cache" / artifact_id
+        candidates = [cache_root / digest]
+        if cache_root.is_dir() and not _linked(cache_root):
+            candidates.extend(sorted(cache_root.glob(digest + "-*")))
+        candidates.append(base / artifact_id)
+        for directory in candidates:
+            if directory.parent == cache_root and not _valid_cache_key(directory.name, digest):
+                continue
+            try:
+                result = _handle(directory, artifact_id, digest)
+                if result["compatibility_id"] == asset_metadata["compatibility_id"]:
+                    return result
+            except (PackageError, OSError):
+                continue
+    except (KeyError, TypeError, PackageError):
+        pass
+    return None
+
+
+@_transactional
+def cache_artifact(archive, artifact_id, *, root=None, expect_content_sha256=None):
+    artifact_id = _artifact_key(artifact_id)
+    archive = Path(archive)
+    if archive.stat().st_size > MAX_ARCHIVE:
+        raise PackageError("archive_limit")
+    assets = _root(root) / ARTIFACT_ROOT
+    if _linked(_root(root)) or _linked(assets):
+        raise PackageError("unsafe_path")
+    assets.mkdir(parents=True, exist_ok=True)
+    stage = Path(tempfile.mkdtemp(prefix=".stage-%s-" % artifact_id, dir=assets))
+    try:
+        with zipfile.ZipFile(archive) as package:
+            infos = package.infolist()
+            if len(infos) > MAX_FILES or sum(i.file_size for i in infos) > MAX_EXTRACTED:
+                raise PackageError("size_limit")
+            files, names = {}, set()
+            for info in infos:
+                name = _name(info.filename.rstrip("/") if info.is_dir() else info.filename)
+                if name.casefold() in names or stat.S_ISLNK(info.external_attr >> 16):
+                    raise PackageError("unsafe_path")
+                names.add(name.casefold())
+                if not info.is_dir():
+                    files[name] = info
+            if "manifest.json" not in files:
+                raise PackageError("bad_manifest")
+            if files["manifest.json"].file_size > 2 * 1024 * 1024:
+                raise PackageError("manifest_limit")
+            manifest = _artifact_manifest(package.read(files["manifest.json"]), artifact_id)
+            if set(files) != set(manifest["files"]) | {"manifest.json"}:
+                raise PackageError("file_mismatch")
+            for name, info in files.items():
+                path = stage / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with package.open(info) as source, path.open("wb") as dest:
+                    shutil.copyfileobj(source, dest, 1024 * 1024)
+        handle = _handle(stage, artifact_id, expect_content_sha256)
+        digest = handle["content_sha256"]
+        target = assets / ".cache" / artifact_id / digest
+        with _LOCK, _file_transaction(root):
+            if _linked(assets / ".cache") or _linked(target.parent) or _linked(target):
+                raise PackageError("unsafe_path")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists():
+                try:
+                    return _handle(target, artifact_id, digest)
+                except (PackageError, OSError):
+                    target = target.with_name(digest + "-" + uuid.uuid4().hex)
+            os.replace(stage, target)
+            return _handle(target, artifact_id, digest)
+    finally:
+        if stage.exists():
+            shutil.rmtree(stage)
+
+
+def _valid_cache_key(cache_key, digest):
+    return isinstance(cache_key, str) and bool(re.fullmatch(re.escape(digest) + r"(?:-[0-9a-f]{32})?", cache_key))
+
+
+def _atomic_json(path, data):
+    if _linked(path.parent) or _linked(path):
+        raise PackageError("unsafe_path")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.parent / (".stage-" + uuid.uuid4().hex)
+    try:
+        temp.write_text(json.dumps(data, sort_keys=True), encoding="utf-8")
+        os.replace(temp, path)
+    finally:
+        if temp.exists():
+            temp.unlink()
+
+
+def _write_group_pointer(feature, data, root):
+    _atomic_json(_group_pointer(feature, root), data)
+
+
+def _group_pointer(feature, root):
+    return _root(root) / ARTIFACT_ROOT / ".groups" / (_key(feature) + ".json")
+
+
+def _resolve_group(feature, *, root=None, allow_cache=True):
+    pointer = _group_pointer(feature, root)
+    if _linked(pointer.parent) or _linked(pointer):
+        raise PackageError("unsafe_path")
+    data = json.loads(pointer.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or data.get("feature") != feature or not isinstance(data.get("artifacts"), list):
+        raise PackageError("bad_group")
+    handles = []
+    assets = _root(root) / ARTIFACT_ROOT
+    for item in data["artifacts"]:
+        artifact_id = _artifact_key(item["artifact_id"])
+        digest = item["content_sha256"]
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise PackageError("bad_group")
+        if item.get("source") == "fixed":
+            path = assets / artifact_id
+        elif item.get("source") == "cache":
+            cache_key = item.get("cache_key", digest)
+            if not _valid_cache_key(cache_key, digest):
+                raise PackageError("bad_group")
+            path = assets / ".cache" / artifact_id / cache_key
+        else:
+            raise PackageError("bad_group")
+        handles.append(_handle(path, artifact_id, digest, allow_cache=allow_cache))
+    return _validate_group(feature, handles)
+
+
+def _validate_group(feature, handles):
+    by_id = {h["artifact_id"]: h for h in handles}
+    required = {key for key, spec in ARTIFACTS.items() if spec["feature"] == feature}
+    if len(by_id) != len(handles) or set(by_id) != required:
+        raise PackageError("artifact_incomplete")
+    if len({h["compatibility_id"] for h in handles}) != 1:
+        raise PackageError("artifact_incompatible")
+    for handle in handles:
+        if any(not isinstance(item, str) or item not in by_id for item in handle["requires"]):
+            raise PackageError("artifact_incomplete")
+    return by_id
+
+
+@_transactional
+def commit_artifact_group(feature, artifacts, *, root=None):
+    feature = _key(feature)
+    _assert_unused(feature, root)
+    assets = _root(root) / ARTIFACT_ROOT
+    with _LOCK, _file_transaction(root):
+        checked, refs = [], []
+        for handle in artifacts:
+            artifact_id = _artifact_key(handle["artifact_id"])
+            digest = handle["content_sha256"]
+            if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                raise PackageError("content_mismatch")
+            path = Path(handle["path"])
+            cache_root = assets / ".cache" / artifact_id
+            fixed = assets / artifact_id
+            if path == fixed:
+                _handle(path, artifact_id, digest)
+                if _linked(assets / ".cache") or _linked(cache_root):
+                    raise PackageError("unsafe_path")
+                cache_root.mkdir(parents=True, exist_ok=True)
+                cache = cache_root / digest
+                if cache.exists():
+                    try:
+                        _handle(cache, artifact_id, digest)
+                    except (PackageError, OSError):
+                        cache = cache_root / (digest + "-" + uuid.uuid4().hex)
+                if not cache.exists():
+                    stage = cache_root / (".stage-" + uuid.uuid4().hex)
+                    try:
+                        shutil.copytree(path, stage)
+                        _handle(stage, artifact_id, digest)
+                        os.replace(stage, cache)
+                    finally:
+                        if stage.exists():
+                            shutil.rmtree(stage)
+                path = cache
+            elif path.parent != cache_root or not _valid_cache_key(path.name, digest):
+                raise PackageError("unsafe_path")
+            checked.append(_handle(path, artifact_id, digest))
+            refs.append({"artifact_id": artifact_id, "content_sha256": digest,
+                         "source": "cache", "cache_key": path.name})
+        by_id = _validate_group(feature, checked)
+        runtime = Path(by_id[feature + "_runtime"]["path"])
+        env = None
+        if feature == "relogin_ocr":
+            env = {"CAMPUS_OCR_MODEL_ROOT": str(Path(by_id["relogin_ocr_model"]["path"]) / "models")}
+        _helper(runtime / "feature-helper.exe", feature=feature, probe=True, env=env)
+        if feature == "phone_control":
+            tool = Path(by_id["phone_control_cloudflared"]["path"]) / CLOUDFLARED_NAME
+            if parse_cloudflared_version(probe_cloudflared_version(tool)) != CLOUDFLARED_VERSION:
+                raise PackageError("tool_probe_failed")
+        _write_group_pointer(feature, {"feature": feature, "artifacts": refs}, root)
+        return {"ok": True, "feature": feature, "artifacts": by_id}
+
+
+@_transactional
+def selected_install_dir(feature, *, root=None):
+    state = _split_group(feature, root=root)
+    if state.get("available"):
+        return Path(state["artifacts"][feature + "_runtime"]["path"])
+    return install_dir(feature, root=root)
+
+
 def inspect_artifact(archive, artifact_id):
     """只读识别 schema2 资产，供下载服务在落盘前复核。"""
     path = Path(archive)
@@ -610,12 +993,33 @@ def inspect_artifact(archive, artifact_id):
     return {"ok": True, "kind": "artifact", "artifact_id": artifact_id,
             "feature": manifest["feature"], "role": manifest["role"],
             "version": manifest["asset_version"],
+            "content_sha256": artifact_content_sha256(manifest),
             "compatibility_id": manifest["compatibility_id"],
             "text": "拆分组件资产清单有效。"}
 
 
-def _split_group(feature, *, root=None):
+def _split_group(feature, *, root=None, allow_cache=True):
     feature = _key(feature)
+    _recover_replacement(_root(root), feature)
+    pointer = _group_pointer(feature, root)
+    if pointer.exists() or _linked(pointer):
+        try:
+            selection = json.loads(pointer.read_text(encoding="utf-8")) if not _linked(pointer) else {}
+            if (isinstance(selection, dict) and selection.get("feature") == feature
+                    and selection.get("selection") == "legacy"
+                    and ("transaction_id" not in selection or
+                         (isinstance(selection["transaction_id"], str) and
+                          re.fullmatch(r"[0-9a-f]{32}", selection["transaction_id"])) )):
+                return {"available": False, "source": "legacy", "feature": feature,
+                        "error": "", "artifacts": {}}
+            by_id = _resolve_group(feature, root=root, allow_cache=allow_cache)
+            runtime = by_id[feature + "_runtime"]
+            return {"available": True, "source": "split", "feature": feature,
+                    "error": "", "version": runtime["version"],
+                    "compatibility_id": runtime["compatibility_id"], "artifacts": by_id}
+        except (PackageError, OSError, ValueError, KeyError, TypeError):
+            return {"available": False, "source": "split", "feature": feature,
+                    "error": "artifact_invalid", "artifacts": {}}
     ids = [artifact_id for artifact_id, spec in ARTIFACTS.items()
            if spec["feature"] == feature]
     states = [artifact_status(artifact_id, root=root) for artifact_id in ids]
@@ -636,6 +1040,7 @@ def _split_group(feature, *, root=None):
             "compatibility_id": next(iter(compatibility)), "artifacts": by_id}
 
 
+@_transactional
 def feature_status(key, *, root=None):
     """优先返回完整拆分组，组不完整时退回旧单体 feature 包。"""
     split = _split_group(key, root=root)
@@ -649,10 +1054,12 @@ def feature_status(key, *, root=None):
     return split
 
 
+@_transactional
 def remove(key, *, root=None):
-    with _LOCK:
+    with _LOCK, _file_transaction(root):
         base = _root(root)
         feature = _key(key)
+        _assert_unused(feature, root)
         target = base / feature
         _recover_replacement(base, feature)
         if _linked(base) or _linked(target):
@@ -664,9 +1071,19 @@ def remove(key, *, root=None):
             shutil.rmtree(backup)
         _STATUS_CACHE.pop(str(target), None)
         assets = base / ARTIFACT_ROOT
+        pointer = _group_pointer(feature, root)
+        if _linked(pointer) or _linked(pointer.parent):
+            raise PackageError("unsafe_path")
+        if pointer.exists():
+            pointer.unlink()
         for artifact_id, spec in ARTIFACTS.items():
             if spec["feature"] != feature:
                 continue
+            cache = assets / ".cache" / artifact_id
+            if _linked(cache):
+                raise PackageError("unsafe_path")
+            if cache.exists():
+                shutil.rmtree(cache)
             _recover_artifact_replacement(base, artifact_id)
             artifact = assets / artifact_id
             if artifact.exists():
@@ -676,17 +1093,20 @@ def remove(key, *, root=None):
         return {"ok": True, "text": "组件已移除；本机保存的账号可另行清除。"}
 
 
+@_transactional
 def invoke(key, payload, *, root=None):
     with _LOCK:
         feature = _key(key)
-        split = _split_group(feature, root=root)
+        split = _split_group(feature, root=root, allow_cache=False)
         if split["available"]:
-            runtime_id = feature + "_runtime"
-            runtime = artifact_dir(runtime_id, root=root)
-            return _helper(
-                runtime / "feature-helper.exe", feature=feature, payload=payload,
-                env={"CAMPUS_OCR_MODEL_ROOT": str(
-                    _root(root) / ARTIFACT_ROOT / "relogin_ocr_model" / "models")})
+            runtime = Path(split["artifacts"][feature + "_runtime"]["path"])
+            env = None
+            if feature == "relogin_ocr":
+                env = {"CAMPUS_OCR_MODEL_ROOT": str(Path(split["artifacts"]["relogin_ocr_model"]["path"]) / "models")}
+            try:
+                return _helper(runtime / "feature-helper.exe", feature=feature, payload=payload, env=env)
+            except (PackageError, OSError):
+                pass
         directory = _root(root) / feature
         validate_directory(directory, feature)
         return _helper(directory / "feature-helper.exe", feature=feature, payload=payload)
@@ -754,11 +1174,13 @@ def inspect_cloudflared(source, *, probe_text=None) -> dict:
             "text": "这份文件不是 cloudflared：它的版本信息里没有 cloudflared 的版本号。"}
 
 
+@_transactional
 def install_cloudflared(source, *, root=None, probe=None, probe_text=None) -> dict:
     """把用户选定的 cloudflared 收进受管目录，并记下版本与哈希。
 
     校验不过一律抛 PackageError，原目录保持不动（不会出现「装了一半」）。
     """
+    _assert_unused("phone_control", root)
     info = inspect_cloudflared(source, probe_text=probe_text)
     if not info["ok"]:
         raise PackageError(info["kind"])
@@ -813,11 +1235,6 @@ def _recover_cloudflared_store(base):
     backup = store.with_name(CLOUDFLARED_STORE + ".bak")
     if _linked(base) or _linked(store) or _linked(backup):
         raise PackageError("unsafe_path")
-    for stage in base.glob(".stage-cf-*"):
-        if _linked(stage):
-            raise PackageError("unsafe_path")
-        if stage.is_dir():
-            shutil.rmtree(stage, ignore_errors=True)
     if backup.exists() and not store.exists():
         os.replace(backup, store)
     elif backup.exists() and store.exists():
@@ -826,6 +1243,7 @@ def _recover_cloudflared_store(base):
         shutil.rmtree(backup, ignore_errors=True)
 
 
+@_transactional
 def stored_cloudflared(*, root=None, probe=None) -> str:
     """返回受管目录里那份 cloudflared 的路径；版本或哈希对不上就返回空串。"""
     probe = probe or probe_cloudflared_version
@@ -852,8 +1270,10 @@ def stored_cloudflared(*, root=None, probe=None) -> str:
             return ""
 
 
+@_transactional
 def remove_cloudflared(*, root=None) -> dict:
     with _LOCK:
+        _assert_unused("phone_control", root)
         base = _root(root)
         store = base / CLOUDFLARED_STORE
         if _linked(base) or _linked(store):
@@ -917,12 +1337,16 @@ def inspect_archive(archive, key) -> dict:
             "text": "已识别为「%s」组件包。" % title.get(feature, feature)}
 
 
+@_transactional
 def cloudflared(*, root=None, probe=None):
     """返回可用的 cloudflared 路径；版本不符、缺文件、probe 失败都返回空串。"""
     probe = probe or probe_cloudflared_version
-    split_tool = artifact_status("phone_control_cloudflared", root=root)
+    group = _split_group("phone_control", root=root, allow_cache=False)
+    split_tool = group.get("artifacts", {}).get("phone_control_cloudflared", {}) if group.get("available") else {}
+    if not _group_pointer("phone_control", root).exists() and not split_tool:
+        split_tool = artifact_status("phone_control_cloudflared", root=root)
     if split_tool.get("available"):
-        target = artifact_dir("phone_control_cloudflared", root=root) / CLOUDFLARED_NAME
+        target = Path(split_tool["path"]) / CLOUDFLARED_NAME
         if parse_cloudflared_version(probe(target)) == CLOUDFLARED_VERSION:
             return str(target)
     with _LOCK:

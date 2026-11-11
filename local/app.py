@@ -805,7 +805,7 @@ class Api:
             asset_resolver=self._resolve_component_asset,
             install=self._install_downloaded_component,
             inspect_artifact=_component_packages.inspect_artifact,
-            install_artifact=self._install_downloaded_artifact,
+            commit_artifact_group=self._commit_downloaded_component_group,
             on_installed=self._component_installed,
             on_finished=lambda: self._component_finished(_advanced_features.PHONE_CONTROL),
             log=phone_log)
@@ -817,7 +817,7 @@ class Api:
                 version, _advanced_features.RELOGIN_OCR),
             install=self._install_downloaded_ocr,
             inspect_artifact=_component_packages.inspect_artifact,
-            install_artifact=self._install_downloaded_ocr_artifact,
+            commit_artifact_group=self._commit_downloaded_ocr_group,
             on_installed=self._ocr_component_installed,
             on_finished=lambda: self._component_finished(_advanced_features.RELOGIN_OCR),
             log=phone_log)
@@ -834,8 +834,10 @@ class Api:
         self._plan_sources: dict[str, str] = {}
         self._cloudflare = _tunnel_manager.CloudflareTunnel(
             _tunnel_manager.resolve_cloudflared(resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR),
+            popen=_tunnel_manager.spawn_cloudflared,
             # 每次真正拉起隧道前再核一遍组件：缓存路径可能已被替换或删除
-            verify=lambda path: _tunnel_manager.verify_managed_cloudflared(path, root=DATA_DIR))
+            verify=lambda path: _tunnel_manager.verify_managed_cloudflared(path, root=DATA_DIR),
+            usage=lambda path: _component_packages.cloudflared_usage(path, root=DATA_DIR))
         # 隧道异常退出只报一次 exited，之后 status() 读到的就是 stopped：
         # 退出提示必须自己存住，否则同一次状态组装里的第二次读取会把它降级成「可用」。
         # None 表示「没有未收起的退出提示」，用户手动 stop 或成功 start 后清空。
@@ -1164,10 +1166,11 @@ class Api:
             payload = _update_check.payload_from_manifest(raw_manifest, version)
             split_verdict = _update_check.resolve_component_assets(
                 payload, version, raw_manifest, feature)
-            if split_verdict.get("state") == "available":
-                return {"ok": True, "assets": split_verdict["assets"]}
             verdict = _update_check.resolve_component_asset(
                 payload, version, raw_manifest, feature)
+            if split_verdict.get("state") == "available":
+                return {"ok": True, "assets": split_verdict["assets"],
+                        "asset": verdict.get("asset") if verdict.get("state") == "available" else None}
         except HTTPError as exc:
             if exc.code in (403, 429):
                 return {"ok": False, "error": "rate_limited",
@@ -1206,8 +1209,8 @@ class Api:
             self._phone_channel = ""
             return _component_packages.install(archive, key, root=root)
 
-    def _install_downloaded_artifact(self, archive, artifact_id, *, root=None):
-        """拆分手机资产换位前复用 legacy 组件的进程收口。"""
+    def _commit_downloaded_component_group(self, feature, artifacts, *, root=None):
+        """全部资产准备好后才暂停手机入口，并一次切换已校验的组。"""
         with self._credential_lock, self._phone_access_lock:
             with self._lock:
                 if self._closing:
@@ -1215,7 +1218,7 @@ class Api:
             self._cloudflare.stop()
             self._phone.shutdown(preserve_devices=True)
             self._phone_channel = ""
-            return _component_packages.install_artifact(archive, artifact_id, root=root)
+            return _component_packages.commit_artifact_group(feature, artifacts, root=root)
 
     def _component_finished(self, feature: str = "") -> None:
         """组件下载事务收尾（工作线程）：放开占用，并把失败原因写进运行记录。
@@ -1263,15 +1266,15 @@ class Api:
             self._auto_relogin.reset()
             return _component_packages.install(archive, key, root=root)
 
-    def _install_downloaded_ocr_artifact(self, archive, artifact_id, *, root=None):
-        """拆分 OCR 资产换位前停止自动登录，避免模型文件被占用。"""
+    def _commit_downloaded_ocr_group(self, feature, artifacts, *, root=None):
+        """模型与运行时均备好后，在维护锁内停止使用者并切换完整组。"""
         with self._credential_lock:
             with self._lock:
                 if self._closing:
                     raise RuntimeError("application_closing")
             self._relay.cancel(origin="auto")
             self._auto_relogin.reset()
-            return _component_packages.install_artifact(archive, artifact_id, root=root)
+            return _component_packages.commit_artifact_group(feature, artifacts, root=root)
 
     def _ocr_component_installed(self, version: str) -> None:
         """验证码识别装好后写启用状态（在工作线程里被调用）。"""
@@ -1364,7 +1367,7 @@ class Api:
         if not _advanced_features.allowed_feature(key):
             return {"ok": False, "error": "bad_feature", "text": "未知高级功能"}
         try:
-            directory = _component_packages.install_dir(key, root=DATA_DIR)
+            directory = _component_packages.selected_install_dir(key, root=DATA_DIR)
         except (_component_packages.PackageError, OSError, ValueError):
             return {"ok": False, "error": "location_unavailable", "text": "读不到组件的安装位置。"}
         parts = directory.parts

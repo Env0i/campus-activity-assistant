@@ -12,6 +12,7 @@ import sys
 import subprocess
 import tempfile
 import threading
+import time
 import unittest
 import zipfile
 from pathlib import Path
@@ -97,6 +98,308 @@ class PackageTests(unittest.TestCase):
                 package.writestr(name, raw)
         return archive
 
+    def test_legacy_install_selects_new_component_over_split(self):
+        runtime = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime"), "relogin_ocr_runtime", root=self.root)
+        model = cp.cache_artifact(self.artifact_archive("relogin_ocr_model"), "relogin_ocr_model", root=self.root)
+        cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+        cp.install(self.archive(feature="relogin_ocr"), "relogin_ocr", root=self.root)
+        self.assertEqual(cp.feature_status("relogin_ocr", root=self.root)["source"], "legacy")
+        self.assertEqual(cp.selected_install_dir("relogin_ocr", root=self.root), self.root / "advanced" / "relogin_ocr")
+        cp.invoke("relogin_ocr", {}, root=self.root)
+        self.assertEqual(Path(self.helper.call_args.args[0]).parent, self.root / "advanced" / "relogin_ocr")
+
+    def test_damaged_referenced_cache_is_never_moved(self):
+        archive = self.artifact_archive("relogin_ocr_model")
+        old = cp.cache_artifact(archive, "relogin_ocr_model", root=self.root)
+        old_path = Path(old["path"])
+        (old_path / "models" / "common.onnx").write_bytes(b"damaged")
+        new = cp.cache_artifact(archive, "relogin_ocr_model", root=self.root)
+        self.assertTrue(old_path.exists())
+        self.assertNotEqual(old["path"], new["path"])
+        self.assertEqual((old_path / "models" / "common.onnx").read_bytes(), b"damaged")
+        metadata = {k: new[k] for k in ("artifact_id", "content_sha256", "compatibility_id")}
+        self.assertEqual(cp.find_cached_artifact(metadata, root=self.root)["path"], new["path"])
+
+    def test_legacy_install_overrides_automatic_fixed_group(self):
+        for artifact in ("relogin_ocr_runtime", "relogin_ocr_model"):
+            cp.install_artifact(self.artifact_archive(artifact), artifact, root=self.root)
+        self.assertEqual(cp.feature_status("relogin_ocr", root=self.root)["source"], "split")
+        cp.install(self.archive(feature="relogin_ocr"), "relogin_ocr", root=self.root)
+        self.assertEqual(cp.feature_status("relogin_ocr", root=self.root)["source"], "legacy")
+        self.assertTrue(cp.artifact_dir("relogin_ocr_runtime", root=self.root).exists())
+
+    def test_legacy_install_process_exit_recovery_boundaries(self):
+        script = """import os, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from infrastructure import component_packages as cp
+cp.supported = lambda: True
+cp._helper = lambda *args, **kwargs: {'ok': True}
+original = cp._write_group_pointer
+def stop(feature, data, root):
+    if sys.argv[4] == 'before': os._exit(71)
+    original(feature, data, root)
+    os._exit(72)
+cp._write_group_pointer = stop
+cp.install(sys.argv[3], 'relogin_ocr', root=Path(sys.argv[2]))
+"""
+        local = str(Path(__file__).resolve().parents[1])
+        for had_target, boundary, selection in ((True, "before", "split"), (True, "after", "split"),
+                                                (False, "before", "split"), (True, "before", "legacy")):
+            with self.subTest(had_target=had_target, boundary=boundary, selection=selection), tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
+                root = Path(tmp)
+                if had_target:
+                    cp.install(self.archive(feature="relogin_ocr", data=b"old"), "relogin_ocr", root=root)
+                runtime = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime"), "relogin_ocr_runtime", root=root)
+                model = cp.cache_artifact(self.artifact_archive("relogin_ocr_model"), "relogin_ocr_model", root=root)
+                if selection == "split":
+                    cp.commit_artifact_group("relogin_ocr", [runtime, model], root=root)
+                pointer = cp._group_pointer("relogin_ocr", root)
+                old_pointer = pointer.read_bytes()
+                archive = self.archive(feature="relogin_ocr", data=b"new")
+                proc = subprocess.run([sys.executable, "-c", script, local, str(root), str(archive), boundary], timeout=15)
+                self.assertEqual(proc.returncode, 71 if boundary == "before" else 72)
+                self.assertTrue(cp.invoke("relogin_ocr", {}, root=root)["ok"])
+                state = cp.feature_status("relogin_ocr", root=root)
+                target = root / "advanced" / "relogin_ocr"
+                if boundary == "before":
+                    self.assertEqual(pointer.read_bytes(), old_pointer)
+                    self.assertEqual(state["source"], selection)
+                    if had_target:
+                        self.assertEqual((target / "feature-helper.exe").read_bytes(), b"old")
+                    else:
+                        self.assertFalse(target.exists())
+                else:
+                    self.assertEqual(state["source"], "legacy")
+                    self.assertEqual((target / "feature-helper.exe").read_bytes(), b"new")
+                self.assertTrue(cp.invoke("relogin_ocr", {}, root=root)["ok"])
+
+    def test_legacy_pointer_failure_restores_previous_selection_and_bytes(self):
+        cp.install(self.archive(feature="relogin_ocr", data=b"old"), "relogin_ocr", root=self.root)
+        runtime = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime"), "relogin_ocr_runtime", root=self.root)
+        model = cp.cache_artifact(self.artifact_archive("relogin_ocr_model"), "relogin_ocr_model", root=self.root)
+        cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+        pointer = cp._group_pointer("relogin_ocr", self.root)
+        old_pointer = pointer.read_bytes()
+        with mock.patch.object(cp, "_write_group_pointer", side_effect=OSError("denied")):
+            with self.assertRaises(OSError):
+                cp.install(self.archive(feature="relogin_ocr", data=b"new"), "relogin_ocr", root=self.root)
+        self.assertEqual(pointer.read_bytes(), old_pointer)
+        self.assertEqual((self.root / "advanced" / "relogin_ocr" / "feature-helper.exe").read_bytes(), b"old")
+        self.assertEqual(cp.feature_status("relogin_ocr", root=self.root)["source"], "split")
+
+    def test_fixed_asset_commit_copies_to_immutable_cache(self):
+        handles = []
+        for artifact in ("relogin_ocr_runtime", "relogin_ocr_model"):
+            cp.install_artifact(self.artifact_archive(artifact), artifact, root=self.root)
+            state = cp.artifact_status(artifact, root=self.root)
+            handles.append(cp._handle(state["path"], artifact))
+        cp.commit_artifact_group("relogin_ocr", handles, root=self.root)
+        cp.install_artifact(self.artifact_archive("relogin_ocr_runtime", {"feature-helper.exe": b"changed"}), "relogin_ocr_runtime", root=self.root)
+        self.assertTrue(cp.feature_status("relogin_ocr", root=self.root)["available"])
+        self.assertEqual(cp.feature_status("relogin_ocr", root=self.root)["artifacts"]["relogin_ocr_runtime"]["content_sha256"], handles[0]["content_sha256"])
+
+    def test_other_process_remove_waits_for_active_invoke(self):
+        runtime = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime"), "relogin_ocr_runtime", root=self.root)
+        model = cp.cache_artifact(self.artifact_archive("relogin_ocr_model"), "relogin_ocr_model", root=self.root)
+        cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+        script = """import sys, time
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from infrastructure import component_packages as cp
+root, entered, release, finished = map(Path, sys.argv[2:6])
+cp.supported = lambda: True
+if sys.argv[6] == 'invoke':
+    def helper(*args, **kwargs):
+        entered.touch()
+        while not release.exists(): time.sleep(.02)
+        return {'ok': True}
+    cp._helper = helper
+    cp.invoke('relogin_ocr', {}, root=root)
+else:
+    entered.touch()
+    cp.remove('relogin_ocr', root=root)
+finished.touch()
+"""
+        local = str(Path(__file__).resolve().parents[1])
+        entered, release, done, started, removed = (self.root / x for x in ("entered", "release", "done", "started", "removed"))
+        processes = []
+        try:
+            processes.append(subprocess.Popen([sys.executable, "-c", script, local, str(self.root), str(entered), str(release), str(done), "invoke"]))
+            import time
+            deadline = time.monotonic() + 10
+            while not entered.exists() and time.monotonic() < deadline: time.sleep(.02)
+            self.assertTrue(entered.exists())
+            processes.append(subprocess.Popen([sys.executable, "-c", script, local, str(self.root), str(started), str(release), str(removed), "remove"]))
+            deadline = time.monotonic() + 10
+            while not started.exists() and time.monotonic() < deadline: time.sleep(.02)
+            self.assertTrue(started.exists())
+            time.sleep(.4)
+            self.assertFalse(removed.exists())
+            self.assertTrue(Path(runtime["path"]).exists())
+            release.touch()
+            for proc in processes: self.assertEqual(proc.wait(timeout=10), 0)
+            self.assertTrue(done.exists())
+            self.assertTrue(removed.exists())
+        finally:
+            release.touch()
+            for proc in processes:
+                if proc.poll() is None: proc.kill(); proc.wait()
+
+    def test_two_processes_serialize_component_transactions(self):
+        script = """import sys, time
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from infrastructure import component_packages as cp
+root = Path(sys.argv[2])
+with cp._LOCK, cp._file_transaction(root):
+    Path(sys.argv[3]).write_text('entered')
+    while not Path(sys.argv[4]).exists(): time.sleep(.02)
+"""
+        local = str(Path(__file__).resolve().parents[1])
+        first, second, release1, release2 = (self.root / x for x in ("one", "two", "release1", "release2"))
+        processes = []
+        try:
+            processes.append(subprocess.Popen([sys.executable, "-c", script, local, str(self.root), str(first), str(release1)]))
+            import time
+            deadline = time.monotonic() + 10
+            while not first.exists() and time.monotonic() < deadline:
+                time.sleep(.02)
+            self.assertTrue(first.exists())
+            processes.append(subprocess.Popen([sys.executable, "-c", script, local, str(self.root), str(second), str(release2)]))
+            time.sleep(.4)
+            self.assertFalse(second.exists())
+            release1.touch()
+            deadline = time.monotonic() + 10
+            while not second.exists() and time.monotonic() < deadline:
+                time.sleep(.02)
+            self.assertTrue(second.exists())
+            release2.touch()
+            for proc in processes:
+                self.assertEqual(proc.wait(timeout=10), 0)
+        finally:
+            release1.touch()
+            release2.touch()
+            for proc in processes:
+                if proc.poll() is None:
+                    proc.kill()
+                    proc.wait()
+
+    def test_invoke_revalidates_even_if_status_fingerprint_is_unchanged(self):
+        cp.install(self.archive(feature="relogin_ocr"), "relogin_ocr", root=self.root)
+        runtime = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime"), "relogin_ocr_runtime", root=self.root)
+        model = cp.cache_artifact(self.artifact_archive("relogin_ocr_model"), "relogin_ocr_model", root=self.root)
+        cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+        with mock.patch.object(cp, "_artifact_fingerprint", return_value=("unchanged",)):
+            self.assertEqual(cp.feature_status("relogin_ocr", root=self.root)["source"], "split")
+            (Path(runtime["path"]) / "feature-helper.exe").write_bytes(b"X" * len(b"MZruntime"))
+            self.assertEqual(cp.feature_status("relogin_ocr", root=self.root)["source"], "split")
+            self.helper.reset_mock()
+            self.assertTrue(cp.invoke("relogin_ocr", {}, root=self.root)["ok"])
+            self.assertEqual(Path(self.helper.call_args.args[0]), self.root / "advanced" / "relogin_ocr" / "feature-helper.exe")
+            self.assertEqual(self.helper.call_count, 1)
+            self.assertEqual(cp.feature_status("relogin_ocr", root=self.root)["source"], "legacy")
+
+    def test_cloudflared_revalidates_even_if_status_fingerprint_is_unchanged(self):
+        cp.install(self.archive(), "phone_control", root=self.root)
+        runtime = cp.cache_artifact(self.artifact_archive("phone_control_runtime"), "phone_control_runtime", root=self.root)
+        tool = cp.cache_artifact(self.artifact_archive("phone_control_cloudflared"), "phone_control_cloudflared", root=self.root)
+        with mock.patch.object(cp, "probe_cloudflared_version", return_value=cp.CLOUDFLARED_VERSION):
+            cp.commit_artifact_group("phone_control", [runtime, tool], root=self.root)
+            with mock.patch.object(cp, "_artifact_fingerprint", return_value=("unchanged",)):
+                self.assertEqual(cp.feature_status("phone_control", root=self.root)["source"], "split")
+                (Path(tool["path"]) / cp.CLOUDFLARED_NAME).write_bytes(b"X" * len(b"MZruntime"))
+                self.assertEqual(cp.feature_status("phone_control", root=self.root)["source"], "split")
+                trusted = cp.cloudflared(root=self.root)
+                self.assertEqual(Path(trusted), self.root / "advanced" / "phone_control" / cp.CLOUDFLARED_NAME)
+                self.assertEqual(cp.feature_status("phone_control", root=self.root)["source"], "legacy")
+
+    def test_group_status_reuses_validation_and_invalidates_changed_files(self):
+        runtime = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime"), "relogin_ocr_runtime", root=self.root)
+        model = cp.cache_artifact(self.artifact_archive("relogin_ocr_model"), "relogin_ocr_model", root=self.root)
+        cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+        with mock.patch.object(cp, "sha256", wraps=cp.sha256) as hashing:
+            self.assertTrue(cp.feature_status("relogin_ocr", root=self.root)["available"])
+            self.assertEqual(hashing.call_count, 3)
+            hashing.reset_mock()
+            self.assertTrue(cp.feature_status("relogin_ocr", root=self.root)["available"])
+            self.assertEqual(hashing.call_count, 0)
+            metadata = {k: model[k] for k in ("artifact_id", "content_sha256", "compatibility_id")}
+            self.assertIsNotNone(cp.find_cached_artifact(metadata, root=self.root))
+            self.assertGreater(hashing.call_count, 0)
+            hashing.reset_mock()
+            cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+            self.assertGreater(hashing.call_count, 0)
+            (Path(model["path"]) / "models" / "common.onnx").write_bytes(b"broken")
+            self.assertFalse(cp.feature_status("relogin_ocr", root=self.root)["available"])
+
+    def test_cached_group_commit_preserves_old_group_on_probe_failure(self):
+        runtime = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime"), "relogin_ocr_runtime", root=self.root)
+        model = cp.cache_artifact(self.artifact_archive("relogin_ocr_model"), "relogin_ocr_model", root=self.root)
+        cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+        pointer = self.root / "advanced" / "assets" / ".groups" / "relogin_ocr.json"
+        old = pointer.read_bytes()
+        replacement = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime", {"feature-helper.exe": b"new"}), "relogin_ocr_runtime", root=self.root)
+        self.helper.side_effect = cp.PackageError("helper_failed")
+        with self.assertRaises(cp.PackageError):
+            cp.commit_artifact_group("relogin_ocr", [replacement, model], root=self.root)
+        self.assertEqual(pointer.read_bytes(), old)
+        self.assertTrue(cp.feature_status("relogin_ocr", root=self.root)["available"])
+
+    def test_cache_reuses_verified_content_and_does_not_remove_other_stage(self):
+        archive = self.artifact_archive("relogin_ocr_model")
+        handle = cp.cache_artifact(archive, "relogin_ocr_model", root=self.root)
+        other = self.root / "advanced" / "assets" / ".stage-relogin_ocr_model-other"
+        other.mkdir()
+        metadata = {k: handle[k] for k in ("artifact_id", "content_sha256", "compatibility_id")}
+        self.assertEqual(cp.find_cached_artifact(metadata, root=self.root)["path"], handle["path"])
+        self.assertTrue(other.exists())
+        (Path(handle["path"]) / "models" / "common.onnx").write_bytes(b"bad")
+        self.assertIsNone(cp.find_cached_artifact(metadata, root=self.root))
+
+    def test_group_pointer_failure_and_incomplete_group_preserve_selection(self):
+        runtime = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime"), "relogin_ocr_runtime", root=self.root)
+        model = cp.cache_artifact(self.artifact_archive("relogin_ocr_model"), "relogin_ocr_model", root=self.root)
+        cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+        pointer = self.root / "advanced" / "assets" / ".groups" / "relogin_ocr.json"
+        before = pointer.read_bytes()
+        with self.assertRaises(cp.PackageError):
+            cp.commit_artifact_group("relogin_ocr", [runtime], root=self.root)
+        with mock.patch.object(cp.os, "replace", side_effect=OSError("denied")):
+            with self.assertRaises(OSError):
+                cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+        self.assertEqual(pointer.read_bytes(), before)
+        self.assertTrue(cp.feature_status("relogin_ocr", root=self.root)["available"])
+
+    def test_selected_group_invoke_uses_model_and_falls_back_to_legacy(self):
+        cp.install(self.archive(feature="relogin_ocr"), "relogin_ocr", root=self.root)
+        runtime = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime"), "relogin_ocr_runtime", root=self.root)
+        model = cp.cache_artifact(self.artifact_archive("relogin_ocr_model"), "relogin_ocr_model", root=self.root)
+        cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+        self.assertEqual(cp.selected_install_dir("relogin_ocr", root=self.root), Path(runtime["path"]))
+        self.helper.side_effect = [cp.PackageError("failed"), {"ok": True}]
+        self.assertTrue(cp.invoke("relogin_ocr", {}, root=self.root)["ok"])
+        self.assertEqual(Path(self.helper.call_args.args[0]), self.root / "advanced" / "relogin_ocr" / "feature-helper.exe")
+
+    def test_readers_observe_complete_group_during_switch(self):
+        old = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime"), "relogin_ocr_runtime", root=self.root)
+        model = cp.cache_artifact(self.artifact_archive("relogin_ocr_model"), "relogin_ocr_model", root=self.root)
+        new = cp.cache_artifact(self.artifact_archive("relogin_ocr_runtime", {"feature-helper.exe": b"new"}), "relogin_ocr_runtime", root=self.root)
+        cp.commit_artifact_group("relogin_ocr", [old, model], root=self.root)
+        failures = []
+        def reader():
+            for _ in range(30):
+                state = cp.feature_status("relogin_ocr", root=self.root)
+                if not state["available"] or state["artifacts"]["relogin_ocr_runtime"]["content_sha256"] not in (old["content_sha256"], new["content_sha256"]):
+                    failures.append(state)
+        thread = threading.Thread(target=reader)
+        thread.start()
+        for _ in range(5):
+            cp.commit_artifact_group("relogin_ocr", [new, model], root=self.root)
+            cp.commit_artifact_group("relogin_ocr", [old, model], root=self.root)
+        thread.join()
+        self.assertEqual(failures, [])
+
     def test_split_artifacts_install_as_a_complete_legacy_safe_group(self):
         runtime = self.artifact_archive("relogin_ocr_runtime")
         model = self.artifact_archive("relogin_ocr_model")
@@ -175,7 +478,7 @@ class PackageTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 cp.install(archive, self.key, root=self.root)
         self.assertEqual((self.target / "feature-helper.exe").read_bytes(), b"old")
-        self.assertEqual([p.name for p in self.target.parent.iterdir()], [self.key])
+        self.assertEqual({p.name for p in self.target.parent.iterdir()}, {self.key, "assets"})
 
     def test_probe_failure_preserves_old_component(self):
         cp.install(self.archive(data=b"old"), self.key, root=self.root)
@@ -200,12 +503,12 @@ class PackageTests(unittest.TestCase):
         self.assertTrue(self.target.is_dir())
         self.assertFalse(backup.exists(), "新目录已落位后不应留下旧 backup")
 
-    def test_recovery_removes_orphaned_component_stage(self):
+    def test_recovery_preserves_unowned_component_stage(self):
         stage = self.target.parent / (".stage-%s-orphan" % self.key)
         stage.mkdir(parents=True)
         (stage / "partial").write_bytes(b"partial")
         self.assertFalse(cp.status(self.key, root=self.root)["available"])
-        self.assertFalse(stage.exists(), "崩溃留下的阶段目录应在下次读取时回收")
+        self.assertTrue(stage.exists(), "读取方无法证明阶段目录归属，应保留")
 
     def test_untrusted_paths_extras_duplicates_platform_and_feature(self):
         for name in ("../evil", "/evil", "C:/evil", "a\\evil", "nul.exe", "file:stream", "x./y"):
@@ -383,7 +686,7 @@ class PackageTests(unittest.TestCase):
         self.assertTrue(store.is_dir(), "读取时应把 .bak 恢复成正式目录")
         self.assertFalse(backup.exists(), "恢复后不应残留 .bak")
 
-    def test_stored_cloudflared_discards_backup_and_stage_after_new_store_is_in_place(self):
+    def test_stored_cloudflared_discards_backup_but_preserves_unowned_stage(self):
         source = self.root / "cloudflared.exe"
         source.write_bytes(BINARY)
         text = "cloudflared version 2026.10.7"
@@ -397,7 +700,7 @@ class PackageTests(unittest.TestCase):
         (stage / "partial").write_bytes(b"partial")
         self.assertTrue(cp.stored_cloudflared(root=self.root, probe=lambda _p: text))
         self.assertFalse(backup.exists(), "新目录已落位后不应留下 cloudflared backup")
-        self.assertFalse(stage.exists(), "崩溃留下的 cloudflared 阶段目录应回收")
+        self.assertTrue(stage.exists(), "读取方无法证明阶段目录归属，应保留")
 
     def test_inspect_archive_names_the_component_it_found(self):
         good = self.archive()
@@ -453,6 +756,77 @@ class PackageTests(unittest.TestCase):
         state = cp.status(self.key, root=self.root)
         self.assertTrue(state["available"])
         self.assertEqual(state["version"], cp.version())
+
+
+class CloudflaredUsageTests(unittest.TestCase):
+    def test_other_process_cannot_remove_active_component_or_tool(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as temporary:
+            root = Path(temporary)
+            target = root / "advanced" / "phone_control"
+            target.mkdir(parents=True)
+            sentinel = target / "sentinel"
+            sentinel.write_bytes(b"current-group")
+            ready = root / "ready"
+            child = r'''
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from infrastructure import component_packages as cp
+root = Path(sys.argv[2])
+path = str(root / "advanced/phone_control/cloudflared.exe")
+cp.cloudflared = lambda **kwargs: path
+with cp.cloudflared_usage(path, root=root):
+    (root / "ready").write_text("ready", encoding="utf-8")
+    sys.stdin.readline()
+'''
+            proc = subprocess.Popen(
+                [sys.executable, "-X", "utf8", "-c", child,
+                 str(Path(__file__).resolve().parents[1]), str(root)],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            try:
+                deadline = time.monotonic() + 10
+                while not ready.exists() and proc.poll() is None and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                self.assertTrue(ready.exists(), "子进程必须先拿到使用锁")
+                for operation in (
+                        lambda: cp.remove("phone_control", root=root),
+                        lambda: cp.remove_cloudflared(root=root),
+                        lambda: cp.install(root / "missing.zip", "phone_control", root=root),
+                        lambda: cp.install_artifact(root / "missing.zip", "phone_control_runtime", root=root),
+                        lambda: cp.commit_artifact_group("phone_control", [], root=root),
+                        lambda: cp.install_cloudflared(root / "missing.exe", root=root)):
+                    with self.assertRaisesRegex(cp.PackageError, "component_in_use"):
+                        operation()
+                    self.assertEqual(sentinel.read_bytes(), b"current-group")
+                proc.communicate(b"stop\n", timeout=10)
+                self.assertEqual(proc.returncode, 0)
+                cp.remove("phone_control", root=root)
+                self.assertFalse(target.exists())
+            finally:
+                if proc.poll() is None:
+                    proc.kill()
+                proc.communicate(timeout=10)
+
+    def test_failed_path_verification_releases_usage_lock(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as temporary:
+            with mock.patch.object(cp, "cloudflared", return_value=""):
+                with self.assertRaisesRegex(cp.PackageError, "cloudflared_untrusted"):
+                    with cp.cloudflared_usage("missing.exe", root=temporary):
+                        self.fail("校验失败不能进入运行期")
+            self.assertTrue(cp.remove_cloudflared(root=temporary)["ok"])
+
+    def test_usage_can_be_released_by_stop_on_another_thread(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as temporary:
+            executable = str(Path(temporary) / "cloudflared.exe")
+            with mock.patch.object(cp, "cloudflared", return_value=executable):
+                usage = cp.cloudflared_usage(executable, root=temporary)
+                usage.__enter__()
+            stopped = threading.Thread(target=lambda: usage.__exit__(None, None, None))
+            stopped.start()
+            stopped.join(timeout=5)
+            self.assertFalse(stopped.is_alive())
+            self.assertTrue(cp.remove_cloudflared(root=temporary)["ok"])
 
 
 if __name__ == "__main__":

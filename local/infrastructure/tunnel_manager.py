@@ -196,33 +196,83 @@ def verify_managed_cloudflared(path, *, root=None) -> str:
     return trusted
 
 
+def spawn_cloudflared(args, **kwargs):
+    """将隧道进程纳入 Job，父进程异常结束时也能回收。"""
+    from infrastructure import process_tree
+    tree = process_tree.spawn_owned(
+        args, cwd=str(Path(args[0]).resolve().parent), env=os.environ.copy(),
+        stdin=kwargs.get("stdin"), stdout=kwargs.get("stdout", subprocess.PIPE),
+        stderr=kwargs.get("stderr", subprocess.STDOUT))
+
+    def watch_exit():
+        try:
+            tree.proc.wait()
+        finally:
+            tree.close()
+
+    try:
+        threading.Thread(target=watch_exit, name="cloudflared-job",
+                         daemon=True).start()
+    except BaseException:
+        try:
+            tree.terminate()
+        finally:
+            tree.close()
+        raise
+    return tree.proc
+
+
 class CloudflareTunnel:
     def __init__(self, executable: str = "", *, popen=subprocess.Popen,
-                 now=time.monotonic, verify=None):
+                 now=time.monotonic, verify=None, usage=None):
         self.executable = str(executable or "")
         self._popen = popen
         self._now = now
         self._verify = verify
+        self._usage_factory = usage
+        self._usage = None
+        self._state_lock = threading.Lock()
         self._proc = None
         self._queue = queue.Queue()
         self._reader = None
         self.public_url = ""
 
+    def _release_usage(self, proc=None):
+        with self._state_lock:
+            if proc is not None and self._proc is not proc:
+                return
+            usage, self._usage = self._usage, None
+        if usage is not None:
+            usage.__exit__(None, None, None)
+
     def start(self, local_url: str, timeout_s: float = 20.0) -> dict:
         if self._proc is not None and self._proc.poll() is None:
             return {"ok": False, "error": "already_running", "url": self.public_url}
+        self._release_usage(self._proc)
+        self._proc = None
         if not self.executable:
             return {"ok": False, "error": "cloudflared_missing",
                     "text": "找不到 cloudflared，请安装后再启用 Cloudflare 通道。"}
-        if self._verify is not None:
-            checked = self._verify(self.executable)
-            if not checked:
-                # 缓存路径已经不可信：清掉，别让它继续被界面当成「可用」
-                self.executable = ""
-                return {"ok": False, "error": "cloudflared_untrusted",
-                        "text": "cloudflared 组件校验没通过（可能被替换或删除），请重新安装手机控制组件。"}
-            self.executable = str(checked)
         try:
+            if self._usage_factory is not None:
+                usage = self._usage_factory(self.executable)
+                checked = usage.__enter__()
+                self._usage = usage
+                if not checked:
+                    self._release_usage()
+                    self.executable = ""
+                    return {"ok": False, "error": "cloudflared_untrusted",
+                            "text": "cloudflared 组件校验没通过（可能被替换或删除），请重新安装手机控制组件。"}
+                self.executable = str(checked)
+            if self._verify is not None:
+                checked = self._verify(self.executable)
+                if not checked or (self._usage is not None and
+                                   Path(str(checked)).resolve() != Path(self.executable).resolve()):
+                    self._release_usage()
+                    self.executable = ""
+                    return {"ok": False, "error": "cloudflared_untrusted",
+                            "text": "cloudflared 组件校验没通过（可能被替换或删除），请重新安装手机控制组件。"}
+                self.executable = str(checked)
             proc = self._popen(
                 [self.executable, "tunnel", "--url", str(local_url)],
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -231,10 +281,20 @@ class CloudflareTunnel:
                                | getattr(subprocess, "CREATE_NO_WINDOW", 0)),
             )
         except Exception as exc:  # noqa: BLE001
+            self._release_usage()
             return {"ok": False, "error": "tunnel_start_failed",
                     "text": "Cloudflare 隧道启动失败：%s" % type(exc).__name__}
         self._proc = proc
         self._queue = queue.Queue()
+
+        if self._usage is not None:
+            def watch_exit():
+                while proc.poll() is None:
+                    time.sleep(0.1)
+                self._release_usage(proc)
+
+            threading.Thread(target=watch_exit, name="cloudflared-exit",
+                             daemon=True).start()
 
         def read_lines():
             try:
@@ -276,6 +336,7 @@ class CloudflareTunnel:
                     "temporary": True, "restart_requires_pairing": True}
         if proc.poll() is not None:
             # 进程已经退出：地址必须先清掉，免得界面继续展示一个死链
+            self._release_usage(proc)
             self._proc = None
             self.public_url = ""
             return {"running": False, "public_url": "", "state": "exited",
@@ -288,7 +349,6 @@ class CloudflareTunnel:
 
     def stop(self) -> dict:
         proc = self._proc
-        self._proc = None
         self.public_url = ""
         if proc is None:
             return {"ok": True}
@@ -302,10 +362,16 @@ class CloudflareTunnel:
                 proc.wait(timeout=2)
             except Exception:
                 pass
+        if proc.poll() is None:
+            return {"ok": False, "error": "tunnel_stop_failed",
+                    "text": "Cloudflare 隧道仍在运行，请重试关闭。"}
+        self._release_usage(proc)
+        self._proc = None
         return {"ok": True}
 
 
 __all__ = ["CloudflareTunnel", "URL_RE", "resolve_cloudflared", "resolve_tailscale",
+           "spawn_cloudflared",
            "_hidden_window_kwargs",
            "parse_tailscale_ips", "parse_magicdns", "parse_backend_state",
            "tailscale_endpoint"]

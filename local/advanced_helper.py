@@ -19,17 +19,10 @@ _CAPTCHA_RE = re.compile(r"^[0-9A-Za-z]{4}$")
 
 
 def _external_model_candidates():
-    """返回外置 OCR 模型候选；源码/旧单体包没有目录时返回空。
-
-    新版 runtime 与 model 资产并列放在 ``assets/`` 下。保留环境变量只是给
-    测试和受控宿主使用，生产默认按 helper.exe 的目录推导，不依赖启动 cwd。
-    """
+    """仅使用宿主对已校验组件组注入的模型目录。"""
     configured = (os.environ.get("CAMPUS_OCR_MODEL_ROOT") or "").strip()
     if configured:
         root = Path(configured)
-    elif getattr(sys, "frozen", False):
-        root = (Path(sys.executable).resolve().parent.parent /
-                "relogin_ocr_model" / "models")
     else:
         return ()
     return (
@@ -44,6 +37,9 @@ def _classify_with_external_model(image, ddddocr):
         raw = base64.b64decode(image[len("data:image/png;base64,"):], validate=True)
     except (ValueError, TypeError):
         return None
+    if not raw:
+        return None
+    executed = False
     for onnx_path, charsets_path, beta in _external_model_candidates():
         if not onnx_path.is_file() or not charsets_path.is_file():
             continue
@@ -55,11 +51,14 @@ def _classify_with_external_model(image, ddddocr):
                 charsets_path=str(charsets_path),
             )
             value = str(engine.classification(raw) or "").strip()
+            executed = True
             if _CAPTCHA_RE.fullmatch(value):
                 return value
         except Exception:
             # 外置模型损坏时继续尝试另一套；两套都不可用再走 legacy。
             continue
+    if not executed:
+        raise ValueError("external_model_failed")
     return None
 
 
@@ -78,13 +77,10 @@ def run(feature, *, probe=False, stream=None):
             if probe:
                 if feature == "relogin_ocr":
                     candidates = list(_external_model_candidates())
-                    existing = [item for item in candidates
-                                if item[0].is_file() or item[1].is_file()]
-                    if existing:
-                        if not any(item[0].is_file() and item[1].is_file()
-                                   and _probe_external_model(item, ddddocr)
-                                   for item in candidates):
-                            raise ValueError("external_model_failed")
+                    if candidates and not all(item[0].is_file() and item[1].is_file()
+                                              and _probe_external_model(item, ddddocr)
+                                              for item in candidates):
+                        raise ValueError("external_model_failed")
                 result["ok"] = True
                 return result
             raw = (stream or sys.stdin.buffer).read(MAX_INPUT + 1)
@@ -101,9 +97,12 @@ def run(feature, *, probe=False, stream=None):
                 result.update(ok=True, qr=qr)
             elif feature == "relogin_ocr" and set(payload) == {"op", "image"} and payload["op"] == "ocr":
                 from infrastructure.advanced_features import classify_captcha
-                image = payload["image"]
-                code = _classify_with_external_model(image, ddddocr)
-                if code is None:
+                image = str(payload["image"] or "")
+                prefix = "data:image/png;base64,"
+                code = ""
+                if _external_model_candidates() and image.startswith(prefix) and len(image) <= 2 * 1024 * 1024:
+                    code = _classify_with_external_model(image, ddddocr) or ""
+                if not _external_model_candidates():
                     # 旧单体包把模型放在 ddddocr 内部；没有同级外置模型时
                     # 保持原来的默认 beta→legacy fallback 行为。
                     code = classify_captcha(image, frozen=False)

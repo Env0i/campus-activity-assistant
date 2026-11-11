@@ -51,7 +51,8 @@ class AdvancedComponentService:
 
     def __init__(self, *, download, asset_resolver, root=None, version=None,
                  inspect=None, install=None, status=None,
-                  remover=None, inspect_artifact=None, install_artifact=None,
+                  remover=None, inspect_artifact=None, find_cached_artifact=None,
+                  cache_artifact=None, commit_artifact_group=None,
                   on_installed=None, on_finished=None, log=None,
                  feature=FEATURE):
         if feature not in _TITLES:
@@ -64,7 +65,9 @@ class AdvancedComponentService:
         self._inspect = inspect or _packages.inspect_archive
         self._install = install or _packages.install
         self._inspect_artifact = inspect_artifact or _packages.inspect_artifact
-        self._install_artifact = install_artifact or _packages.install_artifact
+        self._find_cached_artifact = find_cached_artifact or _packages.find_cached_artifact
+        self._cache_artifact = cache_artifact or _packages.cache_artifact
+        self._commit_artifact_group = commit_artifact_group or _packages.commit_artifact_group
         self._status = status or _packages.feature_status
         self._remover = remover or _packages.remove
         self._on_installed = on_installed
@@ -230,8 +233,16 @@ class AdvancedComponentService:
                            str(resolved.get("text") or "这个版本没有发布组件包。"))
                 return
             if isinstance(resolved.get("assets"), list):
-                self._run_split_assets(resolved["assets"])
-                return
+                try:
+                    if self._run_split_assets(resolved["assets"]):
+                        return
+                except Exception as exc:
+                    self._fail("artifact_install_failed",
+                               "拆分组件准备失败（%s），当前组件仍保留。" % type(exc).__name__)
+                if self._cancelled() or not isinstance(resolved.get("asset"), dict):
+                    return
+                # 拆分组尚未提交，旧组继续可用；完整单体包仍须单独校验再安装。
+                self._set(state="downloading", text="", error_code="")
             asset = resolved["asset"]
             self._set(total=int(asset.get("bytes") or 0))
             last_progress = [0]
@@ -296,22 +307,30 @@ class AdvancedComponentService:
                 self._installing = False
                 self._active = False
 
-    def _run_split_assets(self, assets) -> None:
-        """按资产顺序下载并提交；旧单体组件目录始终保留作回退。"""
-        assets = [asset for asset in assets if isinstance(asset, dict)]
-        if not assets:
-            self._fail("no_component", "这个版本没有可用的拆分组件资产。")
-            return
-        total = sum(int(asset.get("bytes") or 0) for asset in assets)
-        offset = 0
-        installed_versions = []
+    def _run_split_assets(self, assets) -> bool:
+        """先复用或准备全部不可变资产，最后一次切换完整功能组。"""
+        required = {key for key, spec in _packages.ARTIFACTS.items()
+                    if spec["feature"] == self._feature}
+        if (not assets or any(not isinstance(asset, dict) for asset in assets)
+                or {asset.get("artifact_id") for asset in assets} != required
+                or len(assets) != len(required)):
+            self._fail("bad_artifact", "拆分组件资产组不完整。")
+            return False
+        prepared = {}
+        missing = []
         for asset in assets:
+            cached = self._find_cached_artifact(asset, root=self._root)
+            if cached is None:
+                missing.append(asset)
+            else:
+                prepared[asset["artifact_id"]] = cached
+        total = sum(int(asset.get("bytes") or 0) for asset in missing)
+        self._set(total=total, downloaded=0)
+        offset = 0
+        for asset in missing:
             if self._cancelled():
-                return
-            artifact_id = str(asset.get("artifact_id") or "")
-            if not artifact_id:
-                self._fail("bad_artifact", "拆分组件资产缺少类型。")
-                return
+                return False
+            artifact_id = asset["artifact_id"]
             self._set(total=total, state="downloading", text="")
             last_progress = [offset]
             def progress(done, _expect):
@@ -330,7 +349,7 @@ class AdvancedComponentService:
                     self._set(state="cancelled", text="", error_code="")
                 else:
                     self._fail(code, str(got.get("text") or "下载失败。"))
-                return
+                return False
             archive = str(got.get("path") or "")
             try:
                 self._set(state="verifying", text="正在校验组件资产…")
@@ -338,22 +357,45 @@ class AdvancedComponentService:
                 if not (isinstance(info, dict) and info.get("ok") is True):
                     self._fail(str((info or {}).get("kind") or "bad_artifact"),
                                str((info or {}).get("text") or "拆分组件资产不合规。"))
-                    return
+                    return False
                 with self._lock:
                     if self._cancel_flag:
                         self._state = "cancelled"
                         self._text = ""
-                        return
-                    self._installing = True
-                self._install_artifact(archive, artifact_id, root=self._root)
-                installed_versions.append(str(info.get("version") or ""))
+                        return False
+                prepared[artifact_id] = self._cache_artifact(
+                    archive, artifact_id, root=self._root,
+                    expect_content_sha256=asset.get("content_sha256"))
             finally:
                 self._cleanup(archive)
             offset += int(asset.get("bytes") or 0)
+        # 与取消/关闭共用锁确定唯一提交点，网络阶段始终允许取消。
+        with self._lock:
+            if self._cancel_flag or self._closed:
+                self._state = "cancelled"
+                self._text = ""
+                self._error_code = ""
+                return False
+            self._state = "verifying"
+            self._installing = True
+        try:
+            committed = self._commit_artifact_group(
+                self._feature, [prepared[asset["artifact_id"]] for asset in assets],
+                root=self._root)
+            if not committed.get("ok"):
+                with self._lock:
+                    self._installing = False
+                self._fail("artifact_install_failed", "组件组未能切换，当前组件仍保留。")
+                return False
+        except Exception:
+            with self._lock:
+                self._installing = False
+            raise
+        runtime = prepared[self._feature + "_runtime"]
         with self._lock:
             self._state = "installed"
             self._installed = True
-            self._version_text = installed_versions[-1] if installed_versions else ""
+            self._version_text = str(runtime.get("version") or "")
             self._error_code = ""
             self._text = ""
         if self._on_installed is not None:
@@ -361,6 +403,7 @@ class AdvancedComponentService:
                 self._on_installed(self._version_text)
             except Exception as exc:
                 self._note("拆分组件已安装，但启用状态没保存：%s" % type(exc).__name__)
+        return True
 
     def _cancelled(self) -> bool:
         with self._lock:
