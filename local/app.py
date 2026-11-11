@@ -272,6 +272,52 @@ def _component_title(feature: str) -> str:
     return _update_check.COMPONENT_TITLES.get(str(feature), str(feature))
 
 
+# 主程序升级后自动补装组件：先验证码识别（决定登录失效能不能自己恢复），
+# 再手机控制（远程入口最后才恢复）。
+AUTO_UPDATE_FEATURES = (_advanced_features.RELOGIN_OCR, _advanced_features.PHONE_CONTROL)
+
+
+def auto_update_outdated_components(*, frozen, demo, prefs, state_of, download,
+                                    wait_idle=None, log=None) -> list:
+    """把「用户启用过、只差版本」的组件换新，每项只试一次，不重试。
+
+    只处理 status == outdated：没启用过的不动（尊重用户当初的选择），
+    其它错误（文件损坏、平台不支持）也不在这里偷偷重装——那会把真实故障
+    盖掉。download 返回 busy 或失败时只写一句运行记录，留给设置里一键更新。
+    返回尝试过的键，方便测试和运行记录核对顺序。
+    """
+    attempted = []
+    if not frozen or demo:
+        return attempted
+    rows = state_of(prefs) or {}
+    for key in AUTO_UPDATE_FEATURES:
+        row = rows.get(key) or {}
+        if not row.get("enabled") or row.get("status") != "outdated":
+            continue
+        title = _component_title(key)
+        attempted.append(key)
+        if log:
+            log("%s组件需要随主程序更新，开始自动更新。" % title)
+        try:
+            result = download(key) or {}
+        except Exception as exc:
+            result = {"ok": False, "error": type(exc).__name__}
+        if not result.get("ok"):
+            error = str(result.get("error") or "")
+            if log:
+                log("%s组件没有自动更新%s，可以在设置里点「更新组件」。" % (
+                    title, "（%s）" % error if error else ""))
+            continue
+        # 必须等这一项真正落定再开下一项：同一个下载事务不能并发
+        outcome = wait_idle(key) if wait_idle else "installed"
+        if outcome == "installed":
+            if log:
+                log("%s组件已更新。" % title)
+        elif log:
+            log("%s组件还没有更新完，可以在设置里点「更新组件」。" % title)
+    return attempted
+
+
 def _retry_options_payload() -> dict:
     """三种重试模式的权威选项与默认值：桌面/手机共用这一份口径。
 
@@ -3901,6 +3947,63 @@ class Api:
                 self._emit("log", "已恢复手机访问：%s" % result["address"])
 
         threading.Thread(target=run, name="phone-restore", daemon=True).start()
+        # 两项都是一次性启动任务，共用 window 与「等加载完」的时机；分开成两个
+        # 方法便于单测，但只在这里一起挂起，避免 main() 里出现第二个启动入口
+        self.schedule_component_auto_update(window)
+
+    def schedule_component_auto_update(self, window) -> None:
+        """窗口加载完后把「只差版本」的组件补上；每次启动只走一遍，不重试。
+
+        主程序升版本会把旧单体组件包判成 outdated。用户当初是主动启用的，
+        升级后就该自己恢复，而不是等他发现「高级功能不见了」再去问。
+        """
+        if DEMO or not getattr(sys, "frozen", False):
+            return
+
+        def run() -> None:
+            try:
+                event = getattr(getattr(window, "events", None), "loaded", None)
+                if event is not None:
+                    event.wait(15)
+            except Exception:
+                pass
+            try:
+                auto_update_outdated_components(
+                    frozen=bool(getattr(sys, "frozen", False)),
+                    demo=DEMO,
+                    prefs=load_prefs(),
+                    state_of=lambda prefs: _advanced_features.feature_state(
+                        prefs, root=DATA_DIR, frozen=True),
+                    download=self.download_advanced_feature,
+                    wait_idle=self._wait_component_settled,
+                    log=lambda text: self._emit("log", text))
+            except Exception as exc:
+                self._emit("log", "组件自动更新没有完成：%s" % type(exc).__name__)
+
+        threading.Thread(target=run, name="component-auto-update", daemon=True).start()
+
+    def _wait_component_settled(self, key: str, *, timeout: float = 1800.0) -> str:
+        """等一个组件的下载事务落定，返回最终状态；关闭或超时返回空串。
+
+        自动更新是按顺序补两项的，前一项没落定就开下一项会撞上单飞锁。
+        """
+        service = self._component_service_for(str(key))
+        if service is None:
+            return ""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            with self._lock:
+                if self._closing:
+                    return ""
+            try:
+                state = str(service.snapshot().get("state") or "")
+            except Exception:
+                return ""
+            if state in ("downloading", "verifying", "removing"):
+                time.sleep(0.5)
+                continue
+            return state
+        return ""
 
     def stop_phone_access(self) -> dict:
         with self._phone_access_lock:

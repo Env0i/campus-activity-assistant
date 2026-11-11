@@ -2913,5 +2913,100 @@ class UpdateStagingProtectionTests(unittest.TestCase):
         tree.close.assert_called_once_with()
 
 
+class ComponentAutoUpdateTests(unittest.TestCase):
+    """主程序升级后：启用过且只是版本旧的组件自动换新，未启用的不动。"""
+
+    def setUp(self):
+        try:
+            import app as local_app
+        except Exception as exc:  # pragma: no cover - 环境缺 pywebview 时跳过
+            self.skipTest("无法导入 local/app.py：%s" % exc)
+        self.local_app = local_app
+
+    def rows(self, *, relogin="outdated", phone="outdated", enabled=True):
+        return {
+            "relogin_ocr": {"enabled": enabled, "status": relogin},
+            "phone_control": {"enabled": enabled, "status": phone},
+        }
+
+    def run_update(self, rows, download, wait_idle=None, *, frozen=True, demo=False):
+        events = []
+
+        def log(text):
+            events.append(("log", text))
+
+        attempted = self.local_app.auto_update_outdated_components(
+            frozen=frozen, demo=demo, prefs={}, state_of=lambda _p: rows,
+            download=download, wait_idle=wait_idle, log=log)
+        return attempted, events
+
+    def test_enabled_outdated_components_update_in_order_without_overlap(self):
+        events = []
+        running = {"now": False}
+
+        def download(key):
+            self.assertFalse(running["now"], "上一项还没结束就开始了下一项")
+            running["now"] = True
+            events.append(("download", key))
+            return {"ok": True}
+
+        def wait_idle(key):
+            events.append(("wait", key))
+            running["now"] = False
+            return "installed"
+
+        attempted, logs = self.run_update(self.rows(), download, wait_idle)
+        self.assertEqual(attempted, ["relogin_ocr", "phone_control"],
+                         "先验证码识别再手机控制：远程入口最后才恢复")
+        self.assertEqual([e[1] for e in events if e[0] == "download"],
+                         ["relogin_ocr", "phone_control"])
+        self.assertEqual([e[1] for e in events if e[0] == "wait"],
+                         ["relogin_ocr", "phone_control"])
+        joined = "\n".join(text for kind, text in logs if kind == "log")
+        for forbidden in ("\\", "C:", "Users"):
+            self.assertNotIn(forbidden, joined, "运行记录不能写本机路径")
+
+    def test_not_enabled_or_not_outdated_is_left_alone(self):
+        calls = []
+        attempted, _ = self.run_update(
+            self.rows(phone="missing", enabled=False),
+            lambda key: calls.append(key) or {"ok": True})
+        self.assertEqual(attempted, [])
+        self.assertEqual(calls, [], "用户没启用过的组件不自动下载")
+
+    def test_source_mode_and_demo_do_not_trigger(self):
+        calls = []
+        for frozen, demo in ((False, False), (True, True)):
+            attempted, _ = self.run_update(
+                self.rows(), lambda key: calls.append(key) or {"ok": True},
+                frozen=frozen, demo=demo)
+            self.assertEqual(attempted, [])
+        self.assertEqual(calls, [], "源码态和演示模式不做真实下载")
+
+    def test_busy_is_logged_and_left_for_manual_update(self):
+        calls = []
+
+        def download(key):
+            calls.append(key)
+            return {"ok": False, "error": "busy"}
+
+        attempted, logs = self.run_update(self.rows(), download)
+        self.assertEqual(attempted, ["relogin_ocr", "phone_control"], "忙也要各自记一笔")
+        self.assertEqual(calls, ["relogin_ocr", "phone_control"])
+        joined = "\n".join(text for kind, text in logs if kind == "log")
+        self.assertIn("更新组件", joined, "要告诉用户去哪儿补装")
+
+    def test_failure_is_tried_once_per_start(self):
+        calls = []
+
+        def download(key):
+            calls.append(key)
+            return {"ok": False, "error": "download_failed"}
+
+        attempted, _ = self.run_update(self.rows(phone="missing"), download)
+        self.assertEqual(attempted, ["relogin_ocr"])
+        self.assertEqual(calls, ["relogin_ocr"], "每次启动最多试一次，不重试")
+
+
 if __name__ == "__main__":
     unittest.main()
