@@ -204,6 +204,29 @@ class ApplyStagedTests(VersionRootCase):
         fsync.assert_called()
         self.assertEqual(self.current_payload(), {"version": "1.2.2"})
 
+    def test_switch_failure_text_carries_no_local_path(self):
+        """U2：切换失败的文案是固定中文句子，异常类型放 detail，本机路径不外泄。"""
+        secret = str(self.root / "secret-dir" / "current.json")
+        with mock.patch.object(update_launcher, "_atomic_current", side_effect=OSError(secret)):
+            result = self.apply(self.make_staging(), launcher=lambda path: self.fail("不应启动"))
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error_code"], "switch_failed")
+        self.assertNotIn("secret-dir", result["text"])
+        self.assertNotIn(str(self.root), result["text"])
+        self.assertEqual(result.get("detail"), "OSError")
+
+    def test_main_prints_exception_type_but_not_the_path_on_stderr(self):
+        import contextlib
+        import io
+        secret = str(self.root / "secret-dir" / "x")
+        buffer = io.StringIO()
+        with mock.patch.object(update_launcher, "launch_current", side_effect=OSError(secret)), \
+                contextlib.redirect_stderr(buffer):
+            code = update_launcher.main(["--start", "--version-root", str(self.versions)])
+        self.assertEqual(code, 1)
+        self.assertIn("OSError", buffer.getvalue())
+        self.assertNotIn("secret-dir", buffer.getvalue())
+
 
 class LaunchCurrentFallbackTests(VersionRootCase):
     """D2：current.json 指向的版本不可用时，依次回退 previous_version、最大有效版本。"""

@@ -241,7 +241,9 @@ def apply_staged(staging: os.PathLike | str, version_root: os.PathLike | str,
                 os.replace(backup, target)
             except OSError:
                 pass
-        return {"ok": False, "error_code": "switch_failed", "text": str(exc) or "版本切换失败。"}
+        # 异常文本常带本机路径：text 固定，类型放 detail，由 main 打到 stderr
+        return {"ok": False, "error_code": "switch_failed",
+                "text": "版本切换失败，已保留当前版本。", "detail": type(exc).__name__}
     if backup is not None:
         _discard(backup)
     launched = validate_version_dir(root, target_version)
@@ -378,10 +380,14 @@ def main(argv=None) -> int:
                 wait_parent=wait_parent_process, wait_timeout_s=args.wait_timeout,
                 launcher=_default_launcher)
     except (OSError, ValueError) as exc:
-        result = {"ok": False, "error_code": "launcher_failed", "text": str(exc)}
+        result = {"ok": False, "error_code": "launcher_failed",
+                  "text": "版本启动失败。", "detail": type(exc).__name__}
     if result.get("ok"):
         return 0
     print(result.get("text") or "版本启动失败。", file=sys.stderr)
+    if result.get("detail"):
+        # 启动器没有窗口；异常类型留在 stderr，路径等细节不输出
+        print("原因类型：%s" % result["detail"], file=sys.stderr)
     return 1
 
 

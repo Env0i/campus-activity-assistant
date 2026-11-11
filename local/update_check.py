@@ -269,6 +269,39 @@ def _verified_deltas(data: dict, version: str, base_url: str) -> list[dict]:
     return result
 
 
+def _used_asset_names(data: dict, version: str) -> set:
+    """新客户端会读取的清单文件名：安装器、两个组件包、完整 payload、deltas、拆分资产。
+
+    其余项（旧版 ZIP/EXE、以后新增的辅助文件）新客户端用不到，不合格时只跳过，
+    不能让一个无关条目把整份清单作废、让用户看不到更新。
+    """
+    used = {installer_asset_name(version)}
+    for feature in COMPONENT_FEATURES:
+        used.add(component_asset_name(feature, version))
+    full = data.get("full_payload")
+    if isinstance(full, dict) and isinstance(full.get("name"), str):
+        used.add(full["name"])
+    deltas = data.get("deltas")
+    if isinstance(deltas, list):
+        for item in deltas:
+            if isinstance(item, dict) and isinstance(item.get("name"), str):
+                used.add(item["name"])
+    split = data.get("split_assets")
+    if isinstance(split, dict):
+        for artifact_id, meta in split.items():
+            if not isinstance(meta, dict):
+                continue
+            name = meta.get("name")
+            if isinstance(name, str):
+                used.add(name)
+                continue
+            try:
+                used.add(artifact_asset_name(artifact_id, version))
+            except ValueError:
+                continue
+    return used
+
+
 def payload_from_manifest(raw, version: str | None = None) -> dict:
     """把 Release 清单组装成与接口元数据同形的 payload，供既有的纯函数挑选资产（G1）。
 
@@ -292,23 +325,33 @@ def payload_from_manifest(raw, version: str | None = None) -> dict:
     if not isinstance(files, dict) or not files:
         raise ValueError("manifest files missing")
     base = REPO_BASE + "/releases/download/" + tag + "/"
+    used = _used_asset_names(data, manifest_version)
     assets = []
+    skipped = []
     for name, entry in files.items():
-        if not isinstance(name, str) or not name or len(name) > 256:
-            raise ValueError("bad asset name")
-        if not isinstance(entry, dict):
-            raise ValueError("bad asset entry")
-        sha = entry.get("sha256")
-        size = entry.get("bytes")
-        if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", sha):
-            raise ValueError("bad sha256")
-        if (not isinstance(size, int) or isinstance(size, bool)
-                or size <= 0 or size > MAX_INSTALLER_BYTES):
-            raise ValueError("bad bytes")
+        try:
+            if not isinstance(name, str) or not name or len(name) > 256:
+                raise ValueError("bad asset name")
+            if not isinstance(entry, dict):
+                raise ValueError("bad asset entry")
+            sha = entry.get("sha256")
+            size = entry.get("bytes")
+            if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", sha):
+                raise ValueError("bad sha256")
+            if (not isinstance(size, int) or isinstance(size, bool)
+                    or size <= 0 or size > MAX_INSTALLER_BYTES):
+                raise ValueError("bad bytes")
+        except ValueError:
+            # 用到的项照旧严格：任何一项不合格整份清单作废；用不到的项只跳过并记下名字
+            if name in used:
+                raise
+            skipped.append(name[:80] if isinstance(name, str) else repr(name)[:80])
+            continue
         assets.append({"name": name, "size": size, "browser_download_url": base + name})
     assets.append({"name": MANIFEST_ASSET_NAME, "size": len(raw),
                    "browser_download_url": tag_manifest_url(manifest_version)})
-    return {"tag_name": tag, "draft": False, "prerelease": False, "assets": assets}
+    return {"tag_name": tag, "draft": False, "prerelease": False, "assets": assets,
+            "skipped": skipped}
 
 
 def resolve_component_asset(payload: dict, version: str, raw_manifest,
@@ -482,6 +525,9 @@ def check_latest_release(current_version: str) -> dict:
         raw = _fetch_bytes(LATEST_MANIFEST_URL, MAX_MANIFEST_BYTES, user_agent)
         payload = payload_from_manifest(raw)
         result = evaluate_latest_release(current_version, payload)
+        if payload.get("skipped"):
+            # 让调用方记一条运行记录；界面不展示这个字段
+            result = dict(result, manifest_skipped=list(payload["skipped"]))
         if result["state"] != "available":
             return result
         return _attach_installer(result, payload, raw_manifest=raw)

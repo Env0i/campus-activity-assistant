@@ -792,5 +792,54 @@ class DirectManifestReproTests(unittest.TestCase):
         self.assertTrue(all("api.github.com" not in url for url in urls), urls)
 
 
+class UnusedManifestEntryTests(unittest.TestCase):
+    """U6：发布清单里新客户端用不到的文件项不合格，不能让整份清单作废。"""
+
+    EXTRA = "future-tool-notes.txt"
+
+    def raw(self, extra_entry, **overrides):
+        files = {INSTALLER: {"sha256": "ab" * 32, "bytes": 1024},
+                 self.EXTRA: extra_entry}
+        data = manifest(files=files)
+        data.update(overrides)
+        return json.dumps(data).encode()
+
+    def test_unused_entry_with_oversize_bytes_is_skipped_not_fatal(self):
+        raw = self.raw({"sha256": "ab" * 32, "bytes": 10 ** 12})
+        payload = updates.payload_from_manifest(raw)
+        names = {item["name"] for item in payload["assets"]}
+        self.assertIn(INSTALLER, names)
+        self.assertNotIn(self.EXTRA, names)
+        self.assertEqual(payload["skipped"], [self.EXTRA])
+
+    def test_installer_still_resolves_when_an_unused_entry_is_bad(self):
+        raw = self.raw({"sha256": "zz", "bytes": 5})
+        with patch.object(updates, "_fetch_bytes", return_value=raw):
+            result = updates.check_latest_release("1.1.0")
+        self.assertEqual(result["state"], "available", result)
+        self.assertEqual(result["installer"]["name"], INSTALLER)
+        self.assertEqual(result["manifest_skipped"], [self.EXTRA])
+
+    def test_used_installer_entry_is_still_strict(self):
+        for bad in ({"sha256": "zz", "bytes": 1024},
+                    {"sha256": "ab" * 32, "bytes": 10 ** 12}):
+            data = manifest(files={INSTALLER: bad})
+            with self.subTest(entry=bad), self.assertRaises(ValueError):
+                updates.payload_from_manifest(json.dumps(data).encode())
+
+    def test_used_full_payload_and_split_entries_are_still_strict(self):
+        good = {"sha256": "ab" * 32, "bytes": 1024}
+        bad = {"sha256": "ab" * 32, "bytes": 0}
+        for field, holder in (("full_payload", {"name": "payload.zip"}),
+                              ("deltas", [{"name": "delta.zip", "base_version": "1.1.0"}]),
+                              ("split_assets", {"relogin_ocr_model": {"name": "model.zip"}})):
+            name = ("payload.zip" if field == "full_payload"
+                    else "delta.zip" if field == "deltas" else "model.zip")
+            data = manifest(files={INSTALLER: good, name: bad})
+            data[field] = holder
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                updates.payload_from_manifest(json.dumps(data).encode())
+
+
 if __name__ == "__main__":
     unittest.main()

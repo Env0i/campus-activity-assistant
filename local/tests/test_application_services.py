@@ -2744,5 +2744,100 @@ class WindowVisibilityTests(unittest.TestCase):
         self.assertEqual(set(self.api.window_visibility()), {"hidden"})
 
 
+class VersionDownloadFlowTests(unittest.TestCase):
+    """U1/U2：版本目录更新的取消口径，以及推给界面的失败文案不带本机路径。"""
+
+    VERSION_BASE = "1.2.1"
+
+    def _installer(self):
+        manifest = {"version": "1.2.2", "files": []}
+        return {
+            "name": "setup.exe", "url": "https://example.invalid/setup.exe",
+            "bytes": 10, "sha256": "ab" * 32,
+            "full": {"name": "full.zip", "url": "https://example.invalid/full.zip",
+                     "bytes": 10, "sha256": "cd" * 32, "target_version": "1.2.2",
+                     "target_manifest": manifest},
+            "deltas": [{"name": "delta.zip", "url": "https://example.invalid/delta.zip",
+                        "bytes": 5, "sha256": "ef" * 32, "target_version": "1.2.2",
+                        "base_version": self.VERSION_BASE, "target_manifest": manifest}],
+        }
+
+    def _run(self, *, stage_update, download_delta, download_full, fallback=None,
+             cleanup=None, installer=None):
+        state = FakeState()
+        state._update_staging_path = ""
+        published = []
+        tmp = Path(tempfile.gettempdir()) / "campus-version-flow"
+        update_service.run_version_download(
+            state, "req-v", installer or self._installer(),
+            download=download_full,
+            publish=lambda payload, finished: published.append((payload, finished)),
+            current_version=self.VERSION_BASE, latest_url="https://example.invalid/latest",
+            stage_update=stage_update, base_dir=tmp / "base",
+            staging_dir=tmp / ".staging-req-v",
+            target_manifest={"version": "1.2.2", "files": []},
+            target_version="1.2.2", download_delta=download_delta,
+            download_full=download_full, cleanup_download=cleanup,
+            download_installer_fallback=fallback)
+        return state, published
+
+    def test_cancel_during_full_download_after_delta_failure_is_cancelled(self):
+        """增量应用失败改下完整包，用户此时取消：回到 available/cancelled，不改走安装器兜底。"""
+        delta_path = str(Path(tempfile.gettempdir()) / "campus-version-flow" / "delta.zip")
+        cleaned, fallbacks = [], []
+
+        def fallback(url, **kwargs):
+            fallbacks.append(url)
+            return {"ok": False, "error_code": "cancelled", "text": "已取消"}
+
+        state, published = self._run(
+            stage_update=lambda *a, **k: {"ok": False, "error_code": "apply_failed",
+                                          "text": "bad"},
+            download_delta=lambda url, **k: {"ok": True, "path": delta_path},
+            download_full=lambda url, **k: {"ok": False, "error_code": "cancelled",
+                                            "text": "已取消"},
+            fallback=fallback, cleanup=cleaned.append)
+        final, finished = published[-1]
+        self.assertTrue(finished)
+        self.assertEqual(final["state"], "available", final)
+        self.assertEqual(final["error_code"], "cancelled")
+        self.assertEqual(fallbacks, [], "取消之后不能再去下载完整安装器")
+        self.assertEqual(cleaned, [delta_path], "半成品增量包要清理")
+
+    def test_stage_failure_text_pushed_to_ui_carries_no_local_path(self):
+        """staging 抛出带路径的异常时，界面只拿到固定中文句子，细节只进运行记录。"""
+        import updater
+        installer = self._installer()
+        installer.pop("deltas")
+        missing = Path(tempfile.gettempdir()) / "campus-secret-dir" / "full.zip"
+        state, published = self._run(
+            stage_update=updater.stage_update,
+            download_delta=None,
+            download_full=lambda url, **k: {"ok": True, "path": str(missing)},
+            installer=installer)
+        final, _ = published[-1]
+        self.assertEqual(final["state"], "failed", final)
+        self.assertEqual(final["error_code"], "apply_failed")
+        self.assertNotIn("campus-secret-dir", final["text"])
+        for separator in ("/", chr(92)):
+            self.assertNotIn(separator, final["text"])
+        logs = [payload for kind, payload in state.events if kind == "log"]
+        self.assertTrue(any("FileNotFoundError" in str(item) for item in logs), logs)
+
+
+class UpdateCheckLogTests(unittest.TestCase):
+    def test_skipped_manifest_entries_are_recorded_in_the_run_log(self):
+        """U6：清单里被跳过的未用项写一条运行记录，但不进推给界面的结论。"""
+        state = FakeState()
+        update_service.run_check(
+            state, "req-s", fetch=lambda v: {"state": "current", "latest_version": v,
+                                             "manifest_skipped": ["future-tool-notes.txt"]},
+            current_version="1.2.2", latest_url="https://example.invalid/latest")
+        logs = [payload for kind, payload in state.events if kind == "log"]
+        self.assertTrue(any("future-tool-notes.txt" in str(item) for item in logs), state.events)
+        updates = [payload for kind, payload in state.events if kind == "update"]
+        self.assertNotIn("manifest_skipped", updates[-1])
+
+
 if __name__ == "__main__":
     unittest.main()

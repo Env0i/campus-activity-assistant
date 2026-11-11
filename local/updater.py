@@ -393,8 +393,10 @@ def stage_update(base_dir, payload, staging_dir, *, mode, base_version=None,
                 "version": target_version or ""}
     except Exception as exc:  # noqa: BLE001 - 对外返回可读失败状态并清理隔离目录
         shutil.rmtree(work, ignore_errors=True)
+        # exc 常带本机绝对路径：界面文案固定，类型与细节放 detail 只给运行记录
         return {"ok": False, "error_code": "apply_failed",
-                "text": str(exc) or "更新包应用失败。", "mode": mode}
+                "text": "更新包应用失败，已保留当前版本。",
+                "detail": "%s: %s" % (type(exc).__name__, exc), "mode": mode}
 
 
 def switch_version(version_root, staging_dir, target_version, *, current_file=None) -> dict:
@@ -424,7 +426,8 @@ def switch_version(version_root, staging_dir, target_version, *, current_file=No
             except OSError:
                 pass
         return {"ok": False, "error_code": "switch_failed",
-                "text": str(exc) or "版本目录切换失败。", "previous_version": previous}
+                "text": "版本目录切换失败，已保留当前版本。",
+                "detail": "%s: %s" % (type(exc).__name__, exc), "previous_version": previous}
 
 
 def select_payload(installer: dict, current_version: str) -> tuple[str, dict]:

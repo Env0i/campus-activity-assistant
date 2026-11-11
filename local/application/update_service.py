@@ -42,6 +42,7 @@ def run_check(state, request_id: str, *, fetch, current_version: str,
         pass
     finally:
         result = dict(result, request_id=request_id)
+        skipped = result.pop("manifest_skipped", None)
         installer = result.get("installer")
         with state._lock:
             state._update_result = result
@@ -53,6 +54,10 @@ def run_check(state, request_id: str, *, fetch, current_version: str,
             state._updating = False
             closing = state._closing
         if not closing:
+            if skipped:
+                # 发布清单里新客户端用不到、也不合格的项：只记一笔，不影响更新结论
+                state._emit("log", "[i] 发布清单有 %d 个未使用的条目不合格，已跳过：%s"
+                            % (len(skipped), "、".join(str(item) for item in skipped[:5])))
             state._emit("update", result)
 
 
@@ -235,6 +240,12 @@ def run_version_download(state, request_id: str, installer: dict, *,
     if not result.get("ok") and mode == "delta" and full is not selected and full.get("url"):
         mode, selected = "full", full
         got = do_download(selected, mode)
+        if not got.get("ok") and got.get("error_code") == "cancelled":
+            # 增量应用失败后改下完整包，用户此时取消：口径与首段下载一致，回到可重新下载；
+            # 不能落到 apply_failed，更不能再去拉完整安装器（用户明明已经喊停）。
+            publish(dict(base, state="available", error_code="cancelled",
+                         text="已取消下载，可重新下载。"), True)
+            return
         if got.get("ok"):
             downloaded_path = str(got.get("path") or "")
             result = stage_update(
@@ -257,5 +268,9 @@ def run_version_download(state, request_id: str, installer: dict, *,
     else:
         if fallback_to_installer("apply_failed"):
             return
+        # staging 的异常文本常带本机绝对路径，不能原样推给界面；细节只写运行记录。
+        detail = str(result.get("detail") or "").strip()
+        if detail:
+            state._emit("log", "[X] 更新包应用失败：%s" % detail)
         publish(dict(base, state="failed", error_code="apply_failed",
-                     text=str(result.get("text") or "更新包应用失败，已保留当前版本。")), True)
+                     text="更新包应用失败，已保留当前版本。"), True)

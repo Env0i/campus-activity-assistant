@@ -399,6 +399,31 @@ class VersionUpdateTests(unittest.TestCase):
         self.assertTrue((self.versions / "1.0.0" / "app.exe").is_file())
         self.assertEqual(json.loads((self.root / "current.json").read_text())["version"], "1.0.0")
 
+    def test_stage_failure_text_has_no_local_path_and_detail_keeps_the_reason(self):
+        """U2：staging 失败给界面固定句子；带路径的异常细节只放 detail 供运行记录。"""
+        missing = self.root / "secret-dir" / "full.zip"
+        manifest = update_delta.manifest_from_directory(self._target(), version="1.2.2")
+        result = updater.stage_update(
+            self.old, missing, self.root / "staging", mode="full",
+            target_manifest=manifest, target_version="1.2.2")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error_code"], "apply_failed")
+        self.assertNotIn("secret-dir", result["text"])
+        self.assertNotIn(str(self.root), result["text"])
+        self.assertIn("FileNotFoundError", result["detail"])
+
+    def test_switch_failure_text_has_no_local_path(self):
+        staging = self.root / "staging"
+        staging.mkdir()
+        (staging / "app.exe").write_bytes(b"new")
+        secret = str(self.root / "secret-dir" / "current.json")
+        with patch.object(updater, "_atomic_write_json", side_effect=OSError(secret)):
+            result = updater.switch_version(
+                self.versions, staging, "1.2.2", current_file=self.root / "current.json")
+        self.assertFalse(result["ok"])
+        self.assertNotIn("secret-dir", result["text"])
+        self.assertIn("OSError", result["detail"])
+
 
 class SweepVersionRootTests(unittest.TestCase):
     """D3：版本目录清理只删受控残留与多余旧版本，不碰 current/previous、运行目录和数据。"""
