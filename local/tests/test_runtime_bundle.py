@@ -1861,6 +1861,7 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
             launcher = Path(name) / "update-launcher.exe"
             launcher.write_bytes(b"launcher")
             with mock.patch.object(app.sys, "frozen", True, create=True), \
+                    mock.patch.object(app, "version_switch_available", return_value=True), \
                     mock.patch.object(app, "resolve_update_launcher_path",
                                       return_value=launcher):
                 with mock.patch.object(app, "update_version_paths", return_value={
@@ -1908,6 +1909,26 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
                                   return_value=Path("D:/missing/update-launcher.exe")), \
                 mock.patch.object(app.subprocess, "Popen") as popen:
             result = api.update_launch("rid-update")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["state"], "ready_to_restart")
+        popen.assert_not_called()
+
+    def test_ready_to_restart_refused_when_version_switch_is_unavailable(self):
+        """update_launch 与下载用同一判据：不在 versions/<当前版本>/ 下运行时不起启动器。"""
+        app = _app()
+        api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
+        api._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2",
+                              "request_id": "rid-update"}
+        api._update_staging_path = "D:/versions/.staging-rid-update"
+        with tempfile.TemporaryDirectory() as name:
+            launcher = Path(name) / "update-launcher.exe"
+            launcher.write_bytes(b"launcher")
+            with mock.patch.object(app.sys, "frozen", True, create=True), \
+                    mock.patch.object(app, "version_switch_available", return_value=False), \
+                    mock.patch.object(app, "resolve_update_launcher_path",
+                                      return_value=launcher), \
+                    mock.patch.object(app.subprocess, "Popen") as popen:
+                result = api.update_launch("rid-update")
         self.assertFalse(result["ok"])
         self.assertEqual(result["state"], "ready_to_restart")
         popen.assert_not_called()

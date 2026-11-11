@@ -773,6 +773,8 @@ class Api:
         self._proc = None
         # 与 _proc 配套的受管进程树：stop/shutdown 用它一网打尽 Playwright 后代
         self._proc_tree = None
+        # 登录中继自己占的那一棵：_relay_finished 只收这一棵，不误伤别的任务
+        self._relay_proc_tree = None
         self._plan: PlanCoordinator | None = None
         self._plan_procs: dict[str, object] = {}
         # 计划任务的受管树句柄（task_id -> ProcessTree）：stop 优先走它
@@ -2015,6 +2017,13 @@ class Api:
             if self._updating:
                 return {"ok": True, "queued": True, "skipped": True,
                         "request_id": self._update_request_id}
+            current = self._update_result if isinstance(self._update_result, dict) else {}
+            if current.get("state") == "launching":
+                # 更新启动器已拉起、正等本进程退出：_update_staging_path 就是它要切换的
+                # 目录，这时再检查更新不能把它当旧暂存清掉。直接回当前状态，界面按
+                # 同一 request_id 接管快照。
+                return {"ok": True, "queued": True, "skipped": True,
+                        "request_id": str(current.get("request_id") or self._update_request_id)}
             stale_staging = self._update_staging_path
             self._update_staging_path = ""
             self._updating = True
@@ -2134,14 +2143,9 @@ class Api:
             base = dict(self._update_result or {})
             staging = self._update_staging_path
         if staging and base.get("state") == "ready_to_restart":
-            frozen = bool(getattr(sys, "frozen", False))
-            launcher = resolve_update_launcher_path(frozen, HERE, RESOURCE_ROOT)
-            if not frozen or not launcher.is_file():
-                # 防御分支：ready_to_restart 只会在 version_switch_available() 为真时
-                # 产生（见 _do_update_download），这里只再核对冻结态与启动器文件。
-                # 不重复「正从 versions/<版本> 运行」那一条：test_runtime_bundle 的
-                # test_ready_to_restart_launches_apply_launcher_with_checked_paths
-                # 在源码目录里替身冻结态，加上它会变红，该文件不在本次授权范围。
+            if not version_switch_available():
+                # 防御分支：与 _do_update_download 用同一判据（冻结态、启动器文件在、
+                # 正从 versions/<当前版本>/ 运行），下载和启动不会各说各话。
                 # 源码态与 onefile 没有独立旁路入口，只保留 ready 状态，
                 # 避免在运行中的主程序里直接切换版本目录。
                 return {"ok": False, "state": "ready_to_restart",
@@ -3575,11 +3579,23 @@ class Api:
         with self._lock:
             proc = self._proc
             tree = self._proc_tree
-        if tree is not None:
-            # 受管树：父进程已经退出也要收，残留后代仍握着一半资源
+        if tree is not None and tree.proc.poll() is None:
             tree.terminate()
             self._emit("log", "已请求停止")
             return {"ok": True}
+        if tree is not None:
+            # 受管树对应的进程早已退出（例如中继刚收尾）：不再回「已请求停止」。
+            # 清掉旧树引用，并顺手收走可能残留的后代（Job 句柄关闭即整树结束）。
+            with self._lock:
+                if self._proc_tree is tree:
+                    self._proc_tree = None
+                if self._proc is tree.proc:
+                    self._proc = None
+                if self._relay_proc_tree is tree:
+                    self._relay_proc_tree = None
+            tree.terminate()
+            tree.close()
+            return {"ok": False, "text": "当前没有在跑的任务"}
         if proc and proc.poll() is None:
             _kill_tree(proc)
             self._emit("log", "已请求停止")
@@ -4143,16 +4159,26 @@ class Api:
                                stdin=subprocess.PIPE, bufsize=1)
             self._proc = tree.proc       # 占住 busy 位：原有 login/计划不能同跑
             self._proc_tree = tree
+            self._relay_proc_tree = tree
         return _RelayTree(tree)
 
     def _relay_finished(self) -> None:
         with self._lock:
-            if self._proc is not None and self._proc.poll() is not None:
+            relay_tree = self._relay_proc_tree
+            self._relay_proc_tree = None
+            tree = None
+            if relay_tree is not None and self._proc_tree is relay_tree:
+                # 中继流程已结束：无论进程是否已退出都收下这一场的树。中继刚 terminate、
+                # 进程还没退干净时留着它，之后点「停止」会对一棵已关的树误报「已请求停止」。
+                # 进程若还没退，_proc 照旧留着占 busy 位，直到 poll() 有结论。
+                tree = relay_tree
+                self._proc_tree = None
+                if self._proc is relay_tree.proc and self._proc.poll() is not None:
+                    self._proc = None
+            elif self._proc is not None and self._proc.poll() is not None:
                 self._proc = None
                 tree = self._proc_tree
                 self._proc_tree = None
-            else:
-                tree = None
             began = self._auto_relogin_started_at
         if tree is not None:
             tree.close()

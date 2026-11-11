@@ -2505,7 +2505,8 @@ class VersionSwitchLaunchTests(unittest.TestCase):
             launcher.write_bytes(b"launcher")
             paths = {"root": Path("D:/versions"), "current_file": Path("D:/current.json"),
                      "base_dir": Path("D:/versions/1.2.1")}
-            with mock.patch.object(local_app.sys, "frozen", True, create=True):
+            with mock.patch.object(local_app.sys, "frozen", True, create=True), \
+                    mock.patch.object(local_app, "version_switch_available", return_value=True):
                 with mock.patch.object(local_app, "resolve_update_launcher_path",
                                        return_value=launcher):
                     with mock.patch.object(local_app, "update_version_paths",
@@ -2837,6 +2838,79 @@ class UpdateCheckLogTests(unittest.TestCase):
         self.assertTrue(any("future-tool-notes.txt" in str(item) for item in logs), state.events)
         updates = [payload for kind, payload in state.events if kind == "update"]
         self.assertNotIn("manifest_skipped", updates[-1])
+
+
+class UpdateStagingProtectionTests(unittest.TestCase):
+    """U3/U10：app.Api 上与更新暂存、受管进程树有关的回归。"""
+
+    def setUp(self):
+        try:
+            import app as local_app
+        except Exception as exc:  # pragma: no cover - 环境缺 pywebview 时跳过
+            self.skipTest("无法导入 local/app.py：%s" % exc)
+        self.app = local_app
+        tmp = tempfile.mkdtemp(prefix="campus-update-staging-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        for patch in (
+            mock.patch.object(local_app, "PREFS", Path(tmp) / "ui.json"),
+            mock.patch.object(local_app, "DEMO", True),
+            mock.patch.object(local_app, "DEVICE_FILE", Path(tmp) / "devices.json"),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.api = stop_auto_relogin_on_cleanup(self, local_app.Api())
+        self.api._emit = mock.Mock()
+
+    def test_check_update_keeps_staging_while_launcher_is_waiting(self):
+        """U3：启动器正等主程序退出（state=launching）时再点检查更新，不能删它要切换的 staging。"""
+        staging = str(Path(tempfile.gettempdir()) / "campus-launching" / ".staging-rid")
+        self.api._update_staging_path = staging
+        self.api._update_result = {"state": "launching", "request_id": "rid-launch",
+                                   "latest_version": "1.2.3"}
+        with mock.patch.object(self.app.updater, "cleanup_staging") as cleanup, \
+                mock.patch.object(self.app.threading, "Thread") as thread:
+            result = self.api.check_update("request-again")
+        cleanup.assert_not_called()
+        thread.assert_not_called()
+        self.assertEqual(self.api._update_staging_path, staging)
+        self.assertTrue(result["ok"], result)
+        self.assertTrue(result.get("skipped"), result)
+        self.assertFalse(self.api._updating)
+
+    def test_stop_with_exited_worker_tree_answers_no_running_task(self):
+        """U10：受管树对应的进程早已退出，stop 不能再回「已请求停止」，并要清掉旧树。"""
+        tree = mock.Mock()
+        tree.proc.poll.return_value = 0
+        self.api._proc = tree.proc
+        self.api._proc_tree = tree
+        result = self.api.stop()
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result["text"], "当前没有在跑的任务")
+        self.assertIsNone(self.api._proc_tree)
+        self.assertIsNone(self.api._proc)
+
+    def test_stop_still_terminates_a_live_worker_tree(self):
+        tree = mock.Mock()
+        tree.proc.poll.return_value = None
+        tree.terminate.return_value = True
+        self.api._proc = tree.proc
+        self.api._proc_tree = tree
+        self.assertEqual(self.api.stop(), {"ok": True})
+        tree.terminate.assert_called_once_with()
+
+    def test_relay_finish_drops_its_tree_even_if_process_has_not_exited_yet(self):
+        """U10：中继刚 terminate、进程还没退时，收尾也要清掉并关闭这一场的树。"""
+        tree = mock.Mock()
+        tree.proc.poll.return_value = None
+        with mock.patch.object(self.app, "worker_problem", return_value=""), \
+                mock.patch.object(self.app, "spawn_owned", return_value=tree):
+            self.api._spawn_relay_worker(["relay-worker"])
+        self.assertIs(self.api._proc_tree, tree)
+        self.api._relay = mock.Mock()
+        self.api._relay.state.return_value = {}
+        self.api._relay_finished()
+        self.assertIsNone(self.api._proc_tree)
+        tree.close.assert_called_once_with()
 
 
 if __name__ == "__main__":
