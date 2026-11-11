@@ -611,6 +611,93 @@ out.push(PhonePanel.busy);
         self.assertNotIn("private details", json.dumps(values))
 
 
+class HelpAdvancedOutdatedTests(unittest.TestCase):
+    """主程序升级后：组件只是版本旧，界面给「更新组件」，不是加载失败也不是没装。"""
+
+    def test_outdated_shows_update_button_instead_of_broken(self):
+        values = run_phone_js('''
+PhonePanel.state.advanced = {features: {
+  phone_control: {available:false, enabled:true, ready:false, install_mode:"import",
+                  status:"outdated", package_version:"0.9.0"},
+  relogin_ocr: {available:false, enabled:true, ready:false, install_mode:"import",
+                status:"outdated", package_version:"0.9.0"}
+}};
+PhonePanel.paint();
+out.push($("#btn-phone-component-install").textContent);
+out.push($("#btn-phone-component-install").hidden);
+out.push($("#phone-feature-status").textContent);
+out.push($("#phone-feature-note").textContent);
+out.push($("#btn-phone-feature-install").hidden);
+out.push($("#phone-component-error").hidden);
+out.push($("#btn-ocr-download").textContent);
+out.push($("#btn-ocr-download").hidden);
+out.push($("#ocr-feature-status").textContent);
+out.push($("#ocr-feature-status").hidden);
+out.push($("#ocr-download-state").textContent);
+out.push($("#btn-ocr-feature-install").hidden);
+''', files=["views/phone.js", "views/settings.js"])
+        (install_text, install_hidden, phone_chip, phone_note, reimport_hidden,
+         error_hidden, ocr_btn, ocr_hidden, ocr_chip, ocr_chip_hidden, ocr_lead,
+         ocr_reimport_hidden) = values
+        self.assertEqual(install_text, "更新组件")
+        self.assertFalse(install_hidden)
+        self.assertEqual(phone_chip, "需要更新")
+        self.assertIn("主程序已升级", phone_note)
+        self.assertTrue(reimport_hidden, "版本旧不该引导去重新导入")
+        self.assertTrue(error_hidden, "版本旧不是加载失败")
+        self.assertEqual(ocr_btn, "更新组件")
+        self.assertFalse(ocr_hidden)
+        self.assertEqual(ocr_chip, "需要更新")
+        self.assertIn("主程序已升级", ocr_lead)
+        self.assertTrue(ocr_reimport_hidden)
+
+    def test_update_failure_reason_stays_visible_in_outdated_state(self):
+        """更新失败后回到「需要更新」：原因要看得见，不能跟着「没装」块一起被收起来。"""
+        values = run_phone_js('''
+const failed = {state:"failed", error_code:"network_error", text:"暂时连不上 GitHub。"};
+PhonePanel.state.advanced = {features: {
+  phone_control: {available:false, enabled:true, ready:false, install_mode:"import",
+                  status:"outdated", package_version:"0.9.0", download:failed},
+  relogin_ocr: {available:false, enabled:true, ready:false, install_mode:"import",
+                status:"outdated", package_version:"0.9.0", download:failed}
+}};
+PhonePanel.paint();
+out.push($("#phone-component-error").textContent);
+out.push($("#phone-component-error").hidden);
+out.push($("#phone-missing").hidden);
+out.push($("#btn-phone-component-install").textContent);
+out.push($("#ocr-download-error").textContent);
+out.push($("#ocr-download-error").hidden);
+out.push($("#ocr-missing").hidden);
+out.push($("#btn-ocr-download").textContent);
+''', files=["views/phone.js", "views/settings.js"])
+        (phone_error, phone_error_hidden, phone_block_hidden, phone_button,
+         ocr_error, ocr_error_hidden, ocr_block_hidden, ocr_button) = values
+        self.assertEqual(phone_error, "下载没有完成：连不上发布页，可以重试。")
+        self.assertFalse(phone_error_hidden)
+        self.assertTrue(phone_block_hidden, "版本旧不是没装，红条不能挂在「没装」块里")
+        self.assertEqual(phone_button, "更新组件")
+        self.assertEqual(ocr_error, "下载没有完成：连不上发布页，可以重试。")
+        self.assertFalse(ocr_error_hidden)
+        self.assertTrue(ocr_block_hidden)
+        self.assertEqual(ocr_button, "更新组件")
+
+    def test_auto_login_line_names_outdated_component(self):
+        values = run_phone_js('''
+PhonePanel.state.advanced = {credential:{available:true, saved:true, username:"fictional"}, features: {
+  relogin_ocr: {available:false, enabled:true, ready:false, install_mode:"import",
+                status:"outdated", package_version:"0.9.0"}
+}};
+PhonePanel.paint();
+out.push($("#relogin-auto-path").textContent);
+out.push($("#relogin-auto-path").className);
+''', files=["views/phone.js", "views/settings.js"])
+        text, cls = values
+        self.assertIn("需要随新版本更新", text)
+        self.assertNotIn("还缺验证码识别组件", text)
+        self.assertEqual(cls, "up-warn")
+
+
 class PhoneChannelUiTests(unittest.TestCase):
     """帮助里的通道引导：两个通道各自成句，通道状态不串台。"""
 

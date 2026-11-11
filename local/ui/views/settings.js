@@ -154,6 +154,7 @@ function ocrPhase(feature) {
   if (dl === "downloading") return "downloading";
   if (dl === "verifying") return "verifying";
   if (feature && String(feature.status || "") === "checking") return "checking";
+  if (feature && String(feature.status || "") === "outdated") return "outdated";
   if (feature && String(feature.status || "") === "failed") return "broken";
   if (feature && feature.ready) return "on";
   if (feature && feature.available) return "off";
@@ -210,18 +211,20 @@ function paintOcrDownload() {
   /* OC02：chip 只有两处——已启用（ok 色）、已装没启用（中性，贴标题）；加载失败原型没有，保留（OC14） */
   const chip = $("#ocr-feature-status");
   if (chip) {
-    const text = phase === "on" ? "已启用" : (phase === "broken" ? "加载失败" : "");
+    const text = phase === "on" ? "已启用"
+      : (phase === "outdated" ? "需要更新" : (phase === "broken" ? "加载失败" : ""));
     chip.hidden = !text;
     chip.textContent = text;
-    chip.className = "ph-st" + (phase === "on" ? " ok" : (phase === "broken" ? " warn" : ""));
+    chip.className = "ph-st" + (phase === "on" ? " ok" : (text ? " warn" : ""));
     chip.dataset.state = phase === "on" ? "ready" : String(feature.status || "missing");
   }
   ocrShow("#ocr-title-chip", phase === "off");
   const downloadBtn = $("#btn-ocr-download");
   if (downloadBtn) {
-    downloadBtn.hidden = phase !== "missing";
+    downloadBtn.hidden = phase !== "missing" && phase !== "outdated";
     downloadBtn.disabled = busy;
-    downloadBtn.textContent = failed ? "重新下载" : "下载并安装";
+    downloadBtn.textContent = phase === "outdated" ? "更新组件"
+      : (failed ? "重新下载" : "下载并安装");
   }
   /* 「启用」直接调 enable_advanced_feature（B2），不再打开导入弹窗（OC08、冲突 6） */
   const enable = $("#btn-ocr-enable");
@@ -250,10 +253,13 @@ function paintOcrDownload() {
       : (phase === "off"
         ? "已装好" + (version ? "（版本 " + version + "）" : "")
           + "，还没启用。启用后，登录失效时电脑会自己认验证码；配合“登录恢复”里的账号密码，就能无人值守自动登录。"
-        : "登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。没装或认不出来时，由你在手机上手动输入。");
+        : (phase === "outdated"
+          ? "主程序已升级，验证码识别组件需要随新版本更新。点「更新组件」重新装一份，登录恢复里的账号密码不用重填。"
+          : "登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。没装或认不出来时，由你在手机上手动输入。"));
   }
-  /* OC11：红条拼「下载没有完成：原因，可以重试。」，拼法同手机访问（phone.js downloadFailText） */
-  const failText = failed && phase === "missing"
+  /* OC11：红条拼「下载没有完成：原因，可以重试。」，拼法同手机访问（phone.js downloadFailText）；
+   * 更新失败后状态回到「需要更新」，原因同样要看得见，不能只剩一个「更新组件」按钮 */
+  const failText = failed && (phase === "missing" || phase === "outdated")
     ? (typeof downloadFailText === "function" ? downloadFailText(download)
       : String(download.text || "下载没有完成，可以重试。")) : "";
   ocrText("#ocr-download-error", OcrPanel.error || failText);

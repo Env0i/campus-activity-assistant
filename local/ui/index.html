@@ -266,8 +266,9 @@
         <div class="set-h"><b>手机访问</b><span class="ph-slot"><span class="ph-st" id="phone-feature-status" hidden>未开启</span><button class="btn btn-line" id="btn-phone-feature-install" type="button" hidden>启用手机控制</button><button class="btn btn-solid" id="btn-phone-component-install" type="button">下载并安装</button><button class="btn btn-line" id="btn-phone-component-cancel" type="button" hidden>取消下载</button></span></div>
         <p id="phone-feature-note">从手机查看活动、开始和停止计划。手机只是遥控器，真正报名的还是这台电脑，所以电脑要开着、不能睡眠。</p>
         <p class="ph-err" id="phone-feature-error" role="alert" hidden></p>
+        <!-- 红条放在「没装」块外：更新失败后状态回到「需要更新」，那块整块收着，原因仍要看得见 -->
+        <p class="ph-err phone-component-error" id="phone-component-error" role="alert" hidden></p>
         <div class="ph-block" id="phone-missing">
-          <p class="ph-err phone-component-error" id="phone-component-error" role="alert" hidden></p>
           <p class="ph-note" id="phone-component-state" aria-live="polite" role="status" hidden></p>
           <p class="ph-note" id="phone-size-note">可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。</p>
           <div class="loc" id="phone-loc-before" hidden><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg><span class="loc-t"><small>会装到</small><code id="phone-loc-before-path"></code></span></div>

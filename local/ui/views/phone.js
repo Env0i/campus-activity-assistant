@@ -17,6 +17,7 @@ function phonePhase(st, row) {
   if (dl === "downloading") return "downloading";
   if (dl === "verifying") return "verifying";
   if (row && row.status === "checking") return "checking";
+  if (row && row.status === "outdated") return "outdated";
   if (row && row.status === "failed") return "broken";
   if (row && row.ready) return "off";
   if (row && row.available) return "disabled";
@@ -355,6 +356,9 @@ const PhonePanel = {
         cls = "up-warn";
       } else if (String(ocrRow.status || "") === "checking") {
         text = "失效后自动登录：正在检查验证码识别组件。";
+      } else if (String(ocrRow.status || "") === "outdated") {
+        text = "失效后自动登录：验证码识别组件需要随新版本更新（在上面“高级功能”里点“更新组件”）。更新前登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。";
+        cls = "up-warn";
       } else {
         text = "失效后自动登录：还缺验证码识别组件（在上面的“高级功能”里一键安装）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。";
         cls = "up-warn";
@@ -463,9 +467,10 @@ const PhonePanel = {
     // PH03 标题行：右侧二选一——没装或下载中放按钮，装好后放状态 chip
     const install = $("#btn-phone-component-install");
     if (install) {
-      install.hidden = phase !== "missing";
+      install.hidden = phase !== "missing" && phase !== "outdated";
       install.disabled = busy;
-      install.textContent = failed ? "重新下载" : "下载并安装";
+      install.textContent = phase === "outdated" ? "更新组件"
+        : (failed ? "重新下载" : "下载并安装");
     }
     const cancel = $("#btn-phone-component-cancel");
     if (cancel) {
@@ -491,6 +496,7 @@ const PhonePanel = {
       let tone = "";
       if (phase === "off") text = "未开启";
       else if (phase === "on") { text = linked ? "手机已连接" : "等手机连接"; tone = linked ? "ok" : "warn"; }
+      else if (phase === "outdated") { text = "需要更新"; tone = "warn"; }
       else if (phase === "broken") { text = "加载失败"; tone = "warn"; }
       else if (phase === "disabled") text = "已停用";
       chip.hidden = !text;
@@ -506,7 +512,9 @@ const PhonePanel = {
           : "第一次连接要扫码和配对。扫码只负责打开页面，配对靠这 6 位数。")
         : phase === "off"
           ? (starting ? "正在开启，先不要切换通道。" : "选一条通道再开启。没开启时不监听端口，手机连不上电脑。")
-          : downloading ? "可以关掉设置继续用，下载和报名计划互不影响。"
+          : phase === "outdated"
+            ? "主程序已升级，组件需要随新版本更新。点「更新组件」重新装一份，手机访问不用重新配对。"
+            : downloading ? "可以关掉设置继续用，下载和报名计划互不影响。"
             : "从手机查看活动、开始和停止计划。手机只是遥控器，真正报名的还是这台电脑，所以电脑要开着、不能睡眠。";
     }
     phoneText("#phone-feature-error", (phase === "broken" || phase === "disabled") ? notes.feature : "");
@@ -518,7 +526,9 @@ const PhonePanel = {
     phoneShow("#phone-on", phase === "on");
 
     // ---- 没装（PH08–PH12）----
-    const missingErr = phase === "missing" ? (notes.missing || (failed ? downloadFailText(download) : "")) : "";
+    // 更新失败后状态回到「需要更新」，原因同样要看得见；红条在「没装」块外，块收着也显示
+    const missingErr = (phase === "missing" || phase === "outdated")
+      ? (notes.missing || (failed ? downloadFailText(download) : "")) : "";
     phoneText("#phone-component-error", missingErr);
     // PH12：取消后回到没装态；已装过组件再取消的场景原型没有，落在 off 那块说现有组件没动
     phoneText("#phone-component-state", phase === "missing" && !missingErr && dl === "cancelled"
