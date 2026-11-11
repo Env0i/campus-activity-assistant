@@ -4833,6 +4833,66 @@ out.push({text: small.textContent});
 
 
 
+    def test_row_crossing_open_moment_aligns_text_and_polls_once(self):
+        """M1：一场活动在两次轮询之间跨过开放时刻，下一次 tick 就要把该行倒计时换成「已开放」，
+        并立即补一次轮询让分组与标记以服务端快照为准；同一行不重复触发。"""
+        values = run_phone_js("""
+const ui = PhoneUI;
+ui.model.paired = true;
+let fetches = 0;
+let clockEpoch = 3600;
+globalThis.__fetch = async () => {
+  fetches += 1;
+  return {status: 200, json: async () => ({
+    state: { activities: [{id: "a1", name: "篮球赛", place: "体育馆", open_ts: 3605}],
+             busy: false, plan: null, terms_ok: true,
+             business_clock: {state: "ready", epoch_s: clockEpoch, tick_s: 5, sampled_tick_s: 5},
+             retry_options: { default: 120, choices: [] } },
+    events: [], reset: false, seq: 1 })};
+};
+await ui.poll(true);
+const small = {textContent: "5 秒", className: ""};
+const rowNode = {dataset: {id: "a1"}, querySelector: (sel) => (sel === ".time small" ? small : null)};
+["items", "upcoming-items", "signed-items"].forEach((id) => {
+  $("#" + id).querySelectorAll = (sel) => (sel === "[data-id]" ? [rowNode] : []);
+});
+const base = fetches;
+clockEpoch = 3610;                       // 服务端下一份快照的时间
+ui.model.clock.monoAt -= 10000;          // 业务时间走过 10 秒，已跨过 3605
+ui.tickClock();
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+const afterFirst = {text: small.textContent, extra: fetches - base};
+ui.tickClock();
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+out.push(afterFirst, {extra: fetches - base});
+""")
+        first, second = values
+        self.assertEqual(first["text"], "已开放", "跨过开放时刻后行文字立即对齐")
+        self.assertEqual(first["extra"], 1, "跨过时立即补一次轮询")
+        self.assertEqual(second["extra"], 1, "同一行不重复触发轮询")
+
+    def test_tick_clock_follows_business_clock_not_phone_wall_clock(self):
+        """M2：手机墙钟比服务端时钟快几个小时，显示仍按服务端快照加单调钟推算，
+        不能读手机墙钟（用墙钟实现这里会显示 14 点多）。"""
+        values = run_phone_js(self.POLL_STATE + """
+let wall = 1700000000000 + 5 * 3600 * 1000;   // 手机墙钟比服务端快 5 小时以上
+let mono = 5000;
+const realNow = Date.now;
+Date.now = () => wall;
+globalThis.performance = { now: () => mono };
+try {
+  await ui.poll(true);
+  $("#plan-board").hidden = true;
+  wall += 2000; mono += 2000;
+  ui.tickClock();
+  out.push($("#board-now-text").textContent);
+} finally {
+  Date.now = realNow;
+}
+""")
+        self.assertEqual(values[0], "09:00:02", "显示来自服务端快照 3600 秒加两秒，与手机墙钟无关")
+
+
 class WorkbenchPhoneTests(unittest.TestCase):
     """新手机页（设计第 10 节 / 原型 Phone*）：账号密码默认不保存、条款未同意只读、连不上电脑红条、核对计划提醒。"""
 

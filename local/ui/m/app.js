@@ -2567,16 +2567,22 @@ if (typeof document !== "undefined") {
         if (el && el.dataset) nodes[String(el.dataset.id)] = el;
       });
     });
+    /* 行在两次轮询之间跨过开放时刻：推算值已是 open，而这一行还是按「待开放」画的（倒计时文字不是
+       「已开放」）。分组与标记要以服务端快照为准，所以补一次轮询；文字先就地对齐，下一次 tick
+       这行已是「已开放」，不会重复触发。 */
+    let crossed = false;
     (view.groups || []).forEach((group) => {
       (group.rows || []).forEach((row) => {
         const el = nodes[String(row.id)];
         const small = el && el.querySelector ? el.querySelector(".time small") : null;
         if (!small || !row.hasLeft) return;
+        if (row.st === "open" && small.textContent !== "已开放") crossed = true;
         if (small.textContent !== row.left) small.textContent = row.left;
         const cls = row.leftCls || "";
         if (String(small.className || "") !== cls) small.className = cls;
       });
     });
+    if (crossed && model.paired) void poll(false);
   }
   /* 首屏只做一次只读探测：只有可能已有会话（csrf cookie 还在）时才发一次，
      没 cookie 就是没配对过，直接停在配对页——不发请求，也不排定时器。 */
