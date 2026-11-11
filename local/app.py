@@ -1875,6 +1875,12 @@ class Api:
             self._log_event("auto_relogin_start_failed", level="WARN",
                             reason=str(result.get("error") or "unknown"),
                             elapsed_s=time.monotonic() - began)
+            # 发起失败界面收不到中继事件，会一直显示「自动登录中」；推一次当前状态让顶栏收起。
+            # 推送失败不影响发起结果，所以吞掉异常。
+            try:
+                self._emit("phone_relogin", self._relay.state())
+            except Exception:
+                pass
         return result
 
     def _begin_auto_relogin_once(self) -> dict:

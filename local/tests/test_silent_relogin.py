@@ -259,6 +259,27 @@ class HandoffTests(unittest.TestCase):
         self.assertNotIn("fictional", text)
 
 
+class AutoStartFailureEmitTests(_ApiCase):
+    """F3：自动发起失败（非 busy）时要推一次中继状态，顶栏才会收起「自动登录中」。"""
+
+    def test_failed_start_pushes_a_state_so_the_banner_can_clear(self):
+        with mock.patch.object(self.api, "_begin_auto_relogin_once",
+                               lambda: {"ok": False, "error": "needs_local_setup"}):
+            result = self.api._begin_auto_relogin()
+        self.assertFalse(result.get("ok"))
+        pushed = [payload for name, payload in self.events if name == "phone_relogin"]
+        self.assertEqual(len(pushed), 1, "发起失败要推且只推一次状态")
+        self.assertIs(pushed[0].get("live"), False, "界面要据此收起「自动登录中」")
+        self.assertIn("auto_relogin_start_failed", self._log_text())
+
+    def test_busy_start_pushes_nothing(self):
+        with mock.patch.object(self.api, "_begin_auto_relogin_once",
+                               lambda: {"ok": False, "error": "busy"}):
+            self.api._begin_auto_relogin()
+        pushed = [payload for name, payload in self.events if name == "phone_relogin"]
+        self.assertEqual(pushed, [], "busy 不落盘、也不推状态")
+
+
 class LogEventTests(_ApiCase):
     """R5：事件表逐项落盘，且不含账号、密码、验证码。"""
 

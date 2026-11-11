@@ -436,7 +436,11 @@ function receiveReloginState(payload) {
   /* 转人工：后台不另开一场，等用户在对话框里输这张验证码；只提醒一次 */
   if (handoff && !reloginHandoffSeen) {
     reloginHandoffSeen = true;
-    addLog("[!] 自动识别 3 次没认对，请点「重新登录」输入验证码");
+    /* 运行记录的次数要跟验证码页的提示一致：认错一次就转人工（识别结果不合规）和认满 3 次是两条路，说法不同 */
+    const times = Number(data.attempts) || 0;
+    addLog(times >= 3
+      ? "[!] 自动识别 3 次没认对，请点「重新登录」输入验证码"
+      : "[!] 电脑没认出验证码，请点「重新登录」输入验证码");
   }
   if (!handoff) reloginHandoffSeen = false;
   if (S.login) {
@@ -481,7 +485,9 @@ function receiveReloginState(payload) {
   }
   if (state === "failed" || state === "canceled") {
     const code = String(data.safe_error || state);
-    reloginStep("msg", RELOGIN_FAIL_TEXT[code] || "这次没登录上，可以再试一次，或者改用浏览器登录。");
+    /* 学校说密码不对：不重试（避免账号被锁），进「保存的密码不对」那一步让用户更新密码 */
+    if (code === "bad_password") reloginStep("bad");
+    else reloginStep("msg", RELOGIN_FAIL_TEXT[code] || "这次没登录上，可以再试一次，或者改用浏览器登录。");
     S.relogin.flowId = "";
   }
 }

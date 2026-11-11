@@ -506,6 +506,41 @@ out.push({ failed, again: { step: S.relogin.step, beginCalls,
         self.assertEqual(data["again"]["beginCalls"], 2, "再试一次要真开新的一场")
         self.assertTrue(data["again"]["userHidden"], "不回到账号密码表单")
 
+    def test_bad_password_goes_to_the_bad_step_not_a_generic_message(self):
+        res = run_js(r"""
+S.login.present = true;
+S.login.result = "expired";
+S.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+if (window.PhonePanel && window.PhonePanel.state) {
+  window.PhonePanel.state.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+}
+window.pywebview = { api: { relogin_begin: () => Promise.resolve({ ok: true, flow_id: "f1" }) } };
+document.querySelector("#btn-login").click();
+window.onBackend.phone_relogin({ state: "failed", live: false, origin: "manual",
+  flow_id: "f1", safe_error: "bad_password" });
+out.push({ step: S.relogin.step, badHidden: document.querySelector("#rl-bad").hidden });
+""")
+        data = res[0]
+        self.assertEqual(data["step"], "bad", "学校说密码不对要进「保存的密码不对」那一步")
+        self.assertFalse(data["badHidden"])
+
+    def test_handoff_log_matches_the_attempt_count(self):
+        def handoff_log(attempts):
+            res = run_js(r"""
+S.login.present = true;
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "auto", flow_id: "f1", challenge_id: "c1", attempts: __N__, handoff: true,
+  image: "data:image/png;base64,AAA" });
+out.push({ log: S.recentLogs.join("\n") });
+""".replace("__N__", str(attempts)))
+            return res[0]["log"]
+
+        once = handoff_log(1)
+        self.assertNotIn("3 次", once, "只认错一次就转人工，运行记录不能说「3 次」")
+        self.assertIn("电脑没认出验证码", once)
+        third = handoff_log(3)
+        self.assertIn("自动识别 3 次没认对", third)
+
 
 # 计划栏结果页（计划 20261106-plan-panel 的 result-panel，P1 / P8）：计划结论不再写进 #result 条，
 # 改由计划栏的标签、标题、副行和五类大数字承担（原型 Main.dc.html 渲染函数 res 段）。
