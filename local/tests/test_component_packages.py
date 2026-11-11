@@ -252,21 +252,28 @@ from pathlib import Path
 sys.path.insert(0, sys.argv[1])
 from infrastructure import component_packages as cp
 root = Path(sys.argv[2])
+Path(sys.argv[5]).write_text('ready')
 with cp._LOCK, cp._file_transaction(root):
     Path(sys.argv[3]).write_text('entered')
     while not Path(sys.argv[4]).exists(): time.sleep(.02)
 """
         local = str(Path(__file__).resolve().parents[1])
-        first, second, release1, release2 = (self.root / x for x in ("one", "two", "release1", "release2"))
+        first, second, release1, release2, first_ready, second_ready = (
+            self.root / x for x in ("one", "two", "release1", "release2", "one.ready", "two.ready"))
         processes = []
         try:
-            processes.append(subprocess.Popen([sys.executable, "-c", script, local, str(self.root), str(first), str(release1)]))
+            processes.append(subprocess.Popen([sys.executable, "-c", script, local, str(self.root), str(first), str(release1), str(first_ready)]))
             import time
             deadline = time.monotonic() + 10
             while not first.exists() and time.monotonic() < deadline:
                 time.sleep(.02)
             self.assertTrue(first.exists())
-            processes.append(subprocess.Popen([sys.executable, "-c", script, local, str(self.root), str(second), str(release2)]))
+            processes.append(subprocess.Popen([sys.executable, "-c", script, local, str(self.root), str(second), str(release2), str(second_ready)]))
+            # 等第二个进程写完就绪文件再计时：这时它已导入完模块，只差取锁
+            deadline = time.monotonic() + 10
+            while not second_ready.exists() and time.monotonic() < deadline:
+                time.sleep(.02)
+            self.assertTrue(second_ready.exists())
             time.sleep(.4)
             self.assertFalse(second.exists())
             release1.touch()
@@ -503,12 +510,98 @@ with cp._LOCK, cp._file_transaction(root):
         self.assertTrue(self.target.is_dir())
         self.assertFalse(backup.exists(), "新目录已落位后不应留下旧 backup")
 
-    def test_recovery_preserves_unowned_component_stage(self):
+    def test_recovery_reclaims_orphan_component_stage(self):
+        """缺陷 5：持事务锁的操作应回收崩溃留下的同功能阶段目录（可能上百 MB）。"""
         stage = self.target.parent / (".stage-%s-orphan" % self.key)
         stage.mkdir(parents=True)
         (stage / "partial").write_bytes(b"partial")
         self.assertFalse(cp.status(self.key, root=self.root)["available"])
-        self.assertTrue(stage.exists(), "读取方无法证明阶段目录归属，应保留")
+        self.assertFalse(stage.exists(), "崩溃留下的阶段目录应在下次持锁操作时回收")
+
+    def test_lock_free_split_query_keeps_stage_directories(self):
+        """不持事务锁的只读查询不回收任何目录。"""
+        stage = self.target.parent / (".stage-%s-orphan" % self.key)
+        stage.mkdir(parents=True)
+        (stage / "partial").write_bytes(b"partial")
+        state = cp._split_group(self.key, root=self.root)
+        self.assertFalse(state["available"])
+        self.assertTrue(stage.exists(), "不持锁的读路径不能删阶段目录")
+
+    def test_leftover_backup_that_cannot_be_removed_aborts_without_losing_target(self):
+        """缺陷 2：残留 backup 删不掉时中止安装，正在用的 target 不许被删或被旧副本顶替。"""
+        cp.install(self.archive(data=b"old"), self.key, root=self.root)
+        backup = self.target.parent / (".backup-" + self.key)
+        shutil.copytree(self.target, backup)
+        (backup / "feature-helper.exe").write_bytes(b"stale")
+        real_rmtree = shutil.rmtree
+
+        def busy_rmtree(path, *args, **kwargs):
+            if Path(path) == backup:
+                return                      # 杀软占用：删不动，也不抛
+            return real_rmtree(path, *args, **kwargs)
+
+        with mock.patch.object(cp.shutil, "rmtree", side_effect=busy_rmtree):
+            with self.assertRaises(cp.PackageError):
+                cp.install(self.archive(data=b"new"), self.key, root=self.root)
+        self.assertEqual((self.target / "feature-helper.exe").read_bytes(), b"old")
+        self.assertTrue(cp.status(self.key, root=self.root)["available"])
+
+    def test_cleanup_failure_after_commit_still_reports_success(self):
+        """缺陷 4：新目录已落位后清不掉旧 backup，不能反过来报安装失败。"""
+        cp.install(self.archive(data=b"old"), self.key, root=self.root)
+        backup = self.target.parent / (".backup-" + self.key)
+        real_rmtree = shutil.rmtree
+
+        def locked_rmtree(path, *args, **kwargs):
+            if Path(path) == backup:
+                raise PermissionError("locked")
+            return real_rmtree(path, *args, **kwargs)
+
+        with mock.patch.object(cp.shutil, "rmtree", side_effect=locked_rmtree):
+            result = cp.install(self.archive(data=b"new"), self.key, root=self.root)
+        self.assertTrue(result["ok"])
+        self.assertEqual((self.target / "feature-helper.exe").read_bytes(), b"new")
+        self.assertTrue(cp.feature_status(self.key, root=self.root)["available"])
+
+    def test_empty_transaction_journal_keeps_component_usable(self):
+        """缺陷 3：日志断电留空文件，读状态、取 cloudflared、移除都不能抛。"""
+        cp.install(self.archive(data=b"old"), self.key, root=self.root)
+        journal = self.target.parent / (".transaction-" + self.key + ".json")
+        journal.write_text("", encoding="utf-8")
+        self.assertTrue(cp.status(self.key, root=self.root)["available"])
+        self.assertTrue(cp.feature_status(self.key, root=self.root)["available"])
+        found = cp.cloudflared(root=self.root, probe=lambda _p: cp.CLOUDFLARED_VERSION)
+        self.assertTrue(found.replace("\\", "/").endswith(cp.CLOUDFLARED_NAME))
+        self.assertEqual((self.target / "feature-helper.exe").read_bytes(), b"old")
+        cp.remove(self.key, root=self.root)
+        self.assertFalse(self.target.exists())
+
+    def test_bad_json_journal_and_pointer_do_not_raise(self):
+        """缺陷 3：日志/指针内容损坏只算这一步没发生过，不能把程序拖垮。"""
+        cp.install(self.archive(data=b"old"), self.key, root=self.root)
+        journal = self.target.parent / (".transaction-" + self.key + ".json")
+        journal.write_text("{not json", encoding="utf-8")
+        self.assertTrue(cp.feature_status(self.key, root=self.root)["available"])
+        self.assertTrue(cp.cloudflared(root=self.root, probe=lambda _p: cp.CLOUDFLARED_VERSION))
+
+        group = cp._root(self.root) / cp.ARTIFACT_ROOT / ".groups"
+        pointer = group / "relogin_ocr.json"
+        pointer.parent.mkdir(parents=True, exist_ok=True)
+        pointer.write_text("{not json", encoding="utf-8")
+        state = cp.feature_status("relogin_ocr", root=self.root)
+        self.assertFalse(state["available"])
+        self.assertEqual(cp.cloudflared(root=self.root, probe=lambda _p: ""), "")
+        cp.remove("relogin_ocr", root=self.root)
+        self.assertFalse(pointer.exists())
+
+    def test_atomic_json_syncs_file_and_directory(self):
+        """缺陷 3：指针落盘要 fsync 文件和目录，否则断电后指针可能是空的。"""
+        pointer = cp._root(self.root) / cp.ARTIFACT_ROOT / ".groups" / "relogin_ocr.json"
+        with mock.patch.object(cp.os, "fsync", wraps=cp.os.fsync) as synced:
+            cp._write_group_pointer("relogin_ocr", {"feature": "relogin_ocr"}, self.root)
+        self.assertGreaterEqual(synced.call_count, 1)
+        self.assertEqual(json.loads(pointer.read_text(encoding="utf-8"))["feature"],
+                         "relogin_ocr")
 
     def test_untrusted_paths_extras_duplicates_platform_and_feature(self):
         for name in ("../evil", "/evil", "C:/evil", "a\\evil", "nul.exe", "file:stream", "x./y"):
@@ -686,7 +779,7 @@ with cp._LOCK, cp._file_transaction(root):
         self.assertTrue(store.is_dir(), "读取时应把 .bak 恢复成正式目录")
         self.assertFalse(backup.exists(), "恢复后不应残留 .bak")
 
-    def test_stored_cloudflared_discards_backup_but_preserves_unowned_stage(self):
+    def test_stored_cloudflared_discards_backup_and_orphan_stage(self):
         source = self.root / "cloudflared.exe"
         source.write_bytes(BINARY)
         text = "cloudflared version 2026.10.7"
@@ -700,7 +793,7 @@ with cp._LOCK, cp._file_transaction(root):
         (stage / "partial").write_bytes(b"partial")
         self.assertTrue(cp.stored_cloudflared(root=self.root, probe=lambda _p: text))
         self.assertFalse(backup.exists(), "新目录已落位后不应留下 cloudflared backup")
-        self.assertTrue(stage.exists(), "读取方无法证明阶段目录归属，应保留")
+        self.assertFalse(stage.exists(), "持锁读取时应回收崩溃留下的阶段目录")
 
     def test_inspect_archive_names_the_component_it_found(self):
         good = self.archive()

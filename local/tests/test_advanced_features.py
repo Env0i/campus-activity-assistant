@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import subprocess
 import sys
+import tempfile
 import types
 import unittest
 from unittest import mock
@@ -236,6 +237,23 @@ class InstallBehaviourTests(unittest.TestCase):
             invoke.assert_called_once_with(af.RELOGIN_OCR, {"op": "ocr", "image": PNG_URI}, root="isolated")
             invoke.return_value = {"code": "bad value"}
             self.assertEqual(af.classify_captcha(PNG_URI, frozen=True, root="isolated"), "")
+
+
+class FrozenPackageStateTests(unittest.TestCase):
+    """冻结包里「没装」和「装坏」必须分开：空数据根是 missing，不是 failed。"""
+
+    def test_empty_data_root_reports_both_features_as_missing(self):
+        """缺陷 1：全新未安装时两个功能都要给「下载并安装」，不能显示加载失败。"""
+        with tempfile.TemporaryDirectory(dir=tempfile.gettempdir()) as temporary:
+            with mock.patch.object(af.component_packages, "supported", return_value=True):
+                state = af.feature_state({}, root=Path(temporary), frozen=True)
+            for key in (af.PHONE_CONTROL, af.RELOGIN_OCR):
+                with self.subTest(feature=key):
+                    row = state[key]
+                    self.assertFalse(row["available"])
+                    self.assertEqual(row["error"], "")
+                    self.assertEqual(row["status"], "missing")
+                    self.assertTrue(row["installable"])
 
 
 class CaptchaGateTests(unittest.TestCase):

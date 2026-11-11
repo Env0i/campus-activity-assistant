@@ -20,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -449,6 +450,91 @@ def _helper(executable, *, feature, payload=None, timeout=30, probe=False, env=N
             proc.stdin.close()
 
 
+def _diagnostic(base, message):
+    """组件目录里的自检日志；写不进去也不能影响主流程。"""
+    try:
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        with (base / ".diagnostics.log").open("a", encoding="utf-8") as handle:
+            handle.write("%s %s\n" % (stamp, message))
+    except OSError:
+        pass
+
+
+def _discard(path, base):
+    """清掉已无用途的旧副本；清不掉只记诊断，不能反过来否定已经完成的换位。"""
+    try:
+        shutil.rmtree(path)
+    except OSError as exc:
+        _diagnostic(base, "旧副本清理失败：%s（%s）" % (path.name, type(exc).__name__))
+
+
+def _discard_stage(path, base):
+    try:
+        if path.is_dir() and not _linked(path):
+            shutil.rmtree(path)
+    except OSError as exc:
+        _diagnostic(base, "阶段目录清理失败：%s（%s）" % (path.name, type(exc).__name__))
+
+
+def _reclaim_stages(base, feature=None):
+    """回收崩溃留下的阶段目录（可能上百 MB）；只在持事务锁时调用。"""
+    names = [".stage-cf-*"]
+    if feature:
+        names.append(".stage-%s-*" % feature)
+    for name in names:
+        for path in base.glob(name):
+            _discard_stage(path, base)
+    assets = base / ARTIFACT_ROOT
+    for path in (assets / ".cache").glob(".stage-*"):
+        _discard_stage(path, base)
+    if not feature:
+        return
+    for artifact_id, spec in ARTIFACTS.items():
+        if spec["feature"] != feature:
+            continue
+        for path in assets.glob(".stage-%s-*" % artifact_id):
+            _discard_stage(path, base)
+        for path in (assets / ".cache" / artifact_id).glob(".stage-*"):
+            _discard_stage(path, base)
+
+
+def _read_transaction(journal):
+    """读事务日志；空文件、断电截断、字段不对都当作「这一步没发生过」。"""
+    try:
+        data = json.loads(journal.read_text(encoding="utf-8"))
+        transaction_id = data["transaction_id"]
+        had_target = data["had_target"]
+        if (not isinstance(transaction_id, str)
+                or not re.fullmatch(r"[0-9a-f]{32}", transaction_id)
+                or type(had_target) is not bool):
+            return None
+        return {"transaction_id": transaction_id, "had_target": had_target}
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _pointer_committed(pointer, key, transaction_id):
+    try:
+        selection = json.loads(pointer.read_text(encoding="utf-8")) if pointer.exists() else {}
+    except (OSError, ValueError):
+        return False
+    return (isinstance(selection, dict) and selection.get("feature") == key
+            and selection.get("selection") == "legacy"
+            and selection.get("transaction_id") == transaction_id)
+
+
+def _target_usable(target, key):
+    """换位是否完成以「目标目录是否完整可验证」为准，不看 os.replace 报了什么错。"""
+    try:
+        if not target.is_dir() or _linked(target):
+            return False
+        validate_directory(target, key)
+        _helper(target / "feature-helper.exe", feature=key, probe=True)
+        return True
+    except (PackageError, OSError, ValueError, KeyError, TypeError):
+        return False
+
+
 def _recover_replacement(base, key):
     """进程在目录换位中断时，先恢复同一组件的旧目录再判断是否可用。"""
     target = base / key
@@ -460,45 +546,54 @@ def _recover_replacement(base, key):
     if _linked(journal) or _linked(pointer.parent) or _linked(pointer):
         raise PackageError("unsafe_path")
     if journal.exists():
-        try:
-            transaction = json.loads(journal.read_text(encoding="utf-8"))
-            transaction_id = transaction["transaction_id"]
-            had_target = transaction["had_target"]
-            if (not isinstance(transaction_id, str)
-                    or not re.fullmatch(r"[0-9a-f]{32}", transaction_id)
-                    or type(had_target) is not bool):
-                raise ValueError("bad_transaction")
-            selection = json.loads(pointer.read_text(encoding="utf-8")) if pointer.exists() else {}
-            committed = (isinstance(selection, dict) and selection.get("feature") == key
-                         and selection.get("selection") == "legacy"
-                         and selection.get("transaction_id") == transaction_id)
-        except (ValueError, KeyError, TypeError, OSError) as exc:
-            raise PackageError("bad_transaction") from exc
-        if committed:
-            if not target.is_dir():
-                raise PackageError("bad_transaction")
+        transaction = _read_transaction(journal)
+        if transaction is None:
+            # 断电会留下空文件：这一步没发生过，按磁盘上可验证的目录恢复
+            _diagnostic(base, "事务日志损坏，按磁盘状态恢复：%s" % journal.name)
+            try:
+                journal.unlink()
+            except OSError:
+                pass
+        else:
+            committed = _pointer_committed(pointer, key, transaction["transaction_id"])
+            if committed and _target_usable(target, key):
+                # 已提交：残留 backup 只是旧副本，清不掉也不能推翻安装结果
+                if backup.exists():
+                    _discard(backup, base)
+                journal.unlink()
+                _STATUS_CACHE.pop(str(target), None)
+                return
+            if not committed and not transaction["had_target"]:
+                # 首次安装且指针没落：这份目录没有被任何选择引用，删掉
+                if target.exists():
+                    shutil.rmtree(target)
+                journal.unlink()
+                _STATUS_CACHE.pop(str(target), None)
+                return
             if backup.exists():
-                shutil.rmtree(backup)
-        elif had_target:
-            if backup.exists():
+                # 事务未完成：把旧副本换回来，宁可用旧版也不留下半套
                 if target.exists():
                     shutil.rmtree(target)
                 os.replace(backup, target)
-            elif not target.is_dir():
-                raise PackageError("bad_transaction")
-        elif target.exists():
-            shutil.rmtree(target)
-        journal.unlink()
-        _STATUS_CACHE.pop(str(target), None)
-        return
+                journal.unlink()
+                _STATUS_CACHE.pop(str(target), None)
+                return
+            journal.unlink()
+            _STATUS_CACHE.pop(str(target), None)
+            return
     if backup.exists() and not target.exists():
         os.replace(backup, target)
         _STATUS_CACHE.pop(str(target), None)
     elif backup.exists() and target.exists():
-        # 新目录已落位后进程若死在清理前，backup 只是旧副本，不能长期占位。
+        # 进程死在清理前：target 可验证就以它为准，否则把旧副本换回来
         if not backup.is_dir():
             raise PackageError("unsafe_path")
-        shutil.rmtree(backup, ignore_errors=True)
+        if _target_usable(target, key):
+            _discard(backup, base)
+        else:
+            shutil.rmtree(target)
+            os.replace(backup, target)
+            _STATUS_CACHE.pop(str(target), None)
 
 
 @_transactional
@@ -512,6 +607,7 @@ def status(key, *, root=None):
             _recover_replacement(base, key)
         except (PackageError, OSError):
             return {"available": False, "source": "imported", "error": "component_invalid"}
+        _reclaim_stages(base, key)
         directory = base / key
         if not directory.exists():
             return {"available": False, "source": "imported", "error": "", "version": ""}
@@ -553,9 +649,18 @@ def install(archive, key, *, root=None):
             raise PackageError("unsafe_path")
         base.mkdir(parents=True, exist_ok=True)
         _recover_replacement(base, key)
-        stage = Path(tempfile.mkdtemp(prefix=".stage-%s-" % key, dir=base))
+        _reclaim_stages(base, key)
         target = base / key
         backup = base / (".backup-" + key)
+        if backup.exists():
+            # 换位前先清残留 backup：删不掉就中止，别让 os.replace 撞上它
+            try:
+                shutil.rmtree(backup)
+            except OSError as exc:
+                raise PackageError("backup_locked") from exc
+            if backup.exists():
+                raise PackageError("backup_locked")
+        stage = Path(tempfile.mkdtemp(prefix=".stage-%s-" % key, dir=base))
         try:
             with zipfile.ZipFile(archive) as package:
                 infos = package.infolist()
@@ -854,14 +959,33 @@ def _valid_cache_key(cache_key, digest):
     return isinstance(cache_key, str) and bool(re.fullmatch(re.escape(digest) + r"(?:-[0-9a-f]{32})?", cache_key))
 
 
+def _sync_directory(directory):
+    """目录项也尽量落盘；Windows 不允许对目录 fsync 时安静跳过。"""
+    try:
+        handle = os.open(str(directory), os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(handle)
+    except OSError:
+        pass
+    finally:
+        os.close(handle)
+
+
 def _atomic_json(path, data):
     if _linked(path.parent) or _linked(path):
         raise PackageError("unsafe_path")
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.parent / (".stage-" + uuid.uuid4().hex)
     try:
-        temp.write_text(json.dumps(data, sort_keys=True), encoding="utf-8")
+        with temp.open("w", encoding="utf-8") as handle:
+            handle.write(json.dumps(data, sort_keys=True))
+            handle.flush()
+            # 不 fsync 的话，断电后可能留下空的日志/指针，读取方会当成装坏
+            os.fsync(handle.fileno())
         os.replace(temp, path)
+        _sync_directory(path.parent)
     finally:
         if temp.exists():
             temp.unlink()
@@ -921,6 +1045,7 @@ def commit_artifact_group(feature, artifacts, *, root=None):
     _assert_unused(feature, root)
     assets = _root(root) / ARTIFACT_ROOT
     with _LOCK, _file_transaction(root):
+        _reclaim_stages(_root(root), feature)
         checked, refs = [], []
         for handle in artifacts:
             artifact_id = _artifact_key(handle["artifact_id"])
@@ -998,6 +1123,23 @@ def inspect_artifact(archive, artifact_id):
             "text": "拆分组件资产清单有效。"}
 
 
+def _has_split_assets(base, feature):
+    """磁盘上有没有这个功能的拆分资产：固定目录或缓存里任一份都算。"""
+    assets = base / ARTIFACT_ROOT
+    for artifact_id, spec in ARTIFACTS.items():
+        if spec["feature"] != feature:
+            continue
+        if (assets / artifact_id).exists():
+            return True
+        cache = assets / ".cache" / artifact_id
+        try:
+            if any(cache.iterdir()):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def _split_group(feature, *, root=None, allow_cache=True):
     feature = _key(feature)
     _recover_replacement(_root(root), feature)
@@ -1020,6 +1162,10 @@ def _split_group(feature, *, root=None, allow_cache=True):
         except (PackageError, OSError, ValueError, KeyError, TypeError):
             return {"available": False, "source": "split", "feature": feature,
                     "error": "artifact_invalid", "artifacts": {}}
+    if not _has_split_assets(_root(root), feature):
+        # 全新未安装：既没有旧单体包也没有半套拆分资产，不能报成装坏
+        return {"available": False, "source": "none", "feature": feature,
+                "error": "", "artifacts": {}}
     ids = [artifact_id for artifact_id, spec in ARTIFACTS.items()
            if spec["feature"] == feature]
     states = [artifact_status(artifact_id, root=root) for artifact_id in ids]
@@ -1051,6 +1197,10 @@ def feature_status(key, *, root=None):
         legacy["source"] = "legacy"
         legacy["split"] = split
         return legacy
+    if not split.get("error") and legacy.get("error"):
+        # 拆分资产没留痕，但旧单体包在且校验不过：那是真实故障，不能报成未安装
+        legacy["split"] = split
+        return legacy
     return split
 
 
@@ -1062,6 +1212,7 @@ def remove(key, *, root=None):
         _assert_unused(feature, root)
         target = base / feature
         _recover_replacement(base, feature)
+        _reclaim_stages(base, feature)
         if _linked(base) or _linked(target):
             raise PackageError("unsafe_path")
         if target.exists():
@@ -1253,6 +1404,7 @@ def stored_cloudflared(*, root=None, probe=None) -> str:
             _recover_cloudflared_store(base)
         except (PackageError, OSError):
             return ""
+        _reclaim_stages(base)
         store = base / CLOUDFLARED_STORE
         target = store / CLOUDFLARED_FILE
         try:

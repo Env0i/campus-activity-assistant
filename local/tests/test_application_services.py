@@ -1676,6 +1676,70 @@ class AdvancedComponentServiceTests(unittest.TestCase):
             self.assertEqual(downloaded, [new_runtime.name])
             self.assertEqual(service.snapshot()["total_bytes"], runtime_meta["bytes"])
 
+    def test_split_network_failure_does_not_fall_back_to_single_package(self):
+        """缺陷 6：拆分资产网络失败时就停在 failed，不许偷偷改下单体包。"""
+        assets = [dict(self.ASSET, artifact_id="relogin_ocr_runtime", name="runtime.zip"),
+                  dict(self.ASSET, artifact_id="relogin_ocr_model", name="model.zip")]
+        downloads = []
+
+        def download(url, *, name, **kwargs):
+            downloads.append(name)
+            if name == "runtime.zip":
+                return {"ok": False, "error_code": "timeout", "text": "下载超时"}
+            return {"ok": True, "path": str(Path(state["tmp"]) / name)}
+
+        service, state = self._service(
+            feature="relogin_ocr",
+            asset_resolver=lambda _version: {"ok": True, "assets": assets,
+                                             "asset": dict(self.ASSET, name="legacy.zip")},
+            find_cached_artifact=lambda asset, **kwargs: None,
+            inspect_artifact=lambda archive, artifact_id: {
+                "ok": True, "artifact_id": artifact_id, "version": "1.2.3"},
+            cache_artifact=lambda archive, artifact_id, **kwargs: {
+                "artifact_id": artifact_id, "version": "1.2.3"},
+            commit_artifact_group=lambda *_args, **_kwargs: {"ok": True},
+            download=download)
+        with tempfile.TemporaryDirectory(prefix="component-split-network-") as tmp:
+            state["tmp"] = tmp
+            service._run()
+        self.assertEqual(downloads, ["runtime.zip"], "网络失败后不得改下单体包")
+        self.assertEqual(service._state, "failed")
+        self.assertEqual(service.snapshot()["error_code"], "timeout")
+        self.assertEqual(state["installs"], [])
+
+    def test_split_integrity_failure_falls_back_to_single_package(self):
+        """拆分资产校验不过时仍允许回退，回退前要说清换成了完整组件包。"""
+        assets = [dict(self.ASSET, artifact_id="phone_control_runtime", name="runtime.zip"),
+                  dict(self.ASSET, artifact_id="phone_control_cloudflared",
+                       name="cloudflared.zip")]
+        downloads = []
+        texts = []
+
+        def download(url, *, name, **kwargs):
+            downloads.append(name)
+            if name == "legacy.zip":
+                texts.append(service.snapshot()["text"])
+            return {"ok": True, "path": str(Path(state["tmp"]) / name)}
+
+        service, state = self._service(
+            asset_resolver=lambda _version: {"ok": True, "assets": assets,
+                                             "asset": dict(self.ASSET, name="legacy.zip")},
+            find_cached_artifact=lambda asset, **kwargs: None,
+            inspect_artifact=lambda archive, artifact_id: {
+                "ok": False, "kind": "content_mismatch", "artifact_id": artifact_id,
+                "text": "内容与清单不符"},
+            cache_artifact=lambda archive, artifact_id, **kwargs: {
+                "artifact_id": artifact_id, "version": "1.2.3"},
+            commit_artifact_group=lambda *_args, **_kwargs: {"ok": True},
+            download=download)
+        with tempfile.TemporaryDirectory(prefix="component-split-integrity-") as tmp:
+            state["tmp"] = tmp
+            service._run()
+        self.assertEqual(downloads, ["runtime.zip", "legacy.zip"])
+        self.assertTrue(texts and "拆分资产校验不过" in texts[0])
+        self.assertEqual(service._state, "installed")
+        self.assertEqual([item[1] for item in state["installs"]], ["phone_control"])
+
     def test_second_click_while_downloading_is_busy(self):
         service, state = self._service()
         import tempfile
