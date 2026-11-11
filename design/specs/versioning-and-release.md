@@ -134,4 +134,18 @@
 - 换位前先清残留 `.backup-*`，删不掉就中止本次安装并保留正在使用的组件；已提交后的旧副本清理失败只记诊断，不改变安装成功的结论。持事务锁的操作回收崩溃留下的 `.stage-*`（2026-11-11）。
 - 拆分资产下载遇到网络失败（连接、超时、断流、HTTP 5xx）直接报错并保留当前组，不再自动改下完整单体包；只有大小、哈希或兼容性校验不过才回退，并在进度文字里说明（2026-11-11）。
 
+### 版本目录更新与安装器返修（2026-11-11）
+
+起因是对「版本目录增量更新」与「历史基线增量包」的审计，下面逐条记录口径，复现命令都是离线单测，不构建、不联网。
+
+- **安装器目录名**：`[Files]` 的 `DestDir` 对 payload 父目录原样保留，只把 `/` 换成 `\`；`numpy.libs`、`pkg-1.2.3.dist-info` 不再被删点，`_internal/cv2/data` 这类深层同名目录照装。只跳过 payload 顶层第一段为 data / config / logs / log 的路径。旧写法让安装版目录与目标清单永远对不上，增量包对安装版用户不可用。复现 `py -3.12 -X utf8 -m unittest discover -s local/tests -p "test_installer_script.py" -k PayloadDestDir`。
+- **版本目录切换的适用条件**：冻结态、`update-launcher.exe` 存在、当前进程正从 `versions/<当前版本>/` 运行，三者缺一就走完整安装器。判定是 `app.version_switch_available()`，`_do_update_download` 只在它为真时才下载版本目录包；独立 EXE 与源码态直接下载完整安装器，不再留下 `.staging-*`，也不会在 `update_launch` 处被拒绝。`update_launch` 保留冻结态加启动器文件的防御判定，因为 `ready_to_restart` 只会在上面的判定为真时产生。
+- **切换后主程序自退**：启动器拉起成功后推 `launching`、文案以「更新启动器已启动」开头，界面据此把「启动中…」换成「关闭本工具…」；约 1 秒后主程序走现有关窗口的「退出」动作。启动器没拉起时不退出，状态进 `failed`。
+- **启动器等待父进程**：`OpenProcess` 失败且 `GetLastError` 为 87（PID 不存在）说明主程序已退出，直接放行；其他失败原因仍不切换。`OpenProcess`、`WaitForSingleObject`、`CloseHandle` 设置了函数原型，默认等待时限由 30 秒改为 120 秒。
+- **目标目录已存在与坏 staging**：目标版本目录已存在时先改名为 `.old-<版本>-<随机>`，切换成功后删除，失败时改回原名并把 staging 放回原处。staging 缺固定程序时在等待父进程之前就拒绝，`current.json` 与所有版本目录不动。
+- **current.json 与回退**：切换成功后写 `{"version","previous_version"}`，写入经 flush 与 fsync 再原子替换。`--start` 在 current 指向的版本不可用时依次回退 `previous_version`、版本号最大的有效目录，回退只影响这一次启动，不改写 `current.json`。
+- **版本目录清理与卸载**：`updater.sweep_version_root` 只删 `versions` 下的 `.staging-*`、`.stage-*`、`.part-*`、`.old-*` 残留，以及超出 current 与 previous 的旧版本；跳过当前进程所在目录和链接，`current.json` 读不出来时只清残留；删不掉的跳过不抛。冻结态且从 `versions/<当前版本>/` 运行时，主程序启动后在后台线程调用一次。安装脚本新增 `[UninstallDelete]` 删除 `{app}` 下的 `versions`，用户数据目录不在其中，是否删除仍只由卸载时的确认决定。
+- **发版前门禁**：`write_manifest` 在序列化与哈希之前检查 `files` 每一项不超过 300 MiB，超限直接中止，因为已发布的 1.2.0 与 1.2.1 客户端会把含超限项的整份清单当作无效。`--prepare` 带 `--delta-base` 时必须同时给 `--delta-base-manifest`（基线版本已发布的 `manifest.json` 本地副本），在构建之前用与更新器同一实现算出基线目录的目标清单哈希并比对，版本或哈希不符就中止；PyInstaller 构建不可复现，重建的基线生成的增量包对谁都不匹配。复现 `py -3.12 -X utf8 -m unittest discover -s local/tests -p "test_lifecycle_release.py" -k ReleaseGuard`。
+- **验证边界**：以上均为离线单测与替身（Windows 句柄接口、进程启动、关窗口都不真实调用）。真实安装、版本切换、卸载仍需在打包产物上人工验收，不能用本节的单测成绩代替。
+
 候选构建命令为 `py -3.12 -X utf8 tools/release.py --prepare --split-components`。验证记录应注明源码来源与实际运行结果，候选返修沿用 1.2.2。
