@@ -24,7 +24,7 @@ if str(LOCAL) not in sys.path:
 # 混合具体模块：domain/application 只准依赖 stdlib 与 domain 自身
 BANNED_MODULES = {
     "signup_plan", "business_clock", "time_contract", "grab", "updater",
-    "update_check", "runtime_paths", "webview", "app", "gui",
+    "update_check", "update_delta", "update_launcher", "runtime_paths", "webview", "app", "gui",
 }
 
 
@@ -50,6 +50,10 @@ class ImportBoundaryTests(unittest.TestCase):
                         name, BANNED_MODULES,
                         "%s/%s 不得直接依赖混合具体模块 %r（应由 app.py 注入）"
                         % (pkg, path.name, name))
+
+    def test_update_delta_and_launcher_are_banned_for_inner_layers(self):
+        """更新增量与启动器带文件和进程副作用：domain/application 直接 import 要被拦。"""
+        self.assertLessEqual({"update_delta", "update_launcher"}, BANNED_MODULES)
 
     def test_domain_reads_no_wall_clock(self):
         """domain 只做纯换算/格式化：不得直接读墙钟，此刻值一律由调用方传入。"""
