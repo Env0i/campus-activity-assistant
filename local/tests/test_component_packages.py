@@ -3,6 +3,7 @@
 
 @author Author
 """
+import contextlib
 import hashlib
 import json
 import os
@@ -406,6 +407,213 @@ with cp._LOCK, cp._file_transaction(root):
             cp.commit_artifact_group("relogin_ocr", [old, model], root=self.root)
         thread.join()
         self.assertEqual(failures, [])
+
+    def _aged(self, handle, aged=True):
+        """把缓存目录的修改时间拨到宽限期之外，模拟「早就缓存好、早已退役」的旧组。"""
+        if aged:
+            old = time.time() - getattr(cp, "CACHE_RECLAIM_GRACE_S", 3600.0) - 600
+            os.utime(handle["path"], (old, old))
+        return handle
+
+    def _runtime_version(self, index, aged=True):
+        """第 index 份内容互不相同的 runtime 缓存。"""
+        return self._aged(cp.cache_artifact(
+            self.artifact_archive("relogin_ocr_runtime", {"feature-helper.exe": b"MZv%d" % index}),
+            "relogin_ocr_runtime", root=self.root), aged)
+
+    def _model(self):
+        return self._aged(cp.cache_artifact(self.artifact_archive("relogin_ocr_model"),
+                                            "relogin_ocr_model", root=self.root))
+
+    def _cache_names(self, artifact_id):
+        cache = self.root / "advanced" / "assets" / ".cache" / artifact_id
+        return {path.name for path in cache.iterdir()} if cache.is_dir() else set()
+
+    def test_group_switch_keeps_only_new_and_previous_cache(self):
+        """K2：切换两次以上后，更早的组不再占着缓存目录。"""
+        model = self._model()
+        other = cp.cache_artifact(self.artifact_archive("phone_control_runtime"),
+                                  "phone_control_runtime", root=self.root)
+        digests = []
+        for index in range(3):
+            runtime = self._runtime_version(index)
+            digests.append(runtime["content_sha256"])
+            cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+            if index == 1:
+                self.assertEqual(self._cache_names("relogin_ocr_runtime"),
+                                 {digests[0], digests[1]}, "第二次切换：新组与上一组")
+        self.assertEqual(self._cache_names("relogin_ocr_runtime"), {digests[1], digests[2]},
+                         "第三次切换后只剩新组与切换前那一组")
+        self.assertEqual(self._cache_names("relogin_ocr_model"), {model["content_sha256"]})
+        self.assertEqual(self._cache_names("phone_control_runtime"), {other["content_sha256"]},
+                         "别的功能的缓存不归这次回收管")
+        state = cp.feature_status("relogin_ocr", root=self.root)
+        self.assertTrue(state["available"])
+        self.assertEqual(state["artifacts"]["relogin_ocr_runtime"]["content_sha256"], digests[2])
+
+    def test_fresh_uncommitted_cache_survives_group_switch(self):
+        """K2：刚备好、还没提交的下一组不在「旧组」之列，别的提交不能顺手删掉它。"""
+        model = self._model()
+        first = self._runtime_version(0)
+        cp.commit_artifact_group("relogin_ocr", [first, model], root=self.root)
+        second = self._runtime_version(1)
+        cp.commit_artifact_group("relogin_ocr", [second, model], root=self.root)
+        fresh = self._runtime_version(2, aged=False)
+        cp.commit_artifact_group("relogin_ocr", [first, model], root=self.root)
+        self.assertIn(fresh["content_sha256"], self._cache_names("relogin_ocr_runtime"))
+        cp.commit_artifact_group("relogin_ocr", [fresh, model], root=self.root)
+        self.assertTrue(cp.feature_status("relogin_ocr", root=self.root)["available"])
+
+    def test_cache_reclaim_failure_is_only_a_diagnostic(self):
+        """K2：回收删不掉不能推翻已经完成的指针切换。"""
+        model = self._model()
+        for index in range(2):
+            cp.commit_artifact_group("relogin_ocr", [self._runtime_version(index), model],
+                                     root=self.root)
+        third = self._runtime_version(2)
+        with mock.patch.object(cp.shutil, "rmtree", side_effect=OSError("locked")):
+            result = cp.commit_artifact_group("relogin_ocr", [third, model], root=self.root)
+        self.assertTrue(result["ok"])
+        log = self.root / "advanced" / ".diagnostics.log"
+        self.assertIn("缓存清理失败", log.read_text(encoding="utf-8"))
+        self.assertTrue(cp.feature_status("relogin_ocr", root=self.root)["available"])
+
+    def test_unsupported_compatibility_id_is_reported_incompatible(self):
+        """K3：客户端只认自己支持的 compatibility_id，组整体换口径也不照收。"""
+        runtime, model = self._runtime_version(0), self._model()
+        cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+        self.assertTrue(cp.feature_status("relogin_ocr", root=self.root)["available"])
+        newer = frozenset({"campus-activity-2"})
+        with mock.patch.object(cp, "SUPPORTED_COMPATIBILITY_IDS", newer, create=True):
+            state = cp._split_group("relogin_ocr", root=self.root)
+            self.assertFalse(state["available"])
+            self.assertEqual(state["error"], "artifact_incompatible")
+            with self.assertRaises(cp.PackageError) as caught:
+                cp.commit_artifact_group("relogin_ocr", [runtime, model], root=self.root)
+            self.assertEqual(caught.exception.args[0], "artifact_incompatible")
+
+    def test_unsupported_compatibility_id_in_fixed_assets_is_incompatible(self):
+        for artifact in ("relogin_ocr_runtime", "relogin_ocr_model"):
+            cp.install_artifact(self.artifact_archive(artifact), artifact, root=self.root)
+        self.assertTrue(cp._split_group("relogin_ocr", root=self.root)["available"])
+        with mock.patch.object(cp, "SUPPORTED_COMPATIBILITY_IDS",
+                               frozenset({"campus-activity-2"}), create=True):
+            state = cp._split_group("relogin_ocr", root=self.root)
+        self.assertFalse(state["available"])
+        self.assertEqual(state["error"], "artifact_incompatible")
+
+    def _stored_cloudflared_fixture(self):
+        source = self.root / "cloudflared.exe"
+        source.write_bytes(BINARY)
+        text = "cloudflared version %s" % cp.CLOUDFLARED_VERSION
+        cp.install_cloudflared(source, root=self.root, probe=lambda _p: text,
+                               probe_text=lambda _p: text)
+        return cp._root(self.root) / cp.CLOUDFLARED_STORE
+
+    def test_stored_cloudflared_skips_probe_while_file_is_unchanged(self):
+        """P3：文件没变就不再起子进程探测版本；换了文件必须重新探测。"""
+        store = self._stored_cloudflared_fixture()
+        target = store / cp.CLOUDFLARED_FILE
+        with mock.patch.object(cp, "probe_cloudflared_version",
+                               return_value=cp.CLOUDFLARED_VERSION) as probe:
+            first = cp.stored_cloudflared(root=self.root)
+            second = cp.stored_cloudflared(root=self.root)
+            self.assertEqual(first, str(target))
+            self.assertEqual(second, str(target))
+            self.assertEqual(probe.call_count, 1, "第二次不应再探测")
+            target.write_bytes(BINARY + b"-new")
+            manifest = json.loads((store / "manifest.json").read_text(encoding="utf-8"))
+            manifest["sha256"] = cp.sha256(target)
+            (store / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            self.assertEqual(cp.stored_cloudflared(root=self.root), str(target))
+            self.assertEqual(probe.call_count, 2, "文件变了（大小或时间戳）要重新探测")
+
+    def test_stored_cloudflared_cache_does_not_hide_tampering(self):
+        store = self._stored_cloudflared_fixture()
+        target = store / cp.CLOUDFLARED_FILE
+        with mock.patch.object(cp, "probe_cloudflared_version",
+                               return_value=cp.CLOUDFLARED_VERSION):
+            self.assertTrue(cp.stored_cloudflared(root=self.root))
+            target.write_bytes(b"MZtampered")
+            self.assertEqual(cp.stored_cloudflared(root=self.root), "",
+                             "哈希对不上必须拒绝，探测缓存不能放行")
+
+    def test_injected_probe_is_never_cached(self):
+        self._stored_cloudflared_fixture()
+        text = "cloudflared version %s" % cp.CLOUDFLARED_VERSION
+        self.assertTrue(cp.stored_cloudflared(root=self.root, probe=lambda _p: text))
+        self.assertEqual(cp.stored_cloudflared(root=self.root, probe=lambda _p: ""), "")
+
+    _CROSS_PROCESS_READER = """
+import contextlib, json, sys, time
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from infrastructure import component_packages as cp
+if sys.argv[4] == "unlocked":
+    cp._file_transaction = lambda root: contextlib.nullcontext()
+root, ready = sys.argv[2], Path(sys.argv[3])
+allowed, model = set(sys.argv[5].split(",")), sys.argv[6]
+stop = Path(sys.argv[3] + ".stop")
+bad, count = [], 0
+ready.write_text("ready")
+while not stop.exists() and count < 200000:
+    count += 1
+    time.sleep(0.003 if sys.argv[4] == "locked" else 0)
+    try:
+        state = cp.feature_status("relogin_ocr", root=root)
+        arts = state.get("artifacts") or {}
+        runtime = arts.get("relogin_ocr_runtime", {}).get("content_sha256")
+        mdl = arts.get("relogin_ocr_model", {}).get("content_sha256")
+        if not (state.get("available") and runtime in allowed and mdl == model):
+            bad.append([state.get("source"), state.get("error"), runtime, mdl])
+    except Exception as exc:
+        bad.append(["exception", type(exc).__name__])
+    if len(bad) >= 5:
+        break
+print(json.dumps({"count": count, "bad": bad}))
+"""
+
+    def _cross_process_switch(self, mode):
+        """另一个进程反复读组状态，本进程反复在三份 runtime 之间切换。"""
+        model = self._model()
+        runtimes = [self._runtime_version(index) for index in range(3)]
+        digests = [item["content_sha256"] for item in runtimes]
+        cp.commit_artifact_group("relogin_ocr", [runtimes[0], model], root=self.root)
+        ready = self.root / "reader.ready"
+        local = str(Path(cp.__file__).resolve().parents[1])
+        child = subprocess.Popen(
+            [sys.executable, "-X", "utf8", "-c", self._CROSS_PROCESS_READER, local,
+             str(self.root), str(ready), mode, ",".join(digests), model["content_sha256"]],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
+        try:
+            deadline = time.monotonic() + 30
+            while not ready.exists() and time.monotonic() < deadline and child.poll() is None:
+                time.sleep(0.05)
+            self.assertTrue(ready.exists(), "读进程没有起来")
+            with contextlib.ExitStack() as stack:
+                if mode == "unlocked":
+                    # 证明用的空锁替身：读写两边都不拿跨进程锁
+                    stack.enter_context(mock.patch.object(
+                        cp, "_file_transaction", lambda root: contextlib.nullcontext()))
+                for _ in range(12):
+                    for index in range(3):
+                        # 每轮重新备好这一组：被回收掉的旧目录会按内容寻址重建
+                        item = self._runtime_version(index)
+                        cp.commit_artifact_group("relogin_ocr", [item, model], root=self.root)
+            Path(str(ready) + ".stop").write_text("stop")
+            out, err = child.communicate(timeout=60)
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.communicate(timeout=10)
+        self.assertEqual(child.returncode, 0, err)
+        return json.loads(out.strip().splitlines()[-1])
+
+    def test_cross_process_reader_never_sees_a_half_switched_group(self):
+        """K6：读写分属两个进程，读到的组必须完整（runtime 与 model 配套、版本在已提交集合内）。"""
+        result = self._cross_process_switch("locked")
+        self.assertGreater(result["count"], 0)
+        self.assertEqual(result["bad"], [])
 
     def test_split_artifacts_install_as_a_complete_legacy_safe_group(self):
         runtime = self.artifact_archive("relogin_ocr_runtime")

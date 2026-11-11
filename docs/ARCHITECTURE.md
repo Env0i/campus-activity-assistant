@@ -215,6 +215,58 @@ controller/view DOM 分离不在本轮范围。
   `releases/download/<tag>/<name>`；大小与 SHA-256 仍逐项核对。
 - 代理设置项暂不提供：这些请求跟随系统代理与环境变量；遇到 PAC 或只在浏览器里开代理的环境，先按运行记录里的失败原因排查。
 
+### 高级组件的资产、缓存、指针与锁（2026-11-12）
+
+适用于冻结态的 `phone_control`（手机控制）与 `relogin_ocr`（验证码识别）。实现在
+`local/infrastructure/component_packages.py`，界面状态由 `advanced_features.feature_state` 整理。
+下面的 `<数据目录>` 是运行时数据目录（见 `runtime_paths`），不写具体路径。
+
+**资产与组**
+
+- 一个功能由几份 schema 2 **资产**拼成一个**组**：`phone_control` 是 runtime 加 cloudflared 工具，
+  `relogin_ocr` 是 runtime 加 model。每份资产有 `artifact_id`、`asset_version`、`compatibility_id` 和
+  `content_sha256`（绑定类型、协议、兼容标识和文件内容，不含主程序版本）。内容一致的资产可跨版本复用。
+- 组内所有资产的 `compatibility_id` 必须相同，并且必须在客户端的 `SUPPORTED_COMPATIBILITY_IDS`
+  里（现在只有发布侧写入的 `campus-activity-1`）。不在集合里时 `_split_group` 报 `artifact_incompatible`，
+  `commit_artifact_group` 也拒绝切换，当前能用的那一组保持不动。发布侧换口径时，客户端要先发版认得新值。
+- 完整单体 ZIP（旧格式）继续可用，作为拆分组不完整时的回退。选择顺序：组指针 → 固定目录里的资产 → 单体包。
+
+**目录布局**（都在 `<数据目录>/advanced/` 下）
+
+| 位置 | 内容 |
+|------|------|
+| `<功能>/` | 单体包安装目录（legacy） |
+| `assets/<资产>/` | 固定目录里的资产（`install_artifact` 直接装入） |
+| `assets/.cache/<资产>/<摘要>` | 内容寻址缓存；摘要目录已被占用且校验不过时用 `<摘要>-<随机串>` |
+| `assets/.groups/<功能>.json` | 组指针：列出本功能当前引用的缓存目录；`selection: legacy` 表示选了单体包 |
+| `cloudflared/` | 用户自选并校验过的 cloudflared（版本、哈希写在 manifest） |
+| `.stage-*`、`.backup-*`、`.transaction-<功能>.json` | 安装与换位的中间产物，崩溃后由持锁的读写入口回收或恢复 |
+| `.diagnostics.log` | 回收、清理失败的诊断，只记名字和异常类型 |
+
+**两个锁文件**（在 `<数据目录>/`，与 `advanced/` 同级，所以查询未安装的组件不会凭空建出 `advanced/`）
+
+- `.advanced.lock`：事务锁，跨进程排他。状态查询、安装、缓存、组提交、移除都先拿它（最长等 30 秒），
+  同线程内可重入。凡是会改动或回收目录的动作，只在持有它时进行。拿不到时抛 `PrefsLockTimeout`。
+- `.advanced-phone-control.use.lock`：使用租约。Cloudflare 隧道从启动前核验到进程退出一直持有；
+  安装、替换、移除手机控制组件先非阻塞地试它，被占用就返回 `component_in_use`，不等待。
+
+**切换与回收**
+
+- `commit_artifact_group` 在事务锁内：核验每份资产与依赖、跑 helper 探针（cloudflared 还要核版本）、
+  原子替换指针，然后回收缓存。探针或写指针失败时旧指针与旧缓存都不动。
+- 回收规则：同一功能下，缓存目录既不属于新组、也不属于切换前那一组，并且修改时间已超过
+  `CACHE_RECLAIM_GRACE_S`（1 小时）的，删除。宽限期是为了不误删刚备好、还没提交的下一组。
+  删不掉只写 `.diagnostics.log`，不影响已完成的切换；别的功能的缓存、`.stage-*` 不在这一步处理。
+- 读者的完整性来自事务锁：另一个进程读到的要么是切换前的整组，要么是切换后的整组。
+  `test_cross_process_reader_never_sees_a_half_switched_group` 用子进程反复读、本进程反复切换来守这一点。
+
+**界面状态与探测缓存**
+
+- `feature_state` 遇到事务锁超时不抛异常：有上一次成功的结果就返回它的副本并带 `busy=true`；一次都没成功过就返回
+  `status=checking`、`error=""`、`busy=true`。缓存只存组件状态，启用开关按本次偏好重算，进程退出即丢。
+- `stored_cloudflared` 的版本探测要起子进程，结果按（路径、大小、mtime_ns）缓存在进程内存；
+  哈希仍每次核对。调用方自带的 `probe` 不进缓存。
+
 ### 报名链路（决策 015）
 
 - **直发为主、点击兜底**：开抢前调 `runtime/profile` 取运行时密钥（`fetch_runtime_key`），

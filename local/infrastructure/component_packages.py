@@ -39,6 +39,12 @@ ARTIFACTS = {
 ARTIFACT_ROOT = "assets"
 ARTIFACT_SCHEMA = 2
 ARTIFACT_PROTOCOL = 1
+# 本客户端能用的 compatibility_id（发布侧 local/build/build_advanced.py 现在写的值）。
+# 资产组整体换成新口径时，旧客户端不能照收：清单格式没变，但 helper 与模型的约定变了。
+SUPPORTED_COMPATIBILITY_IDS = frozenset({"campus-activity-1"})
+# 切换组后回收旧缓存时的宽限期：刚缓存好、还没来得及提交的资产（下载与提交之间，
+# 或者调用方先备好几组再逐个提交）不属于「旧组」，不能被别的提交顺手删掉。
+CACHE_RECLAIM_GRACE_S = 3600.0
 MAX_ARCHIVE = 512 * 1024 * 1024
 MAX_EXTRACTED = 1024 * 1024 * 1024
 MAX_FILES = 5000
@@ -55,6 +61,9 @@ CLOUDFLARED_FILE = "cloudflared.exe"
 _LOCK = threading.RLock()
 _STATUS_CACHE = {}
 _ARTIFACT_STATUS_CACHE = {}
+# cloudflared 版本探测结果：键是（路径、大小、mtime_ns），只放进程内存、只存探测成功的结果。
+# 探测要起子进程，不能每次状态查询都在全局锁里跑一遍；哈希核对不走这份缓存。
+_CLOUDFLARED_PROBE_CACHE = {}
 _TRANSACTION_LOCAL = threading.local()
 
 
@@ -496,6 +505,75 @@ def _reclaim_stages(base, feature=None):
             _discard_stage(path, base)
         for path in (assets / ".cache" / artifact_id).glob(".stage-*"):
             _discard_stage(path, base)
+
+
+def _group_cache_refs(feature, root):
+    """切换前指针引用的缓存目录集合：{(资产, 缓存目录名)}。
+
+    指针不存在、是旧单体包的 legacy 选择，都没有引用任何缓存，返回空集合；
+    指针存在却读不出来时返回 None，调用方这一轮不回收（不知道谁在被引用就不删）。
+    """
+    pointer = _group_pointer(feature, root)
+    if _linked(pointer) or _linked(pointer.parent):
+        return None
+    if not pointer.exists():
+        return set()
+    try:
+        data = json.loads(pointer.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    refs = set()
+    for item in data.get("artifacts") or ():
+        if (isinstance(item, dict) and item.get("source") == "cache"
+                and isinstance(item.get("artifact_id"), str)
+                and isinstance(item.get("cache_key"), str)):
+            refs.add((item["artifact_id"], item["cache_key"]))
+    return refs
+
+
+def _reclaim_group_cache(base, feature, keep):
+    """回收该功能下不属于「新组」也不属于「切换前那一组」的缓存目录。
+
+    只在持事务锁、指针已落位之后调用：此时别的进程读到的要么是新指针要么是旧指针，
+    两边引用的目录都在 keep 里。删不掉只记诊断，不能反过来否定已经完成的切换。
+    阶段目录（.stage-*）归 _reclaim_stages 管，这里不碰；别的功能的缓存也不碰。
+    目录的修改时间距今不到 CACHE_RECLAIM_GRACE_S 的先留着：它可能是刚备好、等着提交的下一组。
+    """
+    if keep is None:
+        return
+    cache_base = base / ARTIFACT_ROOT / ".cache"
+    if _linked(cache_base):
+        return
+    for artifact_id, spec in ARTIFACTS.items():
+        if spec["feature"] != feature:
+            continue
+        cache_root = cache_base / artifact_id
+        if _linked(cache_root):
+            continue
+        try:
+            entries = list(cache_root.iterdir())
+        except OSError:
+            continue
+        for path in entries:
+            if path.name.startswith(".stage-") or (artifact_id, path.name) in keep:
+                continue
+            if _linked(path) or not path.is_dir():
+                continue
+            try:
+                if time.time() - path.stat().st_mtime < CACHE_RECLAIM_GRACE_S:
+                    continue
+            except OSError:
+                continue
+            try:
+                shutil.rmtree(path)
+            except OSError as exc:
+                _diagnostic(base, "缓存清理失败：%s/%s（%s）"
+                            % (artifact_id, path.name, type(exc).__name__))
+                continue
+            for cache_key in [k for k in _ARTIFACT_STATUS_CACHE if k[0] == str(path)]:
+                _ARTIFACT_STATUS_CACHE.pop(cache_key, None)
 
 
 def _read_transaction(journal):
@@ -1082,6 +1160,9 @@ def commit_artifact_group(feature, artifacts, *, root=None):
             refs.append({"artifact_id": artifact_id, "content_sha256": digest,
                          "source": "cache", "cache_key": path.name})
         by_id = _validate_group(feature, checked)
+        if any(item["compatibility_id"] not in SUPPORTED_COMPATIBILITY_IDS for item in checked):
+            # 指针切过去之后本客户端会读不了：宁可拒绝，也别丢掉现在能用的那一组
+            raise PackageError("artifact_incompatible")
         runtime = Path(by_id[feature + "_runtime"]["path"])
         env = None
         if feature == "relogin_ocr":
@@ -1091,7 +1172,11 @@ def commit_artifact_group(feature, artifacts, *, root=None):
             tool = Path(by_id["phone_control_cloudflared"]["path"]) / CLOUDFLARED_NAME
             if parse_cloudflared_version(probe_cloudflared_version(tool)) != CLOUDFLARED_VERSION:
                 raise PackageError("tool_probe_failed")
+        previous = _group_cache_refs(feature, root)
         _write_group_pointer(feature, {"feature": feature, "artifacts": refs}, root)
+        keep = None if previous is None else previous | {
+            (ref["artifact_id"], ref["cache_key"]) for ref in refs}
+        _reclaim_group_cache(_root(root), feature, keep)
         return {"ok": True, "feature": feature, "artifacts": by_id}
 
 
@@ -1156,6 +1241,9 @@ def _split_group(feature, *, root=None, allow_cache=True):
                         "error": "", "artifacts": {}}
             by_id = _resolve_group(feature, root=root, allow_cache=allow_cache)
             runtime = by_id[feature + "_runtime"]
+            if runtime["compatibility_id"] not in SUPPORTED_COMPATIBILITY_IDS:
+                return {"available": False, "source": "split", "feature": feature,
+                        "error": "artifact_incompatible", "artifacts": {}}
             return {"available": True, "source": "split", "feature": feature,
                     "error": "", "version": runtime["version"],
                     "compatibility_id": runtime["compatibility_id"], "artifacts": by_id}
@@ -1178,7 +1266,7 @@ def _split_group(feature, *, root=None, allow_cache=True):
         return {"available": False, "source": "split", "feature": feature,
                 "error": "artifact_incomplete", "artifacts": by_id}
     compatibility = {by_id[key].get("compatibility_id") for key in required}
-    if len(compatibility) != 1:
+    if len(compatibility) != 1 or not compatibility <= SUPPORTED_COMPATIBILITY_IDS:
         return {"available": False, "source": "split", "feature": feature,
                 "error": "artifact_incompatible", "artifacts": by_id}
     return {"available": True, "source": "split", "feature": feature,
@@ -1396,8 +1484,14 @@ def _recover_cloudflared_store(base):
 
 @_transactional
 def stored_cloudflared(*, root=None, probe=None) -> str:
-    """返回受管目录里那份 cloudflared 的路径；版本或哈希对不上就返回空串。"""
-    probe = probe or probe_cloudflared_version
+    """返回受管目录里那份 cloudflared 的路径；版本或哈希对不上就返回空串。
+
+    版本探测要起子进程，所以按（路径、大小、mtime_ns）缓存成功结果，文件没变就不再探；
+    哈希仍每次核对，换了文件（含同名同大小）一定走重新探测。调用方自带的 probe 不进缓存。
+    """
+    real_probe = probe_cloudflared_version
+    probe = probe or real_probe
+    cacheable = probe is real_probe
     with _LOCK:
         base = _root(root)
         try:
@@ -1415,8 +1509,16 @@ def stored_cloudflared(*, root=None, probe=None) -> str:
                 return ""
             if str(manifest.get("sha256") or "") != sha256(target):
                 return ""
+            info = target.stat()
+            fingerprint = (str(target), info.st_size, info.st_mtime_ns)
+            if cacheable and _CLOUDFLARED_PROBE_CACHE.get(fingerprint) == CLOUDFLARED_VERSION:
+                return str(target)
             if parse_cloudflared_version(probe(target)) != CLOUDFLARED_VERSION:
                 return ""
+            if cacheable:
+                if len(_CLOUDFLARED_PROBE_CACHE) >= 16:
+                    _CLOUDFLARED_PROBE_CACHE.clear()
+                _CLOUDFLARED_PROBE_CACHE[fingerprint] = CLOUDFLARED_VERSION
             return str(target)
         except (OSError, ValueError):
             return ""
