@@ -33,6 +33,10 @@ LOGIN_FILES = ("session.json", "storage_state.json")
 # None=没发生迁移；{"moved": int, "login_failed": bool, "other_failed": bool} 由 _migrate_legacy_data
 # 只写一次。界面 bootstrap 只读它，不另存状态、不再读 stderr 去猜。
 _MIGRATION_RECORD: dict | None = None
+# 本进程的旧数据迁移是否已有结论（G1）：grab.log() 每写一行都会走 ensure_data_dir，
+# 冻结态下若每次都重新迁移，报名开放那一刻每行日志都要排队拿迁移锁和日志锁。
+# 只在「完整跑完一次」或「确定无需迁移」后置位；等锁超时（对方正在迁移）不置位，下次再试。
+_MIGRATION_DONE = False
 
 
 def migration_record() -> dict | None:
@@ -73,7 +77,8 @@ MIGRATION_LOCK_TIMEOUT_S = 5.0
 def ensure_data_dir() -> Path:
     """确保数据根存在；冻结进程首次使用新根时顺带完成旧数据迁移。"""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if getattr(sys, "frozen", False):
+    # 迁移以进程为单位只做一次：有结论后日志热路径只剩一次 mkdir(exist_ok)
+    if getattr(sys, "frozen", False) and not _MIGRATION_DONE:
         _migrate_legacy_data()
     return DATA_DIR
 
@@ -89,18 +94,24 @@ def _migrate_legacy_data() -> None:
     任何失败都不阻断启动（打印一句可读提示）——迁移丢了还能手动拷贝，
     启动失败才是真问题。绝不覆盖目标已有文件，避免旧数据倒灌新数据。
     结果同时记进 _MIGRATION_RECORD（BE3），供界面横幅与运行记录读取。
+    G1：拿到锁并完整跑完、或确定无需迁移（旧目录就是数据根）、或失败已有定论时置位
+    _MIGRATION_DONE，本进程不再重复；等锁超时是「对方正在搬」，既不置位也不写记录。
     """
-    global _MIGRATION_RECORD
+    global _MIGRATION_RECORD, _MIGRATION_DONE
     legacy = _legacy_data_dir()
     moved = 0
     login_failed = False
     other_failed = False
     try:
         if legacy.resolve() == DATA_DIR.resolve():
+            # 旧目录就是数据根：没有需要搬的东西，这个结论本进程内不会变
+            _MIGRATION_DONE = True
             return
     except Exception as exc:  # noqa: BLE001 - 迁移是尽力而为，不让它挡住启动
         print("[!] 旧数据迁移失败（不影响启动，可手动拷贝）：%s" % exc, file=sys.stderr)
         _MIGRATION_RECORD = {"moved": 0, "login_failed": True, "other_failed": True}
+        # 路径都算不出来：再试也是同一个结果，别让每行日志都重复打这句提示
+        _MIGRATION_DONE = True
         return
     # 迁移是跨进程的一次性动作：两个 GUI 同时首次启动时，后到者必须等前者
     # 收工后再检查目标，否则会把对方刚写入的新登录态当成缺失、再拿旧文件覆盖。
@@ -109,6 +120,8 @@ def _migrate_legacy_data() -> None:
     except OSError as exc:
         print("[!] 旧数据迁移失败（不影响启动，可手动拷贝）：%s" % exc, file=sys.stderr)
         _MIGRATION_RECORD = {"moved": 0, "login_failed": True, "other_failed": True}
+        # 迁移锁文件都建不出来（权限/只读）：这是本机环境的定论，不逐行重试
+        _MIGRATION_DONE = True
         return
     acquired = False
     try:
@@ -116,9 +129,11 @@ def _migrate_legacy_data() -> None:
             acquire_file_lock(lock_handle, MIGRATION_LOCK_TIMEOUT_S)
             acquired = True
         except (PrefsLockTimeout, OSError) as exc:
-            print("[!] 旧数据迁移失败（不影响启动，可手动拷贝）：另一个进程正在迁移（%s）"
+            # G3：等锁超时说明另一个实例正在搬（多半已经搬完），本次没有迁移结论。
+            # 不写 _MIGRATION_RECORD：写成 login_failed 会让界面横幅误报「旧登录信息
+            # 没搬过来」；也不置位 _MIGRATION_DONE，下次 ensure_data_dir 拿到锁再检查。
+            print("[!] 旧数据迁移暂缓（不影响启动）：另一个进程正在迁移（%s）"
                   % type(exc).__name__, file=sys.stderr)
-            _MIGRATION_RECORD = {"moved": 0, "login_failed": True, "other_failed": True}
             return
         for name in MIGRATE_FILES:
             # 每个文件单独 try：一个失败不影响其余文件继续搬
@@ -153,6 +168,8 @@ def _migrate_legacy_data() -> None:
             # 只给「哪一类没搬过来」
             _MIGRATION_RECORD = {"moved": moved, "login_failed": login_failed,
                                  "other_failed": other_failed}
+        # 完整跑完一次（含部分文件失败）：结论已记进 _MIGRATION_RECORD，本进程不再重复
+        _MIGRATION_DONE = True
     finally:
         if acquired:
             release_file_lock(lock_handle)

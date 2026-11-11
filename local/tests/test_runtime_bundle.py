@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 
+import io
 import json
 import os
 import subprocess
@@ -1934,6 +1935,87 @@ class BusyLockOrderContractTests(unittest.TestCase):
         api._plan = plan
         self.assertFalse(api._is_busy_locked())
         plan.snapshot.assert_not_called()
+
+
+class MigrationOncePerProcessTests(unittest.TestCase):
+    """G1/G3：旧数据迁移每个进程只做一次；等锁超时不是迁移结论。
+
+    只给 runtime_paths 的模块属性打补丁（不 reload），数据根、迁移锁、旧目录全落在
+    tempfile.gettempdir() 下的临时目录，不碰真实 data。
+    """
+
+    def setUp(self):
+        sys.path.insert(0, str(LOCAL))
+        try:
+            import runtime_paths
+        finally:
+            sys.path.pop(0)
+        self.rp = runtime_paths
+        tmp = tempfile.TemporaryDirectory(dir=tempfile.gettempdir(), prefix="campus-migrate-")
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        self.target = root / "target"
+        self.target.mkdir()
+        legacy = root / "old-exe"
+        (legacy / "data").mkdir(parents=True)
+        (legacy / "data" / "session.json").write_text('{"legacy": 1}', encoding="utf-8")
+        self.legacy_data = legacy / "data"
+        patchers = (
+            mock.patch.object(runtime_paths, "DATA_DIR", self.target),
+            mock.patch.object(runtime_paths, "MIGRATION_LOCK_FILE", self.target / "migration.lock"),
+            mock.patch.object(runtime_paths, "_legacy_data_dir", lambda: self.legacy_data),
+            mock.patch.object(runtime_paths, "_MIGRATION_RECORD", None),
+            # create=True：基线上还没有这个标记，补丁照样能装上，失败落在断言而不是装补丁
+            mock.patch.object(runtime_paths, "_MIGRATION_DONE", False, create=True),
+            mock.patch.object(sys, "frozen", True, create=True),
+        )
+        for patcher in patchers:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_second_ensure_data_dir_does_not_migrate_again(self):
+        """G1：冻结态下连续多次 ensure_data_dir，迁移只跑一次、迁移锁只拿一次。"""
+        rp = self.rp
+        real_migrate = rp._migrate_legacy_data
+        with mock.patch.object(rp, "_migrate_legacy_data", wraps=real_migrate) as migrate, \
+                mock.patch.object(rp, "acquire_file_lock", wraps=rp.acquire_file_lock) as acquire:
+            rp.ensure_data_dir()
+            rp.ensure_data_dir()
+            rp.ensure_data_dir()
+        self.assertEqual(migrate.call_count, 1, "完整迁移过一次后不得再迁移（每行日志都会调它）")
+        self.assertEqual(acquire.call_count, 1, "不得每次都重新去抢迁移锁")
+        self.assertTrue((self.target / "session.json").is_file(), "第一次照常把旧文件搬过来")
+
+    def test_nothing_to_migrate_is_also_remembered(self):
+        """G1：旧目录里什么都没有也算完整跑完一次，之后不再重复。"""
+        rp = self.rp
+        (self.legacy_data / "session.json").unlink()
+        with mock.patch.object(rp, "_migrate_legacy_data", wraps=rp._migrate_legacy_data) as migrate:
+            rp.ensure_data_dir()
+            rp.ensure_data_dir()
+        self.assertEqual(migrate.call_count, 1)
+        self.assertIsNone(rp.migration_record(), "没搬任何文件就没有迁移记录")
+
+    def test_lock_timeout_leaves_no_conclusion_and_is_retried(self):
+        """G3：等锁超时（另一个实例在迁移）不写迁移记录，也不置位，下次拿到锁照常迁移。"""
+        rp = self.rp
+        holder = open(str(rp.MIGRATION_LOCK_FILE), "a+b")
+        rp.acquire_file_lock(holder, 1.0)
+        try:
+            with mock.patch.object(rp, "MIGRATION_LOCK_TIMEOUT_S", 0.2), \
+                    mock.patch.object(sys, "stderr", new=io.StringIO()):
+                rp.ensure_data_dir()
+            self.assertIsNone(rp.migration_record(),
+                              "超时只说明对方在搬，本次没有结论；不能让界面报「旧登录信息没搬过来」")
+            self.assertFalse((self.target / "session.json").exists(), "对方迁移中，不得并行复制")
+        finally:
+            rp.release_file_lock(holder)
+            holder.close()
+        # 锁释放后下一次 ensure_data_dir 必须真的再迁移一次（超时不置位）
+        rp.ensure_data_dir()
+        self.assertTrue((self.target / "session.json").is_file())
+        self.assertEqual(rp.migration_record()["moved"], 1)
+        self.assertFalse(rp.migration_record()["login_failed"])
 
 
 if __name__ == "__main__":

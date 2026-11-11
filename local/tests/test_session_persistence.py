@@ -206,7 +206,9 @@ class LegacyMigrationTests(unittest.TestCase):
                     module._migrate_legacy_data()
                 self.assertFalse((target / "session.json").exists(),
                                  "另一个进程迁移中，后到者不得一边检查一边复制")
-                self.assertTrue(module.migration_record()["login_failed"])
+                # 决策 G3（规划者批准）：等锁超时＝对方正在搬，本次没有迁移结论，
+                # 记录保持 None；此前记成 login_failed 会让界面误报「旧登录信息没搬过来」
+                self.assertIsNone(module.migration_record())
             finally:
                 module.release_file_lock(holder)
                 holder.close()

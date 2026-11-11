@@ -255,5 +255,31 @@ class PureFormatterTests(unittest.TestCase):
         self.assertNotIn("有效期约 17 小时", source)
 
 
+class FrozenLogDoesNotMigratePerLineTests(_LogBase):
+    """G1：冻结态下每写一行日志都走 ensure_data_dir，迁移（含两把锁）不能每行重来。"""
+
+    def test_many_log_lines_migrate_at_most_once(self):
+        import runtime_paths
+        data_dir = self.root / "data-root"
+        data_dir.mkdir()
+
+        def finished():
+            # 替身模拟「完整跑完一次」：真实实现跑完会置位 _MIGRATION_DONE
+            runtime_paths._MIGRATION_DONE = True
+
+        with mock.patch.object(runtime_paths, "DATA_DIR", data_dir), \
+                mock.patch.object(runtime_paths, "_MIGRATION_DONE", False, create=True), \
+                mock.patch.object(runtime_paths, "_MIGRATION_RECORD", None), \
+                mock.patch.object(runtime_paths, "_migrate_legacy_data",
+                                  side_effect=finished) as migrate, \
+                mock.patch.object(sys, "frozen", True, create=True), \
+                mock.patch.object(grab, "ensure_data_dir", runtime_paths.ensure_data_dir):
+            for index in range(5):
+                self._log("第 %d 行" % index)
+        self.assertEqual(migrate.call_count, 1, "五行日志只允许迁移一次")
+        text = self.log_file.read_text(encoding="utf-8")
+        self.assertEqual(text.count("第 "), 5, "五行日志都要写进 grab.log")
+
+
 if __name__ == "__main__":
     unittest.main()
