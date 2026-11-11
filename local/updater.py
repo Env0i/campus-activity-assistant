@@ -231,12 +231,91 @@ def cleanup_staging(path, *, version_root=None) -> bool:
     return False
 
 
+# 版本根下只清理这些前缀的更新残留：下载/应用中断、没点重启、切换被让开的旧目录。
+_SWEEP_PREFIXES = (".staging-", ".stage-", ".part-", ".old-")
+
+
+def _current_and_previous(current_file):
+    """读 current.json 里的 (当前版本, 上一版本)；缺失或损坏返回 None。"""
+    try:
+        raw = json.loads(Path(current_file).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    current = raw.get("version")
+    if not isinstance(current, str) or not _VERSION_RE.fullmatch(current):
+        return None
+    previous = raw.get("previous_version")
+    if not isinstance(previous, str) or not _VERSION_RE.fullmatch(previous):
+        previous = ""
+    return current, previous
+
+
+def _is_link(path: Path) -> bool:
+    """符号链接或目录联接：清理时绝不跟进去，也不删链接本身。"""
+    if path.is_symlink():
+        return True
+    isjunction = getattr(os.path, "isjunction", None)
+    return bool(isjunction and isjunction(path))
+
+
+def sweep_version_root(version_root, *, current_file, keep_dir=None) -> dict:
+    """清理版本根里的更新残留和多余旧版本；返回 {"removed": [...], "failed": [...]}。
+
+    只删三类名字：.staging-* / .stage-* / .part-* / .old-* 残留，以及版本号目录里
+    不是 current.json 的 version / previous_version 的那些。始终保留 keep_dir
+    （当前进程正在运行的目录）；链接一律跳过；名字不认识的不碰。current.json
+    读不出来时不知道谁是当前版本，只清残留、不删任何版本目录。删不掉的记进
+    failed，下次启动再试，绝不抛异常（调用方是启动后的后台线程）。
+    数据目录在版本根之外，这里不会也不能碰到。
+    """
+    result = {"removed": [], "failed": []}
+    root = Path(version_root)
+    try:
+        entries = list(root.iterdir())
+    except OSError:
+        return result
+    versions = _current_and_previous(current_file)
+    keep = set()
+    if versions is not None:
+        keep.update(item for item in versions if item)
+    if keep_dir:
+        try:
+            running = Path(keep_dir).resolve()
+            if running.parent == root.resolve():
+                keep.add(running.name)
+        except OSError:
+            pass
+    for entry in entries:
+        name = entry.name
+        if name in keep or _is_link(entry):
+            continue
+        leftover = name.startswith(_SWEEP_PREFIXES)
+        stale_version = (versions is not None and bool(_VERSION_RE.fullmatch(name))
+                         and entry.is_dir())
+        if not (leftover or stale_version):
+            continue
+        try:
+            if entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+            result["removed"].append(name)
+        except OSError:
+            result["failed"].append(name)
+    return result
+
+
 def _atomic_write_json(path: Path, payload: dict) -> None:
     """在同一目录内原子写 current.json，切换失败不留下半份状态。"""
     path = Path(path)
     part = path.with_name(path.name + ".part-" + uuid.uuid4().hex)
     try:
-        part.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+        with part.open("w", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+            handle.flush()
+            os.fsync(handle.fileno())   # 断电后不能留下空的 current.json
         os.replace(part, path)
     finally:
         part.unlink(missing_ok=True)

@@ -10,6 +10,7 @@ import tempfile
 import unittest
 import uuid
 import json
+import os
 import zipfile
 from unittest.mock import patch
 
@@ -397,6 +398,93 @@ class VersionUpdateTests(unittest.TestCase):
         self.assertTrue(staging.is_dir())
         self.assertTrue((self.versions / "1.0.0" / "app.exe").is_file())
         self.assertEqual(json.loads((self.root / "current.json").read_text())["version"], "1.0.0")
+
+
+class SweepVersionRootTests(unittest.TestCase):
+    """D3：版本目录清理只删受控残留与多余旧版本，不碰 current/previous、运行目录和数据。"""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix="campus-sweep-test-"))
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.versions = self.root / "versions"
+        self.versions.mkdir()
+        self.data = self.root / "data"
+        self.data.mkdir()
+        (self.data / "session.json").write_bytes(b"session")
+        self.current = self.root / "current.json"
+        self.current.write_text(json.dumps(
+            {"version": "1.1.0", "previous_version": "1.0.0"}), encoding="utf-8")
+        for name in ("0.8.0", "0.9.0", "1.0.0", "1.1.0", "1.3.0",
+                     ".staging-a", ".staging-a.stage-1f2e", ".stage-b", ".old-1.1.0-abcd"):
+            folder = self.versions / name
+            folder.mkdir()
+            (folder / "campus-activity-watch.exe").write_bytes(b"x")
+        (self.versions / ".part-c").write_bytes(b"partial")
+
+    def names(self):
+        return sorted(item.name for item in self.versions.iterdir())
+
+    def test_removes_leftovers_and_versions_beyond_current_and_previous(self):
+        result = updater.sweep_version_root(
+            self.versions, current_file=self.current, keep_dir=self.versions / "1.3.0")
+        self.assertEqual(self.names(), ["1.0.0", "1.1.0", "1.3.0"])
+        for name in ("0.8.0", "0.9.0", ".staging-a", ".staging-a.stage-1f2e",
+                     ".stage-b", ".old-1.1.0-abcd", ".part-c"):
+            self.assertIn(name, result["removed"])
+        self.assertEqual(result["failed"], [])
+        self.assertEqual((self.data / "session.json").read_bytes(), b"session")
+        self.assertEqual(json.loads(self.current.read_text(encoding="utf-8"))["version"], "1.1.0")
+
+    def test_without_keep_dir_unreferenced_version_is_removed_too(self):
+        updater.sweep_version_root(self.versions, current_file=self.current)
+        self.assertEqual(self.names(), ["1.0.0", "1.1.0"])
+
+    def test_unreadable_current_removes_only_temp_leftovers(self):
+        # 不知道谁是当前版本时，宁可多留旧版本，也不能删错
+        self.current.write_text("{not json", encoding="utf-8")
+        updater.sweep_version_root(self.versions, current_file=self.current)
+        self.assertEqual(self.names(), ["0.8.0", "0.9.0", "1.0.0", "1.1.0", "1.3.0"])
+
+    def test_unknown_names_are_left_alone(self):
+        (self.versions / "notes.txt").write_bytes(b"keep")
+        (self.versions / "1.2").mkdir()
+        updater.sweep_version_root(self.versions, current_file=self.current)
+        self.assertIn("notes.txt", self.names())
+        self.assertIn("1.2", self.names())
+
+    def test_links_are_not_followed(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "keep.txt").write_bytes(b"keep")
+        link = self.versions / ".staging-link"
+        patches = []
+        try:
+            os.symlink(outside, link, target_is_directory=True)
+        except OSError:
+            # 本机没有创建符号链接的权限：造一个真实目录，再让 is_symlink 对它返回真
+            link.mkdir()
+            (link / "keep.txt").write_bytes(b"keep")
+            real = Path.is_symlink
+            patches.append(patch.object(
+                Path, "is_symlink", lambda self: self.name == ".staging-link" or real(self)))
+        for item in patches:
+            item.start()
+            self.addCleanup(item.stop)
+        updater.sweep_version_root(self.versions, current_file=self.current)
+        self.assertTrue((outside / "keep.txt").is_file())
+        self.assertTrue(os.path.lexists(link))
+
+    def test_failures_are_reported_not_raised(self):
+        with patch.object(updater.shutil, "rmtree", side_effect=OSError("busy")):
+            result = updater.sweep_version_root(
+                self.versions, current_file=self.current, keep_dir=self.versions / "1.3.0")
+        self.assertIn("0.8.0", result["failed"])
+        self.assertTrue((self.versions / "0.8.0").is_dir())
+
+    def test_missing_root_is_a_noop(self):
+        result = updater.sweep_version_root(self.root / "nope", current_file=self.current)
+        self.assertEqual(result["removed"], [])
+        self.assertEqual(result["failed"], [])
 
 
 if __name__ == "__main__":
