@@ -215,6 +215,8 @@ class FakeCloudflareTunnel:
         self.stop_calls = 0
         self.start_calls = []
         self.start_result = {"ok": True, "url": "https://fresh.trycloudflare.com"}
+        # H1：非 None 时 stop() 按它返回（模拟进程停不下来），状态与地址保持不变
+        self.stop_result = None
 
     def status(self):
         self.status_calls += 1
@@ -242,6 +244,8 @@ class FakeCloudflareTunnel:
 
     def stop(self):
         self.stop_calls += 1
+        if self.stop_result is not None:
+            return dict(self.stop_result)
         self.state = "stopped"
         self.public_url = ""
         return {"ok": True}
@@ -620,6 +624,68 @@ class PhoneChannelPreferenceTests(unittest.TestCase):
         self.assertFalse(block["tailscale_autostart"], "手动关闭后不再自动恢复")
         self.assertTrue(self.api._phone.stop_calls[-1]["revoke_devices"],
                         "手动关闭必须撤销设备信任")
+
+    def _stuck_cloudflare_phone(self):
+        """H1：Cloudflare 通道在跑，但隧道进程停不下来（stop 返回 tunnel_stop_failed）。"""
+        tunnel = FakeCloudflareTunnel(state="running")
+        tunnel.stop_result = {"ok": False, "error": "tunnel_stop_failed",
+                              "text": "Cloudflare 隧道仍在运行，请重试关闭。"}
+        self._cloudflare_phone(tunnel)
+        events = []
+        self.api._emit = lambda kind, payload: events.append((kind, payload))
+        return tunnel, events
+
+    def test_stop_phone_access_reports_a_tunnel_that_would_not_stop(self):
+        """H1：隧道没停下，不能写「手机访问已关闭」，要把失败结果交给界面并留一条运行记录；手机入口仍照常关掉。"""
+        tunnel, events = self._stuck_cloudflare_phone()
+        result = self.api.stop_phone_access()
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result["error"], "tunnel_stop_failed")
+        self.assertTrue(result.get("text"), "界面要有一句能显示的原因")
+        self.assertEqual(result["text"], "手机入口已停止，但 Cloudflare 隧道没能关闭，请重试关闭。")
+        logs = [payload for kind, payload in events if kind == "log"]
+        self.assertNotIn("手机访问已关闭", logs, "隧道还在就不能说已关闭")
+        self.assertIn("Cloudflare 隧道没能关闭，请重试", logs)
+        self.assertIn(result["text"], logs, "运行记录写的是同一句如实说明")
+        self.assertEqual(tunnel.stop_calls, 1)
+        # 隧道停不下也要关手机入口并撤销会话，隧道后面没有东西可转发
+        self.assertTrue(self.api._phone.stop_calls[-1]["revoke_devices"])
+        self.assertFalse(self.api._phone.running)
+        self.assertEqual(self.api._phone_channel, "")
+        # 重试安全：phone.stop 幂等，隧道再停一次成功后照常写已关闭
+        tunnel.stop_result = None
+        again = self.api.stop_phone_access()
+        self.assertTrue(again["ok"], again)
+        self.assertEqual(tunnel.stop_calls, 2)
+        self.assertIn(("log", "手机访问已关闭"), events)
+
+    def test_stop_phone_access_still_closes_normally_when_the_tunnel_stops(self):
+        """H1 守卫：隧道正常停下时仍写「手机访问已关闭」，结果沿用 phone.stop 的返回。"""
+        tunnel = FakeCloudflareTunnel(state="running")
+        self._cloudflare_phone(tunnel)
+        events = []
+        self.api._emit = lambda kind, payload: events.append((kind, payload))
+        result = self.api.stop_phone_access()
+        self.assertTrue(result["ok"], result)
+        self.assertIn(("log", "手机访问已关闭"), events)
+        self.assertEqual(self.api._phone_channel, "")
+
+    def test_component_swap_is_refused_while_the_tunnel_would_not_stop(self):
+        """H1：换包前隧道停不下，抛出组件占用错误且不继续换包（单包与成组两个入口）。"""
+        from unittest import mock
+
+        tunnel, _events = self._stuck_cloudflare_phone()
+        packages = self.local_app._component_packages
+        with mock.patch.object(packages, "install") as install,                 mock.patch.object(packages, "commit_artifact_group") as commit:
+            with self.assertRaises(packages.PackageError) as raised:
+                self.api._install_downloaded_component("a.zip", "phone_control")
+            self.assertEqual(raised.exception.args[0], "component_in_use")
+            with self.assertRaises(packages.PackageError) as raised:
+                self.api._commit_downloaded_component_group("phone_control", [])
+            self.assertEqual(raised.exception.args[0], "component_in_use")
+            install.assert_not_called()
+            commit.assert_not_called()
+        self.assertEqual(tunnel.stop_calls, 2)
 
     def test_bad_channel_is_rejected_without_writing(self):
         result = self.api.set_phone_access_preferences("lan")

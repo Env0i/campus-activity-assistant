@@ -1262,13 +1262,27 @@ class Api:
                     "text": str(verdict.get("text") or "组件包不可用。")}
         return {"ok": True, "asset": verdict["asset"]}
 
+    def _stop_cloudflare_checked(self) -> bool:
+        """停 Cloudflare 隧道并看返回值：没停下写一条运行记录并返回 False（H1）。
+
+        tunnel_manager.stop() 在进程没停下时返回 ok=False（tunnel_stop_failed）；此前四处调用
+        都不看，界面照写「手机访问已关闭」，隧道其实还在。只有显式 ok=False 才算失败。
+        """
+        result = self._cloudflare.stop()
+        if isinstance(result, dict) and result.get("ok") is False:
+            self._emit("log", "Cloudflare 隧道没能关闭，请重试")
+            return False
+        return True
+
     def _install_downloaded_component(self, archive, key, *, root=None):
         """下载与手动导入共用通道锁，换包前先释放正在使用的组件进程。"""
         with self._credential_lock, self._phone_access_lock:
             with self._lock:
                 if self._closing:
                     raise RuntimeError("application_closing")
-            self._cloudflare.stop()
+            if not self._stop_cloudflare_checked():
+                # 隧道进程还占着组件文件：不换包，沿用组件占用错误，由下载事务如实失败
+                raise _component_packages.PackageError("component_in_use")
             self._phone.shutdown(preserve_devices=True)
             self._phone_channel = ""
             return _component_packages.install(archive, key, root=root)
@@ -1279,7 +1293,8 @@ class Api:
             with self._lock:
                 if self._closing:
                     raise RuntimeError("application_closing")
-            self._cloudflare.stop()
+            if not self._stop_cloudflare_checked():
+                raise _component_packages.PackageError("component_in_use")
             self._phone.shutdown(preserve_devices=True)
             self._phone_channel = ""
             return _component_packages.commit_artifact_group(feature, artifacts, root=root)
@@ -3490,7 +3505,7 @@ class Api:
             except Exception:
                 pass
             try:
-                self._cloudflare.stop()
+                self._stop_cloudflare_checked()
                 # 正常退出只是关程序：保留设备信任，下次恢复入口不用重新配对；
                 # 用户在界面里手动关闭才走 stop(revoke_devices=True)。
                 self._phone.shutdown(preserve_devices=True)
@@ -3871,11 +3886,18 @@ class Api:
     def _stop_phone_access(self) -> dict:
         """关闭手机入口并撤销全部会话：有界收尾，不留后台监听。"""
         self._relay.cancel(origin="phone")
-        self._cloudflare.stop()
+        tunnel_stopped = self._stop_cloudflare_checked()
+        # H1：隧道停没停下，手机服务与会话都照常关掉并撤销——这样即使隧道还在，
+        # 它后面也没有东西可转发；重试时 phone.stop 幂等，隧道再停一次。
         result = self._phone.stop(revoke_devices=True)
         phone_log("关闭手机访问：通道=%s，已撤销会话与设备信任" % (self._phone_channel or "-"))
         self._phone_channel = ""
         self._forget_phone_autostart()
+        if not tunnel_stopped:
+            # 隧道没停下就不能写「手机访问已关闭」：如实说入口已停、隧道还在，请用户重试
+            text = "手机入口已停止，但 Cloudflare 隧道没能关闭，请重试关闭。"
+            self._emit("log", text)
+            return {"ok": False, "error": "tunnel_stop_failed", "text": text}
         self._emit("log", "手机访问已关闭")
         return result
 

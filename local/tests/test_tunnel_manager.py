@@ -430,6 +430,36 @@ class CloudflareTunnelTests(unittest.TestCase):
         self.assertEqual(state["public_url"], "")
         self.assertNotIn("error", state)
 
+    def test_stop_failure_keeps_the_public_address_and_process(self):
+        """H1：terminate/kill 都停不下进程时，stop() 如实报失败，地址与进程句柄保留。
+
+        此前 stop() 一进来就清空 public_url，隧道其实还在却对外说「没有地址」，
+        界面再写「手机访问已关闭」就不是实话。
+        """
+        popen = FakePopen(lines=["INF https://x.trycloudflare.com\n"])
+        tunnel = tunnel_manager.CloudflareTunnel("cf.exe", popen=popen)
+        self.assertTrue(tunnel.start("http://127.0.0.1:8765")["ok"])
+        url = tunnel.public_url
+        self.assertTrue(url)
+        # 进程顽固：terminate/kill 被调用但 poll() 仍是 None
+        popen.proc.terminate = lambda: setattr(popen.proc, "terminated", True)
+        popen.proc.kill = lambda: setattr(popen.proc, "killed", True)
+
+        def stuck_wait(timeout=None):
+            raise subprocess.TimeoutExpired("cloudflared", timeout)
+        popen.proc.wait = stuck_wait
+        result = tunnel.stop()
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "tunnel_stop_failed")
+        self.assertTrue(popen.proc.terminated and popen.proc.killed, "两种终止手段都试过")
+        self.assertEqual(tunnel.public_url, url, "没停下就不能清空公网地址")
+        self.assertIs(tunnel._proc, popen.proc, "没停下就保留进程句柄，下次还能重试")
+        # 之后进程真的停了，重试 stop() 成功并清空地址
+        popen.proc.exit = -9
+        self.assertTrue(tunnel.stop()["ok"])
+        self.assertEqual(tunnel.public_url, "")
+        self.assertIsNone(tunnel._proc)
+
     def test_start_rechecks_the_managed_component_first(self):
         """启动前必须再验一次组件：缓存路径被换掉就不能拿它去跑。"""
         popen = FakePopen(lines=["INF https://x.trycloudflare.com\n"])

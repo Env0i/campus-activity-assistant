@@ -349,8 +349,8 @@ class CloudflareTunnel:
 
     def stop(self) -> dict:
         proc = self._proc
-        self.public_url = ""
         if proc is None:
+            self.public_url = ""
             return {"ok": True}
         try:
             if proc.poll() is None:
@@ -363,8 +363,11 @@ class CloudflareTunnel:
             except Exception:
                 pass
         if proc.poll() is None:
+            # H1：进程没停下，公网地址与进程句柄都保留——隧道其实还在，
+            # 提前清空地址会让界面对外说「没有地址」，之后也没法再重试停止。
             return {"ok": False, "error": "tunnel_stop_failed",
                     "text": "Cloudflare 隧道仍在运行，请重试关闭。"}
+        self.public_url = ""
         self._release_usage(proc)
         self._proc = None
         return {"ok": True}
