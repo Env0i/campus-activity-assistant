@@ -121,6 +121,7 @@ def feature_state(prefs: dict | None = None, *, root=None, frozen=None) -> dict:
             "error": error,
             "status": ("unsupported" if error == "unsupported_platform" else
                        "checking" if package.get("checking") else
+                       "outdated" if error == "component_outdated" else
                        "failed" if error else "ready" if available else "missing"),
             "install_mode": "import" if frozen else "pip",
         }

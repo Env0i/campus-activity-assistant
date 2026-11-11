@@ -148,6 +148,20 @@ class FeatureStateTests(unittest.TestCase):
             {"advanced_features": {"relogin_ocr": False}}, af.RELOGIN_OCR))
         self.assertFalse(af.feature_ready({}, af.RELOGIN_OCR))
 
+    def test_outdated_component_is_not_reported_as_failed(self):
+        original = af.module_available
+        af.module_available = lambda _m: False
+        self.addCleanup(lambda: setattr(af, "module_available", original))
+        with mock.patch.object(af.component_packages, "feature_status", return_value={
+                "available": False, "source": "imported", "error": "component_outdated",
+                "version": "0.9.0"}):
+            row = af.feature_state(
+                {"advanced_features": {"phone_control": True}}, frozen=True)[af.PHONE_CONTROL]
+        self.assertEqual(row["status"], "outdated")
+        self.assertFalse(row["ready"])
+        self.assertTrue(row["installable"], "旧组件要能一键换新")
+        self.assertEqual(row["package_version"], "0.9.0")
+
     def test_state_payload_has_no_paths_or_secrets(self):
         state = self._state({}, available=True)
         for row in state.values():

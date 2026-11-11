@@ -224,7 +224,7 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def _manifest(raw, key):
+def _manifest(raw, key, *, expect_version=None):
     if len(raw) > 2 * 1024 * 1024:
         raise PackageError("manifest_limit")
     def unique(pairs):
@@ -238,10 +238,11 @@ def _manifest(raw, key):
         data = json.loads(raw, object_pairs_hook=unique)
     except (ValueError, UnicodeError) as exc:
         raise PackageError("bad_manifest") from exc
+    want = version() if expect_version is None else expect_version
     if (not isinstance(data, dict) or type(data.get("schema")) is not int
             or data["schema"] != 1 or data.get("feature") != key
             or data.get("platform") != "windows-x64" or data.get("entry") != "feature-helper.exe"
-            or data.get("version") != version() or not isinstance(data.get("files"), dict)):
+            or data.get("version") != want or not isinstance(data.get("files"), dict)):
         raise PackageError("incompatible_manifest")
     files = data["files"]
     if not files or len(files) >= MAX_FILES or "feature-helper.exe" not in files:
@@ -366,7 +367,7 @@ def validate_artifact_directory(directory, artifact_id):
     return manifest
 
 
-def validate_directory(directory, key):
+def validate_directory(directory, key, *, expect_version=None):
     directory = Path(directory)
     _key(key)
     if _linked(directory) or _linked(directory.parent) or not directory.is_dir():
@@ -374,7 +375,7 @@ def validate_directory(directory, key):
     manifest_path = directory / "manifest.json"
     if not manifest_path.is_file() or _linked(manifest_path) or manifest_path.stat().st_size > 2 * 1024 * 1024:
         raise PackageError("bad_manifest")
-    manifest = _manifest(manifest_path.read_bytes(), key)
+    manifest = _manifest(manifest_path.read_bytes(), key, expect_version=expect_version)
     actual = {}
     total = 0
     for path in directory.rglob("*"):
@@ -394,6 +395,28 @@ def validate_directory(directory, key):
         if sha256(directory / name) != digest:
             raise PackageError("hash_mismatch")
     return manifest
+
+
+def _outdated_version(directory, key):
+    """只差主程序版本的单体包返回已装版本，其余情况返回空串。
+
+    主程序升级会把装好的单体包判成 incompatible_manifest，但用户看到的是
+    「没装」——分不清是版本旧还是文件坏了，就会以为功能被卸载。这里把版本
+    这一项放宽后重跑全部校验：文件、cloudflared、大小任何一处不对都仍返回
+    空串，让调用方继续报 component_invalid，不能把坏包说成「旧包」。
+    """
+    try:
+        raw = (directory / "manifest.json").read_bytes()
+        declared = json.loads(raw.decode("utf-8"))
+        installed = (declared or {}).get("version") if isinstance(declared, dict) else None
+        if (not isinstance(installed, str) or installed == version()
+                or not re.fullmatch(r"\d+\.\d+\.\d+", installed)):
+            return ""
+        validate_directory(directory, key, expect_version=installed)
+        _helper(directory / "feature-helper.exe", feature=key, probe=True)
+    except (PackageError, OSError, ValueError, UnicodeError):
+        return ""
+    return installed
 
 
 def _helper(executable, *, feature, payload=None, timeout=30, probe=False, env=None):
@@ -695,17 +718,33 @@ def status(key, *, root=None):
             installed_version = str((manifest or {}).get("version") or "")
         except (OSError, ValueError):
             installed_version = ""
+        cache_key = str(directory)
+        fingerprint = None
         try:
             fingerprint = tuple((p.relative_to(directory).as_posix(), p.stat().st_size,
                                  p.stat().st_mtime_ns, p.stat().st_ctime_ns)
                                 for p in sorted(directory.rglob("*")))
-            if _STATUS_CACHE.get(str(directory)) == fingerprint:
+            cached = _STATUS_CACHE.get(cache_key)
+            if cached and cached[0] == fingerprint:
+                if cached[1]:
+                    return {"available": False, "source": "imported",
+                            "error": "component_outdated", "version": cached[1]}
                 return {"available": True, "source": "imported", "error": "",
                         "version": installed_version}
             validate_directory(directory, key)
             _helper(directory / "feature-helper.exe", feature=key, probe=True)
-            _STATUS_CACHE[str(directory)] = fingerprint
+            _STATUS_CACHE[cache_key] = (fingerprint, "")
         except (PackageError, OSError):
+            # 升级主程序后旧组件包只差 version：不能说成没装，也不能说成损坏。
+            # 结论也按指纹缓存：设置抽屉和自动登录资格判断都高频查状态，
+            # 旧包带着几十 MB 的模型，不能每次都重算全部哈希、再起一次 helper。
+            outdated = _outdated_version(directory, key)
+            if outdated:
+                if fingerprint is not None:
+                    _STATUS_CACHE[cache_key] = (fingerprint, outdated)
+                return {"available": False, "source": "imported",
+                        "error": "component_outdated", "version": outdated}
+            _STATUS_CACHE.pop(cache_key, None)
             return {"available": False, "source": "imported", "error": "component_invalid",
                     "version": ""}
         return {"available": True, "source": "imported", "error": "",
@@ -1283,6 +1322,11 @@ def feature_status(key, *, root=None):
     legacy = status(key, root=root)
     if legacy.get("available"):
         legacy["source"] = "legacy"
+        legacy["split"] = split
+        return legacy
+    if legacy.get("error") == "component_outdated":
+        # 拆分组不可用（或半装）时也要说出「旧组件还占着位置」，否则界面把
+        # 升级后的旧包装成没装，用户会以为功能被卸载了
         legacy["split"] = split
         return legacy
     if not split.get("error") and legacy.get("error"):

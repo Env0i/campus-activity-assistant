@@ -41,7 +41,8 @@ class PackageTests(unittest.TestCase):
         self.addCleanup(patch.stop)
 
     def archive(self, *, extra=None, feature=None, platform="windows-x64", data=b"MZtest",
-                names=None, cloudflare=AUTO, target="win-x64", app_version=None):
+                names=None, cloudflare=AUTO, target="win-x64", app_version=None,
+                version=None):
         key = feature or self.key
         if names is None:
             names = {"feature-helper.exe": data, "_internal/test.dll": b"library"}
@@ -53,7 +54,7 @@ class PackageTests(unittest.TestCase):
                           if cp.CLOUDFLARED_NAME in names else None)
         files = names
         manifest = {"schema": 1, "feature": key,
-                    "version": cp.version(), "platform": platform, "entry": "feature-helper.exe",
+                    "version": version or cp.version(), "platform": platform, "entry": "feature-helper.exe",
                     "files": {k: hashlib.sha256(v).hexdigest() for k, v in files.items()}}
         if cloudflare is not None:
             manifest["cloudflared"] = cloudflare
@@ -1057,6 +1058,63 @@ print(json.dumps({"count": count, "bad": bad}))
         state = cp.status(self.key, root=self.root)
         self.assertTrue(state["available"])
         self.assertEqual(state["version"], cp.version())
+
+    # ---------- 主程序升级后：组件包只差 version ----------
+
+    def outdated_install(self, version="0.9.0"):
+        """装一份结构完整、只把版本改成旧主程序版本的单体包（模拟升级后的现场）。"""
+        cp.install(self.archive(app_version=cp.version()), self.key, root=self.root)
+        path = self.root / "advanced" / self.key / "manifest.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["version"] = version
+        data["app_version"] = version
+        path.write_text(json.dumps(data), encoding="utf-8")
+        return path
+
+    def test_status_marks_only_version_mismatch_as_outdated(self):
+        self.outdated_install("0.9.0")
+        state = cp.status(self.key, root=self.root)
+        self.assertFalse(state["available"])
+        self.assertEqual(state["error"], "component_outdated")
+        self.assertEqual(state["version"], "0.9.0", "要说出装的是哪个版本，界面才讲得清")
+
+    def test_outdated_verdict_is_cached_until_files_change(self):
+        """「需要更新」也要按指纹缓存：状态查询很频繁，不能每次都重算哈希再起 helper。"""
+        self.outdated_install("0.9.0")
+        self.helper.reset_mock()
+        first = cp.status(self.key, root=self.root)
+        self.assertEqual(first["error"], "component_outdated")
+        self.assertEqual(self.helper.call_count, 1)
+        self.assertEqual(cp.status(self.key, root=self.root), first, "指纹没变时结论一致")
+        self.assertEqual(self.helper.call_count, 1, "指纹没变时 helper 只起一次")
+
+        path = self.root / "advanced" / self.key / "manifest.json"
+        changed = json.loads(path.read_text(encoding="utf-8"))
+        changed["version"] = changed["app_version"] = "0.10.0"
+        path.write_text(json.dumps(changed), encoding="utf-8")
+        third = cp.status(self.key, root=self.root)
+        self.assertEqual(third["error"], "component_outdated")
+        self.assertEqual(third["version"], "0.10.0", "文件一变就要重新判定")
+        self.assertEqual(self.helper.call_count, 2)
+
+    def test_feature_status_reports_outdated_when_split_is_absent(self):
+        self.outdated_install("0.9.0")
+        state = cp.feature_status(self.key, root=self.root)
+        self.assertFalse(state["available"])
+        self.assertEqual(state["error"], "component_outdated")
+        self.assertEqual(state["version"], "0.9.0")
+
+    def test_broken_files_still_report_component_invalid(self):
+        self.outdated_install("0.9.0")
+        (self.root / "advanced" / self.key / "feature-helper.exe").write_bytes(b"tampered")
+        state = cp.status(self.key, root=self.root)
+        self.assertFalse(state["available"])
+        self.assertEqual(state["error"], "component_invalid", "文件坏了不能当成只是版本旧")
+
+    def test_importing_old_version_archive_is_still_rejected(self):
+        with self.assertRaises(cp.PackageError) as caught:
+            cp.install(self.archive(version="0.9.0"), self.key, root=self.root)
+        self.assertEqual(str(caught.exception), "incompatible_manifest")
 
 
 class CloudflaredUsageTests(unittest.TestCase):
