@@ -375,10 +375,17 @@ class PortableCleanupContractTest(unittest.TestCase):
         import make_portable as mp
         self.assertEqual(set(mp.RUNTIME_DATA_FILES),
                          {"session.json", "session.json.lock", "storage_state.json",
-                          "ui.json", "ui.json.lock", "grab.log",
+                          "ui.json", "ui.json.lock", "grab.log", "grab.log.lock",
+                          "migration.lock",
                           "grab.log.1", "grab.log.2", "grab.log.3",
                           "grab.log.4", "grab.log.5"},
                          "与 runtime_paths.py 的登录态/偏好/日志文件必须一一对齐")
+
+    def test_runtime_lock_files_are_never_shipped(self):
+        """G4（规划者批准）：日志锁与迁移锁是本机运行产物，绿色版不能带出去。"""
+        import make_portable as mp
+        for name in ("grab.log.lock", "migration.lock"):
+            self.assertIn(name, mp.RUNTIME_DATA_FILES)
 
     def test_log_keep_matches_grab(self):
         """make_portable 不 import grab，切分份数靠这条对齐，防止改了一边漏一边。"""

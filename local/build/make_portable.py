@@ -72,6 +72,8 @@ RUNTIME_DATA_FILES = (
     "ui.json",             # 界面偏好
     "ui.json.lock",        # 偏好文件写锁
     "grab.log",            # 运行日志
+    "grab.log.lock",       # 日志轮转与追加的跨进程锁（grab.log() 写入时建出）
+    "migration.lock",      # 旧数据迁移的跨进程锁（冻结态首次启动时建出）
 ) + tuple("grab.log.%d" % n for n in range(1, LOG_KEEP + 1))  # 日志切分出来的旧日志
 
 PY_DIR_NAME = "python"          # 便携解释器放在这里
