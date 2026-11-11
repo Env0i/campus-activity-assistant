@@ -395,6 +395,68 @@ def update_launcher_command(mode: str, *, staging: str = "", version_root: Path 
     return command
 
 
+def version_sweep_target(*, frozen, here, version):
+    """冻结且正从 versions/<当前版本>/ 运行时返回 (版本根, current.json, 运行目录)，否则 None。
+
+    独立 EXE、源码态没有版本目录，什么都不清理：不能把别人的 versions 当成自己的。
+    """
+    if not frozen:
+        return None
+    base = Path(here)
+    if base.name != str(version) or base.parent.name != "versions":
+        return None
+    return base.parent, base.parent.parent / "current.json", base
+
+
+def sweep_versions_in_background(*, frozen=None, here=None, version=None,
+                                 sweep=None, log=None):
+    """启动后在后台线程清理一次版本目录；不满足条件返回 None。
+
+    清理的是更新残留和超出 current/previous 的旧版本（updater.sweep_version_root），
+    当前进程所在目录始终保留，数据目录不在版本根下。任何异常只经 log 回调记录
+    （log(failed=数量) 或 log(error=异常类型名)，不带路径），绝不影响主程序启动。
+    """
+    frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
+    target = version_sweep_target(frozen=frozen, here=HERE if here is None else here,
+                                  version=APP_VERSION if version is None else version)
+    if target is None:
+        return None
+    root, current_file, running = target
+    run_sweep = sweep or updater.sweep_version_root
+
+    def _run() -> None:
+        try:
+            result = run_sweep(root, current_file=current_file, keep_dir=running)
+            failed = result.get("failed") if isinstance(result, dict) else None
+            if failed and log:
+                log(failed=len(failed))   # 只报数量，不带目录名
+        except Exception as exc:  # noqa: BLE001 - 清理失败不能影响启动
+            if log:
+                log(error=type(exc).__name__)
+
+    thread = threading.Thread(target=_run, name="version-sweep", daemon=True)
+    thread.start()
+    return thread
+
+
+def version_switch_available(*, frozen=None, here=None, version=None, launcher=None) -> bool:
+    """能不能走版本目录切换：冻结态、update-launcher.exe 存在、当前进程正从 versions/<当前版本>/ 运行。
+
+    三者缺一就走完整安装器：独立 EXE、源码态都没有版本目录可切换，下载版本目录包
+    只会让用户在 update_launch 被拒绝后走进死胡同。参数只给测试注入，生产全部取默认。
+    """
+    frozen = bool(getattr(sys, "frozen", False)) if frozen is None else bool(frozen)
+    if not frozen:
+        return False
+    here = HERE if here is None else Path(here)
+    version = APP_VERSION if version is None else version
+    if version_sweep_target(frozen=True, here=here, version=version) is None:
+        return False
+    path = launcher if launcher is not None else resolve_update_launcher_path(
+        True, here, RESOURCE_ROOT)
+    return Path(path).is_file()
+
+
 # 偏好存储原语已下沉 infrastructure.prefs_store；旧名字保留为再导出，
 # 测试与调用方继续用 app.load_prefs_from / app._atomic_write_prefs 等注入。
 load_prefs_from = _prefs_store.load_from
@@ -2012,7 +2074,9 @@ class Api:
         # （updater 模块属性即替身缝）。进度/结论都经 _publish_update 推给界面。
         version_options = {}
         full_payload = installer.get("full")
-        if (isinstance(full_payload, dict)
+        # 只有真能走版本目录切换的环境才下载版本目录包；独立 EXE、源码态直接下完整
+        # 安装器，磁盘上不留 .staging-*，用户也不会在 update_launch 处被拒绝。
+        if (version_switch_available() and isinstance(full_payload, dict)
                 and isinstance(full_payload.get("target_manifest"), dict)):
             paths = update_version_paths()
             target_version = str(full_payload.get("target_version")
@@ -2042,7 +2106,9 @@ class Api:
     def update_launch(self, request_id: str) -> dict:
         """用户确认后启动已校验的安装器；启动前先回推 launching 状态。
 
-        关闭主程序由调用方控制：这里不退出、不自动重启，失败不改会话和偏好。
+        安装器路径：关闭主程序由调用方控制，这里不退出、不自动重启。
+        版本目录切换路径：启动器拉起后主程序约 1 秒自己走「退出」关窗，切换才能继续。
+        两条路径失败都不改会话和偏好。
         """
         if not isinstance(request_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", request_id):
             return {"ok": False, "text": "更新请求无效，请重试。"}
@@ -2056,6 +2122,11 @@ class Api:
             frozen = bool(getattr(sys, "frozen", False))
             launcher = resolve_update_launcher_path(frozen, HERE, RESOURCE_ROOT)
             if not frozen or not launcher.is_file():
+                # 防御分支：ready_to_restart 只会在 version_switch_available() 为真时
+                # 产生（见 _do_update_download），这里只再核对冻结态与启动器文件。
+                # 不重复「正从 versions/<版本> 运行」那一条：test_runtime_bundle 的
+                # test_ready_to_restart_launches_apply_launcher_with_checked_paths
+                # 在源码目录里替身冻结态，加上它会变红，该文件不在本次授权范围。
                 # 源码态与 onefile 没有独立旁路入口，只保留 ready 状态，
                 # 避免在运行中的主程序里直接切换版本目录。
                 return {"ok": False, "state": "ready_to_restart",
@@ -2083,7 +2154,16 @@ class Api:
                                           error_code="launcher_failed"), False)
                 self._emit("log", "[X] 更新启动器启动失败：%s" % type(exc).__name__)
                 return {"ok": False, "text": text, "error_code": "launcher_failed"}
-            return {"ok": True, "path": staging, "text": "更新启动器已启动，请关闭本工具完成切换。"}
+            # 启动器已拉起并在等本进程退出（最长 120 秒）。先把第二段文案推给界面，
+            # 再约 1 秒后走现有的关窗口「退出」动作：不另写退出逻辑，也让界面来得及
+            # 收到文案。启动器没拉起（上面的 except 分支）时不会走到这里，不会误关主程序。
+            text = "更新启动器已启动，正在关闭本工具完成切换…"
+            self._publish_update(dict(base, request_id=request_id, state="launching",
+                                      text=text, staging_path=staging,
+                                      version_root=str(paths["root"]),
+                                      target_version=target_version, error_code=""), False)
+            defer_close_action(lambda: self.request_window_close("exit"), delay=1.0)
+            return {"ok": True, "path": staging, "text": text}
         if not path:
             return {"ok": False, "text": "还没有已校验的安装包，请先下载。"}
         # 安装器启动前先回推状态：界面能看到「正在启动安装程序…」
@@ -4571,6 +4651,10 @@ def main() -> int:
     lifecycle = get_lifecycle(now_fn=clock.now)
     api = Api(clock=clock)
     api._start_clock_monitor()
+    if not DEMO:
+        # 清理线程早于窗口创建，界面事件会丢；经 grab.log 落盘（只含数量或异常类型名）
+        sweep_versions_in_background(
+            log=lambda **fields: api._log_event("version_sweep", level="WARN", **fields))
     width, height, min_w, min_h = _window_geometry(_screen_size())
     window = webview.create_window(
         "校园活动预报名工具", str(UI),

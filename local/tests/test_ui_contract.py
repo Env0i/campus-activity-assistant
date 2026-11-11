@@ -4763,6 +4763,24 @@ out.push({state:S.update.state,text:document.querySelector("#update-status").tex
         self.assertEqual(res[0]["state"], "launching")
         self.assertEqual(res[0]["text"], "安装程序已启动。请先关闭本工具，再按向导完成安装。")
 
+    def test_launcher_started_text_turns_button_into_close_tool(self):
+        """版本目录切换（C1）：「更新启动器已启动」与「安装程序已启动」同为第二段文案，
+        按钮要从「启动中…」换成「关闭本工具…」，不能一直停在启动中。"""
+        res = run_js(r"""
+S.update.requestId = "request";
+const close = () => document.querySelector("#btn-update-close");
+window.onBackend.update({request_id:"request",state:"launching",text:"正在准备重启…"});
+out.push({text:close().textContent});
+window.onBackend.update({request_id:"request",state:"launching",
+  text:"更新启动器已启动，正在关闭本工具完成切换…"});
+out.push({text:close().textContent});
+window.onBackend.update({request_id:"request",state:"launching",
+  text:"安装程序已启动。请先关闭本工具，再按向导完成安装。"});
+out.push({text:close().textContent});
+""")
+        self.assertEqual([item["text"] for item in res],
+                         ["启动中…", "关闭本工具…", "关闭本工具…"])
+
     def test_no_installer_shows_backend_reason(self):
         """no_installer 的三类原因由后端区分下发（update_check.py），前端不得一律说「没有可校验的安装包」。"""
         res = run_js(r"""

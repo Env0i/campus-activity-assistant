@@ -628,6 +628,7 @@ class UpdateBridgeTests(unittest.TestCase):
         states = [call.args[1]["state"] for call in self.api._emit.call_args_list]
         self.assertEqual(states, ["downloading", "downloading", "ready_to_install"])
 
+    @patch.object(local_app, "version_switch_available", new=lambda *args, **kwargs: True)
     def test_version_payload_cleans_archive_after_staging(self):
         target_files = [{"path": "campus-activity-watch.exe", "bytes": 3,
                          "sha256": "aa" * 32}]
@@ -652,6 +653,7 @@ class UpdateBridgeTests(unittest.TestCase):
         self.assertEqual(self.api._update_result["state"], "ready_to_restart")
         cleanup.assert_called_once_with(downloaded)
 
+    @patch.object(local_app, "version_switch_available", new=lambda *args, **kwargs: True)
     def test_version_payload_failure_falls_back_to_inno_installer(self):
         target = {"version": "1.1.1", "files": [{"path": "app.exe", "bytes": 1,
                                                      "sha256": "aa" * 32}],

@@ -148,10 +148,12 @@ function paintUpdate() {
   cancel.hidden = !showCancel;
   cancel.textContent = state === "confirm" ? "取消" : state === "verifying" ? "校验中…" : "取消下载";
   cancel.disabled = state === "verifying";
-  /* 启动分两段（UP01/UP10，原型 launching/launched 两槽）：后端先推「正在启动安装程序…」，
-   * 启动成功再推「安装程序已启动。…」（app.py update_launch 的两次 publish），前缀变了才把
-   * 「启动中…」换成「关闭本工具…」；前缀是后端文案的稳定契约（test_launching_shows_backend_text）。 */
-  const launched = showClose && /^安装程序已启动/.test(String(result.text || ""));
+  /* 启动分两段（UP01/UP10，原型 launching/launched 两槽）：后端先推「正在启动安装程序…」
+   * （版本目录切换是「正在准备重启…」），启动成功再推「安装程序已启动。…」或
+   * 「更新启动器已启动，…」（app.py update_launch 的两次 publish），前缀变了才把
+   * 「启动中…」换成「关闭本工具…」；两个前缀都是后端文案的稳定契约
+   * （test_launching_shows_backend_text、test_launcher_started_text_turns_button_into_close_tool）。 */
+  const launched = showClose && /^(安装程序已启动|更新启动器已启动)/.test(String(result.text || ""));
   const close = $("#btn-update-close");
   if (close) {
     close.hidden = !showClose;

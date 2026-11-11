@@ -2409,5 +2409,238 @@ class PhonePcListErrorTests(unittest.TestCase):
         self.assertIn("pc_list_error", raw)
 
 
+class VersionSwitchLaunchTests(unittest.TestCase):
+    """C1：版本目录切换的启动器拉起后，主程序自己走现有退出路径，界面不停在「启动中…」。
+
+    全部替身：不真的起进程、不真的关窗口；Api 经 stop_auto_relogin_on_cleanup 收线程。
+    """
+
+    def _app(self):
+        try:
+            import app as local_app
+        except Exception as exc:  # pragma: no cover - 仅在缺依赖的环境触发
+            self.skipTest("local/app.py 无法导入：%s" % exc)
+        return local_app
+
+    def _api(self, local_app):
+        from fixtures.business_clock import TestWallClock
+        api = stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
+        api._emit = mock.Mock()
+        api._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2",
+                              "request_id": "rid-update"}
+        api._update_staging_path = "D:/versions/.staging-rid-update"
+        return api
+
+    def _launch(self, local_app, api, *, popen):
+        """在「冻结 + 启动器存在」的替身环境里调一次 update_launch，返回 (结果, 被推迟的动作)。"""
+        scheduled = []
+        with tempfile.TemporaryDirectory() as name:
+            launcher = Path(name) / "update-launcher.exe"
+            launcher.write_bytes(b"launcher")
+            paths = {"root": Path("D:/versions"), "current_file": Path("D:/current.json"),
+                     "base_dir": Path("D:/versions/1.2.1")}
+            with mock.patch.object(local_app.sys, "frozen", True, create=True):
+                with mock.patch.object(local_app, "resolve_update_launcher_path",
+                                       return_value=launcher):
+                    with mock.patch.object(local_app, "update_version_paths",
+                                           return_value=paths):
+                        with mock.patch.object(local_app.subprocess, "Popen", popen):
+                            with mock.patch.object(
+                                    local_app, "defer_close_action",
+                                    lambda callback, delay=0.25: scheduled.append((callback, delay))):
+                                result = api.update_launch("rid-update")
+        return result, scheduled
+
+    def test_launcher_started_publishes_started_text_and_schedules_exit(self):
+        local_app = self._app()
+        api = self._api(local_app)
+        popen = mock.Mock()
+        result, scheduled = self._launch(local_app, api, popen=popen)
+        self.assertTrue(result["ok"], result)
+        self.assertTrue(result["text"].startswith("更新启动器已启动"), result["text"])
+        popen.assert_called_once()
+        payloads = [call.args[1] for call in api._emit.call_args_list
+                    if call.args[0] == "update"]
+        self.assertEqual(payloads[-1]["state"], "launching")
+        self.assertTrue(payloads[-1]["text"].startswith("更新启动器已启动"), payloads[-1])
+        self.assertEqual(len(scheduled), 1, "启动器拉起后必须安排一次退出")
+        callback, delay = scheduled[0]
+        self.assertTrue(0.5 <= delay <= 3.0, "留约 1 秒让界面先收到文案")
+        api.request_window_close = mock.Mock(return_value={"ok": True})
+        callback()
+        api.request_window_close.assert_called_once_with("exit")
+
+    def test_launcher_failure_does_not_schedule_exit(self):
+        local_app = self._app()
+        api = self._api(local_app)
+        result, scheduled = self._launch(
+            local_app, api, popen=mock.Mock(side_effect=OSError("denied")))
+        self.assertFalse(result["ok"])
+        self.assertEqual(scheduled, [], "启动器没起来时不能关掉主程序")
+        payloads = [call.args[1] for call in api._emit.call_args_list
+                    if call.args[0] == "update"]
+        self.assertEqual(payloads[-1]["state"], "failed")
+
+
+class VersionSweepWiringTests(unittest.TestCase):
+    """D3：冻结态且正从 versions/<当前版本>/ 运行时，启动后后台清理一次版本目录。"""
+
+    def _app(self):
+        try:
+            import app as local_app
+        except Exception as exc:  # pragma: no cover - 仅在缺依赖的环境触发
+            self.skipTest("local/app.py 无法导入：%s" % exc)
+        return local_app
+
+    def test_not_frozen_or_not_in_version_dir_does_nothing(self):
+        local_app = self._app()
+        sweep = mock.Mock()
+        for frozen, here in ((False, Path("D:/p/versions/1.2.2")),
+                             (True, Path("D:/p/app")),
+                             (True, Path("D:/p/versions/9.9.9"))):
+            with self.subTest(frozen=frozen, here=str(here)):
+                thread = local_app.sweep_versions_in_background(
+                    frozen=frozen, here=here, version="1.2.2", sweep=sweep)
+                self.assertIsNone(thread)
+        sweep.assert_not_called()
+
+    def test_frozen_version_dir_sweeps_once_and_keeps_running_dir(self):
+        local_app = self._app()
+        calls = []
+
+        def sweep(root, **options):
+            calls.append((root, options))
+            return {"removed": [], "failed": []}
+
+        thread = local_app.sweep_versions_in_background(
+            frozen=True, here=Path("D:/p/versions/1.2.2"), version="1.2.2", sweep=sweep)
+        thread.join(5)
+        self.assertEqual(len(calls), 1)
+        root, options = calls[0]
+        self.assertEqual(Path(root), Path("D:/p/versions"))
+        self.assertEqual(Path(options["current_file"]), Path("D:/p/current.json"))
+        self.assertEqual(Path(options["keep_dir"]), Path("D:/p/versions/1.2.2"))
+
+    def test_sweep_exception_is_logged_not_raised(self):
+        local_app = self._app()
+        logged = []
+
+        def sweep(root, **options):
+            raise RuntimeError("boom")
+
+        thread = local_app.sweep_versions_in_background(
+            frozen=True, here=Path("D:/p/versions/1.2.2"), version="1.2.2",
+            sweep=sweep, log=lambda **fields: logged.append(fields))
+        thread.join(5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(logged, [{"error": "RuntimeError"}])
+
+    def test_undeletable_entries_are_logged_as_a_count_only(self):
+        """日志只带数量，不带目录名或路径（经 Api._log_event 落 grab.log）。"""
+        local_app = self._app()
+        logged = []
+        thread = local_app.sweep_versions_in_background(
+            frozen=True, here=Path("D:/p/versions/1.2.2"), version="1.2.2",
+            sweep=lambda root, **options: {"removed": [], "failed": ["0.9.0", ".old-x"]},
+            log=lambda **fields: logged.append(fields))
+        thread.join(5)
+        self.assertEqual(logged, [{"failed": 2}])
+
+
+class VersionSwitchSelectionTests(unittest.TestCase):
+    """C3：只有能走版本目录切换的环境才下载版本目录包，否则直接走完整安装器。
+
+    独立 EXE、源码态、缺 update-launcher、不在 versions/<当前版本>/ 下运行时，
+    旧代码仍下载版本目录包并 stage，之后 update_launch 又拒绝切换，用户走进死胡同。
+    """
+
+    NAME = "campus-activity-watch-installer-v1.2.2-win-x64.exe"
+    BASE = "https://example.invalid/releases/download/v1.2.2/"
+
+    def _app(self):
+        try:
+            import app as local_app
+        except Exception as exc:  # pragma: no cover - 仅在缺依赖的环境触发
+            self.skipTest("local/app.py 无法导入：%s" % exc)
+        return local_app
+
+    def _download(self, local_app, *, switch_available, payload_effect=None):
+        """跑一次 _do_update_download，返回 (api, 安装器下载替身, 版本包下载替身)。"""
+        from fixtures.business_clock import TestWallClock
+        api = stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
+        api._emit = mock.Mock()
+        target = {"version": "1.2.2",
+                  "files": [{"path": "a.exe", "bytes": 1, "sha256": "aa" * 32}],
+                  "target_manifest_sha256": "00" * 32}
+        installer = {"name": self.NAME, "url": self.BASE + self.NAME,
+                     "bytes": 1024, "sha256": "ab" * 32,
+                     "full": {"name": "payload.zip", "url": self.BASE + "payload.zip",
+                              "bytes": 4, "sha256": "cd" * 32,
+                              "target_version": "1.2.2", "target_manifest": target}}
+        api._update_installer = installer
+        api._update_result = {"request_id": "check-1", "state": "available",
+                              "latest_version": "1.2.2", "installer": installer}
+        installer_path = str(Path(tempfile.gettempdir()) / "campus-update-x" / self.NAME)
+        with mock.patch.object(local_app, "version_switch_available",
+                               return_value=switch_available):
+            with mock.patch.object(local_app.updater, "download_installer", return_value={
+                    "ok": True, "path": installer_path, "bytes": 1024,
+                    "sha256": "ab" * 32}) as installer_download:
+                with mock.patch.object(
+                        local_app.updater, "download_payload",
+                        side_effect=payload_effect
+                        or AssertionError("不应下载版本目录包")) as payload_download:
+                    api._do_update_download("dl-1", installer)
+        return api, installer_download, payload_download
+
+    def test_unavailable_environment_downloads_installer_only(self):
+        local_app = self._app()
+        api, installer_download, payload_download = self._download(
+            local_app, switch_available=False)
+        payload_download.assert_not_called()
+        installer_download.assert_called_once()
+        self.assertEqual(api._update_result["state"], "ready_to_install")
+
+    def test_switch_environment_still_downloads_version_payload(self):
+        local_app = self._app()
+        # 用「用户取消」结束版本包下载：这条用例只看选路，不走后续 stage
+        api, installer_download, payload_download = self._download(
+            local_app, switch_available=True,
+            payload_effect=lambda *args, **kwargs: {
+                "ok": False, "error_code": "cancelled", "text": "已取消"})
+        payload_download.assert_called_once()
+        installer_download.assert_not_called()
+
+    def _available(self, local_app, *, frozen, here, launcher_exists):
+        with tempfile.TemporaryDirectory() as name:
+            launcher = Path(name) / "update-launcher.exe"
+            if launcher_exists:
+                launcher.write_bytes(b"launcher")
+            return local_app.version_switch_available(
+                frozen=frozen, here=Path(here), version="1.2.2", launcher=launcher)
+
+    def test_source_state_is_unavailable(self):
+        local_app = self._app()
+        self.assertFalse(self._available(
+            local_app, frozen=False, here="D:/p/versions/1.2.2", launcher_exists=True))
+
+    def test_missing_launcher_is_unavailable(self):
+        local_app = self._app()
+        self.assertFalse(self._available(
+            local_app, frozen=True, here="D:/p/versions/1.2.2", launcher_exists=False))
+
+    def test_not_running_from_version_dir_is_unavailable(self):
+        local_app = self._app()
+        for here in ("D:/p/app", "D:/p/versions/9.9.9"):
+            with self.subTest(here=here):
+                self.assertFalse(self._available(
+                    local_app, frozen=True, here=here, launcher_exists=True))
+
+    def test_frozen_version_dir_with_launcher_is_available(self):
+        local_app = self._app()
+        self.assertTrue(self._available(
+            local_app, frozen=True, here="D:/p/versions/1.2.2", launcher_exists=True))
+
+
 if __name__ == "__main__":
     unittest.main()
