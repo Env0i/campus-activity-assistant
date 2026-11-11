@@ -4764,6 +4764,74 @@ out.push({delays: __timerDelays(), fetches: fetches});
         self.assertLessEqual(min(shown["delays"]), 1000, "恢复整秒计时")
 
 
+class PhoneTickSleepAndDrawerTests(unittest.TestCase):
+    """H4/H5：整秒计时的两个缺口。"""
+
+    POLL_STATE = """
+const ui = PhoneUI;
+ui.model.paired = true;
+let fetches = 0;
+globalThis.__fetch = async () => {
+  fetches += 1;
+  return {status: 200, json: async () => ({
+    state: { activities: [{id: "a1", name: "篮球赛", place: "体育馆", open_ts: 7200}],
+             busy: false, plan: null, terms_ok: true,
+             business_clock: {state: "ready", epoch_s: 3600, tick_s: 5, sampled_tick_s: 5},
+             retry_options: { default: 120, choices: [] } },
+    events: [], reset: false, seq: 1 })};
+};
+"""
+
+    def test_device_sleep_marks_clock_uncalibrated_and_polls(self):
+        """H4：锁屏时 performance.now() 不走、Date.now() 照走；解锁后的下一次 tick 不能
+        把落后的时间当可信时间显示，要标成待校准并立即补一次轮询。"""
+        values = run_phone_js(self.POLL_STATE + """
+let wall = 1700000000000;
+let mono = 5000;
+const realNow = Date.now;
+Date.now = () => wall;
+globalThis.performance = { now: () => mono };
+try {
+  await ui.poll(true);
+  $("#plan-board").hidden = true;
+  const baseFetches = fetches;
+  wall += 1000; mono += 1000;           // 正常走一秒：两个钟一致
+  ui.tickClock();
+  const normal = $("#board-now-text").textContent;
+  const normalFetches = fetches;
+  wall += 60000; mono += 1000;          // 睡了一分钟：墙钟跳 60 秒，单调钟只走 1 秒
+  ui.tickClock();
+  const afterJump = $("#board-now-text").textContent;
+  for (let i = 0; i < 8; i += 1) await Promise.resolve();
+  out.push({baseFetches, normal, normalFetches, afterJump, jumpFetches: fetches});
+} finally {
+  Date.now = realNow;
+}
+""")
+        data = values[0]
+        self.assertRegex(data["normal"], r"^\d{2}:\d{2}:\d{2}$", "两个钟一致时照常显示北京时间")
+        self.assertEqual(data["normalFetches"], data["baseFetches"], "正常走时不额外联网")
+        self.assertEqual(data["afterJump"], "待校准", "墙钟与单调钟对不上时不得显示推算出的时间")
+        self.assertEqual(data["jumpFetches"], data["normalFetches"] + 1, "要立即补一次轮询重新对时")
+
+    def test_row_countdown_keeps_ticking_while_review_drawer_is_open(self):
+        """H5：核对抽屉里的移除钮也带 data-id 且排在后面；tickRowLeft 只能认列表行容器里的节点。"""
+        values = run_phone_js(self.POLL_STATE + """
+await ui.poll(true);
+const small = {textContent: "旧", className: ""};
+const rowNode = {dataset: {id: "a1"}, querySelector: (sel) => (sel === ".time small" ? small : null)};
+const drawerButton = {dataset: {id: "a1"}, querySelector: () => null};
+/* 整个文档里行在前、抽屉按钮在后；列表容器里只有行（真实 DOM 的包含关系） */
+document.querySelectorAll = (sel) => (sel === "[data-id]" ? [rowNode, drawerButton] : []);
+["items", "upcoming-items", "signed-items"].forEach((id) => {
+  $("#" + id).querySelectorAll = (sel) => (sel === "[data-id]" ? [rowNode] : []);
+});
+ui.tickClock();
+out.push({text: small.textContent});
+""")
+        self.assertNotEqual(values[0]["text"], "旧", "抽屉开着时行倒计时也要被更新")
+
+
 
 class WorkbenchPhoneTests(unittest.TestCase):
     """新手机页（设计第 10 节 / 原型 Phone*）：账号密码默认不保存、条款未同意只读、连不上电脑红条、核对计划提醒。"""

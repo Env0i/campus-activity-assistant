@@ -265,6 +265,14 @@ const PhoneModel = {
     return (typeof performance !== "undefined" && performance && typeof performance.now === "function")
       ? performance.now() : Date.now();
   },
+  /* H4：设备睡眠检测。手机锁屏时 performance.now() 通常不走、Date.now() 照走；
+     上一次 tick 以来两个钟走过的时长之差超过阈值，就说明中间睡过，推算出的业务时间落后了 */
+  SLEEP_JUMP_MS: 2000,
+  sleepJumped(mark, wallMs, monoMs) {
+    if (!mark) return false;
+    const drift = (wallMs - mark.wall) - (monoMs - mark.mono);
+    return Number.isFinite(drift) && Math.abs(drift) > PhoneModel.SLEEP_JUMP_MS;
+  },
   setClock(model, snap) {
     const s = snap && typeof snap === "object" ? snap : {};
     const epoch = Number(s.epoch_s);
@@ -2478,6 +2486,17 @@ if (typeof document !== "undefined") {
   }
   function tickClock() {
     if (typeof document !== "undefined" && document.hidden) return;
+    /* H4：每次 tick 记一对 (Date.now, performance.now)。两者走时对不上（锁屏睡过）时，
+       推算的业务时间已落后，不能当可信时间显示：丢掉旧快照让整页落「待校准」，
+       并立刻补一次轮询重新对时（poll 成功后 setClock 会换上新快照）。 */
+    const wallMs = Date.now();
+    const monoMs = PhoneModel.mono();
+    const slept = PhoneModel.sleepJumped(model.tickMark, wallMs, monoMs);
+    model.tickMark = { wall: wallMs, mono: monoMs };
+    if (slept && model.clock) {
+      model.clock = null;
+      if (model.paired) void poll(false);
+    }
     const nowS = PhoneModel.businessNowS(model);
     const clockText = nowS !== null
       ? PhoneModel.hhmmss(PhoneModel.beijingSecOf(nowS)) : "待校准";
@@ -2537,10 +2556,16 @@ if (typeof document !== "undefined") {
   }
   /* 行内倒计时只打补丁：按 data-id 找到已渲染的行，只换 .time small，不重建列表 */
   function tickRowLeft(view) {
-    if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;
+    if (typeof document === "undefined") return;
     const nodes = {};
-    document.querySelectorAll("[data-id]").forEach((el) => {
-      if (el && el.dataset) nodes[String(el.dataset.id)] = el;
+    /* H5：只在列表行容器里找。核对抽屉里的移除钮也带 data-id 且排在文档后面，
+       按整个文档找会让它覆盖行节点，抽屉开着时行倒计时就停走。 */
+    LIST_ZONES.forEach((zone) => {
+      const box = $(zone[0]);
+      if (!box || typeof box.querySelectorAll !== "function") return;
+      box.querySelectorAll("[data-id]").forEach((el) => {
+        if (el && el.dataset) nodes[String(el.dataset.id)] = el;
+      });
     });
     (view.groups || []).forEach((group) => {
       (group.rows || []).forEach((row) => {
