@@ -3389,6 +3389,16 @@ class Api:
         phone_log("窗口已从后台显示出来")
         return {"ok": True, "hidden": False, "tray": self._tray is not None}
 
+    def window_visibility(self) -> dict:
+        """窗口是否藏在托盘里（界面自动刷新活动列表前问一次）。
+
+        pywebview 隐藏窗口时 WebView2 会不会把 document.hidden 置真无法离线验证，
+        所以界面除了看 document.hidden，还要问这里：藏在托盘里的窗口不该每 10 分钟
+        在后台悄悄访问学校。只读 _window_hidden，不碰窗口、不联网，也不回别的字段。
+        """
+        with self._lock:
+            return {"hidden": bool(self._window_hidden)}
+
     def _on_window_minimized(self) -> None:
         self._window_minimized = True
 

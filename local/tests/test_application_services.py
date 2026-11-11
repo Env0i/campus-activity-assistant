@@ -2708,5 +2708,41 @@ class VersionSwitchSelectionTests(unittest.TestCase):
             local_app, frozen=True, here="D:/p/versions/1.2.2", launcher_exists=True))
 
 
+class WindowVisibilityTests(unittest.TestCase):
+    """window_visibility：界面自动刷新列表前问后端「窗口是不是藏到托盘了」。
+
+    pywebview 隐藏窗口时 document.hidden 是否为真无法离线验证，所以界面同时问后端
+    的 _window_hidden；这个接口只读、只回一个布尔，不带别的字段。
+    """
+
+    def setUp(self):
+        try:
+            import app as local_app
+        except Exception as exc:  # pragma: no cover - 环境缺 pywebview 时跳过
+            self.skipTest("无法导入 local/app.py：%s" % exc)
+        tmp = tempfile.mkdtemp(prefix="campus-window-visibility-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        for patch in (
+            mock.patch.object(local_app, "PREFS", Path(tmp) / "ui.json"),
+            mock.patch.object(local_app, "DEMO", True),
+            mock.patch.object(local_app, "DEVICE_FILE", Path(tmp) / "devices.json"),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.api = stop_auto_relogin_on_cleanup(self, local_app.Api())
+
+    def test_reports_hidden_true_when_window_is_in_the_tray(self):
+        self.api._window_hidden = True
+        self.assertEqual(self.api.window_visibility(), {"hidden": True})
+
+    def test_reports_hidden_false_when_window_is_shown(self):
+        self.api._window_hidden = False
+        self.assertEqual(self.api.window_visibility(), {"hidden": False})
+
+    def test_returns_only_the_hidden_key(self):
+        self.api._window_hidden = True
+        self.assertEqual(set(self.api.window_visibility()), {"hidden"})
+
+
 if __name__ == "__main__":
     unittest.main()
