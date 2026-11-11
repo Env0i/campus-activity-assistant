@@ -19,6 +19,7 @@
 | [replayable-product-tour.md](replayable-product-tour.md) 可重播分步功能引导 | proposed（尚未实现） |
 | [activity-description-info-button.md](activity-description-info-button.md) 活动简介问号入口 | proposed（尚未实现） |
 | [auto-relogin-failure-notice.md](auto-relogin-failure-notice.md) 自动登录失败后怎么告知用户 | proposed（尚未实现） |
+| [workbench-ui-polish.md](workbench-ui-polish.md) 工作台界面打磨：时间轴列表、设置抽屉与状态过渡 | proposed（方向已定，原型和代码未改） |
 
 ## 生命周期
 
