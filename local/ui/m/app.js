@@ -1732,6 +1732,10 @@ if (typeof document !== "undefined") {
       return;
     }
     const expired = PhoneModel.loginExpired(model.login);
+    // I2：副题与登录行同口径（电脑正在静默自动登录不叫用户「还差一步」）；主钮仍用上面的 expired，口径不动
+    const expiredSub = PhoneModel.loginExpired(model.login, model.flow || null);
+    const recoveringSub = PhoneModel.loginRaw(model.login)
+      && PhoneModel.loginRecovering(model.login, model.flow || null);
     if (model.busy) {
       const fromPhone = model.plan && String(model.plan.source || "") === "phone"
         ? "（从手机开始）" : "";
@@ -1752,12 +1756,13 @@ if (typeof document !== "undefined") {
       title.textContent = "已选 " + model.selected.length + " 场";
       sub.textContent = model.termsOk === false
         ? "电脑上同意条款后才能开始"
-        : (expired ? "还差一步：重新登录"                                  // EX02（Phone:864）
+        : (recoveringSub ? "电脑正在自动重新登录，好了就能开始"            // I2：与登录行同口径
+                   : (expiredSub ? "还差一步：重新登录"                    // EX02（Phone:864）
                    : (model.clockState === "unavailable"                   // EX06（Phone:865）
                       ? "电脑校准北京时间后才能开始"
                       : (PhoneModel.connState(model, model.flying).state === "off"  // UI-F3：离线不冒充「已选 N 场，可开始」
                          ? "连上电脑后才能开始"
-                         : PhoneModel.planSummary(picked, PhoneModel.businessNowS(model)))));
+                         : PhoneModel.planSummary(picked, PhoneModel.businessNowS(model))))));
     }
     /* EX02：登录失效时底栏主钮换成「重新登录」（点击在 wire 里分流到 openRelogin） */
     $("btn-start").textContent = expired && !model.busy

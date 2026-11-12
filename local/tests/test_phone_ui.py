@@ -4388,6 +4388,21 @@ out.push(PhoneModel.loginExpired({session_expired: true, session_present: true})
 """)
         self.assertEqual(values, [False, False, False, True, True])
 
+    def test_bar_sub_says_auto_relogin_in_progress_not_relogin(self):
+        """I2：电脑正在静默自动登录时，底栏副题与登录行说法一致（「电脑正在自动重新登录」），
+        不再叫用户「还差一步：重新登录」；主钮口径不动。"""
+        values = run_phone_js("""
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now();
+ui.ingest({state: {terms_ok: true, login: {session_expired: true, session_present: true, recovering: true},
+  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00"}]}});
+ui.model.selected = ["a1"];
+ui.refreshControls();
+out.push({sub: $("bar-sub").textContent, start: $("btn-start").textContent});
+""")
+        self.assertEqual(values[0]["sub"], "电脑正在自动重新登录，好了就能开始")
+        self.assertEqual(values[0]["start"], "重新登录", "主钮口径不动（仍指向重登入口）")
+
     def test_pc_list_error_alert_hides_bar_until_recovered(self):
         """EX05（原型 Phone:855/860）：电脑列表失败告警两句照原型、HH:MM 来自
         pc_list_error.at；草稿态底栏整条不出现；恢复（快照回 null）后告警收起、
