@@ -196,7 +196,10 @@ function paintOcrDownload() {
   const dlState = String(download.state || "");
   const phase = ocrPhase(feature);
   const downloading = phase === "downloading" || phase === "verifying";
-  const loading = downloading || phase === "checking";
+  /* I1：点「安装这份」到快照刷新完成为止，快照还是导入前的旧状态：这段时间不画旧红条与导入行，进度区说正在安装 */
+  const installing = !!(window.PhonePanel && window.PhonePanel.installing
+    && window.PhonePanel.installing.relogin_ocr);
+  const loading = downloading || phase === "checking" || installing;
   const failed = dlState === "failed";
   const busy = !!OcrPanel.busy || !!(window.PhonePanel && window.PhonePanel.busy);
   const version = String(feature.package_version || "");
@@ -222,7 +225,7 @@ function paintOcrDownload() {
   const downloadBtn = $("#btn-ocr-download");
   if (downloadBtn) {
     downloadBtn.hidden = phase !== "missing" && phase !== "outdated";
-    downloadBtn.disabled = busy;
+    downloadBtn.disabled = busy || installing;
     downloadBtn.textContent = phase === "outdated" ? "更新组件"
       : (failed ? "重新下载" : "下载并安装");
   }
@@ -259,14 +262,14 @@ function paintOcrDownload() {
   }
   /* OC11：红条拼「下载没有完成：原因，可以重试。」，拼法同手机访问（phone.js downloadFailText）；
    * 更新失败后状态回到「需要更新」，原因同样要看得见，不能只剩一个「更新组件」按钮 */
-  const failText = failed && (phase === "missing" || phase === "outdated")
+  const failText = failed && !installing && (phase === "missing" || phase === "outdated")
     ? (typeof downloadFailText === "function" ? downloadFailText(download)
       : String(download.text || "下载没有完成，可以重试。")) : "";
-  ocrText("#ocr-download-error", OcrPanel.error || failText);
+  ocrText("#ocr-download-error", installing ? "" : (OcrPanel.error || failText));
 
-  ocrShow("#ocr-missing", phase === "missing");
+  ocrShow("#ocr-missing", phase === "missing" && !installing);
   /* 更新失败后停在 outdated，手动下载导入是唯一的兜底，入口不能跟着「没装」一起收起来 */
-  ocrShow("#ocr-import-line", (phase === "missing" || phase === "outdated") && failed);
+  ocrShow("#ocr-import-line", (phase === "missing" || phase === "outdated") && failed && !installing);
   ocrShow("#ocr-off-note", phase === "off");
   ocrShow("#ocr-loading", loading);
 
@@ -275,8 +278,9 @@ function paintOcrDownload() {
   const done = Number(download.downloaded || 0);
   const pct = phase === "verifying" ? 100
     : (total > 0 ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : 0);
-  ocrText("#ocr-prog-text", phase === "checking" ? "正在检查组件…"
-    : (phase === "verifying" ? "下载完成，正在校验组件…" : "正在下载验证码识别组件"));
+  ocrText("#ocr-prog-text", installing ? "正在安装组件…"
+    : (phase === "checking" ? "正在检查组件…"
+    : (phase === "verifying" ? "下载完成，正在校验组件…" : "正在下载验证码识别组件")));
   const num = $("#ocr-prog-num");
   if (num) {
     num.textContent = phase === "downloading" && total > 0

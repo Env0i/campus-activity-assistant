@@ -192,6 +192,8 @@ const PhonePanel = {
   credNote: "",
   credNoteTone: "ok",
   importKey: "phone_control",
+  // I1：点「安装这份」到 refresh 返回为止，按功能记「安装中」；这段时间快照还是导入前的旧状态，不能照旧画
+  installing: { phone_control: false, relogin_ocr: false },
 
   async refresh() {
     try {
@@ -439,8 +441,10 @@ const PhonePanel = {
     const download = phoneRow.download || {};
     const dl = String(download.state || "");
     const phase = phonePhase(st, phoneRow);
+    // I1：安装中（点「安装这份」到 refresh 返回为止）快照还是导入前的旧状态，不画旧红条与导入行
+    const installing = !!(PhonePanel.installing && PhonePanel.installing.phone_control);
     const downloading = phase === "downloading" || phase === "verifying";
-    const loading = downloading || phase === "checking";
+    const loading = downloading || phase === "checking" || installing;
     const linked = phoneLinkedNow(st);
     const notes = PhonePanel.notes;
     const channels = (st.advanced && st.advanced.channels) || {};
@@ -470,7 +474,7 @@ const PhonePanel = {
     const install = $("#btn-phone-component-install");
     if (install) {
       install.hidden = phase !== "missing" && phase !== "outdated";
-      install.disabled = busy;
+      install.disabled = busy || installing;
       install.textContent = phase === "outdated" ? "更新组件"
         : (failed ? "重新下载" : "下载并安装");
     }
@@ -521,7 +525,7 @@ const PhonePanel = {
     }
     phoneText("#phone-feature-error", (phase === "broken" || phase === "disabled") ? notes.feature : "");
 
-    phoneShow("#phone-missing", phase === "missing");
+    phoneShow("#phone-missing", phase === "missing" && !installing);
     phoneShow("#phone-loading", loading);
     phoneShow("#phone-access-detail", phase === "off" || phase === "on");
     phoneShow("#phone-off", phase === "off");
@@ -529,14 +533,14 @@ const PhonePanel = {
 
     // ---- 没装（PH08–PH12）----
     // 更新失败后状态回到「需要更新」，原因同样要看得见；红条在「没装」块外，块收着也显示
-    const missingErr = (phase === "missing" || phase === "outdated")
+    const missingErr = ((phase === "missing" || phase === "outdated") && !installing)
       ? (notes.missing || (failed ? downloadFailText(download) : "")) : "";
     phoneText("#phone-component-error", missingErr);
     // PH12：取消后回到没装态；已装过组件再取消的场景原型没有，落在 off 那块说现有组件没动
     phoneText("#phone-component-state", phase === "missing" && !missingErr && dl === "cancelled"
       ? "下载已取消，没有装任何东西。" : "");
     // PH10：导入链接只在下载失败后出现；更新失败停在 outdated 时也要留着这条兜底
-    phoneShow("#phone-import-line", (phase === "missing" || phase === "outdated") && failed);
+    phoneShow("#phone-import-line", (phase === "missing" || phase === "outdated") && failed && !installing);
     const loc = PhonePanel.location;
     phoneShow("#phone-loc-before", phase === "missing" && !!loc);
     const after = phoneShow("#phone-loc-after", phase !== "missing" && !loading && !!loc);
@@ -556,8 +560,9 @@ const PhonePanel = {
     const done = Number(download.downloaded || 0);
     const pct = phase === "verifying" ? 100
       : (total > 0 ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : 0);
-    phoneText("#phone-prog-text", phase === "checking" ? "正在检查组件…"
-      : (phase === "verifying" ? "下载完成，正在校验组件…" : "正在下载手机控制组件"));
+    phoneText("#phone-prog-text", installing ? "正在安装组件…"
+      : (phase === "checking" ? "正在检查组件…"
+      : (phase === "verifying" ? "下载完成，正在校验组件…" : "正在下载手机控制组件")));
     const num = $("#phone-prog-num");
     if (num) {
       num.textContent = phase === "downloading" && total > 0
@@ -784,6 +789,9 @@ const PhonePanel = {
       PhonePanel.showComponentNote(prefix, "先选文件并自检通过，再安装。", false);
       return;
     }
+    // I1：置位到 refresh 返回为止，抽屉与对话框都按「安装中」画，不按导入前的旧快照说失败
+    PhonePanel.installing[key] = true;
+    PhonePanel.paint();
     const installEl = $("#btn-" + prefix + "-install");
     if (installEl) { installEl.disabled = true; installEl.textContent = "安装中…"; }
     try {
@@ -809,8 +817,11 @@ const PhonePanel = {
         await PhonePanel.refresh();
       }
     } finally {
+      PhonePanel.installing[key] = false;
       if (installEl) installEl.textContent = "安装这份";
       PhonePanel.paintComponents();
+      // refresh 已按「安装中」画过一遍；这里按刷新后的真实快照重画（失败路径也要把旧红条放回来）
+      PhonePanel.paint();
     }
   },
 

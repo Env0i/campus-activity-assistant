@@ -1215,6 +1215,85 @@ out.push(downloadFailText({state: "failed", error_code: "network_error", text: "
         self.assertEqual(values[0], "下载没有完成：发布页上还没有这个版本的组件包，可以稍后再试，或手动下载后导入。")
         self.assertEqual(values[1], "下载没有完成：连不上发布页，可以重试。", "其他原因不受影响")
 
+    def test_install_shows_installing_until_refresh_returns(self):
+        """I1：点「安装这份」到快照刷新完成为止，手机访问一节显示「正在安装组件…」，
+        不闪回导入前的「下载没有完成」红条与导入行；刷新回来后才按真实状态画。"""
+        snippet = r"""
+PhonePanel.state.advanced = {features:{phone_control:{available:false, ready:false, status:"missing",
+  download:{state:"failed", error_code:"network_error", text:"连不上发布页"}}}};
+PhonePanel.paint();
+const before = {err: $("#phone-component-error").textContent, importHidden: $("#phone-import-line").hidden};
+let releaseRefresh = null;
+globalThis.__api = (name) => {
+  if (name === "install_advanced_feature") return Promise.resolve({ok: true});
+  if (name === "phone_access_state") return new Promise((resolve) => {
+    releaseRefresh = () => resolve({ok: true, advanced: {features: {phone_control:
+      {available: true, ready: true, status: "ready", download: {state: "installed"}}}}});
+  });
+  return Promise.resolve({ok: true});
+};
+PhonePanel.verified = {phone_control: "C:/d/phone_control-1.2.0.zip", relogin_ocr: ""};
+const pending = PhonePanel.installComponent("phone_control");
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+out.push({before: before,
+  during: {err: $("#phone-component-error").textContent, importHidden: $("#phone-import-line").hidden,
+    loadingHidden: $("#phone-loading").hidden, progText: $("#phone-prog-text").textContent,
+    installDisabled: $("#btn-phone-component-install").disabled}});
+releaseRefresh();
+await pending;
+out.push({after: {loadingHidden: $("#phone-loading").hidden, err: $("#phone-component-error").textContent}});
+"""
+        first, last = run_phone_js(snippet, files=["views/phone.js"])
+        before, during, after = first["before"], first["during"], last["after"]
+        self.assertEqual(before["err"], "下载没有完成：连不上发布页，可以重试。")
+        self.assertFalse(before["importHidden"], "前提：导入前导入行本来可见")
+        self.assertEqual(during["err"], "", "安装中不显示旧的失败红条")
+        self.assertTrue(during["importHidden"], "安装中不显示导入行")
+        self.assertFalse(during["loadingHidden"], "安装中进度区可见")
+        self.assertEqual(during["progText"], "正在安装组件…")
+        self.assertTrue(during["installDisabled"], "安装中主按钮禁用")
+        self.assertTrue(after["loadingHidden"], "刷新返回后进度区收起")
+        self.assertEqual(after["err"], "")
+
+    def test_ocr_install_shows_installing_until_refresh_returns(self):
+        """I1（验证码识别一节，同口径）：安装中不显示旧红条与导入行，进度区说「正在安装组件…」。"""
+        snippet = r"""
+PhonePanel.state.advanced = {features:{relogin_ocr:{available:false, ready:false, status:"missing",
+  download:{state:"failed", error_code:"network_error", text:"连不上发布页"}}}};
+PhonePanel.paint();
+const before = {err: $("#ocr-download-error").textContent, importHidden: $("#ocr-import-line").hidden};
+let releaseRefresh = null;
+globalThis.__api = (name) => {
+  if (name === "install_advanced_feature") return Promise.resolve({ok: true});
+  if (name === "phone_access_state") return new Promise((resolve) => {
+    releaseRefresh = () => resolve({ok: true, advanced: {features: {relogin_ocr:
+      {available: true, ready: true, status: "ready", download: {state: "installed"}}}}});
+  });
+  return Promise.resolve({ok: true});
+};
+PhonePanel.verified = {phone_control: "", relogin_ocr: "C:/d/relogin_ocr-1.2.0.zip"};
+const pending = PhonePanel.installComponent("relogin_ocr");
+for (let i = 0; i < 8; i += 1) await Promise.resolve();
+out.push({before: before,
+  during: {err: $("#ocr-download-error").textContent, importHidden: $("#ocr-import-line").hidden,
+    loadingHidden: $("#ocr-loading").hidden, progText: $("#ocr-prog-text").textContent,
+    installDisabled: $("#btn-ocr-download").disabled}});
+releaseRefresh();
+await pending;
+out.push({after: {loadingHidden: $("#ocr-loading").hidden, err: $("#ocr-download-error").textContent}});
+"""
+        first, last = run_phone_js(snippet, files=["views/phone.js", "views/settings.js"])
+        before, during, after = first["before"], first["during"], last["after"]
+        self.assertEqual(before["err"], "下载没有完成：连不上发布页，可以重试。")
+        self.assertFalse(before["importHidden"], "前提：导入前导入行本来可见")
+        self.assertEqual(during["err"], "", "安装中不显示旧的失败红条")
+        self.assertTrue(during["importHidden"], "安装中不显示导入行")
+        self.assertFalse(during["loadingHidden"], "安装中进度区可见")
+        self.assertEqual(during["progText"], "正在安装组件…")
+        self.assertTrue(during["installDisabled"], "安装中主按钮禁用")
+        self.assertTrue(after["loadingHidden"], "刷新返回后进度区收起")
+        self.assertEqual(after["err"], "")
+
 class PhoneAccessStateMachineTests(unittest.TestCase):
     """fe-phone：设置抽屉手机访问一组照原型 phView 的状态机（settings-gap 一、PH01–PH32）。"""
 
