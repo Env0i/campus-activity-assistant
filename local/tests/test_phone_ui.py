@@ -635,10 +635,12 @@ out.push($("#ocr-feature-status").textContent);
 out.push($("#ocr-feature-status").hidden);
 out.push($("#ocr-download-state").textContent);
 out.push($("#btn-ocr-feature-install").hidden);
+out.push($("#phone-import-line").hidden);
+out.push($("#ocr-import-line").hidden);
 ''', files=["views/phone.js", "views/settings.js"])
         (install_text, install_hidden, phone_chip, phone_note, reimport_hidden,
          error_hidden, ocr_btn, ocr_hidden, ocr_chip, ocr_chip_hidden, ocr_lead,
-         ocr_reimport_hidden) = values
+         ocr_reimport_hidden, phone_import_hidden, ocr_import_hidden) = values
         self.assertEqual(install_text, "更新组件")
         self.assertFalse(install_hidden)
         self.assertEqual(phone_chip, "需要更新")
@@ -650,6 +652,8 @@ out.push($("#btn-ocr-feature-install").hidden);
         self.assertEqual(ocr_chip, "需要更新")
         self.assertIn("主程序已升级", ocr_lead)
         self.assertTrue(ocr_reimport_hidden)
+        self.assertTrue(phone_import_hidden, "没失败不引导去手动导入")
+        self.assertTrue(ocr_import_hidden, "没失败不引导去手动导入")
 
     def test_update_failure_reason_stays_visible_in_outdated_state(self):
         """更新失败后回到「需要更新」：原因要看得见，不能跟着「没装」块一起被收起来。"""
@@ -670,17 +674,22 @@ out.push($("#ocr-download-error").textContent);
 out.push($("#ocr-download-error").hidden);
 out.push($("#ocr-missing").hidden);
 out.push($("#btn-ocr-download").textContent);
+out.push($("#phone-import-line").hidden);
+out.push($("#ocr-import-line").hidden);
 ''', files=["views/phone.js", "views/settings.js"])
         (phone_error, phone_error_hidden, phone_block_hidden, phone_button,
-         ocr_error, ocr_error_hidden, ocr_block_hidden, ocr_button) = values
+         ocr_error, ocr_error_hidden, ocr_block_hidden, ocr_button,
+         phone_import_hidden, ocr_import_hidden) = values
         self.assertEqual(phone_error, "下载没有完成：连不上发布页，可以重试。")
         self.assertFalse(phone_error_hidden)
         self.assertTrue(phone_block_hidden, "版本旧不是没装，红条不能挂在「没装」块里")
         self.assertEqual(phone_button, "更新组件")
+        self.assertFalse(phone_import_hidden, "更新失败后要留手动下载导入这条兜底")
         self.assertEqual(ocr_error, "下载没有完成：连不上发布页，可以重试。")
         self.assertFalse(ocr_error_hidden)
         self.assertTrue(ocr_block_hidden)
         self.assertEqual(ocr_button, "更新组件")
+        self.assertFalse(ocr_import_hidden, "更新失败后要留手动下载导入这条兜底")
 
     def test_auto_login_line_names_outdated_component(self):
         values = run_phone_js('''
@@ -3633,6 +3642,100 @@ out.push(mk({session_present: true}, {saved: true, ocr_ready: true, paused: true
         self.assertEqual(bare, "电脑上的登录有效。电脑上没保存账号，重新登录要输账号、密码和验证码。",
                          "快照没到手：按未失效、未保存呈现，不猜")
         self.assertEqual(paused, "电脑上的登录有效。电脑上没保存账号，重新登录要输账号和密码。")
+
+    def test_login_line_follows_the_computers_last_school_check(self):
+        """电脑最近一次学校校验说失效（last_check_state=expired）时，即使本机会话文件还在，
+        手机登录行也写失效；校验回到 valid 后写有效。"""
+        values = run_phone_js("""
+const setup = {saved: true, ocr_ready: true, paused: false};
+const mk = (login) => PhoneModel.loginLine(login, setup);
+out.push(mk({session_present: true, session_expired: false, last_check_state: "expired"}));
+out.push(mk({session_present: true, session_expired: false, last_check_state: "valid"}));
+out.push(mk({session_present: true, session_expired: false, last_check_state: "unknown"}));
+out.push(mk({session_present: true, session_expired: false}));
+out.push(PhoneModel.loginExpired({session_present: true, last_check_state: "expired"}));
+out.push(PhoneModel.loginExpired({session_present: true, last_check_state: "valid"}));
+""")
+        expired, valid, unknown, bare, pred_expired, pred_valid = values
+        self.assertEqual(expired, "电脑上的登录已失效。失效时电脑会自己重新登录。")
+        self.assertEqual(valid, "电脑上的登录有效。失效时电脑会自己重新登录。")
+        self.assertEqual(unknown, "电脑上的登录有效。失效时电脑会自己重新登录。",
+                         "没确认（unknown）不当成失效")
+        self.assertEqual(bare, valid, "老载荷没带 last_check_state：保持原口径")
+        self.assertTrue(pred_expired)
+        self.assertFalse(pred_valid)
+
+    def test_phone_login_line_and_banner_recover_after_a_valid_check(self):
+        """学校判失效 -> 手机页写失效并出失效横幅；电脑重新登录后快照回到 valid -> 回到「有效」。"""
+        values = run_phone_js("""
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now();
+ui.model.reloginSetup = {saved: true, ocr_ready: true, paused: false};
+const snap = (state) => ({state: {terms_ok: true,
+  login: {session_present: true, session_expired: false, last_check_state: state},
+  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00"}]}});
+ui.ingest(snap("expired"));
+ui.refreshControls();
+out.push({line: $("login-line").textContent, banner: !$("login-expired-banner").hidden});
+ui.ingest(snap("valid"));
+ui.refreshControls();
+out.push({line: $("login-line").textContent, banner: !$("login-expired-banner").hidden});
+""")
+        self.assertTrue(values[0]["line"].startswith("电脑上的登录已失效。"))
+        self.assertTrue(values[0]["banner"], "学校判失效时手机页也要出失效告警")
+        self.assertTrue(values[1]["line"].startswith("电脑上的登录有效。"))
+        self.assertFalse(values[1]["banner"])
+
+    def test_login_line_says_auto_relogin_while_the_computer_is_recovering(self):
+        """学校判失效、但电脑正在静默自动重登（中继 origin=auto 且 live 且未转人工，或快照 recovering 为真）：
+        登录行写「电脑正在自动重新登录。」，不写已失效；转人工、中继已结束又没在恢复时才写已失效。"""
+        values = run_phone_js("""
+const setup = {saved: true, ocr_ready: true, paused: false};
+const expired = {session_present: true, session_expired: false, last_check_state: "expired"};
+const autoLive = {origin: "auto", live: true, state: "waiting_code", mode: "auto", handoff: false};
+const mk = (login, flow) => PhoneModel.loginLine(login, setup, flow);
+out.push(mk(expired, autoLive));
+out.push(mk(Object.assign({recovering: true}, expired), null));
+out.push(mk(expired, Object.assign({}, autoLive, {handoff: true, mode: "manual"})));
+out.push(mk(Object.assign({recovering: true}, expired), Object.assign({}, autoLive, {handoff: true})));
+out.push(mk(expired, {origin: "auto", live: false, state: "failed"}));
+out.push(mk(expired, {origin: "phone", live: true, state: "waiting_code", handoff: false}));
+out.push(PhoneModel.loginExpired(expired, autoLive));
+out.push(PhoneModel.loginExpired(expired, null));
+""")
+        self.assertEqual(values[0], "电脑正在自动重新登录。")
+        self.assertEqual(values[1], "电脑正在自动重新登录。")
+        self.assertTrue(values[2].startswith("电脑上的登录已失效。"), "转人工后照旧写已失效")
+        self.assertTrue(values[3].startswith("电脑上的登录已失效。"), "转人工优先于 recovering")
+        self.assertTrue(values[4].startswith("电脑上的登录已失效。"), "自动登录失败收场后写已失效")
+        self.assertTrue(values[5].startswith("电脑上的登录已失效。"), "手机自己发起的一场不算电脑在自动恢复")
+        self.assertFalse(values[6])
+        self.assertTrue(values[7])
+
+    def test_phone_has_no_expired_banner_while_the_computer_recovers(self):
+        """DOM：静默恢复中不出失效横幅、登录行写自动重登；转人工后横幅与「已失效」回来。"""
+        values = run_phone_js("""
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now();
+ui.model.reloginSetup = {saved: true, ocr_ready: true, paused: false};
+const snap = (relay) => ({state: {terms_ok: true,
+  login: {session_present: true, session_expired: false, last_check_state: "expired"},
+  login_relay: relay,
+  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00"}]}});
+const shot = () => ({line: $("login-line").textContent, banner: !$("login-expired-banner").hidden});
+ui.ingest(snap({state: "waiting_code", mode: "auto", origin: "auto", live: true,
+  flow_id: "f1", attempts: 1, handoff: false}));
+ui.refreshControls();
+out.push(shot());
+ui.ingest(snap({state: "waiting_code", mode: "manual", origin: "auto", live: true,
+  flow_id: "f1", attempts: 3, handoff: true, challenge_id: "c1", image: ""}));
+ui.refreshControls();
+out.push(shot());
+""")
+        self.assertEqual(values[0]["line"], "电脑正在自动重新登录。")
+        self.assertFalse(values[0]["banner"], "电脑在自动重登，手机不出失效横幅")
+        self.assertTrue(values[1]["line"].startswith("电脑上的登录已失效。"))
+        self.assertTrue(values[1]["banner"], "转人工后失效提醒回来")
 
 
 class SheetsOpsDomTests(unittest.TestCase):

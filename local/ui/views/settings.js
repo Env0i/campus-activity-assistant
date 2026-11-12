@@ -265,7 +265,8 @@ function paintOcrDownload() {
   ocrText("#ocr-download-error", OcrPanel.error || failText);
 
   ocrShow("#ocr-missing", phase === "missing");
-  ocrShow("#ocr-import-line", phase === "missing" && failed);
+  /* 更新失败后停在 outdated，手动下载导入是唯一的兜底，入口不能跟着「没装」一起收起来 */
+  ocrShow("#ocr-import-line", (phase === "missing" || phase === "outdated") && failed);
   ocrShow("#ocr-off-note", phase === "off");
   ocrShow("#ocr-loading", loading);
 

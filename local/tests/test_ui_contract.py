@@ -7854,6 +7854,14 @@ class ChannelInstallContractTests(unittest.TestCase):
         self.assertIn("重新扫码", self.html)
         self.assertIn("要重新扫码和配对", self.view)
 
+    def test_import_fallback_sits_outside_missing_blocks(self):
+        """导入兜底不能挂在「没装」块里：更新失败停在 outdated 时整块收着，挂进去就看不见。"""
+        for line_id, block_id in (("phone-import-line", "phone-missing"),
+                                  ("ocr-import-line", "ocr-missing")):
+            self.assertLess(self.html.index('id="' + line_id + '"'),
+                            self.html.index('id="' + block_id + '"'),
+                            line_id + " 必须在 " + block_id + " 之前")
+
     def test_no_path_box_or_raw_binary_picker_for_normal_users(self):
         for forbidden in ('id="phone-cloudflared-path"',
                           'id="btn-phone-cloudflared-inspect"',

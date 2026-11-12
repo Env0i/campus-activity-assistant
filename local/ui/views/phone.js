@@ -533,8 +533,8 @@ const PhonePanel = {
     // PH12：取消后回到没装态；已装过组件再取消的场景原型没有，落在 off 那块说现有组件没动
     phoneText("#phone-component-state", phase === "missing" && !missingErr && dl === "cancelled"
       ? "下载已取消，没有装任何东西。" : "");
-    // PH10：导入链接只在下载失败后出现
-    phoneShow("#phone-import-line", phase === "missing" && failed);
+    // PH10：导入链接只在下载失败后出现；更新失败停在 outdated 时也要留着这条兜底
+    phoneShow("#phone-import-line", (phase === "missing" || phase === "outdated") && failed);
     const loc = PhonePanel.location;
     phoneShow("#phone-loc-before", phase === "missing" && !!loc);
     const after = phoneShow("#phone-loc-after", phase !== "missing" && !loading && !!loc);
