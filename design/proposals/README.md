@@ -20,6 +20,7 @@
 | [activity-description-info-button.md](activity-description-info-button.md) 活动简介问号入口 | proposed（尚未实现） |
 | [auto-relogin-failure-notice.md](auto-relogin-failure-notice.md) 自动登录失败后怎么告知用户 | proposed（尚未实现） |
 | [workbench-ui-polish.md](workbench-ui-polish.md) 工作台界面打磨：时间轴列表、设置抽屉与状态过渡 | proposed（方向已定，原型和代码未改） |
+| [engineering-refactor.md](engineering-refactor.md) 代码工程化重构：状态机、单一规则与模块边界 | proposed（方向已定，1.2.2 发版后审计再定计划） |
 
 ## 生命周期
 
