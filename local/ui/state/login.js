@@ -18,6 +18,17 @@ function restoreLoginSnapshotState(snap) {
   S.login.estimateReason = snap.estimateReason === undefined ? null : snap.estimateReason;
 }
 
+/* 「自动登录中」只在两种情况下成立：学校判失效且后端说电脑正在恢复（setLogin 置位），
+ * 或中继里确有一场电脑自己发起、还在进行、没转人工的登录（receiveReloginState 置位）。
+ * 这里只负责收回，不置位：结论为 valid、已转人工、结论不是 expired 又没有这样一场中继时，
+ * S.autoLogin 都不该还亮着，否则顶栏胶囊会一直停在「自动登录中…」。 */
+function reconcileAutoLogin() {
+  if (!S.autoLogin) return;
+  if (S.login.handoff || S.login.result === "valid") { S.autoLogin = false; return; }
+  if (S.login.result === "expired") return;   /* 由 recovering 和中继事件决定 */
+  if (typeof reloginAutoLive !== "function" || !reloginAutoLive()) S.autoLogin = false;
+}
+
 function setLogin(hours, ok, present, anchor) {
   S.login.hours = numOrNull(hours);
   S.login.ok = ok;
@@ -34,6 +45,9 @@ function setLogin(hours, ok, present, anchor) {
     if (S.login.result === "expired" && !S.login.handoff) S.autoLogin = !!anchor.recovering;
   }
   if (S.login.result === "valid") S.login.handoff = false;
+  /* 不在「自动登录中」该在的状态里就收回（check 结论为 valid / 暂时无法确认 / 已转人工，
+   * 或后端说不再恢复），不等中继的收尾事件：事件可能先到、晚到或没到。 */
+  reconcileAutoLogin();
   /* 估算锚点（绝对时刻）：bootstrap.login / check 事件 / 登录完成后都带同一来源的
    * estimated_expires_at（epoch 秒）。收到就整份替换（重新登录=新锚点），
    * 显式 null 且本机无会话时清掉旧锚点；事件没带（undefined）保持现状。
@@ -118,6 +132,8 @@ function loginEstimateText() {
  * 只重画、不改结论；调用点都已在请求代次校验之后，旧轮迟到事件不得用它
  * 覆盖新轮。 */
 function syncLoginDependentView() {
+  /* 校验超时、请求失败等路径直接改 S.login.result 再走这里：先收回过期的自动登录态 */
+  reconcileAutoLogin();
   paintLogin();
   paintClockStatus();
   refreshLoginEmptyState();

@@ -18,6 +18,14 @@ let reloginRelay = null;
 /* 转人工只提醒一次：中继会重放快照，同一个 handoff 不能每来一条就刷一条运行记录 */
 let reloginHandoffSeen = false;
 
+/* 中继里这一场是不是「电脑自己发起、还在进行、没转人工」。flowId 给定时还要是同一场。
+ * 关对话框不取消它，顶栏「自动登录中…」也只认它。 */
+function reloginAutoLive(flowId) {
+  const relay = reloginRelay;
+  if (!relay || !relay.live || relay.handoff || String(relay.origin || "") !== "auto") return false;
+  return flowId === undefined || String(relay.flow_id || "") === String(flowId || "");
+}
+
 function reloginDialog() {
   return $("#dlg-relogin");
 }
@@ -341,8 +349,10 @@ function closeRelogin() {
   if (wideDlg) wideDlg.classList.remove("wide");
   if (dlg && typeof dlg.close === "function" && dlg.open) dlg.close();
   else if (dlg) dlg.removeAttribute("open");
-  /* 用户中途关掉：取消这一场，别让后台还挂着一个等验证码的登录进程 */
-  if (live && flowId) api("relogin_cancel", flowId).catch(() => {});
+  /* 用户中途关掉：取消这一场，别让后台还挂着一个等验证码的登录进程。
+   * 例外：对话框接上的是电脑自己正在做的自动登录（还没转人工），关掉只是不看了，
+   * 取消它等于替用户打断一件本来不需要他动手的事。 */
+  if (live && flowId && !reloginAutoLive(flowId)) api("relogin_cancel", flowId).catch(() => {});
 }
 
 /* 后端的拒绝统一说人话；plan_late 单独一句「现在来不及」 */
@@ -450,7 +460,8 @@ function receiveReloginState(payload) {
   }
   /* 顶栏「自动登录中…」：这一场是电脑自动发起的、还在进行就亮，结束或转人工就收
    * （架构方案 4.3；转人工以后要让「登录已失效」和重新登录入口回来） */
-  const auto = String(data.origin || "") === "auto" && !!data.live && !handoff;
+  const auto = String(data.origin || "") === "auto" && !!data.live && !handoff
+    && !(S.login && S.login.result === "valid");   /* 学校已确认有效，旧快照重放不再亮 */
   if (auto !== !!S.autoLogin) {
     S.autoLogin = auto;
     paintLogin();
