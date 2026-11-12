@@ -1,0 +1,262 @@
+{
+  "generated_at": "2026-11-12T11:16:50+08:00",
+  "scenes": [
+    {
+      "scene": "A",
+      "scene_name": "file:// 直接加载，无 http_server",
+      "http_server": false,
+      "http_host": null,
+      "http_port": null,
+      "pywebview_ready_fired": true,
+      "final_snapshot": {
+        "runOrder": [
+          "legacy-top",
+          "leaf-top",
+          "chain-top",
+          "main-top",
+          "dom-load-fired",
+          "pywebview-appeared-after-100ms",
+          "running-bridge-tests",
+          "js-called-python-ping:42→[object Promise]",
+          "legacyGlobal.foo-called",
+          "main-called-legacy-foo:legacy-foo-ok",
+          "main-called-legacy-frontend-initiated:legacy-foo-ok",
+          "legacyGlobal.foo-called",
+          "main-called-legacy-foo:legacy-foo-ok",
+          "legacy-called-module-frontend-initiated:legacy-foo-ok"
+        ],
+        "bridgeResults": {
+          "pingResult": {},
+          "moduleCallLegacy": "legacy-foo-ok",
+          "legacyCallModule": "legacy-foo-ok"
+        },
+        "errors": [],
+        "legacyGlobalExists": true,
+        "apiBridgeMainExists": true,
+        "apiBridgeChainExists": true,
+        "apiBridgeLeafExists": true,
+        "pywebviewAvailable": true
+      },
+      "js_to_python_ping_calls": [
+        {
+          "val": 42,
+          "ts": 1794453386.049459
+        }
+      ],
+      "python_to_js_pongFromPython": {
+        "result": null,
+        "error": null
+      },
+      "legacy_call_foo": {
+        "result": null,
+        "error": null
+      },
+      "module_call_legacyFoo": {
+        "result": null,
+        "error": null
+      },
+      "errors_from_frontend": [],
+      "_log_tail": "[scene-A] on_ready → events.loaded\n[scene-A] → <仓库根>/design/evidence/2026-11-12/esm-spike/desktop/result-A.json\n"
+    },
+    {
+      "scene": "B",
+      "scene_name": "http_server=True，仅加载检查",
+      "http_server": true,
+      "http_host": "127.0.0.1",
+      "http_port": 4377,
+      "pywebview_ready_fired": true,
+      "final_snapshot": {
+        "runOrder": [
+          "legacy-top",
+          "leaf-top",
+          "chain-top",
+          "main-top",
+          "dom-load-fired",
+          "pywebview-appeared-after-100ms",
+          "running-bridge-tests",
+          "js-called-python-ping:42→[object Promise]",
+          "legacyGlobal.foo-called",
+          "main-called-legacy-foo:legacy-foo-ok",
+          "main-called-legacy-frontend-initiated:legacy-foo-ok",
+          "legacyGlobal.foo-called",
+          "main-called-legacy-foo:legacy-foo-ok",
+          "legacy-called-module-frontend-initiated:legacy-foo-ok"
+        ],
+        "bridgeResults": {
+          "pingResult": {},
+          "moduleCallLegacy": "legacy-foo-ok",
+          "legacyCallModule": "legacy-foo-ok"
+        },
+        "errors": [],
+        "legacyGlobalExists": true,
+        "apiBridgeMainExists": true,
+        "apiBridgeChainExists": true,
+        "apiBridgeLeafExists": true,
+        "pywebviewAvailable": true
+      },
+      "js_to_python_ping_calls": [
+        {
+          "val": 42,
+          "ts": 1794453390.4637713
+        }
+      ],
+      "python_to_js_pongFromPython": {
+        "result": null,
+        "error": null
+      },
+      "legacy_call_foo": {
+        "result": null,
+        "error": null
+      },
+      "module_call_legacyFoo": {
+        "result": null,
+        "error": null
+      },
+      "errors_from_frontend": [],
+      "socket_bind_test": {
+        "port_released": true
+      },
+      "lan_access": {
+        "lan_connectable": false,
+        "lan_ip": "100.69.87.34",
+        "error": "timed out"
+      },
+      "_log_tail": "[httpd] serving <仓库根>/design/evidence/2026-11-12/esm-spike/desktop/web → http://127.0.0.1:4377/\n[scene-B] on_ready → events.loaded\n127.0.0.1 - - [12/Nov/2026 11:16:30] \"GET / HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:30] \"GET /legacy.js HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:30] \"GET /main.mjs HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:30] \"GET /chain.mjs HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:30] \"GET /leaf.mjs HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:30] code 404, message File not found\n127.0.0.1 - - [12/Nov/2026 11:16:30] \"GET /favicon.ico HTTP/1.1\" 404 -\n[scene-B] → <仓库根>/design/evidence/2026-11-12/esm-spike/desktop/result-B.json\n"
+    },
+    {
+      "scene": "C",
+      "scene_name": "桥接测试（只在 http_server 下）",
+      "http_server": true,
+      "http_host": "127.0.0.1",
+      "http_port": 3542,
+      "pywebview_ready_fired": true,
+      "final_snapshot": {
+        "runOrder": [
+          "legacy-top",
+          "leaf-top",
+          "chain-top",
+          "main-top",
+          "dom-load-fired",
+          "main-pong-from-python:hello-from-python",
+          "pywebview-appeared-after-100ms",
+          "running-bridge-tests",
+          "js-called-python-ping:42→[object Promise]",
+          "legacyGlobal.foo-called",
+          "main-called-legacy-foo:legacy-foo-ok",
+          "main-called-legacy-frontend-initiated:legacy-foo-ok",
+          "legacyGlobal.foo-called",
+          "main-called-legacy-foo:legacy-foo-ok",
+          "legacy-called-module-frontend-initiated:legacy-foo-ok"
+        ],
+        "bridgeResults": {
+          "lastPongFromPython": "hello-from-python",
+          "pingResult": {},
+          "moduleCallLegacy": "legacy-foo-ok",
+          "legacyCallModule": "legacy-foo-ok"
+        },
+        "errors": [],
+        "legacyGlobalExists": true,
+        "apiBridgeMainExists": true,
+        "apiBridgeChainExists": true,
+        "apiBridgeLeafExists": true,
+        "pywebviewAvailable": true
+      },
+      "js_to_python_ping_calls": [
+        {
+          "val": 42,
+          "ts": 1794453397.955917
+        }
+      ],
+      "python_to_js_pongFromPython": {
+        "result": "pong-ok:hello-from-python",
+        "error": null
+      },
+      "legacy_call_foo": {
+        "result": null,
+        "error": null
+      },
+      "module_call_legacyFoo": {
+        "result": null,
+        "error": null
+      },
+      "errors_from_frontend": [],
+      "socket_bind_test": {
+        "port_released": true
+      },
+      "lan_access": {
+        "lan_connectable": false,
+        "lan_ip": "100.69.87.34",
+        "error": "timed out"
+      },
+      "_log_tail": "[httpd] serving <仓库根>/design/evidence/2026-11-12/esm-spike/desktop/web → http://127.0.0.1:3542/\n[scene-C] on_ready → events.loaded\n127.0.0.1 - - [12/Nov/2026 11:16:37] \"GET / HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:37] \"GET /legacy.js HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:37] \"GET /main.mjs HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:37] \"GET /chain.mjs HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:37] \"GET /leaf.mjs HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:37] code 404, message File not found\n127.0.0.1 - - [12/Nov/2026 11:16:37] \"GET /favicon.ico HTTP/1.1\" 404 -\n[scene-C] → <仓库根>/design/evidence/2026-11-12/esm-spike/desktop/result-C.json\n"
+    },
+    {
+      "scene": "D",
+      "scene_name": "新旧混用（http_server=True）",
+      "http_server": true,
+      "http_host": "127.0.0.1",
+      "http_port": 13881,
+      "pywebview_ready_fired": true,
+      "final_snapshot": {
+        "runOrder": [
+          "legacy-top",
+          "leaf-top",
+          "chain-top",
+          "main-top",
+          "dom-load-fired",
+          "legacyGlobal.foo-called",
+          "legacyGlobal.foo-called",
+          "main-called-legacy-foo:legacy-foo-ok",
+          "pywebview-appeared-after-100ms",
+          "running-bridge-tests",
+          "js-called-python-ping:42→[object Promise]",
+          "legacyGlobal.foo-called",
+          "main-called-legacy-foo:legacy-foo-ok",
+          "main-called-legacy-frontend-initiated:legacy-foo-ok",
+          "legacyGlobal.foo-called",
+          "main-called-legacy-foo:legacy-foo-ok",
+          "legacy-called-module-frontend-initiated:legacy-foo-ok"
+        ],
+        "bridgeResults": {
+          "moduleCallLegacy": "legacy-foo-ok",
+          "pingResult": {},
+          "legacyCallModule": "legacy-foo-ok"
+        },
+        "errors": [],
+        "legacyGlobalExists": true,
+        "apiBridgeMainExists": true,
+        "apiBridgeChainExists": true,
+        "apiBridgeLeafExists": true,
+        "pywebviewAvailable": true
+      },
+      "js_to_python_ping_calls": [
+        {
+          "val": 42,
+          "ts": 1794453404.7631114
+        }
+      ],
+      "python_to_js_pongFromPython": {
+        "result": null,
+        "error": null
+      },
+      "legacy_call_foo": {
+        "result": "legacy-foo-ok",
+        "error": null
+      },
+      "module_call_legacyFoo": {
+        "result": "legacy-foo-ok",
+        "error": null
+      },
+      "errors_from_frontend": [],
+      "socket_bind_test": {
+        "port_released": true
+      },
+      "lan_access": {
+        "lan_connectable": false,
+        "lan_ip": "100.69.87.34",
+        "error": "timed out"
+      },
+      "_log_tail": "[httpd] serving <仓库根>/design/evidence/2026-11-12/esm-spike/desktop/web → http://127.0.0.1:13881/\n[scene-D] on_ready → events.loaded\n127.0.0.1 - - [12/Nov/2026 11:16:44] \"GET / HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:44] \"GET /legacy.js HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:44] \"GET /main.mjs HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:44] \"GET /chain.mjs HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:44] \"GET /leaf.mjs HTTP/1.1\" 200 -\n127.0.0.1 - - [12/Nov/2026 11:16:44] code 404, message File not found\n127.0.0.1 - - [12/Nov/2026 11:16:44] \"GET /favicon.ico HTTP/1.1\" 404 -\n[scene-D] → <仓库根>/design/evidence/2026-11-12/esm-spike/desktop/result-D.json\n"
+    }
+  ]
+}

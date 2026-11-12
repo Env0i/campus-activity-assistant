@@ -1,0 +1,82 @@
+============================================================
+ESM Feasibility Spike —— 桌面样机结论
+日期：2026-11-12
+样机只回答 V1–V4，不涉及产品代码迁移
+============================================================
+
+——— 场景 A: file:// 直接加载，无 http_server ———
+  http_server = False
+  runOrder = ['legacy-top', 'leaf-top', 'chain-top', 'main-top',
+              'dom-load-fired', 'pywebview-appeared-after-100ms',
+              'running-bridge-tests', 'js-called-python-ping:42→Promise',
+              'legacyGlobal.foo-called', 'main-called-legacy-foo:legacy-foo-ok',
+              'main-called-legacy-frontend-initiated:legacy-foo-ok',
+              'legacyGlobal.foo-called', 'main-called-legacy-foo:legacy-foo-ok',
+              'legacy-called-module-frontend-initiated:legacy-foo-ok']
+  legacy.js / main.mjs / chain.mjs / leaf.mjs 顶层执行 : 全部 True
+  → import 链 main→chain→leaf 完整走通 ✅
+  pywebview 在 DOM load 后约 100ms 注入 window.pywebview
+  JS→Python ping(42) : 已调用，Python 端收到 val=42 ✅
+    （注意：pywebview 6.x js_api 返回 Promise，前端要 await 才能拿到 84）
+  执行顺序 legacy(0) < main(3) — 符合预期 ✅
+
+——— 场景 B: http_server=True，仅加载检查 ———
+  HTTP server = 127.0.0.1:4377（自己起的标准库 http.server，绕开 pywebview 内置 bug）
+  所有脚本/模块顶层执行 : 全部 True
+  → import 链完整走通 ✅
+  JS→Python ping(42) : Python 收到 val=42 ✅
+  端口释放 : True ✅
+  局域网可访问 : False（只绑定 127.0.0.1）✅
+
+——— 场景 C: 桥接测试 ———
+  HTTP server = 127.0.0.1:3542
+  runOrder 里 Python→JS 成功: main-pong-from-python:hello-from-python → "pong-ok:hello-from-python" ✅
+  JS→Python ping(42) : Python 收到 val=42 ✅
+  模块顶层执行 : 全部 True ✅
+  端口释放 : True
+
+——— 场景 D: 新旧混用 ———
+  HTTP server = 127.0.0.1:13881
+  Python 主动调：legacyGlobal.foo() → "legacy-foo-ok" ✅
+  Python 主动调：apiBridgeMain.callLegacyFoo() → "legacy-foo-ok" ✅
+  前端主动调：legacy→module 互调 ✅
+  前端主动调：module→legacy 互调 ✅
+  执行顺序 legacy(0) < main(3) ✅
+  端口释放 : True
+
+============================================================
+总体判断
+============================================================
+
+V1 桌面加载
+  结论：可行
+  file:// 和 http server 两种方式下 ES Modules 都能正常加载并完整执行 import 链。
+  engineering-refactor.md 里"WebView2 会拦截本地文件里的模块脚本"的假设是错的
+  （至少 pywebview 6.2.1 + WebView2 下不成立）。
+
+V2 桥接
+  结论：可行
+  Python→JS 通道（evaluate_js 调模块暴露在 window 上的方法）正常。
+  JS→Python 通道（js_api 方法）正常，Python 端能收到参数。
+  注意 pywebview 6.x 的 js_api 返回 Promise，前端要 await 才能拿到返回值。
+
+V3 新旧混用
+  结论：可行
+  普通脚本（type=text/javascript）在 DOM 解析阶段立即执行，
+  模块脚本（type="module"）等 DOM 解析完 + 所有依赖下载完才执行。
+  顺序 legacy < main 稳定。
+  两边都挂到 window 上后能互相调通。
+
+V4 HTTP 服务
+  结论：可行（用自己的 server）
+  pywebview 6.2.1 内置 http_server=True 有 Bottle 签名不匹配 bug，
+  必须自己起 Python 标准库 http.server。
+  自己的 server 默认绑定 127.0.0.1，局域网访问超时，端口退出后自动释放。
+
+三个 deviation 供 Codex 审阅：
+  D1. pywebview 6.2.1 内置 http_server 有 bug（Bottle.asset 签名不匹配），
+      样机改用 Python 标准库 http.server 绕开。
+  D2. engineering-refactor.md 里"WebView2 会拦截 file:// 下的模块脚本"假设错误，
+      需回改该文件。
+  D3. pywebview 6.x js_api 方法返回 Promise，前端要 await 才能拿到返回值，
+      与本地现有 app.py Api 调用模式（假设同步返回）有差异。

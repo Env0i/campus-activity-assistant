@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>ESM Spike — 四场景共用</title>
+</head>
+<body>
+<div id="status">spike page loaded — 结果由 Python 收集</div>
+
+<!--
+  顺序：先普通脚本（legacy.js，text/javascript），再模块脚本（main.mjs）。
+  浏览器保证普通脚本同步执行完后再开始加载模块脚本，
+  所以 legacy 的顶层代码一定先于 main/chain/leaf 的顶层代码。
+
+  场景 A（file://）WebView2 可能拦截 type="module" 的脚本——这正是要验证的。
+  场景 B/C/D（http_server）模块应该能正常加载。
+-->
+<script src="legacy.js"></script>
+<script type="module" src="main.mjs"></script>
+</body>
+</html>

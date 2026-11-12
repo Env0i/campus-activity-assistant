@@ -1,0 +1,56 @@
+{
+  "scene": "A",
+  "scene_name": "file:// 直接加载，无 http_server",
+  "http_server": false,
+  "http_host": null,
+  "http_port": null,
+  "pywebview_ready_fired": true,
+  "final_snapshot": {
+    "runOrder": [
+      "legacy-top",
+      "leaf-top",
+      "chain-top",
+      "main-top",
+      "dom-load-fired",
+      "pywebview-appeared-after-100ms",
+      "running-bridge-tests",
+      "js-called-python-ping:42→[object Promise]",
+      "legacyGlobal.foo-called",
+      "main-called-legacy-foo:legacy-foo-ok",
+      "main-called-legacy-frontend-initiated:legacy-foo-ok",
+      "legacyGlobal.foo-called",
+      "main-called-legacy-foo:legacy-foo-ok",
+      "legacy-called-module-frontend-initiated:legacy-foo-ok"
+    ],
+    "bridgeResults": {
+      "pingResult": {},
+      "moduleCallLegacy": "legacy-foo-ok",
+      "legacyCallModule": "legacy-foo-ok"
+    },
+    "errors": [],
+    "legacyGlobalExists": true,
+    "apiBridgeMainExists": true,
+    "apiBridgeChainExists": true,
+    "apiBridgeLeafExists": true,
+    "pywebviewAvailable": true
+  },
+  "js_to_python_ping_calls": [
+    {
+      "val": 42,
+      "ts": 1794453386.049459
+    }
+  ],
+  "python_to_js_pongFromPython": {
+    "result": null,
+    "error": null
+  },
+  "legacy_call_foo": {
+    "result": null,
+    "error": null
+  },
+  "module_call_legacyFoo": {
+    "result": null,
+    "error": null
+  },
+  "errors_from_frontend": []
+}

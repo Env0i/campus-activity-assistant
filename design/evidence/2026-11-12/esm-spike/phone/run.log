@@ -1,0 +1,29 @@
+[phone-spike] web_dir = <仓库根>/design/evidence/2026-11-12/esm-spike/phone/web
+[phone-spike] web_dir exists = True
+[phone-spike] httpd listening on 127.0.0.1:5569
+[phone-spike] urllib GET /main.mjs → 200
+[phone-spike]   header: Server: phone-spike 
+[phone-spike]   header: Date: Thu, 12 Nov 2026 03:25:25 GMT
+[phone-spike]   header: Content-type: text/javascript; charset=utf-8
+[phone-spike]   header: Content-Length: 2971
+[phone-spike]   header: Last-Modified: Thu, 12 Nov 2026 03:21:47 GMT
+[phone-spike]   header: Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'
+[phone-spike]   header: X-Content-Type-Options: nosniff
+[phone-spike]   header: Referrer-Policy: no-referrer
+[phone-spike]   header: Cache-Control: no-store
+[phone-spike] CSP present in headers = True
+[phone-spike] X-Content-Type-Options: nosniff = True
+[phone-spike] pywebview opening http://127.0.0.1:5569/
+[phone-spike] pywebview window loaded
+[phone-spike] webview.start() returned
+[phone-spike] pywebview_ready_fired = True
+[phone-spike] runOrder = ['legacy-top', 'leaf-top', 'chain-top', 'main-top', 'dom-load-fired', 'pywebview-appeared-after-100ms']
+[phone-spike] legacy-top in runOrder = True
+[phone-spike] leaf-top in runOrder   = True
+[phone-spike] chain-top in runOrder  = True
+[phone-spike] main-top in runOrder   = True
+[phone-spike] shutting down HTTP server
+[phone-spike] port 127.0.0.1:5569 re-bind test = True
+[phone-spike] LAN IP = 100.69.87.34
+[phone-spike] LAN connect test rc = 10035 (0=通, 非0=不通)
+[phone-spike] wrote <仓库根>/design/evidence/2026-11-12/esm-spike/phone/phone-result.json

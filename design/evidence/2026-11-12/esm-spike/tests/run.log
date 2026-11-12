@@ -1,0 +1,142 @@
+﻿=== Part A: 递归 import 解析 ===
+
+入口: app.mjs
+去重后共 4 个模块
+
+依赖图（箭头表示 import 关系，下游先）:
+  utils.mjs  (叶子)
+  state.mjs  <- [utils.mjs]
+  views.mjs  <- [utils.mjs]
+  app.mjs  <- [state.mjs, views.mjs]
+
+--- 源码块（按拓扑顺序） ---
+
+>>> FILE: utils.mjs
+// utils.mjs — 叶子模块，state 和 views 都依赖它
+export function formatActivityName(raw) {
+  if (!raw) return '';
+  return raw.trim().replace(/\s+/g, ' ');
+}
+
+export function padDate(d) {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+export const VERSION = '1.0.0';
+<<< END
+
+>>> FILE: state.mjs
+// state.mjs — 模拟产品 state 模块，管理活动列表
+import { formatActivityName, VERSION } from './utils.mjs';
+
+const activities = [];
+
+export function addActivity(raw) {
+  const name = formatActivityName(raw?.name);
+  if (!name) return null;
+  const item = { id: activities.length + 1, name, signed: false };
+  activities.push(item);
+  return item;
+}
+
+export function listActivities() {
+  return activities.slice();
+}
+
+export function getStateVersion() {
+  return VERSION;
+}
+<<< END
+
+>>> FILE: views.mjs
+// views.mjs — 模拟产品 views 模块，操作 DOM
+import { formatActivityName } from './utils.mjs';
+
+export function renderCards(container, items) {
+  if (!container) return 0;
+  container.innerHTML = '';
+  let count = 0;
+  for (const item of items) {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.dataset.id = String(item.id);
+    div.textContent = formatActivityName(item.name);
+    container.appendChild(div);
+    count++;
+  }
+  return count;
+}
+
+export function showTitle(text) {
+  const el = document.getElementById('app-title');
+  if (el) el.textContent = text;
+}
+<<< END
+
+>>> FILE: app.mjs
+// app.mjs — 入口模块
+import { addActivity, listActivities, getStateVersion } from './state.mjs';
+import { renderCards, showTitle } from './views.mjs';
+
+export function init() {
+  // 构造几块假数据
+  addActivity({ name: '  春季运动会 ' });
+  addActivity({ name: '  学术讲座  ' });
+
+  // 操作 DOM
+  document.body.innerHTML = '<h1 id="app-title"></h1><div id="card-root"></div>';
+  showTitle('活动列表 v' + getStateVersion());
+
+  const root = document.getElementById('card-root');
+  const count = renderCards(root, listActivities());
+
+  // 返回一个结构化结果供断言
+  return {
+    activityCount: count,
+    titleText: document.getElementById('app-title')?.textContent || '',
+    bodyHTML: document.body.innerHTML,
+  };
+}
+<<< END
+
+--- 文本断言 ---
+  [PASS] formatActivityName 函数签名存在
+  [PASS] renderCards 函数签名存在
+  [PASS] utils.mjs 中包含 VERSION 常量
+  [PASS] app.mjs 顶层有 document.body.innerHTML 赋值
+  [PASS] state.mjs 直接 import 了 utils.mjs
+  [PASS] 不存在假字符串 "__NO_SUCH_FUNCTION__"
+
+Part A 断言: 6 通过 / 0 失败
+
+
+=== Part B: 动态 import + 行为断言 ===
+
+已注入 mock DOM 到 globalThis
+globalThis.document === globalThis.window.document -> true
+尝试动态 import app.mjs ...
+动态 import 成功，导出项: init
+
+调用 app.init() ...
+init() 返回: {
+  "activityCount": 2,
+  "titleText": "活动列表 v1.0.0",
+  "bodyHTML": "<h1 id=\"app-title\"></h1><div id=\"card-root\"></div>"
+}
+
+--- 行为断言 ---
+  [PASS] document.body.innerHTML 包含 <h1 id="app-title">
+  [PASS] document.body.innerHTML 包含 <div id="card-root">
+  [PASS] init() 返回 activityCount = 2
+  [PASS] init() 返回 titleText 包含 "活动列表 v1.0.0"
+  [PASS] getElementById("app-title") 存在并能读到 textContent
+  [PASS] getElementById("card-root") 存在
+
+Part B 断言: 6 通过 / 0 失败
+
+
+========== 总结 ==========
+Part A: 6/6 通过，共 4 个模块
+Part B: import 成功，6/6 通过

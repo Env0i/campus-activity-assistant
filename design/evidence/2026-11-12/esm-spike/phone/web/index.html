@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>ESM Phone Spike — 安全头下的模块加载</title>
+</head>
+<body>
+<div id="status">phone spike loading — 结果由 Python 收集</div>
+
+<!--
+  顺序：先普通脚本（legacy.js，text/javascript），再模块脚本（main.mjs）。
+  目的：在 phone_http.py 的安全头（CSP script-src 'self' + nosniff）下
+  验证 ES Modules 完整 import 链能否正常加载并执行。
+-->
+<script src="legacy.js"></script>
+<script type="module" src="main.mjs"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+============================================================
+ESM Phone Spike —— 手机页安全头下的模块加载结论
+日期：2026-11-12
+只回答 V5：phone_http.py 安全头 + ES Modules
+============================================================
+
+V5 结论: 可行（CSP script-src 'self' + nosniff 下 ES Modules 完整加载）
+
+关键证据:
+  - server: 127.0.0.1:5569（自己起的标准库 http.server）
+  - CSP 实际下发: True
+  - X-Content-Type-Options: nosniff 实际下发: True
+  - CSP 值: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'
+  - pywebview window loaded: True
+  - legacy.js 顶层执行: True
+  - leaf.mjs 顶层执行: True
+  - chain.mjs 顶层执行: True
+  - main.mjs 顶层执行: True
+  - runOrder = ['legacy-top', 'leaf-top', 'chain-top', 'main-top', 'dom-load-fired', 'pywebview-appeared-after-100ms']
+  - LAN IP = 100.69.87.34
+  - LAN connect rc = 10035 (0=通, 非0=不通)
+  - 端口释放 = True
+
+============================================================
+PHONE_STATIC 白名单扩展方案
+============================================================
+
+现状：phone_http.py 的 PHONE_STATIC 是手工登记的路径白名单：
+  /, /index.html, /styles.css, /app.js, /favicon.ico,
+  /apple-touch-icon.png
+
+如果前端改用 ES Modules（import 链 main.mjs → chain.mjs → leaf.mjs），
+PHONE_STATIC 需要新增的静态资源路径：
+
+  方式一：手工登记（当前方案的自然延伸）
+    /main.mjs → main.mjs, text/javascript; charset=utf-8
+    /chain.mjs → chain.mjs, text/javascript; charset=utf-8
+    /leaf.mjs → leaf.mjs, text/javascript; charset=utf-8
+    后续每新增 .mjs 文件（含共享工具模块如 /utils.mjs, /state.mjs 等）都
+    要在 PHONE_STATIC 加一条映射。
+
+  方式二：按扩展名放行（更灵活但放弃部分严格性）
+    在 do_GET 里加一个 if path.endswith('.mjs') 分支，
+    直接从 ui_dir 读文件（需额外防止路径穿越——仍然只允许 .mjs 后缀，
+    且必须 resolve() 后确认在 ui_dir 内）。
+    类似地，.js 文件（旧普通脚本）也可以走同一分支。
+
+  方式三：混合（推荐）
+    保留 PHONE_STATIC 映射用于 index.html / favicon 这种精确路径；
+    新增一个 if path.endswith(('.mjs', '.js', '.css', '.svg')) 分支
+    放行前端资产目录内的文件（resolve() + 路径边界校验）。
+    好处：import 链里出现任何新 .mjs 都能被自动发现，不用改 Python。
+    风险：如果前端打包产物里混入敏感文件（极不可能），需要额外检查。
+
+自动发现的边界条件：
+  - import 语句里的模块路径是相对于当前 .mjs 文件的，浏览器会自动发起
+    HTTP GET；server 只要允许 .mjs 后缀的文件就够了，不需要 Python 去解析
+    ES import 语句——浏览器自己负责。
+  - 路径穿越防护仍然不能松：resolve() 后必须确认在 ui_dir.resolve() 下。

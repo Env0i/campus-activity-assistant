@@ -1,0 +1,10 @@
+[httpd] serving <仓库根>/design/evidence/2026-11-12/esm-spike/desktop/web → http://127.0.0.1:4377/
+[scene-B] on_ready → events.loaded
+127.0.0.1 - - [12/Nov/2026 11:16:30] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [12/Nov/2026 11:16:30] "GET /legacy.js HTTP/1.1" 200 -
+127.0.0.1 - - [12/Nov/2026 11:16:30] "GET /main.mjs HTTP/1.1" 200 -
+127.0.0.1 - - [12/Nov/2026 11:16:30] "GET /chain.mjs HTTP/1.1" 200 -
+127.0.0.1 - - [12/Nov/2026 11:16:30] "GET /leaf.mjs HTTP/1.1" 200 -
+127.0.0.1 - - [12/Nov/2026 11:16:30] code 404, message File not found
+127.0.0.1 - - [12/Nov/2026 11:16:30] "GET /favicon.ico HTTP/1.1" 404 -
+[scene-B] → <仓库根>/design/evidence/2026-11-12/esm-spike/desktop/result-B.json

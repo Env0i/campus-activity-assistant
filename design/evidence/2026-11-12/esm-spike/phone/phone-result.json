@@ -1,0 +1,55 @@
+{
+  "http_headers_actual": {
+    "Server": "phone-spike ",
+    "Date": "Thu, 12 Nov 2026 03:25:25 GMT",
+    "Content-type": "text/javascript; charset=utf-8",
+    "Content-Length": "2971",
+    "Last-Modified": "Thu, 12 Nov 2026 03:21:47 GMT",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cache-Control": "no-store"
+  },
+  "csp_present": true,
+  "nosniff_present": true,
+  "modules_executed": [
+    "legacy-top",
+    "leaf-top",
+    "chain-top",
+    "main-top",
+    "dom-load-fired",
+    "pywebview-appeared-after-100ms"
+  ],
+  "module_error": null,
+  "legacy_executed": true,
+  "all_modules_executed": true,
+  "leaf_executed": true,
+  "chain_executed": true,
+  "main_executed": true,
+  "lan_connect_result": 10035,
+  "lan_ip": "100.69.87.34",
+  "port_released": true,
+  "server_bind_host": "127.0.0.1",
+  "server_bind_port": 5569,
+  "pywebview_ready_fired": true,
+  "js_snapshot": {
+    "runOrder": [
+      "legacy-top",
+      "leaf-top",
+      "chain-top",
+      "main-top",
+      "dom-load-fired",
+      "pywebview-appeared-after-100ms"
+    ],
+    "errors": [],
+    "legacyExecuted": true,
+    "mainExecuted": true,
+    "chainExecuted": true,
+    "leafExecuted": true,
+    "legacyGlobalExists": true,
+    "apiBridgeMainExists": true,
+    "apiBridgeChainExists": true,
+    "apiBridgeLeafExists": true,
+    "pywebviewAvailable": true
+  }
+}

@@ -1,0 +1,112 @@
+# ESM 测试工具样机 — 运行摘要
+
+日期：2026-11-12
+Node 版本：v24.16.0 (Windows)
+工作目录：design/evidence/2026-11-12/esm-spike/tests/
+
+---
+
+## 演示文件
+
+| 文件 | 作用 |
+|---|---|
+| harness.mjs | 主脚本，Part A + Part B |
+| app.mjs | 入口演示模块，import state + views |
+| state.mjs | 模拟 state 模块，import utils |
+| views.mjs | 模拟 views 模块，import utils |
+| utils.mjs | 叶子模块，无 import |
+
+依赖图：
+```
+utils.mjs  ←  state.mjs  ←┐
+          ←  views.mjs  ←─ app.mjs
+```
+（utils 被 state 和 views 同时 import，演示去重场景）
+
+---
+
+## Part A：递归 import 解析
+
+**命令**：`node harness.mjs`（无额外 flag）
+
+**做法**：
+1. 从入口 `app.mjs` 开始读源码
+2. 正则 `import\s+...\s+from\s+['"]([^'"]+)['"]` 提取本地相对 import
+3. 递归解析，用 Map 按绝对路径去重
+4. Kahn 拓扑排序（叶子先、根后）输出源码块
+5. 在聚合源码上做文本断言（正则匹配）
+
+**结果**：
+- 去重后 4 个模块（和预期一致）
+- 拓扑顺序正确：utils → state + views → app
+- 文本断言 6/6 通过：
+  - formatActivityName 函数签名存在 ✓
+  - renderCards 函数签名存在 ✓
+  - utils.mjs 含 VERSION 常量 ✓
+  - app.mjs 有 document.body.innerHTML 赋值 ✓
+  - state.mjs 直接 import utils.mjs ✓
+  - 假字符串 "__NO_SUCH_FUNCTION__" 不存在 ✓
+
+**结论**：Part A 可行。递归 import + 去重 + 拓扑排序替代了 read_ui_scripts() 的"按顺序拼接脚本"思路。不需要任何依赖，简单正则够用。
+
+---
+
+## Part B：注入 mock DOM + 动态 import + 行为断言
+
+**命令**：`node harness.mjs`（无额外 flag）
+
+**做法**：
+1. 构造极简 mock：globalThis.document / globalThis.window 互相指向，实现 createElement、appendChild、getElementById、querySelector（返回 null）、addEventListener、setTimeout（真的）、body.innerHTML 读写、元素 textContent / innerHTML / className / dataset
+2. `await import('file:///<绝对路径>/app.mjs')` 动态 import 入口模块
+3. 调 app.init()，它操作 mock DOM（设置 body.innerHTML、调 createElement + appendChild）
+4. 断言 DOM 最终状态和返回值
+
+**结果**：
+- 动态 import 直接成功，**不需要 --experimental-vm-modules**（原生 ESM 动态 import，不是 vm.SourceTextModule）
+- init() 正常执行，返回 activityCount: 2, titleText: "活动列表 v1.0.0"
+- 行为断言 6/6 通过：
+  - body.innerHTML 含 `<h1 id="app-title">` ✓
+  - body.innerHTML 含 `<div id="card-root">` ✓
+  - activityCount = 2 ✓
+  - titleText 正确 ✓
+  - getElementById("app-title") 存在 ✓
+  - getElementById("card-root") 存在 ✓
+
+**结论**：Part B 可行。Node v24 下原生 ESM 动态 import + 在 import 前注入 minimal mock DOM 就能跑行为断言，**不需要 jsdom / happy-dom / --experimental-vm-modules**。
+
+注意 mock 极简：body.innerHTML setter 触发 id 哈希表重建，createElement 返回带 appendChild 的对象。元素 textContent setter 只设内部值不反向同步 HTML 字符串（这是 mock 的简化——真实 DOM 也不建议反向同步 innerHTML 字符串）。
+
+---
+
+## 总结
+
+| 维度 | Part A（递归读源码） | Part B（动态 import + mock） |
+|---|---|---|
+| Node flags | 无 | 无 |
+| 依赖 | 零 | 零 |
+| 测试类型 | 契约断言（正则匹配） | 行为断言（调函数看 DOM 结果） |
+| 断言数 | 6/6 通过 | 6/6 通过 |
+| 替代 | read_ui_scripts() | run_phone_js（沙箱回放） |
+| 复杂度 | 低（正则 + 文件 IO） | 中（需要 mock DOM 基础） |
+
+**结论**：前端改 ESM 后，Python 端的两种测试思路都可以在 Node 侧找到等价方案。Part A 适合做模块结构/导出签名断言，Part B 适合做 DOM 操作行为断言。两者都不需要 npm install 任何包。
+
+---
+
+## 遇到的小坑（deviations）
+
+1. **global 正则闭包陷阱**：rebuildFromBodyHTML 里 while 循环的 `m` 是单个变量，所有 fakeEl 的 setter 闭包共享它。循环结束后 m 是最后一次匹配值。第一次写的 textContent setter 用 m[1] 来定位 id，结果所有 fakeEl 都拿到同一个 id。**修复**：在循环体内 `const idValue = m[1]` 立即捕获，setter 里不再引用 m。
+
+2. **global 正则 lastIndex**：`/pattern/g` 正则实例有 lastIndex 状态。每次 rebuildFromBodyHTML 都重新声明 `const idRe = /.../g`，新实例 lastIndex = 0，所以没问题。
+
+3. **fakeEl 方法缺失**：第一次只给 createElement 返回的 el 加了 appendChild，没给 rebuildFromBodyHTML 里从 body.innerHTML 解析出来的 fakeEl 加，导致 renderCards 里 container.appendChild 报 TypeError。**修复**：给 fakeEl 也加 appendChild。
+
+4. **动态 import 路径**：Windows 下用 `import('file:///<绝对路径>/app.mjs')`（反斜杠要转成正斜杠）能直接跑。用 `fileURLToPath(new URL('./app.mjs', import.meta.url))` 也是安全做法（两种都在 harness.mjs 里作为备选保留了）。
+
+5. **不需要 --experimental-vm-modules**：计划里提到 vm.SourceTextModule 可能需要 flag，但本演示用的是原生 ESM 动态 import（不是 vm 模块），所以完全不需要。
+
+---
+
+## 清理
+
+已删除中间产物 run2.log。保留 run.log 作为 harness.mjs 完整运行输出。
