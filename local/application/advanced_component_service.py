@@ -115,8 +115,14 @@ class AdvancedComponentService:
         available = bool(info.get("available"))
         self._installed = available
         if available:
+            # 磁盘上已是合格组件（含刚导入的那份）：上一次下载失败的结论作废
             self._state = "installed"
             self._version_text = str(info.get("version") or self._version() or "")
+            self._error_code = ""
+            self._text = ""
+        elif self._state in ("failed", "cancelled"):
+            # 没装好时保留这次失败/取消的结论，界面还要靠它说原因
+            pass
         elif self._state not in ("downloading", "verifying", "removing"):
             self._state = "available"
 
@@ -127,7 +133,8 @@ class AdvancedComponentService:
 
     def snapshot(self) -> dict:
         with self._lock:
-            if not self._active and self._state in ("available", "installed", "missing"):
+            # 空闲态一律回读磁盘：导入/手动装好后不能停在旧的 failed（红条会一直挂着）
+            if not self._active:
                 self._refresh_idle_state()
             state = self._state
             return {
@@ -245,8 +252,13 @@ class AdvancedComponentService:
             if self._cancelled():
                 return
             if not resolved.get("ok"):
-                self._fail(str(resolved.get("error") or "no_component"),
-                           str(resolved.get("text") or "这个版本没有发布组件包。"))
+                code = str(resolved.get("error") or "no_component")
+                if code == "no_component":
+                    # 发布页上没有这个版本，和「清单列了资产却没传」同一档：
+                    # 统一报 not_published，界面才说得出「发布页上还没有这个版本的组件包」
+                    self._fail("not_published", _NOT_PUBLISHED_TEXT)
+                else:
+                    self._fail(code, str(resolved.get("text") or "这个版本没有发布组件包。"))
                 return
             if isinstance(resolved.get("assets"), list):
                 try:

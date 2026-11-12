@@ -1907,8 +1907,21 @@ class AdvancedComponentServiceTests(unittest.TestCase):
                                       "text": "这个版本没有发布组件包。"})
         service.start()
         snap = self._wait(service, "failed")
-        self.assertEqual(snap["error_code"], "no_component")
+        # 发布页上没有这个版本统一报 not_published，界面靠它说「发布页上还没有…」
+        self.assertEqual(snap["error_code"], "not_published")
         self.assertEqual(state["installs"], [])
+
+    def test_imported_component_clears_the_download_failure_bar(self):
+        """导入装好之后红条要收：快照以磁盘为准，不能停在 failed 继续报旧原因。"""
+        service, state = self._service(
+            asset_resolver=lambda v: {"ok": False, "error": "no_component",
+                                      "text": "这个版本没有发布组件包。"})
+        service.start()
+        self.assertEqual(self._wait(service, "failed")["state"], "failed")
+        state["installed"] = True  # 用户改用「导入已下载的组件包」装好了
+        snap = service.snapshot()
+        self.assertEqual(snap["state"], "installed")
+        self.assertEqual(snap["error_code"], "")
 
     def test_cancel_during_verification_keeps_existing_component(self):
         entered, release = threading.Event(), threading.Event()
