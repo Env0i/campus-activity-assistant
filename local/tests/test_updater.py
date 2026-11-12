@@ -13,6 +13,9 @@ import json
 import os
 import zipfile
 from unittest.mock import patch
+from urllib.error import HTTPError
+import io
+from unittest.mock import patch
 
 LOCAL = Path(__file__).resolve().parents[1]
 if str(LOCAL) not in sys.path:
@@ -113,6 +116,20 @@ class DownloadTests(UpdaterDirTests):
                 updater.download_installer(bad, name=NAME, expect_bytes=len(BODY),
                                            expect_sha256=DIGEST, root=self.root)
         self.assertOldFilesIntact()
+
+    def test_http_error_reports_status_for_callers(self):
+        """I3：HTTP 错误仍是 http_error（主程序更新路径不变），但多带 http_status，
+        让组件下载能分出「资产没传（404）」与其他 HTTP 错误。"""
+        for status in (404, 500):
+            with self.subTest(status=status), patch.object(
+                    updater, "urlopen",
+                    side_effect=HTTPError(URL, status, "x", {}, io.BytesIO(b""))):
+                result = updater.download_installer(
+                    URL, name=NAME, expect_bytes=len(BODY), expect_sha256=DIGEST, root=self.root)
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["error_code"], "http_error")
+            self.assertEqual(result["http_status"], status)
+        self.assertCleanedUp()
 
     def test_bad_arguments_raise_not_swallow(self):
         base = {"name": NAME, "expect_bytes": len(BODY), "expect_sha256": DIGEST}

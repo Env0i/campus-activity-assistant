@@ -35,6 +35,20 @@ _TITLES = {"phone_control": "手机控制", "relogin_ocr": "验证码识别"}
 PROGRESS_STEP_BYTES = 1024 * 1024
 # 下载通道类失败：换单体包只会再失败一次，停在 failed 让用户重试
 _NETWORK_ERRORS = {"network_error", "timeout", "http_error", "io_error"}
+_NOT_PUBLISHED_TEXT = "发布页上还没有这个版本的组件包。"
+
+
+def _classify_download_failure(got: dict) -> tuple:
+    """组件下载失败结论：(error_code, 文案, 是否按网络失败处理)。
+
+    资产 404 表示清单列了组件、文件却没传：报 not_published，不说成网络问题；
+    仍按网络失败处理，拆分路径因此不会偷偷回退到单体包。
+    """
+    code = str(got.get("error_code") or "download_failed")
+    text = str(got.get("text") or "下载失败。")
+    if code == "http_error" and got.get("http_status") == 404:
+        return "not_published", _NOT_PUBLISHED_TEXT, True
+    return code, text, code in _NETWORK_ERRORS
 
 _STATE_TEXT = {
     "available": "可以下载组件包（约 %s）。",
@@ -263,11 +277,11 @@ class AdvancedComponentService:
                 expect_sha256=asset["sha256"], root=self._root,
                 progress=progress, cancel=lambda: self._cancel_flag)
             if not got.get("ok"):
-                code = str(got.get("error_code") or "download_failed")
+                code, text, _network = _classify_download_failure(got)
                 if code == "cancelled":
                     self._set(state="cancelled", text="", error_code="")
                 else:
-                    self._fail(code, str(got.get("text") or "下载失败。"))
+                    self._fail(code, text)
                 return
             archive = str(got.get("path") or "")
             if self._cancelled():
@@ -353,12 +367,12 @@ class AdvancedComponentService:
                 expect_sha256=asset["sha256"], root=self._root,
                 progress=progress, cancel=lambda: self._cancel_flag)
             if not got.get("ok"):
-                code = str(got.get("error_code") or "download_failed")
+                code, text, network = _classify_download_failure(got)
                 if code == "cancelled":
                     self._set(state="cancelled", text="", error_code="")
                     return "cancelled"
-                self._fail(code, str(got.get("text") or "下载失败。"))
-                return "failed" if code in _NETWORK_ERRORS else "integrity"
+                self._fail(code, text)
+                return "failed" if network else "integrity"
             archive = str(got.get("path") or "")
             try:
                 self._set(state="verifying", text="正在校验组件资产…")

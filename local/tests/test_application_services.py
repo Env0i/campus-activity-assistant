@@ -1742,6 +1742,22 @@ class AdvancedComponentServiceTests(unittest.TestCase):
             self.assertEqual(downloaded, [new_runtime.name])
             self.assertEqual(service.snapshot()["total_bytes"], runtime_meta["bytes"])
 
+    def test_asset_404_reports_not_published_not_network(self):
+        """I3：清单列了组件、资产文件却没传（下载 404）时报 not_published，
+        文案不能落成「GitHub 暂时无法响应」这类网络类说法；其他 HTTP 错误保持 http_error。"""
+        for status, expected in ((404, "not_published"), (500, "http_error")):
+            with self.subTest(status=status):
+                def download(url, *, name, status=status, **kwargs):
+                    return {"ok": False, "error_code": "http_error", "http_status": status,
+                            "text": "下载地址暂时无法响应，请稍后重试。"}
+                service, state = self._service(feature="phone_control", download=download)
+                with tempfile.TemporaryDirectory(prefix="component-404-") as tmp:
+                    state["tmp"] = tmp
+                    service._run()
+                self.assertEqual(service._state, "failed")
+                self.assertEqual(service.snapshot()["error_code"], expected)
+                self.assertEqual(state["installs"], [], "资产没下到，不得安装")
+
     def test_split_network_failure_does_not_fall_back_to_single_package(self):
         """缺陷 6：拆分资产网络失败时就停在 failed，不许偷偷改下单体包。"""
         assets = [dict(self.ASSET, artifact_id="relogin_ocr_runtime", name="runtime.zip"),

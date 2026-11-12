@@ -791,6 +791,19 @@ class DirectManifestReproTests(unittest.TestCase):
         urls = [call.args[0] for call in fetch.call_args_list]
         self.assertTrue(all("api.github.com" not in url for url in urls), urls)
 
+    def test_release_without_manifest_says_no_component_not_network(self):
+        """I3 调查：发布页上还没有这个版本（清单 404）时，组件解析落成 no_component 与「没有发布」文案，
+        不落成网络或超时文案。"""
+        api = local_app.Api.__new__(local_app.Api)
+
+        def fake_fetch(url, limit, user_agent):
+            raise HTTPError(url, 404, "", {}, io.BytesIO())
+        with patch.object(local_app._update_check, "_fetch_bytes", side_effect=fake_fetch):
+            verdict = api._resolve_component_asset("1.1.1", "phone_control")
+        self.assertFalse(verdict["ok"], verdict)
+        self.assertEqual(verdict["error"], "no_component")
+        self.assertIn("没有发布手机控制组件包", verdict["text"])
+
 
 class UnusedManifestEntryTests(unittest.TestCase):
     """U6：发布清单里新客户端用不到的文件项不合格，不能让整份清单作废。"""

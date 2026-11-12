@@ -124,8 +124,9 @@ def download_installer(url, *, name, expect_bytes, expect_sha256, root=None,
         os.replace(part, final)
         kept = True
         return {"ok": True, "path": str(final), "bytes": done, "sha256": got}
-    except HTTPError:
-        return {"ok": False, "error_code": "http_error",
+    except HTTPError as exc:
+        # http_status 只给组件下载区分「资产没传（404）」；主程序更新只看 error_code，行为不变
+        return {"ok": False, "error_code": "http_error", "http_status": int(exc.code),
                 "text": "下载地址暂时无法响应，请稍后重试。"}
     except URLError as exc:
         if isinstance(exc.reason, (TimeoutError, socket.timeout)):

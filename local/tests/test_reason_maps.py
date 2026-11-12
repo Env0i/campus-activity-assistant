@@ -30,6 +30,13 @@ class DownloadReasonMapTests(unittest.TestCase):
         self.assertTrue(py_keys, "没抽到 app.py 的键，正则需要跟着源码改")
         self.assertEqual(py_keys, js_keys)
 
+    def test_not_published_reason_is_in_both_maps(self):
+        """I3：发布页上没有组件资产时，日志与手机页都要有「未发布」原因，不能回落到网络类文案。"""
+        py = (LOCAL / "app.py").read_text(encoding="utf-8")
+        js = (LOCAL / "ui" / "views" / "phone.js").read_text(encoding="utf-8")
+        self.assertIn("not_published", _keys(py, "_DOWNLOAD_FAIL_REASONS = {", True))
+        self.assertIn("not_published", _keys(js, "const PHONE_DOWNLOAD_REASON = {", False))
+
 
 if __name__ == "__main__":
     unittest.main()

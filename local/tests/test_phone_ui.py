@@ -1206,6 +1206,15 @@ out.push({cls:$("#phone-channel-note").className, note:$("#phone-channel-note").
         self.assertEqual(tailscale["note"], "地址固定，建议在手机上存成书签，下次直接打开。")
 
 
+    def test_not_published_download_copy_says_the_release_has_no_package(self):
+        """I3：发布页上还没有这个版本的组件包时，手机页说清原因，不落成「连不上发布页」「连接超时」。"""
+        values = run_phone_js("""
+out.push(downloadFailText({state: "failed", error_code: "not_published", text: "后端原话"}));
+out.push(downloadFailText({state: "failed", error_code: "network_error", text: "后端原话"}));
+""", files=["views/phone.js"])
+        self.assertEqual(values[0], "下载没有完成：发布页上还没有这个版本的组件包，可以稍后再试，或手动下载后导入。")
+        self.assertEqual(values[1], "下载没有完成：连不上发布页，可以重试。", "其他原因不受影响")
+
 class PhoneAccessStateMachineTests(unittest.TestCase):
     """fe-phone：设置抽屉手机访问一组照原型 phView 的状态机（settings-gap 一、PH01–PH32）。"""
 

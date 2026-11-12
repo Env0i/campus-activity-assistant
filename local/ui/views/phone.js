@@ -101,13 +101,15 @@ const PHONE_DOWNLOAD_REASON = {
   http_error: "GitHub 暂时无法响应，请稍后重试",
   rate_limited: "GitHub 暂时限制了查询次数，过一会再试，或到发布页手动下载后导入",
   timeout: "连接超时",
+  not_published: "发布页上还没有这个版本的组件包，可以稍后再试，或手动下载后导入",
 };
 
 function downloadFailText(download) {
   const snap = download || {};
   const code = String(snap.error_code || "");
   const reason = PHONE_DOWNLOAD_REASON[code];
-  if (code === "rate_limited" && reason) return "下载没有完成：" + reason + "。";
+  // 限速与「发布页上还没有」的原因文案自己说了怎么办，结尾不再加「可以重试」
+  if ((code === "rate_limited" || code === "not_published") && reason) return "下载没有完成：" + reason + "。";
   if (reason) return "下载没有完成：" + reason + "，可以重试。";
   return String(snap.text || "下载没有完成，可以重试。");
 }
