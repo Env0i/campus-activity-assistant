@@ -3674,6 +3674,14 @@ class Api:
         with self._lock:
             last_check = dict(self._last_check)
         login.update(_last_check_fields(last_check))
+        # 学校判失效但电脑正在静默自动重登：手机登录行据此写「电脑正在自动重新登录」，
+        # 不出失效横幅（与桌面胶囊同口径）。只在最近一次校验是 expired 时才算，
+        # 避免每次手机轮询都去读账号和组件状态。
+        if login.get("last_check_state") == "expired":
+            try:
+                login["recovering"] = bool(self._silent_relogin_state()[0])
+            except Exception:  # noqa: BLE001 - 判据读不到就按「没在恢复」，照旧提醒
+                login["recovering"] = False
         prefs = load_prefs()
         retry_pref = prefs.get("retry_policy") if isinstance(prefs, dict) else None
         retry_pref = retry_pref if isinstance(retry_pref, dict) else {}

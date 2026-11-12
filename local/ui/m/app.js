@@ -130,9 +130,27 @@ const PhoneModel = {
         && PhoneModel.businessNowS(model) === null) return false;   // A-BUG-4
     return (model.selected || []).length > 0;
   },
-  /* 登录是否已失效（EX02）：session_expired 或快照明说没有会话；与 loginLine/ingest 同一口径 */
-  loginExpired(login) {
-    return !!login && (!!login.session_expired || login.session_present === false);
+  /* 登录是否已失效（EX02）：session_expired、快照明说没有会话，或电脑最近一次学校校验
+   * 说已失效（last_check_state=expired：本机会话文件还在也可能被学校判失效）；
+   * 与 loginLine/ingest 同一口径。 */
+  loginRaw(login) {
+    return !!login && (!!login.session_expired || login.session_present === false
+      || login.last_check_state === "expired");
+  },
+  /* 电脑这一场静默自动登录还在进行（与桌面胶囊「自动登录中」同口径）：中继里是电脑自己发起、
+   * 还在进行、没转人工的一场，或电脑快照里 recovering 为真（失效已判、中继还没起来）。
+   * 转人工（等用户输验证码）后不算。 */
+  loginRecovering(login, flow) {
+    if (flow && flow.handoff) return false;
+    const ended = flow && ["success", "failed", "canceled"].indexOf(String(flow.state || "")) >= 0;
+    if (flow && !ended && String(flow.origin || "") === "auto" && flow.live) return true;
+    return !!login && !!login.recovering;
+  },
+  /* 给 flow 时：电脑正在自动重新登录就不算失效（不出失效横幅、不写已失效）；
+   * 不给 flow 时保持原口径（底栏「重新登录」主钮用它，那条入口会接上正在跑的这一场）。 */
+  loginExpired(login, flow) {
+    if (!PhoneModel.loginRaw(login)) return false;
+    return flow === undefined ? true : !PhoneModel.loginRecovering(login, flow);
   },
   canSubmitRelogin(model, challenge) {
     if (!model || PhoneModel.isStale(model.lastOkAt, model.nowMs)) return false;
@@ -1073,8 +1091,11 @@ const PhoneModel = {
    * 前半句按 state.login（session_expired / session_present，与 ingest 同一口径），
    * 后半句按 relogin_setup——has=saved 且未暂停（密码不对时自动登录同样开不全，
    * 并入「没保存账号」支，与 relNeedAcct 同口径）；ocrOn=ocr_ready。 */
-  loginLine(login, setup) {
+  loginLine(login, setup, flow) {
     const s = setup || {};
+    if (PhoneModel.loginRaw(login) && PhoneModel.loginRecovering(login, flow)) {
+      return "电脑正在自动重新登录。";
+    }
     const expired = PhoneModel.loginExpired(login);
     const has = !!s.saved && !s.paused;
     const ocrOn = !!s.ocr_ready;
@@ -1445,7 +1466,7 @@ if (typeof document !== "undefined") {
     syncOffline(stale);
     const off = !$("offline-note").hidden;
     const terms = model.termsOk === false;
-    const expired = PhoneModel.loginExpired(model.login);
+    const expired = PhoneModel.loginExpired(model.login, model.flow || null);
     const pcList = !!model.pcListError;
     const clockDown = model.clockState === "unavailable";
     /* TM01 条款告警两句照原型逐字（Phone:853），同意后收起（服务端同样拦写动作） */
@@ -1517,7 +1538,7 @@ if (typeof document !== "undefined") {
       pickedNow.some((i) => i.sign_end_ts));
     $("review-policy").textContent = hint;
     $("review-policy").hidden = !hint;
-    $("login-line").textContent = PhoneModel.loginLine(model.login, model.reloginSetup);
+    $("login-line").textContent = PhoneModel.loginLine(model.login, model.reloginSetup, model.flow || null);
     /* 验证中（提交验证码）sheet 不给关闭钮；开关本身在 openSheet/closeSheet 里管 */
     if (model.sheetId) $("btn-sheet-close").hidden = sheetBusy();
     renderAlerts(stale);   // EX01/EX02/EX05/EX06/TM01：五条告警按原型优先链互斥

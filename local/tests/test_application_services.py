@@ -2475,6 +2475,48 @@ class PhonePcListErrorTests(unittest.TestCase):
         self.assertIn("pc_list_error", raw)
 
 
+class PhoneLoginRecoveringTests(unittest.TestCase):
+    """手机快照的 login.recovering：学校判失效且电脑正在静默自动重登时才为真。"""
+
+    def setUp(self):
+        import shutil
+
+        try:
+            import app as local_app
+        except Exception as exc:  # pragma: no cover - 环境缺 pywebview 时跳过
+            self.skipTest("无法导入 local/app.py：%s" % exc)
+        tmp = tempfile.mkdtemp(prefix="campus-phone-recovering-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        data = Path(tmp) / "data"
+        data.mkdir()
+        for patch in (
+            mock.patch.object(local_app, "PREFS", Path(tmp) / "ui.json"),
+            mock.patch.object(local_app, "DATA_DIR", data),
+            mock.patch.object(local_app, "DEMO", True),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.api = stop_auto_relogin_on_cleanup(self, local_app.Api())
+        self.api._phone = FakePhoneService()
+
+    def test_recovering_follows_the_last_school_check_and_silent_state(self):
+        self.api._last_check = {"result": "expired", "checked_at": time.time()}
+        with mock.patch.object(self.api, "_silent_relogin_state", return_value=(True, "")):
+            login = self.api._phone_raw_state()["login"]
+        self.assertEqual(login["last_check_state"], "expired")
+        self.assertIs(login["recovering"], True)
+        with mock.patch.object(self.api, "_silent_relogin_state",
+                               return_value=(False, "retry_pending")):
+            self.assertIs(self.api._phone_raw_state()["login"]["recovering"], False)
+
+    def test_no_recovering_when_the_school_did_not_say_expired(self):
+        self.api._last_check = {"result": "valid", "checked_at": time.time()}
+        with mock.patch.object(self.api, "_silent_relogin_state",
+                               side_effect=AssertionError("valid 时不该去读恢复条件")):
+            login = self.api._phone_raw_state()["login"]
+        self.assertNotIn("recovering", login)
+
+
 class VersionSwitchLaunchTests(unittest.TestCase):
     """C1：版本目录切换的启动器拉起后，主程序自己走现有退出路径，界面不停在「启动中…」。
 
