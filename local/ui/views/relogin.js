@@ -352,7 +352,11 @@ function closeRelogin() {
   /* 用户中途关掉：取消这一场，别让后台还挂着一个等验证码的登录进程。
    * 例外：对话框接上的是电脑自己正在做的自动登录（还没转人工），关掉只是不看了，
    * 取消它等于替用户打断一件本来不需要他动手的事。 */
-  if (live && flowId && !reloginAutoLive(flowId)) api("relogin_cancel", flowId).catch(() => {});
+  /* 返回这次取消的 Promise：「改用浏览器登录」要等它返回再发 login（U6）——relogin_cancel 还在终止
+   * 中继 worker 时，worker 仍占着忙碌位，这时到达的 login 会被「已经有一个任务在跑」拒绝。
+   * 没有取消可等时返回已完成的 Promise；取消调用失败也算完成，不卡住后面的动作。 */
+  if (live && flowId && !reloginAutoLive(flowId)) return api("relogin_cancel", flowId).catch(() => {});
+  return Promise.resolve();
 }
 
 /* 后端的拒绝统一说人话；plan_late 单独一句「现在来不及」 */
@@ -514,8 +518,8 @@ function wireRelogin() {
   on("btn-rl-auto", () => { void autoReloginOnce(); });
   on("btn-lg-next", submitReloginForm);
   on("btn-rl-code", () => { void submitReloginCode(); });
-  on("btn-rl-browser", () => { closeRelogin(); doLogin(); });
-  on("btn-bad-browser", () => { closeRelogin(); doLogin(); });
+  on("btn-rl-browser", () => { closeRelogin().then(() => doLogin()); });
+  on("btn-bad-browser", () => { closeRelogin().then(() => doLogin()); });
   on("btn-bad-update", () => { if (S.relogin) S.relogin.fromLogin = false; reloginPickWay("here"); });
   on("btn-lg-back", () => { if (S.relogin) S.relogin.fromLogin = false; reloginStep("login"); });
   on("btn-lg-webopen", reloginOpenSchoolPage);

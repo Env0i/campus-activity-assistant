@@ -521,5 +521,70 @@ class SignedRefreshTests(unittest.TestCase):
         self.assertIn("有界刷新", str(caught.exception))
 
 
+class ReloginBrowserSwitchTests(unittest.TestCase):
+    """U6：验证码页「改用浏览器登录」要等 relogin_cancel 返回再发 login。
+    后端定性见 test_relogin_busy_order.py：取消还在终止中继 worker 时到达的 login 会被忙碌拒绝。"""
+
+    CAP_PAGE = PRELUDE + r"""
+const order = [];
+let releaseCancel = null;
+window.pywebview = { api: {
+  relogin_cancel: (id) => { order.push("cancel:" + id); return new Promise((resolve) => { releaseCancel = resolve; }); },
+  login: () => { order.push("login"); return Promise.resolve({ ok: true }); },
+} };
+S.login.present = true;
+S.login.result = "expired";
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "desktop", flow_id: "f2", challenge_id: "c1", attempts: 1,
+  image: "data:image/png;base64,AAA" });
+openRelogin();
+const step = S.relogin.step;
+"""
+
+    def test_browser_login_waits_for_the_cancel_to_return(self):
+        res = run_ui(self.CAP_PAGE + r"""
+$("#btn-rl-browser").click();
+await __flush();
+const before = order.slice();
+releaseCancel({ ok: true });
+await __flush();
+out.push({ step, before, after: order.slice() });
+""")
+        data = res[0]
+        self.assertEqual(data["step"], "cap", "前提：验证码页开着，中继 worker 在跑")
+        self.assertEqual(data["before"], ["cancel:f2"],
+                         "取消还没返回就发了 login，会撞上还没退出的中继 worker：%r" % data["before"])
+        self.assertEqual(data["after"], ["cancel:f2", "login"])
+
+    def test_browser_login_still_goes_ahead_if_the_cancel_call_fails(self):
+        """取消调用本身失败也不能卡住用户：照样往下登录。"""
+        res = run_ui(self.CAP_PAGE + r"""
+window.pywebview.api.relogin_cancel = (id) => { order.push("cancel:" + id); return Promise.reject(new Error("桥接断了")); };
+$("#btn-rl-browser").click();
+await __flush();
+out.push({ order: order.slice() });
+""")
+        self.assertEqual(res[0]["order"], ["cancel:f2", "login"])
+
+    def test_bad_password_page_browser_login_goes_straight_to_login(self):
+        """守卫：密码不对那一页没有在跑的中继，没有取消要等，直接登录。"""
+        res = run_ui(PRELUDE + r"""
+const order = [];
+window.pywebview = { api: {
+  relogin_cancel: (id) => { order.push("cancel:" + id); return Promise.resolve({ ok: true }); },
+  login: () => { order.push("login"); return Promise.resolve({ ok: true }); },
+} };
+S.login.present = true;
+S.login.result = "expired";
+S.relogin = { open: true, step: "", flowId: "", challengeId: "" };
+reloginStep("bad");
+reloginDialog().open = true;                 /* 沙箱的弹层桩没有 removeAttribute，开着才走 close() */
+$("#btn-bad-browser").click();
+await __flush();
+out.push({ order: order.slice() });
+""")
+        self.assertEqual(res[0]["order"], ["login"])
+
+
 if __name__ == "__main__":
     unittest.main()
