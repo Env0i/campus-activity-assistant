@@ -379,30 +379,47 @@ class RunLogLineTests(unittest.TestCase):
     """PB03 / PB11：两句运行记录。"""
 
     def test_modify_plan_logs_the_paused_line_with_the_draft_count(self):
+        """PB03 / U9：停止真的成功、计划以 stopped 结束时才给一句；
+        改了又停、停了又改的两轮各一句，不被整句去重吞掉。"""
         out = run_js(PLAN_SETUP + r"""
 load([
   mk("w1", "晚点开放甲", { sign_start: "2026-11-06 16:00:00" }),
   mk("w2", "晚点开放乙", { sign_start: "2026-11-06 16:30:00" }),
   mk("d1", "已经结束的", { sign_start: "2026-11-06 13:00:00" }),
 ]);
-S.busy = true;
-S.plan.id = "p1"; S.plan.status = "running";
-task("t1", "w1", { name: "晚点开放甲", sign_start: "2026-11-06 16:00:00" });
-task("t2", "w2", { name: "晚点开放乙", sign_start: "2026-11-06 16:30:00", status: "queued" });
-task("t3", "d1", { name: "已经结束的", status: "success", attempts: 1 });
+/* 每一轮：一份运行中的计划（两场还没提交、一场已成功），停止请求悬着 */
+const beginRound = (planId) => {
+  S.busy = true; S.stopping = false;
+  S.plan = { id: planId, status: "running", tasks: new Map() };
+  task(planId + "t1", "w1", { name: "晚点开放甲", sign_start: "2026-11-06 16:00:00" });
+  task(planId + "t2", "w2", { name: "晚点开放乙", sign_start: "2026-11-06 16:30:00", status: "queued" });
+  task(planId + "t3", "d1", { name: "已经结束的", status: "success", attempts: 1 });
+};
 window.pywebview = { api: { stop_plan: () => new Promise(() => {}) } };
 const before = appended.length;
+/* 第一轮：改了，停止请求发出去还没回；此刻运行记录里不能有「计划已暂停」 */
+beginRound("p1");
 modifyPlan();
+const pending = bare(appended.slice(before)).filter((line) => line.indexOf("计划已暂停") >= 0);
+window.onBackend.plan_done({ plan_id: "p1", status: "stopped", plan_generation: 1, summary: {} });
 const first = bare(appended.slice(before));
-/* 同一句再来一次（改了又停了又改）：不被整句去重吞掉 */
-S.busy = true; S.stopping = false; S.editing = null;
+/* 第二轮：改了又停、停了又改。中间隔了别的记录，同一句要再出现一次（不被整句去重吞掉） */
 addLog("中间有别的记录");
+const mark = appended.length;
+beginRound("p2");
 modifyPlan();
-out.push({ first, all: bare(appended.slice(before)), editing: S.editing });
+window.onBackend.plan_done({ plan_id: "p2", status: "stopped", plan_generation: 2, summary: {} });
+const second = bare(appended.slice(mark));
+out.push({ pending, first, second, all: bare(appended.slice(before)), editing: S.editing });
 """)[0]
-        self.assertIn("计划已暂停：2 场放回草稿修改", out["first"])
+        self.assertEqual(out["pending"], [], "停止还没成功，不能先写「计划已暂停」：%r" % out["pending"])
+        self.assertEqual(out["first"].count("计划已暂停：2 场放回草稿修改"), 1,
+                         "停止成功后才写，且只写一句：%r" % out["first"])
+        self.assertEqual(out["second"].count("计划已暂停：2 场放回草稿修改"), 1,
+                         "第二轮再停再写一句：%r" % out["second"])
+        self.assertEqual(sum(1 for line in out["all"] if line == "计划已暂停：2 场放回草稿修改"), 2,
+                         "两轮各一句，不被整句去重吞掉")
         self.assertNotIn("修改计划：先停下，改完要重新开始", "".join(out["all"]), "旧句已换掉")
-        self.assertEqual(sum(1 for line in out["all"] if line == "计划已暂停：2 场放回草稿修改"), 2)
 
     def test_phone_started_plan_logs_one_start_line(self):
         out = run_js(PLAN_SETUP + r"""

@@ -21,9 +21,14 @@ function presentPlanDone(payload, autoRefresh) {
       const item = findItem(id);
       if (item && isEligibleForPlan(item)) S.selected.add(String(id));
     });
+    /* U9：停止真的成功了才写这一句，场次数就是放回草稿的场次数 */
+    addLogFresh(editPausedLine((S.editing.ids || []).length));
     S.plan = { id: null, status: "idle", tasks: new Map() };
     closeResultPage();
   } else {
+    /* U1：停止请求发出后计划没以 stopped 结束（自己跑完了、已经终态），修改中到此为止，
+     * 不清的话结果页出不来（resultMode 要求没有 editing），计划栏还写「修改中」 */
+    S.editing = null;
     /* 计划结束就进结果页（P1）：结论由计划栏的大数字、标题和副行承担（原型 res 段），
      * 不再往 #result 条写结论和「重新选择活动 / 刷新列表」内联动作（P8）。
      * 成功场次已在上面移出选择集合，结果页从这之后的选择开始记。 */

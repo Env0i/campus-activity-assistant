@@ -351,9 +351,30 @@ function modifyPlan() {
   });
   /* doneN：进入修改时已经结束的场次数，修改说明写「已结束的 N 场不受影响」（原型 modifyS） */
   S.editing = { ids: keep, doneN: S.plan.tasks.size - keep.length };
-  /* PB03 原型 modifyS 的运行记录句；同样的句子可以再来一次（改了又停了又改），所以不走 addLog 的整句去重 */
-  addLogFresh("计划已暂停：" + keep.length + " 场放回草稿修改");
+  /* U9：「计划已暂停」那一句不在这里写——停止还没成功，现在写就是对运行记录说了假话。
+   * 等计划真的以 stopped 结束、按 S.editing 放回勾选时，由 plan-events.js 用 editPausedLine 写。 */
   doStopPlan();
+}
+
+/* PB03 原型 modifyS 的运行记录句。同样的句子可以再来一次（改了又停了又改），
+ * 写的时候走 addLogFresh，不被 addLog 的整句去重吞掉。 */
+function editPausedLine(count) {
+  return "计划已暂停：" + count + " 场放回草稿修改";
+}
+
+/* 「放弃修改，按原计划继续」（U1）：原来直接绑 startPlan，用的是当前勾选，
+ * 用户改过勾选再放弃，开始的就不是原计划。这里先把勾选恢复成修改前的场次
+ * （只放回现在仍能报的），再走和「重新开始」同一条开始流程。 */
+function restoreEditedPlan() {
+  if (S.editing && Array.isArray(S.editing.ids)) {
+    S.selected.clear();
+    S.editing.ids.forEach((id) => {
+      const item = findItem(id);
+      if (item && isEligibleForPlan(item)) S.selected.add(String(id));
+    });
+    render();
+  }
+  startPlan();
 }
 
 /* 结果页「重新选择未成功的场次」：只放回能重报的（不含名额已满、已截止、已报名冲突） */
@@ -384,18 +405,24 @@ function doStopPlan() {
   paintLogin();
   updateControls();
   addLog("正在停止计划：结束还在重试的场次…");
-  api("stop_plan", S.plan.id).then((res) => {
-    if (res && res.ok === false) {
-      S.stopping = false;
-      paintLogin();
-      updateControls();
-      addLog(res.text || "当前没有这个计划");
-    }
-  }).catch((err) => {
+  /* 停止没成功（后端拒绝，或桥接异常）：计划仍在运行。若这次停止是「修改计划」发起的，
+   * 一并退出修改中（U1）——否则计划栏标签、说明和「放弃修改」会挂在一个还在跑的计划上。 */
+  const stopFailed = (line) => {
+    const wasEditing = !!S.editing;
     S.stopping = false;
+    S.editing = null;
     paintLogin();
     updateControls();
-    addLog("[X] 停止计划失败：" + msg(err));
+    addLog(line);
+    if (wasEditing) {
+      addLog("停止没成功，计划继续运行");
+      render();
+    }
+  };
+  api("stop_plan", S.plan.id).then((res) => {
+    if (res && res.ok === false) stopFailed(res.text || "当前没有这个计划");
+  }).catch((err) => {
+    stopFailed("[X] 停止计划失败：" + msg(err));
   });
 }
 

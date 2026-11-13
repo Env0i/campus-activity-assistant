@@ -411,7 +411,7 @@ $("#board").addEventListener("click", (event) => {
 });
 wireSettings();
 $("#btn-modify").addEventListener("click", modifyPlan);
-$("#btn-edit-restore").addEventListener("click", startPlan);
+$("#btn-edit-restore").addEventListener("click", restoreEditedPlan);
 $("#btn-reselect").addEventListener("click", reselectFailed);
 $("#btn-finish").addEventListener("click", finishResult);
 $("#btn-log-folder").addEventListener("click", () => api("open_data")
