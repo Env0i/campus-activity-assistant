@@ -24,7 +24,7 @@ if str(LOCAL) not in sys.path:
 # 混合具体模块：domain/application 只准依赖 stdlib 与 domain 自身
 BANNED_MODULES = {
     "signup_plan", "business_clock", "time_contract", "grab", "updater",
-    "update_check", "update_delta", "update_launcher", "runtime_paths", "webview", "app", "gui",
+    "update_check", "update_delta", "update_launcher", "runtime_paths", "webview", "app",
 }
 
 
@@ -193,6 +193,160 @@ class InjectionBoundaryTests(unittest.TestCase):
 
         self.assertEqual(format_local_text(datetime(2026, 1, 2, 3, 4, 5)),
                          "2026-01-02 03:04:05")
+
+
+# 三个内层包各自允许依赖的类别。顶层模块（local/ 根下的 .py）任何内层包都不许 import。
+# infrastructure 是接第三方包的适配器层；domain 与 application 里 import 第三方即算越界。
+_ALLOWED_KINDS = {
+    "domain": {"domain", "stdlib"},
+    "application": {"domain", "application", "stdlib"},
+    "infrastructure": {"domain", "infrastructure", "stdlib", "third_party"},
+}
+_LAYERS = frozenset(_ALLOWED_KINDS)
+_TOP_LEVEL = {p.stem for p in LOCAL.glob("*.py")}
+
+# 存量越界：每条都要写清去处，消掉时从这里删。函数体里的延迟 import 也算越界。
+# 键是「文件、完整模块名」：按模块锁，不按包锁，同包再加一个模块照样报。
+LEGACY_DIRECTION_VIOLATIONS = {
+    ("application/advanced_component_service.py", "infrastructure.component_packages"):
+        "步骤 2 拆组件服务时消：组件包扫描归 infrastructure，服务经端口拿清单",
+    ("infrastructure/component_packages.py", "runtime_paths"):
+        "步骤 2 拆组件服务时消：数据目录改由调用方传进来，不直接取顶层模块",
+}
+
+
+def _strip_local(module):
+    """去掉项目根包前缀 local：写 local.domain 与写 domain 是同一件事。"""
+    if module == "local":
+        return ""
+    if module.startswith("local."):
+        return module[len("local."):]
+    return module
+
+
+def _kind_of(module):
+    """模块名 → domain/application/infrastructure/top_level/stdlib/third_party。"""
+    head = _strip_local(module).split(".")[0]
+    if not head or head == "__future__":
+        return "stdlib"
+    if head in _LAYERS:
+        return head
+    if head in _TOP_LEVEL:
+        return "top_level"
+    if head in sys.stdlib_module_names:
+        return "stdlib"
+    return "third_party"
+
+
+def _imported_modules(node, layer):
+    """一条 import/from 语句指向的完整模块名；相对 import 按所在层解析成实际包名。"""
+    if isinstance(node, ast.Import):
+        return [_strip_local(alias.name) for alias in node.names]
+    module = node.module or ""
+    if node.level:
+        # level 1 是同一个包；level 2 起逐级上溯到 local 根
+        parts = layer.split(".")
+        keep = parts[:max(0, len(parts) - (node.level - 1))]
+        module = ".".join(keep + ([module] if module else []))
+    module = _strip_local(module)
+    if not module:
+        return [alias.name for alias in node.names]
+    # from 内层包 import 名：名是子模块时按「包.名」记，白名单才能锁住具体模块
+    if _kind_of(module) in _LAYERS:
+        return ["%s.%s" % (module, alias.name) for alias in node.names]
+    return [module]
+
+
+def _direction_violations_in(layer, rel, source):
+    """纯函数：一段源码加所在层，返回 (文件, 完整模块名, 行号) 的越界清单。"""
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, (ast.Import, ast.ImportFrom)):
+            continue
+        for module in _imported_modules(node, layer):
+            if _kind_of(module) not in _ALLOWED_KINDS[layer]:
+                found.append((rel, module, node.lineno))
+    return found
+
+
+def _direction_violations():
+    """扫三个内层包，返回 (文件, 完整模块名, 行号)，函数体里的延迟 import 也在内。"""
+    found = set()
+    for pkg in sorted(_ALLOWED_KINDS):
+        for path in sorted((LOCAL / pkg).glob("*.py")):
+            rel = "%s/%s" % (pkg, path.name)
+            found.update(_direction_violations_in(
+                pkg, rel, path.read_text(encoding="utf-8")))
+    return found
+
+
+class LayerDirectionTests(unittest.TestCase):
+    """三条内层包只许向下依赖：domain → application → infrastructure 不许反向或跨层。"""
+
+    def test_inner_layers_import_only_allowed_directions(self):
+        found = _direction_violations()
+        extra = sorted(
+            (rel, module, line) for rel, module, line in found
+            if (rel, module) not in LEGACY_DIRECTION_VIOLATIONS)
+        self.assertEqual(
+            [], extra,
+            "内层包出现新的跨层依赖（文件、被 import 的项目内模块、行）：%r" % (extra,))
+
+    def test_direction_whitelist_is_still_needed(self):
+        """白名单里的越界在代码里已经没有了也要红：提示把它删掉。"""
+        found = {(rel, module) for rel, module, _ in _direction_violations()}
+        stale = sorted(set(LEGACY_DIRECTION_VIOLATIONS) - found)
+        self.assertEqual([], stale, "白名单里的越界已经不存在，请删掉这些项：%r" % (stale,))
+
+    def test_direction_whitelist_entries_carry_reason(self):
+        for key, reason in LEGACY_DIRECTION_VIOLATIONS.items():
+            self.assertTrue(reason.strip(), "%r 必须写理由是哪个步骤消掉" % (key,))
+
+    def test_direction_guard_sees_every_alias_in_multi_import(self):
+        """import a, b 的每个 alias 都要看：只看第一个会漏掉跨层 import。"""
+        found = _direction_violations_in(
+            "domain", "domain/sample.py", "import os, infrastructure\n")
+        self.assertEqual([("domain/sample.py", "infrastructure", 1)], found)
+
+    def test_direction_guard_sees_from_local_import_package(self):
+        """from local import 包：去掉 local 前缀后仍要能认出项目内包。"""
+        found = _direction_violations_in(
+            "domain", "domain/sample.py", "from local import infrastructure\n")
+        self.assertEqual([("domain/sample.py", "infrastructure", 1)], found)
+
+    def test_direction_whitelist_is_locked_to_module_not_package(self):
+        """白名单锁到具体模块：同一个包里再加一个模块仍要红。"""
+        rel = "application/advanced_component_service.py"
+        found = {(r, m) for r, m, _ in _direction_violations_in(
+            "application", rel, "from infrastructure import tunnel_manager\n")}
+        extra = sorted(found - set(LEGACY_DIRECTION_VIOLATIONS))
+        self.assertEqual([(rel, "infrastructure.tunnel_manager")], extra)
+
+    def test_direction_guard_treats_third_party_as_cross_layer(self):
+        """domain 与 application 里 import 第三方包也算跨层，infrastructure 里放行。"""
+        self.assertEqual(
+            [("domain/sample.py", "requests", 1)],
+            _direction_violations_in("domain", "domain/sample.py", "import requests\n"))
+        self.assertEqual(
+            [("application/sample.py", "requests", 1)],
+            _direction_violations_in("application", "application/sample.py", "import requests\n"))
+        self.assertEqual(
+            [], _direction_violations_in("infrastructure", "infrastructure/sample.py", "import requests\n"))
+
+    def test_direction_guard_resolves_parent_relative_import(self):
+        """from ..infrastructure import x：level 大于 1 要按实际包名判。"""
+        found = _direction_violations_in(
+            "domain", "domain/sample.py", "from ..infrastructure import helper\n")
+        self.assertEqual([("domain/sample.py", "infrastructure.helper", 1)], found)
+
+    def test_direction_guard_allows_same_layer_and_stdlib(self):
+        """反向用例：标准库与同包相对 import 都不算越界。"""
+        self.assertEqual(
+            [], _direction_violations_in("domain", "domain/sample.py", "import json\n"))
+        self.assertEqual(
+            [], _direction_violations_in("domain", "domain/sample.py", "from . import helper\n"))
+        self.assertEqual(
+            [], _direction_violations_in("infrastructure", "infrastructure/sample.py", "import ddddocr\n"))
 
 
 if __name__ == "__main__":

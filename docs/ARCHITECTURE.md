@@ -177,9 +177,9 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 | infrastructure | `process_tree` | Windows Job Object 进程树所有权、taskkill 整树终止 | app 外观（spawn 端口） | 无 |
 | infrastructure | `lifecycle_store` | 启动冻结/心跳/正常关闭的 ui.json 记账 | app.get_lifecycle | prefs_store + domain |
 | interface | `app.py` | Api 49 个公开方法、条款门禁、事件发射、worker 命令装配、main；composition root：向 domain/application 注入 signup_plan 纯函数、time_contract 换算、business_clock 异常类型 | pywebview / 测试 | 全部下层（裸名注入缝保持 app.X 可替换） |
-| interface | `ui/state/**` | 状态仓库 S 与纯投影（clock/plan/login/filters/labels/time/task-display） | controllers/views | 仍有存量引用上层名字的例外（如 state/clock.js 调 views/list.js 的 `render`），清单与守卫在 `tools/code_shape/` |
+| interface | `ui/state/**` | 状态仓库 S 与纯投影（clock/plan/login/filters/labels/time/task-display/terms） | controllers/views | 仍引用上层名字的存量例外记在 `tools/code_shape/ui_layer_allow.json`，只减不增（如 state/clock.js 调 views/list.js 的 `render`） |
 | interface | `ui/controllers/**` | 用例编排与桥接（bridge/refresh/plan/plan-events/clock/terms/update/prefs/tick） | app.js 事件绑定 | state + api()；terms/update 两个 controller 零 DOM（结构契约测试守护） |
-| interface | `ui/views/**` | DOM 呈现（list/board/login/clock/clock-pop/log/selection/terms/help/update/tour） | render/tick 与 controller 调用 | state 投影；terms/update 的 DOM 查询与呈现全部在此；存量例外同样进 `tools/code_shape/` 白名单 |
+| interface | `ui/views/**` | DOM 呈现（list/board/login/clock/clock-pop/log/selection/terms/help/update/tour） | render/tick 与 controller 调用 | state 投影；terms/update 的 DOM 查询与呈现全部在此；原则上只依赖 state、不发桥接请求、不调控制器，存量例外同样记在 `tools/code_shape/ui_layer_allow.json` |
 
 前端脚本按 index.html 的加载序执行（保持原 app.js 的顶层初始化依赖；views/terms.js、
 views/update.js 排在消费它们的 controller 之前），app.js 只保留 boot 初始化、

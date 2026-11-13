@@ -1,0 +1,79 @@
+{
+  "state": {
+    "state/clock.js": [
+      "paintClockPopFeedback",
+      "paintClockStatus",
+      "render",
+      "renderClockPop",
+      "updateControls"
+    ],
+    "state/filters.js": [
+      "render",
+      "setResult"
+    ],
+    "state/login.js": [
+      "paintBoardActions",
+      "paintClockStatus",
+      "paintLogin",
+      "paintRail",
+      "paintSelected",
+      "refreshLoginEmptyState",
+      "reloginAutoLive",
+      "render"
+    ],
+    "state/plan.js": [
+      "noteSignedTasks",
+      "noteStartedFromPhone",
+      "render",
+      "scheduleSignedRefresh",
+      "setBusy",
+      "showTaskResult"
+    ]
+  },
+  "views": {
+    "views/clock-pop.js": [
+      "resyncClock"
+    ],
+    "views/conflict-tip.js": [
+      "savePrefs"
+    ],
+    "views/help.js": [
+      "savePrefs"
+    ],
+    "views/list.js": [
+      "listErrorCopy",
+      "tick"
+    ],
+    "views/log.js": [
+      "savePrefs"
+    ],
+    "views/phone.js": [
+      "api",
+      "refresh"
+    ],
+    "views/plan-panel.js": [
+      "refresh",
+      "runtimeErrorCopy"
+    ],
+    "views/relogin.js": [
+      "api",
+      "doCheck",
+      "doLogin",
+      "refresh"
+    ],
+    "views/selection.js": [
+      "savePrefs"
+    ],
+    "views/settings.js": [
+      "api",
+      "ingestTerms",
+      "savePrefs"
+    ],
+    "views/status-cards.js": [
+      "doCheck"
+    ],
+    "views/tour.js": [
+      "savePrefsNow"
+    ]
+  }
+}
