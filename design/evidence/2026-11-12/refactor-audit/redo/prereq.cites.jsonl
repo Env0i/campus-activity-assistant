@@ -1,0 +1,196 @@
+{"id": "PRE-901", "file": "local/ui/state/time.js", "start": 123, "end": 125, "excerpt": "function esc(value) {", "claim": "esc 只转义 & < > \" 四个字符", "kind": "事实"}
+{"id": "PRE-902", "file": "local/ui/state/filters.js", "start": 86, "end": 86, "excerpt": "<span class=\"rw\" title=\"' + esc(rw.title) + '\"><span class=\"rw-p\">", "claim": "奖励提示落在双引号 title 属性", "kind": "事实"}
+{"id": "PRE-903", "file": "local/ui/views/list.js", "start": 190, "end": 190, "excerpt": "\\\" aria-label=\\\"\" + esc(item.name) +", "claim": "行的 aria-label 落在双引号属性", "kind": "事实"}
+{"id": "PRE-904", "file": "local/ui/views/plan-panel.js", "start": 479, "end": 479, "excerpt": "<div class=\"tk\"><div><b title=\"' + esc(item.name) + '\">", "claim": "计划票据的 title 落在双引号属性", "kind": "事实"}
+{"id": "PRE-905", "file": "local/ui/views/plan-panel.js", "start": 217, "end": 217, "excerpt": "'<span class=\"b-place-text\">' + place + '</span></button>'", "claim": "地点文字落在文本节点", "kind": "事实"}
+{"id": "PRE-906", "file": "local/ui/views/plan-panel.js", "start": 210, "end": 210, "excerpt": "const place = esc(placeText);", "claim": "先转义再拼进文本节点", "kind": "事实"}
+{"id": "PRE-907", "file": "local/ui/views/terms.js", "start": 347, "end": 347, "excerpt": "? esc(text).replace(\"现在就看\",", "claim": "文本节点", "kind": "事实"}
+{"id": "PRE-908", "file": "local/ui/views/clock-pop.js", "start": 109, "end": 109, "excerpt": "'<div><dt>最近校准</dt><dd>' + esc(", "claim": "文本节点", "kind": "事实"}
+{"id": "PRE-909", "file": "local/ui/views/plan-panel.js", "start": 1413, "end": 1413, "excerpt": "missed.map((name) => \"「\" + esc(name) + \"」\")", "claim": "文本节点", "kind": "事实"}
+{"id": "PRE-910", "file": "local/ui/state/filters.js", "start": 98, "end": 98, "excerpt": "'\" title=\"' + esc(rw.title) + '\">' + esc(text) + \"</span>\";", "claim": "双引号 title 属性加文本节点", "kind": "事实"}
+{"id": "PRE-911", "file": "local/ui/state/time.js", "start": 123, "end": 123, "excerpt": "function esc(value) {", "claim": "没有任何落点是单引号属性、事件处理器或 URL（缺席结论）", "kind": "推测", "missing": "缺席结论靠脚本启发式分类与全文搜索得出，脚本看不到跨语句预先拼好的片段"}
+{"id": "PRE-921", "file": "local/ui/app.js", "start": 90, "end": 90, "excerpt": "window.onBackend = {", "claim": "前端接收后端事件的映射表", "kind": "事实"}
+{"id": "PRE-922", "file": "local/app.py", "start": 1119, "end": 1119, "excerpt": "js = \"window.onBackend && window.onBackend.%s(%s)\" % (", "claim": "后端用事件名拼出前端调用", "kind": "事实"}
+{"id": "PRE-923", "file": "local/app.py", "start": 3113, "end": 3113, "excerpt": "self._emit(kind, forward)", "claim": "计划事件转发的事件名是变量", "kind": "事实"}
+{"id": "PRE-924", "file": "local/domain/phone_rules.py", "start": 155, "end": 155, "excerpt": "ACTION_PARAMS = {", "claim": "手机动作白名单", "kind": "事实"}
+{"id": "PRE-925", "file": "local/application/phone_service.py", "start": 428, "end": 428, "excerpt": "if name == \"save_retry_policy\":", "claim": "save_retry_policy 特判成 save_prefs", "kind": "事实"}
+{"id": "PRE-926", "file": "local/application/phone_service.py", "start": 434, "end": 434, "excerpt": "clean = dict(clean, source=\"phone\")", "claim": "start_plan 补 source=phone", "kind": "事实"}
+{"id": "PRE-927", "file": "local/application/phone_service.py", "start": 438, "end": 438, "excerpt": "method = getattr(self._api, name, None)", "claim": "白名单动作按名字反射调用 Api", "kind": "事实"}
+{"id": "PRE-928", "file": "local/app.py", "start": 2925, "end": 2925, "excerpt": "source: str = \"desktop\") -> dict:", "claim": "Api.start_plan 接受 source", "kind": "事实"}
+{"id": "PRE-929", "file": "local/app.py", "start": 4376, "end": 4376, "excerpt": "def save_prefs(self, prefs: dict) -> dict:", "claim": "save_prefs 的签名", "kind": "事实"}
+{"id": "PRE-930", "file": "local/ui/controllers/bridge.js", "start": 8, "end": 8, "excerpt": "const fn = window.pywebview.api[name];", "claim": "桥接按名字取函数", "kind": "事实"}
+{"id": "PRE-931", "file": "local/ui/controllers/bridge.js", "start": 9, "end": 9, "excerpt": "if (typeof fn !== \"function\") return Promise.reject(new Error(\"本机程序不支持：\" + name));", "claim": "名字不存在时拒绝", "kind": "事实"}
+{"id": "PRE-001", "file": "local/app.py", "start": 1036, "end": 1036, "excerpt": "def clock_snapshot(self) -> dict:", "claim": "公开方法 clock_snapshot 的定义", "kind": "事实"}
+{"id": "PRE-002", "file": "local/app.py", "start": 1046, "end": 1046, "excerpt": "def sync_clock(self) -> dict:", "claim": "公开方法 sync_clock 的定义", "kind": "事实"}
+{"id": "PRE-003", "file": "local/app.py", "start": 1149, "end": 1149, "excerpt": "def bootstrap(self) -> dict:", "claim": "公开方法 bootstrap 的定义", "kind": "事实"}
+{"id": "PRE-004", "file": "local/app.py", "start": 1245, "end": 1245, "excerpt": "def help(self) -> dict:", "claim": "公开方法 help 的定义", "kind": "事实"}
+{"id": "PRE-005", "file": "local/app.py", "start": 1425, "end": 1425, "excerpt": "def download_advanced_feature(self, key: str = \"\") -> dict:", "claim": "公开方法 download_advanced_feature 的定义", "kind": "事实"}
+{"id": "PRE-006", "file": "local/app.py", "start": 1452, "end": 1452, "excerpt": "def cancel_advanced_feature_download(self, key: str = \"\") -> dict:", "claim": "公开方法 cancel_advanced_feature_download 的定义", "kind": "事实"}
+{"id": "PRE-007", "file": "local/app.py", "start": 1459, "end": 1459, "excerpt": "def enable_advanced_feature(self, key: str = \"\") -> dict:", "claim": "公开方法 enable_advanced_feature 的定义", "kind": "事实"}
+{"id": "PRE-008", "file": "local/app.py", "start": 1488, "end": 1488, "excerpt": "def advanced_component_location(self, key: str = \"\") -> dict:", "claim": "公开方法 advanced_component_location 的定义", "kind": "事实"}
+{"id": "PRE-009", "file": "local/app.py", "start": 1506, "end": 1506, "excerpt": "def open_advanced_component_dir(self, key: str = \"\") -> dict:", "claim": "公开方法 open_advanced_component_dir 的定义", "kind": "事实"}
+{"id": "PRE-010", "file": "local/app.py", "start": 1525, "end": 1525, "excerpt": "def advanced_features_state(self) -> dict:", "claim": "公开方法 advanced_features_state 的定义", "kind": "事实"}
+{"id": "PRE-011", "file": "local/app.py", "start": 1606, "end": 1606, "excerpt": "def inspect_advanced_component(self, key: str = \"\", path: str = \"\") -> dict:", "claim": "公开方法 inspect_advanced_component 的定义", "kind": "事实"}
+{"id": "PRE-012", "file": "local/app.py", "start": 1624, "end": 1624, "excerpt": "def pick_advanced_component(self, key: str = \"\") -> dict:", "claim": "公开方法 pick_advanced_component 的定义", "kind": "事实"}
+{"id": "PRE-013", "file": "local/app.py", "start": 1644, "end": 1644, "excerpt": "def install_advanced_feature(self, key: str = \"\", path: str = \"\") -> dict:", "claim": "公开方法 install_advanced_feature 的定义", "kind": "事实"}
+{"id": "PRE-014", "file": "local/app.py", "start": 1733, "end": 1733, "excerpt": "def remove_advanced_feature(self, key: str = \"\") -> dict:", "claim": "公开方法 remove_advanced_feature 的定义", "kind": "事实"}
+{"id": "PRE-015", "file": "local/app.py", "start": 1770, "end": 1770, "excerpt": "def save_relogin_credentials(self, username: str = \"\", password: str = \"\") -> dict:", "claim": "公开方法 save_relogin_credentials 的定义", "kind": "事实"}
+{"id": "PRE-016", "file": "local/app.py", "start": 1795, "end": 1795, "excerpt": "def clear_relogin_credentials(self) -> dict:", "claim": "公开方法 clear_relogin_credentials 的定义", "kind": "事实"}
+{"id": "PRE-017", "file": "local/app.py", "start": 2052, "end": 2052, "excerpt": "def front_ready(self) -> dict:", "claim": "公开方法 front_ready 的定义", "kind": "事实"}
+{"id": "PRE-018", "file": "local/app.py", "start": 2057, "end": 2057, "excerpt": "def check_update(self, request_id: str) -> dict:", "claim": "公开方法 check_update 的定义", "kind": "事实"}
+{"id": "PRE-019", "file": "local/app.py", "start": 2117, "end": 2117, "excerpt": "def update_download(self, request_id: str) -> dict:", "claim": "公开方法 update_download 的定义", "kind": "事实"}
+{"id": "PRE-020", "file": "local/app.py", "start": 2171, "end": 2171, "excerpt": "def update_cancel(self) -> dict:", "claim": "公开方法 update_cancel 的定义", "kind": "事实"}
+{"id": "PRE-021", "file": "local/app.py", "start": 2177, "end": 2177, "excerpt": "def update_launch(self, request_id: str) -> dict:", "claim": "公开方法 update_launch 的定义", "kind": "事实"}
+{"id": "PRE-022", "file": "local/app.py", "start": 2252, "end": 2252, "excerpt": "def check(self, request_id: str = \"\") -> dict:", "claim": "公开方法 check 的定义", "kind": "事实"}
+{"id": "PRE-023", "file": "local/app.py", "start": 2283, "end": 2283, "excerpt": "def list_activities(self, request_id: str = \"\") -> dict:", "claim": "公开方法 list_activities 的定义", "kind": "事实"}
+{"id": "PRE-024", "file": "local/app.py", "start": 2555, "end": 2555, "excerpt": "def cancel_signup(self, activity_id: str = \"\") -> dict:", "claim": "公开方法 cancel_signup 的定义", "kind": "事实"}
+{"id": "PRE-025", "file": "local/app.py", "start": 2762, "end": 2762, "excerpt": "def login(self) -> dict:", "claim": "公开方法 login 的定义", "kind": "事实"}
+{"id": "PRE-026", "file": "local/app.py", "start": 2780, "end": 2780, "excerpt": "def grab(self, activity_id: str, name: str, at: str = \"\",", "claim": "公开方法 grab 的定义", "kind": "事实"}
+{"id": "PRE-027", "file": "local/app.py", "start": 2854, "end": 2854, "excerpt": "def start_request_state(self, request_id: str) -> dict:", "claim": "公开方法 start_request_state 的定义", "kind": "事实"}
+{"id": "PRE-028", "file": "local/app.py", "start": 2891, "end": 2891, "excerpt": "def cancel_start_request(self, request_id: str) -> dict:", "claim": "公开方法 cancel_start_request 的定义", "kind": "事实"}
+{"id": "PRE-029", "file": "local/app.py", "start": 2923, "end": 2923, "excerpt": "def start_plan(self, items: list[dict], headed: bool = False,", "claim": "公开方法 start_plan 的定义", "kind": "事实"}
+{"id": "PRE-030", "file": "local/app.py", "start": 3234, "end": 3234, "excerpt": "def cancel_task(self, plan_id: str, task_id: str) -> dict:", "claim": "公开方法 cancel_task 的定义", "kind": "事实"}
+{"id": "PRE-031", "file": "local/app.py", "start": 3242, "end": 3242, "excerpt": "def stop_plan(self, plan_id: str) -> dict:", "claim": "公开方法 stop_plan 的定义", "kind": "事实"}
+{"id": "PRE-032", "file": "local/app.py", "start": 3271, "end": 3271, "excerpt": "def plan_active_for_close(self) -> bool:", "claim": "公开方法 plan_active_for_close 的定义", "kind": "事实"}
+{"id": "PRE-033", "file": "local/app.py", "start": 3310, "end": 3310, "excerpt": "def ask_window_close(self) -> dict:", "claim": "公开方法 ask_window_close 的定义", "kind": "事实"}
+{"id": "PRE-034", "file": "local/app.py", "start": 3334, "end": 3334, "excerpt": "def request_window_close(self, action: str = \"\") -> dict:", "claim": "公开方法 request_window_close 的定义", "kind": "事实"}
+{"id": "PRE-035", "file": "local/app.py", "start": 3389, "end": 3389, "excerpt": "def hide_window(self) -> dict:", "claim": "公开方法 hide_window 的定义", "kind": "事实"}
+{"id": "PRE-036", "file": "local/app.py", "start": 3427, "end": 3427, "excerpt": "def show_window(self) -> dict:", "claim": "公开方法 show_window 的定义", "kind": "事实"}
+{"id": "PRE-037", "file": "local/app.py", "start": 3443, "end": 3443, "excerpt": "def window_visibility(self) -> dict:", "claim": "公开方法 window_visibility 的定义", "kind": "事实"}
+{"id": "PRE-038", "file": "local/app.py", "start": 3521, "end": 3521, "excerpt": "def shutdown(self) -> None:", "claim": "公开方法 shutdown 的定义", "kind": "事实"}
+{"id": "PRE-039", "file": "local/app.py", "start": 3621, "end": 3621, "excerpt": "def stop(self) -> dict:", "claim": "公开方法 stop 的定义", "kind": "事实"}
+{"id": "PRE-040", "file": "local/app.py", "start": 3767, "end": 3767, "excerpt": "def phone_access_state(self) -> dict:", "claim": "公开方法 phone_access_state 的定义", "kind": "事实"}
+{"id": "PRE-041", "file": "local/app.py", "start": 3812, "end": 3812, "excerpt": "def start_phone_access(self, channel: str = \"tailscale\") -> dict:", "claim": "公开方法 start_phone_access 的定义", "kind": "事实"}
+{"id": "PRE-042", "file": "local/app.py", "start": 3897, "end": 3897, "excerpt": "def set_phone_access_preferences(self, preferred_channel: str = \"\") -> dict:", "claim": "公开方法 set_phone_access_preferences 的定义", "kind": "事实"}
+{"id": "PRE-043", "file": "local/app.py", "start": 3913, "end": 3913, "excerpt": "def restore_phone_access(self) -> dict:", "claim": "公开方法 restore_phone_access 的定义", "kind": "事实"}
+{"id": "PRE-044", "file": "local/app.py", "start": 3937, "end": 3937, "excerpt": "def schedule_phone_restore(self, window) -> None:", "claim": "公开方法 schedule_phone_restore 的定义", "kind": "事实"}
+{"id": "PRE-045", "file": "local/app.py", "start": 3963, "end": 3963, "excerpt": "def schedule_component_auto_update(self, window) -> None:", "claim": "公开方法 schedule_component_auto_update 的定义", "kind": "事实"}
+{"id": "PRE-046", "file": "local/app.py", "start": 4017, "end": 4017, "excerpt": "def stop_phone_access(self) -> dict:", "claim": "公开方法 stop_phone_access 的定义", "kind": "事实"}
+{"id": "PRE-047", "file": "local/app.py", "start": 4043, "end": 4043, "excerpt": "def prepare_phone_relogin(self, username: str = \"\", password: str = \"\",", "claim": "公开方法 prepare_phone_relogin 的定义", "kind": "事实"}
+{"id": "PRE-048", "file": "local/app.py", "start": 4153, "end": 4153, "excerpt": "def relogin_begin(self, username: str = \"\", password: str = \"\", save: bool = False) -> dict:", "claim": "公开方法 relogin_begin 的定义", "kind": "事实"}
+{"id": "PRE-049", "file": "local/app.py", "start": 4182, "end": 4182, "excerpt": "def relogin_submit(self, flow_id: str = \"\", challenge_id: str = \"\", code: str = \"\") -> dict:", "claim": "公开方法 relogin_submit 的定义", "kind": "事实"}
+{"id": "PRE-050", "file": "local/app.py", "start": 4186, "end": 4186, "excerpt": "def relogin_cancel(self, flow_id: str = \"\") -> dict:", "claim": "公开方法 relogin_cancel 的定义", "kind": "事实"}
+{"id": "PRE-051", "file": "local/app.py", "start": 4194, "end": 4194, "excerpt": "def relogin_auto_once(self) -> dict:", "claim": "公开方法 relogin_auto_once 的定义", "kind": "事实"}
+{"id": "PRE-052", "file": "local/app.py", "start": 4211, "end": 4211, "excerpt": "def phone_relogin_begin(self, username: str = \"\", password: str = \"\",", "claim": "公开方法 phone_relogin_begin 的定义", "kind": "事实"}
+{"id": "PRE-053", "file": "local/app.py", "start": 4244, "end": 4244, "excerpt": "def phone_relogin_submit(self, flow_id: str = \"\", challenge_id: str = \"\",", "claim": "公开方法 phone_relogin_submit 的定义", "kind": "事实"}
+{"id": "PRE-054", "file": "local/app.py", "start": 4248, "end": 4248, "excerpt": "def phone_relogin_cancel(self, flow_id: str = \"\") -> dict:", "claim": "公开方法 phone_relogin_cancel 的定义", "kind": "事实"}
+{"id": "PRE-055", "file": "local/app.py", "start": 4333, "end": 4333, "excerpt": "def open_data(self) -> dict:", "claim": "公开方法 open_data 的定义", "kind": "事实"}
+{"id": "PRE-056", "file": "local/app.py", "start": 4344, "end": 4344, "excerpt": "def open_latest_release(self) -> dict:", "claim": "公开方法 open_latest_release 的定义", "kind": "事实"}
+{"id": "PRE-057", "file": "local/app.py", "start": 4357, "end": 4357, "excerpt": "def get_license_text(self) -> dict:", "claim": "公开方法 get_license_text 的定义", "kind": "事实"}
+{"id": "PRE-058", "file": "local/app.py", "start": 4376, "end": 4376, "excerpt": "def save_prefs(self, prefs: dict) -> dict:", "claim": "公开方法 save_prefs 的定义", "kind": "事实"}
+{"id": "PRE-059", "file": "local/app.py", "start": 4383, "end": 4383, "excerpt": "def accept_terms(self, document_version: str = \"\") -> dict:", "claim": "公开方法 accept_terms 的定义", "kind": "事实"}
+{"id": "PRE-060", "file": "local/app.py", "start": 4409, "end": 4409, "excerpt": "def withdraw_terms(self) -> dict:", "claim": "公开方法 withdraw_terms 的定义", "kind": "事实"}
+{"id": "PRE-061", "file": "local/app.py", "start": 880, "end": 880, "excerpt": "self._updating = False", "claim": "字段 _updating 的第一处赋值", "kind": "事实"}
+{"id": "PRE-062", "file": "local/app.py", "start": 881, "end": 881, "excerpt": "self._update_request_id = \"\"", "claim": "字段 _update_request_id 的第一处赋值", "kind": "事实"}
+{"id": "PRE-063", "file": "local/app.py", "start": 886, "end": 886, "excerpt": "self._update_cancelled = False", "claim": "字段 _update_cancelled 的第一处赋值", "kind": "事实"}
+{"id": "PRE-064", "file": "local/app.py", "start": 2110, "end": 2110, "excerpt": "self._update_result = payload", "claim": "字段 _update_result 的第一处赋值", "kind": "事实"}
+{"id": "PRE-065", "file": "local/app.py", "start": 884, "end": 884, "excerpt": "self._update_installer_path = \"\"", "claim": "字段 _update_installer_path 的第一处赋值", "kind": "事实"}
+{"id": "PRE-066", "file": "local/app.py", "start": 885, "end": 885, "excerpt": "self._update_staging_path = \"\"", "claim": "字段 _update_staging_path 的第一处赋值", "kind": "事实"}
+{"id": "PRE-067", "file": "local/app.py", "start": 844, "end": 844, "excerpt": "self._advanced_busy = False", "claim": "字段 _advanced_busy 的第一处赋值", "kind": "事实"}
+{"id": "PRE-068", "file": "local/app.py", "start": 912, "end": 912, "excerpt": "self._component_service = _advanced_component.AdvancedComponentService(", "claim": "字段 _component_service 的第一处赋值", "kind": "事实"}
+{"id": "PRE-069", "file": "local/app.py", "start": 923, "end": 923, "excerpt": "self._ocr_component_service = _advanced_component.AdvancedComponentService(", "claim": "字段 _ocr_component_service 的第一处赋值", "kind": "事实"}
+{"id": "PRE-070", "file": "local/app.py", "start": 909, "end": 909, "excerpt": "self._phone_channel = \"\"", "claim": "字段 _phone_channel 的第一处赋值", "kind": "事实"}
+{"id": "PRE-071", "file": "local/app.py", "start": 948, "end": 948, "excerpt": "self._cloudflare = _tunnel_manager.CloudflareTunnel(", "claim": "字段 _cloudflare 的第一处赋值", "kind": "事实"}
+{"id": "PRE-072", "file": "local/app.py", "start": 3743, "end": 3743, "excerpt": "self._cloudflare_exit_notice = dict(status)", "claim": "字段 _cloudflare_exit_notice 的第一处赋值", "kind": "事实"}
+{"id": "PRE-073", "file": "local/app.py", "start": 960, "end": 960, "excerpt": "self._cloudflare_starting = False", "claim": "字段 _cloudflare_starting 的第一处赋值", "kind": "事实"}
+{"id": "PRE-074", "file": "local/app.py", "start": 902, "end": 902, "excerpt": "self._phone = _phone_service.PhoneAccessService(", "claim": "字段 _phone 的第一处赋值", "kind": "事实"}
+{"id": "PRE-075", "file": "local/app.py", "start": 2034, "end": 2034, "excerpt": "self._pending_save = None", "claim": "字段 _pending_save 的第一处赋值", "kind": "事实"}
+{"id": "PRE-076", "file": "local/app.py", "start": 973, "end": 973, "excerpt": "self._once_creds_rejected = False", "claim": "字段 _once_creds_rejected 的第一处赋值", "kind": "事实"}
+{"id": "PRE-077", "file": "local/app.py", "start": 970, "end": 970, "excerpt": "self._relay_creds_source = \"\"", "claim": "字段 _relay_creds_source 的第一处赋值", "kind": "事实"}
+{"id": "PRE-078", "file": "local/app.py", "start": 962, "end": 962, "excerpt": "self._relay = _login_relay_service.LoginRelayService(", "claim": "字段 _relay 的第一处赋值", "kind": "事实"}
+{"id": "PRE-079", "file": "local/app.py", "start": 824, "end": 824, "excerpt": "self._relay_proc_tree = None", "claim": "字段 _relay_proc_tree 的第一处赋值", "kind": "事实"}
+{"id": "PRE-080", "file": "local/app.py", "start": 975, "end": 975, "excerpt": "self._auto_relogin = AutoReloginMonitor(", "claim": "字段 _auto_relogin 的第一处赋值", "kind": "事实"}
+{"id": "PRE-081", "file": "local/app.py", "start": 875, "end": 875, "excerpt": "self._auto_relogin_started_at = None", "claim": "字段 _auto_relogin_started_at 的第一处赋值", "kind": "事实"}
+{"id": "PRE-082", "file": "local/app.py", "start": 3127, "end": 3127, "excerpt": "self._plan = None", "claim": "字段 _plan 的第一处赋值", "kind": "事实"}
+{"id": "PRE-083", "file": "local/app.py", "start": 896, "end": 896, "excerpt": "self._plan_generation = 0", "claim": "字段 _plan_generation 的第一处赋值", "kind": "事实"}
+{"id": "PRE-084", "file": "local/app.py", "start": 3140, "end": 3140, "excerpt": "self._last_plan = snapshot", "claim": "字段 _last_plan 的第一处赋值", "kind": "事实"}
+{"id": "PRE-085", "file": "local/app.py", "start": 897, "end": 897, "excerpt": "self._latest_plan_id = \"\"", "claim": "字段 _latest_plan_id 的第一处赋值", "kind": "事实"}
+{"id": "PRE-086", "file": "local/app.py", "start": 946, "end": 946, "excerpt": "self._next_plan_source = \"desktop\"", "claim": "字段 _next_plan_source 的第一处赋值", "kind": "事实"}
+{"id": "PRE-087", "file": "local/tests/test_single_instance.py", "start": 514, "end": 514, "excerpt": "mock.patch.object(local_app, \"Api\", _FakeMainApi),", "claim": "测试给 app.Api 打补丁", "kind": "事实"}
+{"id": "PRE-088", "file": "local/tests/test_single_instance.py", "start": 511, "end": 511, "excerpt": "mock.patch.object(local_app, \"BusinessClock\", _FakeClock),", "claim": "测试给 app.BusinessClock 打补丁", "kind": "事实"}
+{"id": "PRE-089", "file": "local/tests/test_application_services.py", "start": 2214, "end": 2214, "excerpt": "mock.patch.object(local_app, \"CREDENTIAL_FILE\", self.data / \"cred.json\"),", "claim": "测试给 app.CREDENTIAL_FILE 打补丁", "kind": "事实"}
+{"id": "PRE-090", "file": "local/tests/test_application_services.py", "start": 1009, "end": 1009, "excerpt": "mock.patch.object(local_app, \"DATA_DIR\", self.data),", "claim": "测试给 app.DATA_DIR 打补丁", "kind": "事实"}
+{"id": "PRE-091", "file": "local/tests/test_application_services.py", "start": 274, "end": 274, "excerpt": "mock.patch.object(local_app, \"DEMO\", True),", "claim": "测试给 app.DEMO 打补丁", "kind": "事实"}
+{"id": "PRE-092", "file": "local/tests/test_application_services.py", "start": 275, "end": 275, "excerpt": "mock.patch.object(local_app, \"DEVICE_FILE\", Path(tmp) / \"devices.json\"),", "claim": "测试给 app.DEVICE_FILE 打补丁", "kind": "事实"}
+{"id": "PRE-093", "file": "local/tests/test_runtime_bundle.py", "start": 136, "end": 136, "excerpt": "with mock.patch.object(app, \"GRAB\", tmp / \"nope.py\"):", "claim": "测试给 app.GRAB 打补丁", "kind": "事实"}
+{"id": "PRE-094", "file": "local/tests/test_application_services.py", "start": 2215, "end": 2215, "excerpt": "mock.patch.object(local_app, \"LOG_FILE\", self.data / \"grab.log\"),", "claim": "测试给 app.LOG_FILE 打补丁", "kind": "事实"}
+{"id": "PRE-095", "file": "local/tests/test_application_services.py", "start": 273, "end": 273, "excerpt": "mock.patch.object(local_app, \"PREFS\", self.prefs_path),", "claim": "测试给 app.PREFS 打补丁", "kind": "事实"}
+{"id": "PRE-096", "file": "local/tests/test_runtime_bundle.py", "start": 400, "end": 400, "excerpt": "mock.patch.object(app, \"PlanCoordinator\", fake_coord):", "claim": "测试给 app.PlanCoordinator 打补丁", "kind": "事实"}
+{"id": "PRE-097", "file": "local/tests/test_session_persistence.py", "start": 326, "end": 326, "excerpt": "mock.patch.object(app, \"SESSION_FILE\", tmp / \"session.json\"), \\", "claim": "测试给 app.SESSION_FILE 打补丁", "kind": "事实"}
+{"id": "PRE-098", "file": "local/tests/test_retry_phone_policy.py", "start": 122, "end": 122, "excerpt": "local_app.SUPERVISE_GRACE_S = self.GRACE", "claim": "测试给 app.SUPERVISE_GRACE_S 打补丁", "kind": "事实"}
+{"id": "PRE-099", "file": "local/tests/test_application_services.py", "start": 2218, "end": 2218, "excerpt": "mock.patch.object(local_app, \"_CREDENTIAL_STORE_OK\", None),", "claim": "测试给 app._CREDENTIAL_STORE_OK 打补丁", "kind": "事实"}
+{"id": "PRE-100", "file": "local/tests/test_clock_tail.py", "start": 77, "end": 77, "excerpt": "mock.patch.object(app, '_PREFS_SAVE_TIMEOUT_S', 0.05):", "claim": "测试给 app._PREFS_SAVE_TIMEOUT_S 打补丁", "kind": "事实"}
+{"id": "PRE-101", "file": "local/tests/test_application_services.py", "start": 2217, "end": 2217, "excerpt": "mock.patch.object(local_app, \"_credential_store\", self.store),", "claim": "测试给 app._credential_store 打补丁", "kind": "事实"}
+{"id": "PRE-102", "file": "local/tests/test_runtime_bundle.py", "start": 710, "end": 710, "excerpt": "mock.patch.object(app, \"_kill_tree\") as legacy_kill:", "claim": "测试给 app._kill_tree 打补丁", "kind": "事实"}
+{"id": "PRE-103", "file": "local/tests/test_clock_tail.py", "start": 41, "end": 41, "excerpt": "mock.patch.object(app, '_prefs_transaction', busy):", "claim": "测试给 app._prefs_transaction 打补丁", "kind": "事实"}
+{"id": "PRE-104", "file": "local/tests/test_single_instance.py", "start": 515, "end": 515, "excerpt": "mock.patch.object(local_app, \"_screen_size\", lambda: None),", "claim": "测试给 app._screen_size 打补丁", "kind": "事实"}
+{"id": "PRE-105", "file": "local/tests/test_update_check.py", "start": 500, "end": 500, "excerpt": "with patch.object(local_app, \"check_latest_release\") as fetch, \\", "claim": "测试给 app.check_latest_release 打补丁", "kind": "事实"}
+{"id": "PRE-106", "file": "local/tests/test_single_instance.py", "start": 512, "end": 512, "excerpt": "mock.patch.object(local_app, \"configure_time_source\", lambda fn: None),", "claim": "测试给 app.configure_time_source 打补丁", "kind": "事实"}
+{"id": "PRE-107", "file": "local/tests/test_application_services.py", "start": 2216, "end": 2216, "excerpt": "mock.patch.object(local_app, \"ensure_data_dir\", lambda: self.data),", "claim": "测试给 app.ensure_data_dir 打补丁", "kind": "事实"}
+{"id": "PRE-108", "file": "local/tests/test_runtime_bundle.py", "start": 468, "end": 468, "excerpt": "mock.patch.object(app, \"get_lifecycle\",", "claim": "测试给 app.get_lifecycle 打补丁", "kind": "事实"}
+{"id": "PRE-109", "file": "local/tests/test_application_services.py", "start": 1244, "end": 1244, "excerpt": "with mock.patch.object(local_app, \"load_prefs\", lambda: {\"window\": prefs}):", "claim": "测试给 app.load_prefs 打补丁", "kind": "事实"}
+{"id": "PRE-110", "file": "local/tests/test_runtime_bundle.py", "start": 466, "end": 466, "excerpt": "mock.patch.object(app, \"login_state\",", "claim": "测试给 app.login_state 打补丁", "kind": "事实"}
+{"id": "PRE-111", "file": "local/tests/test_session_persistence.py", "start": 329, "end": 329, "excerpt": "with mock.patch.object(app, \"migration_record\", lambda: None):", "claim": "测试给 app.migration_record 打补丁", "kind": "事实"}
+{"id": "PRE-112", "file": "local/tests/test_single_instance.py", "start": 389, "end": 389, "excerpt": "patcher = mock.patch.object(local_app, \"phone_log\", lambda *_a, **_k: None)", "claim": "测试给 app.phone_log 打补丁", "kind": "事实"}
+{"id": "PRE-113", "file": "local/tests/test_application_services.py", "start": 2581, "end": 2581, "excerpt": "with mock.patch.object(local_app, \"resolve_update_launcher_path\",", "claim": "测试给 app.resolve_update_launcher_path 打补丁", "kind": "事实"}
+{"id": "PRE-114", "file": "local/tests/test_session_persistence.py", "start": 1264, "end": 1264, "excerpt": "mock.patch.object(app, \"save_session_timing_anchor\",", "claim": "测试给 app.save_session_timing_anchor 打补丁", "kind": "事实"}
+{"id": "PRE-115", "file": "local/tests/test_runtime_bundle.py", "start": 235, "end": 235, "excerpt": "with mock.patch.object(self.app, \"spawn_owned\",", "claim": "测试给 app.spawn_owned 打补丁", "kind": "事实"}
+{"id": "PRE-116", "file": "local/tests/test_signup_plan.py", "start": 499, "end": 499, "excerpt": "mock.patch.object(local_app, \"spawn_owned_worker\", fake_spawn), \\", "claim": "测试给 app.spawn_owned_worker 打补丁", "kind": "事实"}
+{"id": "PRE-117", "file": "local/tests/test_clock_tail.py", "start": 48, "end": 48, "excerpt": "with mock.patch.object(app, 'update_prefs', return_value=False):", "claim": "测试给 app.update_prefs 打补丁", "kind": "事实"}
+{"id": "PRE-118", "file": "local/tests/test_application_services.py", "start": 2583, "end": 2583, "excerpt": "with mock.patch.object(local_app, \"update_version_paths\",", "claim": "测试给 app.update_version_paths 打补丁", "kind": "事实"}
+{"id": "PRE-119", "file": "local/tests/test_runtime_bundle.py", "start": 1127, "end": 1127, "excerpt": "with mock.patch.object(app, \"validate_plan\", gate_validate), \\", "claim": "测试给 app.validate_plan 打补丁", "kind": "事实"}
+{"id": "PRE-120", "file": "local/tests/test_application_services.py", "start": 2580, "end": 2580, "excerpt": "mock.patch.object(local_app, \"version_switch_available\", return_value=True):", "claim": "测试给 app.version_switch_available 打补丁", "kind": "事实"}
+{"id": "PRE-121", "file": "local/tests/test_application_services.py", "start": 2219, "end": 2219, "excerpt": "mock.patch.object(local_app, \"worker_command\",", "claim": "测试给 app.worker_command 打补丁", "kind": "事实"}
+{"id": "PRE-122", "file": "local/tests/test_cancel_signup.py", "start": 476, "end": 476, "excerpt": "mock.patch.object(local_app, \"worker_problem\", lambda: \"\"),", "claim": "测试给 app.worker_problem 打补丁", "kind": "事实"}
+{"id": "PRE-123", "file": "local/tests/test_business_clock_wiring.py", "start": 308, "end": 308, "excerpt": "sync_api.TimeoutError = _Timeout", "claim": "测试改写 Api 成员 TimeoutError", "kind": "事实"}
+{"id": "PRE-124", "file": "local/tests/test_cancel_signup.py", "start": 470, "end": 470, "excerpt": "self.api._activities = {\"act-signed\": dict(self.ACTIVITY), \"act-open\": dict(self.OTHER)}", "claim": "测试改写 Api 成员 _activities", "kind": "事实"}
+{"id": "PRE-125", "file": "local/tests/test_terms_consent.py", "start": 525, "end": 525, "excerpt": "api._advanced_busy = False", "claim": "测试改写 Api 成员 _advanced_busy", "kind": "事实"}
+{"id": "PRE-126", "file": "local/tests/test_terms_consent.py", "start": 531, "end": 531, "excerpt": "api._auto_relogin_paused = lambda: False", "claim": "测试改写 Api 成员 _auto_relogin_paused", "kind": "事实"}
+{"id": "PRE-127", "file": "local/tests/test_runtime_bundle.py", "start": 741, "end": 741, "excerpt": "api._aux_procs = {p_owned, p_failed, p_legacy}", "claim": "测试改写 Api 成员 _aux_procs", "kind": "事实"}
+{"id": "PRE-128", "file": "local/tests/test_runtime_bundle.py", "start": 740, "end": 740, "excerpt": "api._aux_trees = {p_owned: owned, p_failed: failed}", "claim": "测试改写 Api 成员 _aux_trees", "kind": "事实"}
+{"id": "PRE-129", "file": "local/tests/test_runtime_bundle.py", "start": 381, "end": 381, "excerpt": "api._checking = True", "claim": "测试改写 Api 成员 _checking", "kind": "事实"}
+{"id": "PRE-130", "file": "local/tests/test_retry_phone_policy.py", "start": 166, "end": 166, "excerpt": "with mock.patch.object(api, \"_clock_now\", clock_spy):", "claim": "测试改写 Api 成员 _clock_now", "kind": "事实"}
+{"id": "PRE-131", "file": "local/tests/test_runtime_bundle.py", "start": 529, "end": 529, "excerpt": "mock.patch.object(api, \"_clock_ready\", ready), \\", "claim": "测试改写 Api 成员 _clock_ready", "kind": "事实"}
+{"id": "PRE-132", "file": "local/tests/test_application_services.py", "start": 1275, "end": 1275, "excerpt": "api._close_approved = True", "claim": "测试改写 Api 成员 _close_approved", "kind": "事实"}
+{"id": "PRE-133", "file": "local/tests/test_runtime_bundle.py", "start": 563, "end": 563, "excerpt": "api._closing = True", "claim": "测试改写 Api 成员 _closing", "kind": "事实"}
+{"id": "PRE-134", "file": "local/tests/test_application_services.py", "start": 469, "end": 469, "excerpt": "self.api._emit = lambda kind, payload: events.append((kind, dict(payload)))", "claim": "测试改写 Api 成员 _emit", "kind": "事实"}
+{"id": "PRE-135", "file": "local/tests/test_retry_policy.py", "start": 234, "end": 234, "excerpt": "api._last_check = {\"result\": \"valid\", \"checked_at\": 0.0}", "claim": "测试改写 Api 成员 _last_check", "kind": "事实"}
+{"id": "PRE-136", "file": "local/tests/test_terms_consent.py", "start": 530, "end": 530, "excerpt": "api._once_credentials_staged = lambda: False", "claim": "测试改写 Api 成员 _once_credentials_staged", "kind": "事实"}
+{"id": "PRE-137", "file": "local/tests/test_runtime_bundle.py", "start": 643, "end": 643, "excerpt": "api._plan = plan", "claim": "测试改写 Api 成员 _plan", "kind": "事实"}
+{"id": "PRE-138", "file": "local/tests/test_signup_plan.py", "start": 416, "end": 416, "excerpt": "api._plan_procs = {}", "claim": "测试改写 Api 成员 _plan_procs", "kind": "事实"}
+{"id": "PRE-139", "file": "local/tests/test_runtime_bundle.py", "start": 626, "end": 626, "excerpt": "api._proc = p_login", "claim": "测试改写 Api 成员 _proc", "kind": "事实"}
+{"id": "PRE-140", "file": "local/tests/test_application_services.py", "start": 2067, "end": 2067, "excerpt": "api._push_login_expired = lambda: api.pushes.append(1)", "claim": "测试改写 Api 成员 _push_login_expired", "kind": "事实"}
+{"id": "PRE-141", "file": "local/tests/test_terms_consent.py", "start": 526, "end": 526, "excerpt": "api._relogin_blocked_locked = lambda: False", "claim": "测试改写 Api 成员 _relogin_blocked_locked", "kind": "事实"}
+{"id": "PRE-142", "file": "local/tests/test_cancel_signup.py", "start": 479, "end": 479, "excerpt": "mock.patch.object(self.api, \"_run\", self._fake_run),", "claim": "测试改写 Api 成员 _run", "kind": "事实"}
+{"id": "PRE-143", "file": "local/tests/test_terms_consent.py", "start": 532, "end": 532, "excerpt": "api._silent_relogin_ready = types.MethodType(", "claim": "测试改写 Api 成员 _silent_relogin_ready", "kind": "事实"}
+{"id": "PRE-144", "file": "local/tests/test_signup_plan.py", "start": 1393, "end": 1393, "excerpt": "with mock.patch.object(api, \"_start_plan_inner\", side_effect=slow_inner), \\", "claim": "测试改写 Api 成员 _start_plan_inner", "kind": "事实"}
+{"id": "PRE-145", "file": "local/tests/test_cancel_signup.py", "start": 478, "end": 478, "excerpt": "mock.patch.object(self.api, \"_terms_gate\", lambda request_id=\"\": None),", "claim": "测试改写 Api 成员 _terms_gate", "kind": "事实"}
+{"id": "PRE-146", "file": "local/tests/test_application_services.py", "start": 2718, "end": 2718, "excerpt": "api._update_installer = installer", "claim": "测试改写 Api 成员 _update_installer", "kind": "事实"}
+{"id": "PRE-147", "file": "local/tests/test_application_services.py", "start": 2566, "end": 2566, "excerpt": "api._update_result = {\"state\": \"ready_to_restart\", \"latest_version\": \"1.2.2\",", "claim": "测试改写 Api 成员 _update_result", "kind": "事实"}
+{"id": "PRE-148", "file": "local/tests/test_application_services.py", "start": 2568, "end": 2568, "excerpt": "api._update_staging_path = \"D:/versions/.staging-rid-update\"", "claim": "测试改写 Api 成员 _update_staging_path", "kind": "事实"}
+{"id": "PRE-149", "file": "local/tests/test_single_instance.py", "start": 397, "end": 397, "excerpt": "api._window = window", "claim": "测试改写 Api 成员 _window", "kind": "事实"}
+{"id": "PRE-150", "file": "local/tests/test_single_instance.py", "start": 398, "end": 398, "excerpt": "api._window_hidden = True", "claim": "测试改写 Api 成员 _window_hidden", "kind": "事实"}
+{"id": "PRE-151", "file": "local/tests/test_single_instance.py", "start": 399, "end": 399, "excerpt": "api._window_minimized = True", "claim": "测试改写 Api 成员 _window_minimized", "kind": "事实"}
+{"id": "PRE-152", "file": "local/tests/test_terms_consent.py", "start": 333, "end": 333, "excerpt": "api.accept_terms = types.MethodType(namespace[\"accept_terms\"], api)", "claim": "测试改写 Api 成员 accept_terms", "kind": "事实"}
+{"id": "PRE-153", "file": "local/tests/test_terms_consent.py", "start": 436, "end": 436, "excerpt": "api.plan_active_for_close = lambda: plan_running", "claim": "测试改写 Api 成员 plan_active_for_close", "kind": "事实"}
+{"id": "PRE-154", "file": "local/tests/test_application_services.py", "start": 2607, "end": 2607, "excerpt": "api.request_window_close = mock.Mock(return_value={\"ok\": True})", "claim": "测试改写 Api 成员 request_window_close", "kind": "事实"}
+{"id": "PRE-155", "file": "local/tests/test_business_clock_wiring.py", "start": 307, "end": 307, "excerpt": "sync_api.sync_playwright = _Pw", "claim": "测试改写 Api 成员 sync_playwright", "kind": "事实"}
+{"id": "PRE-156", "file": "local/tests/test_terms_consent.py", "start": 437, "end": 437, "excerpt": "api.withdraw_terms = types.MethodType(namespace[\"withdraw_terms\"], api)", "claim": "测试改写 Api 成员 withdraw_terms", "kind": "事实"}
+{"id": "PRE-157", "file": "local/tests/test_ui_reliability.py", "start": 2089, "end": 2089, "excerpt": "def test_manual_refresh_failure_still_clears_the_list(", "claim": "现状：手动刷新失败仍会清空列表", "kind": "事实"}
+{"id": "PRE-158", "file": "local/tests/test_ui_reliability.py", "start": 2060, "end": 2060, "excerpt": "def test_background_failure_keeps_list_and_selection_without_noise(", "claim": "后台轮失败保留列表与勾选", "kind": "事实"}
+{"id": "PRE-159", "file": "local/tests/test_ui_reliability.py", "start": 2000, "end": 2000, "excerpt": "def test_background_round_has_no_skeleton_checking_capsule_or_result_box(", "claim": "后台轮不出骨架", "kind": "事实"}
+{"id": "PRE-160", "file": "local/tests/test_ui_reliability.py", "start": 1965, "end": 1965, "excerpt": "def test_hidden_window_never_refreshes_and_catches_up_on_return(", "claim": "窗口隐藏不刷新，回来补刷", "kind": "事实"}
+{"id": "PRE-161", "file": "local/tests/test_ui_reliability.py", "start": 2314, "end": 2314, "excerpt": "def test_relay_replay_after_a_valid_check_does_not_bring_auto_login_back(", "claim": "校验有效后中继重放不让自动登录回亮", "kind": "事实"}
+{"id": "PRE-162", "file": "local/tests/test_ui_reliability.py", "start": 2303, "end": 2303, "excerpt": "def test_a_live_auto_flow_survives_an_unknown_check(", "claim": "未知校验不收掉进行中的自动登录", "kind": "事实"}
+{"id": "PRE-163", "file": "local/tests/test_ui_reliability.py", "start": 2213, "end": 2213, "excerpt": "def test_closing_the_dialog_keeps_the_computers_own_auto_login(", "claim": "关对话框不取消电脑自己的自动登录", "kind": "事实"}
+{"id": "PRE-164", "file": "local/tests/test_ui_reliability.py", "start": 2235, "end": 2235, "excerpt": "def test_closing_a_user_started_flow_still_cancels_it(", "claim": "关对话框仍取消用户发起的这一场", "kind": "事实"}
+{"id": "PRE-165", "file": "local/tests/test_phone_ui.py", "start": 1218, "end": 1218, "excerpt": "def test_install_shows_installing_until_refresh_returns(", "claim": "手机控制组件安装中显示到刷新返回", "kind": "事实"}
+{"id": "PRE-166", "file": "local/tests/test_phone_ui.py", "start": 1258, "end": 1258, "excerpt": "def test_ocr_install_shows_installing_until_refresh_returns(", "claim": "验证码识别安装中显示到刷新返回", "kind": "事实"}
+{"id": "PRE-167", "file": "local/tests/test_ui_main_window_plan.py", "start": 381, "end": 381, "excerpt": "def test_modify_plan_logs_the_paused_line_with_the_draft_count(", "claim": "修改计划写「已暂停」运行记录", "kind": "事实"}
+{"id": "PRE-168", "file": "local/tests/test_ui_main_window_plan.py", "start": 146, "end": 146, "excerpt": "def test_start_plan_clears_editing_even_when_plan_id_stays(", "claim": "开始被接纳时清修改中", "kind": "事实"}
+{"id": "PRE-169", "file": "local/tests/test_ui_contract.py", "start": 4766, "end": 4766, "excerpt": "def test_launcher_started_text_turns_button_into_close_tool(", "claim": "启动器启动后按钮变成关闭本工具", "kind": "事实"}
+{"id": "PRE-170", "file": "local/tests/test_ui_contract.py", "start": 4755, "end": 4755, "excerpt": "def test_launching_shows_backend_text(", "claim": "launching 显示后端文案", "kind": "事实"}
+{"id": "PRE-171", "file": "local/tests/test_phone_ui.py", "start": 3619, "end": 3619, "excerpt": "def test_review_batches_follow_prototype_batch_map(", "claim": "手机核对弹层批次（静态内容）", "kind": "事实"}
+{"id": "PRE-172", "file": "local/tests/test_phone_ui.py", "start": 383, "end": 383, "excerpt": "def test_background_recovery_backfills_by_event_cursor_only(", "claim": "手机回前台按游标补事件", "kind": "事实"}
+{"id": "PRE-932", "file": "local/domain/phone_rules.py", "start": 166, "end": 166, "excerpt": "# relay 三动作（login-relay 任务接入 Api）：白名单先占位，未实现时明确报错", "claim": "白名单里 relay 三动作的注释仍写先占位、未实现", "kind": "事实"}
+{"id": "PRE-933", "file": "local/app.py", "start": 4211, "end": 4211, "excerpt": "def phone_relogin_begin(self, username: str = \"\", password: str = \"\",", "claim": "phone_relogin_begin 在 Api 里已有实现（另两个同形）", "kind": "事实"}

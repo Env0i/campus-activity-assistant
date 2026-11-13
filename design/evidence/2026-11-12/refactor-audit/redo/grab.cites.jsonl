@@ -1,0 +1,94 @@
+{"id": "GRB-001", "file": "local/grab.py", "start": 286, "end": 286, "excerpt": "line = \"%s %s\" % (stamp, msg)", "claim": "log 把时间戳拼在内容前面", "kind": "事实"}
+{"id": "GRB-002", "file": "local/grab.py", "start": 299, "end": 299, "excerpt": "print(line, flush=True)", "claim": "log 把带时间戳的整行打到 stdout", "kind": "事实"}
+{"id": "GRB-003", "file": "local/grab.py", "start": 250, "end": 250, "excerpt": "print(text, file=stream, flush=True)", "claim": "_stderr_note 写 stderr", "kind": "事实"}
+{"id": "GRB-004", "file": "local/grab.py", "start": 2389, "end": 2389, "excerpt": "log(\"[retry] \" + body)", "claim": "进度型 retry 行经 log", "kind": "事实"}
+{"id": "GRB-005", "file": "local/grab.py", "start": 2558, "end": 2558, "excerpt": "[retry] kind=done attempts=%d stop_reason=%s", "claim": "终态 retry 行经 log", "kind": "事实"}
+{"id": "GRB-006", "file": "local/grab.py", "start": 2379, "end": 2379, "excerpt": "log(\"[checkpoint] \" + json.dumps(payload, ensure_ascii=False, separators=(\",\", \":\")))", "claim": "checkpoint 行经 log", "kind": "事实"}
+{"id": "GRB-007", "file": "local/grab.py", "start": 1322, "end": 1322, "excerpt": "log(\"[clock] \" + json.dumps(sample, ensure_ascii=False, separators=(\",\", \":\")))", "claim": "check 的 clock 行经 log", "kind": "事实"}
+{"id": "GRB-008", "file": "local/grab.py", "start": 1344, "end": 1344, "excerpt": "_stderr_note(\"[timing] list token_s=%.2f pages=%d pages_s=%.2f \"", "claim": "list 的计时行写 stderr", "kind": "事实"}
+{"id": "GRB-009", "file": "local/grab.py", "start": 1465, "end": 1465, "excerpt": "print(json.dumps(out, ensure_ascii=False))", "claim": "list --json 的列表 JSON", "kind": "事实"}
+{"id": "GRB-010", "file": "local/grab.py", "start": 1418, "end": 1418, "excerpt": "_emit_list_timing(0, 0.0)", "claim": "空列表时先打印 [] 再写计时", "kind": "事实"}
+{"id": "GRB-011", "file": "local/grab.py", "start": 1604, "end": 1604, "excerpt": "print(json.dumps(result, ensure_ascii=False), flush=True)", "claim": "cancel 的结果 JSON", "kind": "事实"}
+{"id": "GRB-013", "file": "local/login_relay.py", "start": 41, "end": 41, "excerpt": "LOGIN_PREFIX = \"[login] \"", "claim": "[login] 行的前缀常量", "kind": "事实"}
+{"id": "GRB-014", "file": "local/grab.py", "start": 256, "end": 256, "excerpt": "def _stdout_to_stderr(enabled):", "claim": "--json 期间把 stdout 改道到 stderr", "kind": "事实"}
+{"id": "GRB-015", "file": "local/grab.py", "start": 4062, "end": 4062, "excerpt": "print(\"[X] %s\" % SITE_CONFIG_MESSAGE)", "claim": "站点未配置时的失败行", "kind": "事实"}
+{"id": "GRB-016", "file": "local/grab.py", "start": 4061, "end": 4064, "excerpt": "if not SITE_CONFIGURED and args.cmd != \"cancel\":", "claim": "站点未配置时 main 返回 2，cancel 除外", "kind": "事实"}
+{"id": "GRB-017", "file": "local/grab.py", "start": 4071, "end": 4072, "excerpt": "print(\"\\n[i] 已手动中断。\")", "claim": "Ctrl+C 返回 130", "kind": "事实"}
+{"id": "GRB-018", "file": "local/grab.py", "start": 4076, "end": 4076, "excerpt": "sys.exit(main())", "claim": "进程退出码取自 main", "kind": "事实"}
+{"id": "GRB-019", "file": "local/grab.py", "start": 127, "end": 127, "excerpt": "os.environ.get(\"CAMPUS_CLOCK_SNAPSHOT\")", "claim": "worker 读时钟快照路径", "kind": "事实"}
+{"id": "GRB-020", "file": "local/app.py", "start": 409, "end": 409, "excerpt": "env[\"CAMPUS_CLOCK_SNAPSHOT\"] = _CLOCK_ENV[\"path\"]", "claim": "主程序传时钟快照", "kind": "事实"}
+{"id": "GRB-021", "file": "local/app.py", "start": 406, "end": 406, "excerpt": "env[\"CAMPUS_DATA_DIR\"] = str(DATA_DIR)", "claim": "主程序传数据根", "kind": "事实"}
+{"id": "GRB-022", "file": "local/grab.py", "start": 304, "end": 304, "excerpt": "with open(LOG_FILE, \"a\", encoding=\"utf-8\") as f:", "claim": "运行日志追加写", "kind": "事实"}
+{"id": "GRB-101", "file": "local/domain/retry_rules.py", "start": 36, "end": 36, "excerpt": "if not text.startswith(prefix):", "claim": "parse_retry_line 要求行以前缀开头", "kind": "事实"}
+{"id": "GRB-102", "file": "local/application/plan_service.py", "start": 410, "end": 410, "excerpt": "parsed = parse_retry_line(line)", "claim": "计划服务收尾时读终态行", "kind": "事实"}
+{"id": "GRB-103", "file": "local/application/plan_service.py", "start": 276, "end": 276, "excerpt": "parsed = parse_retry_line(line)", "claim": "计划服务逐行读进度行", "kind": "事实"}
+{"id": "GRB-104", "file": "local/domain/plan_rules.py", "start": 184, "end": 184, "excerpt": "or any(\"[OK] 报名成功\" in line for line in tail):", "claim": "单场结论按尾部子串判断成功", "kind": "事实"}
+{"id": "GRB-105", "file": "tools/qa_business_clock_worker.py", "start": 205, "end": 205, "excerpt": "terminals = [line for line in text.splitlines() if \"[retry] kind=done\" in line]", "claim": "QA 脚本按子串找终态行", "kind": "事实"}
+{"id": "GRB-106", "file": "local/domain/retry_rules.py", "start": 25, "end": 25, "excerpt": "ATTEMPT_RE = re.compile(", "claim": "提交行正则（行首锚定）", "kind": "事实"}
+{"id": "GRB-107", "file": "local/application/plan_service.py", "start": 269, "end": 269, "excerpt": "hit = ATTEMPT_RE.match(line)", "claim": "计划服务用它计提交次数", "kind": "事实"}
+{"id": "GRB-108", "file": "local/domain/worker_lines.py", "start": 21, "end": 21, "excerpt": "marker = \"[checkpoint] \"", "claim": "checkpoint 按子串查找", "kind": "事实"}
+{"id": "GRB-109", "file": "local/application/plan_service.py", "start": 262, "end": 262, "excerpt": "checkpoint = parse_checkpoint_line(line)", "claim": "计划服务读 checkpoint", "kind": "事实"}
+{"id": "GRB-110", "file": "local/domain/worker_lines.py", "start": 49, "end": 49, "excerpt": "marker = \"[clock] \"", "claim": "clock 行按子串查找", "kind": "事实"}
+{"id": "GRB-111", "file": "local/domain/login_rules.py", "start": 174, "end": 174, "excerpt": "lines = [ln for ln in lines if \"[clock] \" not in ln and \"[checkpoint] \" not in ln]", "claim": "来源行提取过滤结构化行", "kind": "事实"}
+{"id": "GRB-112", "file": "local/app.py", "start": 2713, "end": 2713, "excerpt": "if not line.startswith(\"[timing] list \"):", "claim": "主程序认 stderr 里的 timing 行", "kind": "事实"}
+{"id": "GRB-113", "file": "local/app.py", "start": 2703, "end": 2703, "excerpt": "items = json.loads(raw.strip() or \"[]\")", "claim": "主程序解析列表 JSON", "kind": "事实"}
+{"id": "GRB-114", "file": "local/domain/cancel_rules.py", "start": 52, "end": 52, "excerpt": "data = json.loads(lines[-1])", "claim": "取消结果只认最后一行", "kind": "事实"}
+{"id": "GRB-115", "file": "local/app.py", "start": 4592, "end": 4592, "excerpt": "if line.startswith(\"[login] \"):", "claim": "泵线程按行首前缀识别 login 行", "kind": "事实"}
+{"id": "GRB-116", "file": "local/app.py", "start": 4594, "end": 4594, "excerpt": "self._relay.observe_line(line)", "claim": "转交中继", "kind": "事实"}
+{"id": "GRB-117", "file": "local/domain/login_rules.py", "start": 175, "end": 175, "excerpt": "reason = next((ln for ln in lines if ln.startswith(\"[X] \")), \"\")", "claim": "check 取第一条 [X] 行", "kind": "事实"}
+{"id": "GRB-118", "file": "local/application/login_service.py", "start": 68, "end": 68, "excerpt": "if t.startswith(\"[X] \"):", "claim": "done 事件取最后一条 [X] 行", "kind": "事实"}
+{"id": "GRB-119", "file": "local/ui/views/login.js", "start": 159, "end": 159, "excerpt": ": (text.indexOf(\"[OK]\") === 0 || text.indexOf(\"▶\") === 0) ? \"ok\" : \"\";", "claim": "桌面按前缀着色", "kind": "事实"}
+{"id": "GRB-120", "file": "local/domain/plan_rules.py", "start": 184, "end": 184, "excerpt": "or any(\"[OK] 报名成功\" in line for line in tail):", "claim": "[OK] 成功行按子串读", "kind": "事实"}
+{"id": "GRB-121", "file": "local/application/login_service.py", "start": 64, "end": 64, "excerpt": "ok = returncode == 0 and any(\"报名成功\" in t for t in tail)", "claim": "grab 的 done 要求退出码 0 且见过报名成功", "kind": "事实"}
+{"id": "GRB-122", "file": "local/application/plan_service.py", "start": 252, "end": 252, "excerpt": "def feed(line: str) -> None:", "claim": "feed 把原始行交给各解析函数", "kind": "事实"}
+{"id": "GRB-123", "file": "local/application/plan_service.py", "start": 178, "end": 178, "excerpt": "lines.put(line.rstrip(\"\\r\\n\"))", "claim": "读线程只去掉行尾换行", "kind": "事实"}
+{"id": "GRB-124", "file": "local/application/login_service.py", "start": 62, "end": 62, "excerpt": "ok = returncode == 0", "claim": "login 的 done 只看退出码", "kind": "事实"}
+{"id": "GRB-125", "file": "local/app.py", "start": 2422, "end": 2422, "excerpt": "code, out = res[\"code\"], res[\"out\"]", "claim": "check 读退出码与全部输出", "kind": "事实"}
+{"id": "GRB-126", "file": "local/domain/login_rules.py", "start": 189, "end": 189, "excerpt": "if code == 0:", "claim": "退出码 0 直接认有效", "kind": "事实"}
+{"id": "GRB-127", "file": "local/app.py", "start": 2693, "end": 2693, "excerpt": "if res[\"code\"] != 0:", "claim": "list 退出码非 0 就当失败", "kind": "事实"}
+{"id": "GRB-128", "file": "local/launchers/install.bat", "start": 66, "end": 66, "excerpt": "%PY% grab.py selftest", "claim": "selftest 只在安装批处理里直接运行", "kind": "事实"}
+{"id": "GRB-130", "file": "local/domain/retry_rules.py", "start": 34, "end": 34, "excerpt": "text = str(line or \"\").strip()", "claim": "解析前只去首尾空白，不去行首时间戳；端到端表现（结果页最终显示什么原因）没有运行带时间戳输出的计划服务观察过", "kind": "需测试定", "missing": "没有运行带时间戳输出的计划服务观察结果页的 stop_reason"}
+{"id": "GRB-201", "file": "local/grab.py", "start": 2565, "end": 2572, "excerpt": "if stop_reason == \"success\":", "claim": "success 返回 0", "kind": "事实"}
+{"id": "GRB-202", "file": "local/grab.py", "start": 2573, "end": 2575, "excerpt": "if stop_reason == \"already_signed\":", "claim": "already_signed 返回 0", "kind": "事实"}
+{"id": "GRB-203", "file": "local/grab.py", "start": 2576, "end": 2580, "excerpt": "if stop_reason == \"login_invalid\":", "claim": "login_invalid 返回 3", "kind": "事实"}
+{"id": "GRB-204", "file": "local/grab.py", "start": 2581, "end": 2586, "excerpt": "if stop_reason == \"auth_unavailable\":", "claim": "auth_unavailable 返回 3", "kind": "事实"}
+{"id": "GRB-205", "file": "local/grab.py", "start": 2587, "end": 2591, "excerpt": "if stop_reason == \"max_attempts\":", "claim": "max_attempts 返回 2", "kind": "事实"}
+{"id": "GRB-206", "file": "local/grab.py", "start": 2592, "end": 2600, "excerpt": "if stop_reason == \"unconfirmed\":", "claim": "unconfirmed 返回 2", "kind": "事实"}
+{"id": "GRB-207", "file": "local/grab.py", "start": 2601, "end": 2605, "excerpt": "if stop_reason == \"clock_unavailable\":", "claim": "clock_unavailable 返回 3", "kind": "事实"}
+{"id": "GRB-208", "file": "local/grab.py", "start": 2606, "end": 2613, "excerpt": "if stop_reason in REPLY_STOP_HINTS:", "claim": "回包类终态返回 2", "kind": "事实"}
+{"id": "GRB-209", "file": "local/grab.py", "start": 2614, "end": 2618, "excerpt": "if stop_reason == \"process_error\":", "claim": "process_error 返回 2", "kind": "事实"}
+{"id": "GRB-210", "file": "local/grab.py", "start": 2621, "end": 2627, "excerpt": "tail_note = \"报名已截止\" if stop_reason == \"sign_end\" else \"重试时长到了\"", "claim": "其余终态兜底返回 2", "kind": "事实"}
+{"id": "GRB-211", "file": "local/grab.py", "start": 2555, "end": 2556, "excerpt": "if done[\"value\"]:", "claim": "重复调用 terminal 返回 2", "kind": "事实"}
+{"id": "GRB-212", "file": "local/grab.py", "start": 2491, "end": 2499, "excerpt": "REPLY_STOP_HINTS = {", "claim": "回包类终态的七个键", "kind": "事实"}
+{"id": "GRB-301", "file": "local/grab.py", "start": 320, "end": 320, "excerpt": "log(format_event_line(event, source, level=level,", "claim": "log_event 调用 log，所以事件行也带时间戳打到 stdout", "kind": "事实"}
+{"id": "GRB-302", "file": "local/domain/plan_rules.py", "start": 209, "end": 209, "excerpt": "if line.startswith(\"[X] \"):", "claim": "计划模式取失败原因：倒序取第一条以 [X]  开头的行", "kind": "事实"}
+{"id": "GRB-303", "file": "local/domain/plan_rules.py", "start": 225, "end": 225, "excerpt": "\"login_invalid\" if code == 3 and \"登录失效\" in \"\".join(tail) else \"process_error\")", "claim": "登录失效按子串判，没有则落 process_error", "kind": "事实"}
+{"id": "GRB-306", "file": "local/grab.py", "start": 3186, "end": 3186, "excerpt": "log(\"[i] 第 %d 次提交：%s\"", "claim": "第 N 次提交行经 log", "kind": "事实"}
+{"id": "GRB-308", "file": "local/grab.py", "start": 2610, "end": 2610, "excerpt": "print(\"\\n[X] 没报上：%s\" % label)", "claim": "print 版本的 [X] 行，行首无时间戳", "kind": "事实"}
+{"id": "GRB-309", "file": "local/grab.py", "start": 2609, "end": 2609, "excerpt": "log(\"[X] 本场结束：%s（尝试 %d 次）\" % (label, attempts))", "claim": "log 版本的 [X] 行，带时间戳", "kind": "事实"}
+{"id": "GRB-308b", "file": "local/grab.py", "start": 1311, "end": 1312, "excerpt": "print(\"[OK] 登录成功，登录态已保存（失效", "claim": "登录成功路径", "kind": "事实"}
+{"id": "GRB-310", "file": "local/grab.py", "start": 2682, "end": 2682, "excerpt": "_retry_event(kind=\"login_wait\", wait_s=int(wait_s))", "claim": "login_wait 进度行", "kind": "事实"}
+{"id": "GRB-311", "file": "local/grab.py", "start": 2695, "end": 2695, "excerpt": "_retry_event(kind=\"login_resumed\")", "claim": "login_resumed 进度行", "kind": "事实"}
+{"id": "GRB-312", "file": "local/grab.py", "start": 2790, "end": 2790, "excerpt": "_retry_event(kind=\"window\", retry_deadline=int(state[\"deadline\"]),", "claim": "window 进度行", "kind": "事实"}
+{"id": "GRB-313", "file": "local/grab.py", "start": 2933, "end": 2933, "excerpt": "_retry_event(kind=\"path\", path=\"click\", path_reason=reason)", "claim": "path 进度行", "kind": "事实"}
+{"id": "GRB-314", "file": "local/grab.py", "start": 3046, "end": 3046, "excerpt": "_retry_event(kind=\"window_extended\",", "claim": "window_extended 进度行", "kind": "事实"}
+{"id": "GRB-315", "file": "local/grab.py", "start": 3217, "end": 3217, "excerpt": "_retry_event(kind=\"submit\", attempts=state[\"attempts\"],", "claim": "submit 进度行", "kind": "事实"}
+{"id": "GRB-316", "file": "local/grab.py", "start": 3169, "end": 3169, "excerpt": "_retry_event(kind=\"not_ready\", request_id=bid,", "claim": "not_ready 进度行", "kind": "事实"}
+{"id": "GRB-317", "file": "local/grab.py", "start": 3175, "end": 3175, "excerpt": "_retry_event(kind=\"throttled\", request_id=bid,", "claim": "throttled 进度行", "kind": "事实"}
+{"id": "GRB-318", "file": "local/grab.py", "start": 3181, "end": 3181, "excerpt": "_retry_event(kind=\"server_error\", request_id=bid,", "claim": "server_error 进度行", "kind": "事实"}
+{"id": "GRB-319", "file": "local/domain/retry_rules.py", "start": 65, "end": 65, "excerpt": "if kind == \"path\":", "claim": "progress_event_status 只认 path、login_wait、login_resumed（后两个在其后）", "kind": "事实"}
+{"id": "GRB-320", "file": "local/application/plan_service.py", "start": 289, "end": 289, "excerpt": "elif parsed.get(\"kind\") == \"window_extended\":", "claim": "计划服务按 kind 读 window_extended（login_wait 在 292 行）", "kind": "事实"}
+{"id": "GRB-321", "file": "local/application/plan_service.py", "start": 302, "end": 302, "excerpt": "if parsed.get(\"retry_deadline\"):", "claim": "其余 kind 只靠字段被读", "kind": "事实"}
+{"id": "GRB-322", "file": "local/grab.py", "start": 2751, "end": 2752, "excerpt": "if not target:", "claim": "目标解析不出时 cmd_grab 返回 0", "kind": "事实"}
+{"id": "GRB-323", "file": "local/grab.py", "start": 2840, "end": 2842, "excerpt": "log(\"[i] dry-run：joined=%s buttons=%s\"", "claim": "dry-run 完成返回 0", "kind": "事实"}
+{"id": "GRB-330", "file": "local/grab.py", "start": 280, "end": 280, "excerpt": "_stderr_note(\"[log] 数据目录不可用（%s）\" % type(exc).__name__)", "claim": "log 内部诊断行写 stderr", "kind": "事实"}
+{"id": "GRB-331", "file": "local/grab.py", "start": 293, "end": 293, "excerpt": "_stderr_note(\"[log] 日志轮转失败（%s）\" % type(exc).__name__)", "claim": "日志轮转失败的诊断行写 stderr", "kind": "事实"}
+{"id": "GRB-332", "file": "local/gui.py", "start": 895, "end": 895, "excerpt": "rows = json.loads(out.splitlines()[-1])", "claim": "旧界面取输出最后一行做 json.loads", "kind": "推测", "missing": "没有穷举全仓是否还有人 import gui"}
+{"id": "GRB-340", "file": "local/tests/test_retry_policy.py", "start": 265, "end": 265, "excerpt": "print('[i] 第 1 次提交：code:0 报名人数已满', flush=True)", "claim": "fake worker 用 print 输出不带时间戳的提交行", "kind": "事实"}
+{"id": "GRB-341", "file": "local/tests/test_retry_policy.py", "start": 269, "end": 269, "excerpt": "print('[retry] attempts=3 stop_reason=max_attempts", "claim": "fake worker 用 print 输出不带时间戳的 retry 行", "kind": "事实"}
+{"id": "GRB-349", "file": "local/grab.py", "start": 1257, "end": 1261, "excerpt": "[X] 打不开登录页：%s", "claim": "打不开登录页返回 2", "kind": "事实"}
+{"id": "GRB-350", "file": "local/grab.py", "start": 1268, "end": 1272, "excerpt": "[X] 窗口被关掉了，登录未完成。", "claim": "窗口被关返回 1", "kind": "事实"}
+{"id": "GRB-351", "file": "local/grab.py", "start": 1282, "end": 1286, "excerpt": "[X] 等了 %d 秒仍未检测到登录成功", "claim": "等超时返回 1", "kind": "事实"}
+{"id": "GRB-352", "file": "local/grab.py", "start": 1300, "end": 1303, "excerpt": "[X] 登录成功，但登录态没能写入", "claim": "登录态没能写入返回 2", "kind": "事实"}
+{"id": "GRB-353", "file": "local/grab.py", "start": 1307, "end": 1310, "excerpt": "[X] 已保存登录态，但接口校验失败", "claim": "接口校验失败返回 2", "kind": "事实"}
+{"id": "GRB-131", "file": "local/launchers/install.bat", "start": 66, "end": 66, "excerpt": "%PY% grab.py selftest", "claim": "selftest 看起来只在安装批处理里直接运行（缺席结论）", "kind": "推测", "missing": "没有对 local/tests、tools 与全仓解析方做穷举搜索"}

@@ -1,0 +1,90 @@
+{"id": "RUL-101", "file": "local/domain/login_rules.py", "start": 198, "end": 198, "excerpt": "def check_result(state: dict, code: int, text: str) -> str:", "claim": "check_result 把校验分成四态", "kind": "事实"}
+{"id": "RUL-102", "file": "local/domain/login_rules.py", "start": 212, "end": 212, "excerpt": "if hint == \"login\":", "claim": "登录类字样才判 expired", "kind": "事实"}
+{"id": "RUL-103", "file": "local/domain/login_rules.py", "start": 128, "end": 128, "excerpt": "state = {\"session_present\": False, \"session_expired\": False, \"hours_left\": None,", "claim": "session_expired 初值为假", "kind": "事实"}
+{"id": "RUL-104", "file": "local/app.py", "start": 2411, "end": 2411, "excerpt": "\"session_expired\": False, \"saved_at\": None,", "claim": "session_expired 另一处赋值也是假", "kind": "事实"}
+{"id": "RUL-105", "file": "local/app.py", "start": 3683, "end": 3683, "excerpt": "login[\"recovering\"] = bool(self._silent_relogin_state()[0])", "claim": "手机快照按最近校验为 expired 才读恢复状态", "kind": "事实"}
+{"id": "RUL-106", "file": "local/ui/views/login.js", "start": 16, "end": 16, "excerpt": "const busyExpired = S.login.result === \"expired\" && S.login.present !== false;", "claim": "桌面只在 result 为 expired 且登录过才算失效", "kind": "事实"}
+{"id": "RUL-107", "file": "local/ui/views/login.js", "start": 55, "end": 55, "excerpt": "} else if (S.login.result === \"unknown\" && ok === false) {", "claim": "桌面 unknown 写登录待确认", "kind": "事实"}
+{"id": "RUL-108", "file": "local/ui/views/login.js", "start": 50, "end": 50, "excerpt": "} else if (S.login.present === false) {", "claim": "桌面从没登录过单列", "kind": "事实"}
+{"id": "RUL-109", "file": "local/ui/m/app.js", "start": 152, "end": 152, "excerpt": "if (!PhoneModel.loginRaw(login)) return false;", "claim": "手机失效判断以 loginRaw 为准", "kind": "事实"}
+{"id": "RUL-110", "file": "local/ui/m/app.js", "start": 1102, "end": 1102, "excerpt": "return (expired ? \"电脑上的登录已失效。\" : \"电脑上的登录有效。\")", "claim": "手机登录行只有失效与有效两句", "kind": "事实"}
+{"id": "RUL-111", "file": "local/ui/m/app.js", "start": 147, "end": 147, "excerpt": "return !!login && !!login.recovering;", "claim": "手机恢复中取快照的 recovering", "kind": "事实"}
+{"id": "RUL-201", "file": "local/signup_plan.py", "start": 56, "end": 56, "excerpt": "def classify_signup_mode(sign_start: str, sign_end: str,", "claim": "后端模式分类函数", "kind": "事实"}
+{"id": "RUL-202", "file": "local/signup_plan.py", "start": 74, "end": 74, "excerpt": "return \"instant_signup\"", "claim": "其余情形归立即报名", "kind": "事实"}
+{"id": "RUL-203", "file": "local/ui/state/labels.js", "start": 7, "end": 16, "excerpt": "function modeOf(item) {", "claim": "桌面 modeOf 与后端同构", "kind": "事实"}
+{"id": "RUL-204", "file": "local/ui/state/labels.js", "start": 10, "end": 10, "excerpt": "if (now == null) return \"unknown\";", "claim": "未校准时桌面返回 unknown", "kind": "事实"}
+{"id": "RUL-205", "file": "local/ui/views/plan-panel.js", "start": 131, "end": 131, "excerpt": "const instant = items.filter((item) => modeOf(item) === \"instant_signup\").length;", "claim": "桌面摘要用 modeOf 数立即报名", "kind": "事实"}
+{"id": "RUL-207", "file": "local/ui/m/app.js", "start": 49, "end": 49, "excerpt": "if (!m) return 0;", "claim": "手机开放时刻解析不出按 0", "kind": "事实"}
+{"id": "RUL-208", "file": "local/ui/m/app.js", "start": 885, "end": 885, "excerpt": "const isPre = String(t.signup_mode || \"\") !== \"instant_signup\";", "claim": "手机任务卡读后端写进任务的模式", "kind": "事实"}
+{"id": "RUL-209", "file": "local/ui/m/app.js", "start": 554, "end": 554, "excerpt": "if (end !== null && nowS >= end) return \"closed\";", "claim": "手机单场状态里的已截止", "kind": "事实"}
+{"id": "RUL-210", "file": "local/application/plan_service.py", "start": 141, "end": 141, "excerpt": "emit(\"log\", \"▶ [%s] 立即报名：抢名额\" % spec.name)", "claim": "计划服务按模式写入口运行记录", "kind": "事实"}
+{"id": "RUL-301", "file": "local/signup_plan.py", "start": 77, "end": 77, "excerpt": "def intervals_overlap(start_a: datetime, end_a: datetime,", "claim": "后端半开区间判断", "kind": "事实"}
+{"id": "RUL-302", "file": "local/signup_plan.py", "start": 243, "end": 243, "excerpt": "if intervals_overlap(left_start, left_end, right_start, right_end):", "claim": "选中场次两两比较", "kind": "事实"}
+{"id": "RUL-303", "file": "local/signup_plan.py", "start": 273, "end": 273, "excerpt": "if intervals_overlap(start, end, signed_start, signed_end):", "claim": "选中场次与已报名比较", "kind": "事实"}
+{"id": "RUL-304", "file": "local/ui/state/filters.js", "start": 214, "end": 214, "excerpt": "return otherStart && otherEnd && otherEnd > otherStart && start < otherEnd && otherStart < end;", "claim": "桌面校验：选中对已报名", "kind": "事实"}
+{"id": "RUL-305", "file": "local/ui/state/filters.js", "start": 256, "end": 256, "excerpt": "return otherStart && otherEnd && otherEnd > otherStart && start < otherEnd && otherStart < end;", "claim": "桌面 signedClash", "kind": "事实"}
+{"id": "RUL-306", "file": "local/ui/state/filters.js", "start": 239, "end": 239, "excerpt": "leftStart < rightEnd && rightStart < leftEnd", "claim": "桌面校验：选中两两", "kind": "事实"}
+{"id": "RUL-307", "file": "local/ui/m/app.js", "start": 328, "end": 328, "excerpt": "return !!b && a.s < b.e && b.s < a.e;", "claim": "手机 signedClash", "kind": "事实"}
+{"id": "RUL-308", "file": "local/ui/m/app.js", "start": 593, "end": 593, "excerpt": "return !!b && a.s < b.e && b.s < a.e;", "claim": "手机 overlapFirst", "kind": "事实"}
+{"id": "RUL-309", "file": "local/ui/m/app.js", "start": 263, "end": 263, "excerpt": "return s !== null && e !== null && e > s ? { s, e } : null;", "claim": "手机时段不完整返回空，不算冲突", "kind": "事实"}
+{"id": "RUL-310", "file": "local/ui/state/filters.js", "start": 207, "end": 207, "excerpt": "if (!start || !end) errors.push({ title: \"活动时间待确认\"", "claim": "桌面缺时间报错", "kind": "事实"}
+{"id": "RUL-311", "file": "local/signup_plan.py", "start": 227, "end": 227, "excerpt": "errors.append({\"kind\": \"activity_time_unknown\", \"activity_id\": aid, \"name\": name})", "claim": "后端缺时间报错", "kind": "事实"}
+{"id": "RUL-312", "file": "local/ui/state/filters.js", "start": 251, "end": 251, "excerpt": "if (!start || !end || end <= start) return null;", "claim": "桌面 signedClash 对自己缺时间返回空", "kind": "事实"}
+{"id": "RUL-401", "file": "local/domain/signup_reply.py", "start": 63, "end": 63, "excerpt": "STOP_REASON_LABELS = {", "claim": "后端七个结束原因短结论", "kind": "事实"}
+{"id": "RUL-402", "file": "local/domain/signup_reply.py", "start": 94, "end": 94, "excerpt": "def stop_reason_label(stop_reason) -> str:", "claim": "按 stop_reason 取短结论", "kind": "事实"}
+{"id": "RUL-403", "file": "local/domain/retry_rules.py", "start": 114, "end": 114, "excerpt": "payload[\"outcome_label\"] = label", "claim": "短结论随任务载荷下发", "kind": "事实"}
+{"id": "RUL-404", "file": "local/ui/state/task-display.js", "start": 63, "end": 63, "excerpt": "if (task.stop_reason === \"auth_unavailable\") return \"未提交\";", "claim": "桌面 auth_unavailable 标签", "kind": "事实"}
+{"id": "RUL-405", "file": "local/ui/state/task-display.js", "start": 65, "end": 65, "excerpt": "if (task.stop_reason === \"full\") return \"名额已满\";", "claim": "桌面 full 标签", "kind": "事实"}
+{"id": "RUL-406", "file": "local/ui/views/plan-panel.js", "start": 1058, "end": 1058, "excerpt": "function stopReasonText(reason) {", "claim": "桌面说明文案表", "kind": "事实"}
+{"id": "RUL-407", "file": "local/ui/views/plan-panel.js", "start": 1077, "end": 1077, "excerpt": "page_unavailable: \"学校页面打不开\",", "claim": "表中含后端七个结论的同义词", "kind": "事实"}
+{"id": "RUL-408", "file": "local/ui/views/plan-panel.js", "start": 1153, "end": 1153, "excerpt": "const stopNote = String(task.outcome_label || \"\") || stopReasonText(task.stop_reason);", "claim": "显示时优先后端 outcome_label", "kind": "事实"}
+{"id": "RUL-409", "file": "local/ui/m/app.js", "start": 893, "end": 894, "excerpt": "failed: [failedFull ? \"\" : (failedAsk ? \"ask\" : \"bad\"),", "claim": "手机标签只特殊处理 full 与 unconfirmed", "kind": "事实"}
+{"id": "RUL-410", "file": "local/ui/m/app.js", "start": 420, "end": 420, "excerpt": "if (stop === \"full\") return \"名额已满（学校说满了，不再提交，不是工具出错）\";", "claim": "手机 full 长说明", "kind": "事实"}
+{"id": "RUL-411", "file": "local/ui/m/app.js", "start": 423, "end": 423, "excerpt": "return \"报名未成功\" + (t.outcome_label", "claim": "其余失败：报名未成功加后端短结论", "kind": "事实"}
+{"id": "RUL-412", "file": "local/ui/m/app.js", "start": 421, "end": 421, "excerpt": "if (stop === \"unconfirmed\") return \"待核对（去活动页看一眼，工具不会再自动重发）\";", "claim": "手机 unconfirmed 长说明", "kind": "事实"}
+{"id": "RUL-501", "file": "local/grab.py", "start": 1414, "end": 1414, "excerpt": "rows.sort(key=lambda a: (rank(a), a[\"sign_start\"] or \"9999\", a[\"name\"]))", "claim": "后端 list 输出排序", "kind": "事实"}
+{"id": "RUL-502", "file": "local/grab.py", "start": 1404, "end": 1404, "excerpt": "# 未开放的排最前，其次开放中，已报名的垫底；时间未知时全部同档", "claim": "后端三档排序规则", "kind": "事实"}
+{"id": "RUL-503", "file": "local/ui/state/filters.js", "start": 123, "end": 123, "excerpt": "rows.sort((a, b) => {", "claim": "桌面重新排序", "kind": "事实"}
+{"id": "RUL-504", "file": "local/ui/state/filters.js", "start": 127, "end": 127, "excerpt": "if (ta === null && tb !== null) return 1;", "claim": "桌面开放时刻缺失的排最后", "kind": "事实"}
+{"id": "RUL-505", "file": "local/ui/views/list.js", "start": 78, "end": 78, "excerpt": "function groupTimetable(rows) {", "claim": "桌面按天分组函数", "kind": "事实"}
+{"id": "RUL-506", "file": "local/ui/views/list.js", "start": 112, "end": 112, "excerpt": "if (unknown.length) html += groupHtml(\"报名时间待公布\"", "claim": "桌面待公布组在天之后", "kind": "事实"}
+{"id": "RUL-507", "file": "local/ui/m/app.js", "start": 747, "end": 747, "excerpt": "const titles = [\"正在开放\", \"今天\", \"明天\", \"后天\", \"待公布\", \"更晚开放\", \"已报名\", \"已截止\"];", "claim": "手机固定分组顺序", "kind": "事实"}
+{"id": "RUL-508", "file": "local/ui/m/app.js", "start": 562, "end": 562, "excerpt": "groupKeyOf(item, st, nowS, wallS) {", "claim": "手机分组键", "kind": "事实"}
+{"id": "RUL-509", "file": "local/ui/views/list.js", "start": 45, "end": 45, "excerpt": "if (S.filter.sort === \"name\") {", "claim": "桌面可切按名称不分组", "kind": "事实"}
+{"id": "RUL-601", "file": "local/ui/views/plan-panel.js", "start": 475, "end": 475, "excerpt": "const note = instant ? \"立即报名 \" + count + \" 场\"", "claim": "桌面批次说明", "kind": "事实"}
+{"id": "RUL-602", "file": "local/ui/m/app.js", "start": 1084, "end": 1084, "excerpt": "b.note = b.instant ? \"立即报名 \" + n + \" 场\"", "claim": "手机批次说明", "kind": "事实"}
+{"id": "RUL-603", "file": "local/ui/state/filters.js", "start": 183, "end": 183, "excerpt": "function groupSelected(items) {", "claim": "桌面按开放时刻分组已选场次", "kind": "事实"}
+{"id": "RUL-605", "file": "local/ui/m/app.js", "start": 1063, "end": 1063, "excerpt": "const key = st === \"open\" ? \"now\" : String(open);", "claim": "手机批次键", "kind": "事实"}
+{"id": "RUL-606", "file": "local/ui/views/plan-panel.js", "start": 478, "end": 478, "excerpt": "(at === null ? \"待公布\" : hmsDay(at))", "claim": "桌面批次头时刻", "kind": "事实"}
+{"id": "RUL-607", "file": "local/ui/m/app.js", "start": 1066, "end": 1066, "excerpt": "time: st === \"open\" ? \"现在\"", "claim": "手机批次头", "kind": "事实"}
+{"id": "RUL-701", "file": "local/time_contract.py", "start": 31, "end": 31, "excerpt": "SCHOOL_TZ = timezone(timedelta(hours=8))", "claim": "后端业务时区 UTC+8", "kind": "事实"}
+{"id": "RUL-702", "file": "local/time_contract.py", "start": 80, "end": 80, "excerpt": "def school_time_text(epoch: \"float | None\" = None,", "claim": "后端时间文本转换", "kind": "事实"}
+{"id": "RUL-703", "file": "local/ui/state/time.js", "start": 2, "end": 2, "excerpt": "const SCHOOL_TZ = \"Asia/Shanghai\";", "claim": "桌面时区", "kind": "事实"}
+{"id": "RUL-704", "file": "local/ui/state/time.js", "start": 48, "end": 48, "excerpt": "function durText(seconds) {", "claim": "桌面倒计时格式", "kind": "事实"}
+{"id": "RUL-705", "file": "local/ui/state/time.js", "start": 54, "end": 54, "excerpt": "if (days) return days + \" 天 \" + hours + \" 时\";", "claim": "桌面有天档", "kind": "事实"}
+{"id": "RUL-706", "file": "local/ui/m/app.js", "start": 535, "end": 535, "excerpt": "G05 距开放（原型 leftCn", "claim": "手机倒计时格式", "kind": "事实"}
+{"id": "RUL-707", "file": "local/ui/m/app.js", "start": 539, "end": 539, "excerpt": "if (h >= 10) return Math.round(v / 3600) + \" 小时后\";", "claim": "手机 10 小时以上取整", "kind": "事实"}
+{"id": "RUL-708", "file": "local/ui/views/plan-panel.js", "start": 146, "end": 146, "excerpt": "return (diff === 1 ? \"明天 \" : (diff === 2 ? \"后天 \" : diff + \" 天后 \")) + clock;", "claim": "桌面日偏移前缀", "kind": "事实"}
+{"id": "RUL-709", "file": "local/ui/m/app.js", "start": 527, "end": 527, "excerpt": "return d > 0 ? (d === 1 ? \"明天 \" : (d === 2 ? \"后天 \" : d + \" 天后 \")) + t : t;", "claim": "手机日偏移前缀", "kind": "事实"}
+{"id": "RUL-711", "file": "local/ui/m/app.js", "start": 656, "end": 656, "excerpt": "const left = st === \"pre\" ? (clockDown ? \"待校准\" : PhoneModel.leftCn(gap))", "claim": "手机时钟不可用写待校准", "kind": "事实"}
+{"id": "RUL-712", "file": "local/ui/views/list.js", "start": 66, "end": 66, "excerpt": "nowChip.textContent = bnMs == null ? \"待校准\" : hm(bnMs);", "claim": "桌面时钟不可用写待校准", "kind": "事实"}
+{"id": "RUL-715", "file": "local/ui/state/time.js", "start": 78, "end": 78, "excerpt": "function hm(ms) {", "claim": "桌面时分文本", "kind": "事实"}
+{"id": "RUL-801", "file": "local/app.py", "start": 119, "end": 119, "excerpt": "_DOWNLOAD_FAIL_REASONS = {", "claim": "后端下载失败原因表", "kind": "事实"}
+{"id": "RUL-803", "file": "local/ui/views/phone.js", "start": 107, "end": 107, "excerpt": "function downloadFailText(download) {", "claim": "桌面红条拼句函数", "kind": "事实"}
+{"id": "RUL-804", "file": "local/ui/views/phone.js", "start": 112, "end": 112, "excerpt": "if ((code === \"rate_limited\" || code === \"not_published\") && reason) return \"下载没有完成：\" + reason + \"。\";", "claim": "两个码不加可以重试", "kind": "事实"}
+{"id": "RUL-805", "file": "local/app.py", "start": 1375, "end": 1375, "excerpt": "self._emit(\"log\", \"下载没有完成：\" + text)", "claim": "后端运行记录句式", "kind": "事实"}
+{"id": "RUL-806", "file": "local/app.py", "start": 347, "end": 347, "excerpt": "WORKER_PROBLEM_TEXT = {", "claim": "后端组件缺失三个码", "kind": "事实"}
+{"id": "RUL-807", "file": "local/ui/controllers/refresh.js", "start": 377, "end": 380, "excerpt": "const RUNTIME_ERRORS = {", "claim": "桌面组件缺失三个码带标题和提示（标题与提示在范围内第二到四行）", "kind": "事实"}
+{"id": "RUL-901", "file": "local/ui/views/plan-panel.js", "start": 375, "end": 375, "excerpt": "if (!S.online) list.push({ tone: \"bad\", text: \"现在连不上网。到开放时间还没恢复，就提交不出去。\" });", "claim": "桌面断网提醒", "kind": "事实"}
+{"id": "RUL-902", "file": "local/ui/views/plan-panel.js", "start": 381, "end": 381, "excerpt": "list.push({ tone: \"warn\", text: \"北京时间在用上次的校准结果\" + err + \"，工具正在自动重试校准。\" });", "claim": "桌面时钟提醒", "kind": "事实"}
+{"id": "RUL-903", "file": "local/ui/views/plan-panel.js", "start": 388, "end": 388, "excerpt": "if (loginOk && now !== null && latest !== null && latest - now > 3600 && !(cred.saved && cred.ocr && !cred.paused)) {", "claim": "桌面登录恢复不全提醒的前置条件", "kind": "事实"}
+{"id": "RUL-904", "file": "local/ui/views/plan-panel.js", "start": 405, "end": 405, "excerpt": "+ \"没给报名截止时间，“直到报名截止”对它只会尝试 2 分钟。\" });", "claim": "桌面无截止提醒", "kind": "事实"}
+{"id": "RUL-905", "file": "local/ui/views/plan-panel.js", "start": 409, "end": 409, "excerpt": "list.push({ tone: \"warn\", text: \"有场次在 24 小时以后才开放", "claim": "桌面 24 小时提醒", "kind": "事实"}
+{"id": "RUL-906", "file": "local/ui/m/app.js", "start": 442, "end": 442, "excerpt": "if (model && model.clockState === \"holdover\") list.push(\"北京时间在用上次的校准结果，电脑会自动重新校准。\");", "claim": "手机时钟提醒", "kind": "事实"}
+{"id": "RUL-907", "file": "local/ui/m/app.js", "start": 449, "end": 449, "excerpt": "没给报名截止时间，“直到报名截止”对它只会尝试 2 分钟。\");", "claim": "手机无截止提醒", "kind": "事实"}
+{"id": "RUL-908", "file": "local/ui/m/app.js", "start": 469, "end": 469, "excerpt": "if (latest > 3600 && !(pwHas && ocrOn) && when) {", "claim": "手机登录恢复不全提醒", "kind": "事实"}
+{"id": "RUL-909", "file": "local/ui/m/app.js", "start": 474, "end": 474, "excerpt": "if (latest > 86400) list.push(\"有场次在 24 小时后才开放，电脑要开着、不能睡眠。\");", "claim": "手机 24 小时提醒", "kind": "事实"}
+{"id": "RUL-211", "file": "local/ui/views/plan-panel.js", "start": 133, "end": 133, "excerpt": "pre ? pre + \" 场预报名等开放\" : \"\"]", "claim": "桌面摘要文案", "kind": "事实"}
+{"id": "RUL-212", "file": "local/ui/m/app.js", "start": 502, "end": 502, "excerpt": "pre ? pre + \" 场预报名\" : \"\"]", "claim": "手机摘要文案", "kind": "事实"}
+{"id": "RUL-213", "file": "local/ui/m/app.js", "start": 557, "end": 557, "excerpt": "return open > 0 ? \"pre\" : \"unknown\";", "claim": "手机单场状态：开放时刻为 0 时返回 unknown（待公布），不是 pre", "kind": "事实"}
+{"id": "RUL-414", "file": "local/grab.py", "start": 2611, "end": 2611, "excerpt": "print(\"    \" + REPLY_STOP_HINTS[stop_reason])", "claim": "回包类终态的长句说明只 print 到 worker 控制台", "kind": "事实"}

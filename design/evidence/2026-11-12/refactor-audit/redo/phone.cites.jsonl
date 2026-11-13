@@ -1,0 +1,292 @@
+{"id": "PHN-901", "file": "local/ui/m/app.js", "start": 2497, "end": 2497, "excerpt": "model.pollTimer = setTimeout(() => poll(false), PhoneModel.syncDelay(model));", "claim": "schedule 按间隔排下一次轮询", "kind": "事实"}
+{"id": "PHN-902", "file": "local/ui/m/app.js", "start": 2432, "end": 2432, "excerpt": "if (model.flying) return;                     // 单飞：在途不重发", "claim": "poll 在途时直接返回", "kind": "事实"}
+{"id": "PHN-903", "file": "local/ui/m/app.js", "start": 2294, "end": 2294, "excerpt": "timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);", "claim": "每个请求到时中止", "kind": "事实"}
+{"id": "PHN-904", "file": "local/ui/m/app.js", "start": 1371, "end": 1371, "excerpt": "const REQUEST_TIMEOUT_MS = 8000;", "claim": "请求超时 8 秒", "kind": "事实"}
+{"id": "PHN-905", "file": "local/ui/m/app.js", "start": 2440, "end": 2440, "excerpt": "if (status !== 200) { onPollFail(); return; }", "claim": "非 200 记为失败", "kind": "事实"}
+{"id": "PHN-906", "file": "local/ui/m/app.js", "start": 2451, "end": 2451, "excerpt": "onPollFail();", "claim": "poll 的 catch 记为失败", "kind": "事实"}
+{"id": "PHN-907", "file": "local/ui/m/app.js", "start": 2438, "end": 2438, "excerpt": "if (status === 401) { onNeedPair(); return; }", "claim": "poll 遇 401 回配对页", "kind": "事实"}
+{"id": "PHN-908", "file": "local/ui/m/app.js", "start": 2439, "end": 2439, "excerpt": "if (status === 403) { onForbidden(body); return; }", "claim": "poll 遇 403 给横幅", "kind": "事实"}
+{"id": "PHN-909", "file": "local/ui/m/app.js", "start": 3323, "end": 3327, "excerpt": "if (document.hidden) {", "claim": "页面隐藏时清轮询与计时定时器", "kind": "事实"}
+{"id": "PHN-910", "file": "local/ui/m/app.js", "start": 2495, "end": 2495, "excerpt": "if (typeof document !== \"undefined\" && document.hidden) return;", "claim": "schedule 在后台不排", "kind": "事实"}
+{"id": "PHN-911", "file": "local/ui/m/app.js", "start": 3329, "end": 3329, "excerpt": "回前台立刻补一次，仍按事件游标补齐", "claim": "回前台立刻补一次轮询", "kind": "事实"}
+{"id": "PHN-912", "file": "local/ui/m/app.js", "start": 3333, "end": 3337, "excerpt": "window.addEventListener(\"pagehide\", () => {", "claim": "pagehide 清两个定时器", "kind": "事实"}
+{"id": "PHN-913", "file": "local/ui/m/app.js", "start": 2395, "end": 2395, "excerpt": "if (model.pairing) return;", "claim": "pair 在途时返回", "kind": "事实"}
+{"id": "PHN-914", "file": "local/ui/m/app.js", "start": 2408, "end": 2408, "excerpt": "setPairError(\"配对失败：网络不通，请确认手机和电脑连的是同一个网络\");", "claim": "配对请求异常时给网络不通", "kind": "事实"}
+{"id": "PHN-915", "file": "local/ui/m/app.js", "start": 2413, "end": 2413, "excerpt": "applyPairFailure(status, body);", "claim": "配对失败按回包分类", "kind": "事实"}
+{"id": "PHN-916", "file": "local/ui/m/app.js", "start": 2300, "end": 2300, "excerpt": "if (resp.status === 401) onNeedPair();", "claim": "写请求遇 401 在 api 里当场处理", "kind": "事实"}
+{"id": "PHN-917", "file": "local/ui/m/app.js", "start": 2301, "end": 2301, "excerpt": "if (resp.status === 403) onForbidden(body);", "claim": "写请求遇 403 在 api 里当场处理", "kind": "事实"}
+{"id": "PHN-918", "file": "local/ui/m/app.js", "start": 2322, "end": 2323, "excerpt": "return { status: 0, body: { ok: false, error: \"network\",", "claim": "postAction 把网络异常变成 network 回包", "kind": "事实"}
+{"id": "PHN-919", "file": "local/ui/m/app.js", "start": 2720, "end": 2720, "excerpt": "if (model.pending && PhoneModel.startPending(model.pending, Date.now())) {", "claim": "已有未决的开始就拦", "kind": "事实"}
+{"id": "PHN-920", "file": "local/ui/m/app.js", "start": 2749, "end": 2749, "excerpt": "if (model.reconciling) return;", "claim": "对账防重入", "kind": "事实"}
+{"id": "PHN-921", "file": "local/ui/m/app.js", "start": 2757, "end": 2757, "excerpt": "if (model.pending !== pending || pending.request_id !== requestId || pending.done || pending.canceling) return;", "claim": "对账回来时未决对象已变就丢弃", "kind": "事实"}
+{"id": "PHN-922", "file": "local/ui/m/app.js", "start": 2780, "end": 2780, "excerpt": "if (!model.pending || model.pending.done || model.cancelingStart) return false;", "claim": "取消等待的入口守卫", "kind": "事实"}
+{"id": "PHN-923", "file": "local/ui/m/app.js", "start": 2792, "end": 2793, "excerpt": "showSheetError(String((body && (body.text || body.error))", "claim": "取消等待失败时弹层里写原因", "kind": "事实"}
+{"id": "PHN-924", "file": "local/ui/m/app.js", "start": 3063, "end": 3063, "excerpt": "if (model.reloginStarting) return;", "claim": "发起重新登录防重入", "kind": "事实"}
+{"id": "PHN-925", "file": "local/ui/m/app.js", "start": 3064, "end": 3064, "excerpt": "if (!canWrite()) { setBanner(\"状态已过时，先刷新再重新登录\", \"stale_action\"); return; }", "claim": "状态过时不让发起", "kind": "事实"}
+{"id": "PHN-926", "file": "local/ui/m/app.js", "start": 3096, "end": 3096, "excerpt": ": \"还不能开始：\" + String((body && body.text) || (body && body.error) || \"请到电脑上准备账号\");", "claim": "发起失败的提示", "kind": "事实"}
+{"id": "PHN-927", "file": "local/ui/m/app.js", "start": 3115, "end": 3115, "excerpt": "if (!PhoneModel.canSubmitRelogin(model, model.challenge)) return;", "claim": "提交验证码前的守卫", "kind": "事实"}
+{"id": "PHN-928", "file": "local/ui/m/app.js", "start": 3141, "end": 3141, "excerpt": "if (error === \"duplicate_submit\") {", "claim": "服务端说同一张图有在途提交时不解锁", "kind": "事实"}
+{"id": "PHN-929", "file": "local/ui/m/app.js", "start": 3163, "end": 3163, "excerpt": "if (!flowId || (flow && flow.live === false)) return true;", "claim": "没有在途流程时取消只是收起", "kind": "事实"}
+{"id": "PHN-930", "file": "local/ui/m/app.js", "start": 3168, "end": 3168, "excerpt": "addLog(\"没能取消这次重新登录：\" + String(body.text || body.error));", "claim": "取消没发出去只写运行记录", "kind": "事实"}
+{"id": "PHN-932", "file": "local/ui/m/app.js", "start": 1697, "end": 1697, "excerpt": "在途防重发；失败分支重新放开", "claim": "确认层的钮在途禁用", "kind": "事实"}
+{"id": "PHN-933", "file": "local/ui/m/app.js", "start": 1699, "end": 1699, "excerpt": "void Promise.resolve(run).then((ok) => {", "claim": "确认层的结果处理没有 catch", "kind": "事实"}
+{"id": "PHN-934", "file": "local/ui/m/app.js", "start": 2809, "end": 2809, "excerpt": "const { body } = await postAction({ action: \"stop_plan\", args: { plan_id: planId } });", "claim": "停止计划发请求", "kind": "事实"}
+{"id": "PHN-935", "file": "local/ui/m/app.js", "start": 2811, "end": 2811, "excerpt": "showSheetError(\"没能停止计划：\" + String(body.text || body.error));", "claim": "停止失败时弹层里写原因", "kind": "事实"}
+{"id": "PHN-937", "file": "local/ui/m/app.js", "start": 2884, "end": 2884, "excerpt": "if (body && body.error) addLog(\"没能保存重试设置：\" + String(body.text || body.error));", "claim": "保存重试策略失败只写运行记录", "kind": "事实"}
+{"id": "PHN-941", "file": "local/ui/m/app.js", "start": 2448, "end": 2448, "excerpt": "clearStaleBanner();", "claim": "轮询成功后清过时横幅", "kind": "事实"}
+{"id": "PHN-936", "file": "local/ui/m/app.js", "start": 1583, "end": 1583, "excerpt": "$(\"btn-sheet-close\").hidden = true;   // 验证中：顺手把关闭钮也藏住", "claim": "验证中不让关弹层", "kind": "事实"}
+{"id": "PHN-001", "file": "local/ui/m/app.js", "start": 1393, "end": 1393, "excerpt": "backoff: 1000, seq: 0,", "claim": "model 字面量声明字段 backoff", "kind": "事实"}
+{"id": "PHN-002", "file": "local/ui/m/app.js", "start": 2442, "end": 2442, "excerpt": "model.backoff = 1000;", "claim": "写入：backoff =（poll）", "kind": "事实"}
+{"id": "PHN-003", "file": "local/ui/m/app.js", "start": 2464, "end": 2464, "excerpt": "model.backoff = PhoneModel.nextBackoff(model.backoff);", "claim": "写入：backoff =（onPollFail）", "kind": "事实"}
+{"id": "PHN-004", "file": "local/ui/m/app.js", "start": 2488, "end": 2488, "excerpt": "model.backoff = PhoneModel.nextBackoff(model.backoff);", "claim": "写入：backoff =（onForbidden）", "kind": "事实"}
+{"id": "PHN-005", "file": "local/ui/m/app.js", "start": 105, "end": 105, "excerpt": "model.backoff);", "claim": "backoff 的第一处读取（syncDelay）", "kind": "事实"}
+{"id": "PHN-006", "file": "local/ui/m/app.js", "start": 1398, "end": 1398, "excerpt": "bannerKind: \"\",", "claim": "model 字面量声明字段 bannerKind", "kind": "事实"}
+{"id": "PHN-007", "file": "local/ui/m/app.js", "start": 1429, "end": 1429, "excerpt": "model.bannerKind = text ? String(kind || \"info\") : \"\";", "claim": "写入：bannerKind =（setBanner）", "kind": "事实"}
+{"id": "PHN-008", "file": "local/ui/m/app.js", "start": 1432, "end": 1432, "excerpt": "model.bannerKind;", "claim": "bannerKind 的第一处读取（setBanner）", "kind": "事实"}
+{"id": "PHN-009", "file": "local/ui/m/app.js", "start": 1390, "end": 1390, "excerpt": "busy: false,", "claim": "model 字面量声明字段 busy", "kind": "事实"}
+{"id": "PHN-010", "file": "local/ui/m/app.js", "start": 2665, "end": 2665, "excerpt": "model.busy = state.busy;", "claim": "写入：busy =（ingest）", "kind": "事实"}
+{"id": "PHN-011", "file": "local/ui/m/app.js", "start": 98, "end": 98, "excerpt": "model.busy) return true;", "claim": "busy 的第一处读取（isActive）", "kind": "事实"}
+{"id": "PHN-012", "file": "local/ui/m/app.js", "start": 2783, "end": 2783, "excerpt": "model.cancelingStart = true;", "claim": "写入：cancelingStart =（cancelPendingStart）", "kind": "事实"}
+{"id": "PHN-013", "file": "local/ui/m/app.js", "start": 2798, "end": 2798, "excerpt": "model.cancelingStart = false;", "claim": "写入：cancelingStart =（cancelPendingStart）", "kind": "事实"}
+{"id": "PHN-014", "file": "local/ui/m/app.js", "start": 2780, "end": 2780, "excerpt": "model.cancelingStart) return false;", "claim": "cancelingStart 的第一处读取（cancelPendingStart）", "kind": "事实"}
+{"id": "PHN-015", "file": "local/ui/m/app.js", "start": 1394, "end": 1394, "excerpt": "challenge: null, reloginSubmitting: false,", "claim": "model 字面量声明字段 challenge", "kind": "事实"}
+{"id": "PHN-016", "file": "local/ui/m/app.js", "start": 2987, "end": 2987, "excerpt": "model.challenge = null;", "claim": "写入：challenge =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-017", "file": "local/ui/m/app.js", "start": 3001, "end": 3001, "excerpt": "model.challenge = {", "claim": "写入：challenge =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-018", "file": "local/ui/m/app.js", "start": 3028, "end": 3028, "excerpt": "model.challenge = null;", "claim": "写入：challenge =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-019", "file": "local/ui/m/app.js", "start": 3044, "end": 3044, "excerpt": "model.challenge = null;", "claim": "写入：challenge =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-020", "file": "local/ui/m/app.js", "start": 3055, "end": 3055, "excerpt": "model.challenge = null;", "claim": "写入：challenge =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-021", "file": "local/ui/m/app.js", "start": 3171, "end": 3171, "excerpt": "model.challenge = null;", "claim": "写入：challenge =（cancelRelogin）", "kind": "事实"}
+{"id": "PHN-022", "file": "local/ui/m/app.js", "start": 1515, "end": 1515, "excerpt": "model.challenge)", "claim": "challenge 的第一处读取（refreshControls）", "kind": "事实"}
+{"id": "PHN-023", "file": "local/ui/m/app.js", "start": 1400, "end": 1400, "excerpt": "clock: null,", "claim": "model 字面量声明字段 clock", "kind": "事实"}
+{"id": "PHN-024", "file": "local/ui/m/app.js", "start": 301, "end": 301, "excerpt": "model.clock = ok ? { epochAtSampleS: epoch + (sampled - tick), monoAt: PhoneModel.mono(),", "claim": "写入：clock =（setClock）", "kind": "事实"}
+{"id": "PHN-025", "file": "local/ui/m/app.js", "start": 2523, "end": 2523, "excerpt": "model.clock = null;", "claim": "写入：clock =（tickClock）", "kind": "事实"}
+{"id": "PHN-026", "file": "local/ui/m/app.js", "start": 305, "end": 305, "excerpt": "model.clock;", "claim": "clock 的第一处读取（businessNowS）", "kind": "事实"}
+{"id": "PHN-027", "file": "local/ui/m/app.js", "start": 1403, "end": 1403, "excerpt": "clockState: \"\", lastOkText: \"\", pcListError: null,", "claim": "model 字面量声明字段 clockState", "kind": "事实"}
+{"id": "PHN-028", "file": "local/ui/m/app.js", "start": 2655, "end": 2655, "excerpt": "model.clockState = String(state.business_clock.state || \"\");", "claim": "写入：clockState =（ingest）", "kind": "事实"}
+{"id": "PHN-029", "file": "local/ui/m/app.js", "start": 128, "end": 128, "excerpt": "model.clockState === \"unavailable\") return false;   // EX06：快照明说不可用才拦，syncing 由服务端拦", "claim": "clockState 的第一处读取（canStart）", "kind": "事实"}
+{"id": "PHN-030", "file": "local/ui/m/app.js", "start": 1411, "end": 1411, "excerpt": "confirm: null,", "claim": "model 字面量声明字段 confirm", "kind": "事实"}
+{"id": "PHN-031", "file": "local/ui/m/app.js", "start": 1601, "end": 1601, "excerpt": "model.confirm = null;                   // RW03：确认档随 sheet 收起", "claim": "写入：confirm =（closeSheet）", "kind": "事实"}
+{"id": "PHN-032", "file": "local/ui/m/app.js", "start": 1681, "end": 1681, "excerpt": "model.confirm = { kind: kind, taskId: taskId };", "claim": "写入：confirm =（askConfirm）", "kind": "事实"}
+{"id": "PHN-033", "file": "local/ui/m/app.js", "start": 1691, "end": 1691, "excerpt": "model.confirm;", "claim": "confirm 的第一处读取（onConfirmYes）", "kind": "事实"}
+{"id": "PHN-034", "file": "local/ui/m/app.js", "start": 1396, "end": 1396, "excerpt": "csrf: \"\", pollTimer: null,", "claim": "model 字面量声明字段 csrf", "kind": "事实"}
+{"id": "PHN-035", "file": "local/ui/m/app.js", "start": 2287, "end": 2287, "excerpt": "model.csrf = fresh;", "claim": "写入：csrf =（api）", "kind": "事实"}
+{"id": "PHN-036", "file": "local/ui/m/app.js", "start": 2416, "end": 2416, "excerpt": "model.csrf = String(body.csrf || \"\");", "claim": "写入：csrf =（pair）", "kind": "事实"}
+{"id": "PHN-037", "file": "local/ui/m/app.js", "start": 2433, "end": 2433, "excerpt": "model.csrf = readCookie(\"campus_phone_csrf\"); // 刷新后沿用旧会话的写权限", "claim": "写入：csrf =（poll）", "kind": "事实"}
+{"id": "PHN-038", "file": "local/ui/m/app.js", "start": 2484, "end": 2484, "excerpt": "model.csrf = fresh;", "claim": "写入：csrf =（onForbidden）", "kind": "事实"}
+{"id": "PHN-039", "file": "local/ui/m/app.js", "start": 2288, "end": 2288, "excerpt": "model.csrf) opts.headers[\"X-Campus-Csrf\"] = model.csrf;", "claim": "csrf 的第一处读取（api）", "kind": "事实"}
+{"id": "PHN-040", "file": "local/ui/m/app.js", "start": 1421, "end": 1421, "excerpt": "dismissedPlanId: \"\",", "claim": "model 字面量声明字段 dismissedPlanId", "kind": "事实"}
+{"id": "PHN-041", "file": "local/ui/m/app.js", "start": 2852, "end": 2852, "excerpt": "model.dismissedPlanId = String((model.plan && model.plan.plan_id) || \"\");", "claim": "写入：dismissedPlanId =（reselectFailed）", "kind": "事实"}
+{"id": "PHN-042", "file": "local/ui/m/app.js", "start": 2871, "end": 2871, "excerpt": "model.dismissedPlanId = String((model.plan && model.plan.plan_id) || \"\");", "claim": "写入：dismissedPlanId =（finishPlanView）", "kind": "事实"}
+{"id": "PHN-043", "file": "local/ui/m/app.js", "start": 2649, "end": 2649, "excerpt": "model.dismissedPlanId) {", "claim": "dismissedPlanId 的第一处读取（ingest）", "kind": "事实"}
+{"id": "PHN-044", "file": "local/ui/m/app.js", "start": 1388, "end": 1388, "excerpt": "filter: { q: \"\", status: \"free\", time: \"all\" },", "claim": "model 字面量声明字段 filter", "kind": "事实"}
+{"id": "PHN-045", "file": "local/ui/m/app.js", "start": 1973, "end": 1973, "excerpt": "model.filter = { q: \"\", status: \"all\", time: \"all\" };", "claim": "写入：filter =（goSigned）", "kind": "事实"}
+{"id": "PHN-046", "file": "local/ui/m/app.js", "start": 2210, "end": 2210, "excerpt": "model.filter.q = \"\";", "claim": "改内部字段：filter .q =（toggleSearch）", "kind": "事实"}
+{"id": "PHN-047", "file": "local/ui/m/app.js", "start": 3276, "end": 3276, "excerpt": "model.filter.q = $(\"q\").value;", "claim": "改内部字段：filter .q =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-048", "file": "local/ui/m/app.js", "start": 3283, "end": 3283, "excerpt": "model.filter.q = $(\"search-q\").value;", "claim": "改内部字段：filter .q =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-049", "file": "local/ui/m/app.js", "start": 3297, "end": 3297, "excerpt": "model.filter.status = btn.dataset.status;", "claim": "改内部字段：filter .status =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-050", "file": "local/ui/m/app.js", "start": 3305, "end": 3305, "excerpt": "model.filter.time = btn.dataset.time;", "claim": "改内部字段：filter .time =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-051", "file": "local/ui/m/app.js", "start": 1970, "end": 1970, "excerpt": "model.filter,", "claim": "filter 的第一处读取（goSigned）", "kind": "事实"}
+{"id": "PHN-052", "file": "local/ui/m/app.js", "start": 1400, "end": 1400, "excerpt": "flashId: \"\", clock: null,", "claim": "model 字面量声明字段 flashId", "kind": "事实"}
+{"id": "PHN-053", "file": "local/ui/m/app.js", "start": 1980, "end": 1980, "excerpt": "model.flashId = id;", "claim": "写入：flashId =（goSigned）", "kind": "事实"}
+{"id": "PHN-054", "file": "local/ui/m/app.js", "start": 1984, "end": 1984, "excerpt": "model.flashId = \"\"; if (row && row.classList) row.classList.remove(\"flash\"); }, 2000);", "claim": "写入：flashId =（goSigned><回调>）", "kind": "事实"}
+{"id": "PHN-055", "file": "local/ui/m/app.js", "start": 1778, "end": 1778, "excerpt": "model.flashId === row.id ? \" flash\" : \"\");", "claim": "flashId 的第一处读取（buildRow）", "kind": "事实"}
+{"id": "PHN-056", "file": "local/ui/m/app.js", "start": 1394, "end": 1394, "excerpt": "flow: null, challenge: null, reloginSubmitting: false,", "claim": "model 字面量声明字段 flow", "kind": "事实"}
+{"id": "PHN-057", "file": "local/ui/m/app.js", "start": 2972, "end": 2972, "excerpt": "model.flow = info;", "claim": "写入：flow =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-058", "file": "local/ui/m/app.js", "start": 101, "end": 101, "excerpt": "model.flow);", "claim": "flow 的第一处读取（isActive）", "kind": "事实"}
+{"id": "PHN-059", "file": "local/ui/m/app.js", "start": 1398, "end": 1398, "excerpt": "flying: false, probed: false, bannerKind: \"\",", "claim": "model 字面量声明字段 flying", "kind": "事实"}
+{"id": "PHN-060", "file": "local/ui/m/app.js", "start": 2434, "end": 2434, "excerpt": "model.flying = true;", "claim": "写入：flying =（poll）", "kind": "事实"}
+{"id": "PHN-061", "file": "local/ui/m/app.js", "start": 2453, "end": 2453, "excerpt": "model.flying = false;", "claim": "写入：flying =（poll）", "kind": "事实"}
+{"id": "PHN-062", "file": "local/ui/m/app.js", "start": 1459, "end": 1459, "excerpt": "model.flying ? \"同步中…\" : \"重试\";", "claim": "flying 的第一处读取（syncOffline）", "kind": "事实"}
+{"id": "PHN-063", "file": "local/ui/m/app.js", "start": 1388, "end": 1388, "excerpt": "items: [], selected: [], filter: { q: \"\", status: \"free\", ti", "claim": "model 字面量声明字段 items", "kind": "事实"}
+{"id": "PHN-064", "file": "local/ui/m/app.js", "start": 2636, "end": 2636, "excerpt": "model.items = state.activities;", "claim": "写入：items =（ingest）", "kind": "事实"}
+{"id": "PHN-065", "file": "local/ui/m/app.js", "start": 1535, "end": 1535, "excerpt": "model.items || []).filter(", "claim": "items 的第一处读取（refreshControls）", "kind": "事实"}
+{"id": "PHN-066", "file": "local/ui/m/app.js", "start": 1393, "end": 1393, "excerpt": "lastOkAt: 0, nowMs: 0, backoff: 1000, seq: 0,", "claim": "model 字面量声明字段 lastOkAt", "kind": "事实"}
+{"id": "PHN-067", "file": "local/ui/m/app.js", "start": 2441, "end": 2441, "excerpt": "model.lastOkAt = Date.now();", "claim": "写入：lastOkAt =（poll）", "kind": "事实"}
+{"id": "PHN-068", "file": "local/ui/m/app.js", "start": 126, "end": 126, "excerpt": "model.lastOkAt, model.nowMs)) return false;", "claim": "lastOkAt 的第一处读取（canStart）", "kind": "事实"}
+{"id": "PHN-069", "file": "local/ui/m/app.js", "start": 1403, "end": 1403, "excerpt": "lastOkText: \"\", pcListError: null,", "claim": "model 字面量声明字段 lastOkText", "kind": "事实"}
+{"id": "PHN-070", "file": "local/ui/m/app.js", "start": 2660, "end": 2660, "excerpt": "model.lastOkText = sampled !== null", "claim": "写入：lastOkText =（ingest）", "kind": "事实"}
+{"id": "PHN-071", "file": "local/ui/m/app.js", "start": 2129, "end": 2129, "excerpt": "model.lastOkText);   // EX01：离线档 capB「最后同步 HH:MM:SS」用同步成功时记下的北京时间", "claim": "lastOkText 的第一处读取（renderBoard）", "kind": "事实"}
+{"id": "PHN-072", "file": "local/ui/m/app.js", "start": 1409, "end": 1409, "excerpt": "listOpen: false,", "claim": "model 字面量声明字段 listOpen", "kind": "事实"}
+{"id": "PHN-073", "file": "local/ui/m/app.js", "start": 2732, "end": 2732, "excerpt": "model.listOpen = false; // 原型 startState listOpen:false：计划一开始就收起活动列表（RW01）", "claim": "写入：listOpen =（startPlan）", "kind": "事实"}
+{"id": "PHN-074", "file": "local/ui/m/app.js", "start": 2864, "end": 2864, "excerpt": "model.listOpen = false;", "claim": "写入：listOpen =（reselectFailed）", "kind": "事实"}
+{"id": "PHN-075", "file": "local/ui/m/app.js", "start": 2874, "end": 2874, "excerpt": "model.listOpen = false;", "claim": "写入：listOpen =（finishPlanView）", "kind": "事实"}
+{"id": "PHN-076", "file": "local/ui/m/app.js", "start": 3249, "end": 3249, "excerpt": "model.listOpen = !model.listOpen;", "claim": "写入：listOpen =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-077", "file": "local/ui/m/app.js", "start": 2058, "end": 2058, "excerpt": "model.listOpen || (!model.busy && !pendingNow);", "claim": "listOpen 的第一处读取（renderItems）", "kind": "事实"}
+{"id": "PHN-078", "file": "local/ui/m/app.js", "start": 1392, "end": 1392, "excerpt": "login: null,", "claim": "model 字面量声明字段 login", "kind": "事实"}
+{"id": "PHN-079", "file": "local/ui/m/app.js", "start": 2703, "end": 2703, "excerpt": "model.login = state.login;   // SH05 登录行（loginLine）同一份快照", "claim": "写入：login =（ingest）", "kind": "事实"}
+{"id": "PHN-080", "file": "local/ui/m/app.js", "start": 1469, "end": 1469, "excerpt": "model.login, model.flow || null);", "claim": "login 的第一处读取（renderAlerts）", "kind": "事实"}
+{"id": "PHN-081", "file": "local/ui/m/app.js", "start": 1405, "end": 1405, "excerpt": "notice: \"\", pickId: \"\",", "claim": "model 字面量声明字段 notice", "kind": "事实"}
+{"id": "PHN-082", "file": "local/ui/m/app.js", "start": 1789, "end": 1789, "excerpt": "model.notice = res.notice;", "claim": "写入：notice =（buildRow><回调>）", "kind": "事实"}
+{"id": "PHN-083", "file": "local/ui/m/app.js", "start": 2645, "end": 2645, "excerpt": "model.notice = \"\";", "claim": "写入：notice =（ingest）", "kind": "事实"}
+{"id": "PHN-084", "file": "local/ui/m/app.js", "start": 2731, "end": 2731, "excerpt": "model.notice = \"\";      // 原型 startState 会清掉勾选冲突提示（Phone.dc.html:540），计划已发出不再适用", "claim": "写入：notice =（startPlan）", "kind": "事实"}
+{"id": "PHN-085", "file": "local/ui/m/app.js", "start": 2865, "end": 2865, "excerpt": "model.notice = \"\";", "claim": "写入：notice =（reselectFailed）", "kind": "事实"}
+{"id": "PHN-086", "file": "local/ui/m/app.js", "start": 2875, "end": 2875, "excerpt": "model.notice = \"\";", "claim": "写入：notice =（finishPlanView）", "kind": "事实"}
+{"id": "PHN-087", "file": "local/ui/m/app.js", "start": 2952, "end": 2952, "excerpt": "model.notice = \"\";", "claim": "写入：notice =（removeFromReview）", "kind": "事实"}
+{"id": "PHN-088", "file": "local/ui/m/app.js", "start": 3292, "end": 3292, "excerpt": "model.notice = res.notice;", "claim": "写入：notice =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-089", "file": "local/ui/m/app.js", "start": 2089, "end": 2089, "excerpt": "model.notice || \"\";", "claim": "notice 的第一处读取（renderItems）", "kind": "事实"}
+{"id": "PHN-090", "file": "local/ui/m/app.js", "start": 1393, "end": 1393, "excerpt": "nowMs: 0, backoff: 1000, seq: 0,", "claim": "model 字面量声明字段 nowMs", "kind": "事实"}
+{"id": "PHN-091", "file": "local/ui/m/app.js", "start": 1496, "end": 1496, "excerpt": "model.nowMs = Date.now();", "claim": "写入：nowMs =（canWrite）", "kind": "事实"}
+{"id": "PHN-092", "file": "local/ui/m/app.js", "start": 1501, "end": 1501, "excerpt": "model.nowMs = Date.now();", "claim": "写入：nowMs =（refreshControls）", "kind": "事实"}
+{"id": "PHN-093", "file": "local/ui/m/app.js", "start": 1998, "end": 1998, "excerpt": "model.nowMs = Date.now();", "claim": "写入：nowMs =（renderItems）", "kind": "事实"}
+{"id": "PHN-094", "file": "local/ui/m/app.js", "start": 126, "end": 126, "excerpt": "model.nowMs)) return false;", "claim": "nowMs 的第一处读取（canStart）", "kind": "事实"}
+{"id": "PHN-095", "file": "local/ui/m/app.js", "start": 1395, "end": 1395, "excerpt": "offlineTries: 0,", "claim": "model 字面量声明字段 offlineTries", "kind": "事实"}
+{"id": "PHN-096", "file": "local/ui/m/app.js", "start": 1446, "end": 1446, "excerpt": "model.offlineTries = 0;", "claim": "写入：offlineTries =（syncOffline）", "kind": "事实"}
+{"id": "PHN-097", "file": "local/ui/m/app.js", "start": 2463, "end": 2463, "excerpt": "model.offlineTries = Number(model.offlineTries || 0) + 1;", "claim": "写入：offlineTries =（onPollFail）", "kind": "事实"}
+{"id": "PHN-098", "file": "local/ui/m/app.js", "start": 486, "end": 486, "excerpt": "model.offlineTries) > 0) {", "claim": "offlineTries 的第一处读取（connState）", "kind": "事实"}
+{"id": "PHN-099", "file": "local/ui/m/app.js", "start": 1398, "end": 1398, "excerpt": "paired: false, flying: false, probed: false, bannerKind: \"\",", "claim": "model 字面量声明字段 paired", "kind": "事实"}
+{"id": "PHN-100", "file": "local/ui/m/app.js", "start": 2417, "end": 2417, "excerpt": "model.paired = true;", "claim": "写入：paired =（pair）", "kind": "事实"}
+{"id": "PHN-101", "file": "local/ui/m/app.js", "start": 2443, "end": 2443, "excerpt": "model.paired = true;", "claim": "写入：paired =（poll）", "kind": "事实"}
+{"id": "PHN-102", "file": "local/ui/m/app.js", "start": 2468, "end": 2468, "excerpt": "model.paired = false;", "claim": "写入：paired =（onNeedPair）", "kind": "事实"}
+{"id": "PHN-103", "file": "local/ui/m/app.js", "start": 2496, "end": 2496, "excerpt": "model.paired || model.flying) return;", "claim": "paired 的第一处读取（schedule）", "kind": "事实"}
+{"id": "PHN-104", "file": "local/ui/m/app.js", "start": 1418, "end": 1418, "excerpt": "pairErr: \"\", pairTickTimer: 0, pairing: false, pairOkPending", "claim": "model 字面量声明字段 pairErr", "kind": "事实"}
+{"id": "PHN-105", "file": "local/ui/m/app.js", "start": 2351, "end": 2351, "excerpt": "model.pairErr = String(text || \"\");", "claim": "写入：pairErr =（setPairError）", "kind": "事实"}
+{"id": "PHN-106", "file": "local/ui/m/app.js", "start": 2366, "end": 2366, "excerpt": "model.pairErr = \"\";   // UI-F6（原型 lockLeft 归零清 pairErr）：解锁即收回旧错误条", "claim": "写入：pairErr =（schedulePairTick><回调>）", "kind": "事实"}
+{"id": "PHN-107", "file": "local/ui/m/app.js", "start": 2397, "end": 2397, "excerpt": "model.pairErr = \"\";", "claim": "写入：pairErr =（pair）", "kind": "事实"}
+{"id": "PHN-108", "file": "local/ui/m/app.js", "start": 2420, "end": 2420, "excerpt": "model.pairErr = \"\";", "claim": "写入：pairErr =（pair）", "kind": "事实"}
+{"id": "PHN-109", "file": "local/ui/m/app.js", "start": 3192, "end": 3192, "excerpt": "model.pairErr = \"\";", "claim": "写入：pairErr =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-110", "file": "local/ui/m/app.js", "start": 2330, "end": 2330, "excerpt": "model.pairErr);", "claim": "pairErr 的第一处读取（renderPair）", "kind": "事实"}
+{"id": "PHN-111", "file": "local/ui/m/app.js", "start": 1418, "end": 1418, "excerpt": "pairing: false, pairOkPending: false,", "claim": "model 字面量声明字段 pairing", "kind": "事实"}
+{"id": "PHN-112", "file": "local/ui/m/app.js", "start": 2401, "end": 2401, "excerpt": "model.pairing = true;", "claim": "写入：pairing =（pair）", "kind": "事实"}
+{"id": "PHN-113", "file": "local/ui/m/app.js", "start": 2426, "end": 2426, "excerpt": "model.pairing = false;", "claim": "写入：pairing =（pair）", "kind": "事实"}
+{"id": "PHN-114", "file": "local/ui/m/app.js", "start": 2395, "end": 2395, "excerpt": "model.pairing) return;", "claim": "pairing 的第一处读取（pair）", "kind": "事实"}
+{"id": "PHN-115", "file": "local/ui/m/app.js", "start": 1418, "end": 1418, "excerpt": "pairLockLeft: 0, pairErr: \"\", pairTickTimer: 0, pairing: fal", "claim": "model 字面量声明字段 pairLockLeft", "kind": "事实"}
+{"id": "PHN-116", "file": "local/ui/m/app.js", "start": 2358, "end": 2358, "excerpt": "model.pairLockLeft = Math.max(0, Math.floor(Number(seconds) || 0));", "claim": "写入：pairLockLeft =（beginPairLock）", "kind": "事实"}
+{"id": "PHN-117", "file": "local/ui/m/app.js", "start": 2364, "end": 2364, "excerpt": "model.pairLockLeft = PhoneModel.pairTickLeft(model.pairLockLeft);", "claim": "写入：pairLockLeft =（schedulePairTick><回调>）", "kind": "事实"}
+{"id": "PHN-118", "file": "local/ui/m/app.js", "start": 2373, "end": 2373, "excerpt": "model.pairLockLeft = 0;", "claim": "写入：pairLockLeft =（stopPairLock）", "kind": "事实"}
+{"id": "PHN-119", "file": "local/ui/m/app.js", "start": 2330, "end": 2330, "excerpt": "model.pairLockLeft, model.pairErr);", "claim": "pairLockLeft 的第一处读取（renderPair）", "kind": "事实"}
+{"id": "PHN-120", "file": "local/ui/m/app.js", "start": 1418, "end": 1418, "excerpt": "pairOkPending: false,", "claim": "model 字面量声明字段 pairOkPending", "kind": "事实"}
+{"id": "PHN-121", "file": "local/ui/m/app.js", "start": 2418, "end": 2418, "excerpt": "model.pairOkPending = true;   // UI-F13（原型 Phone:630/857）：配对成功给「已连接电脑」告警", "claim": "写入：pairOkPending =（pair）", "kind": "事实"}
+{"id": "PHN-122", "file": "local/ui/m/app.js", "start": 3204, "end": 3204, "excerpt": "model.pairOkPending = false;", "claim": "写入：pairOkPending =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-123", "file": "local/ui/m/app.js", "start": 1493, "end": 1493, "excerpt": "model.pairOkPending);", "claim": "pairOkPending 的第一处读取（renderAlerts）", "kind": "事实"}
+{"id": "PHN-124", "file": "local/ui/m/app.js", "start": 1418, "end": 1418, "excerpt": "pairTickTimer: 0, pairing: false, pairOkPending: false,", "claim": "model 字面量声明字段 pairTickTimer", "kind": "事实"}
+{"id": "PHN-125", "file": "local/ui/m/app.js", "start": 2362, "end": 2362, "excerpt": "model.pairTickTimer = setTimeout(() => {", "claim": "写入：pairTickTimer =（schedulePairTick）", "kind": "事实"}
+{"id": "PHN-126", "file": "local/ui/m/app.js", "start": 2363, "end": 2363, "excerpt": "model.pairTickTimer = 0;", "claim": "写入：pairTickTimer =（schedulePairTick><回调>）", "kind": "事实"}
+{"id": "PHN-127", "file": "local/ui/m/app.js", "start": 2372, "end": 2372, "excerpt": "model.pairTickTimer = 0;", "claim": "写入：pairTickTimer =（stopPairLock）", "kind": "事实"}
+{"id": "PHN-128", "file": "local/ui/m/app.js", "start": 2371, "end": 2371, "excerpt": "model.pairTickTimer) clearTimeout(model.pairTickTimer);", "claim": "pairTickTimer 的第一处读取（stopPairLock）", "kind": "事实"}
+{"id": "PHN-129", "file": "local/ui/m/app.js", "start": 1403, "end": 1403, "excerpt": "pcListError: null,", "claim": "model 字面量声明字段 pcListError", "kind": "事实"}
+{"id": "PHN-130", "file": "local/ui/m/app.js", "start": 2664, "end": 2664, "excerpt": "model.pcListError = state.pc_list_error || null;", "claim": "写入：pcListError =（ingest）", "kind": "事实"}
+{"id": "PHN-131", "file": "local/ui/m/app.js", "start": 1470, "end": 1470, "excerpt": "model.pcListError;", "claim": "pcListError 的第一处读取（renderAlerts）", "kind": "事实"}
+{"id": "PHN-132", "file": "local/ui/m/app.js", "start": 1396, "end": 1396, "excerpt": "pending: null, csrf: \"\", pollTimer: null,", "claim": "model 字面量声明字段 pending", "kind": "事实"}
+{"id": "PHN-133", "file": "local/ui/m/app.js", "start": 2730, "end": 2730, "excerpt": "model.pending = { request_id: requestId, at: Date.now(), done: false };", "claim": "写入：pending =（startPlan）", "kind": "事实"}
+{"id": "PHN-134", "file": "local/ui/m/app.js", "start": 2741, "end": 2741, "excerpt": "model.pending.done = true;", "claim": "改内部字段：pending .done =（startPlan）", "kind": "事实"}
+{"id": "PHN-135", "file": "local/ui/m/app.js", "start": 2742, "end": 2742, "excerpt": "model.pending.outcome = \"accepted\";   // A-BUG-1：同步受理也记终态，保留防双击窗口", "claim": "改内部字段：pending .outcome =（startPlan）", "kind": "事实"}
+{"id": "PHN-136", "file": "local/ui/m/app.js", "start": 2760, "end": 2760, "excerpt": "pending.done = true;", "claim": "经别名改 pending.done（reconcile）", "kind": "事实"}
+{"id": "PHN-137", "file": "local/ui/m/app.js", "start": 2761, "end": 2761, "excerpt": "pending.outcome = body.state;   // A-BUG-1：终态原因随 pending 记下", "claim": "经别名改 pending.outcome（reconcile）", "kind": "事实"}
+{"id": "PHN-138", "file": "local/ui/m/app.js", "start": 2782, "end": 2782, "excerpt": "pending.canceling = true;", "claim": "经别名改 pending.canceling（cancelPendingStart）", "kind": "事实"}
+{"id": "PHN-139", "file": "local/ui/m/app.js", "start": 2788, "end": 2788, "excerpt": "pending.done = true;", "claim": "经别名改 pending.done（cancelPendingStart）", "kind": "事实"}
+{"id": "PHN-140", "file": "local/ui/m/app.js", "start": 2789, "end": 2789, "excerpt": "pending.outcome = \"canceled\";   // A-BUG-1：终态原因随 pending 记下，立即放行新的开始", "claim": "经别名改 pending.outcome（cancelPendingStart）", "kind": "事实"}
+{"id": "PHN-141", "file": "local/ui/m/app.js", "start": 2797, "end": 2797, "excerpt": "pending.canceling = false;", "claim": "经别名改 pending.canceling（cancelPendingStart）", "kind": "事实"}
+{"id": "PHN-142", "file": "local/ui/m/app.js", "start": 100, "end": 100, "excerpt": "model.pending, Date.now())) return true;", "claim": "pending 的第一处读取（isActive）", "kind": "事实"}
+{"id": "PHN-143", "file": "local/ui/m/app.js", "start": 1405, "end": 1405, "excerpt": "searchOpen: false, notice: \"\", pickId: \"\",", "claim": "model 字面量声明字段 pickId", "kind": "事实"}
+{"id": "PHN-144", "file": "local/ui/m/app.js", "start": 2164, "end": 2164, "excerpt": "model.pickId = \"\";", "claim": "写入：pickId =（renderBoard）", "kind": "事实"}
+{"id": "PHN-145", "file": "local/ui/m/app.js", "start": 2182, "end": 2182, "excerpt": "model.pickId = board.pickId || \"\";", "claim": "写入：pickId =（renderBoard）", "kind": "事实"}
+{"id": "PHN-146", "file": "local/ui/m/app.js", "start": 3289, "end": 3289, "excerpt": "model.pickId) return;", "claim": "pickId 的第一处读取（wire><回调>）", "kind": "事实"}
+{"id": "PHN-147", "file": "local/ui/m/app.js", "start": 2650, "end": 2650, "excerpt": "model.plan = state.plan;", "claim": "写入：plan =（ingest）", "kind": "事实"}
+{"id": "PHN-148", "file": "local/ui/m/app.js", "start": 2853, "end": 2853, "excerpt": "model.plan = null;", "claim": "写入：plan =（reselectFailed）", "kind": "事实"}
+{"id": "PHN-149", "file": "local/ui/m/app.js", "start": 2872, "end": 2872, "excerpt": "model.plan = null;", "claim": "写入：plan =（finishPlanView）", "kind": "事实"}
+{"id": "PHN-150", "file": "local/ui/m/app.js", "start": 1723, "end": 1723, "excerpt": "model.plan, model.busy);", "claim": "plan 的第一处读取（renderBar）", "kind": "事实"}
+{"id": "PHN-151", "file": "local/ui/m/app.js", "start": 1396, "end": 1396, "excerpt": "pollTimer: null,", "claim": "model 字面量声明字段 pollTimer", "kind": "事实"}
+{"id": "PHN-152", "file": "local/ui/m/app.js", "start": 2470, "end": 2470, "excerpt": "model.pollTimer = null;", "claim": "写入：pollTimer =（onNeedPair）", "kind": "事实"}
+{"id": "PHN-153", "file": "local/ui/m/app.js", "start": 2494, "end": 2494, "excerpt": "model.pollTimer = null;", "claim": "写入：pollTimer =（schedule）", "kind": "事实"}
+{"id": "PHN-154", "file": "local/ui/m/app.js", "start": 2497, "end": 2497, "excerpt": "model.pollTimer = setTimeout(() => poll(false), PhoneModel.syncDelay(model));", "claim": "写入：pollTimer =（schedule）", "kind": "事实"}
+{"id": "PHN-155", "file": "local/ui/m/app.js", "start": 3325, "end": 3325, "excerpt": "model.pollTimer = null;", "claim": "写入：pollTimer =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-156", "file": "local/ui/m/app.js", "start": 3335, "end": 3335, "excerpt": "model.pollTimer = null;", "claim": "写入：pollTimer =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-157", "file": "local/ui/m/app.js", "start": 2469, "end": 2469, "excerpt": "model.pollTimer) clearTimeout(model.pollTimer);", "claim": "pollTimer 的第一处读取（onNeedPair）", "kind": "事实"}
+{"id": "PHN-158", "file": "local/ui/m/app.js", "start": 1398, "end": 1398, "excerpt": "probed: false, bannerKind: \"\",", "claim": "model 字面量声明字段 probed", "kind": "事实"}
+{"id": "PHN-159", "file": "local/ui/m/app.js", "start": 2617, "end": 2617, "excerpt": "model.probed = true;", "claim": "写入：probed =（probeExistingSession）", "kind": "事实"}
+{"id": "PHN-160", "file": "local/ui/m/app.js", "start": 2616, "end": 2616, "excerpt": "model.probed) return;", "claim": "probed 的第一处读取（probeExistingSession）", "kind": "事实"}
+{"id": "PHN-161", "file": "local/ui/m/app.js", "start": 2753, "end": 2753, "excerpt": "model.reconciling = true;", "claim": "写入：reconciling =（reconcile）", "kind": "事实"}
+{"id": "PHN-162", "file": "local/ui/m/app.js", "start": 2773, "end": 2773, "excerpt": "model.reconciling = false;", "claim": "写入：reconciling =（reconcile）", "kind": "事实"}
+{"id": "PHN-163", "file": "local/ui/m/app.js", "start": 2749, "end": 2749, "excerpt": "model.reconciling) return;", "claim": "reconciling 的第一处读取（reconcile）", "kind": "事实"}
+{"id": "PHN-164", "file": "local/ui/m/app.js", "start": 1414, "end": 1414, "excerpt": "relConfirm: false, relEnteredAcct: false, relSavedChoice: fa", "claim": "model 字面量声明字段 relConfirm", "kind": "事实"}
+{"id": "PHN-165", "file": "local/ui/m/app.js", "start": 1602, "end": 1602, "excerpt": "model.relConfirm = false;               // RL06：确认层是开 sheet 那一次的事", "claim": "写入：relConfirm =（closeSheet）", "kind": "事实"}
+{"id": "PHN-166", "file": "local/ui/m/app.js", "start": 1666, "end": 1666, "excerpt": "model.relConfirm = !liveFlow && !setup.paused && !!setup.saved && !!setup.ocr_ready;", "claim": "写入：relConfirm =（openRelogin）", "kind": "事实"}
+{"id": "PHN-167", "file": "local/ui/m/app.js", "start": 3067, "end": 3067, "excerpt": "model.relConfirm = false;", "claim": "写入：relConfirm =（beginRelogin）", "kind": "事实"}
+{"id": "PHN-168", "file": "local/ui/m/app.js", "start": 3262, "end": 3262, "excerpt": "model.relConfirm = false;", "claim": "写入：relConfirm =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-169", "file": "local/ui/m/app.js", "start": 1620, "end": 1620, "excerpt": "model.relConfirm,", "claim": "relConfirm 的第一处读取（renderRelogin）", "kind": "事实"}
+{"id": "PHN-170", "file": "local/ui/m/app.js", "start": 1414, "end": 1414, "excerpt": "relEnteredAcct: false, relSavedChoice: false,", "claim": "model 字面量声明字段 relEnteredAcct", "kind": "事实"}
+{"id": "PHN-171", "file": "local/ui/m/app.js", "start": 3068, "end": 3068, "excerpt": "model.relEnteredAcct = false;", "claim": "写入：relEnteredAcct =（beginRelogin）", "kind": "事实"}
+{"id": "PHN-172", "file": "local/ui/m/app.js", "start": 3087, "end": 3087, "excerpt": "model.relEnteredAcct = true;       // RL08 附言：这一轮输过账号", "claim": "写入：relEnteredAcct =（beginRelogin）", "kind": "事实"}
+{"id": "PHN-173", "file": "local/ui/m/app.js", "start": 1623, "end": 1623, "excerpt": "model.relEnteredAcct,", "claim": "relEnteredAcct 的第一处读取（renderRelogin）", "kind": "事实"}
+{"id": "PHN-174", "file": "local/ui/m/app.js", "start": 2653, "end": 2653, "excerpt": "model.reloginSetup = state.relogin_setup;", "claim": "写入：reloginSetup =（ingest）", "kind": "事实"}
+{"id": "PHN-175", "file": "local/ui/m/app.js", "start": 443, "end": 443, "excerpt": "model.reloginSetup) || {};", "claim": "reloginSetup 的第一处读取（preStartWarnings）", "kind": "事实"}
+{"id": "PHN-176", "file": "local/ui/m/app.js", "start": 1395, "end": 1395, "excerpt": "reloginStarting: false, offlineTries: 0,", "claim": "model 字面量声明字段 reloginStarting", "kind": "事实"}
+{"id": "PHN-177", "file": "local/ui/m/app.js", "start": 2989, "end": 2989, "excerpt": "model.reloginStarting = false;", "claim": "写入：reloginStarting =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-178", "file": "local/ui/m/app.js", "start": 3065, "end": 3065, "excerpt": "model.reloginStarting = true;", "claim": "写入：reloginStarting =（beginRelogin）", "kind": "事实"}
+{"id": "PHN-179", "file": "local/ui/m/app.js", "start": 3079, "end": 3079, "excerpt": "model.reloginStarting = false;", "claim": "写入：reloginStarting =（beginRelogin）", "kind": "事实"}
+{"id": "PHN-180", "file": "local/ui/m/app.js", "start": 3092, "end": 3092, "excerpt": "model.reloginStarting = false;", "claim": "写入：reloginStarting =（beginRelogin）", "kind": "事实"}
+{"id": "PHN-181", "file": "local/ui/m/app.js", "start": 99, "end": 99, "excerpt": "model.reloginStarting || model.reloginSubmitting) return true;", "claim": "reloginStarting 的第一处读取（isActive）", "kind": "事实"}
+{"id": "PHN-182", "file": "local/ui/m/app.js", "start": 1394, "end": 1394, "excerpt": "reloginSubmitting: false,", "claim": "model 字面量声明字段 reloginSubmitting", "kind": "事实"}
+{"id": "PHN-183", "file": "local/ui/m/app.js", "start": 2988, "end": 2988, "excerpt": "model.reloginSubmitting = false;", "claim": "写入：reloginSubmitting =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-184", "file": "local/ui/m/app.js", "start": 2997, "end": 2997, "excerpt": "model.reloginSubmitting = false;", "claim": "写入：reloginSubmitting =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-185", "file": "local/ui/m/app.js", "start": 3004, "end": 3004, "excerpt": "model.reloginSubmitting = false;", "claim": "写入：reloginSubmitting =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-186", "file": "local/ui/m/app.js", "start": 3020, "end": 3020, "excerpt": "model.reloginSubmitting = false;", "claim": "写入：reloginSubmitting =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-187", "file": "local/ui/m/app.js", "start": 3024, "end": 3024, "excerpt": "model.reloginSubmitting = false;", "claim": "写入：reloginSubmitting =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-188", "file": "local/ui/m/app.js", "start": 3029, "end": 3029, "excerpt": "model.reloginSubmitting = false;", "claim": "写入：reloginSubmitting =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-189", "file": "local/ui/m/app.js", "start": 3045, "end": 3045, "excerpt": "model.reloginSubmitting = false;", "claim": "写入：reloginSubmitting =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-190", "file": "local/ui/m/app.js", "start": 3056, "end": 3056, "excerpt": "model.reloginSubmitting = false;", "claim": "写入：reloginSubmitting =（ingestRelogin）", "kind": "事实"}
+{"id": "PHN-191", "file": "local/ui/m/app.js", "start": 3123, "end": 3123, "excerpt": "model.reloginSubmitting = true;", "claim": "写入：reloginSubmitting =（submitRelogin）", "kind": "事实"}
+{"id": "PHN-192", "file": "local/ui/m/app.js", "start": 3148, "end": 3148, "excerpt": "model.reloginSubmitting = false;", "claim": "写入：reloginSubmitting =（submitRelogin）", "kind": "事实"}
+{"id": "PHN-193", "file": "local/ui/m/app.js", "start": 99, "end": 99, "excerpt": "model.reloginSubmitting) return true;", "claim": "reloginSubmitting 的第一处读取（isActive）", "kind": "事实"}
+{"id": "PHN-194", "file": "local/ui/m/app.js", "start": 1414, "end": 1414, "excerpt": "relSavedChoice: false,", "claim": "model 字面量声明字段 relSavedChoice", "kind": "事实"}
+{"id": "PHN-195", "file": "local/ui/m/app.js", "start": 3069, "end": 3069, "excerpt": "model.relSavedChoice = false;", "claim": "写入：relSavedChoice =（beginRelogin）", "kind": "事实"}
+{"id": "PHN-196", "file": "local/ui/m/app.js", "start": 3088, "end": 3088, "excerpt": "model.relSavedChoice = args.save;", "claim": "写入：relSavedChoice =（beginRelogin）", "kind": "事实"}
+{"id": "PHN-197", "file": "local/ui/m/app.js", "start": 1624, "end": 1624, "excerpt": "model.relSavedChoice,", "claim": "relSavedChoice 的第一处读取（renderRelogin）", "kind": "事实"}
+{"id": "PHN-198", "file": "local/ui/m/app.js", "start": 1389, "end": 1389, "excerpt": "retry: { retry_for_s: 120, max_attempts: 0 }, retryHydrated:", "claim": "model 字面量声明字段 retry", "kind": "事实"}
+{"id": "PHN-199", "file": "local/ui/m/app.js", "start": 2668, "end": 2668, "excerpt": "model.retry = {", "claim": "写入：retry =（ingest）", "kind": "事实"}
+{"id": "PHN-200", "file": "local/ui/m/app.js", "start": 3312, "end": 3312, "excerpt": "model.retry.retry_for_s = Number($(\"retry-for\").value);", "claim": "改内部字段：retry .retry_for_s =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-201", "file": "local/ui/m/app.js", "start": 3318, "end": 3318, "excerpt": "model.retry.max_attempts = Number($(\"max-attempts\").value || 0);", "claim": "改内部字段：retry .max_attempts =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-202", "file": "local/ui/m/app.js", "start": 446, "end": 446, "excerpt": "model.retry && Number(model.retry.retry_for_s) === 0) {", "claim": "retry 的第一处读取（preStartWarnings）", "kind": "事实"}
+{"id": "PHN-203", "file": "local/ui/m/app.js", "start": 1389, "end": 1389, "excerpt": "retryDirty: false,", "claim": "model 字面量声明字段 retryDirty", "kind": "事实"}
+{"id": "PHN-204", "file": "local/ui/m/app.js", "start": 2885, "end": 2885, "excerpt": "model.retryDirty = false;", "claim": "写入：retryDirty =（saveRetry）", "kind": "事实"}
+{"id": "PHN-205", "file": "local/ui/m/app.js", "start": 3313, "end": 3313, "excerpt": "model.retryDirty = true;", "claim": "写入：retryDirty =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-206", "file": "local/ui/m/app.js", "start": 3319, "end": 3319, "excerpt": "model.retryDirty = true;", "claim": "写入：retryDirty =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-207", "file": "local/ui/m/app.js", "start": 2667, "end": 2667, "excerpt": "model.retryDirty) {", "claim": "retryDirty 的第一处读取（ingest）", "kind": "事实"}
+{"id": "PHN-208", "file": "local/ui/m/app.js", "start": 1389, "end": 1389, "excerpt": "retryHydrated: false, retryDirty: false,", "claim": "model 字面量声明字段 retryHydrated", "kind": "事实"}
+{"id": "PHN-209", "file": "local/ui/m/app.js", "start": 2672, "end": 2672, "excerpt": "model.retryHydrated = true;", "claim": "写入：retryHydrated =（ingest）", "kind": "事实"}
+{"id": "PHN-210", "file": "local/ui/m/app.js", "start": 2667, "end": 2667, "excerpt": "model.retryHydrated && !model.retryDirty) {", "claim": "retryHydrated 的第一处读取（ingest）", "kind": "事实"}
+{"id": "PHN-211", "file": "local/ui/m/app.js", "start": 2675, "end": 2675, "excerpt": "model.retryOptions = state.retry_options;", "claim": "写入：retryOptions =（ingest）", "kind": "事实"}
+{"id": "PHN-212", "file": "local/ui/m/app.js", "start": 1405, "end": 1405, "excerpt": "searchOpen: false, notice: \"\", pickId: \"\",", "claim": "model 字面量声明字段 searchOpen", "kind": "事实"}
+{"id": "PHN-213", "file": "local/ui/m/app.js", "start": 2207, "end": 2207, "excerpt": "model.searchOpen = !model.searchOpen;", "claim": "写入：searchOpen =（toggleSearch）", "kind": "事实"}
+{"id": "PHN-214", "file": "local/ui/m/app.js", "start": 2060, "end": 2060, "excerpt": "model.searchOpen;", "claim": "searchOpen 的第一处读取（renderItems）", "kind": "事实"}
+{"id": "PHN-215", "file": "local/ui/m/app.js", "start": 1390, "end": 1390, "excerpt": "seenEventSeq: new Set(), busy: false,", "claim": "model 字面量声明字段 seenEventSeq", "kind": "事实"}
+{"id": "PHN-216", "file": "local/ui/m/app.js", "start": 2624, "end": 2624, "excerpt": "model.seenEventSeq.clear();", "claim": "容器就地修改：seenEventSeq .clear()（ingest）", "kind": "事实"}
+{"id": "PHN-217", "file": "local/ui/m/app.js", "start": 2683, "end": 2683, "excerpt": "model.seenEventSeq.add(eventSeq);", "claim": "容器就地修改：seenEventSeq .add()（ingest><回调>）", "kind": "事实"}
+{"id": "PHN-218", "file": "local/ui/m/app.js", "start": 2685, "end": 2685, "excerpt": "model.seenEventSeq.delete(Math.min.apply(null, Array.from(model.seenEventSeq)));", "claim": "容器就地修改：seenEventSeq .delete()（ingest><回调>）", "kind": "事实"}
+{"id": "PHN-219", "file": "local/ui/m/app.js", "start": 2682, "end": 2682, "excerpt": "model.seenEventSeq.has(eventSeq)) return;", "claim": "seenEventSeq 的第一处读取（ingest><回调>）", "kind": "事实"}
+{"id": "PHN-220", "file": "local/ui/m/app.js", "start": 1388, "end": 1388, "excerpt": "selected: [], filter: { q: \"\", status: \"free\", time: \"all\" }", "claim": "model 字面量声明字段 selected", "kind": "事实"}
+{"id": "PHN-221", "file": "local/ui/m/app.js", "start": 1788, "end": 1788, "excerpt": "model.selected = res.selected;", "claim": "写入：selected =（buildRow><回调>）", "kind": "事实"}
+{"id": "PHN-222", "file": "local/ui/m/app.js", "start": 2639, "end": 2639, "excerpt": "model.selected = before.filter((id) => {", "claim": "写入：selected =（ingest）", "kind": "事实"}
+{"id": "PHN-223", "file": "local/ui/m/app.js", "start": 2863, "end": 2863, "excerpt": "model.selected = picked;", "claim": "写入：selected =（reselectFailed）", "kind": "事实"}
+{"id": "PHN-224", "file": "local/ui/m/app.js", "start": 2873, "end": 2873, "excerpt": "model.selected = [];", "claim": "写入：selected =（finishPlanView）", "kind": "事实"}
+{"id": "PHN-225", "file": "local/ui/m/app.js", "start": 2951, "end": 2951, "excerpt": "model.selected = res.selected;", "claim": "写入：selected =（removeFromReview）", "kind": "事实"}
+{"id": "PHN-226", "file": "local/ui/m/app.js", "start": 3291, "end": 3291, "excerpt": "model.selected = res.selected;", "claim": "写入：selected =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-227", "file": "local/ui/m/app.js", "start": 131, "end": 131, "excerpt": "model.selected || []).length > 0;", "claim": "selected 的第一处读取（canStart）", "kind": "事实"}
+{"id": "PHN-228", "file": "local/ui/m/app.js", "start": 1393, "end": 1393, "excerpt": "lastOkAt: 0, nowMs: 0, backoff: 1000, seq: 0,", "claim": "model 字面量声明字段 seq", "kind": "事实"}
+{"id": "PHN-229", "file": "local/ui/m/app.js", "start": 2625, "end": 2625, "excerpt": "model.seq = 0;", "claim": "写入：seq =（ingest）", "kind": "事实"}
+{"id": "PHN-230", "file": "local/ui/m/app.js", "start": 2680, "end": 2680, "excerpt": "model.seq = Math.max(model.seq, eventSeq);", "claim": "写入：seq =（ingest><回调>）", "kind": "事实"}
+{"id": "PHN-231", "file": "local/ui/m/app.js", "start": 2697, "end": 2697, "excerpt": "model.seq = Math.max(model.seq, Number(payload.seq));", "claim": "写入：seq =（ingest）", "kind": "事实"}
+{"id": "PHN-232", "file": "local/ui/m/app.js", "start": 2437, "end": 2437, "excerpt": "model.seq));", "claim": "seq 的第一处读取（poll）", "kind": "事实"}
+{"id": "PHN-233", "file": "local/ui/m/app.js", "start": 1407, "end": 1407, "excerpt": "sheetId: \"\", sheetOpener: null,", "claim": "model 字面量声明字段 sheetId", "kind": "事实"}
+{"id": "PHN-234", "file": "local/ui/m/app.js", "start": 1565, "end": 1565, "excerpt": "model.sheetId = id;", "claim": "写入：sheetId =（openSheet）", "kind": "事实"}
+{"id": "PHN-235", "file": "local/ui/m/app.js", "start": 1586, "end": 1586, "excerpt": "model.sheetId = \"\";", "claim": "写入：sheetId =（closeSheet）", "kind": "事实"}
+{"id": "PHN-236", "file": "local/ui/m/app.js", "start": 1543, "end": 1543, "excerpt": "model.sheetId) $(\"btn-sheet-close\").hidden = sheetBusy();", "claim": "sheetId 的第一处读取（refreshControls）", "kind": "事实"}
+{"id": "PHN-237", "file": "local/ui/m/app.js", "start": 1407, "end": 1407, "excerpt": "sheetOpener: null,", "claim": "model 字面量声明字段 sheetOpener", "kind": "事实"}
+{"id": "PHN-238", "file": "local/ui/m/app.js", "start": 1564, "end": 1564, "excerpt": "model.sheetOpener = document.activeElement || null;", "claim": "写入：sheetOpener =（openSheet）", "kind": "事实"}
+{"id": "PHN-239", "file": "local/ui/m/app.js", "start": 1604, "end": 1604, "excerpt": "model.sheetOpener = null;", "claim": "写入：sheetOpener =（closeSheet）", "kind": "事实"}
+{"id": "PHN-240", "file": "local/ui/m/app.js", "start": 1603, "end": 1603, "excerpt": "model.sheetOpener;", "claim": "sheetOpener 的第一处读取（closeSheet）", "kind": "事实"}
+{"id": "PHN-241", "file": "local/ui/m/app.js", "start": 2652, "end": 2652, "excerpt": "model.termsOk = state.terms_ok;", "claim": "写入：termsOk =（ingest）", "kind": "事实"}
+{"id": "PHN-242", "file": "local/ui/m/app.js", "start": 1468, "end": 1468, "excerpt": "model.termsOk === false;", "claim": "termsOk 的第一处读取（renderAlerts）", "kind": "事实"}
+{"id": "PHN-243", "file": "local/ui/m/app.js", "start": 2521, "end": 2521, "excerpt": "model.tickMark = { wall: wallMs, mono: monoMs };", "claim": "写入：tickMark =（tickClock）", "kind": "事实"}
+{"id": "PHN-244", "file": "local/ui/m/app.js", "start": 2520, "end": 2520, "excerpt": "model.tickMark, wallMs, monoMs);", "claim": "tickMark 的第一处读取（tickClock）", "kind": "事实"}
+{"id": "PHN-245", "file": "local/ui/m/app.js", "start": 2472, "end": 2472, "excerpt": "model.tickTimer = null;", "claim": "写入：tickTimer =（onNeedPair）", "kind": "事实"}
+{"id": "PHN-246", "file": "local/ui/m/app.js", "start": 2504, "end": 2504, "excerpt": "model.tickTimer = null;", "claim": "写入：tickTimer =（scheduleTick）", "kind": "事实"}
+{"id": "PHN-247", "file": "local/ui/m/app.js", "start": 2507, "end": 2507, "excerpt": "model.tickTimer = setTimeout(() => {", "claim": "写入：tickTimer =（scheduleTick）", "kind": "事实"}
+{"id": "PHN-248", "file": "local/ui/m/app.js", "start": 2508, "end": 2508, "excerpt": "model.tickTimer = null;", "claim": "写入：tickTimer =（scheduleTick><回调>）", "kind": "事实"}
+{"id": "PHN-249", "file": "local/ui/m/app.js", "start": 3327, "end": 3327, "excerpt": "model.tickTimer = null;", "claim": "写入：tickTimer =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-250", "file": "local/ui/m/app.js", "start": 3337, "end": 3337, "excerpt": "model.tickTimer = null;", "claim": "写入：tickTimer =（wire><回调>）", "kind": "事实"}
+{"id": "PHN-251", "file": "local/ui/m/app.js", "start": 2471, "end": 2471, "excerpt": "model.tickTimer) clearTimeout(model.tickTimer);", "claim": "tickTimer 的第一处读取（onNeedPair）", "kind": "事实"}
+{"id": "PHN-252", "file": "local/ui/m/app.js", "start": 1400, "end": 1400, "excerpt": "whyId: \"\", flashId: \"\", clock: null,", "claim": "model 字面量声明字段 whyId", "kind": "事实"}
+{"id": "PHN-253", "file": "local/ui/m/app.js", "start": 411, "end": 411, "excerpt": "model.whyId = model.whyId === id ? \"\" : id;", "claim": "写入：whyId =（toggleWhy）", "kind": "事实"}
+{"id": "PHN-254", "file": "local/ui/m/app.js", "start": 1968, "end": 1968, "excerpt": "model.whyId = \"\";", "claim": "写入：whyId =（goSigned）", "kind": "事实"}
+{"id": "PHN-255", "file": "local/ui/m/app.js", "start": 411, "end": 411, "excerpt": "model.whyId === id ? \"\" : id;", "claim": "whyId 的第一处读取（toggleWhy）", "kind": "事实"}

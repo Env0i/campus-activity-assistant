@@ -1,0 +1,424 @@
+{"id": "DSK-101a", "file": "local/ui/controllers/refresh.js", "start": 170, "end": 170, "excerpt": "S.login.checking = true;", "claim": "前台轮开头把登录校验置为进行中", "kind": "事实"}
+{"id": "DSK-101b", "file": "local/ui/app.js", "start": 107, "end": 107, "excerpt": "S.login.checking = false;", "claim": "check 事件到达时清掉进行中", "kind": "事实"}
+{"id": "DSK-101c", "file": "local/ui/controllers/refresh.js", "start": 182, "end": 182, "excerpt": "S.login.checking = false;", "claim": "100 秒超时回调里清进行中", "kind": "事实"}
+{"id": "DSK-101d", "file": "local/ui/controllers/refresh.js", "start": 217, "end": 217, "excerpt": "S.login.checking = false;", "claim": "桥接异常的 catch 里清进行中", "kind": "事实"}
+{"id": "DSK-101e", "file": "local/ui/controllers/refresh.js", "start": 260, "end": 260, "excerpt": "S.login.checking = false;", "claim": "skipped 接续后的超时回调里清进行中", "kind": "事实"}
+{"id": "DSK-101f", "file": "local/ui/controllers/refresh.js", "start": 315, "end": 315, "excerpt": "S.login.checking = false;", "claim": "条款回绝分支清进行中", "kind": "事实"}
+{"id": "DSK-101g", "file": "local/ui/controllers/refresh.js", "start": 336, "end": 336, "excerpt": "S.login.checking = false;", "claim": "没能开始分支清进行中", "kind": "事实"}
+{"id": "DSK-102a", "file": "local/ui/controllers/plan.js", "start": 413, "end": 413, "excerpt": "S.login.loginPending = true;", "claim": "doLogin 开登录窗口时置真", "kind": "事实"}
+{"id": "DSK-102b", "file": "local/ui/controllers/plan.js", "start": 423, "end": 423, "excerpt": "S.login.loginPending = false;", "claim": "演示模式分支清", "kind": "事实"}
+{"id": "DSK-102c", "file": "local/ui/controllers/plan.js", "start": 430, "end": 430, "excerpt": "S.login.loginPending = false;", "claim": "后端拒绝或没起来分支清", "kind": "事实"}
+{"id": "DSK-102d", "file": "local/ui/controllers/plan.js", "start": 448, "end": 448, "excerpt": "S.login.loginPending = false;", "claim": "桥接异常的 catch 里清", "kind": "事实"}
+{"id": "DSK-102e", "file": "local/ui/controllers/plan.js", "start": 461, "end": 461, "excerpt": "S.login.loginPending = false;", "claim": "handleDone 收到 login 事件时清", "kind": "事实"}
+{"id": "DSK-103a", "file": "local/ui/controllers/plan.js", "start": 412, "end": 412, "excerpt": "S.login.preLoginSnapshot = loginSnapshotState();", "claim": "尝试登录前存结论快照", "kind": "事实"}
+{"id": "DSK-103b", "file": "local/ui/controllers/plan.js", "start": 424, "end": 424, "excerpt": "S.login.preLoginSnapshot = null;", "claim": "演示模式分支清快照", "kind": "事实"}
+{"id": "DSK-103c", "file": "local/ui/controllers/plan.js", "start": 433, "end": 433, "excerpt": "S.login.preLoginSnapshot = null;", "claim": "没起来分支回滚后清快照", "kind": "事实"}
+{"id": "DSK-103d", "file": "local/ui/controllers/plan.js", "start": 450, "end": 450, "excerpt": "S.login.preLoginSnapshot = null;", "claim": "桥接异常 catch 回滚后清快照", "kind": "事实"}
+{"id": "DSK-103e", "file": "local/ui/controllers/plan.js", "start": 466, "end": 466, "excerpt": "S.login.preLoginSnapshot = null;", "claim": "handleDone 成功分支作废快照", "kind": "事实"}
+{"id": "DSK-103f", "file": "local/ui/controllers/plan.js", "start": 477, "end": 477, "excerpt": "S.login.preLoginSnapshot = null;", "claim": "handleDone 失败分支回滚后清快照", "kind": "事实"}
+{"id": "DSK-104a", "file": "local/ui/state/login.js", "start": 45, "end": 45, "excerpt": "if (S.login.result === \"expired\" && !S.login.handoff) S.autoLogin = !!anchor.recovering;", "claim": "校验结论为失效且未转人工时按 recovering 置 autoLogin", "kind": "事实"}
+{"id": "DSK-104b", "file": "local/ui/views/relogin.js", "start": 466, "end": 466, "excerpt": "S.autoLogin = auto;", "claim": "中继事件改写 autoLogin", "kind": "事实"}
+{"id": "DSK-104c", "file": "local/ui/state/login.js", "start": 27, "end": 27, "excerpt": "if (S.login.handoff || S.login.result === \"valid\") { S.autoLogin = false; return; }", "claim": "已转人工或已有效时收回 autoLogin", "kind": "事实"}
+{"id": "DSK-104d", "file": "local/ui/state/login.js", "start": 29, "end": 29, "excerpt": "if (typeof reloginAutoLive !== \"function\" || !reloginAutoLive()) S.autoLogin = false;", "claim": "中继不在自动进行中时收回 autoLogin", "kind": "事实"}
+{"id": "DSK-105a", "file": "local/ui/views/relogin.js", "start": 458, "end": 458, "excerpt": "if (data.state === \"success\" || data.live === false) S.login.handoff = false;", "claim": "这一场结束时清 handoff", "kind": "事实"}
+{"id": "DSK-105b", "file": "local/ui/views/relogin.js", "start": 459, "end": 459, "excerpt": "else if (handoff) S.login.handoff = true;", "claim": "中继转人工时置 handoff", "kind": "事实"}
+{"id": "DSK-105c", "file": "local/ui/state/login.js", "start": 47, "end": 47, "excerpt": "if (S.login.result === \"valid\") S.login.handoff = false;", "claim": "校验有效时清 handoff", "kind": "事实"}
+{"id": "DSK-106a", "file": "local/ui/views/relogin.js", "start": 296, "end": 296, "excerpt": "S.relogin = { open: true, step: \"\", flowId: \"\", challengeId: \"\" };", "claim": "openRelogin 重置会话态", "kind": "事实"}
+{"id": "DSK-106c", "file": "local/ui/views/relogin.js", "start": 321, "end": 321, "excerpt": "S.relogin = { open: true, step: \"\", flowId: \"\", challengeId: \"\" };", "claim": "openLogin 重置会话态", "kind": "事实"}
+{"id": "DSK-106b", "file": "local/ui/views/relogin.js", "start": 346, "end": 346, "excerpt": "S.relogin = { open: false, step: \"\", flowId: \"\", challengeId: \"\" };", "claim": "closeRelogin 把会话态置为关闭", "kind": "事实"}
+{"id": "DSK-107a", "file": "local/ui/views/relogin.js", "start": 444, "end": 444, "excerpt": "reloginRelay = data;", "claim": "中继事件整份替换 reloginRelay", "kind": "事实"}
+{"id": "DSK-108a", "file": "local/ui/views/relogin.js", "start": 448, "end": 448, "excerpt": "reloginHandoffSeen = true;", "claim": "转人工提醒写过运行记录后置真", "kind": "事实"}
+{"id": "DSK-108b", "file": "local/ui/views/relogin.js", "start": 455, "end": 455, "excerpt": "if (!handoff) reloginHandoffSeen = false;", "claim": "不再转人工时清", "kind": "事实"}
+{"id": "DSK-109a", "file": "local/ui/controllers/refresh.js", "start": 156, "end": 156, "excerpt": "S.round.check = checkId;", "claim": "每轮开头记下校验请求号", "kind": "事实"}
+{"id": "DSK-109b", "file": "local/ui/controllers/refresh.js", "start": 175, "end": 175, "excerpt": "S.round.checkTimer = setTimeout(() => {", "claim": "挂 100 秒兜底定时器", "kind": "事实"}
+{"id": "DSK-109c", "file": "local/ui/controllers/refresh.js", "start": 158, "end": 158, "excerpt": "clearTimeout(S.round.checkTimer);", "claim": "每轮开头清旧定时器", "kind": "事实"}
+{"id": "DSK-109d", "file": "local/ui/app.js", "start": 104, "end": 104, "excerpt": "clearTimeout(S.round.checkTimer);", "claim": "check 事件到达且是当前一轮时清定时器", "kind": "事实"}
+{"id": "DSK-110a", "file": "local/app.py", "start": 2278, "end": 2278, "excerpt": "self._checking = True", "claim": "check 入口占住校验槽位", "kind": "事实"}
+{"id": "DSK-110b", "file": "local/app.py", "start": 2322, "end": 2322, "excerpt": "self._checking = False", "claim": "_do_check 的 finally 里清槽位", "kind": "事实"}
+{"id": "DSK-110c", "file": "local/app.py", "start": 2329, "end": 2329, "excerpt": "self._checking = True", "claim": "收尾时若有补查要求，立刻重新占住槽位", "kind": "事实"}
+{"id": "DSK-110d", "file": "local/app.py", "start": 2337, "end": 2337, "excerpt": "threading.Thread(target=self._do_check, daemon=True).start()", "claim": "补查时启动新的校验线程", "kind": "事实"}
+{"id": "DSK-111a", "file": "local/app.py", "start": 4272, "end": 4272, "excerpt": "# 占住 busy 位：原有 login/计划不能同跑", "claim": "中继 worker 登记为 _proc", "kind": "事实"}
+{"id": "DSK-111b", "file": "local/app.py", "start": 4288, "end": 4289, "excerpt": "if self._proc is relay_tree.proc and self._proc.poll() is not None:", "claim": "中继收尾：进程已退出才清 _proc", "kind": "事实"}
+{"id": "DSK-111c", "file": "local/app.py", "start": 4290, "end": 4291, "excerpt": "elif self._proc is not None and self._proc.poll() is not None:", "claim": "另一条分支：进程已退出才清 _proc", "kind": "事实"}
+{"id": "DSK-112a", "file": "local/app.py", "start": 4067, "end": 4068, "excerpt": "self._pending_save = ({\"username\": user, \"password\": secret}", "claim": "prepare 时把手输且勾保存的账号暂存", "kind": "事实"}
+{"id": "DSK-112b", "file": "local/app.py", "start": 2034, "end": 2034, "excerpt": "self._pending_save = None", "claim": "中继 begin 前写空", "kind": "事实"}
+{"id": "DSK-112c", "file": "local/app.py", "start": 4149, "end": 4149, "excerpt": "self._pending_save = None", "claim": "begin 失败时写空", "kind": "事实"}
+{"id": "DSK-112d", "file": "local/app.py", "start": 4079, "end": 4079, "excerpt": "self._pending_save = None", "claim": "登录成功落盘后清", "kind": "事实"}
+{"id": "DSK-112e", "file": "local/app.py", "start": 4307, "end": 4307, "excerpt": "self._pending_save = None", "claim": "中继收尾且结论不是成功时清", "kind": "事实"}
+{"id": "DSK-113a", "file": "local/ui/state/store.js", "start": 101, "end": 101, "excerpt": "stopping: false,", "claim": "S 字面量在 store.js 里；handoff、autoLogin 等不在其中（缺席结论，需全文搜索）", "kind": "推测", "missing": "缺席结论无法用一条引用证明，须全文搜索 store.js 确认"}
+{"id": "DSK-114a", "file": "local/ui/app.js", "start": 124, "end": 124, "excerpt": "setLogin(data.hours_left, !!data.ok, loginPresent(data, !!data.demo), data);", "claim": "check 事件里用结论重画登录状态", "kind": "事实"}
+{"id": "DSK-115a", "file": "local/ui/controllers/refresh.js", "start": 222, "end": 222, "excerpt": "addLog(\"[X] 检查登录状态失败：\" + msg(err) + \"；点「刷新」再试一次\");", "claim": "桥接异常时写运行记录", "kind": "事实"}
+{"id": "DSK-116a", "file": "local/ui/controllers/refresh.js", "start": 186, "end": 186, "excerpt": "addLog(\"[X] 检查登录状态超过 100 秒没有回应，先按「暂时无法确认」处理；点「刷新」重试。\");", "claim": "超时写运行记录", "kind": "事实"}
+{"id": "DSK-117a", "file": "local/ui/controllers/refresh.js", "start": 255, "end": 255, "excerpt": "if (id) S.round.check = id;", "claim": "skipped 时接续旧请求号", "kind": "事实"}
+{"id": "DSK-117b", "file": "local/ui/controllers/refresh.js", "start": 267, "end": 267, "excerpt": "window.onBackend.check(res.result);", "claim": "skipped 带回结论时当场落地", "kind": "事实"}
+{"id": "DSK-117c", "file": "local/ui/controllers/refresh.js", "start": 270, "end": 270, "excerpt": "const cached = takeRoundPayload(\"check\", id);", "claim": "取先到事件的暂存", "kind": "事实"}
+{"id": "DSK-117d", "file": "local/ui/controllers/refresh.js", "start": 275, "end": 275, "excerpt": "window.onBackend.check(cached);", "claim": "重放暂存的事件", "kind": "事实"}
+{"id": "DSK-119a", "file": "local/ui/app.js", "start": 99, "end": 99, "excerpt": "cacheRoundPayload(\"check\", data.request_id, data);", "claim": "旧轮迟到事件有界暂存后返回", "kind": "事实"}
+{"id": "DSK-119b", "file": "local/ui/app.js", "start": 102, "end": 102, "excerpt": "if (data.request_id && !markRoundApplied(\"check\", data.request_id)) return;", "claim": "已处理过的请求号直接丢弃", "kind": "事实"}
+{"id": "DSK-120a", "file": "local/ui/controllers/refresh.js", "start": 178, "end": 178, "excerpt": "/* 后台轮没回应：登录结论保持上次，不改成「待确认」也不写日志，只把本轮收口 */", "claim": "后台轮超时静默收口", "kind": "事实"}
+{"id": "DSK-120b", "file": "local/ui/controllers/refresh.js", "start": 214, "end": 214, "excerpt": "settleRefreshBranch(\"check\");   /* 后台轮桥接异常：登录结论保持上次，静默收口 */", "claim": "后台轮桥接异常静默收口", "kind": "事实"}
+{"id": "DSK-120c", "file": "local/ui/controllers/refresh.js", "start": 169, "end": 170, "excerpt": "/* 先进「检查中」：本机有会话也不提前说「登录有效」，等真实校验回来 */", "claim": "只有前台轮（!background）才进检查中", "kind": "事实"}
+{"id": "DSK-121a", "file": "local/app.py", "start": 2322, "end": 2322, "excerpt": "self._checking = False", "claim": "后端校验槽位只在 _do_check 的 finally 里清", "kind": "事实"}
+{"id": "DSK-121b", "file": "local/app.py", "start": 2280, "end": 2280, "excerpt": "threading.Thread(target=self._do_check, daemon=True).start()", "claim": "校验线程由 check 入口启动", "kind": "事实"}
+{"id": "DSK-121c", "file": "local/ui/controllers/bridge.js", "start": 6, "end": 6, "excerpt": "function api(name, ...args) {", "claim": "桥接入口只有 name 与 args，没有超时参数", "kind": "事实"}
+{"id": "DSK-123a", "file": "local/ui/views/relogin.js", "start": 463, "end": 464, "excerpt": "const auto = String(data.origin || \"\") === \"auto\" && !!data.live && !handoff", "claim": "自动登录中 = 电脑发起、还在进行、没转人工、学校未确认有效", "kind": "事实"}
+{"id": "DSK-126a", "file": "local/ui/state/login.js", "start": 136, "end": 136, "excerpt": "reconcileAutoLogin();", "claim": "syncLoginDependentView 第一句先收回过期的自动登录态", "kind": "事实"}
+{"id": "DSK-127a", "file": "local/ui/views/relogin.js", "start": 355, "end": 355, "excerpt": "if (live && flowId && !reloginAutoLive(flowId)) api(\"relogin_cancel\", flowId).catch(() => {});", "claim": "关对话框只在不是电脑自己那一场时才发取消", "kind": "事实"}
+{"id": "DSK-128a", "file": "local/ui/state/login.js", "start": 28, "end": 28, "excerpt": "if (S.login.result === \"expired\") return;   /* 由 recovering 和中继事件决定 */", "claim": "结论为失效时 reconcileAutoLogin 不收回", "kind": "事实"}
+{"id": "DSK-130a", "file": "local/ui/views/relogin.js", "start": 519, "end": 519, "excerpt": "on(\"btn-rl-cancel\", closeRelogin);", "claim": "取消按钮绑定 closeRelogin", "kind": "事实"}
+{"id": "DSK-131a", "file": "local/ui/views/relogin.js", "start": 493, "end": 493, "excerpt": "reloginStep(\"msg\", S.busy ? \"重新登录成功，报名计划照常继续。\" : \"重新登录成功。\");", "claim": "成功后切到 msg 步", "kind": "事实"}
+{"id": "DSK-131b", "file": "local/ui/views/relogin.js", "start": 501, "end": 501, "excerpt": "else reloginStep(\"msg\", RELOGIN_FAIL_TEXT[code] || \"这次没登录上，可以再试一次，或者改用浏览器登录。\");", "claim": "失败或取消切到 msg 步", "kind": "事实"}
+{"id": "DSK-131c", "file": "local/ui/views/relogin.js", "start": 199, "end": 199, "excerpt": "[\"confirm\", \"login\", \"bad\", \"cap\", \"wait\", \"lgwait\", \"msg\"].forEach((name) => {", "claim": "对话框的步骤清单里没有 result", "kind": "事实"}
+{"id": "DSK-132a", "file": "local/ui/views/relogin.js", "start": 514, "end": 514, "excerpt": "on(\"btn-rl-browser\", () => { closeRelogin(); doLogin(); });", "claim": "改用浏览器登录：先 closeRelogin 再 doLogin，不等取消结果", "kind": "事实"}
+{"id": "DSK-134a", "file": "local/ui/views/login.js", "start": 47, "end": 47, "excerpt": "text = \"检查登录…\";", "claim": "校验中胶囊文字", "kind": "事实"}
+{"id": "DSK-134b", "file": "local/ui/views/login.js", "start": 55, "end": 58, "excerpt": "text = \"登录待确认\";", "claim": "校验结论为 unknown 且 ok 为假时胶囊文字「登录待确认」（条件在范围首行）", "kind": "事实"}
+{"id": "DSK-134d", "file": "local/ui/controllers/refresh.js", "start": 340, "end": 340, "excerpt": "addLog(\"[X] \" + ((res && res.text) || \"这次检查没能开始\") + \"；点「刷新」重试。\");", "claim": "没能开始时写运行记录", "kind": "事实"}
+{"id": "DSK-135a", "file": "local/ui/views/relogin.js", "start": 410, "end": 410, "excerpt": "reloginStep(\"wait\", \"正在核对验证码…\");", "claim": "提交验证码时进等待页", "kind": "事实"}
+{"id": "DSK-135b", "file": "local/ui/views/relogin.js", "start": 418, "end": 418, "excerpt": "reloginStep(\"msg\", String(result.text || \"验证码没有发出去，重新登录试试。\"));", "claim": "提交被拒时进 msg 步", "kind": "事实"}
+{"id": "DSK-136a", "file": "local/ui/views/login.js", "start": 41, "end": 41, "excerpt": "text = \"登录中…\";", "claim": "loginPending 时胶囊文字", "kind": "事实"}
+{"id": "DSK-136b", "file": "local/ui/controllers/plan.js", "start": 416, "end": 418, "excerpt": "/* setBusy 会把 S.busy 置真；大屏据此会误判「报名计划在跑」，", "claim": "置忙后立刻重画大屏，让登录显示成登录中", "kind": "事实"}
+{"id": "DSK-136c", "file": "local/ui/controllers/plan.js", "start": 445, "end": 445, "excerpt": "setResult({ ok: false, title: \"登录没能开始\", text: (res && res.text) || \"再点一次「登录」试试。\" });", "claim": "后端拒绝时结果框", "kind": "事实"}
+{"id": "DSK-136d", "file": "local/ui/controllers/plan.js", "start": 453, "end": 453, "excerpt": "setResult({ ok: false, title: \"登录没能开始\", text: msg(err) });", "claim": "桥接异常时结果框", "kind": "事实"}
+{"id": "DSK-137a", "file": "local/ui/views/login.js", "start": 35, "end": 35, "excerpt": "text = \"自动登录中…\";", "claim": "autoLogin 为真时胶囊文字", "kind": "事实"}
+{"id": "DSK-137b", "file": "local/application/auto_relogin.py", "start": 107, "end": 107, "excerpt": "wait = (60, 120, 300, 900)[min(self._failures - 1, 3)]", "claim": "自动登录失败后的退避秒数", "kind": "事实"}
+{"id": "DSK-138a", "file": "local/ui/app.js", "start": 108, "end": 108, "excerpt": "S.login.result = data.result || null;", "claim": "校验结论直接取事件的 result", "kind": "事实"}
+{"id": "DSK-140a", "file": "local/app.py", "start": 2317, "end": 2318, "excerpt": "self._emit(\"check\", {\"ok\": False, \"result\": \"unknown\",", "claim": "异常兜底的 check 载荷只有 ok、result、text", "kind": "事实"}
+{"id": "DSK-201a", "file": "local/ui/views/phone.js", "start": 847, "end": 847, "excerpt": "PhonePanel.busy = true;", "claim": "enableFeature 置忙", "kind": "事实"}
+{"id": "DSK-201b", "file": "local/ui/views/phone.js", "start": 866, "end": 866, "excerpt": "PhonePanel.busy = true;", "claim": "toggleStart 置忙", "kind": "事实"}
+{"id": "DSK-201c", "file": "local/ui/views/phone.js", "start": 890, "end": 890, "excerpt": "PhonePanel.busy = true;", "claim": "toggleStop 置忙", "kind": "事实"}
+{"id": "DSK-201d", "file": "local/ui/views/phone.js", "start": 1013, "end": 1013, "excerpt": "PhonePanel.busy = true;", "claim": "downloadComponent 置忙", "kind": "事实"}
+{"id": "DSK-201e", "file": "local/ui/views/phone.js", "start": 1099, "end": 1099, "excerpt": "PhonePanel.busy = true;", "claim": "保存账号置忙", "kind": "事实"}
+{"id": "DSK-201f", "file": "local/ui/views/phone.js", "start": 856, "end": 856, "excerpt": "PhonePanel.busy = false;", "claim": "enableFeature 的 finally 里清", "kind": "事实"}
+{"id": "DSK-201g", "file": "local/ui/views/phone.js", "start": 883, "end": 883, "excerpt": "PhonePanel.busy = false;", "claim": "toggleStart 的 finally 里清", "kind": "事实"}
+{"id": "DSK-201h", "file": "local/ui/views/phone.js", "start": 906, "end": 906, "excerpt": "PhonePanel.busy = false;", "claim": "toggleStop 的 finally 里清", "kind": "事实"}
+{"id": "DSK-201i", "file": "local/ui/views/phone.js", "start": 1022, "end": 1022, "excerpt": "PhonePanel.busy = false;", "claim": "downloadComponent 的 finally 里清", "kind": "事实"}
+{"id": "DSK-201j", "file": "local/ui/views/phone.js", "start": 1111, "end": 1111, "excerpt": "PhonePanel.busy = false;", "claim": "保存账号的 finally 里清", "kind": "事实"}
+{"id": "DSK-202a", "file": "local/ui/views/phone.js", "start": 867, "end": 867, "excerpt": "PhonePanel.pending = \"starting\";", "claim": "开启时置 starting", "kind": "事实"}
+{"id": "DSK-202b", "file": "local/ui/views/phone.js", "start": 891, "end": 891, "excerpt": "PhonePanel.pending = \"stopping\";", "claim": "关闭时置 stopping", "kind": "事实"}
+{"id": "DSK-202c", "file": "local/ui/views/phone.js", "start": 882, "end": 882, "excerpt": "PhonePanel.pending = \"\";", "claim": "toggleStart 的 finally 里清", "kind": "事实"}
+{"id": "DSK-202d", "file": "local/ui/views/phone.js", "start": 905, "end": 905, "excerpt": "PhonePanel.pending = \"\";", "claim": "toggleStop 的 finally 里清", "kind": "事实"}
+{"id": "DSK-203a", "file": "local/ui/views/phone.js", "start": 793, "end": 793, "excerpt": "PhonePanel.installing[key] = true;", "claim": "安装前置位", "kind": "事实"}
+{"id": "DSK-203b", "file": "local/ui/views/phone.js", "start": 820, "end": 820, "excerpt": "PhonePanel.installing[key] = false;", "claim": "安装的 finally 里清", "kind": "事实"}
+{"id": "DSK-203c", "file": "local/ui/views/phone.js", "start": 445, "end": 445, "excerpt": "const installing = !!(PhonePanel.installing && PhonePanel.installing.phone_control);", "claim": "手机访问面板读安装中标志", "kind": "事实"}
+{"id": "DSK-203d", "file": "local/ui/views/settings.js", "start": 201, "end": 201, "excerpt": "&& window.PhonePanel.installing.relogin_ocr);", "claim": "验证码面板读同一份安装中标志", "kind": "事实"}
+{"id": "DSK-204a", "file": "local/ui/views/settings.js", "start": 316, "end": 316, "excerpt": "OcrPanel.busy = true;", "claim": "enableOcr 置忙", "kind": "事实"}
+{"id": "DSK-204b", "file": "local/ui/views/settings.js", "start": 326, "end": 326, "excerpt": "OcrPanel.busy = false;", "claim": "enableOcr 的 finally 里清", "kind": "事实"}
+{"id": "DSK-205a", "file": "local/app.py", "start": 1541, "end": 1541, "excerpt": "features[key][\"download\"] = download", "claim": "组件服务快照挂在各自那一行的 download 上", "kind": "事实"}
+{"id": "DSK-205b", "file": "local/ui/views/phone.js", "start": 17, "end": 17, "excerpt": "if (dl === \"downloading\") return \"downloading\";", "claim": "手机面板阶段由 download.state 读出", "kind": "事实"}
+{"id": "DSK-205c", "file": "local/ui/views/settings.js", "start": 154, "end": 154, "excerpt": "if (dl === \"downloading\") return \"downloading\";", "claim": "验证码面板阶段由 download.state 读出", "kind": "事实"}
+{"id": "DSK-206a", "file": "local/infrastructure/advanced_features.py", "start": 89, "end": 89, "excerpt": "return dict(cached, busy=True)", "claim": "锁超时且有缓存：返回副本并标 busy", "kind": "事实"}
+{"id": "DSK-206b", "file": "local/infrastructure/advanced_features.py", "start": 91, "end": 91, "excerpt": "\"busy\": True, \"checking\": True}", "claim": "锁超时且无缓存：返回 checking", "kind": "事实"}
+{"id": "DSK-207a", "file": "local/infrastructure/advanced_features.py", "start": 124, "end": 124, "excerpt": "\"outdated\" if error == \"component_outdated\" else", "claim": "error 为 component_outdated 时状态为 outdated", "kind": "事实"}
+{"id": "DSK-208a", "file": "local/app.py", "start": 1440, "end": 1440, "excerpt": "self._advanced_busy = True", "claim": "下载入口置真", "kind": "事实"}
+{"id": "DSK-208b", "file": "local/app.py", "start": 1661, "end": 1661, "excerpt": "self._advanced_busy = True", "claim": "安装入口置真", "kind": "事实"}
+{"id": "DSK-208c", "file": "local/app.py", "start": 1740, "end": 1740, "excerpt": "self._advanced_busy = True", "claim": "移除入口置真", "kind": "事实"}
+{"id": "DSK-208d", "file": "local/app.py", "start": 1358, "end": 1358, "excerpt": "self._advanced_busy = False", "claim": "_component_finished 里清", "kind": "事实"}
+{"id": "DSK-208e", "file": "local/app.py", "start": 1686, "end": 1686, "excerpt": "self._advanced_busy = False", "claim": "安装入口 finally 里清", "kind": "事实"}
+{"id": "DSK-208f", "file": "local/app.py", "start": 1768, "end": 1768, "excerpt": "self._advanced_busy = False", "claim": "移除入口 finally 里清", "kind": "事实"}
+{"id": "DSK-209a", "file": "local/application/advanced_component_service.py", "start": 174, "end": 174, "excerpt": "self._state = \"downloading\"", "claim": "start 把事务状态置为下载中", "kind": "事实"}
+{"id": "DSK-209b", "file": "local/application/advanced_component_service.py", "start": 180, "end": 180, "excerpt": "self._active = True", "claim": "start 置活动标志", "kind": "事实"}
+{"id": "DSK-209c", "file": "local/application/advanced_component_service.py", "start": 339, "end": 339, "excerpt": "self._active = False", "claim": "线程 finally 末尾清活动标志", "kind": "事实"}
+{"id": "DSK-209d", "file": "local/application/advanced_component_service.py", "start": 334, "end": 334, "excerpt": "self._on_finished()", "claim": "线程 finally 里先回调 on_finished", "kind": "事实"}
+{"id": "DSK-209e", "file": "local/app.py", "start": 921, "end": 921, "excerpt": "on_finished=lambda: self._component_finished(_advanced_features.PHONE_CONTROL),", "claim": "回调接到 Api._component_finished", "kind": "事实"}
+{"id": "DSK-210a", "file": "local/ui/views/phone.js", "start": 244, "end": 244, "excerpt": "PhonePanel.pollTimer = setInterval(() => {", "claim": "开始轮询", "kind": "事实"}
+{"id": "DSK-210b", "file": "local/ui/views/phone.js", "start": 259, "end": 259, "excerpt": "PhonePanel.pollTimer = null;", "claim": "停止轮询", "kind": "事实"}
+{"id": "DSK-211a", "file": "local/ui/views/phone.js", "start": 798, "end": 798, "excerpt": "const result = await api(\"install_advanced_feature\", key, chosen);", "claim": "try 内调后端安装", "kind": "事实"}
+{"id": "DSK-212a", "file": "local/app.py", "start": 1444, "end": 1444, "excerpt": "self._component_finished()", "claim": "service.start 抛异常时当场清忙碌位", "kind": "事实"}
+{"id": "DSK-212b", "file": "local/app.py", "start": 1447, "end": 1447, "excerpt": "self._component_finished()", "claim": "service.start 返回失败时当场清忙碌位", "kind": "事实"}
+{"id": "DSK-214a", "file": "local/ui/views/phone.js", "start": 19, "end": 19, "excerpt": "if (row && row.status === \"checking\") return \"checking\";", "claim": "检查中是 phonePhase 的一个独立阶段", "kind": "事实"}
+{"id": "DSK-214b", "file": "local/ui/views/phone.js", "start": 503, "end": 507, "excerpt": "if (phase === \"off\") text = \"未开启\";", "claim": "芯片文字只列 off、on、outdated、broken、disabled", "kind": "事实"}
+{"id": "DSK-214c", "file": "local/ui/views/phone.js", "start": 564, "end": 564, "excerpt": ": (phase === \"checking\" ? \"正在检查组件…\"", "claim": "检查中显示进度块的「正在检查组件…」", "kind": "事实"}
+{"id": "DSK-215a", "file": "local/ui/views/phone.js", "start": 203, "end": 203, "excerpt": "/* 帮助弹窗打不开状态时不影响其他帮助工具。 */", "claim": "读状态抛异常时 catch 里什么也不做", "kind": "事实"}
+{"id": "DSK-215b", "file": "local/ui/views/phone.js", "start": 205, "end": 205, "excerpt": "await PhonePanel.loadLocation();", "claim": "catch 之后照常继续重画", "kind": "事实"}
+{"id": "DSK-216a", "file": "local/ui/views/phone.js", "start": 99, "end": 99, "excerpt": "const PHONE_DOWNLOAD_REASON = {", "claim": "前端下载失败原因表", "kind": "事实"}
+{"id": "DSK-216b", "file": "local/ui/views/phone.js", "start": 113, "end": 113, "excerpt": "if (reason) return \"下载没有完成：\" + reason + \"，可以重试。\";", "claim": "红条拼句", "kind": "事实"}
+{"id": "DSK-216c", "file": "local/app.py", "start": 1369, "end": 1369, "excerpt": "reason = _DOWNLOAD_FAIL_REASONS.get(str(snap.get(\"error_code\") or \"\"))", "claim": "后端同样按原因表写运行记录", "kind": "事实"}
+{"id": "DSK-216d", "file": "local/ui/views/phone.js", "start": 479, "end": 479, "excerpt": ": (failed ? \"重新下载\" : \"下载并安装\");", "claim": "手机面板按钮文案", "kind": "事实"}
+{"id": "DSK-216e", "file": "local/ui/views/settings.js", "start": 230, "end": 230, "excerpt": ": (failed ? \"重新下载\" : \"下载并安装\");", "claim": "验证码面板按钮文案", "kind": "事实"}
+{"id": "DSK-217a", "file": "local/ui/views/phone.js", "start": 796, "end": 796, "excerpt": "installEl.textContent = \"安装中…\";", "claim": "安装中按钮文案", "kind": "事实"}
+{"id": "DSK-217b", "file": "local/ui/views/phone.js", "start": 801, "end": 801, "excerpt": "PhonePanel.showComponentNote(prefix, (result && result.text) || \"安装没有完成。\", false);", "claim": "后端回失败时对话框里写一句", "kind": "事实"}
+{"id": "DSK-217c", "file": "local/ui/views/phone.js", "start": 821, "end": 821, "excerpt": "if (installEl) installEl.textContent = \"安装这份\";", "claim": "finally 里把按钮文案放回", "kind": "事实"}
+{"id": "DSK-218a", "file": "local/ui/views/phone.js", "start": 874, "end": 874, "excerpt": "PhonePanel.notes.offErr = String((result && result.text) || \"手机访问没有开启。\");", "claim": "后端回失败时写 offErr", "kind": "事实"}
+{"id": "DSK-218b", "file": "local/ui/views/phone.js", "start": 880, "end": 880, "excerpt": "PhonePanel.notes.offErr = \"手机访问没有开启。\";", "claim": "桥接异常时写 offErr", "kind": "事实"}
+{"id": "DSK-220a", "file": "local/app.py", "start": 3963, "end": 3969, "excerpt": "def schedule_component_auto_update(self, window) -> None:", "claim": "只在冻结态且非演示时才起自动更新线程", "kind": "事实"}
+{"id": "DSK-220b", "file": "local/app.py", "start": 3976, "end": 3976, "excerpt": "event.wait(15)", "claim": "等窗口加载完（最长 15 秒）", "kind": "事实"}
+{"id": "DSK-220c", "file": "local/app.py", "start": 309, "end": 309, "excerpt": "log(\"%s组件没有自动更新%s，可以在设置里点「更新组件」。\" % (", "claim": "自动更新失败只写运行记录", "kind": "事实"}
+{"id": "DSK-220d", "file": "local/app.py", "start": 296, "end": 296, "excerpt": "if not row.get(\"enabled\") or row.get(\"status\") != \"outdated\":", "claim": "只处理已启用且 outdated 的组件", "kind": "事实"}
+{"id": "DSK-221a", "file": "local/ui/views/phone.js", "start": 437, "end": 437, "excerpt": "paintPhoneAccess(st, phoneRow, cred) {", "claim": "手机访问绘制函数起点", "kind": "事实"}
+{"id": "DSK-221b", "file": "local/ui/views/phone.js", "start": 697, "end": 698, "excerpt": "if (addPair) addPair.disabled = busy;", "claim": "手机访问绘制函数末尾", "kind": "事实"}
+{"id": "DSK-221c", "file": "local/ui/views/settings.js", "start": 193, "end": 193, "excerpt": "function paintOcrDownload() {", "claim": "验证码绘制函数起点", "kind": "事实"}
+{"id": "DSK-221d", "file": "local/ui/views/settings.js", "start": 310, "end": 311, "excerpt": "if (openLoc) openLoc.disabled = busy;", "claim": "验证码绘制函数末尾", "kind": "事实"}
+{"id": "DSK-922a", "file": "local/ui/views/settings.js", "start": 268, "end": 268, "excerpt": "ocrText(\"#ocr-download-error\", installing ? \"\" : (OcrPanel.error || failText));", "claim": "验证码红条优先显示 OcrPanel.error", "kind": "事实"}
+{"id": "DSK-301a", "file": "local/ui/controllers/update.js", "start": 55, "end": 55, "excerpt": "S.update.state = \"checking\";", "claim": "点检查更新时前端置检查中", "kind": "事实"}
+{"id": "DSK-301b", "file": "local/ui/controllers/update.js", "start": 133, "end": 133, "excerpt": "S.update.state = \"launching\";", "claim": "点启动安装程序时前端置启动中", "kind": "事实"}
+{"id": "DSK-301c", "file": "local/ui/controllers/update.js", "start": 25, "end": 25, "excerpt": "S.update.state = known.indexOf(data.state) >= 0 ? data.state : \"error\";", "claim": "事件到达时按后端给的状态写", "kind": "事实"}
+{"id": "DSK-301d", "file": "local/ui/controllers/update.js", "start": 22, "end": 24, "excerpt": "const known = [\"available\", \"no_installer\", \"current\", \"preview\", \"unavailable\", \"error\",", "claim": "已知状态共 16 个", "kind": "事实"}
+{"id": "DSK-302a", "file": "local/ui/controllers/update.js", "start": 54, "end": 54, "excerpt": "S.update.requestId = requestId;", "claim": "检查时记请求号", "kind": "事实"}
+{"id": "DSK-302b", "file": "local/ui/controllers/update.js", "start": 99, "end": 99, "excerpt": "S.update.requestId = requestId;", "claim": "确认下载时记请求号", "kind": "事实"}
+{"id": "DSK-302c", "file": "local/ui/controllers/update.js", "start": 132, "end": 132, "excerpt": "S.update.requestId = requestId;", "claim": "启动安装程序时记请求号", "kind": "事实"}
+{"id": "DSK-302d", "file": "local/ui/controllers/update.js", "start": 18, "end": 18, "excerpt": "if (!data.request_id || data.request_id !== S.update.requestId) return;", "claim": "迟到回执按请求号丢弃", "kind": "事实"}
+{"id": "DSK-303a", "file": "local/ui/controllers/update.js", "start": 6, "end": 6, "excerpt": "S.update.timer = setTimeout(() => {", "claim": "看门狗定时器", "kind": "事实"}
+{"id": "DSK-303b", "file": "local/ui/controllers/update.js", "start": 13, "end": 13, "excerpt": "}, ms || 15000);", "claim": "默认 15 秒", "kind": "事实"}
+{"id": "DSK-303c", "file": "local/ui/controllers/update.js", "start": 56, "end": 56, "excerpt": "watchUpdate(requestId);", "claim": "检查入口挂看门狗", "kind": "事实"}
+{"id": "DSK-303d", "file": "local/ui/controllers/update.js", "start": 30, "end": 30, "excerpt": "watchUpdate(S.update.requestId, 60000);", "claim": "下载校验每次进度续 60 秒", "kind": "事实"}
+{"id": "DSK-303e", "file": "local/ui/controllers/update.js", "start": 45, "end": 45, "excerpt": "watchUpdate(S.update.requestId, S.update.state === \"checking\" ? 15000 : 60000);", "claim": "重载恢复时按状态挂看门狗", "kind": "事实"}
+{"id": "DSK-303f", "file": "local/ui/controllers/update.js", "start": 19, "end": 19, "excerpt": "clearTimeout(S.update.timer);", "claim": "事件到达时清看门狗", "kind": "事实"}
+{"id": "DSK-304a", "file": "local/app.py", "start": 2076, "end": 2076, "excerpt": "self._updating = True", "claim": "check_update 占住单飞槽位", "kind": "事实"}
+{"id": "DSK-304b", "file": "local/app.py", "start": 2131, "end": 2131, "excerpt": "self._updating = True", "claim": "update_download 占住单飞槽位", "kind": "事实"}
+{"id": "DSK-304c", "file": "local/app.py", "start": 2088, "end": 2088, "excerpt": "self._updating = False", "claim": "检查线程没能启动时释放", "kind": "事实"}
+{"id": "DSK-304d", "file": "local/app.py", "start": 2112, "end": 2112, "excerpt": "self._updating = False", "claim": "_publish_update 在 finished 时释放", "kind": "事实"}
+{"id": "DSK-304e", "file": "local/app.py", "start": 2139, "end": 2139, "excerpt": "self._updating = False", "claim": "下载线程没能启动时释放", "kind": "事实"}
+{"id": "DSK-304f", "file": "local/application/update_service.py", "start": 54, "end": 54, "excerpt": "state._updating = False", "claim": "更新服务收尾时释放", "kind": "事实"}
+{"id": "DSK-305a", "file": "local/app.py", "start": 2110, "end": 2110, "excerpt": "self._update_result = payload", "claim": "_publish_update 写最近一份更新状态", "kind": "事实"}
+{"id": "DSK-305b", "file": "local/application/update_service.py", "start": 48, "end": 48, "excerpt": "state._update_result = result", "claim": "更新服务直接写同一份状态", "kind": "事实"}
+{"id": "DSK-306a", "file": "local/ui/controllers/update.js", "start": 11, "end": 12, "excerpt": "receiveUpdate({ request_id: requestId, state: stalled === \"checking\" ? \"error\" : \"failed\",", "claim": "看门狗到时按失败收口", "kind": "事实"}
+{"id": "DSK-306b", "file": "local/ui/controllers/update.js", "start": 123, "end": 124, "excerpt": "if ([\"downloading\", \"downloading_delta\", \"downloading_full\", \"verifying\"].indexOf(", "claim": "取消入口只认下载类状态", "kind": "事实"}
+{"id": "DSK-307a", "file": "local/app.py", "start": 2246, "end": 2248, "excerpt": "self._publish_update(dict(base, request_id=request_id, state=\"failed\",", "claim": "安装程序没能启动时后端推 failed", "kind": "事实"}
+{"id": "DSK-307b", "file": "local/ui/controllers/update.js", "start": 137, "end": 140, "excerpt": "if (!res || res.ok === false) {", "claim": "前端按 ok=false 落地为失败", "kind": "事实"}
+{"id": "DSK-308a", "file": "local/ui/controllers/update.js", "start": 143, "end": 143, "excerpt": "receiveUpdate({ request_id: requestId, state: \"failed\", text: msg(err), error_code: \"launch_failed\" });", "claim": "桥接异常按失败落地", "kind": "事实"}
+{"id": "DSK-309a", "file": "local/app.py", "start": 2218, "end": 2220, "excerpt": "self._publish_update(dict(base, request_id=request_id, state=\"failed\",", "claim": "启动器没拉起时后端推 failed", "kind": "事实"}
+{"id": "DSK-310a", "file": "local/app.py", "start": 2231, "end": 2231, "excerpt": "defer_close_action(lambda: self.request_window_close(\"exit\"), delay=1.0)", "claim": "启动器拉起后约 1 秒走退出", "kind": "事实"}
+{"id": "DSK-311a", "file": "local/app.py", "start": 2241, "end": 2243, "excerpt": "text = \"安装程序已启动。请先关闭本工具，再按向导完成安装。\"", "claim": "安装程序启动成功后第二次推送仍是 launching 且 finished 为假", "kind": "事实"}
+{"id": "DSK-311b", "file": "local/ui/controllers/update.js", "start": 52, "end": 52, "excerpt": "\"applying\", \"launching\"].indexOf(S.update.state) >= 0) return;", "claim": "前端 checkUpdate 在 launching 时直接返回", "kind": "事实"}
+{"id": "DSK-311c", "file": "local/app.py", "start": 2068, "end": 2068, "excerpt": "if current.get(\"state\") == \"launching\":", "claim": "后端 check_update 在 launching 时跳过", "kind": "事实"}
+{"id": "DSK-311d", "file": "local/ui/controllers/update.js", "start": 129, "end": 143, "excerpt": "function launchInstaller() {", "claim": "launchInstaller 函数体里没有 watchUpdate 调用", "kind": "事实"}
+{"id": "DSK-311e", "file": "local/ui/controllers/update.js", "start": 28, "end": 29, "excerpt": "if ([\"downloading\", \"downloading_delta\", \"downloading_full\", \"verifying\", \"applying\"]", "claim": "续看门狗的状态名单不含 launching", "kind": "事实"}
+{"id": "DSK-311f", "file": "local/ui/views/update.js", "start": 139, "end": 139, "excerpt": "const showClose = state === \"launching\";", "claim": "launching 时出现「关闭本工具」按钮", "kind": "事实"}
+{"id": "DSK-312a", "file": "local/ui/views/update.js", "start": 43, "end": 43, "excerpt": "button.disabled = inFlight;", "claim": "进行中时检查更新按钮禁用", "kind": "事实"}
+{"id": "DSK-312b", "file": "local/ui/views/update.js", "start": 45, "end": 45, "excerpt": "checking: \"正在检查…\"", "claim": "检查中文案", "kind": "事实"}
+{"id": "DSK-312c", "file": "local/ui/views/update.js", "start": 137, "end": 138, "excerpt": "const showCancel = showConfirm || [\"downloading\", \"downloading_delta\", \"downloading_full\",", "claim": "下载类状态显示取消", "kind": "事实"}
+{"id": "DSK-312d", "file": "local/ui/views/update.js", "start": 58, "end": 58, "excerpt": "launching: \"正在启动安装程序…\" };", "claim": "启动中前端兜底文案", "kind": "事实"}
+{"id": "DSK-312e", "file": "local/app.py", "start": 2237, "end": 2237, "excerpt": "text=\"正在启动安装程序…\", installer_path=path,", "claim": "后端推的第一句", "kind": "事实"}
+{"id": "DSK-315a", "file": "local/ui/controllers/update.js", "start": 35, "end": 35, "excerpt": "function restoreUpdate(snapshot) {", "claim": "重载后按后端快照恢复更新状态", "kind": "事实"}
+{"id": "DSK-401a", "file": "local/ui/controllers/refresh.js", "start": 161, "end": 161, "excerpt": "S.listState = \"loading\";", "claim": "前台轮置 loading", "kind": "事实"}
+{"id": "DSK-401b", "file": "local/ui/controllers/refresh.js", "start": 503, "end": 503, "excerpt": "S.listState = \"ready\";", "claim": "列表成功置 ready", "kind": "事实"}
+{"id": "DSK-401c", "file": "local/ui/controllers/refresh.js", "start": 197, "end": 197, "excerpt": "S.listState = \"error\";", "claim": "130 秒超时置 error", "kind": "事实"}
+{"id": "DSK-401d", "file": "local/ui/controllers/refresh.js", "start": 238, "end": 238, "excerpt": "S.listState = \"error\";", "claim": "桥接异常置 error", "kind": "事实"}
+{"id": "DSK-401e", "file": "local/ui/controllers/refresh.js", "start": 288, "end": 288, "excerpt": "S.listState = \"error\";", "claim": "接续后超时置 error", "kind": "事实"}
+{"id": "DSK-401f", "file": "local/ui/controllers/refresh.js", "start": 322, "end": 322, "excerpt": "S.listState = \"error\";", "claim": "条款回绝置 error", "kind": "事实"}
+{"id": "DSK-401g", "file": "local/ui/controllers/refresh.js", "start": 350, "end": 350, "excerpt": "S.listState = \"error\";", "claim": "没能开始置 error", "kind": "事实"}
+{"id": "DSK-401h", "file": "local/ui/controllers/refresh.js", "start": 483, "end": 483, "excerpt": "S.listState = \"error\";", "claim": "后端回失败置 error", "kind": "事实"}
+{"id": "DSK-401i", "file": "local/ui/app.js", "start": 77, "end": 77, "excerpt": "S.listState = \"idle\";", "claim": "拿不到 bootstrap 时置 idle", "kind": "事实"}
+{"id": "DSK-402a", "file": "local/ui/controllers/refresh.js", "start": 157, "end": 157, "excerpt": "S.round.list = listId;", "claim": "每轮开头记列表请求号", "kind": "事实"}
+{"id": "DSK-402b", "file": "local/ui/controllers/refresh.js", "start": 189, "end": 202, "excerpt": "S.round.listTimer = setTimeout(() => {", "claim": "挂 130 秒兜底（130000 在这个范围的末尾）", "kind": "事实"}
+{"id": "DSK-402c", "file": "local/ui/controllers/refresh.js", "start": 159, "end": 159, "excerpt": "clearTimeout(S.round.listTimer);", "claim": "每轮开头清旧定时器", "kind": "事实"}
+{"id": "DSK-402d", "file": "local/ui/controllers/refresh.js", "start": 469, "end": 469, "excerpt": "clearTimeout(S.round.listTimer);", "claim": "回包时清定时器", "kind": "事实"}
+{"id": "DSK-403a", "file": "local/ui/controllers/refresh.js", "start": 149, "end": 149, "excerpt": "S.round.background = background;", "claim": "记下这一轮是不是后台轮", "kind": "事实"}
+{"id": "DSK-404a", "file": "local/ui/controllers/refresh.js", "start": 165, "end": 166, "excerpt": "S.runtime.checkPending = true;", "claim": "每轮开头把两个分支都置为未收口", "kind": "事实"}
+{"id": "DSK-404b", "file": "local/ui/controllers/refresh.js", "start": 106, "end": 106, "excerpt": "if (branch === \"check\") S.runtime.checkPending = false;", "claim": "settleRefreshBranch 收口", "kind": "事实"}
+{"id": "DSK-404c", "file": "local/ui/app.js", "start": 117, "end": 118, "excerpt": "} else if (S.runtime.checkPending) {", "claim": "check 事件里收口", "kind": "事实"}
+{"id": "DSK-405a", "file": "local/ui/controllers/cancel.js", "start": 84, "end": 84, "excerpt": "S.cancel.busyId = id;", "claim": "确认取消时置 busyId", "kind": "事实"}
+{"id": "DSK-405b", "file": "local/ui/controllers/cancel.js", "start": 37, "end": 37, "excerpt": "S.cancel.busyId = \"\";", "claim": "cancelSettle 第一句清 busyId", "kind": "事实"}
+{"id": "DSK-406a", "file": "local/ui/controllers/cancel.js", "start": 18, "end": 18, "excerpt": "S.cancel.askId = id;", "claim": "点「取消报名」时开确认块", "kind": "事实"}
+{"id": "DSK-406b", "file": "local/ui/controllers/cancel.js", "start": 29, "end": 29, "excerpt": "S.cancel.askId = \"\";", "claim": "点「不取消」收起", "kind": "事实"}
+{"id": "DSK-406c", "file": "local/ui/controllers/cancel.js", "start": 74, "end": 74, "excerpt": "S.cancel.askId = \"\";", "claim": "确认取消时收起", "kind": "事实"}
+{"id": "DSK-406d", "file": "local/ui/controllers/refresh.js", "start": 131, "end": 131, "excerpt": "if (!quiet) { S.cancel.res = null; S.cancel.askId = \"\"; }", "claim": "手动刷新收起确认块", "kind": "事实"}
+{"id": "DSK-407a", "file": "local/ui/controllers/refresh.js", "start": 204, "end": 204, "excerpt": "if (S.round.gen.check !== checkGen) return;", "claim": "check 的 ack 带代次校验", "kind": "事实"}
+{"id": "DSK-407b", "file": "local/ui/controllers/refresh.js", "start": 211, "end": 211, "excerpt": "if (S.round.gen.check !== checkGen || S.round.check !== checkId) return;", "claim": "check 的 catch 带代次和请求号校验", "kind": "事实"}
+{"id": "DSK-407c", "file": "local/ui/controllers/refresh.js", "start": 226, "end": 226, "excerpt": "if (S.round.gen.list !== listGen) return;", "claim": "list 的 ack 带代次校验", "kind": "事实"}
+{"id": "DSK-407d", "file": "local/ui/controllers/refresh.js", "start": 231, "end": 231, "excerpt": "if (S.round.gen.list !== listGen || S.round.list !== listId) return;", "claim": "list 的 catch 带代次和请求号校验", "kind": "事实"}
+{"id": "DSK-408a", "file": "local/ui/controllers/refresh.js", "start": 473, "end": 476, "excerpt": "/* 后台轮失败：用户正在看的列表、勾选、筛选一概不动，不挂横幅、不切错误空态、不写失败日志；", "claim": "后台轮失败不清列表，只累计次数", "kind": "事实"}
+{"id": "DSK-409a", "file": "local/ui/controllers/refresh.js", "start": 479, "end": 481, "excerpt": "S.items = [];", "claim": "前台轮失败清空列表、索引和勾选", "kind": "事实"}
+{"id": "DSK-409b", "file": "local/ui/controllers/refresh.js", "start": 481, "end": 481, "excerpt": "S.selected.clear();", "claim": "前台轮失败清勾选", "kind": "事实"}
+{"id": "DSK-409c", "file": "local/ui/app.js", "start": 641, "end": 641, "excerpt": "if (!info.busy) refresh(true);", "claim": "窗口恢复可见时发无后台标志的刷新", "kind": "事实"}
+{"id": "DSK-409d", "file": "local/ui/controllers/cancel.js", "start": 52, "end": 52, "excerpt": "refresh(true);", "claim": "取消成功后发无后台标志的刷新", "kind": "事实"}
+{"id": "DSK-409e", "file": "local/ui/controllers/refresh.js", "start": 456, "end": 456, "excerpt": "refresh(true);", "claim": "计划结束后补刷发无后台标志的刷新", "kind": "事实"}
+{"id": "DSK-409f", "file": "local/ui/views/relogin.js", "start": 438, "end": 438, "excerpt": "if (typeof refresh === \"function\") refresh(true);", "claim": "重新登录成功后发无后台标志的刷新", "kind": "事实"}
+{"id": "DSK-410a", "file": "local/ui/views/list.js", "start": 32, "end": 32, "excerpt": "box.innerHTML = skeletonHtml();", "claim": "加载态一律换成骨架行", "kind": "事实"}
+{"id": "DSK-411a", "file": "local/ui/controllers/cancel.js", "start": 88, "end": 88, "excerpt": "if (S.cancel.busyId !== id) return;", "claim": "回包时校验仍是同一场", "kind": "事实"}
+{"id": "DSK-411b", "file": "local/ui/controllers/cancel.js", "start": 89, "end": 89, "excerpt": "cancelSettle(id, res);", "claim": "回包后走 cancelSettle", "kind": "事实"}
+{"id": "DSK-411c", "file": "local/ui/controllers/cancel.js", "start": 92, "end": 92, "excerpt": "cancelSettle(id, { ok: false, kind: \"unknown\" });", "claim": "桥接异常按没能确认处理", "kind": "事实"}
+{"id": "DSK-411d", "file": "local/ui/controllers/cancel.js", "start": 84, "end": 93, "excerpt": "S.cancel.busyId = id;", "claim": "从置位到回包之间没有定时器", "kind": "事实"}
+{"id": "DSK-412a", "file": "local/ui/controllers/refresh.js", "start": 129, "end": 129, "excerpt": "if (S.cancel.busyId) return;", "claim": "取消进行中刷新入口直接返回", "kind": "事实"}
+{"id": "DSK-412b", "file": "local/ui/views/plan-panel.js", "start": 1230, "end": 1230, "excerpt": "$(\"#btn-refresh\").disabled = S.listState === \"loading\" || termsGate || !!S.cancel.busyId;", "claim": "取消进行中刷新按钮禁用", "kind": "事实"}
+{"id": "DSK-412c", "file": "local/app.py", "start": 2521, "end": 2521, "excerpt": "CANCEL_WORKER_TIMEOUT_S = 90", "claim": "取消 worker 超时常量 90 秒", "kind": "事实"}
+{"id": "DSK-412d", "file": "local/app.py", "start": 2598, "end": 2598, "excerpt": "timeout=self.CANCEL_WORKER_TIMEOUT_S)", "claim": "取消 worker 用这个超时", "kind": "事实"}
+{"id": "DSK-413a", "file": "local/ui/views/list.js", "start": 381, "end": 381, "excerpt": "$(\"#count\").textContent = S.listState === \"loading\" ? \"正在刷新…\"", "claim": "加载中计数处显示正在刷新", "kind": "事实"}
+{"id": "DSK-414a", "file": "local/ui/controllers/refresh.js", "start": 543, "end": 543, "excerpt": "if (autoRefreshState.fails !== AUTO_REFRESH_NOTE_AFTER) return;", "claim": "连续失败只在第 3 次写运行记录", "kind": "事实"}
+{"id": "DSK-415a", "file": "local/app.py", "start": 1007, "end": 1007, "excerpt": "self._emit(\"log\", \"北京时间校准中，稍后加载活动\")", "claim": "校时未好时发一句运行记录", "kind": "事实"}
+{"id": "DSK-415b", "file": "local/app.py", "start": 1009, "end": 1009, "excerpt": "deadline = started + float(LIST_CLOCK_WAIT_S)", "claim": "最多等 LIST_CLOCK_WAIT_S 秒", "kind": "事实"}
+{"id": "DSK-416a", "file": "local/ui/controllers/cancel.js", "start": 56, "end": 56, "excerpt": "S.cancel.res = { id: id, kind: \"refused\", say: String(data.message || \"\") };", "claim": "取消结果句写在这一行", "kind": "事实"}
+{"id": "DSK-501a", "file": "local/ui/controllers/plan.js", "start": 43, "end": 43, "excerpt": "S.starting = true;", "claim": "提交开始请求时置真", "kind": "事实"}
+{"id": "DSK-501b", "file": "local/ui/controllers/plan.js", "start": 54, "end": 54, "excerpt": "S.starting = true;", "claim": "去重命中在途开始时保持真", "kind": "事实"}
+{"id": "DSK-501c", "file": "local/ui/controllers/plan.js", "start": 132, "end": 132, "excerpt": "S.starting = true;", "claim": "对账开始时置真", "kind": "事实"}
+{"id": "DSK-501d", "file": "local/ui/controllers/plan.js", "start": 153, "end": 153, "excerpt": "S.starting = true;", "claim": "对账无结论时保持真", "kind": "事实"}
+{"id": "DSK-501e", "file": "local/ui/controllers/plan.js", "start": 58, "end": 58, "excerpt": "S.starting = false;", "claim": "后端有结论后置假", "kind": "事实"}
+{"id": "DSK-501f", "file": "local/ui/controllers/plan.js", "start": 180, "end": 180, "excerpt": "S.starting = false;", "claim": "对账查到被拒后置假", "kind": "事实"}
+{"id": "DSK-501g", "file": "local/ui/controllers/plan.js", "start": 187, "end": 187, "excerpt": "S.starting = false;", "claim": "对账查到已取消后置假", "kind": "事实"}
+{"id": "DSK-501h", "file": "local/ui/controllers/plan.js", "start": 211, "end": 211, "excerpt": "S.starting = false;", "claim": "adoptPlan 里置假", "kind": "事实"}
+{"id": "DSK-502a", "file": "local/ui/state/plan.js", "start": 50, "end": 50, "excerpt": "S.plan.status = String(incoming || \"ready\");", "claim": "advancePlanStatus 写计划状态", "kind": "事实"}
+{"id": "DSK-502b", "file": "local/ui/state/plan.js", "start": 59, "end": 59, "excerpt": "S.plan = { id: String(data.plan_id || \"\"), gen: gen, status: String(data.status || \"ready\"), tasks: new Map(), armedAt: Date.now() / 1000 };", "claim": "handlePlan 接到新计划时重建", "kind": "事实"}
+{"id": "DSK-502c", "file": "local/ui/controllers/plan-events.js", "start": 8, "end": 8, "excerpt": "S.plan.status = String(data.status || \"failed\");", "claim": "presentPlanDone 写终态", "kind": "事实"}
+{"id": "DSK-502d", "file": "local/ui/state/plan.js", "start": 49, "end": 49, "excerpt": "if (PLAN_TERMINAL.indexOf(S.plan.status) >= 0) return;", "claim": "终态不回退", "kind": "事实"}
+{"id": "DSK-503a", "file": "local/ui/controllers/plan.js", "start": 383, "end": 383, "excerpt": "S.stopping = true;", "claim": "doStopPlan 置正在停止", "kind": "事实"}
+{"id": "DSK-503b", "file": "local/ui/controllers/plan.js", "start": 91, "end": 91, "excerpt": "S.stopping = false;", "claim": "新的开始被接纳时清", "kind": "事实"}
+{"id": "DSK-503g", "file": "local/ui/controllers/plan.js", "start": 244, "end": 244, "excerpt": "S.stopping = false;", "claim": "adoptPlan 里清", "kind": "事实"}
+{"id": "DSK-503c", "file": "local/ui/controllers/plan.js", "start": 389, "end": 389, "excerpt": "S.stopping = false;", "claim": "后端拒绝停止时清", "kind": "事实"}
+{"id": "DSK-503d", "file": "local/ui/controllers/plan.js", "start": 395, "end": 395, "excerpt": "S.stopping = false;", "claim": "停止请求桥接异常时清", "kind": "事实"}
+{"id": "DSK-503e", "file": "local/ui/controllers/plan-events.js", "start": 10, "end": 10, "excerpt": "S.stopping = false;", "claim": "presentPlanDone 里清", "kind": "事实"}
+{"id": "DSK-503f", "file": "local/ui/controllers/plan-events.js", "start": 47, "end": 47, "excerpt": "S.stopping = false;", "claim": "重复终态分支里清", "kind": "事实"}
+{"id": "DSK-504a", "file": "local/ui/controllers/plan.js", "start": 353, "end": 353, "excerpt": "S.editing = { ids: keep, doneN: S.plan.tasks.size - keep.length };", "claim": "modifyPlan 进入修改中", "kind": "事实"}
+{"id": "DSK-504b", "file": "local/ui/controllers/plan.js", "start": 90, "end": 90, "excerpt": "S.editing = null;", "claim": "新的开始被接纳时清", "kind": "事实"}
+{"id": "DSK-504c", "file": "local/ui/state/plan.js", "start": 60, "end": 60, "excerpt": "S.editing = null;", "claim": "接到新计划时清", "kind": "事实"}
+{"id": "DSK-504d", "file": "local/ui/state/filters.js", "start": 390, "end": 390, "excerpt": "S.editing = null;", "claim": "clearSelection 里清", "kind": "事实"}
+{"id": "DSK-505a", "file": "local/ui/views/login.js", "start": 107, "end": 107, "excerpt": "S.busy = !!busy;", "claim": "S.busy 唯一写入点", "kind": "事实"}
+{"id": "DSK-506a", "file": "local/ui/controllers/plan.js", "start": 355, "end": 356, "excerpt": "addLogFresh(\"计划已暂停：\" + keep.length + \" 场放回草稿修改\");", "claim": "先写运行记录再调 doStopPlan", "kind": "事实"}
+{"id": "DSK-507a", "file": "local/ui/controllers/plan-events.js", "start": 17, "end": 31, "excerpt": "if (S.editing && S.plan.status === \"stopped\") {", "claim": "S.editing 且以 stopped 结束才放回勾选并清计划；否则走 else 进结果页；这个范围里没有对 S.editing 的赋值，S.editing 保留", "kind": "事实"}
+{"id": "DSK-508a", "file": "local/ui/controllers/plan.js", "start": 360, "end": 370, "excerpt": "function reselectFailed() {", "claim": "重新选择未成功的场次：函数体里没有清 S.editing", "kind": "事实"}
+{"id": "DSK-509a", "file": "local/ui/controllers/plan.js", "start": 373, "end": 377, "excerpt": "function finishResult() {", "claim": "点完成时调 clearSelection", "kind": "事实"}
+{"id": "DSK-509b", "file": "local/ui/state/filters.js", "start": 385, "end": 393, "excerpt": "function clearSelection() {", "claim": "busy 或 starting 时直接返回；其余清选择并清 S.editing", "kind": "事实"}
+{"id": "DSK-510a", "file": "local/ui/views/plan-panel.js", "start": 124, "end": 124, "excerpt": "setBoardTag(S.editing ? \"修改中\" : \"报名计划\", \"amber\", true);", "claim": "草稿态标签按 S.editing 显示修改中", "kind": "事实"}
+{"id": "DSK-510b", "file": "local/ui/views/plan-panel.js", "start": 270, "end": 270, "excerpt": "if (restore) restore.hidden = !S.editing;", "claim": "放弃修改按钮按 S.editing 显隐", "kind": "事实"}
+{"id": "DSK-510c", "file": "local/ui/index.html", "start": 91, "end": 91, "excerpt": "<button id=\"btn-edit-restore\"", "claim": "放弃修改，按原计划继续的按钮", "kind": "事实"}
+{"id": "DSK-510d", "file": "local/ui/app.js", "start": 414, "end": 414, "excerpt": "$(\"#btn-edit-restore\").addEventListener(\"click\", startPlan);", "claim": "按钮绑的是 startPlan", "kind": "事实"}
+{"id": "DSK-510e", "file": "local/ui/controllers/plan.js", "start": 21, "end": 21, "excerpt": "const items = selectedItems().map((item) => ({", "claim": "startPlan 的场次取自当前勾选", "kind": "事实"}
+{"id": "DSK-511a", "file": "local/ui/controllers/plan.js", "start": 387, "end": 399, "excerpt": "api(\"stop_plan\", S.plan.id).then((res) => {", "claim": "停止成功时前端不做事；失败只清 stopping 并写日志", "kind": "事实"}
+{"id": "DSK-513a", "file": "local/ui/controllers/plan.js", "start": 152, "end": 152, "excerpt": "/* 没有确定结论：保持开始按钮禁用，避免用户重复报名；只留只读确认入口 */", "claim": "对账无结论时保持禁用", "kind": "事实"}
+{"id": "DSK-513b", "file": "local/ui/controllers/plan.js", "start": 160, "end": 160, "excerpt": "action: { label: \"重新确认\", run: () => reconcileStart(requestId) },", "claim": "结果框给重新确认入口", "kind": "事实"}
+{"id": "DSK-514a", "file": "local/ui/controllers/plan.js", "start": 140, "end": 140, "excerpt": "title: \"正在确认是否启动\",", "claim": "开始请求超时后的结果框", "kind": "事实"}
+{"id": "DSK-514b", "file": "local/ui/controllers/plan.js", "start": 158, "end": 158, "excerpt": "title: \"结果未确认，请勿重复启动\",", "claim": "对账无结论的结果框", "kind": "事实"}
+{"id": "DSK-515a", "file": "local/ui/controllers/plan.js", "start": 386, "end": 386, "excerpt": "addLog(\"正在停止计划：结束还在重试的场次…\");", "claim": "停止时写运行记录", "kind": "事实"}
+{"id": "DSK-515b", "file": "local/ui/controllers/plan.js", "start": 392, "end": 392, "excerpt": "addLog(res.text || \"当前没有这个计划\");", "claim": "后端拒绝时写运行记录", "kind": "事实"}
+{"id": "DSK-515c", "file": "local/ui/controllers/plan.js", "start": 398, "end": 398, "excerpt": "addLog(\"[X] 停止计划失败：\" + msg(err));", "claim": "桥接异常时写运行记录", "kind": "事实"}
+{"id": "DSK-516a", "file": "local/ui/controllers/plan-events.js", "start": 84, "end": 84, "excerpt": "const planLive = !!S.busy;", "claim": "计划在跑时单场终态不写结果框", "kind": "事实"}
+{"id": "DSK-516b", "file": "local/ui/controllers/plan-events.js", "start": 92, "end": 92, "excerpt": "addLog(\"[i] 已取消：\" + name);", "claim": "单场取消写运行记录", "kind": "事实"}
+{"id": "DSK-516c", "file": "local/ui/controllers/plan-events.js", "start": 93, "end": 93, "excerpt": "if (!planLive) setResult({ ok: \"partial\", title: \"已取消：\" + name, text: \"其他场次继续按计划处理。\" });", "claim": "计划不在跑时才写结果框", "kind": "事实"}
+{"id": "DSK-601a", "file": "local/ui/m/app.js", "start": 2434, "end": 2434, "excerpt": "model.flying = true;", "claim": "轮询开始置在途", "kind": "事实"}
+{"id": "DSK-601b", "file": "local/ui/m/app.js", "start": 2453, "end": 2453, "excerpt": "model.flying = false;", "claim": "轮询的 finally 里清在途", "kind": "事实"}
+{"id": "DSK-602a", "file": "local/ui/m/app.js", "start": 2401, "end": 2401, "excerpt": "model.pairing = true;", "claim": "配对请求置在途", "kind": "事实"}
+{"id": "DSK-602b", "file": "local/ui/m/app.js", "start": 2426, "end": 2426, "excerpt": "model.pairing = false;", "claim": "配对的 finally 里清", "kind": "事实"}
+{"id": "DSK-603a", "file": "local/ui/m/app.js", "start": 2730, "end": 2730, "excerpt": "model.pending = { request_id: requestId, at: Date.now(), done: false };", "claim": "开始请求建立未决对象", "kind": "事实"}
+{"id": "DSK-603b", "file": "local/ui/m/app.js", "start": 2741, "end": 2741, "excerpt": "pending.done = true;", "claim": "后端当场受理，标终态", "kind": "事实"}
+{"id": "DSK-603c", "file": "local/ui/m/app.js", "start": 2760, "end": 2760, "excerpt": "pending.done = true;", "claim": "对账查到终态，标终态", "kind": "事实"}
+{"id": "DSK-603d", "file": "local/ui/m/app.js", "start": 2788, "end": 2788, "excerpt": "pending.done = true;", "claim": "取消等待成功，标终态", "kind": "事实"}
+{"id": "DSK-604a", "file": "local/ui/m/app.js", "start": 2753, "end": 2753, "excerpt": "model.reconciling = true;", "claim": "对账置在途", "kind": "事实"}
+{"id": "DSK-604b", "file": "local/ui/m/app.js", "start": 2773, "end": 2773, "excerpt": "model.reconciling = false;", "claim": "对账的 finally 里清", "kind": "事实"}
+{"id": "DSK-605a", "file": "local/ui/m/app.js", "start": 2783, "end": 2783, "excerpt": "model.cancelingStart = true;", "claim": "取消等待置在途", "kind": "事实"}
+{"id": "DSK-605b", "file": "local/ui/m/app.js", "start": 2798, "end": 2798, "excerpt": "model.cancelingStart = false;", "claim": "取消等待的 finally 里清", "kind": "事实"}
+{"id": "DSK-606a", "file": "local/ui/m/app.js", "start": 3065, "end": 3065, "excerpt": "model.reloginStarting = true;", "claim": "发起重新登录置在途", "kind": "事实"}
+{"id": "DSK-606b", "file": "local/ui/m/app.js", "start": 2989, "end": 2989, "excerpt": "model.reloginStarting = false;", "claim": "ingestRelogin 自动档里清", "kind": "事实"}
+{"id": "DSK-606c", "file": "local/ui/m/app.js", "start": 3079, "end": 3079, "excerpt": "model.reloginStarting = false;", "claim": "缺账号密码时清", "kind": "事实"}
+{"id": "DSK-606d", "file": "local/ui/m/app.js", "start": 3092, "end": 3092, "excerpt": "model.reloginStarting = false;", "claim": "请求返回后清", "kind": "事实"}
+{"id": "DSK-607a", "file": "local/ui/m/app.js", "start": 3123, "end": 3123, "excerpt": "model.reloginSubmitting = true;", "claim": "提交验证码置在途", "kind": "事实"}
+{"id": "DSK-607b", "file": "local/ui/m/app.js", "start": 2988, "end": 2988, "excerpt": "model.reloginSubmitting = false;", "claim": "自动档快照清", "kind": "事实"}
+{"id": "DSK-607c", "file": "local/ui/m/app.js", "start": 2997, "end": 2997, "excerpt": "model.reloginSubmitting = false;", "claim": "同一张图且没有在途提交才清", "kind": "事实"}
+{"id": "DSK-607d", "file": "local/ui/m/app.js", "start": 3004, "end": 3004, "excerpt": "model.reloginSubmitting = false;", "claim": "换了新验证码图时清", "kind": "事实"}
+{"id": "DSK-607e", "file": "local/ui/m/app.js", "start": 3020, "end": 3020, "excerpt": "model.reloginSubmitting = false;", "claim": "verifying 状态清", "kind": "事实"}
+{"id": "DSK-607f", "file": "local/ui/m/app.js", "start": 3024, "end": 3024, "excerpt": "model.reloginSubmitting = false;", "claim": "starting 状态清", "kind": "事实"}
+{"id": "DSK-607g", "file": "local/ui/m/app.js", "start": 3029, "end": 3029, "excerpt": "model.reloginSubmitting = false;", "claim": "success 状态清", "kind": "事实"}
+{"id": "DSK-607h", "file": "local/ui/m/app.js", "start": 3045, "end": 3045, "excerpt": "model.reloginSubmitting = false;", "claim": "failed 或 canceled 状态清", "kind": "事实"}
+{"id": "DSK-607i", "file": "local/ui/m/app.js", "start": 3056, "end": 3056, "excerpt": "model.reloginSubmitting = false;", "claim": "其他非 waiting_code 状态清", "kind": "事实"}
+{"id": "DSK-607j", "file": "local/ui/m/app.js", "start": 3148, "end": 3148, "excerpt": "model.reloginSubmitting = false;", "claim": "提交被拒绝时清", "kind": "事实"}
+{"id": "DSK-608a", "file": "local/ui/m/app.js", "start": 2665, "end": 2665, "excerpt": "if (typeof state.busy === \"boolean\") model.busy = state.busy;", "claim": "busy 取自快照", "kind": "事实"}
+{"id": "DSK-609a", "file": "local/ui/m/app.js", "start": 1565, "end": 1565, "excerpt": "model.sheetId = id;", "claim": "开弹层", "kind": "事实"}
+{"id": "DSK-609b", "file": "local/ui/m/app.js", "start": 1586, "end": 1586, "excerpt": "model.sheetId = \"\";", "claim": "关弹层", "kind": "事实"}
+{"id": "DSK-610a", "file": "local/ui/m/app.js", "start": 2441, "end": 2441, "excerpt": "model.lastOkAt = Date.now();", "claim": "轮询成功时记手机本机时钟", "kind": "事实"}
+{"id": "DSK-611a", "file": "local/ui/m/app.js", "start": 2621, "end": 2621, "excerpt": "function ingest(payload) {", "claim": "ingest 函数起点", "kind": "事实"}
+{"id": "DSK-611b", "file": "local/ui/m/app.js", "start": 2712, "end": 2712, "excerpt": "if (model.pending && !model.pending.done) void reconcile();", "claim": "ingest 末尾触发对账", "kind": "事实"}
+{"id": "DSK-612a", "file": "local/ui/m/app.js", "start": 2437, "end": 2437, "excerpt": "const { status, body } = await api(\"/api/state?after=\" + (force ? 0 : model.seq));", "claim": "轮询请求", "kind": "事实"}
+{"id": "DSK-612b", "file": "local/ui/m/app.js", "start": 2464, "end": 2464, "excerpt": "model.backoff = PhoneModel.nextBackoff(model.backoff);", "claim": "失败时拉长间隔", "kind": "事实"}
+{"id": "DSK-613a", "file": "local/ui/m/app.js", "start": 2316, "end": 2325, "excerpt": "async function postAction(payload) {", "claim": "postAction 接住异常并返回没发出去的结果", "kind": "事实"}
+{"id": "DSK-613b", "file": "local/ui/m/app.js", "start": 2742, "end": 2742, "excerpt": "model.pending.outcome = \"accepted\";", "claim": "当场受理也记终态", "kind": "事实"}
+{"id": "DSK-613c", "file": "local/ui/m/app.js", "start": 2770, "end": 2770, "excerpt": "setBanner(\"还没有查到开始结果。可点「取消等待」结束本次请求，再重新选择。\", \"info\");", "claim": "对账查不到时给取消等待", "kind": "事实"}
+{"id": "DSK-613d", "file": "local/ui/m/app.js", "start": 2739, "end": 2739, "excerpt": "if (status === 401) return;", "claim": "开始请求遇到 401 直接返回，未决留着", "kind": "事实"}
+{"id": "DSK-614a", "file": "local/ui/m/app.js", "start": 3132, "end": 3132, "excerpt": "// 结果未知：既不能当成功也不能当失败。保持禁用，先对账问服务端", "claim": "网络异常时故意不清在途标志", "kind": "事实"}
+{"id": "DSK-614b", "file": "local/ui/m/app.js", "start": 3135, "end": 3136, "excerpt": "$(\"relogin-note\").textContent = PhoneModel.RELOGIN_BUSY.verify;", "claim": "网络异常时提示正在登录并立即触发轮询", "kind": "事实"}
+{"id": "DSK-617a", "file": "local/ui/m/app.js", "start": 2435, "end": 2435, "excerpt": "先把「同步中」pill 与禁用的刷新钮画出来再发请求", "claim": "轮询开始时显示同步中并禁用刷新", "kind": "事实"}
+{"id": "DSK-618a", "file": "local/ui/m/app.js", "start": 2744, "end": 2744, "excerpt": "else if (body && body.error) setBanner(String(body.text || body.error), \"error\");", "claim": "开始请求失败时横幅写原因", "kind": "事实"}
+{"id": "DSK-620a", "file": "local/ui/m/app.js", "start": 1334, "end": 1334, "excerpt": "cap: locked ? (Number(lockLeft) || 0) + \" 秒后可以再试\"", "claim": "配对锁定倒计时文案", "kind": "事实"}
+{"id": "DSK-620b", "file": "local/ui/m/app.js", "start": 2358, "end": 2358, "excerpt": "model.pairLockLeft = Math.max(0, Math.floor(Number(seconds) || 0));", "claim": "配对失败后记锁定秒数", "kind": "事实"}
+{"id": "DSK-621a", "file": "local/ui/m/app.js", "start": 136, "end": 138, "excerpt": "loginRaw(login) {", "claim": "手机页用三个字段拼登录是否失效", "kind": "事实"}
+{"id": "DSK-622a", "file": "local/ui/m/app.js", "start": 499, "end": 499, "excerpt": "if (open > 0 && nowS !== null && nowS !== undefined && open <= nowS) instant += 1;", "claim": "手机页自己按开放时刻算立即报名", "kind": "事实"}
+{"id": "DSK-623a", "file": "local/ui/m/app.js", "start": 2710, "end": 2710, "excerpt": "syncLine.textContent = \"最近同步 \" + hh + \":\" + mm;", "claim": "最近同步用手机本机时钟", "kind": "事实"}
+{"id": "DSK-705a", "file": "local/ui/state/login.js", "start": 25, "end": 30, "excerpt": "function reconcileAutoLogin() {", "claim": "reconcileAutoLogin 函数", "kind": "事实"}
+{"id": "DSK-705b", "file": "local/ui/state/login.js", "start": 50, "end": 50, "excerpt": "reconcileAutoLogin();", "claim": "setLogin 里调用", "kind": "事实"}
+{"id": "DSK-706a", "file": "local/ui/views/relogin.js", "start": 23, "end": 27, "excerpt": "function reloginAutoLive(flowId) {", "claim": "中继里这一场是不是电脑自己发起、还在进行、没转人工", "kind": "事实"}
+{"id": "DSK-707a", "file": "local/ui/m/app.js", "start": 136, "end": 138, "excerpt": "loginRaw(login) {", "claim": "loginRaw 认 last_check_state 为 expired", "kind": "事实"}
+{"id": "DSK-708a", "file": "local/ui/m/app.js", "start": 2903, "end": 2903, "excerpt": "function renderReview() {", "claim": "核对计划弹层的绘制函数", "kind": "事实"}
+{"id": "DSK-708b", "file": "local/ui/m/app.js", "start": 2955, "end": 2955, "excerpt": "else renderReview();", "claim": "从弹层里移除一场后重画", "kind": "事实"}
+{"id": "DSK-708c", "file": "local/ui/m/app.js", "start": 2959, "end": 2959, "excerpt": "renderReview();", "claim": "打开弹层时重画", "kind": "事实"}
+{"id": "DSK-709a", "file": "local/ui/m/app.js", "start": 2660, "end": 2661, "excerpt": "model.lastOkText = sampled !== null", "claim": "离线档最后同步用北京时间", "kind": "事实"}
+{"id": "DSK-711a", "file": "local/ui/views/list.js", "start": 240, "end": 240, "excerpt": "+ (state === \"open\" ? \"还开着，可以重新勾选\" : \"电脑睡眠期间到点\") + \"</span>\";", "claim": "错过了行里的短说明", "kind": "事实"}
+{"id": "DSK-801a", "file": "local/ui/controllers/plan.js", "start": 420, "end": 420, "excerpt": "api(\"login\").then((res) => {", "claim": "doLogin 发登录请求", "kind": "事实"}
+{"id": "DSK-802a", "file": "local/ui/controllers/bridge.js", "start": 11, "end": 11, "excerpt": "return Promise.resolve(fn.apply(window.pywebview.api, args));", "claim": "api() 调用后不等待，直接返回 Promise", "kind": "事实"}
+{"id": "DSK-803a", "file": "local/app.py", "start": 4192, "end": 4192, "excerpt": "return self._relay.cancel()", "claim": "relogin_cancel 转到中继的 cancel", "kind": "事实"}
+{"id": "DSK-804a", "file": "local/application/login_relay_service.py", "start": 287, "end": 290, "excerpt": "tree = self._proc", "claim": "中继锁内先清 _proc 与 flow", "kind": "事实"}
+{"id": "DSK-804b", "file": "local/application/login_relay_service.py", "start": 297, "end": 297, "excerpt": "tree.terminate()", "claim": "锁外终止进程树", "kind": "事实"}
+{"id": "DSK-804c", "file": "local/application/login_relay_service.py", "start": 301, "end": 301, "excerpt": "self._on_finish()", "claim": "终止后调 on_finish", "kind": "事实"}
+{"id": "DSK-805a", "file": "local/app.py", "start": 801, "end": 801, "excerpt": "if not self._tree.terminate():", "claim": "_RelayTree.terminate 转到进程树的 terminate", "kind": "事实"}
+{"id": "DSK-805b", "file": "local/infrastructure/process_tree.py", "start": 228, "end": 228, "excerpt": "def terminate(self) -> bool:", "claim": "进程树 terminate", "kind": "事实"}
+{"id": "DSK-805c", "file": "local/infrastructure/process_tree.py", "start": 255, "end": 255, "excerpt": "self.proc.wait(timeout=1)", "claim": "终止作业后等父进程最多 1 秒", "kind": "事实"}
+{"id": "DSK-805d", "file": "local/infrastructure/process_tree.py", "start": 235, "end": 235, "excerpt": "TerminateJobObject 返回后 Job 里的进程是异步收尾的，紧接着看 poll() 几乎总是", "claim": "文档字符串承认终止后紧接着看 poll 几乎总是还没退", "kind": "事实"}
+{"id": "DSK-806a", "file": "local/app.py", "start": 4285, "end": 4285, "excerpt": "# 进程若还没退，_proc 照旧留着占 busy 位，直到 poll() 有结论。", "claim": "进程没退时 _proc 保留以占住 busy 位", "kind": "事实"}
+{"id": "DSK-806c", "file": "local/app.py", "start": 966, "end": 966, "excerpt": "on_finish=self._relay_finished,", "claim": "中继的 on_finish 就是 Api._relay_finished", "kind": "事实"}
+{"id": "DSK-807a", "file": "local/app.py", "start": 2778, "end": 2778, "excerpt": "return self._spawn(worker_command(\"login\"), \"登录\", kind=\"login\")", "claim": "login 走 _spawn", "kind": "事实"}
+{"id": "DSK-807b", "file": "local/app.py", "start": 4531, "end": 4531, "excerpt": "if self._is_busy_locked():", "claim": "_spawn 先做忙碌判定", "kind": "事实"}
+{"id": "DSK-807c", "file": "local/app.py", "start": 4433, "end": 4433, "excerpt": "if self._proc and self._proc.poll() is None:", "claim": "_proc 活着就算忙", "kind": "事实"}
+{"id": "DSK-807d", "file": "local/app.py", "start": 4532, "end": 4532, "excerpt": "return {\"ok\": False, \"text\": \"已经有一个任务在跑，先等它结束\"}", "claim": "忙碌时的拒绝文案", "kind": "事实"}
+{"id": "DSK-810a", "file": "local/ui/controllers/bridge.js", "start": 8, "end": 8, "excerpt": "const fn = window.pywebview.api[name];", "claim": "桥接只是取出 pywebview 暴露的函数并调用", "kind": "需测试定", "missing": "两次 js_api 调用在 Python 侧是否各起线程、先后如何，由 pywebview 决定，源码不在本仓库"}
+{"id": "DSK-812a", "file": "local/app.py", "start": 3247, "end": 3250, "excerpt": "顺序必须是「先置停协调器，", "claim": "stop_plan 的顺序是先 plan.stop() 置停协调器，再杀 worker", "kind": "事实"}
+{"id": "DSK-812b", "file": "local/app.py", "start": 3251, "end": 3251, "excerpt": "self._terminate_plan_procs()", "claim": "再杀还活着的 worker", "kind": "事实"}
+{"id": "DSK-813a", "file": "local/signup_plan.py", "start": 391, "end": 391, "excerpt": "self._stop.set()", "claim": "协调器置停止标志", "kind": "事实"}
+{"id": "DSK-813b", "file": "local/signup_plan.py", "start": 469, "end": 472, "excerpt": "self._join_threads(threads, None if not clock_lost", "claim": "收尾先等全部场次线程结束，正常路径没有超时", "kind": "事实"}
+{"id": "DSK-813c", "file": "local/signup_plan.py", "start": 484, "end": 484, "excerpt": "self._publish(\"plan_done\", payload)", "claim": "只在 finally 里发一次 plan_done", "kind": "事实"}
+{"id": "DSK-814a", "file": "local/app.py", "start": 3156, "end": 3158, "excerpt": "# 先提交后发布（顺序保留，FR05）；旧计划的完成事件不广播（P1）", "claim": "先改内部状态，再 _emit plan_done", "kind": "事实"}
+{"id": "DSK-814b", "file": "local/app.py", "start": 1122, "end": 1124, "excerpt": "self._window.evaluate_js(js)", "claim": "evaluate_js 抛任何异常都被吞掉", "kind": "事实"}
+{"id": "DSK-815a", "file": "local/app.py", "start": 1109, "end": 1110, "excerpt": "if not self._window:", "claim": "没有窗口时 _emit 直接返回", "kind": "事实"}
+{"id": "DSK-816a", "file": "local/ui/app.js", "start": 159, "end": 159, "excerpt": "plan_done: (payload) => handlePlanDone(payload),", "claim": "plan_done 事件映射到 handlePlanDone", "kind": "事实"}
+{"id": "DSK-816b", "file": "local/ui/controllers/plan-events.js", "start": 55, "end": 55, "excerpt": "presentPlanDone(data);", "claim": "handlePlanDone 末尾进入 presentPlanDone", "kind": "事实"}
+{"id": "DSK-816c", "file": "local/ui/controllers/plan-events.js", "start": 10, "end": 10, "excerpt": "S.stopping = false;", "claim": "presentPlanDone 清 stopping", "kind": "事实"}
+{"id": "DSK-816d", "file": "local/ui/controllers/plan-events.js", "start": 47, "end": 47, "excerpt": "S.stopping = false;", "claim": "重复终态分支清 stopping", "kind": "事实"}
+{"id": "DSK-817a", "file": "local/ui/app.js", "start": 639, "end": 639, "excerpt": "ingestBootstrapPlan(info);", "claim": "窗口重新可见时用 bootstrap 快照恢复计划", "kind": "事实"}
+{"id": "DSK-817b", "file": "local/ui/controllers/refresh.js", "start": 92, "end": 92, "excerpt": "presentPlanDone({ plan_id: id, status: status, summary: plan.summary || {} }, false);", "claim": "终态快照走 presentPlanDone", "kind": "事实"}
+{"id": "DSK-821a", "file": "local/app.py", "start": 2575, "end": 2575, "excerpt": "self._cancelling = True", "claim": "取消报名占住忙碌标记", "kind": "事实"}
+{"id": "DSK-821b", "file": "local/app.py", "start": 2580, "end": 2580, "excerpt": "self._cancelling = False", "claim": "取消结束的 finally 里清", "kind": "事实"}
+{"id": "DSK-822a", "file": "local/app.py", "start": 4493, "end": 4493, "excerpt": "out, err = proc.communicate(timeout=timeout)", "claim": "用 communicate 带超时等 worker", "kind": "事实"}
+{"id": "DSK-822b", "file": "local/app.py", "start": 4498, "end": 4498, "excerpt": "terminated = bool(tree.terminate())", "claim": "超时后终止进程树", "kind": "事实"}
+{"id": "DSK-822c", "file": "local/app.py", "start": 4504, "end": 4504, "excerpt": "proc.communicate(timeout=5)", "claim": "终止后最多再等 5 秒回收", "kind": "事实"}
+{"id": "DSK-822d", "file": "local/app.py", "start": 4507, "end": 4507, "excerpt": "return {\"code\": -1, \"out\": \"[X] 执行超时（%d 秒）\" % timeout,", "claim": "超时返回 code=-1", "kind": "事实"}
+{"id": "DSK-901a", "file": "local/ui/views/phone.js", "start": 16, "end": 16, "excerpt": "if (st && st.running) return \"on\";", "claim": "手机访问：运行中先于一切状态返回 on", "kind": "事实"}
+{"id": "DSK-901b", "file": "local/ui/views/settings.js", "start": 159, "end": 159, "excerpt": "if (feature && feature.ready) return \"on\";", "claim": "验证码：ready 映射成 on", "kind": "事实"}
+{"id": "DSK-901c", "file": "local/ui/views/phone.js", "start": 22, "end": 22, "excerpt": "if (row && row.ready) return \"off\";", "claim": "手机访问：ready 映射成 off", "kind": "事实"}
+{"id": "DSK-901d", "file": "local/ui/views/phone.js", "start": 23, "end": 23, "excerpt": "if (row && row.available) return \"disabled\";", "claim": "手机访问：available 映射成 disabled", "kind": "事实"}
+{"id": "DSK-901e", "file": "local/ui/views/settings.js", "start": 160, "end": 160, "excerpt": "if (feature && feature.available) return \"off\";", "claim": "验证码：available 映射成 off", "kind": "事实"}
+{"id": "DSK-902a", "file": "local/ui/views/phone.js", "start": 477, "end": 477, "excerpt": "install.disabled = busy || installing;", "claim": "手机访问主按钮禁用条件", "kind": "事实"}
+{"id": "DSK-902b", "file": "local/ui/views/settings.js", "start": 228, "end": 228, "excerpt": "downloadBtn.disabled = busy || installing;", "claim": "验证码主按钮禁用条件", "kind": "事实"}
+{"id": "DSK-902c", "file": "local/ui/views/phone.js", "start": 438, "end": 438, "excerpt": "const busy = !!PhonePanel.busy;", "claim": "手机访问的 busy 只看自己", "kind": "事实"}
+{"id": "DSK-902d", "file": "local/ui/views/settings.js", "start": 204, "end": 204, "excerpt": "const busy = !!OcrPanel.busy || !!(window.PhonePanel && window.PhonePanel.busy);", "claim": "验证码的 busy 看自己和手机面板两个", "kind": "事实"}
+{"id": "DSK-902e", "file": "local/ui/views/phone.js", "start": 476, "end": 476, "excerpt": "install.hidden = phase !== \"missing\" && phase !== \"outdated\";", "claim": "手机访问主按钮显隐", "kind": "事实"}
+{"id": "DSK-902f", "file": "local/ui/views/settings.js", "start": 227, "end": 227, "excerpt": "downloadBtn.hidden = phase !== \"missing\" && phase !== \"outdated\";", "claim": "验证码主按钮显隐", "kind": "事实"}
+{"id": "DSK-902g", "file": "local/ui/views/phone.js", "start": 484, "end": 484, "excerpt": "cancel.disabled = busy || phase === \"verifying\";", "claim": "手机访问取消按钮禁用条件", "kind": "事实"}
+{"id": "DSK-902h", "file": "local/ui/views/settings.js", "start": 247, "end": 247, "excerpt": "cancel.disabled = busy || phase === \"verifying\";", "claim": "验证码取消按钮禁用条件", "kind": "事实"}
+{"id": "DSK-903a", "file": "local/ui/views/phone.js", "start": 489, "end": 491, "excerpt": "const featureAction = phase === \"broken\" ? \"重新导入组件包\"", "claim": "手机访问次级按钮一个多用", "kind": "事实"}
+{"id": "DSK-903b", "file": "local/ui/views/settings.js", "start": 235, "end": 235, "excerpt": "enable.hidden = phase !== \"off\";", "claim": "验证码的启用按钮", "kind": "事实"}
+{"id": "DSK-903c", "file": "local/ui/views/settings.js", "start": 240, "end": 240, "excerpt": "reimport.hidden = phase !== \"broken\";", "claim": "验证码的重新导入按钮", "kind": "事实"}
+{"id": "DSK-904b", "file": "local/ui/views/settings.js", "start": 217, "end": 218, "excerpt": "const text = phase === \"on\" ? \"已启用\"", "claim": "验证码芯片只有三种文字", "kind": "事实"}
+{"id": "DSK-905a", "file": "local/ui/views/phone.js", "start": 523, "end": 523, "excerpt": ": downloading ? \"可以关掉设置继续用，下载和报名计划互不影响。\"", "claim": "手机访问副标题有下载中一档", "kind": "事实"}
+{"id": "DSK-905b", "file": "local/ui/views/settings.js", "start": 254, "end": 261, "excerpt": "line.textContent = phase === \"on\"", "claim": "验证码副标题只有 on、off、outdated、默认四档", "kind": "事实"}
+{"id": "DSK-906a", "file": "local/ui/views/phone.js", "start": 536, "end": 537, "excerpt": "const missingErr = ((phase === \"missing\" || phase === \"outdated\") && !installing)", "claim": "手机访问下载失败红条的条件", "kind": "事实"}
+{"id": "DSK-906b", "file": "local/ui/views/settings.js", "start": 265, "end": 266, "excerpt": "const failText = failed && !installing && (phase === \"missing\" || phase === \"outdated\")", "claim": "验证码下载失败文案的条件", "kind": "事实"}
+{"id": "DSK-906c", "file": "local/ui/views/phone.js", "start": 616, "end": 618, "excerpt": "phoneText(\"#phone-off-error\", phase === \"off\"", "claim": "手机访问 off 阶段也显示下载失败文案", "kind": "事实"}
+{"id": "DSK-906d", "file": "local/ui/views/phone.js", "start": 575, "end": 575, "excerpt": "phoneText(\"#phone-loading-error\", loading ? notes.loading : \"\");", "claim": "手机访问加载中的错误条", "kind": "事实"}
+{"id": "DSK-906e", "file": "local/ui/views/phone.js", "start": 540, "end": 541, "excerpt": "phoneText(\"#phone-component-state\", phase === \"missing\" && !missingErr && dl === \"cancelled\"", "claim": "没装态取消后的说明", "kind": "事实"}
+{"id": "DSK-906f", "file": "local/ui/views/settings.js", "start": 295, "end": 297, "excerpt": "ocrText(\"#ocr-note\", OcrPanel.note", "claim": "验证码只在没装态说下载已取消", "kind": "事实"}
+{"id": "DSK-906h", "file": "local/ui/views/phone.js", "start": 619, "end": 620, "excerpt": "phoneText(\"#phone-off-note\", phase === \"off\"", "claim": "已装未开启时取消后的说明", "kind": "事实"}
+{"id": "DSK-907a", "file": "local/ui/views/phone.js", "start": 563, "end": 565, "excerpt": "phoneText(\"#phone-prog-text\", installing ? \"正在安装组件…\"", "claim": "手机访问进度文字", "kind": "事实"}
+{"id": "DSK-907b", "file": "local/ui/views/settings.js", "start": 281, "end": 283, "excerpt": "ocrText(\"#ocr-prog-text\", installing ? \"正在安装组件…\"", "claim": "验证码进度文字", "kind": "事实"}
+{"id": "DSK-908a", "file": "local/ui/views/phone.js", "start": 543, "end": 543, "excerpt": "phoneShow(\"#phone-import-line\", (phase === \"missing\" || phase === \"outdated\") && failed && !installing);", "claim": "手机访问导入链接行条件", "kind": "事实"}
+{"id": "DSK-908b", "file": "local/ui/views/settings.js", "start": 272, "end": 272, "excerpt": "ocrShow(\"#ocr-import-line\", (phase === \"missing\" || phase === \"outdated\") && failed && !installing);", "claim": "验证码导入链接行条件", "kind": "事实"}
+{"id": "DSK-910a", "file": "local/ui/views/phone.js", "start": 463, "end": 463, "excerpt": "notes.off = \"手机控制组件已安装，选一条通道就能开启。\";", "claim": "手机访问亲眼看着装好后的一句", "kind": "事实"}
+{"id": "DSK-910b", "file": "local/ui/views/settings.js", "start": 210, "end": 210, "excerpt": "OcrPanel.note = \"验证码识别组件已安装并启用。\";", "claim": "验证码亲眼看着装好后的一句", "kind": "事实"}
+{"id": "DSK-409g", "file": "local/ui/controllers/plan-events.js", "start": 123, "end": 123, "excerpt": "setTimeout(() => { S.recheckPending = false; refresh(true); }, 400);", "claim": "单场失败后的复查是带 true（quiet）、不带后台选项的前台刷新", "kind": "事实"}
+{"id": "DSK-409h", "file": "local/ui/controllers/plan.js", "start": 471, "end": 471, "excerpt": "refresh(true);", "claim": "浏览器登录成功后发无后台标志的刷新", "kind": "事实"}
+{"id": "DSK-409i", "file": "local/ui/controllers/terms.js", "start": 354, "end": 354, "excerpt": "if (hasBridge()) refresh(true); /* 完整成功最多补加载一次 */", "claim": "条款同意后发前台刷新", "kind": "事实"}
+{"id": "DSK-409j", "file": "local/ui/controllers/terms.js", "start": 414, "end": 414, "excerpt": "if (hasBridge()) refresh(true);", "claim": "条款另一分支后的前台刷新", "kind": "事实"}
+{"id": "DSK-231a", "file": "local/ui/views/phone.js", "start": 201, "end": 201, "excerpt": "if (info && info.ok) PhonePanel.state = Object.assign(PhonePanel.state, info);", "claim": "刷新时合并后端状态", "kind": "事实"}
+{"id": "DSK-231b", "file": "local/ui/views/phone.js", "start": 220, "end": 220, "excerpt": "PhonePanel.location = (loc && loc.ok && loc.short)", "claim": "位置只问一次就记住", "kind": "事实"}
+{"id": "DSK-231c", "file": "local/ui/views/phone.js", "start": 465, "end": 465, "excerpt": "PhonePanel.lastDownload = dl;", "claim": "记上一次的下载状态", "kind": "事实"}
+{"id": "DSK-231d", "file": "local/ui/views/phone.js", "start": 636, "end": 636, "excerpt": "PhonePanel.codeLeft = Math.max(0, Math.floor(Number(codeInfo.expires_in || 0)));", "claim": "配对码剩余秒数", "kind": "事实"}
+{"id": "DSK-231e", "file": "local/ui/views/phone.js", "start": 247, "end": 247, "excerpt": "PhonePanel.pollTicks += 1;", "claim": "轮询计数", "kind": "事实"}
+{"id": "DSK-231f", "file": "local/ui/views/settings.js", "start": 184, "end": 184, "excerpt": "OcrPanel.location = (loc && loc.ok && loc.short)", "claim": "验证码面板的位置", "kind": "事实"}
+{"id": "DSK-231g", "file": "local/ui/views/settings.js", "start": 212, "end": 212, "excerpt": "OcrPanel.lastDownload = dlState;", "claim": "验证码面板记上一次下载状态", "kind": "事实"}
+{"id": "DSK-231h", "file": "local/ui/views/settings.js", "start": 317, "end": 317, "excerpt": "OcrPanel.error = \"\";", "claim": "启用时清红条", "kind": "事实"}
+{"id": "DSK-232a", "file": "local/ui/views/phone.js", "start": 1169, "end": 1169, "excerpt": "result = await api(\"clear_relogin_credentials\");", "claim": "清除保存账号的请求", "kind": "事实"}
+{"id": "DSK-232b", "file": "local/ui/views/phone.js", "start": 1173, "end": 1173, "excerpt": "PhonePanel.credNote = (result && result.ok) ? \"已清除本机保存的账号密码。\" : \"清除没有完成。\";", "claim": "结果只写 credNote", "kind": "事实"}
