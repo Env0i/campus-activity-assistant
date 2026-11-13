@@ -1,0 +1,627 @@
+{
+  "files": {
+    "over800": {
+      "local/app.py": {
+        "value": 4873,
+        "reason": "步骤 2 拆 Api"
+      },
+      "local/business_clock.py": {
+        "value": 875,
+        "reason": "决策 012 的时钟，稳定，暂不排期"
+      },
+      "local/grab.py": {
+        "value": 4076,
+        "reason": "步骤 3"
+      },
+      "local/infrastructure/component_packages.py": {
+        "value": 1666,
+        "reason": "步骤 2 组件"
+      },
+      "local/ui/m/app.js": {
+        "value": 3365,
+        "reason": "步骤 1 手机页"
+      },
+      "local/ui/views/phone.js": {
+        "value": 1252,
+        "reason": "步骤 1A 组件"
+      },
+      "local/ui/views/plan-panel.js": {
+        "value": 1367,
+        "reason": "步骤 1C 计划栏"
+      },
+      "server/bot/bot.js": {
+        "value": 977,
+        "reason": "不在本轮重构范围"
+      },
+      "server/deploy/auto_login.py": {
+        "value": 824,
+        "reason": "不在本轮重构范围"
+      },
+      "server/deploy/grab_signup.py": {
+        "value": 819,
+        "reason": "不在本轮重构范围"
+      },
+      "tools/qa_runtime_reliability.py": {
+        "value": 3311,
+        "reason": "不在本轮重构范围"
+      },
+      "tools/release.py": {
+        "value": 1321,
+        "reason": "不在本轮重构范围"
+      }
+    },
+    "over500": {
+      "local/application/advanced_component_service.py": {
+        "value": 503
+      },
+      "local/application/login_relay_service.py": {
+        "value": 551
+      },
+      "local/build/build_installer.py": {
+        "value": 518
+      },
+      "local/login_relay.py": {
+        "value": 717
+      },
+      "local/signup_plan.py": {
+        "value": 614
+      },
+      "local/ui/app.js": {
+        "value": 655
+      },
+      "local/ui/controllers/plan.js": {
+        "value": 532
+      },
+      "local/ui/controllers/refresh.js": {
+        "value": 614
+      },
+      "local/ui/views/relogin.js": {
+        "value": 555
+      },
+      "local/ui/views/terms.js": {
+        "value": 507
+      },
+      "local/update_check.py": {
+        "value": 548
+      },
+      "server/scripts/activity_watch.py": {
+        "value": 524
+      },
+      "server/scripts/notify.py": {
+        "value": 515
+      }
+    }
+  },
+  "functions": {
+    "over100": {
+      "local/app.py::Api.__init__": {
+        "value": 167,
+        "reason": "步骤 2 拆 Api"
+      },
+      "local/app.py::Api._start_plan_inner": {
+        "value": 239,
+        "reason": "步骤 2 拆 Api"
+      },
+      "local/application/advanced_component_service.py::AdvancedComponentService._run_split_assets": {
+        "value": 101,
+        "reason": "步骤 2 组件"
+      },
+      "local/application/login_relay_service.py::LoginRelayService._handle_line": {
+        "value": 103,
+        "reason": "步骤 2 登录恢复"
+      },
+      "local/application/plan_service.py::run_plan_task": {
+        "value": 361,
+        "reason": "步骤 2 计划"
+      },
+      "local/application/update_service.py::run_version_download": {
+        "value": 151,
+        "reason": "步骤 2 更新"
+      },
+      "local/grab.py::cmd_grab": {
+        "value": 1467,
+        "reason": "步骤 3"
+      },
+      "local/grab.py::cmd_grab._settle_direct_event": {
+        "value": 114,
+        "reason": "步骤 3"
+      },
+      "local/grab.py::cmd_list": {
+        "value": 143,
+        "reason": "步骤 3"
+      },
+      "local/infrastructure/phone_http.py::_make_handler": {
+        "value": 261,
+        "reason": "步骤 2 手机访问"
+      },
+      "local/signup_plan.py::validate_plan": {
+        "value": 117,
+        "reason": "步骤 2 计划"
+      },
+      "local/ui/controllers/plan.js::startPlan": {
+        "value": 117,
+        "reason": "步骤 1C 计划栏"
+      },
+      "local/ui/controllers/refresh.js::refresh": {
+        "value": 123,
+        "reason": "步骤 1C 计划栏"
+      },
+      "local/ui/controllers/refresh.js::settleSynchronous": {
+        "value": 108,
+        "reason": "步骤 1C 计划栏"
+      },
+      "local/ui/controllers/terms.js::acceptTerms": {
+        "value": 108,
+        "reason": "存量，未排期"
+      },
+      "local/ui/led.js::#anon1": {
+        "value": 108,
+        "reason": "存量，未排期"
+      },
+      "local/ui/m/app.js::buildRow": {
+        "value": 102,
+        "reason": "步骤 1 手机页"
+      },
+      "local/ui/m/app.js::ingest": {
+        "value": 101,
+        "reason": "步骤 1 手机页"
+      },
+      "local/ui/m/app.js::wire": {
+        "value": 163,
+        "reason": "步骤 1 手机页"
+      },
+      "local/ui/views/login.js::paintLogin": {
+        "value": 103,
+        "reason": "步骤 1B 登录"
+      },
+      "local/ui/views/phone.js::paintPhoneAccess": {
+        "value": 262,
+        "reason": "步骤 1A 组件"
+      },
+      "local/ui/views/plan-panel.js::paintLed": {
+        "value": 116,
+        "reason": "步骤 1C 计划栏"
+      },
+      "local/ui/views/plan-panel.js::paintSelected": {
+        "value": 124,
+        "reason": "步骤 1C 计划栏"
+      },
+      "local/ui/views/settings.js::paintOcrDownload": {
+        "value": 119,
+        "reason": "步骤 1A 组件"
+      },
+      "local/ui/views/update.js::paintUpdate": {
+        "value": 146,
+        "reason": "步骤 2 更新"
+      },
+      "server/bot/bot.js::#anon12": {
+        "value": 186,
+        "reason": "不在本轮重构范围"
+      },
+      "server/deploy/auto_login.py::main": {
+        "value": 123,
+        "reason": "不在本轮重构范围"
+      },
+      "server/deploy/grab_signup.py::run_submit_loop": {
+        "value": 343,
+        "reason": "不在本轮重构范围"
+      },
+      "server/scripts/fetch.py::main": {
+        "value": 109,
+        "reason": "不在本轮重构范围"
+      },
+      "server/scripts/run.py::main": {
+        "value": 144,
+        "reason": "不在本轮重构范围"
+      },
+      "tools/qa_runtime_reliability.py::_#22": {
+        "value": 130,
+        "reason": "不在本轮重构范围"
+      },
+      "tools/release.py::stage_local_assets": {
+        "value": 140,
+        "reason": "不在本轮重构范围"
+      },
+      "tools/release.py::verify_release_assets": {
+        "value": 125,
+        "reason": "不在本轮重构范围"
+      }
+    },
+    "over60": {
+      "local/app.py::Api._do_check_inner": {
+        "value": 61
+      },
+      "local/app.py::Api._do_list_inner": {
+        "value": 81
+      },
+      "local/app.py::Api._phone_raw_state": {
+        "value": 64
+      },
+      "local/app.py::Api._start_phone_access": {
+        "value": 66
+      },
+      "local/app.py::Api._start_plan_inner.emit": {
+        "value": 61
+      },
+      "local/app.py::Api.advanced_features_state": {
+        "value": 80
+      },
+      "local/app.py::Api.bootstrap": {
+        "value": 62
+      },
+      "local/app.py::Api.shutdown": {
+        "value": 99
+      },
+      "local/app.py::Api.start_plan": {
+        "value": 70
+      },
+      "local/app.py::Api.update_launch": {
+        "value": 73
+      },
+      "local/app.py::_runtime_check_main": {
+        "value": 61
+      },
+      "local/app.py::main": {
+        "value": 100
+      },
+      "local/application/advanced_component_service.py::AdvancedComponentService._run": {
+        "value": 92
+      },
+      "local/application/auto_relogin.py::AutoReloginMonitor.tick": {
+        "value": 90
+      },
+      "local/application/login_relay_service.py::LoginRelayService.begin": {
+        "value": 85
+      },
+      "local/application/plan_service.py::run_plan_task.feed": {
+        "value": 77
+      },
+      "local/build/build_advanced.py::_build_legacy": {
+        "value": 76
+      },
+      "local/business_clock.py::BusinessClock._accept_cluster": {
+        "value": 72
+      },
+      "local/domain/demo_data.py::demo_items": {
+        "value": 79
+      },
+      "local/domain/phone_rules.py::normalize_action": {
+        "value": 76
+      },
+      "local/domain/plan_rules.py::classify_task_stop": {
+        "value": 63
+      },
+      "local/grab.py::clock_sample": {
+        "value": 61
+      },
+      "local/grab.py::cmd_grab._apply_conclusion": {
+        "value": 74
+      },
+      "local/grab.py::cmd_grab._finalize_once": {
+        "value": 80
+      },
+      "local/grab.py::cmd_grab._try_direct_fire": {
+        "value": 62
+      },
+      "local/grab.py::cmd_grab.terminal": {
+        "value": 75
+      },
+      "local/grab.py::cmd_login": {
+        "value": 77
+      },
+      "local/grab.py::main": {
+        "value": 76
+      },
+      "local/grab.py::run_cancel": {
+        "value": 76
+      },
+      "local/infrastructure/component_packages.py::_helper": {
+        "value": 61
+      },
+      "local/infrastructure/component_packages.py::install": {
+        "value": 72
+      },
+      "local/infrastructure/component_packages.py::install_artifact": {
+        "value": 64
+      },
+      "local/infrastructure/tray_icon.py::TrayIcon._run": {
+        "value": 73
+      },
+      "local/infrastructure/tunnel_manager.py::CloudflareTunnel.start": {
+        "value": 84
+      },
+      "local/runtime_paths.py::_migrate_legacy_data": {
+        "value": 86
+      },
+      "local/signup_plan.py::PlanCoordinator._run": {
+        "value": 66
+      },
+      "local/signup_signing.py::_encrypt_block_cng": {
+        "value": 100
+      },
+      "local/ui/app.js::#anon52": {
+        "value": 62
+      },
+      "local/ui/app.js::boot": {
+        "value": 77
+      },
+      "local/ui/controllers/plan.js::reconcileStart": {
+        "value": 75
+      },
+      "local/ui/controllers/plan.js::startPlan.#anon1": {
+        "value": 64
+      },
+      "local/ui/controllers/terms.js::acceptTerms.#anon1": {
+        "value": 64
+      },
+      "local/ui/controllers/terms.js::recheckTerms": {
+        "value": 63
+      },
+      "local/ui/controllers/tick.js::tick": {
+        "value": 88
+      },
+      "local/ui/m/app.js::buildWhy": {
+        "value": 85
+      },
+      "local/ui/m/app.js::ingestRelogin": {
+        "value": 90
+      },
+      "local/ui/m/app.js::reloginView": {
+        "value": 88
+      },
+      "local/ui/m/app.js::renderBoard": {
+        "value": 65
+      },
+      "local/ui/m/app.js::renderItems": {
+        "value": 97
+      },
+      "local/ui/state/clock.js::ingestBusinessClock": {
+        "value": 80
+      },
+      "local/ui/views/clock-pop.js::renderClockPop": {
+        "value": 76
+      },
+      "local/ui/views/list.js::paintEmpty": {
+        "value": 95
+      },
+      "local/ui/views/list.js::rowHtml": {
+        "value": 68
+      },
+      "local/ui/views/phone.js::paintRelogin": {
+        "value": 88
+      },
+      "local/ui/views/phone.js::wire": {
+        "value": 65
+      },
+      "local/ui/views/plan-panel.js::paintBanners": {
+        "value": 95
+      },
+      "local/ui/views/plan-panel.js::paintRunPanel": {
+        "value": 71
+      },
+      "local/ui/views/plan-panel.js::updateControls": {
+        "value": 70
+      },
+      "local/ui/views/relogin.js::receiveReloginState": {
+        "value": 63
+      },
+      "local/ui/views/terms.js::applyTermsFooter": {
+        "value": 77
+      },
+      "local/update_delta.py::apply_delta": {
+        "value": 70
+      },
+      "local/update_launcher.py::apply_staged": {
+        "value": 76
+      },
+      "local/updater.py::download_installer": {
+        "value": 88
+      },
+      "server/bot/bot.js::handleCardAction": {
+        "value": 66
+      },
+      "server/bot/bot.js::handleGrabAction": {
+        "value": 63
+      },
+      "server/bot/bot.js::handleMessage": {
+        "value": 74
+      },
+      "server/deploy/auto_login.py::_submit_once": {
+        "value": 99
+      },
+      "server/deploy/grab_signup.py::main": {
+        "value": 66
+      },
+      "server/deploy/server_refresh.js::runDaemon": {
+        "value": 80
+      },
+      "server/scripts/activity_watch.py::_run_once": {
+        "value": 71
+      },
+      "server/scripts/activity_watch.py::compute_events": {
+        "value": 85
+      },
+      "server/scripts/dev/explore.py::main": {
+        "value": 63
+      },
+      "server/scripts/query.py::main": {
+        "value": 71
+      },
+      "server/scripts/regress.py::main": {
+        "value": 76
+      },
+      "server/scripts/scan.py::_scan": {
+        "value": 81
+      },
+      "server/scripts/token_probe.py::main": {
+        "value": 69
+      },
+      "server/scripts/watchlist_runner.py::main": {
+        "value": 76
+      },
+      "tools/qa_business_clock_worker.py::run_probe": {
+        "value": 99
+      },
+      "tools/qa_runtime_reliability.py::_#20": {
+        "value": 75
+      },
+      "tools/qa_runtime_reliability.py::_#62": {
+        "value": 69
+      },
+      "tools/qa_runtime_reliability.py::_#63": {
+        "value": 61
+      },
+      "tools/qa_runtime_reliability.py::_#7": {
+        "value": 81
+      },
+      "tools/qa_runtime_reliability.py::_narrow": {
+        "value": 75
+      },
+      "tools/qa_runtime_reliability.py::run_scenarios": {
+        "value": 75
+      },
+      "tools/release.py::write_manifest": {
+        "value": 75
+      },
+      "tools/verify_autologin_loop.py::main": {
+        "value": 87
+      }
+    }
+  },
+  "test_functions": {
+    "local/tests/test_lifecycle_release.py::AssetVerificationTests.test_verify_rejects_each_bad_candidate": {
+      "value": 92
+    },
+    "local/tests/test_phone_ui.py::ResultTermsDomTests.test_result_board_and_stack_bar_follow_prototype": {
+      "value": 71
+    },
+    "local/tests/test_phone_ui.py::ResultTermsModelTests.test_result_view_counts_and_heads_follow_prototype": {
+      "value": 84
+    },
+    "local/tests/test_phone_ui.py::RunWaitDomTests.test_busy_plan_renders_board_cards_and_collapsed_list": {
+      "value": 65
+    },
+    "local/tests/test_phone_ui.py::RunWaitModelTests.test_task_card_follows_prototype_detail_priority": {
+      "value": 72
+    },
+    "local/tests/test_phone_ui.py::WorkbenchPhoneTests.test_review_lists_the_plan_and_the_same_reminders": {
+      "value": 67
+    },
+    "local/tests/test_retry_phone_integration.py::FullChainTests.test_pair_read_start_extend_stop_relogin_chain": {
+      "value": 66
+    },
+    "local/tests/test_ui_contract_list.py::TimetableGroupingBehaviorTests.test_group_timetable_places_each_activity_in_its_correct_group": {
+      "value": 106
+    },
+    "local/tests/test_ui_contract_shell.py::WorkbenchUiContractTests.test_close_dialog_three_exits": {
+      "value": 138
+    },
+    "local/tests/test_ui_contract_shell.py::WorkbenchUiContractTests.test_five_pre_start_warnings_only_remind": {
+      "value": 61
+    },
+    "local/tests/test_ui_contract_terms.py::TermsConsentBehaviorTests.test_decline_does_not_reprompt_and_keeps_help_available": {
+      "value": 62
+    },
+    "local/tests/test_ui_contract_terms.py::TermsConsentBehaviorTests.test_unknown_terms_accept_rejects_bad_receipts": {
+      "value": 68
+    },
+    "local/tests/test_ui_contract_terms.py::TermsConsentContractTests.test_accept_terms_writes_prefs_transaction_only": {
+      "value": 77
+    },
+    "local/tests/test_ui_contract_terms.py::TermsConsentContractTests.test_terms_dialog_structure_contract": {
+      "value": 127
+    },
+    "local/tests/test_ui_contract_terms.py::TermsInteractionLoopTests.test_boot_defers_intro_until_terms_accepted": {
+      "value": 69
+    },
+    "local/tests/test_ui_contract_terms.py::TermsInteractionLoopTests.test_close_restores_banner_focus_without_stacking_dialogs": {
+      "value": 62
+    },
+    "local/tests/test_ui_contract_terms.py::TermsInteractionLoopTests.test_save_timeout_keeps_gate_reopens_close_and_drops_late_receipt": {
+      "value": 64
+    },
+    "local/tests/test_ui_contract_update.py::UpdateBoardPaintTests.test_one_primary_action_per_state": {
+      "value": 75
+    },
+    "local/tests/test_worker_boundaries.py::ListEntryTests.test_cmd_list_without_clock_keeps_full_enrich": {
+      "value": 63
+    }
+  },
+  "classes": {
+    "local/app.py::Api": {
+      "value": 23,
+      "attrs": [
+        "_advanced_busy",
+        "_check_again",
+        "_checking",
+        "_cloudflare_exit_notice",
+        "_last_check",
+        "_list_last",
+        "_listing",
+        "_login_wait_pending",
+        "_next_plan_source",
+        "_once_creds_rejected",
+        "_pc_list_error",
+        "_pending_save",
+        "_phone_channel",
+        "_proc",
+        "_proc_tree",
+        "_relay_creds_source",
+        "_relay_proc_tree",
+        "_tray",
+        "_update_cancelled",
+        "_update_request_id",
+        "_updating",
+        "_window_hidden",
+        "_window_minimized"
+      ],
+      "reason": "步骤 2 拆 Api"
+    },
+    "local/application/advanced_component_service.py::AdvancedComponentService": {
+      "value": 8,
+      "attrs": [
+        "_active",
+        "_cancel_flag",
+        "_error_code",
+        "_installed",
+        "_installing",
+        "_state",
+        "_text",
+        "_version_text"
+      ],
+      "reason": "步骤 2 组件"
+    },
+    "local/application/auto_relogin.py::AutoReloginMonitor": {
+      "value": 8,
+      "attrs": [
+        "_expired",
+        "_failures",
+        "_flow_id",
+        "_handoff",
+        "_inflight",
+        "_next_check",
+        "_phase",
+        "_retry_at"
+      ],
+      "reason": "存量，未排期"
+    },
+    "local/application/phone_service.py::PhoneAccessService": {
+      "value": 12,
+      "attrs": [
+        "_global_fails",
+        "_global_lock_until",
+        "_pair_code",
+        "_pair_created",
+        "_pair_reason",
+        "_pair_seq",
+        "_pair_used",
+        "_paired_count",
+        "_persistent_device",
+        "_public_host",
+        "_public_scheme",
+        "_server"
+      ],
+      "reason": "存量，未排期"
+    }
+  }
+}
