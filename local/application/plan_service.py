@@ -22,7 +22,7 @@ from domain.retry_window import (
     ADAPTIVE_RETRY, DEFAULT_RETRY_SECONDS, extension_cap, extension_delta,
 )
 from domain.time_text import task_deadline
-from domain.worker_lines import parse_checkpoint_line
+from domain.worker_lines import parse_checkpoint_line, worker_message
 
 
 def plan_done_notice(tasks) -> tuple:
@@ -266,14 +266,16 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
                      "page_opened": "page_opened_at",
                      "watch_started": "watch_started_at"}[kind]
             status("submitting", {field: at})
-        hit = ATTEMPT_RE.match(line)
+        # 结构行识别前先去 log() 的时间戳前缀；落日志与 tail 仍用原行
+        message = worker_message(line)
+        hit = ATTEMPT_RE.match(message)
         if hit:
             observed["attempts"] = max(observed["attempts"], int(hit.group(1)))
             if status:
                 # 只数真正发起 signUp 的行；刷新 / is_joined 查询不会长这样
                 status("submitting", {"attempts": int(hit.group(1)),
                                       "last_reason": hit.group(2).strip()})
-        parsed = parse_retry_line(line)
+        parsed = parse_retry_line(message)
         if parsed:
             # 结构化提交行也要计数：人话行可能被日志转发吞掉，次数不能
             # 因此归零；两路按「已承认的最大值」归并，不重复累加。
@@ -407,7 +409,7 @@ def run_plan_task(spec, cancel_event: threading.Event, status: callable, *,
     # 进度行（窗口确定/请求发起）不得冒充终态
     stop: dict = {}
     for line in reversed(tail):
-        parsed = parse_retry_line(line)
+        parsed = parse_retry_line(worker_message(line))
         if parsed and parsed.get("stop_reason"):
             stop = parsed
             break

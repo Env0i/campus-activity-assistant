@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 
 from domain.time_text import parse_local_time
+from domain.worker_lines import worker_message
 
 
 # 计划运行中「来不及重新登录」的窗口：有场次在提交、或离开放不到这么多秒。
@@ -172,7 +173,8 @@ def check_reason_line(out: str) -> tuple[str, str]:
     """
     lines = [ln.strip() for ln in str(out or "").strip().splitlines() if ln.strip()]
     lines = [ln for ln in lines if "[clock] " not in ln and "[checkpoint] " not in ln]
-    reason = next((ln for ln in lines if ln.startswith("[X] ")), "")
+    # [X] 行可能是 grab.log() 写的，行首带时间戳：识别前先去前缀，返回去前缀后的原因行
+    reason = next((m for m in map(worker_message, lines) if m.startswith("[X] ")), "")
     return reason, (lines[-1] if lines else "")
 
 

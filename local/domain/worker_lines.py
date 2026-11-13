@@ -9,6 +9,24 @@
 from __future__ import annotations
 
 import json
+import re
+
+# worker 的 grab.log() 把每行写成「YYYY-MM-DD HH:MM:SS 消息」再 print；
+# 回退格式（业务时钟不可用时）长得一样。只认这一种，别的开头一律不动。
+_STAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} ")
+
+
+def worker_message(line: str) -> str:
+    """去掉 worker 输出行首的北京时间前缀，返回消息本身；没有前缀则原样返回。
+
+    约定：经 log() 输出的行都带时间戳，而 [retry]、「第 N 次提交」、[X] 这类
+    结构行的识别点都要求行首就是标记，所以识别前必须先过这里。这是去前缀的
+    唯一入口：调用方不要自己切时间戳，也不要放宽各解析函数自己的前缀规则。
+    只用于识别；运行记录与 tail 仍存原行（界面按时间戳前缀着色）。
+    """
+    text = str(line or "")
+    stamp = _STAMP_RE.match(text)
+    return text[stamp.end():] if stamp else text
 
 
 def parse_checkpoint_line(line: str) -> "tuple[str, float] | None":

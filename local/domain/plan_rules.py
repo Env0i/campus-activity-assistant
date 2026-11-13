@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from domain.retry_rules import retry_payload, with_attempts
 from domain.time_text import task_deadline
+from domain.worker_lines import worker_message
 
 # 报名成功后学校列表可能短暂滞后：本地已确认成功在这段窗口内不被撤销
 SIGNED_SYNC_WINDOW_S = 120.0
@@ -206,8 +207,9 @@ def classify_task_stop(spec, code, tail: list, canceled: bool,
                 **retry_payload(stop, spec, stop_reason="user_stopped")}
     reason = ""
     for line in reversed(tail):
-        if line.startswith("[X] "):
-            reason = line[4:].strip()
+        message = worker_message(line)   # [X] 行可能是 log() 写的，带时间戳
+        if message.startswith("[X] "):
+            reason = message[4:].strip()
             break
     if supervised_fired and not stop.get("stop_reason"):
         # 父层收走时没有终态行：保留已观察到的提交次数；

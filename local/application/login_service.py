@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from domain.login_rules import check_hint, check_reason_line, check_result
-from domain.worker_lines import parse_clock_line
+from domain.worker_lines import parse_clock_line, worker_message
 
 # 本轮没有校时样本时的显式 unknown 粗测（界面逐轮替换，不保留上一轮告警）
 _CLOCK_UNKNOWN = {
@@ -65,8 +65,9 @@ def done_result(kind: str, returncode: int, tail: "list[str]") -> tuple[bool, st
     reason = ""
     if not ok:
         for t in reversed(tail):
-            if t.startswith("[X] "):
-                reason = t[4:].strip()
+            message = worker_message(t)   # [X] 行可能是 log() 写的，带时间戳
+            if message.startswith("[X] "):
+                reason = message[4:].strip()
                 break
         reason = reason or ("退出码 %s" % returncode)
     return ok, reason
