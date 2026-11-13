@@ -1,0 +1,120 @@
+======== g-027 local/grab.py 2382 2389 事实
+claim: _retry_event 产出 [retry] k=v 进度行；值内空格替换为 NBSP，防止解析按空格切碎。
+excerpt: def _retry_event(**fields):\n    """进度型 [retry] 行：只带进度字段，绝不带 stop_reason（终态才有一条）。\n\n    解析方按空格切字段：值里的空格换成不换行空格，原因文案不会把一
+ 2382| def _retry_event(**fields):
+ 2383|     """进度型 [retry] 行：只带进度字段，绝不带 stop_reason（终态才有一条）。
+ 2384| 
+ 2385|     解析方按空格切字段：值里的空格换成不换行空格，原因文案不会把一行切碎。
+ 2386|     """
+ 2387|     body = " ".join("%s=%s" % (key, str(value).replace(" ", "\u00a0"))
+ 2388|                     for key, value in fields.items())
+ 2389|     log("[retry] " + body)
+======== g-102 local/grab.py 1474 1475 推测
+claim: 推测：文本模式 list 的提示行与 return 0 之后无任何解析方。
+excerpt:     print("\n提示：双击 2-抢活动.bat 可直接选择并到点抢；也可以双击 4-图形界面.bat 用鼠标点。")\n    return 0
+ 1474|     print("\n提示：双击 2-抢活动.bat 可直接选择并到点抢；也可以双击 4-图形界面.bat 用鼠标点。")
+ 1475|     return 0
+======== g-065 local/domain/cancel_rules.py 20 26 事实
+claim: cancel 结果 kind 白名单：cancelled/refused/unknown/precheck_failed。
+excerpt: import unicodedata\n\nWORKER_KINDS = ("cancelled", "refused", "unknown", "precheck_failed")\nMESSAGE_MAX = 80\n_REASON_R
+   20| import unicodedata
+   21| 
+   22| WORKER_KINDS = ("cancelled", "refused", "unknown", "precheck_failed")
+   23| MESSAGE_MAX = 80
+   24| _REASON_RE = re.compile(r"[a-z_]{1,32}")
+   25| 
+   26| 
+======== g-049 local/grab.py 456 465 事实
+claim: 双文件事务：state/session 先各写 .tmp 再依次替换，失败回滚。
+excerpt:     targets = [(STATE_FILE if state_path is None else Path(state_path), state),\n               (SESSION_FILE if session
+  456|     targets = [(STATE_FILE if state_path is None else Path(state_path), state),
+  457|                (SESSION_FILE if session_path is None else Path(session_path), session)]
+  458|     prepared = []
+  459|     try:
+  460|         for path, obj in targets:
+  461|             path.parent.mkdir(parents=True, exist_ok=True)
+  462|             tmp = path.with_suffix(path.suffix + ".tmp")
+  463|             with open(tmp, "w", encoding="utf-8") as f:
+  464|                 json.dump(obj, f, ensure_ascii=False, indent=2)
+  465|             prepared.append((path, tmp))
+======== g-105 local/app.py 2603 2606 需测试定
+claim: 需测试定：cancel worker 的退出码本身不被界面读取（代码只取 stdout），但缺子进程级测试锁死这一行为。
+excerpt:             self._emit("log", "[X] 组件诊断 %s：%s" % (_component_error(exc), type(exc).__name__))\n            return self._
+ 2603|             self._emit("log", "[X] 组件诊断 %s：%s" % (_component_error(exc), type(exc).__name__))
+ 2604|             return self._cancel_refusal("precheck_failed", "worker_unavailable")
+ 2605|         except Exception:  # noqa: BLE001 - 不知道 worker 走到了哪一步：按结果未知
+ 2606|             return _cancel_rules.unknown_result()
+======== g-094 local/tests/test_worker_boundaries.py 1151 1154 事实
+claim: 现有契约测试锁定：--json 时 stdout 只剩 JSON、stderr 恰一行 [timing]。
+excerpt:     def test_cmd_list_json_stdout_stays_pure_when_helpers_log(self):\n        """--json 时辅助日志改道 stderr：stdout 只剩 JSON，st
+ 1151|     def test_cmd_list_json_stdout_stays_pure_when_helpers_log(self):
+ 1152|         """--json 时辅助日志改道 stderr：stdout 只剩 JSON，stderr 恰一行 [timing]。"""
+ 1153|         log_lines = []
+ 1154| 
+======== g-114 local/grab.py 2745 2752 事实
+claim: 查不到报名目标时 cmd_grab 直接 return 0（不算失败）。
+excerpt:     try:\n        target = resolve_target(args, budget=budget)\n    except BudgetExhausted:\n        return _budget_stop
+ 2745|     try:
+ 2746|         target = resolve_target(args, budget=budget)
+ 2747|     except BudgetExhausted:
+ 2748|         return _budget_stop("查目标")
+ 2749|     except ClockUnavailable:
+ 2750|         return _clock_stop()
+ 2751|     if not target:
+ 2752|         return 0
+======== g-032 local/grab.py 3974 3988 事实
+claim: selftest 输出 [i]/[OK]/页面片段；页面可疑打 [!] 并 return 2，正常 return 0。
+excerpt:     with sync_playwright() as pw:\n        browser = launch_browser(pw, headless=True)\n        try:\n            ctx = 
+ 3974|     with sync_playwright() as pw:
+ 3975|         browser = launch_browser(pw, headless=True)
+ 3976|         try:
+ 3977|             ctx = new_context(browser, with_state=False)
+ 3978|             page = ctx.new_page()
+ 3979|             page.goto(BASE + "/stu/", wait_until="domcontentloaded", timeout=60000)
+ 3980|             page.wait_for_timeout(1500)
+ 3981|             title = page.title()
+ 3982|             body = page.inner_text("body")[:120].replace("\n", " ")
+ 3983|             print("[OK] 打开成功：title=%s" % title)
+ 3984|             print("[i] 页面片段：%s" % body)
+ 3985|             if "学生" not in body and "校园助手" not in title:
+ 3986|                 print("[!] 页面内容看起来不对，可能被网络/代理拦截。")
+ 3987|                 return 2
+ 3988|             return 0
+======== g-078 local/domain/retry_rules.py 34 46 事实
+claim: parse_retry_line：[retry] 前缀、空格切 k=v、last_reason 恒为最后一个字段，解析失败返回 None。
+excerpt:     text = str(line or "").strip()\n    prefix = "[retry] "\n    if not text.startswith(prefix):\n        return None\n 
+   34|     text = str(line or "").strip()
+   35|     prefix = "[retry] "
+   36|     if not text.startswith(prefix):
+   37|         return None
+   38|     head, _, reason = text[len(prefix):].partition(" last_reason=")
+   39|     fields: dict = {}
+   40|     for pair in head.split(" "):
+   41|         key, _, value = pair.partition("=")
+   42|         if key:
+   43|             fields[key] = value
+   44|     if reason:
+   45|         fields["last_reason"] = reason
+   46|     return fields or None
+======== g-015 local/grab.py 1464 1467 事实
+claim: list --json 以一行 json.dumps(out) 结束并 return 0。
+excerpt:             })\n        print(json.dumps(out, ensure_ascii=False))\n        _emit_list_timing(len(rows), details_s)\n   
+ 1464|             })
+ 1465|         print(json.dumps(out, ensure_ascii=False))
+ 1466|         _emit_list_timing(len(rows), details_s)
+ 1467|         return 0
+======== g-098 local/tests/test_business_clock_wiring.py 271 275 事实
+claim: 测试按 kind=done+stop_reason 过滤 worker 输出并断言恰一条终态。
+excerpt:     def test_expired_client_budget_yields_single_terminal_without_io(self):\n        code, logs, calls = self._run(expir
+  271|     def test_expired_client_budget_yields_single_terminal_without_io(self):
+  272|         code, logs, calls = self._run(expired=True)
+  273|         terminal = [line for line in logs
+  274|                     if "[retry] " in line and "kind=done" in line and "stop_reason=" in line]
+  275|         self.assertEqual(len(terminal), 1, "必须恰一条结构化终态：%r" % (logs[-6:],))
+======== g-056 local/site_target.py 53 56 事实
+claim: 站点根第一候选是 SCHOOL_ORIGIN 环境变量，然后才是 config.json site.base。
+excerpt: def _configured_base() -> str:\n    for candidate in (os.environ.get("SCHOOL_ORIGIN", "").strip(),\n                    
+   53| def _configured_base() -> str:
+   54|     for candidate in (os.environ.get("SCHOOL_ORIGIN", "").strip(),
+   55|                       _from_config(), _from_build()):
+   56|         if candidate:

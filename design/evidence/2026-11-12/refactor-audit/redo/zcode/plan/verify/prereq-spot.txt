@@ -1,0 +1,92 @@
+======== q-027 local/app.py 1095 1099 事实
+claim: _emit 给 check/activities 自动补本轮 request_id，是界面丢弃迟到结论的源头。
+excerpt: \n    # ---------- 事件推送 ----------\n    def _emit(self, kind: str, payload) -> None:\n        # check/activities 统一带上本轮请
+ 1095| 
+ 1096|     # ---------- 事件推送 ----------
+ 1097|     def _emit(self, kind: str, payload) -> None:
+ 1098|         # check/activities 统一带上本轮请求 ID：界面按 ID 丢弃迟到的旧轮事件，
+ 1099|         # 不靠「最后一次谁先到」猜（R11）
+======== q-065 local/ui/views/clock-pop.js 103 104 事实
+claim: 文本节点落点样例：时钟弹层的 dd 文本。
+excerpt:     '<div class="pop-time" id="clock-pop-time">' + esc(parts.time) + '</div>' +\n    '<div class="pop-date">' + esc(part
+  103|     '<div class="pop-time" id="clock-pop-time">' + esc(parts.time) + '</div>' +
+  104|     '<div class="pop-date">' + esc(parts.date) + '</div>' +
+======== q-049 local/tests/test_runtime_bundle.py 443 443 事实
+claim: 测试按 patch.object 打补丁替换 Api._spawn 的样例。
+excerpt:                 mock.patch.object(app.Api, "_spawn",
+  443|                 mock.patch.object(app.Api, "_spawn",
+======== q-032 local/tests/test_ui_contract.py 4769 4783 事实
+claim: 启动后按钮从「启动中…」变「关闭本工具…」已有行为用例。
+excerpt:         res = run_js(r"""\nS.update.requestId = "request";\nconst close = () => document.querySelector("#btn-update-clos
+ 4769|         res = run_js(r"""
+ 4770| S.update.requestId = "request";
+ 4771| const close = () => document.querySelector("#btn-update-close");
+ 4772| window.onBackend.update({request_id:"request",state:"launching",text:"正在准备重启…"});
+ 4773| out.push({text:close().textContent});
+ 4774| window.onBackend.update({request_id:"request",state:"launching",
+ 4775|   text:"更新启动器已启动，正在关闭本工具完成切换…"});
+ 4776| out.push({text:close().textContent});
+ 4777| window.onBackend.update({request_id:"request",state:"launching",
+ 4778|   text:"安装程序已启动。请先关闭本工具，再按向导完成安装。"});
+ 4779| out.push({text:close().textContent});
+ 4780| """)
+ 4781|         self.assertEqual([item["text"] for item in res],
+ 4782|                          ["启动中…", "关闭本工具…", "关闭本工具…"])
+ 4783| 
+======== q-078 local/domain/phone_rules.py 170 178 事实
+claim: ACTION_PARAMS 后半：relay 三动作与 RETRY_POLICY_KEYS。
+excerpt:     "phone_relogin_cancel": {"flow_id"},\n}\n# save_prefs 从手机只许改 retry_policy：不许 terms、路径或任意键\nRETRY_POLICY_KEYS = {"ret
+  170|     "phone_relogin_cancel": {"flow_id"},
+  171| }
+  172| # save_prefs 从手机只许改 retry_policy：不许 terms、路径或任意键
+  173| RETRY_POLICY_KEYS = {"retry_for_s", "max_attempts"}
+  174| 
+  175| 
+  176| def normalize_action(action, args):
+  177|     """动作白名单校验：返回 (规范化参数, 错误码)。未知动作/多键/坏类型都拒。"""
+  178|     name = str(action or "")
+======== q-015 local/ui/m/app.js 2706 2711 事实
+claim: 基线手机页「最近同步」用 new Date() 取手机本地时钟，改显北京时间的目标行为尚未实现。
+excerpt:     if (syncLine) {\n      const at = new Date();\n      const hh = String(at.getHours()).padStart(2, "0");\n      const
+ 2706|     if (syncLine) {
+ 2707|       const at = new Date();
+ 2708|       const hh = String(at.getHours()).padStart(2, "0");
+ 2709|       const mm = String(at.getMinutes()).padStart(2, "0");
+ 2710|       syncLine.textContent = "最近同步 " + hh + ":" + mm;
+ 2711|     }
+======== q-056 local/tests/test_application_services.py 1475 1489 事实
+claim: 测试替换 Api.check 方法与 _do_check_inner。
+excerpt:         self.api.check = lambda request_id="": fired.set()\n        self.api._anchor_login_success("auto_ocr")\n        
+ 1475|         self.api.check = lambda request_id="": fired.set()
+ 1476|         self.api._anchor_login_success("auto_ocr")
+ 1477|         self.assertTrue(fired.wait(2.0), "重登成功后必须触发一次登录检查")
+ 1478| 
+ 1479|     def test_a_check_that_arrives_mid_flight_runs_once_more(self):
+ 1480|         self.api._terms_gate = lambda *a, **k: None
+ 1481|         calls = []
+ 1482|         gate = threading.Event()
+ 1483| 
+ 1484|         def inner():
+ 1485|             calls.append(1)
+ 1486|             if len(calls) == 1:
+ 1487|                 gate.wait(5.0)   # 第一轮故意占住槽位，制造「在途」
+ 1488| 
+ 1489|         self.api._do_check_inner = inner
+======== q-046 local/app.py 4475 4477 事实
+claim: Api._run 同步执行 worker 命令——测试 patch 目标之一。
+excerpt:     def _run(self, args: list[str], timeout: int) -> dict:\n        """同步跑一个短命 worker（check/list）：创建、登记与关闭屏障同锁。\n
+ 4475|     def _run(self, args: list[str], timeout: int) -> dict:
+ 4476|         """同步跑一个短命 worker（check/list）：创建、登记与关闭屏障同锁。
+ 4477| 
+======== q-023 local/app.py 1425 1427 事实
+claim: 组件下载是单飞设计：同时只允许一个下载任务，重复点击回 busy。
+excerpt:     def download_advanced_feature(self, key: str = "") -> dict:\n        """用户主动下载组件包（手机控制或验证码识别）：单飞，重复点击直接回 busy。"""\n 
+ 1425|     def download_advanced_feature(self, key: str = "") -> dict:
+ 1426|         """用户主动下载组件包（手机控制或验证码识别）：单飞，重复点击直接回 busy。"""
+ 1427|         chosen = str(key or _advanced_features.PHONE_CONTROL)
+======== q-061 local/ui/state/time.js 126 128 事实
+claim: cssEscape 只处理双引号与反斜杠，用于选择器，不是 esc 的一部分。
+excerpt: \nfunction cssEscape(value) {\n  return String(value).replace(/(["\\])/g, "\\$1");
+  126| 
+  127| function cssEscape(value) {
+  128|   return String(value).replace(/(["\\])/g, "\\$1");

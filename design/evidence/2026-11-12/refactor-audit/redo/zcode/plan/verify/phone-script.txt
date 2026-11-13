@@ -1,0 +1,3207 @@
+{
+ "baseline": "7e2d31c:local/ui/m/app.js",
+ "totalLines": 3358,
+ "counts": {
+  "fields": 55,
+  "writePoints": 148,
+  "readPoints": 296,
+  "bareModelRefs": 45,
+  "computedAccesses": 0,
+  "objectAssignWrites": 0
+ },
+ "objectAssign": [],
+ "bareModelRefs": [
+  {
+   "line": 96,
+   "fn": "<顶层>"
+  },
+  {
+   "line": 97,
+   "fn": "isActive@96"
+  },
+  {
+   "line": 104,
+   "fn": "<顶层>"
+  },
+  {
+   "line": 105,
+   "fn": "syncDelay@104"
+  },
+  {
+   "line": 107,
+   "fn": "syncDelay@104"
+  },
+  {
+   "line": 125,
+   "fn": "<顶层>"
+  },
+  {
+   "line": 126,
+   "fn": "canStart@125"
+  },
+  {
+   "line": 130,
+   "fn": "canStart@125"
+  },
+  {
+   "line": 155,
+   "fn": "<顶层>"
+  },
+  {
+   "line": 156,
+   "fn": "canSubmitRelogin@155"
+  },
+  {
+   "line": 294,
+   "fn": "<顶层>"
+  },
+  {
+   "line": 304,
+   "fn": "<顶层>"
+  },
+  {
+   "line": 305,
+   "fn": "businessNowS@304"
+  },
+  {
+   "line": 410,
+   "fn": "<顶层>"
+  },
+  {
+   "line": 440,
+   "fn": "<顶层>"
+  },
+  {
+   "line": 442,
+   "fn": "preStartWarnings@440"
+  },
+  {
+   "line": 443,
+   "fn": "preStartWarnings@440"
+  },
+  {
+   "line": 446,
+   "fn": "preStartWarnings@440"
+  },
+  {
+   "line": 459,
+   "fn": "preStartWarnings@440"
+  },
+  {
+   "line": 481,
+   "fn": "<顶层>"
+  },
+  {
+   "line": 483,
+   "fn": "connState@481"
+  },
+  {
+   "line": 1450,
+   "fn": "syncOffline@1442"
+  },
+  {
+   "line": 1503,
+   "fn": "refreshControls@1500"
+  },
+  {
+   "line": 1511,
+   "fn": "refreshControls@1500"
+  },
+  {
+   "line": 1515,
+   "fn": "refreshControls@1500"
+  },
+  {
+   "line": 1763,
+   "fn": "renderBar@1719"
+  },
+  {
+   "line": 1765,
+   "fn": "renderBar@1719"
+  },
+  {
+   "line": 1868,
+   "fn": "addEventListener›回调@1866"
+  },
+  {
+   "line": 1872,
+   "fn": "buildRow@1775"
+  },
+  {
+   "line": 1969,
+   "fn": "goSigned@1967"
+  },
+  {
+   "line": 1999,
+   "fn": "renderItems@1997"
+  },
+  {
+   "line": 2127,
+   "fn": "renderBoard@2120"
+  },
+  {
+   "line": 2128,
+   "fn": "renderBoard@2120"
+  },
+  {
+   "line": 2148,
+   "fn": "renderBoard@2120"
+  },
+  {
+   "line": 2239,
+   "fn": "renderTasks@2230"
+  },
+  {
+   "line": 2497,
+   "fn": "schedule@2492"
+  },
+  {
+   "line": 2511,
+   "fn": "scheduleTick@2502"
+  },
+  {
+   "line": 2526,
+   "fn": "tickClock@2513"
+  },
+  {
+   "line": 2558,
+   "fn": "tickBoardLed@2549"
+  },
+  {
+   "line": 2638,
+   "fn": "ingest@2621"
+  },
+  {
+   "line": 2656,
+   "fn": "ingest@2621"
+  },
+  {
+   "line": 2907,
+   "fn": "renderReview@2903"
+  },
+  {
+   "line": 2941,
+   "fn": "renderReview@2903"
+  },
+  {
+   "line": 3115,
+   "fn": "submitRelogin@3112"
+  },
+  {
+   "line": 3348,
+   "fn": "<顶层>"
+  }
+ ],
+ "fields": [
+  {
+   "name": "items",
+   "declaredAt": 1388,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2636,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "model.items = state.activities;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1535,
+     "fn": "refreshControls@1500",
+     "code": "const pickedNow = (model.items || []).filter("
+    },
+    {
+     "line": 1754,
+     "fn": "renderBar@1719",
+     "code": "const picked = (model.items || []).filter("
+    },
+    {
+     "line": 1787,
+     "fn": "addEventListener›回调@1785",
+     "code": "const res = PhoneModel.pickItem(model.selected, model.items, row.id, input.checked);"
+    },
+    {
+     "line": 1970,
+     "fn": "goSigned@1967",
+     "code": "const shown = PhoneModel.visibleItems(model.items, model.filter,"
+    },
+    {
+     "line": 2002,
+     "fn": "renderItems@1997",
+     "code": "const view = PhoneModel.listView(model.items, model.filter, {"
+    },
+    {
+     "line": 2050,
+     "fn": "renderItems@1997",
+     "code": "const signedCount = (model.items || []).filter((i) => i.signed).length;"
+    },
+    {
+     "line": 2078,
+     "fn": "renderItems@1997",
+     "code": "(model.items || []).filter((i) => i && i.signed).forEach((item) => {"
+    },
+    {
+     "line": 2080,
+     "fn": "forEach›回调@2078",
+     "code": "items: model.items, nowS: nowS, selected: [], busy: model.busy,"
+    },
+    {
+     "line": 2541,
+     "fn": "tickClock@2513",
+     "code": "const view = PhoneModel.listView(model.items, model.filter, {"
+    },
+    {
+     "line": 2640,
+     "fn": "filter›回调@2639",
+     "code": "const item = model.items.find((candidate) => candidate && candidate.id === id);"
+    },
+    {
+     "line": 2641,
+     "fn": "filter›回调@2639",
+     "code": "if (!item || !PhoneModel.actionable(item, model.items)) return false;"
+    },
+    {
+     "line": 2859,
+     "fn": "forEach›回调@2856",
+     "code": "const item = (model.items || []).find((i) => i && i.id === t.activity_id);"
+    },
+    {
+     "line": 2860,
+     "fn": "forEach›回调@2856",
+     "code": "if (item && PhoneModel.actionable(item, model.items)) picked.push(item.id);"
+    },
+    {
+     "line": 2904,
+     "fn": "renderReview@2903",
+     "code": "const picked = (model.items || []).filter((item) => model.selected.indexOf(item.id) >= 0);"
+    },
+    {
+     "line": 2950,
+     "fn": "removeFromReview@2949",
+     "code": "const res = PhoneModel.pickItem(model.selected, model.items, id, false);"
+    },
+    {
+     "line": 3290,
+     "fn": "addEventListener›回调@3288",
+     "code": "const res = PhoneModel.pickItem(model.selected, model.items, model.pickId, true);"
+    }
+   ]
+  },
+  {
+   "name": "selected",
+   "declaredAt": 1388,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 1788,
+     "fn": "addEventListener›回调@1785",
+     "form": "assign",
+     "sub": "",
+     "code": "model.selected = res.selected;"
+    },
+    {
+     "line": 2639,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "model.selected = before.filter((id) => {"
+    },
+    {
+     "line": 2863,
+     "fn": "reselectFailed@2850",
+     "form": "assign",
+     "sub": "",
+     "code": "model.selected = picked;"
+    },
+    {
+     "line": 2873,
+     "fn": "finishPlanView@2870",
+     "form": "assign",
+     "sub": "",
+     "code": "model.selected = [];"
+    },
+    {
+     "line": 2951,
+     "fn": "removeFromReview@2949",
+     "form": "assign",
+     "sub": "",
+     "code": "model.selected = res.selected;"
+    },
+    {
+     "line": 3291,
+     "fn": "addEventListener›回调@3288",
+     "form": "assign",
+     "sub": "",
+     "code": "model.selected = res.selected;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 131,
+     "fn": "canStart@125",
+     "code": "return (model.selected || []).length > 0;"
+    },
+    {
+     "line": 1536,
+     "fn": "refreshControls@1500",
+     "code": "(item) => model.selected.indexOf(item.id) >= 0);"
+    },
+    {
+     "line": 1755,
+     "fn": "renderBar@1719",
+     "code": "(item) => model.selected.indexOf(item.id) >= 0);"
+    },
+    {
+     "line": 1756,
+     "fn": "renderBar@1719",
+     "code": "title.textContent = \"已选 \" + model.selected.length + \" 场\";"
+    },
+    {
+     "line": 1787,
+     "fn": "addEventListener›回调@1785",
+     "code": "const res = PhoneModel.pickItem(model.selected, model.items, row.id, input.checked);"
+    },
+    {
+     "line": 2004,
+     "fn": "renderItems@1997",
+     "code": "selected: model.selected, busy: model.busy, termsOk: model.termsOk,"
+    },
+    {
+     "line": 2543,
+     "fn": "tickClock@2513",
+     "code": "selected: model.selected, busy: model.busy, termsOk: model.termsOk,"
+    },
+    {
+     "line": 2637,
+     "fn": "ingest@2621",
+     "code": "const before = model.selected.slice();"
+    },
+    {
+     "line": 2645,
+     "fn": "ingest@2621",
+     "code": "if (model.selected.length !== before.length) model.notice = \"\";"
+    },
+    {
+     "line": 2718,
+     "fn": "startPlan@2716",
+     "code": "const items = model.selected.map((id) => ({ id }));"
+    },
+    {
+     "line": 2904,
+     "fn": "renderReview@2903",
+     "code": "const picked = (model.items || []).filter((item) => model.selected.indexOf(item.id) >= 0);"
+    },
+    {
+     "line": 2950,
+     "fn": "removeFromReview@2949",
+     "code": "const res = PhoneModel.pickItem(model.selected, model.items, id, false);"
+    },
+    {
+     "line": 2954,
+     "fn": "removeFromReview@2949",
+     "code": "if (!model.selected.length) closeSheet(true);"
+    },
+    {
+     "line": 3290,
+     "fn": "addEventListener›回调@3288",
+     "code": "const res = PhoneModel.pickItem(model.selected, model.items, model.pickId, true);"
+    }
+   ]
+  },
+  {
+   "name": "filter",
+   "declaredAt": 1388,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 1973,
+     "fn": "goSigned@1967",
+     "form": "assign",
+     "sub": "",
+     "code": "model.filter = { q: \"\", status: \"all\", time: \"all\" };"
+    },
+    {
+     "line": 2210,
+     "fn": "toggleSearch@2206",
+     "form": "assign-sub",
+     "sub": "q",
+     "code": "model.filter.q = \"\";"
+    },
+    {
+     "line": 3276,
+     "fn": "addEventListener›回调@3275",
+     "form": "assign-sub",
+     "sub": "q",
+     "code": "model.filter.q = $(\"q\").value;"
+    },
+    {
+     "line": 3283,
+     "fn": "addEventListener›回调@3282",
+     "form": "assign-sub",
+     "sub": "q",
+     "code": "model.filter.q = $(\"search-q\").value;"
+    },
+    {
+     "line": 3297,
+     "fn": "addEventListener›回调@3296",
+     "form": "assign-sub",
+     "sub": "status",
+     "code": "model.filter.status = btn.dataset.status;"
+    },
+    {
+     "line": 3305,
+     "fn": "addEventListener›回调@3304",
+     "form": "assign-sub",
+     "sub": "time",
+     "code": "model.filter.time = btn.dataset.time;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1970,
+     "fn": "goSigned@1967",
+     "code": "const shown = PhoneModel.visibleItems(model.items, model.filter,"
+    },
+    {
+     "line": 2002,
+     "fn": "renderItems@1997",
+     "code": "const view = PhoneModel.listView(model.items, model.filter, {"
+    },
+    {
+     "line": 2541,
+     "fn": "tickClock@2513",
+     "code": "const view = PhoneModel.listView(model.items, model.filter, {"
+    }
+   ]
+  },
+  {
+   "name": "retry",
+   "declaredAt": 1389,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2668,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "model.retry = {"
+    },
+    {
+     "line": 3312,
+     "fn": "addEventListener›回调@3311",
+     "form": "assign-sub",
+     "sub": "retry_for_s",
+     "code": "model.retry.retry_for_s = Number($(\"retry-for\").value);"
+    },
+    {
+     "line": 3318,
+     "fn": "addEventListener›回调@3317",
+     "form": "assign-sub",
+     "sub": "max_attempts",
+     "code": "model.retry.max_attempts = Number($(\"max-attempts\").value || 0);"
+    }
+   ],
+   "reads": [
+    {
+     "line": 446,
+     "fn": "preStartWarnings@440",
+     "code": "if (model && model.retry && Number(model.retry.retry_for_s) === 0) {"
+    },
+    {
+     "line": 446,
+     "fn": "preStartWarnings@440",
+     "code": "if (model && model.retry && Number(model.retry.retry_for_s) === 0) {"
+    },
+    {
+     "line": 1537,
+     "fn": "refreshControls@1500",
+     "code": "const hint = PhoneModel.retryHint(model.retry.retry_for_s,"
+    },
+    {
+     "line": 2736,
+     "fn": "startPlan@2716",
+     "code": "retry_policy: { retry_for_s: Number(model.retry.retry_for_s),"
+    },
+    {
+     "line": 2737,
+     "fn": "startPlan@2716",
+     "code": "max_attempts: Number(model.retry.max_attempts || 0) },"
+    },
+    {
+     "line": 2882,
+     "fn": "saveRetry@2879",
+     "code": "retry_for_s: Number(model.retry.retry_for_s),"
+    },
+    {
+     "line": 2883,
+     "fn": "saveRetry@2879",
+     "code": "max_attempts: Number(model.retry.max_attempts || 0) } } });"
+    },
+    {
+     "line": 2896,
+     "fn": "fillRetryOptions@2887",
+     "code": "sel.value = String(model.retry.retry_for_s);"
+    }
+   ]
+  },
+  {
+   "name": "retryHydrated",
+   "declaredAt": 1389,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2672,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "model.retryHydrated = true;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2667,
+     "fn": "ingest@2621",
+     "code": "&& !model.retryHydrated && !model.retryDirty) {"
+    }
+   ]
+  },
+  {
+   "name": "retryDirty",
+   "declaredAt": 1389,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2885,
+     "fn": "saveRetry@2879",
+     "form": "assign",
+     "sub": "",
+     "code": "else model.retryDirty = false;"
+    },
+    {
+     "line": 3313,
+     "fn": "addEventListener›回调@3311",
+     "form": "assign",
+     "sub": "",
+     "code": "model.retryDirty = true;"
+    },
+    {
+     "line": 3319,
+     "fn": "addEventListener›回调@3317",
+     "form": "assign",
+     "sub": "",
+     "code": "model.retryDirty = true;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2667,
+     "fn": "ingest@2621",
+     "code": "&& !model.retryHydrated && !model.retryDirty) {"
+    }
+   ]
+  },
+  {
+   "name": "seenEventSeq",
+   "declaredAt": 1390,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2624,
+     "fn": "ingest@2621",
+     "form": "mutate:clear",
+     "sub": "clear",
+     "code": "model.seenEventSeq.clear();"
+    },
+    {
+     "line": 2683,
+     "fn": "forEach›回调@2678",
+     "form": "mutate:add",
+     "sub": "add",
+     "code": "model.seenEventSeq.add(eventSeq);"
+    },
+    {
+     "line": 2685,
+     "fn": "forEach›回调@2678",
+     "form": "mutate:delete",
+     "sub": "delete",
+     "code": "model.seenEventSeq.delete(Math.min.apply(null, Array.from(model.seenEventSeq)));"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2682,
+     "fn": "forEach›回调@2678",
+     "code": "if (model.seenEventSeq.has(eventSeq)) return;"
+    },
+    {
+     "line": 2684,
+     "fn": "forEach›回调@2678",
+     "code": "while (model.seenEventSeq.size > 400) {"
+    },
+    {
+     "line": 2685,
+     "fn": "forEach›回调@2678",
+     "code": "model.seenEventSeq.delete(Math.min.apply(null, Array.from(model.seenEventSeq)));"
+    }
+   ]
+  },
+  {
+   "name": "busy",
+   "declaredAt": 1390,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2665,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "if (typeof state.busy === \"boolean\") model.busy = state.busy;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 98,
+     "fn": "isActive@96",
+     "code": "if (model.busy) return true;"
+    },
+    {
+     "line": 127,
+     "fn": "canStart@125",
+     "code": "if (model.busy) return false;"
+    },
+    {
+     "line": 1512,
+     "fn": "refreshControls@1500",
+     "code": "$(\"btn-stop\").hidden = !model.busy;"
+    },
+    {
+     "line": 1625,
+     "fn": "renderRelogin@1618",
+     "code": "planBusy: model.busy,"
+    },
+    {
+     "line": 1723,
+     "fn": "renderBar@1719",
+     "code": "const result = PhoneModel.resultView(model.plan, model.busy);"
+    },
+    {
+     "line": 1739,
+     "fn": "renderBar@1719",
+     "code": "if (model.busy) {"
+    },
+    {
+     "line": 1768,
+     "fn": "renderBar@1719",
+     "code": "$(\"btn-start\").textContent = expired && !model.busy"
+    },
+    {
+     "line": 1770,
+     "fn": "renderBar@1719",
+     "code": "$(\"btn-start\").hidden = model.busy;"
+    },
+    {
+     "line": 2001,
+     "fn": "renderItems@1997",
+     "code": "const result = PhoneModel.resultView(model.plan, model.busy);"
+    },
+    {
+     "line": 2004,
+     "fn": "renderItems@1997",
+     "code": "selected: model.selected, busy: model.busy, termsOk: model.termsOk,"
+    },
+    {
+     "line": 2058,
+     "fn": "renderItems@1997",
+     "code": "const showList = model.listOpen || (!model.busy && !pendingNow);"
+    },
+    {
+     "line": 2062,
+     "fn": "renderItems@1997",
+     "code": "toggle.hidden = !(model.busy || result);"
+    },
+    {
+     "line": 2080,
+     "fn": "forEach›回调@2078",
+     "code": "items: model.items, nowS: nowS, selected: [], busy: model.busy,"
+    },
+    {
+     "line": 2124,
+     "fn": "renderBoard@2120",
+     "code": "const result = PhoneModel.resultView(model.plan, model.busy);"
+    },
+    {
+     "line": 2126,
+     "fn": "renderBoard@2120",
+     "code": "if (model.busy) {"
+    },
+    {
+     "line": 2224,
+     "fn": "renderPlan@2220",
+     "code": "tip.hidden = !model.busy;"
+    },
+    {
+     "line": 2236,
+     "fn": "renderTasks@2230",
+     "code": "box.hidden = !(model.busy || PhoneModel.resultView(model.plan, model.busy)) || !tasks.length;"
+    },
+    {
+     "line": 2236,
+     "fn": "renderTasks@2230",
+     "code": "box.hidden = !(model.busy || PhoneModel.resultView(model.plan, model.busy)) || !tasks.length;"
+    },
+    {
+     "line": 2543,
+     "fn": "tickClock@2513",
+     "code": "selected: model.selected, busy: model.busy, termsOk: model.termsOk,"
+    },
+    {
+     "line": 2553,
+     "fn": "tickBoardLed@2549",
+     "code": "const result = PhoneModel.resultView(model.plan, model.busy);"
+    },
+    {
+     "line": 2556,
+     "fn": "tickBoardLed@2549",
+     "code": "if (model.busy) {"
+    },
+    {
+     "line": 3034,
+     "fn": "ingestRelogin@2971",
+     "code": "$(\"relogin-note\").textContent = model.busy"
+    },
+    {
+     "line": 3222,
+     "fn": "addEventListener›回调@3221",
+     "code": "if (PhoneModel.loginExpired(model.login) && !model.busy"
+    }
+   ]
+  },
+  {
+   "name": "login",
+   "declaredAt": 1392,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2703,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "model.login = state.login;   // SH05 登录行（loginLine）同一份快照"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1469,
+     "fn": "renderAlerts@1465",
+     "code": "const expired = PhoneModel.loginExpired(model.login, model.flow || null);"
+    },
+    {
+     "line": 1541,
+     "fn": "refreshControls@1500",
+     "code": "$(\"login-line\").textContent = PhoneModel.loginLine(model.login, model.reloginSetup, model.flow || null);"
+    },
+    {
+     "line": 1734,
+     "fn": "renderBar@1719",
+     "code": "const expired = PhoneModel.loginExpired(model.login);"
+    },
+    {
+     "line": 1736,
+     "fn": "renderBar@1719",
+     "code": "const expiredSub = PhoneModel.loginExpired(model.login, model.flow || null);"
+    },
+    {
+     "line": 1737,
+     "fn": "renderBar@1719",
+     "code": "const recoveringSub = PhoneModel.loginRaw(model.login)"
+    },
+    {
+     "line": 1738,
+     "fn": "renderBar@1719",
+     "code": "&& PhoneModel.loginRecovering(model.login, model.flow || null);"
+    },
+    {
+     "line": 3222,
+     "fn": "addEventListener›回调@3221",
+     "code": "if (PhoneModel.loginExpired(model.login) && !model.busy"
+    }
+   ]
+  },
+  {
+   "name": "lastOkAt",
+   "declaredAt": 1393,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2441,
+     "fn": "poll@2431",
+     "form": "assign",
+     "sub": "",
+     "code": "model.lastOkAt = Date.now();"
+    }
+   ],
+   "reads": [
+    {
+     "line": 126,
+     "fn": "canStart@125",
+     "code": "if (!model || PhoneModel.isStale(model.lastOkAt, model.nowMs)) return false;"
+    },
+    {
+     "line": 156,
+     "fn": "canSubmitRelogin@155",
+     "code": "if (!model || PhoneModel.isStale(model.lastOkAt, model.nowMs)) return false;"
+    },
+    {
+     "line": 483,
+     "fn": "connState@481",
+     "code": "if (!model || !PhoneModel.isStale(model.lastOkAt, model.nowMs)) {"
+    },
+    {
+     "line": 486,
+     "fn": "connState@481",
+     "code": "if (!model.lastOkAt || Number(model.offlineTries) > 0) {"
+    },
+    {
+     "line": 1497,
+     "fn": "canWrite@1495",
+     "code": "return !PhoneModel.isStale(model.lastOkAt, model.nowMs);"
+    },
+    {
+     "line": 1502,
+     "fn": "refreshControls@1500",
+     "code": "const stale = PhoneModel.isStale(model.lastOkAt, model.nowMs);"
+    },
+    {
+     "line": 3205,
+     "fn": "addEventListener›回调@3203",
+     "code": "renderAlerts(PhoneModel.isStale(model.lastOkAt, model.nowMs));"
+    }
+   ]
+  },
+  {
+   "name": "nowMs",
+   "declaredAt": 1393,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 1496,
+     "fn": "canWrite@1495",
+     "form": "assign",
+     "sub": "",
+     "code": "model.nowMs = Date.now();"
+    },
+    {
+     "line": 1501,
+     "fn": "refreshControls@1500",
+     "form": "assign",
+     "sub": "",
+     "code": "model.nowMs = Date.now();"
+    },
+    {
+     "line": 1998,
+     "fn": "renderItems@1997",
+     "form": "assign",
+     "sub": "",
+     "code": "model.nowMs = Date.now();"
+    }
+   ],
+   "reads": [
+    {
+     "line": 126,
+     "fn": "canStart@125",
+     "code": "if (!model || PhoneModel.isStale(model.lastOkAt, model.nowMs)) return false;"
+    },
+    {
+     "line": 156,
+     "fn": "canSubmitRelogin@155",
+     "code": "if (!model || PhoneModel.isStale(model.lastOkAt, model.nowMs)) return false;"
+    },
+    {
+     "line": 483,
+     "fn": "connState@481",
+     "code": "if (!model || !PhoneModel.isStale(model.lastOkAt, model.nowMs)) {"
+    },
+    {
+     "line": 1497,
+     "fn": "canWrite@1495",
+     "code": "return !PhoneModel.isStale(model.lastOkAt, model.nowMs);"
+    },
+    {
+     "line": 1502,
+     "fn": "refreshControls@1500",
+     "code": "const stale = PhoneModel.isStale(model.lastOkAt, model.nowMs);"
+    },
+    {
+     "line": 2003,
+     "fn": "renderItems@1997",
+     "code": "nowS: nowS, wallS: model.nowMs / 1000,"
+    },
+    {
+     "line": 3205,
+     "fn": "addEventListener›回调@3203",
+     "code": "renderAlerts(PhoneModel.isStale(model.lastOkAt, model.nowMs));"
+    }
+   ]
+  },
+  {
+   "name": "backoff",
+   "declaredAt": 1393,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2442,
+     "fn": "poll@2431",
+     "form": "assign",
+     "sub": "",
+     "code": "model.backoff = 1000;"
+    },
+    {
+     "line": 2464,
+     "fn": "onPollFail@2461",
+     "form": "assign",
+     "sub": "",
+     "code": "model.backoff = PhoneModel.nextBackoff(model.backoff);"
+    },
+    {
+     "line": 2488,
+     "fn": "onForbidden@2481",
+     "form": "assign",
+     "sub": "",
+     "code": "model.backoff = PhoneModel.nextBackoff(model.backoff);"
+    }
+   ],
+   "reads": [
+    {
+     "line": 105,
+     "fn": "syncDelay@104",
+     "code": "const backoff = Number(model && model.backoff);"
+    },
+    {
+     "line": 2464,
+     "fn": "onPollFail@2461",
+     "code": "model.backoff = PhoneModel.nextBackoff(model.backoff);"
+    },
+    {
+     "line": 2488,
+     "fn": "onForbidden@2481",
+     "code": "model.backoff = PhoneModel.nextBackoff(model.backoff);"
+    }
+   ]
+  },
+  {
+   "name": "seq",
+   "declaredAt": 1393,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2625,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "model.seq = 0;"
+    },
+    {
+     "line": 2680,
+     "fn": "forEach›回调@2678",
+     "form": "assign",
+     "sub": "",
+     "code": "model.seq = Math.max(model.seq, eventSeq);"
+    },
+    {
+     "line": 2697,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "if (payload.seq) model.seq = Math.max(model.seq, Number(payload.seq));"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2437,
+     "fn": "poll@2431",
+     "code": "const { status, body } = await api(\"/api/state?after=\" + (force ? 0 : model.seq));"
+    },
+    {
+     "line": 2680,
+     "fn": "forEach›回调@2678",
+     "code": "model.seq = Math.max(model.seq, eventSeq);"
+    },
+    {
+     "line": 2697,
+     "fn": "ingest@2621",
+     "code": "if (payload.seq) model.seq = Math.max(model.seq, Number(payload.seq));"
+    }
+   ]
+  },
+  {
+   "name": "flow",
+   "declaredAt": 1394,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2972,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.flow = info;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 101,
+     "fn": "isActive@96",
+     "code": "return PhoneModel.reloginBusy(model.flow);"
+    },
+    {
+     "line": 160,
+     "fn": "canSubmitRelogin@155",
+     "code": "const flow = model.flow;"
+    },
+    {
+     "line": 1469,
+     "fn": "renderAlerts@1465",
+     "code": "const expired = PhoneModel.loginExpired(model.login, model.flow || null);"
+    },
+    {
+     "line": 1521,
+     "fn": "refreshControls@1500",
+     "code": "? PhoneModel.relNeedAcct(model.flow, model.reloginSetup) : false,"
+    },
+    {
+     "line": 1531,
+     "fn": "refreshControls@1500",
+     "code": "if (account) account.hidden = setup ? !PhoneModel.relNeedAcct(model.flow, setup) : true;"
+    },
+    {
+     "line": 1541,
+     "fn": "refreshControls@1500",
+     "code": "$(\"login-line\").textContent = PhoneModel.loginLine(model.login, model.reloginSetup, model.flow || null);"
+    },
+    {
+     "line": 1554,
+     "fn": "sheetBusy@1553",
+     "code": "const flow = model.flow;"
+    },
+    {
+     "line": 1619,
+     "fn": "renderRelogin@1618",
+     "code": "const view = PhoneModel.reloginView(model.flow, model.reloginSetup, {"
+    },
+    {
+     "line": 1662,
+     "fn": "openRelogin@1656",
+     "code": "const flow = model.flow;"
+    },
+    {
+     "line": 1736,
+     "fn": "renderBar@1719",
+     "code": "const expiredSub = PhoneModel.loginExpired(model.login, model.flow || null);"
+    },
+    {
+     "line": 1738,
+     "fn": "renderBar@1719",
+     "code": "&& PhoneModel.loginRecovering(model.login, model.flow || null);"
+    },
+    {
+     "line": 3114,
+     "fn": "submitRelogin@3112",
+     "code": "if (!model.flow || !model.challenge) return;"
+    },
+    {
+     "line": 3117,
+     "fn": "submitRelogin@3112",
+     "code": "if (!PhoneModel.matchesChallenge(model.flow, model.challenge.flow_id,"
+    },
+    {
+     "line": 3159,
+     "fn": "cancelRelogin@3158",
+     "code": "const flow = model.flow;"
+    }
+   ]
+  },
+  {
+   "name": "challenge",
+   "declaredAt": 1394,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2987,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.challenge = null;"
+    },
+    {
+     "line": 3001,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.challenge = {"
+    },
+    {
+     "line": 3028,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.challenge = null;"
+    },
+    {
+     "line": 3044,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.challenge = null;"
+    },
+    {
+     "line": 3055,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.challenge = null;"
+    },
+    {
+     "line": 3171,
+     "fn": "cancelRelogin@3158",
+     "form": "assign",
+     "sub": "",
+     "code": "model.challenge = null;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1515,
+     "fn": "refreshControls@1500",
+     "code": "$(\"btn-relogin-submit\").disabled = !PhoneModel.canSubmitRelogin(model, model.challenge)"
+    },
+    {
+     "line": 1516,
+     "fn": "refreshControls@1500",
+     "code": "|| !PhoneModel.relCanSubmit({ needCap: !!model.challenge,"
+    },
+    {
+     "line": 2995,
+     "fn": "ingestRelogin@2971",
+     "code": "if (PhoneModel.matchesChallenge(model.challenge, info.flow_id, info.challenge_id)) {"
+    },
+    {
+     "line": 3114,
+     "fn": "submitRelogin@3112",
+     "code": "if (!model.flow || !model.challenge) return;"
+    },
+    {
+     "line": 3115,
+     "fn": "submitRelogin@3112",
+     "code": "if (!PhoneModel.canSubmitRelogin(model, model.challenge)) return;"
+    },
+    {
+     "line": 3117,
+     "fn": "submitRelogin@3112",
+     "code": "if (!PhoneModel.matchesChallenge(model.flow, model.challenge.flow_id,"
+    },
+    {
+     "line": 3118,
+     "fn": "submitRelogin@3112",
+     "code": "model.challenge.challenge_id)) {"
+    },
+    {
+     "line": 3129,
+     "fn": "submitRelogin@3112",
+     "code": "flow_id: model.challenge.flow_id,"
+    },
+    {
+     "line": 3130,
+     "fn": "submitRelogin@3112",
+     "code": "challenge_id: model.challenge.challenge_id, code } } });"
+    }
+   ]
+  },
+  {
+   "name": "reloginSubmitting",
+   "declaredAt": 1394,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2988,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginSubmitting = false;"
+    },
+    {
+     "line": 2997,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "if (!info.submit_pending) model.reloginSubmitting = false;"
+    },
+    {
+     "line": 3004,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginSubmitting = false;"
+    },
+    {
+     "line": 3020,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginSubmitting = false;"
+    },
+    {
+     "line": 3024,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginSubmitting = false;"
+    },
+    {
+     "line": 3029,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginSubmitting = false;"
+    },
+    {
+     "line": 3045,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginSubmitting = false;"
+    },
+    {
+     "line": 3056,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginSubmitting = false;"
+    },
+    {
+     "line": 3123,
+     "fn": "submitRelogin@3112",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginSubmitting = true;"
+    },
+    {
+     "line": 3148,
+     "fn": "submitRelogin@3112",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginSubmitting = false;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 99,
+     "fn": "isActive@96",
+     "code": "if (model.reloginStarting || model.reloginSubmitting) return true;"
+    },
+    {
+     "line": 158,
+     "fn": "canSubmitRelogin@155",
+     "code": "if (model.reloginSubmitting) return false;"
+    },
+    {
+     "line": 1555,
+     "fn": "sheetBusy@1553",
+     "code": "if (flow && String(flow.mode || \"\") === \"auto\") return Boolean(model.reloginSubmitting);"
+    },
+    {
+     "line": 1556,
+     "fn": "sheetBusy@1553",
+     "code": "return Boolean(model.reloginSubmitting || PhoneModel.reloginBusy(flow));"
+    },
+    {
+     "line": 1622,
+     "fn": "renderRelogin@1618",
+     "code": "submitting: model.reloginSubmitting,"
+    }
+   ]
+  },
+  {
+   "name": "reloginStarting",
+   "declaredAt": 1395,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2989,
+     "fn": "ingestRelogin@2971",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginStarting = false;"
+    },
+    {
+     "line": 3065,
+     "fn": "beginRelogin@3061",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginStarting = true;"
+    },
+    {
+     "line": 3079,
+     "fn": "beginRelogin@3061",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginStarting = false;"
+    },
+    {
+     "line": 3092,
+     "fn": "beginRelogin@3061",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reloginStarting = false;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 99,
+     "fn": "isActive@96",
+     "code": "if (model.reloginStarting || model.reloginSubmitting) return true;"
+    },
+    {
+     "line": 1518,
+     "fn": "refreshControls@1500",
+     "code": "$(\"btn-relogin\").disabled = Boolean(model.reloginStarting) || model.termsOk === false"
+    },
+    {
+     "line": 1526,
+     "fn": "refreshControls@1500",
+     "code": "$(\"btn-relogin-open\").disabled = Boolean(model.reloginStarting) || model.termsOk === false;"
+    },
+    {
+     "line": 1621,
+     "fn": "renderRelogin@1618",
+     "code": "starting: model.reloginStarting,"
+    },
+    {
+     "line": 3063,
+     "fn": "beginRelogin@3061",
+     "code": "if (model.reloginStarting) return;"
+    }
+   ]
+  },
+  {
+   "name": "offlineTries",
+   "declaredAt": 1395,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 1446,
+     "fn": "syncOffline@1442",
+     "form": "assign",
+     "sub": "",
+     "code": "model.offlineTries = 0;"
+    },
+    {
+     "line": 2463,
+     "fn": "onPollFail@2461",
+     "form": "assign",
+     "sub": "",
+     "code": "model.offlineTries = Number(model.offlineTries || 0) + 1;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 486,
+     "fn": "connState@481",
+     "code": "if (!model.lastOkAt || Number(model.offlineTries) > 0) {"
+    },
+    {
+     "line": 1454,
+     "fn": "syncOffline@1442",
+     "code": "const tries = Number(model.offlineTries || 0);"
+    },
+    {
+     "line": 2463,
+     "fn": "onPollFail@2461",
+     "code": "model.offlineTries = Number(model.offlineTries || 0) + 1;"
+    }
+   ]
+  },
+  {
+   "name": "pending",
+   "declaredAt": 1396,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2730,
+     "fn": "startPlan@2716",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pending = { request_id: requestId, at: Date.now(), done: false };"
+    },
+    {
+     "line": 2741,
+     "fn": "startPlan@2716",
+     "form": "assign-sub",
+     "sub": "done",
+     "code": "model.pending.done = true;"
+    },
+    {
+     "line": 2742,
+     "fn": "startPlan@2716",
+     "form": "assign-sub",
+     "sub": "outcome",
+     "code": "model.pending.outcome = \"accepted\";   // A-BUG-1：同步受理也记终态，保留防双击窗口"
+    }
+   ],
+   "reads": [
+    {
+     "line": 100,
+     "fn": "isActive@96",
+     "code": "if (PhoneModel.startPending(model.pending, Date.now())) return true;"
+    },
+    {
+     "line": 1532,
+     "fn": "refreshControls@1500",
+     "code": "$(\"btn-cancel-start\").hidden = !(model.pending && !model.pending.done);"
+    },
+    {
+     "line": 1532,
+     "fn": "refreshControls@1500",
+     "code": "$(\"btn-cancel-start\").hidden = !(model.pending && !model.pending.done);"
+    },
+    {
+     "line": 1744,
+     "fn": "renderBar@1719",
+     "code": "} else if (model.pending && !model.pending.done) {"
+    },
+    {
+     "line": 1744,
+     "fn": "renderBar@1719",
+     "code": "} else if (model.pending && !model.pending.done) {"
+    },
+    {
+     "line": 1745,
+     "fn": "renderBar@1719",
+     "code": "title.textContent = PhoneModel.pendingLong(model.pending, Date.now())"
+    },
+    {
+     "line": 1769,
+     "fn": "renderBar@1719",
+     "code": "&& !(model.pending && !model.pending.done) ? \"重新登录\" : \"核对并开始\";"
+    },
+    {
+     "line": 1769,
+     "fn": "renderBar@1719",
+     "code": "&& !(model.pending && !model.pending.done) ? \"重新登录\" : \"核对并开始\";"
+    },
+    {
+     "line": 2057,
+     "fn": "renderItems@1997",
+     "code": "const pendingNow = !!(model.pending && !model.pending.done);"
+    },
+    {
+     "line": 2057,
+     "fn": "renderItems@1997",
+     "code": "const pendingNow = !!(model.pending && !model.pending.done);"
+    },
+    {
+     "line": 2123,
+     "fn": "renderBoard@2120",
+     "code": "const pendingNow = !!(model.pending && !model.pending.done);"
+    },
+    {
+     "line": 2123,
+     "fn": "renderBoard@2120",
+     "code": "const pendingNow = !!(model.pending && !model.pending.done);"
+    },
+    {
+     "line": 2131,
+     "fn": "renderBoard@2120",
+     "code": "board = PhoneModel.pendingBoard(model.pending, Date.now());"
+    },
+    {
+     "line": 2552,
+     "fn": "tickBoardLed@2549",
+     "code": "const pendingNow = !!(model.pending && !model.pending.done);"
+    },
+    {
+     "line": 2552,
+     "fn": "tickBoardLed@2549",
+     "code": "const pendingNow = !!(model.pending && !model.pending.done);"
+    },
+    {
+     "line": 2560,
+     "fn": "tickBoardLed@2549",
+     "code": "board = PhoneModel.pendingBoard(model.pending, Date.now());"
+    },
+    {
+     "line": 2712,
+     "fn": "ingest@2621",
+     "code": "if (model.pending && !model.pending.done) void reconcile();"
+    },
+    {
+     "line": 2712,
+     "fn": "ingest@2621",
+     "code": "if (model.pending && !model.pending.done) void reconcile();"
+    },
+    {
+     "line": 2720,
+     "fn": "startPlan@2716",
+     "code": "if (model.pending && PhoneModel.startPending(model.pending, Date.now())) {"
+    },
+    {
+     "line": 2720,
+     "fn": "startPlan@2716",
+     "code": "if (model.pending && PhoneModel.startPending(model.pending, Date.now())) {"
+    },
+    {
+     "line": 2723,
+     "fn": "startPlan@2716",
+     "code": "if (model.pending && !model.pending.done) {"
+    },
+    {
+     "line": 2723,
+     "fn": "startPlan@2716",
+     "code": "if (model.pending && !model.pending.done) {"
+    },
+    {
+     "line": 2750,
+     "fn": "reconcile@2748",
+     "code": "const pending = model.pending;"
+    },
+    {
+     "line": 2757,
+     "fn": "reconcile@2748",
+     "code": "if (model.pending !== pending || pending.request_id !== requestId || pending.done || pending.canceling) return;"
+    },
+    {
+     "line": 2780,
+     "fn": "cancelPendingStart@2777",
+     "code": "if (!model.pending || model.pending.done || model.cancelingStart) return false;"
+    },
+    {
+     "line": 2780,
+     "fn": "cancelPendingStart@2777",
+     "code": "if (!model.pending || model.pending.done || model.cancelingStart) return false;"
+    },
+    {
+     "line": 2781,
+     "fn": "cancelPendingStart@2777",
+     "code": "const pending = model.pending;"
+    },
+    {
+     "line": 3223,
+     "fn": "addEventListener›回调@3221",
+     "code": "&& !(model.pending && !model.pending.done)) openRelogin();"
+    },
+    {
+     "line": 3223,
+     "fn": "addEventListener›回调@3221",
+     "code": "&& !(model.pending && !model.pending.done)) openRelogin();"
+    }
+   ]
+  },
+  {
+   "name": "csrf",
+   "declaredAt": 1396,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2287,
+     "fn": "api@2275",
+     "form": "assign",
+     "sub": "",
+     "code": "if (fresh) model.csrf = fresh;"
+    },
+    {
+     "line": 2416,
+     "fn": "pair@2392",
+     "form": "assign",
+     "sub": "",
+     "code": "model.csrf = String(body.csrf || \"\");"
+    },
+    {
+     "line": 2433,
+     "fn": "poll@2431",
+     "form": "assign",
+     "sub": "",
+     "code": "if (!model.csrf) model.csrf = readCookie(\"campus_phone_csrf\"); // 刷新后沿用旧会话的写权限"
+    },
+    {
+     "line": 2484,
+     "fn": "onForbidden@2481",
+     "form": "assign",
+     "sub": "",
+     "code": "if (fresh) model.csrf = fresh;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2288,
+     "fn": "api@2275",
+     "code": "if (model.csrf) opts.headers[\"X-Campus-Csrf\"] = model.csrf;"
+    },
+    {
+     "line": 2288,
+     "fn": "api@2275",
+     "code": "if (model.csrf) opts.headers[\"X-Campus-Csrf\"] = model.csrf;"
+    },
+    {
+     "line": 2433,
+     "fn": "poll@2431",
+     "code": "if (!model.csrf) model.csrf = readCookie(\"campus_phone_csrf\"); // 刷新后沿用旧会话的写权限"
+    }
+   ]
+  },
+  {
+   "name": "pollTimer",
+   "declaredAt": 1396,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2470,
+     "fn": "onNeedPair@2466",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pollTimer = null;"
+    },
+    {
+     "line": 2494,
+     "fn": "schedule@2492",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pollTimer = null;"
+    },
+    {
+     "line": 2497,
+     "fn": "schedule@2492",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pollTimer = setTimeout(() => poll(false), PhoneModel.syncDelay(model));"
+    },
+    {
+     "line": 3325,
+     "fn": "addEventListener›回调@3322",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pollTimer = null;"
+    },
+    {
+     "line": 3335,
+     "fn": "addEventListener›回调@3333",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pollTimer = null;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2469,
+     "fn": "onNeedPair@2466",
+     "code": "if (model.pollTimer) clearTimeout(model.pollTimer);"
+    },
+    {
+     "line": 2469,
+     "fn": "onNeedPair@2466",
+     "code": "if (model.pollTimer) clearTimeout(model.pollTimer);"
+    },
+    {
+     "line": 2493,
+     "fn": "schedule@2492",
+     "code": "if (model.pollTimer) clearTimeout(model.pollTimer);"
+    },
+    {
+     "line": 2493,
+     "fn": "schedule@2492",
+     "code": "if (model.pollTimer) clearTimeout(model.pollTimer);"
+    },
+    {
+     "line": 3324,
+     "fn": "addEventListener›回调@3322",
+     "code": "if (model.pollTimer) clearTimeout(model.pollTimer);"
+    },
+    {
+     "line": 3324,
+     "fn": "addEventListener›回调@3322",
+     "code": "if (model.pollTimer) clearTimeout(model.pollTimer);"
+    },
+    {
+     "line": 3334,
+     "fn": "addEventListener›回调@3333",
+     "code": "if (model.pollTimer) clearTimeout(model.pollTimer);"
+    },
+    {
+     "line": 3334,
+     "fn": "addEventListener›回调@3333",
+     "code": "if (model.pollTimer) clearTimeout(model.pollTimer);"
+    }
+   ]
+  },
+  {
+   "name": "paired",
+   "declaredAt": 1398,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2417,
+     "fn": "pair@2392",
+     "form": "assign",
+     "sub": "",
+     "code": "model.paired = true;"
+    },
+    {
+     "line": 2443,
+     "fn": "poll@2431",
+     "form": "assign",
+     "sub": "",
+     "code": "model.paired = true;"
+    },
+    {
+     "line": 2468,
+     "fn": "onNeedPair@2466",
+     "form": "assign",
+     "sub": "",
+     "code": "model.paired = false;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2496,
+     "fn": "schedule@2492",
+     "code": "if (!model.paired || model.flying) return;"
+    },
+    {
+     "line": 2506,
+     "fn": "scheduleTick@2502",
+     "code": "if (!model.paired) return;"
+    },
+    {
+     "line": 2524,
+     "fn": "tickClock@2513",
+     "code": "if (model.paired) void poll(false);"
+    },
+    {
+     "line": 2611,
+     "fn": "tickRowLeft@2584",
+     "code": "if (crossed && model.paired) void poll(false);"
+    },
+    {
+     "line": 2801,
+     "fn": "cancelPendingStart@2777",
+     "code": "if (model.paired) void poll(true);"
+    },
+    {
+     "line": 3328,
+     "fn": "addEventListener›回调@3322",
+     "code": "} else if (model.paired) {"
+    },
+    {
+     "line": 3340,
+     "fn": "addEventListener›回调@3339",
+     "code": "if (!document.hidden && model.paired) void poll(false); // bfcache 恢复后按游标补齐"
+    }
+   ]
+  },
+  {
+   "name": "flying",
+   "declaredAt": 1398,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2434,
+     "fn": "poll@2431",
+     "form": "assign",
+     "sub": "",
+     "code": "model.flying = true;"
+    },
+    {
+     "line": 2453,
+     "fn": "poll@2431",
+     "form": "assign",
+     "sub": "",
+     "code": "model.flying = false;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1459,
+     "fn": "syncOffline@1442",
+     "code": "$(\"btn-offline-retry\").textContent = model.flying ? \"同步中…\" : \"重试\";"
+    },
+    {
+     "line": 1503,
+     "fn": "refreshControls@1500",
+     "code": "const conn = PhoneModel.connState(model, model.flying);"
+    },
+    {
+     "line": 1509,
+     "fn": "refreshControls@1500",
+     "code": "$(\"btn-refresh\").disabled = Boolean(model.flying);"
+    },
+    {
+     "line": 1763,
+     "fn": "renderBar@1719",
+     "code": ": (PhoneModel.connState(model, model.flying).state === \"off\"  // UI-F3：离线不冒充「已选 N 场，可开始」"
+    },
+    {
+     "line": 2128,
+     "fn": "renderBoard@2120",
+     "code": "PhoneModel.connState(model, model.flying).state === \"off\","
+    },
+    {
+     "line": 2432,
+     "fn": "poll@2431",
+     "code": "if (model.flying) return;                     // 单飞：在途不重发"
+    },
+    {
+     "line": 2496,
+     "fn": "schedule@2492",
+     "code": "if (!model.paired || model.flying) return;"
+    },
+    {
+     "line": 2558,
+     "fn": "tickBoardLed@2549",
+     "code": "PhoneModel.connState(model, model.flying).state === \"off\", model.lastOkText);"
+    }
+   ]
+  },
+  {
+   "name": "probed",
+   "declaredAt": 1398,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2617,
+     "fn": "probeExistingSession@2615",
+     "form": "assign",
+     "sub": "",
+     "code": "model.probed = true;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2616,
+     "fn": "probeExistingSession@2615",
+     "code": "if (model.probed) return;"
+    }
+   ]
+  },
+  {
+   "name": "bannerKind",
+   "declaredAt": 1398,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 1429,
+     "fn": "setBanner@1427",
+     "form": "assign",
+     "sub": "",
+     "code": "model.bannerKind = text ? String(kind || \"info\") : \"\";"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1432,
+     "fn": "setBanner@1427",
+     "code": "el.dataset.kind = model.bannerKind;"
+    },
+    {
+     "line": 1436,
+     "fn": "clearStaleBanner@1435",
+     "code": "if (model.bannerKind === \"stale_action\") setBanner(\"\", \"\");"
+    }
+   ]
+  },
+  {
+   "name": "whyId",
+   "declaredAt": 1400,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 411,
+     "fn": "toggleWhy@410",
+     "form": "assign",
+     "sub": "",
+     "code": "model.whyId = model.whyId === id ? \"\" : id;"
+    },
+    {
+     "line": 1968,
+     "fn": "goSigned@1967",
+     "form": "assign",
+     "sub": "",
+     "code": "model.whyId = \"\";"
+    }
+   ],
+   "reads": [
+    {
+     "line": 411,
+     "fn": "toggleWhy@410",
+     "code": "model.whyId = model.whyId === id ? \"\" : id;"
+    },
+    {
+     "line": 412,
+     "fn": "toggleWhy@410",
+     "code": "return model.whyId;"
+    },
+    {
+     "line": 1871,
+     "fn": "buildRow@1775",
+     "code": "if (model.whyId === row.id) {"
+    }
+   ]
+  },
+  {
+   "name": "flashId",
+   "declaredAt": 1400,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 1980,
+     "fn": "goSigned@1967",
+     "form": "assign",
+     "sub": "",
+     "code": "model.flashId = id;"
+    },
+    {
+     "line": 1984,
+     "fn": "setTimeout›回调@1984",
+     "form": "assign",
+     "sub": "",
+     "code": "setTimeout(() => { model.flashId = \"\"; if (row && row.classList) row.classList.remove(\"flash\"); }, 2000);"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1778,
+     "fn": "buildRow@1775",
+     "code": "+ (model.flashId === row.id ? \" flash\" : \"\");"
+    }
+   ]
+  },
+  {
+   "name": "clock",
+   "declaredAt": 1400,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 301,
+     "fn": "setClock@294",
+     "form": "assign",
+     "sub": "",
+     "code": "model.clock = ok ? { epochAtSampleS: epoch + (sampled - tick), monoAt: PhoneModel.mono(),"
+    },
+    {
+     "line": 2523,
+     "fn": "tickClock@2513",
+     "form": "assign",
+     "sub": "",
+     "code": "model.clock = null;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 305,
+     "fn": "businessNowS@304",
+     "code": "const c = model && model.clock;"
+    },
+    {
+     "line": 2522,
+     "fn": "tickClock@2513",
+     "code": "if (slept && model.clock) {"
+    },
+    {
+     "line": 2659,
+     "fn": "ingest@2621",
+     "code": "const sampled = model.clock ? model.clock.epochAtSampleS : null;"
+    },
+    {
+     "line": 2659,
+     "fn": "ingest@2621",
+     "code": "const sampled = model.clock ? model.clock.epochAtSampleS : null;"
+    }
+   ]
+  },
+  {
+   "name": "clockState",
+   "declaredAt": 1403,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2655,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "model.clockState = String(state.business_clock.state || \"\");"
+    }
+   ],
+   "reads": [
+    {
+     "line": 128,
+     "fn": "canStart@125",
+     "code": "if (model.clockState === \"unavailable\") return false;   // EX06：快照明说不可用才拦，syncing 由服务端拦"
+    },
+    {
+     "line": 129,
+     "fn": "canStart@125",
+     "code": "if ((model.clockState === \"ready\" || model.clockState === \"holdover\")"
+    },
+    {
+     "line": 129,
+     "fn": "canStart@125",
+     "code": "if ((model.clockState === \"ready\" || model.clockState === \"holdover\")"
+    },
+    {
+     "line": 442,
+     "fn": "preStartWarnings@440",
+     "code": "if (model && model.clockState === \"holdover\") list.push(\"北京时间在用上次的校准结果，电脑会自动重新校准。\");"
+    },
+    {
+     "line": 1471,
+     "fn": "renderAlerts@1465",
+     "code": "const clockDown = model.clockState === \"unavailable\";"
+    },
+    {
+     "line": 1761,
+     "fn": "renderBar@1719",
+     "code": ": (model.clockState === \"unavailable\"                   // EX06（Phone:865）"
+    }
+   ]
+  },
+  {
+   "name": "lastOkText",
+   "declaredAt": 1403,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2660,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "model.lastOkText = sampled !== null"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2129,
+     "fn": "renderBoard@2120",
+     "code": "model.lastOkText);   // EX01：离线档 capB「最后同步 HH:MM:SS」用同步成功时记下的北京时间"
+    },
+    {
+     "line": 2558,
+     "fn": "tickBoardLed@2549",
+     "code": "PhoneModel.connState(model, model.flying).state === \"off\", model.lastOkText);"
+    }
+   ]
+  },
+  {
+   "name": "pcListError",
+   "declaredAt": 1403,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2664,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pcListError = state.pc_list_error || null;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1470,
+     "fn": "renderAlerts@1465",
+     "code": "const pcList = !!model.pcListError;"
+    },
+    {
+     "line": 1481,
+     "fn": "renderAlerts@1465",
+     "code": "const when = String((model.pcListError || {}).at || \"\");"
+    },
+    {
+     "line": 1748,
+     "fn": "renderBar@1719",
+     "code": "} else if (model.pcListError) {"
+    }
+   ]
+  },
+  {
+   "name": "searchOpen",
+   "declaredAt": 1405,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2207,
+     "fn": "toggleSearch@2206",
+     "form": "assign",
+     "sub": "",
+     "code": "model.searchOpen = !model.searchOpen;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2060,
+     "fn": "renderItems@1997",
+     "code": "$(\"search-view\").hidden = !showList || !model.searchOpen;"
+    },
+    {
+     "line": 2207,
+     "fn": "toggleSearch@2206",
+     "code": "model.searchOpen = !model.searchOpen;"
+    },
+    {
+     "line": 2208,
+     "fn": "toggleSearch@2206",
+     "code": "$(\"search-view\").hidden = !model.searchOpen;"
+    },
+    {
+     "line": 2209,
+     "fn": "toggleSearch@2206",
+     "code": "$(\"btn-search\").setAttribute(\"aria-expanded\", model.searchOpen ? \"true\" : \"false\");"
+    },
+    {
+     "line": 2213,
+     "fn": "toggleSearch@2206",
+     "code": "if (model.searchOpen && $(\"search-q\").focus) $(\"search-q\").focus();"
+    }
+   ]
+  },
+  {
+   "name": "notice",
+   "declaredAt": 1405,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 1789,
+     "fn": "addEventListener›回调@1785",
+     "form": "assign",
+     "sub": "",
+     "code": "model.notice = res.notice;"
+    },
+    {
+     "line": 2645,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "if (model.selected.length !== before.length) model.notice = \"\";"
+    },
+    {
+     "line": 2731,
+     "fn": "startPlan@2716",
+     "form": "assign",
+     "sub": "",
+     "code": "model.notice = \"\";      // 原型 startState 会清掉勾选冲突提示（Phone.dc.html:540），计划已发出不再适用"
+    },
+    {
+     "line": 2865,
+     "fn": "reselectFailed@2850",
+     "form": "assign",
+     "sub": "",
+     "code": "model.notice = \"\";"
+    },
+    {
+     "line": 2875,
+     "fn": "finishPlanView@2870",
+     "form": "assign",
+     "sub": "",
+     "code": "model.notice = \"\";"
+    },
+    {
+     "line": 2952,
+     "fn": "removeFromReview@2949",
+     "form": "assign",
+     "sub": "",
+     "code": "model.notice = \"\";"
+    },
+    {
+     "line": 3292,
+     "fn": "addEventListener›回调@3288",
+     "form": "assign",
+     "sub": "",
+     "code": "model.notice = res.notice;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2089,
+     "fn": "renderItems@1997",
+     "code": "notice.textContent = model.notice || \"\";"
+    },
+    {
+     "line": 2090,
+     "fn": "renderItems@1997",
+     "code": "notice.hidden = !showList || !model.notice;"
+    }
+   ]
+  },
+  {
+   "name": "pickId",
+   "declaredAt": 1405,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2164,
+     "fn": "renderBoard@2120",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pickId = \"\";"
+    },
+    {
+     "line": 2182,
+     "fn": "renderBoard@2120",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pickId = board.pickId || \"\";"
+    }
+   ],
+   "reads": [
+    {
+     "line": 3289,
+     "fn": "addEventListener›回调@3288",
+     "code": "if (!model.pickId) return;"
+    },
+    {
+     "line": 3290,
+     "fn": "addEventListener›回调@3288",
+     "code": "const res = PhoneModel.pickItem(model.selected, model.items, model.pickId, true);"
+    }
+   ]
+  },
+  {
+   "name": "sheetId",
+   "declaredAt": 1407,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 1565,
+     "fn": "openSheet@1561",
+     "form": "assign",
+     "sub": "",
+     "code": "model.sheetId = id;"
+    },
+    {
+     "line": 1586,
+     "fn": "closeSheet@1579",
+     "form": "assign",
+     "sub": "",
+     "code": "model.sheetId = \"\";"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1543,
+     "fn": "refreshControls@1500",
+     "code": "if (model.sheetId) $(\"btn-sheet-close\").hidden = sheetBusy();"
+    },
+    {
+     "line": 1563,
+     "fn": "openSheet@1561",
+     "code": "if (!root || !SHEET_TITLES[id] || model.sheetId) return;   // 一次只开一张"
+    },
+    {
+     "line": 1581,
+     "fn": "closeSheet@1579",
+     "code": "if (!root || !model.sheetId) return;"
+    },
+    {
+     "line": 1609,
+     "fn": "showSheetError@1608",
+     "code": "if (!model.sheetId) return;"
+    },
+    {
+     "line": 1660,
+     "fn": "openRelogin@1656",
+     "code": "if (model.sheetId === \"relogin\") return;"
+    },
+    {
+     "line": 1661,
+     "fn": "openRelogin@1656",
+     "code": "if (model.sheetId) closeSheet(true);"
+    },
+    {
+     "line": 1680,
+     "fn": "askConfirm@1678",
+     "code": "if (!view || model.sheetId) return;"
+    }
+   ]
+  },
+  {
+   "name": "sheetOpener",
+   "declaredAt": 1407,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 1564,
+     "fn": "openSheet@1561",
+     "form": "assign",
+     "sub": "",
+     "code": "model.sheetOpener = document.activeElement || null;"
+    },
+    {
+     "line": 1604,
+     "fn": "closeSheet@1579",
+     "form": "assign",
+     "sub": "",
+     "code": "model.sheetOpener = null;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1603,
+     "fn": "closeSheet@1579",
+     "code": "const opener = model.sheetOpener;"
+    }
+   ]
+  },
+  {
+   "name": "listOpen",
+   "declaredAt": 1409,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2732,
+     "fn": "startPlan@2716",
+     "form": "assign",
+     "sub": "",
+     "code": "model.listOpen = false; // 原型 startState listOpen:false：计划一开始就收起活动列表（RW01）"
+    },
+    {
+     "line": 2864,
+     "fn": "reselectFailed@2850",
+     "form": "assign",
+     "sub": "",
+     "code": "model.listOpen = false;"
+    },
+    {
+     "line": 2874,
+     "fn": "finishPlanView@2870",
+     "form": "assign",
+     "sub": "",
+     "code": "model.listOpen = false;"
+    },
+    {
+     "line": 3249,
+     "fn": "addEventListener›回调@3248",
+     "form": "assign",
+     "sub": "",
+     "code": "model.listOpen = !model.listOpen;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2058,
+     "fn": "renderItems@1997",
+     "code": "const showList = model.listOpen || (!model.busy && !pendingNow);"
+    },
+    {
+     "line": 2063,
+     "fn": "renderItems@1997",
+     "code": "toggle.setAttribute(\"aria-expanded\", model.listOpen ? \"true\" : \"false\");"
+    },
+    {
+     "line": 2064,
+     "fn": "renderItems@1997",
+     "code": "toggle.textContent = model.listOpen ? \"收起活动列表\" : \"查看活动列表\";"
+    },
+    {
+     "line": 3249,
+     "fn": "addEventListener›回调@3248",
+     "code": "model.listOpen = !model.listOpen;"
+    }
+   ]
+  },
+  {
+   "name": "confirm",
+   "declaredAt": 1411,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 1601,
+     "fn": "closeSheet@1579",
+     "form": "assign",
+     "sub": "",
+     "code": "model.confirm = null;                   // RW03：确认档随 sheet 收起"
+    },
+    {
+     "line": 1681,
+     "fn": "askConfirm@1678",
+     "form": "assign",
+     "sub": "",
+     "code": "model.confirm = { kind: kind, taskId: taskId };"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1691,
+     "fn": "onConfirmYes@1690",
+     "code": "const slot = model.confirm;"
+    }
+   ]
+  },
+  {
+   "name": "relConfirm",
+   "declaredAt": 1414,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 1602,
+     "fn": "closeSheet@1579",
+     "form": "assign",
+     "sub": "",
+     "code": "model.relConfirm = false;               // RL06：确认层是开 sheet 那一次的事"
+    },
+    {
+     "line": 1666,
+     "fn": "openRelogin@1656",
+     "form": "assign",
+     "sub": "",
+     "code": "model.relConfirm = !liveFlow && !setup.paused && !!setup.saved && !!setup.ocr_ready;"
+    },
+    {
+     "line": 3067,
+     "fn": "beginRelogin@3061",
+     "form": "assign",
+     "sub": "",
+     "code": "model.relConfirm = false;"
+    },
+    {
+     "line": 3262,
+     "fn": "addEventListener›回调@3261",
+     "form": "assign",
+     "sub": "",
+     "code": "model.relConfirm = false;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1620,
+     "fn": "renderRelogin@1618",
+     "code": "confirm: model.relConfirm,"
+    }
+   ]
+  },
+  {
+   "name": "relEnteredAcct",
+   "declaredAt": 1414,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 3068,
+     "fn": "beginRelogin@3061",
+     "form": "assign",
+     "sub": "",
+     "code": "model.relEnteredAcct = false;"
+    },
+    {
+     "line": 3087,
+     "fn": "beginRelogin@3061",
+     "form": "assign",
+     "sub": "",
+     "code": "model.relEnteredAcct = true;       // RL08 附言：这一轮输过账号"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1623,
+     "fn": "renderRelogin@1618",
+     "code": "entered: model.relEnteredAcct,"
+    }
+   ]
+  },
+  {
+   "name": "relSavedChoice",
+   "declaredAt": 1414,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 3069,
+     "fn": "beginRelogin@3061",
+     "form": "assign",
+     "sub": "",
+     "code": "model.relSavedChoice = false;"
+    },
+    {
+     "line": 3088,
+     "fn": "beginRelogin@3061",
+     "form": "assign",
+     "sub": "",
+     "code": "model.relSavedChoice = args.save;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1624,
+     "fn": "renderRelogin@1618",
+     "code": "savedChoice: model.relSavedChoice,"
+    }
+   ]
+  },
+  {
+   "name": "pairLockLeft",
+   "declaredAt": 1418,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2358,
+     "fn": "beginPairLock@2356",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairLockLeft = Math.max(0, Math.floor(Number(seconds) || 0));"
+    },
+    {
+     "line": 2364,
+     "fn": "setTimeout›回调@2362",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairLockLeft = PhoneModel.pairTickLeft(model.pairLockLeft);"
+    },
+    {
+     "line": 2373,
+     "fn": "stopPairLock@2370",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairLockLeft = 0;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2330,
+     "fn": "renderPair@2328",
+     "code": "model.pairLockLeft, model.pairErr);"
+    },
+    {
+     "line": 2359,
+     "fn": "beginPairLock@2356",
+     "code": "if (model.pairLockLeft > 0) schedulePairTick();"
+    },
+    {
+     "line": 2364,
+     "fn": "setTimeout›回调@2362",
+     "code": "model.pairLockLeft = PhoneModel.pairTickLeft(model.pairLockLeft);"
+    },
+    {
+     "line": 2365,
+     "fn": "setTimeout›回调@2362",
+     "code": "if (model.pairLockLeft > 0) schedulePairTick();"
+    }
+   ]
+  },
+  {
+   "name": "pairErr",
+   "declaredAt": 1418,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2351,
+     "fn": "setPairError@2350",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairErr = String(text || \"\");"
+    },
+    {
+     "line": 2366,
+     "fn": "setTimeout›回调@2362",
+     "form": "assign",
+     "sub": "",
+     "code": "else model.pairErr = \"\";   // UI-F6（原型 lockLeft 归零清 pairErr）：解锁即收回旧错误条"
+    },
+    {
+     "line": 2397,
+     "fn": "pair@2392",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairErr = \"\";"
+    },
+    {
+     "line": 2420,
+     "fn": "pair@2392",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairErr = \"\";"
+    },
+    {
+     "line": 3192,
+     "fn": "addEventListener›回调@3188",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairErr = \"\";"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2330,
+     "fn": "renderPair@2328",
+     "code": "model.pairLockLeft, model.pairErr);"
+    }
+   ]
+  },
+  {
+   "name": "pairTickTimer",
+   "declaredAt": 1418,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2362,
+     "fn": "schedulePairTick@2361",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairTickTimer = setTimeout(() => {"
+    },
+    {
+     "line": 2363,
+     "fn": "setTimeout›回调@2362",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairTickTimer = 0;"
+    },
+    {
+     "line": 2372,
+     "fn": "stopPairLock@2370",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairTickTimer = 0;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2371,
+     "fn": "stopPairLock@2370",
+     "code": "if (model.pairTickTimer) clearTimeout(model.pairTickTimer);"
+    },
+    {
+     "line": 2371,
+     "fn": "stopPairLock@2370",
+     "code": "if (model.pairTickTimer) clearTimeout(model.pairTickTimer);"
+    }
+   ]
+  },
+  {
+   "name": "pairing",
+   "declaredAt": 1418,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2401,
+     "fn": "pair@2392",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairing = true;"
+    },
+    {
+     "line": 2426,
+     "fn": "pair@2392",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairing = false;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2395,
+     "fn": "pair@2392",
+     "code": "if (model.pairing) return;"
+    }
+   ]
+  },
+  {
+   "name": "pairOkPending",
+   "declaredAt": 1418,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2418,
+     "fn": "pair@2392",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairOkPending = true;   // UI-F13（原型 Phone:630/857）：配对成功给「已连接电脑」告警"
+    },
+    {
+     "line": 3204,
+     "fn": "addEventListener›回调@3203",
+     "form": "assign",
+     "sub": "",
+     "code": "model.pairOkPending = false;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1493,
+     "fn": "renderAlerts@1465",
+     "code": "&& model.pairOkPending);"
+    }
+   ]
+  },
+  {
+   "name": "dismissedPlanId",
+   "declaredAt": 1421,
+   "dynamic": false,
+   "writes": [
+    {
+     "line": 2852,
+     "fn": "reselectFailed@2850",
+     "form": "assign",
+     "sub": "",
+     "code": "model.dismissedPlanId = String((model.plan && model.plan.plan_id) || \"\");"
+    },
+    {
+     "line": 2871,
+     "fn": "finishPlanView@2870",
+     "form": "assign",
+     "sub": "",
+     "code": "model.dismissedPlanId = String((model.plan && model.plan.plan_id) || \"\");"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2649,
+     "fn": "ingest@2621",
+     "code": "if (state.plan && String(state.plan.plan_id || \"\") !== model.dismissedPlanId) {"
+    }
+   ]
+  },
+  {
+   "name": "tickTimer",
+   "declaredAt": null,
+   "dynamic": true,
+   "writes": [
+    {
+     "line": 2472,
+     "fn": "onNeedPair@2466",
+     "form": "assign",
+     "sub": "",
+     "code": "model.tickTimer = null;"
+    },
+    {
+     "line": 2504,
+     "fn": "scheduleTick@2502",
+     "form": "assign",
+     "sub": "",
+     "code": "model.tickTimer = null;"
+    },
+    {
+     "line": 2507,
+     "fn": "scheduleTick@2502",
+     "form": "assign",
+     "sub": "",
+     "code": "model.tickTimer = setTimeout(() => {"
+    },
+    {
+     "line": 2508,
+     "fn": "setTimeout›回调@2507",
+     "form": "assign",
+     "sub": "",
+     "code": "model.tickTimer = null;"
+    },
+    {
+     "line": 3327,
+     "fn": "addEventListener›回调@3322",
+     "form": "assign",
+     "sub": "",
+     "code": "model.tickTimer = null;"
+    },
+    {
+     "line": 3337,
+     "fn": "addEventListener›回调@3333",
+     "form": "assign",
+     "sub": "",
+     "code": "model.tickTimer = null;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2471,
+     "fn": "onNeedPair@2466",
+     "code": "if (model.tickTimer) clearTimeout(model.tickTimer);"
+    },
+    {
+     "line": 2471,
+     "fn": "onNeedPair@2466",
+     "code": "if (model.tickTimer) clearTimeout(model.tickTimer);"
+    },
+    {
+     "line": 2503,
+     "fn": "scheduleTick@2502",
+     "code": "if (model.tickTimer) clearTimeout(model.tickTimer);"
+    },
+    {
+     "line": 2503,
+     "fn": "scheduleTick@2502",
+     "code": "if (model.tickTimer) clearTimeout(model.tickTimer);"
+    },
+    {
+     "line": 3326,
+     "fn": "addEventListener›回调@3322",
+     "code": "if (model.tickTimer) clearTimeout(model.tickTimer);   // P1：后台停表"
+    },
+    {
+     "line": 3326,
+     "fn": "addEventListener›回调@3322",
+     "code": "if (model.tickTimer) clearTimeout(model.tickTimer);   // P1：后台停表"
+    },
+    {
+     "line": 3336,
+     "fn": "addEventListener›回调@3333",
+     "code": "if (model.tickTimer) clearTimeout(model.tickTimer);"
+    },
+    {
+     "line": 3336,
+     "fn": "addEventListener›回调@3333",
+     "code": "if (model.tickTimer) clearTimeout(model.tickTimer);"
+    }
+   ]
+  },
+  {
+   "name": "tickMark",
+   "declaredAt": null,
+   "dynamic": true,
+   "writes": [
+    {
+     "line": 2521,
+     "fn": "tickClock@2513",
+     "form": "assign",
+     "sub": "",
+     "code": "model.tickMark = { wall: wallMs, mono: monoMs };"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2520,
+     "fn": "tickClock@2513",
+     "code": "const slept = PhoneModel.sleepJumped(model.tickMark, wallMs, monoMs);"
+    }
+   ]
+  },
+  {
+   "name": "plan",
+   "declaredAt": null,
+   "dynamic": true,
+   "writes": [
+    {
+     "line": 2650,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "model.plan = state.plan;"
+    },
+    {
+     "line": 2853,
+     "fn": "reselectFailed@2850",
+     "form": "assign",
+     "sub": "",
+     "code": "model.plan = null;"
+    },
+    {
+     "line": 2872,
+     "fn": "finishPlanView@2870",
+     "form": "assign",
+     "sub": "",
+     "code": "model.plan = null;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1723,
+     "fn": "renderBar@1719",
+     "code": "const result = PhoneModel.resultView(model.plan, model.busy);"
+    },
+    {
+     "line": 1740,
+     "fn": "renderBar@1719",
+     "code": "const fromPhone = model.plan && String(model.plan.source || \"\") === \"phone\""
+    },
+    {
+     "line": 1740,
+     "fn": "renderBar@1719",
+     "code": "const fromPhone = model.plan && String(model.plan.source || \"\") === \"phone\""
+    },
+    {
+     "line": 2001,
+     "fn": "renderItems@1997",
+     "code": "const result = PhoneModel.resultView(model.plan, model.busy);"
+    },
+    {
+     "line": 2124,
+     "fn": "renderBoard@2120",
+     "code": "const result = PhoneModel.resultView(model.plan, model.busy);"
+    },
+    {
+     "line": 2127,
+     "fn": "renderBoard@2120",
+     "code": "board = PhoneModel.runBoard(model.plan, PhoneModel.businessNowS(model),"
+    },
+    {
+     "line": 2233,
+     "fn": "renderTasks@2230",
+     "code": "const tasks = (model.plan && model.plan.tasks) || [];"
+    },
+    {
+     "line": 2233,
+     "fn": "renderTasks@2230",
+     "code": "const tasks = (model.plan && model.plan.tasks) || [];"
+    },
+    {
+     "line": 2236,
+     "fn": "renderTasks@2230",
+     "code": "box.hidden = !(model.busy || PhoneModel.resultView(model.plan, model.busy)) || !tasks.length;"
+    },
+    {
+     "line": 2553,
+     "fn": "tickBoardLed@2549",
+     "code": "const result = PhoneModel.resultView(model.plan, model.busy);"
+    },
+    {
+     "line": 2557,
+     "fn": "tickBoardLed@2549",
+     "code": "board = PhoneModel.runBoard(model.plan, nowS,"
+    },
+    {
+     "line": 2807,
+     "fn": "stopPlan@2804",
+     "code": "const planId = model.plan && model.plan.plan_id;"
+    },
+    {
+     "line": 2807,
+     "fn": "stopPlan@2804",
+     "code": "const planId = model.plan && model.plan.plan_id;"
+    },
+    {
+     "line": 2832,
+     "fn": "cancelTask@2831",
+     "code": "const planId = model.plan && model.plan.plan_id;"
+    },
+    {
+     "line": 2832,
+     "fn": "cancelTask@2831",
+     "code": "const planId = model.plan && model.plan.plan_id;"
+    },
+    {
+     "line": 2833,
+     "fn": "cancelTask@2831",
+     "code": "const task = ((model.plan && model.plan.tasks) || [])"
+    },
+    {
+     "line": 2833,
+     "fn": "cancelTask@2831",
+     "code": "const task = ((model.plan && model.plan.tasks) || [])"
+    },
+    {
+     "line": 2851,
+     "fn": "reselectFailed@2850",
+     "code": "const tasks = (model.plan && model.plan.tasks) || [];"
+    },
+    {
+     "line": 2851,
+     "fn": "reselectFailed@2850",
+     "code": "const tasks = (model.plan && model.plan.tasks) || [];"
+    },
+    {
+     "line": 2852,
+     "fn": "reselectFailed@2850",
+     "code": "model.dismissedPlanId = String((model.plan && model.plan.plan_id) || \"\");"
+    },
+    {
+     "line": 2852,
+     "fn": "reselectFailed@2850",
+     "code": "model.dismissedPlanId = String((model.plan && model.plan.plan_id) || \"\");"
+    },
+    {
+     "line": 2871,
+     "fn": "finishPlanView@2870",
+     "code": "model.dismissedPlanId = String((model.plan && model.plan.plan_id) || \"\");"
+    },
+    {
+     "line": 2871,
+     "fn": "finishPlanView@2870",
+     "code": "model.dismissedPlanId = String((model.plan && model.plan.plan_id) || \"\");"
+    }
+   ]
+  },
+  {
+   "name": "termsOk",
+   "declaredAt": null,
+   "dynamic": true,
+   "writes": [
+    {
+     "line": 2652,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "if (typeof state.terms_ok === \"boolean\") model.termsOk = state.terms_ok;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 1468,
+     "fn": "renderAlerts@1465",
+     "code": "const terms = model.termsOk === false;"
+    },
+    {
+     "line": 1511,
+     "fn": "refreshControls@1500",
+     "code": "$(\"btn-start\").disabled = !PhoneModel.canStart(model) || model.termsOk === false;"
+    },
+    {
+     "line": 1518,
+     "fn": "refreshControls@1500",
+     "code": "$(\"btn-relogin\").disabled = Boolean(model.reloginStarting) || model.termsOk === false"
+    },
+    {
+     "line": 1525,
+     "fn": "refreshControls@1500",
+     "code": "$(\"btn-relogin-auto\").disabled = model.termsOk === false;"
+    },
+    {
+     "line": 1526,
+     "fn": "refreshControls@1500",
+     "code": "$(\"btn-relogin-open\").disabled = Boolean(model.reloginStarting) || model.termsOk === false;"
+    },
+    {
+     "line": 1757,
+     "fn": "renderBar@1719",
+     "code": "sub.textContent = model.termsOk === false"
+    },
+    {
+     "line": 2004,
+     "fn": "renderItems@1997",
+     "code": "selected: model.selected, busy: model.busy, termsOk: model.termsOk,"
+    },
+    {
+     "line": 2081,
+     "fn": "forEach›回调@2078",
+     "code": "nextPreId: \"\", termsOk: model.termsOk }));"
+    },
+    {
+     "line": 2135,
+     "fn": "renderBoard@2120",
+     "code": "} else if (model.termsOk === false) {"
+    },
+    {
+     "line": 2543,
+     "fn": "tickClock@2513",
+     "code": "selected: model.selected, busy: model.busy, termsOk: model.termsOk,"
+    },
+    {
+     "line": 2561,
+     "fn": "tickBoardLed@2549",
+     "code": "} else if (model.termsOk === false) {"
+    }
+   ]
+  },
+  {
+   "name": "reloginSetup",
+   "declaredAt": null,
+   "dynamic": true,
+   "writes": [
+    {
+     "line": 2653,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "if (state.relogin_setup && typeof state.relogin_setup === \"object\") model.reloginSetup = state.relogin_setup;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 443,
+     "fn": "preStartWarnings@440",
+     "code": "const setup = (model && model.reloginSetup) || {};"
+    },
+    {
+     "line": 1520,
+     "fn": "refreshControls@1500",
+     "code": "needAcct: model.reloginSetup"
+    },
+    {
+     "line": 1521,
+     "fn": "refreshControls@1500",
+     "code": "? PhoneModel.relNeedAcct(model.flow, model.reloginSetup) : false,"
+    },
+    {
+     "line": 1529,
+     "fn": "refreshControls@1500",
+     "code": "const setup = model.reloginSetup || null;"
+    },
+    {
+     "line": 1541,
+     "fn": "refreshControls@1500",
+     "code": "$(\"login-line\").textContent = PhoneModel.loginLine(model.login, model.reloginSetup, model.flow || null);"
+    },
+    {
+     "line": 1619,
+     "fn": "renderRelogin@1618",
+     "code": "const view = PhoneModel.reloginView(model.flow, model.reloginSetup, {"
+    },
+    {
+     "line": 1665,
+     "fn": "openRelogin@1656",
+     "code": "const setup = model.reloginSetup || {};"
+    }
+   ]
+  },
+  {
+   "name": "retryOptions",
+   "declaredAt": null,
+   "dynamic": true,
+   "writes": [
+    {
+     "line": 2675,
+     "fn": "ingest@2621",
+     "form": "assign",
+     "sub": "",
+     "code": "model.retryOptions = state.retry_options;"
+    }
+   ],
+   "reads": []
+  },
+  {
+   "name": "reconciling",
+   "declaredAt": null,
+   "dynamic": true,
+   "writes": [
+    {
+     "line": 2753,
+     "fn": "reconcile@2748",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reconciling = true;"
+    },
+    {
+     "line": 2773,
+     "fn": "reconcile@2748",
+     "form": "assign",
+     "sub": "",
+     "code": "model.reconciling = false;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2749,
+     "fn": "reconcile@2748",
+     "code": "if (model.reconciling) return;"
+    }
+   ]
+  },
+  {
+   "name": "cancelingStart",
+   "declaredAt": null,
+   "dynamic": true,
+   "writes": [
+    {
+     "line": 2783,
+     "fn": "cancelPendingStart@2777",
+     "form": "assign",
+     "sub": "",
+     "code": "model.cancelingStart = true;"
+    },
+    {
+     "line": 2798,
+     "fn": "cancelPendingStart@2777",
+     "form": "assign",
+     "sub": "",
+     "code": "model.cancelingStart = false;"
+    }
+   ],
+   "reads": [
+    {
+     "line": 2780,
+     "fn": "cancelPendingStart@2777",
+     "code": "if (!model.pending || model.pending.done || model.cancelingStart) return false;"
+    }
+   ]
+  }
+ ]
+}

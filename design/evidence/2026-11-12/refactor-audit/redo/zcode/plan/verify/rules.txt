@@ -1,0 +1,3 @@
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/rules.cites.jsonl: 共 106 条，失败 0 ==
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/rules.md（配对 design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/rules.cites.jsonl）: 引用 273 处，缺失 id 0，未被引用条目 0 ==
+---- 合计: 106 条，失败 0 ----

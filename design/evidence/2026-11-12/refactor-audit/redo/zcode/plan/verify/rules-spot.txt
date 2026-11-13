@@ -1,0 +1,104 @@
+======== r-027 local/domain/signup_reply.py 33 43 事实
+claim: 后端把学校回包按关键短语归 kind 并给界面短结论 label。
+excerpt: PHRASE_TABLE = (\n    ("not_open", "报名未开始", "报名还没开始"),       # 实测 §28：开放前 1 秒回 code=500「报名未开始！」\n    ("full", "报名人数已满", 
+   33| PHRASE_TABLE = (
+   34|     ("not_open", "报名未开始", "报名还没开始"),       # 实测 §28：开放前 1 秒回 code=500「报名未开始！」
+   35|     ("full", "报名人数已满", "名额已满"),             # 实测 §14、§35、§40：code=500「报名人数已满」
+   36|     ("conflict", "时间冲突", "时间冲突"),             # 实测 §28：报上后再发回 code=500「活动时间与已参与活动时间冲突」
+   37|     ("closed", "报名已结束", "报名已截止"),           # 签名材料 §5：已截止活动回 code=500「报名已结束！」
+   38|     ("version", "版本不兼容", "版本不兼容"),          # 签名材料 §5：hash 解不开回 code=0「版本不兼容……」
+   39|     ("stale_ts", "请求已超时", "请求已超时，本机时钟可能不准"),  # 签名材料 §5：时间戳超出约 60 秒回 code=0
+   40|     # 签名材料 §5：活动 ID 查不到回 code=0「Cache 'hd-info' ……」；成因未完全证实，
+   41|     # worker 在直发时先退回点击核实，点击上也这样才按「活动不存在」结束
+   42|     ("no_activity", "hd-info", "活动不存在"),
+   43| )
+======== r-065 local/ui/m/app.js 506 510 事实
+claim: 手机时刻与倒计时只用 businessNowS；分组日历日时钟不可用时可退墙钟但不产生倒计时。
+excerpt:   /* ---------------- 列表与详情（计划 20261108-phone-1to1 任务 list-detail；G05 G07 G08 G09 LD01–LD04） ----------------\n   * 开放状态
+  506|   /* ---------------- 列表与详情（计划 20261108-phone-1to1 任务 list-detail；G05 G07 G08 G09 LD01–LD04） ----------------
+  507|    * 开放状态、分组、距开放、段钮计数全部在前端聚合（原型 renderVals 的 groups/count 段，
+  508|    * Phone.dc.html:704-765/931），渲染函数只做 DOM。时刻与倒计时只用 businessNowS，
+  509|    * 不读手机墙钟（决策 012）；分组的日历日在时钟不可用时退回手机墙钟——只影响归组，
+  510|    * 不产生任何倒计时。 */
+======== r-081 local/ui/state/filters.js 222 231 事实
+claim: 桌面在已报名活动缺举办时段时保守阻止计划，不静默放行。
+excerpt:   /* 已报名活动缺少举办时段时无法判定冲突：保守阻止，不静默放行 */\n  if (items.length) {\n    const unknown = signedItems.filter((item) => !toTs(ite
+  222|   /* 已报名活动缺少举办时段时无法判定冲突：保守阻止，不静默放行 */
+  223|   if (items.length) {
+  224|     const unknown = signedItems.filter((item) => !toTs(item.act_start) || !toTs(item.act_end));
+  225|     if (unknown.length) {
+  226|       const names = unknown.slice(0, 3).map((item) => "「" + item.name + "」").join("、");
+  227|       errors.push({ title: "已报名活动时间待确认",
+  228|                     text: names + (unknown.length > 3 ? " 等 " + unknown.length + " 场" : "")
+  229|                       + "缺少举办时间，无法确认是否与本次选择冲突。" });
+  230|     }
+  231|   }
+======== r-049 local/ui/m/app.js 574 584 事实
+claim: 手机段钮「可报名」= open/pre 两态。
+excerpt:   /* G08 段钮可见集（原型 visible 过滤的 seg 分支，Phone.dc.html:721-722）：\n   * 「可报名」= 开放状态 open/pre，与段钮计数同一口径；关键词与时间档沿用 filterItems 
+  574|   /* G08 段钮可见集（原型 visible 过滤的 seg 分支，Phone.dc.html:721-722）：
+  575|    * 「可报名」= 开放状态 open/pre，与段钮计数同一口径；关键词与时间档沿用 filterItems */
+  576|   visibleItems(items, filter, nowS) {
+  577|     const status = (filter && filter.status) || "all";
+  578|     return PhoneModel.filterItems(items, { q: filter && filter.q, time: filter && filter.time, status: "all" }, nowS)
+  579|       .filter((item) => {
+  580|         const st = PhoneModel.stOf(item, nowS);
+  581|         if (status === "free") return st === "open" || st === "pre";
+  582|         if (status === "signed") return st === "signed";
+  583|         return true;
+  584|       });
+======== r-032 local/ui/state/task-display.js 56 66 事实
+claim: 桌面失败任务标签分派：核对确认→报名成功、错过→错过了、unconfirmed→待核对、auth_unavailable→未提交、full→名额已满。
+excerpt:   if (state === "failed") {\n    /* 刷新核对确认过已报名：照原型 card.verify 改成「报名成功」（先判它，否则会被「待核对」截走） */\n    if (typeof verifiedSign
+   56|   if (state === "failed") {
+   57|     /* 刷新核对确认过已报名：照原型 card.verify 改成「报名成功」（先判它，否则会被「待核对」截走） */
+   58|     if (typeof verifiedSigned === "function" && verifiedSigned(task)) return "报名成功";
+   59|     /* 电脑睡眠盖住了开放时刻、一次都没提交（LS22 / PB15）：原型动词「错过了」 */
+   60|     if (typeof taskMissedBySleep === "function" && taskMissedBySleep(task)) return taskLabel("missed");
+   61|     /* 结果没确认 / 登录状态未知都不是「失败」：标签必须留出核对空间（「未提交」是代码独有） */
+   62|     if (task.stop_reason === "unconfirmed") return "待核对";
+   63|     if (task.stop_reason === "auth_unavailable") return "未提交";
+   64|     /* 名额已满是学校给的结束结论，不是工具失败（架构方案 3.3） */
+   65|     if (task.stop_reason === "full") return "名额已满";
+   66|   }
+======== r-015 local/ui/state/labels.js 19 19 事实
+claim: 桌面模式标签文案：预报名/立即报名/已截止。
+excerpt:   return { pre_register: "预报名", instant_signup: "立即报名", closed: "已截止" }[mode] || "";
+   19|   return { pre_register: "预报名", instant_signup: "立即报名", closed: "已截止" }[mode] || "";
+======== r-077 local/ui/m/app.js 2941 2944 事实
+claim: 手机核对 sheet 渲染开始前提醒，主钮文案随提醒切换为「仍然开始报名计划」。
+excerpt:     const warns = PhoneModel.preStartWarnings(model, picked);\n    $("review-warns").innerHTML = warns.map((text) => "<l
+ 2941|     const warns = PhoneModel.preStartWarnings(model, picked);
+ 2942|     $("review-warns").innerHTML = warns.map((text) => "<li>" + PhoneModel.escape(text) + "</li>").join("");
+ 2943|     $("review-warns").hidden = !warns.length;   // 原型 hasPreWarn：没有提醒整块不出
+ 2944|     $("btn-review-start").textContent = warns.length ? "仍然开始报名计划" : "开始报名计划";
+======== r-056 local/time_contract.py 7 11 事实
+claim: 后端时间契约：学校时间永远按 UTC+8 解释、非法日历日期一律不可用。
+excerpt: 1. **学校时间**永远按 UTC+8 解释。学校接口给的是不带时区的\n   ``YYYY-MM-DD HH:MM:SS``，把它交给 ``datetime.timestamp()`` 会按本机时区\n   折算——同一串 "2026-
+    7| 1. **学校时间**永远按 UTC+8 解释。学校接口给的是不带时区的
+    8|    ``YYYY-MM-DD HH:MM:SS``，把它交给 ``datetime.timestamp()`` 会按本机时区
+    9|    折算——同一串 "2026-10-26 20:00:00" 在 UTC 机器上会差 8 小时。这里显式
+   10|    挂上 :data:`SCHOOL_TZ`，并把非法日历日期（2 月 30 日、13 月、24:01）
+   11|    一律判为不可用，绝不悄悄滚到别的日期。
+======== r-046 local/ui/m/app.js 559 572 事实
+claim: 手机分组键：已报名/正在开放/已截止/待公布加今天/明天/后天/更晚开放（按北京时间日历日）。
+excerpt:   /* G07 分组（原型 groups 构建的组名序，Phone.dc.html:728-731）：今天/明天/后天按\n   * openEpochOf 的北京时间日历日（dayOf 即 UTC+8 日序）与业务此刻比对；原型只演示到
+  559|   /* G07 分组（原型 groups 构建的组名序，Phone.dc.html:728-731）：今天/明天/后天按
+  560|    * openEpochOf 的北京时间日历日（dayOf 即 UTC+8 日序）与业务此刻比对；原型只演示到后天，
+  561|    * 真实列表有更晚的场次，归入「更晚开放」（沿用既有空态句的措辞），不丢行 */
+  562|   groupKeyOf(item, st, nowS, wallS) {
+  563|     if (st === "signed") return "已报名";
+  564|     if (st === "open") return "正在开放";
+  565|     if (st === "closed") return "已截止";
+  566|     if (st === "unknown") return "待公布";
+  567|     const base = nowS !== null && nowS !== undefined ? nowS : wallS;
+  568|     const diff = PhoneModel.dayOf(PhoneModel.openEpochOf(item)) - PhoneModel.dayOf(base);
+  569|     if (diff === 1) return "明天";
+  570|     if (diff === 2) return "后天";
+  571|     if (diff >= 3) return "更晚开放";
+  572|     return "今天";   // diff <= 0：开放日就是今天或已过（只在时钟不可用时出现）
+======== r-023 local/ui/state/filters.js 197 198 事实
+claim: 桌面同一规则：已报名是外部占用，只按举办时段比较，报名开放时间不参与。
+excerpt:   /* 已报名活动是外部占用：只按举办时段 act_start/act_end 比较，\n   * 报名开放时间不参与（同一时刻开放的活动可以并行）。 */
+  197|   /* 已报名活动是外部占用：只按举办时段 act_start/act_end 比较，
+  198|    * 报名开放时间不参与（同一时刻开放的活动可以并行）。 */

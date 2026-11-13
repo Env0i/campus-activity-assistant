@@ -1,0 +1,135 @@
+======== p-027 local/ui/m/app.js 1997 2005 事实
+claim: renderItems 开头刷新 nowMs，按业务时间与结果态聚合画列表
+excerpt:   function renderItems() {\n    model.nowMs = Date.now();\n    const nowS = PhoneModel.businessNowS(model);\n    /* RS01
+ 1997|   function renderItems() {
+ 1998|     model.nowMs = Date.now();
+ 1999|     const nowS = PhoneModel.businessNowS(model);
+ 2000|     /* RS01：结果态供任务卡/底栏/列表开合共用；termsOk 传给行禁用（TM01） */
+ 2001|     const result = PhoneModel.resultView(model.plan, model.busy);
+ 2002|     const view = PhoneModel.listView(model.items, model.filter, {
+ 2003|       nowS: nowS, wallS: model.nowMs / 1000,
+ 2004|       selected: model.selected, busy: model.busy, termsOk: model.termsOk,
+ 2005|     });
+======== p-102 local/ui/m/app.js 777 783 事实
+claim: 未决开始超过 15 秒对账窗按「还没有查到开始结果」呈现；pendingLong 不清 pending
+excerpt:   /* 未确认 start 的对账窗：与 startPending 同源；超过它还没结果就按\n     「还没有查到开始结果」呈现（RW02 的 pendingLong 口径） */\n  PENDING_WINDOW_MS: 1500
+  777|   /* 未确认 start 的对账窗：与 startPending 同源；超过它还没结果就按
+  778|      「还没有查到开始结果」呈现（RW02 的 pendingLong 口径） */
+  779|   PENDING_WINDOW_MS: 15000,
+  780|   pendingLong(pending, nowMs) {
+  781|     if (!pending || pending.done) return false;
+  782|     return (Number(nowMs) - Number(pending.at || 0)) >= PhoneModel.PENDING_WINDOW_MS;
+  783|   },
+======== p-065 local/ui/m/app.js 2654 2662 事实
+claim: ingest 保存 business_clock：档位进 clockState，锚经 setClock 写 model.clock；同步成功把采样时刻记成北京时间文本 lastOkText（钟不可用不记）
+excerpt:     if (state.business_clock && typeof state.business_clock === "object") {\n      model.clockState = String(state.busin
+ 2654|     if (state.business_clock && typeof state.business_clock === "object") {
+ 2655|       model.clockState = String(state.business_clock.state || "");
+ 2656|       PhoneModel.setClock(model, state.business_clock);
+ 2657|       /* EX01：同步成功时记下这份快照的北京时间（HH:MM:SS），离线档「最后同步」用它；
+ 2658|          钟不可用就不记（呈现层落 --:--:--），不拿手机墙钟冒充 */
+ 2659|       const sampled = model.clock ? model.clock.epochAtSampleS : null;
+ 2660|       model.lastOkText = sampled !== null
+ 2661|         ? PhoneModel.hhmmss(PhoneModel.beijingSecOf(sampled)) : "";
+ 2662|     }
+======== p-049 local/ui/m/app.js 2282 2289 事实
+claim: api 每次写请求前重读 csrf cookie：有新的就更新 model.csrf 并带 X-Campus-Csrf 头
+excerpt:     if (opts.method === "POST") {\n      // 重启后设备信任会换发新的 CSRF cookie：写请求每次都按当前 cookie 取值。\n      // 沿用页面打开时读到的旧值，就会变成「能看
+ 2282|     if (opts.method === "POST") {
+ 2283|       // 重启后设备信任会换发新的 CSRF cookie：写请求每次都按当前 cookie 取值。
+ 2284|       // 沿用页面打开时读到的旧值，就会变成「能看状态、点什么都没反应」，
+ 2285|       // 而且界面上只看到 bad_csrf，看不出是令牌过期。
+ 2286|       const fresh = readCookie("campus_phone_csrf");
+ 2287|       if (fresh) model.csrf = fresh;
+ 2288|       if (model.csrf) opts.headers["X-Campus-Csrf"] = model.csrf;
+ 2289|     }
+======== p-105 local/app.py 2867 2869 事实
+claim: 后端对没有记录的 request_id 恒回 state=unknown（提示可能程序重启过）
+excerpt:         if not record:\n            return {"ok": True, "state": "unknown", "request_id": rid,\n                    "tex
+ 2867|         if not record:
+ 2868|             return {"ok": True, "state": "unknown", "request_id": rid,
+ 2869|                     "text": "没有这次开始的记录，可能程序重启过"}
+======== p-094 local/ui/m/app.js 2299 2307 事实
+claim: api 对 /api/action 的 401 调 onNeedPair、403 调 onForbidden；非 200 或 ok=false 统一落成失败回包
+excerpt:       if (path === "/api/action") {\n        if (resp.status === 401) onNeedPair();\n        if (resp.status === 403) on
+ 2299|       if (path === "/api/action") {
+ 2300|         if (resp.status === 401) onNeedPair();
+ 2301|         if (resp.status === 403) onForbidden(body);
+ 2302|         if (resp.status !== 200 || body.ok === false) {
+ 2303|           body.ok = false;
+ 2304|           body.error = body.error || "action_failed";
+ 2305|         }
+ 2306|       }
+ 2307|       return { status: resp.status, body };
+======== p-114 local/ui/m/app.js 3176 3182 事实
+claim: 换一张图 = 先取消旧场再 begin；旧场没撤掉宁可不换图
+excerpt:   /* 换一张图 = 取消旧场 + 开始新场；旧场不撤掉会被服务端判成同一个挑战 */\n  async function refreshRelogin() {\n    const canceled = await cancelRelo
+ 3176|   /* 换一张图 = 取消旧场 + 开始新场；旧场不撤掉会被服务端判成同一个挑战 */
+ 3177|   async function refreshRelogin() {
+ 3178|     const canceled = await cancelRelogin();
+ 3179|     // 旧场没撤掉就开新场，服务端会判成同一个挑战：宁可不换图
+ 3180|     if (canceled === false) return;
+ 3181|     await beginRelogin();
+ 3182|   }
+======== p-032 local/ui/m/app.js 2985 2992 事实
+claim: auto 在途分支：清 challenge、收 reloginSubmitting/reloginStarting、收验证码图并只报进度
+excerpt:           "电脑会自动识别验证码；连续失败几次之后才会转到这里手动输入";\n      }\n      model.challenge = null;\n      model.reloginSubmitting = fals
+ 2985|           "电脑会自动识别验证码；连续失败几次之后才会转到这里手动输入";
+ 2986|       }
+ 2987|       model.challenge = null;
+ 2988|       model.reloginSubmitting = false;
+ 2989|       model.reloginStarting = false;
+ 2990|       endReloginControls();
+ 2991|       refreshControls();
+ 2992|       return;
+======== p-123 local/ui/m/app.js 1490 1494 事实
+claim: 配对成功告警排五条告警链最末，点「知道了」本会话不再出现
+excerpt:     /* UI-F13（原型 .alert.ok，Phone.dc.html:36/857）：配对成功告警排告警链最末\n       （任何一条真告警都优先），点过「知道了」本会话不再出现 */\n    $("pair-ok-ale
+ 1490|     /* UI-F13（原型 .alert.ok，Phone.dc.html:36/857）：配对成功告警排告警链最末
+ 1491|        （任何一条真告警都优先），点过「知道了」本会话不再出现 */
+ 1492|     $("pair-ok-alert").hidden = !(!off && !terms && !expired && !pcList && !clockDown
+ 1493|       && model.pairOkPending);
+ 1494|   }
+======== p-078 local/ui/m/app.js 3188 3194 事实
+claim: 配对码输入即清上一轮错误条（数字归一化后重画点阵屏）
+excerpt:     $("pair-code").addEventListener("input", () => {\n      const el = $("pair-code");\n      const digits = String(el.v
+ 3188|     $("pair-code").addEventListener("input", () => {
+ 3189|       const el = $("pair-code");
+ 3190|       const digits = String(el.value || "").replace(/\D/g, "").slice(0, 6);
+ 3191|       if (el.value !== digits) el.value = digits;
+ 3192|       model.pairErr = "";
+ 3193|       renderPair();
+ 3194|     });
+======== p-015 local/ui/m/app.js 3317 3321 事实
+claim: #max-attempts change 写 retry.max_attempts、置 retryDirty 并触发 saveRetry
+excerpt:     $("max-attempts").addEventListener("change", () => {\n      model.retry.max_attempts = Number($("max-attempts").valu
+ 3317|     $("max-attempts").addEventListener("change", () => {
+ 3318|       model.retry.max_attempts = Number($("max-attempts").value || 0);
+ 3319|       model.retryDirty = true;
+ 3320|       void saveRetry();
+ 3321|     });
+======== p-098 local/ui/m/app.js 1640 1648 事实
+claim: renderRelogin 按视图档显隐主钮（登录/提交/自动）、换图、取消与完成钮
+excerpt:     /* 主钮三选一（原型 rel.submitLabel 槽）：登录 / 提交验证码 / 自动登录一次 */\n    $("btn-relogin-auto").hidden = view.mainKind !== "auto";\
+ 1640|     /* 主钮三选一（原型 rel.submitLabel 槽）：登录 / 提交验证码 / 自动登录一次 */
+ 1641|     $("btn-relogin-auto").hidden = view.mainKind !== "auto";
+ 1642|     $("btn-relogin").hidden = view.mainKind !== "begin";
+ 1643|     $("btn-relogin-submit").hidden = view.mainKind !== "submit";
+ 1644|     $("rel-second-row").hidden = !(view.refresh || view.cancel);
+ 1645|     $("btn-relogin-refresh").hidden = !view.refresh;
+ 1646|     $("btn-relogin-cancel").hidden = !view.cancel;
+ 1647|     $("btn-relogin-done").hidden = !view.done;
+ 1648|     $("btn-relogin-done").textContent = view.done;
+======== p-056 local/ui/m/app.js 3322 3331 事实
+claim: visibilitychange：进后台清轮询与秒针定时器；回前台且已配对立刻补一次 poll
+excerpt:     document.addEventListener("visibilitychange", () => {\n      if (document.hidden) {\n        if (model.pollTimer) cl
+ 3322|     document.addEventListener("visibilitychange", () => {
+ 3323|       if (document.hidden) {
+ 3324|         if (model.pollTimer) clearTimeout(model.pollTimer);
+ 3325|         model.pollTimer = null;
+ 3326|         if (model.tickTimer) clearTimeout(model.tickTimer);   // P1：后台停表
+ 3327|         model.tickTimer = null;
+ 3328|       } else if (model.paired) {
+ 3329|         void poll(false);       // 回前台立刻补一次，仍按事件游标补齐
+ 3330|       }
+ 3331|     });

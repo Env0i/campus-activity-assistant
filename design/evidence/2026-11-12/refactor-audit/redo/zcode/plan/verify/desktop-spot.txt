@@ -1,0 +1,138 @@
+======== d-054 local/application/login_relay_service.py 535 546 事实
+claim: worker 读完后锁内清服务自己的 _proc 并回调 _on_finish
+excerpt:         with self._lock:\n            if self._flow is not flow:\n                return\n            self._flow = None\
+  535|         with self._lock:
+  536|             if self._flow is not flow:
+  537|                 return
+  538|             self._flow = None
+  539|             self._proc = None
+  540|             self._stdin = None
+  541|             self._last = snapshot
+  542|         self._emit("phone_relogin", snapshot)
+  543|         try:
+  544|             self._on_finish()
+  545|         except Exception:  # noqa: BLE001
+  546|             pass
+======== d-203 local/ui/m/app.js 492 502 事实
+claim: planSummary 按开放时刻分「立即报名/预报名」两档
+excerpt:   /* 底栏副题（G02/LD01 先照原型补）：已选场按开放状态分「立即报名 / 预报名」两档计数，\n     同原型 review sheet 上方的 summary 句式；开放状态按 businessNowS 判定，不读手机时钟 
+  492|   /* 底栏副题（G02/LD01 先照原型补）：已选场按开放状态分「立即报名 / 预报名」两档计数，
+  493|      同原型 review sheet 上方的 summary 句式；开放状态按 businessNowS 判定，不读手机时钟 */
+  494|   planSummary(items, nowS) {
+  495|     const list = items || [];
+  496|     let instant = 0;
+  497|     list.forEach((item) => {
+  498|       const open = PhoneModel.openEpochOf(item);
+  499|       if (open > 0 && nowS !== null && nowS !== undefined && open <= nowS) instant += 1;
+  500|     });
+  501|     const pre = list.length - instant;
+  502|     return [instant ? instant + " 场立即报名" : "", pre ? pre + " 场预报名" : ""]
+======== d-130 local/ui/controllers/cancel.js 27 31 事实
+claim: 「不取消」清 askId
+excerpt: function cancelAskDismiss() {\n  if (!S.cancel.askId) return;\n  S.cancel.askId = "";\n  render();\n}
+   27| function cancelAskDismiss() {
+   28|   if (!S.cancel.askId) return;
+   29|   S.cancel.askId = "";
+   30|   render();
+   31| }
+======== d-053 local/app.py 1002 1007 事实
+claim: 拉列表等不到时钟就提示「北京时间校准中，稍后加载活动」并照常继续
+excerpt:         只为挡掉「刚启动、校时还没好」的常见情况；等不到也照常拉列表，\n        由 worker 用学校回包的 Date 头兜底筛选（L2）。关闭中立即返回。\n        """\n        if self._
+ 1002|         只为挡掉「刚启动、校时还没好」的常见情况；等不到也照常拉列表，
+ 1003|         由 worker 用学校回包的 Date 头兜底筛选（L2）。关闭中立即返回。
+ 1004|         """
+ 1005|         if self._clock_ready():
+ 1006|             return 0.0
+ 1007|         self._emit("log", "北京时间校准中，稍后加载活动")
+======== d-098 local/app.py 2109 2115 事实
+claim: _publish_update 留档 _update_result，finished 才释放单飞
+excerpt:         with self._lock:\n            self._update_result = payload\n            if finished:\n                self._upd
+ 2109|         with self._lock:
+ 2110|             self._update_result = payload
+ 2111|             if finished:
+ 2112|                 self._updating = False
+ 2113|             closing = self._closing
+ 2114|         if not closing:
+ 2115|             self._emit("update", payload)
+======== d-210 local/ui/views/phone.js 615 620 事实
+claim: off 相位错误条与取消说明（现有组件没有改动）
+excerpt:     const tunnelGone = cloudflare.state === "exited" || cloudflare.error === "tunnel_exited";\n    phoneText("#phone-off
+  615|     const tunnelGone = cloudflare.state === "exited" || cloudflare.error === "tunnel_exited";
+  616|     phoneText("#phone-off-error", phase === "off"
+  617|       ? (notes.offErr || (failed ? downloadFailText(download)
+  618|         : (tunnelGone ? "Cloudflare 隧道断了，旧地址和二维码已失效。重新开启后要重新扫码配对。" : ""))) : "");
+  619|     phoneText("#phone-off-note", phase === "off"
+  620|       ? (notes.off || (dl === "cancelled" ? "下载已取消，现有组件没有改动。" : "")) : "");
+======== d-188 local/ui/m/app.js 2751 2755 事实
+claim: reconcile 置 reconciling
+excerpt:     const requestId = pending && pending.request_id;\n    if (!requestId) return;\n    model.reconciling = true;\n    tr
+ 2751|     const requestId = pending && pending.request_id;
+ 2752|     if (!requestId) return;
+ 2753|     model.reconciling = true;
+ 2754|     try {
+ 2755|     const { body } = await postAction({
+======== d-227 local/ui/index.html 319 319 事实
+claim: OCR 面板只有一条错误条，位置在标题行下方
+excerpt:         <p class="ph-err" id="ocr-download-error" role="alert" hidden></p>
+  319|         <p class="ph-err" id="ocr-download-error" role="alert" hidden></p>
+======== d-064 local/ui/views/phone.js 792 800 事实
+claim: installComponent 置 installing[key]、禁用主按钮并显示「安装中…」
+excerpt:     // I1：置位到 refresh 返回为止，抽屉与对话框都按「安装中」画，不按导入前的旧快照说失败\n    PhonePanel.installing[key] = true;\n    PhonePanel.paint();\
+  792|     // I1：置位到 refresh 返回为止，抽屉与对话框都按「安装中」画，不按导入前的旧快照说失败
+  793|     PhonePanel.installing[key] = true;
+  794|     PhonePanel.paint();
+  795|     const installEl = $("#btn-" + prefix + "-install");
+  796|     if (installEl) { installEl.disabled = true; installEl.textContent = "安装中…"; }
+  797|     try {
+  798|       const result = await api("install_advanced_feature", key, chosen);
+  799|       const ok = !!(result && result.ok);
+  800|       if (!ok) {
+======== d-155 local/ui/controllers/plan.js 210 215 事实
+claim: adoptPlan 清 starting
+excerpt: function adoptPlan(requestId, planId, snapshot, finished, generation) {\n  S.starting = false;\n  if (S.startRequest && 
+  210| function adoptPlan(requestId, planId, snapshot, finished, generation) {
+  211|   S.starting = false;
+  212|   if (S.startRequest && S.startRequest.id === requestId) {
+  213|     S.startRequest.state = "accepted";
+  214|     clearTimeout(S.startRequest.queryTimer);
+  215|     S.startRequest.queryTimer = null;
+======== d-030 local/app.py 4282 4293 事实
+claim: _relay_finished 在进程未退时保留 Api._proc，退了才收
+excerpt:             if relay_tree is not None and self._proc_tree is relay_tree:\n                # 中继流程已结束：无论进程是否已退出都收下这一场的树。中继
+ 4282|             if relay_tree is not None and self._proc_tree is relay_tree:
+ 4283|                 # 中继流程已结束：无论进程是否已退出都收下这一场的树。中继刚 terminate、
+ 4284|                 # 进程还没退干净时留着它，之后点「停止」会对一棵已关的树误报「已请求停止」。
+ 4285|                 # 进程若还没退，_proc 照旧留着占 busy 位，直到 poll() 有结论。
+ 4286|                 tree = relay_tree
+ 4287|                 self._proc_tree = None
+ 4288|                 if self._proc is relay_tree.proc and self._proc.poll() is not None:
+ 4289|                     self._proc = None
+ 4290|             elif self._proc is not None and self._proc.poll() is not None:
+ 4291|                 self._proc = None
+ 4292|                 tree = self._proc_tree
+ 4293|                 self._proc_tree = None
+======== d-195 local/ui/m/app.js 3063 3066 事实
+claim: beginRelogin 置 reloginStarting
+excerpt:     if (model.reloginStarting) return;\n    if (!canWrite()) { setBanner("状态已过时，先刷新再重新登录", "stale_action"); return; }\n 
+ 3063|     if (model.reloginStarting) return;
+ 3064|     if (!canWrite()) { setBanner("状态已过时，先刷新再重新登录", "stale_action"); return; }
+ 3065|     model.reloginStarting = true;
+ 3066|     /* RL06：确认层用完即收；RL08 附言：先清上一轮的「输过账号/勾了保存」 */
+======== d-063 local/ui/views/phone.js 1098 1112 事实
+claim: saveCredentials 置 busy 并在 finally 收口
+excerpt:     let result = null;\n    PhonePanel.busy = true;\n    PhonePanel.paint();\n    try {\n      result = once\n        ? 
+ 1098|     let result = null;
+ 1099|     PhonePanel.busy = true;
+ 1100|     PhonePanel.paint();
+ 1101|     try {
+ 1102|       result = once
+ 1103|         ? await api("prepare_phone_relogin", username, password)
+ 1104|         : await api("save_relogin_credentials", username, password);
+ 1105|     } catch (err) {
+ 1106|       // 失败原因可能含账号细节，只给通用文案，不把异常原文带给用户
+ 1107|       result = { ok: false, text: "账号信息没有保存。" };
+ 1108|     } finally {
+ 1109|       user.value = "";
+ 1110|       pass.value = "";
+ 1111|       PhonePanel.busy = false;
+ 1112|     }

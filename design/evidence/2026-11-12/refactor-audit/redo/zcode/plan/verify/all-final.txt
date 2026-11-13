@@ -1,0 +1,15 @@
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/desktop.cites.jsonl: 共 257 条，失败 0 ==
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/desktop.md（配对 design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/desktop.cites.jsonl）: 引用 502 处，缺失 id 0，未被引用条目 0 ==
+---- 合计: 257 条，失败 0 ----
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/phone.cites.jsonl: 共 123 条，失败 0 ==
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/phone.md（配对 design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/phone.cites.jsonl）: 引用 347 处，缺失 id 0，未被引用条目 0 ==
+---- 合计: 123 条，失败 0 ----
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/rules.cites.jsonl: 共 84 条，失败 0 ==
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/rules.md（配对 design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/rules.cites.jsonl）: 引用 224 处，缺失 id 0，未被引用条目 0 ==
+---- 合计: 84 条，失败 0 ----
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/grab.cites.jsonl: 共 118 条，失败 0 ==
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/grab.md（配对 design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/grab.cites.jsonl）: 引用 235 处，缺失 id 0，未被引用条目 0 ==
+---- 合计: 118 条，失败 0 ----
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/prereq.cites.jsonl: 共 92 条，失败 0 ==
+== design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/prereq.md（配对 design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/prereq.cites.jsonl）: 引用 105 处，缺失 id 0，未被引用条目 0 ==
+---- 合计: 92 条，失败 0 ----

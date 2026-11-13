@@ -1,0 +1,358 @@
+== esc 定义处 ==
+local/ui/state/time.js:123
+== esc( 调用点（file:line fn=所在函数 cat=落点粗分类）==
+local/ui/controllers/window.js:88 fn=paintCloseStakes cat=文本节点
+    前文="><b>"
+    后文="+ \"</b><span>\" + esc(line.text) + \"</span></li>\";"
+local/ui/controllers/window.js:88 fn=paintCloseStakes cat=文本节点
+    前文="</b><span>"
+    后文="+ \"</span></li>\";"
+local/ui/state/filters.js:54 fn=requirementFlags cat=文本节点
+    前文="\">"
+    后文="+ \"</span>\");"
+local/ui/state/filters.js:86 fn=rewardChips cat=双引号属性
+    前文="<span class=\"rw\" title=\""
+    后文="+ '\"><span class=\"rw-p\">奖励同步中</span></span>';"
+local/ui/state/filters.js:88 fn=rewardChips cat=文本节点
+    前文="<span class=\"rw-c pt\"><b>"
+    后文="+ \"</b>分</span>\" : '<span class=\"rw-c pt na\">分未公布</span>';"
+local/ui/state/filters.js:89 fn=rewardChips cat=文本节点
+    前文="<span class=\"rw-c wg\">工资<b>"
+    后文="+ \"</b></span>\" : '<span class=\"rw-c wg na\">工资未公布</span>';"
+local/ui/state/filters.js:90 fn=rewardChips cat=双引号属性
+    前文="<span class=\"rw\" title=\""
+    后文="+ '\">' + ptsChip + wageChip + \"</span>\";"
+local/ui/state/filters.js:98 fn=rewardInline cat=双引号属性
+    前文="\" title=\""
+    后文="+ '\">' + esc(text) + \"</span>\";"
+local/ui/state/filters.js:98 fn=rewardInline cat=文本节点
+    前文="\">"
+    后文="+ \"</span>\";"
+local/ui/views/clock-pop.js:103 fn=renderClockPop cat=文本节点
+    前文="<div class=\"pop-time\" id=\"clock-pop-time\">"
+    后文="+ '</div>' +"
+local/ui/views/clock-pop.js:104 fn=renderClockPop cat=文本节点
+    前文="<div class=\"pop-date\">"
+    后文="+ '</div>' +"
+local/ui/views/clock-pop.js:106 fn=renderClockPop cat=文本节点
+    前文="</span><span>"
+    后文="+ '</span></div>' +"
+local/ui/views/clock-pop.js:107 fn=renderClockPop cat=文本节点
+    前文="<p class=\"pop-explain\">"
+    后文="+ '</p>' +"
+local/ui/views/clock-pop.js:109 fn=renderClockPop cat=文本节点
+    前文="<div><dt>最近校准</dt><dd>"
+    后文="+ '</dd></div>' +"
+local/ui/views/clock-pop.js:110 fn=renderClockPop cat=文本节点
+    前文="<div><dt>估计误差</dt><dd>"
+    后文="+ '</dd></div>' +"
+local/ui/views/clock-pop.js:112 fn=renderClockPop cat=文本节点
+    前文="<div><dt>下一次重试</dt><dd>"
+    后文="+ '</dd></div>' +"
+local/ui/views/clock-pop.js:115 fn=renderClockPop cat=文本节点
+    前文="<div><dt>最近失败来源</dt><dd>"
+    后文="+ '</dd></div>' +"
+local/ui/views/clock-pop.js:118 fn=renderClockPop cat=文本节点
+    前文="<div><dt>最近失败原因</dt><dd>"
+    后文="+ '</dd></div>' +"
+local/ui/views/clock-pop.js:120 fn=renderClockPop cat=文本节点
+    前文="<div><dt>上次退出</dt><dd>"
+    后文="+ '</dd></div>' +"
+local/ui/views/clock-pop.js:124 fn=renderClockPop cat=文本节点
+    前文="<div><dt>校准来源</dt><dd>"
+    后文="+ '</dd></div>' +"
+local/ui/views/clock-pop.js:126 fn=renderClockPop cat=文本节点
+    前文="<div><dt>学校 HTTP 时间</dt><dd>"
+    后文="+ '</dd></div>' +"
+local/ui/views/conflict-tip.js:6 fn=tipHtml cat=文本节点
+    前文="<dt>"
+    后文="+ \"</dt><dd><b>\" + esc(r.name) + \"</b>　\" + esc(r.span) + \"<"
+local/ui/views/conflict-tip.js:6 fn=tipHtml cat=文本节点
+    前文="</dt><dd><b>"
+    后文="+ \"</b>　\" + esc(r.span) + \"</dd>\").join(\"\");"
+local/ui/views/conflict-tip.js:6 fn=tipHtml cat=文本节点
+    前文="</b>　"
+    后文="+ \"</dd>\").join(\"\");"
+local/ui/views/conflict-tip.js:8 fn=tipHtml cat=文本节点
+    前文="<span>"
+    后文="+ \"</span>\").join(\"\");"
+local/ui/views/conflict-tip.js:10 fn=tipHtml cat=双引号属性
+    前文="<div class=\"tl\" role=\"img\" aria-label=\""
+    后文="+ '\"><div class=\"tl-track\">' + cuts +"
+local/ui/views/conflict-tip.js:16 fn=tipHtml cat=文本节点
+    前文="<p class=\"tipb-s\">"
+    后文="+"
+local/ui/views/help.js:6 fn=fillHelp cat=文本节点
+    前文="<li><span class=\"no\">"
+    后文="+ \"</span><div><div class=\\\"t\\\">\" + esc(step.title) + \"</di"
+local/ui/views/help.js:6 fn=fillHelp cat=文本节点
+    前文="</span><div><div class=\"t\">"
+    后文="+ \"</div><div class=\\\"d\\\">\" + esc(step.text) + \"</div></div"
+local/ui/views/help.js:6 fn=fillHelp cat=文本节点
+    前文="</div><div class=\"d\">"
+    后文="+ \"</div></div></li>\").join(\"\");"
+local/ui/views/list.js:120 fn=groupHtml cat=文本节点
+    前文="\"><div class=\"grp\"><b>"
+    后文="+ \"</b>\" +"
+local/ui/views/list.js:121 fn=groupHtml cat=文本节点
+    前文="<span>"
+    后文="+ \"</span>\" : \"\") + '<span class=\"count\">' + items.length +"
+local/ui/views/list.js:163 fn=rowHtml cat=文本节点
+    前文="<span class=\"t\">"
+    后文="+ \"</span>\" + (mm[6] && mm[6] !== \"00\" ? '<span class=\"s\">:"
+local/ui/views/list.js:163 fn=rowHtml cat=文本节点
+    前文="<span class=\"s\">:"
+    后文="+ \"</span>\" : \"\");"
+local/ui/views/list.js:166 fn=rowHtml cat=文本节点
+    前文="<span class=\"d\">"
+    后文="+ \"</span>\";"
+local/ui/views/list.js:170 fn=rowHtml cat=文本节点
+    前文="<span>报名截止 "
+    后文="+ \"</span>\");"
+local/ui/views/list.js:173 fn=rowHtml cat=文本节点
+    前文="<span class=\"activity-flags\"><span class=\"activity-flag\">"
+    后文="+ \"</span></span>\");"
+local/ui/views/list.js:175 fn=rowHtml cat=文本节点
+    前文=">"
+    后文="+ \"</span>\");"
+local/ui/views/list.js:189 fn=rowHtml cat=文本节点
+    前文="<span class=\"row-warn\">"
+    后文="+ \"</span>\" : \"\");"
+local/ui/views/list.js:190 fn=rowHtml cat=双引号属性
+    前文="\" data-id=\""
+    后文="+ \"\\\" aria-label=\\\"\" + esc(item.name) + \"\\\">\" +"
+local/ui/views/list.js:190 fn=rowHtml cat=双引号属性
+    前文="\" aria-label=\""
+    后文="+ \"\\\">\" +"
+local/ui/views/list.js:191 fn=rowHtml cat=双引号属性
+    前文="<div class=\"c-sel\"><input class=\"row-check\" type=\"checkbox\" data-id=\""
+    后文="+ \"\\\"\" + (selected ? \" checked\" : \"\") + (checkDisabled ? \""
+local/ui/views/list.js:191 fn=rowHtml cat=双引号属性
+    前文=" aria-label=\"选择"
+    后文="+ \"\\\"></div>\" +"
+local/ui/views/list.js:193 fn=rowHtml cat=双引号属性
+    前文="<div class=\"c-main\"><div class=\"nl\"><div class=\"name\" title=\""
+    后文="+ \"\\\">\" + esc(item.name) + \"</div>\" + rewardChips(item) + \""
+local/ui/views/list.js:193 fn=rowHtml cat=文本节点
+    前文="\">"
+    后文="+ \"</div>\" + rewardChips(item) + \"</div><div class=\\\"sub\\\">"
+local/ui/views/list.js:194 fn=rowHtml cat=双引号属性
+    前文="<div class=\"c-place\" tabindex=\"0\" role=\"button\" aria-expanded=\"false\" aria-label=\"地点："
+    后文="+ \"，按回车展开全部\\\" title=\\\"\" + esc(item.place || \"地点待定\") + \"\\\">\""
+local/ui/views/list.js:194 fn=rowHtml cat=双引号属性
+    前文="，按回车展开全部\" title=\""
+    后文="+ \"\\\">\" + esc(item.place || \"地点待定\") + \"</div>\" +"
+local/ui/views/list.js:194 fn=rowHtml cat=文本节点
+    前文="\">"
+    后文="+ \"</div>\" +"
+local/ui/views/list.js:214 fn=cancelRxHtml cat=双引号属性
+    前文="<div class=\"rx\" data-rx=\""
+    后文="+ '\">' +"
+local/ui/views/list.js:215 fn=cancelRxHtml cat=文本节点
+    前文="<div class=\"ph-confirm\" role=\"alert\">取消「"
+    后文="+ '」的报名？取消后名额可能被别人报走，不能撤回。' +"
+local/ui/views/list.js:216 fn=cancelRxHtml cat=双引号属性
+    前文="<div class=\"ph-acts\"><button class=\"btn btn-line\" type=\"button\" data-cancel-no=\""
+    后文="+ '\">不取消</button>' +"
+local/ui/views/list.js:217 fn=cancelRxHtml cat=双引号属性
+    前文="<button class=\"btn btn-stop\" type=\"button\" data-cancel-yes=\""
+    后文="+ '\">确认取消报名</button></div></div>' : \"\") +"
+local/ui/views/list.js:218 fn=cancelRxHtml cat=文本节点
+    前文="\" role=\"status\">"
+    后文="+ \"</p>\" : \"\") + \"</div>\";"
+local/ui/views/list.js:226 fn=cancelButtonHtml cat=双引号属性
+    前文="<button class=\"btn btn-line cx-btn\" type=\"button\" data-cancel=\""
+    后文="+ '\"' + (block.off ? \" disabled\" : \"\") +"
+local/ui/views/list.js:227 fn=cancelButtonHtml cat=双引号属性
+    前文=" title=\""
+    后文="+ '\"' : \"\") + \">\" + (here ? \"正在取消…\" : \"取消报名\") + \"</button>\""
+local/ui/views/list.js:232 fn=stateCellHtml cat=文本节点
+    前文="<span class=\"state-tag state-armed\">"
+    后文="+ \"</span>\";"
+local/ui/views/list.js:244 fn=stateCellHtml cat=文本节点
+    前文="\">"
+    后文="+ \"</span>\" +"
+local/ui/views/list.js:251 fn=stateCellHtml cat=文本节点
+    前文="<span class=\"cx-until\">"
+    后文="+ \"</span>\" + cancelButtonHtml(item) : \"\");"
+local/ui/views/login.js:131 fn=setResult cat=文本节点
+    前文="<strong>"
+    后文="+ \"</strong><span>\" + esc(result.text || \"\") + \"</span>\" +"
+local/ui/views/login.js:131 fn=setResult cat=文本节点
+    前文="</strong><span>"
+    后文="+ \"</span>\" +"
+local/ui/views/login.js:132 fn=setResult cat=文本节点
+    前文="<button class=\"result-action\" type=\"button\" id=\"result-action\">"
+    后文="+ \"</button>\" : \"\");"
+local/ui/views/plan-panel.js:210 fn=boardMetaHtml cat=其他
+    前文="const place ="
+    后文=";"
+local/ui/views/plan-panel.js:211 fn=boardMetaHtml cat=其他
+    前文="const act ="
+    后文=";"
+local/ui/views/plan-panel.js:215 fn=boardMetaHtml cat=双引号属性
+    前文=" title=\""
+    后文="+ '\">'"
+local/ui/views/plan-panel.js:346 fn=paintChecks cat=文本节点
+    前文="</i>"
+    后文="+ \"</span>\").join(\"\");"
+local/ui/views/plan-panel.js:418 fn=paintPrewarn cat=文本节点
+    前文="\"><span>"
+    后文="+ \"</span>\""
+local/ui/views/plan-panel.js:419 fn=paintPrewarn cat=文本节点
+    前文="\">"
+    后文="+ \"</button>\" : \"\") + \"</li>\").join(\"\");"
+local/ui/views/plan-panel.js:458 fn=paintWhy cat=文本节点
+    前文="<span>还差一步："
+    后文="+ \"</span>\""
+local/ui/views/plan-panel.js:459 fn=paintWhy cat=文本节点
+    前文="\">"
+    后文="+ \"</button>\" : \"\") : \"\";"
+local/ui/views/plan-panel.js:478 fn=paintTickets cat=文本节点
+    前文="<div class=\"bh\"><b>"
+    后文="+ \"</b><span>\" + esc(note) + \"</span></div>\""
+local/ui/views/plan-panel.js:478 fn=paintTickets cat=文本节点
+    前文="</b><span>"
+    后文="+ \"</span></div>\""
+local/ui/views/plan-panel.js:479 fn=paintTickets cat=双引号属性
+    前文="<div class=\"tk\"><div><b title=\""
+    后文="+ '\">' + esc(item.name)"
+local/ui/views/plan-panel.js:479 fn=paintTickets cat=文本节点
+    前文="\">"
+    后文="+ \"</b><small>\" + esc(activityTimeText(item)) + \"</"
+local/ui/views/plan-panel.js:480 fn=paintTickets cat=文本节点
+    前文="</b><small>"
+    后文="+ \"</small>\""
+local/ui/views/plan-panel.js:483 fn=paintTickets cat=双引号属性
+    前文="</div><button type=\"button\" data-remove=\""
+    后文="+ '\" aria-label=\"' + esc(\"从计划移除「\" + item.name + \"」\") + '\">'"
+local/ui/views/plan-panel.js:483 fn=paintTickets cat=双引号属性
+    前文="\" aria-label=\""
+    后文="+ '\">'"
+local/ui/views/plan-panel.js:508 fn=paintPolicyLine cat=文本节点
+    前文="尝试 <b>"
+    后文="+ \"</b>，<b>\""
+local/ui/views/plan-panel.js:592 fn=paintRunPanel cat=文本节点
+    前文="<span>"
+    后文="+ \"</span>\""
+local/ui/views/plan-panel.js:593 fn=paintRunPanel cat=文本节点
+    前文="\">"
+    后文="+ \"</button>\" : \"\") : \"\";"
+local/ui/views/plan-panel.js:733 fn=paintPlan cat=文本节点
+    前文="<div class=\"conflict-item\"><strong>选择提醒</strong><br>"
+    后文="+ \"</div>\");"
+local/ui/views/plan-panel.js:734 fn=paintPlan cat=文本节点
+    前文="<div class=\"conflict-item\"><strong>"
+    后文="+ \"</strong><br>\" + esc(error.text) + \"</div>\"));"
+local/ui/views/plan-panel.js:734 fn=paintPlan cat=文本节点
+    前文="</strong><br>"
+    后文="+ \"</div>\"));"
+local/ui/views/plan-panel.js:735 fn=paintPlan cat=文本节点
+    前文="<div class=\"conflict-item\"><strong>活动时间重叠</strong><br>「"
+    后文="+ \"」与「\" + esc(conflict.right.name) + \"」举办时段重叠（\" + esc(short"
+local/ui/views/plan-panel.js:735 fn=paintPlan cat=其他
+    前文="」与「"
+    后文="+ \"」举办时段重叠（\" + esc(shortTime(conflict.left.act_start)) + \""
+local/ui/views/plan-panel.js:735 fn=paintPlan cat=其他
+    前文="」举办时段重叠（"
+    后文="+ \" – \" + esc(shortTime(conflict.left.act_end)) + \"），只能选其中一"
+local/ui/views/plan-panel.js:735 fn=paintPlan cat=其他
+    前文=" – "
+    后文="+ \"），只能选其中一场。</div>\"));"
+local/ui/views/plan-panel.js:799 fn=paintRoute cat=文本节点
+    前文="\"><i class=\"stn-dot\"></i><span class=\"stn-name\">"
+    后文="+"
+local/ui/views/plan-panel.js:800 fn=paintRoute cat=文本节点
+    前文="</span><span class=\"stn-time\">"
+    后文="+ \"</span></div>\";"
+local/ui/views/plan-panel.js:1087 fn=taskViaHtml cat=其他
+    前文="："
+    后文=": \"\")"
+local/ui/views/plan-panel.js:1167 fn=taskHtml cat=双引号属性
+    前文="<button class=\"task-cancel\" type=\"button\" data-task-id=\""
+    后文="+ \"\\\">取消这一场</button>\" : \"\")"
+local/ui/views/plan-panel.js:1168 fn=taskHtml cat=双引号属性
+    前文="<button class=\"task-cancel task-verify\" type=\"button\" data-task-id=\""
+    后文="+ \"\\\">刷新核对</button>\" : \"\");"
+local/ui/views/plan-panel.js:1169 fn=taskHtml cat=双引号属性
+    前文="<div class=\"task-row\" data-task-id=\""
+    后文="+ \"\\\"><strong class=\\\"task-name\\\" title=\\\"\" + esc(task.name"
+local/ui/views/plan-panel.js:1169 fn=taskHtml cat=双引号属性
+    前文="\"><strong class=\"task-name\" title=\""
+    后文="+ \"\\\">\" + esc(task.name) + \"</strong><span class=\\\"task-sta"
+local/ui/views/plan-panel.js:1169 fn=taskHtml cat=文本节点
+    前文="\">"
+    后文="+ \"</strong><span class=\\\"task-state \" + cls + \"\\\">\" + esc("
+local/ui/views/plan-panel.js:1169 fn=taskHtml cat=文本节点
+    前文="\">"
+    后文="+ \"</span><span class=\\\"task-detail\\\">\" + esc(modePrefix +"
+local/ui/views/plan-panel.js:1169 fn=taskHtml cat=文本节点
+    前文="</span><span class=\"task-detail\">"
+    后文="+ \"</span>\" + taskViaHtml(task) + (actionsHtml ? \"<div clas"
+local/ui/views/plan-panel.js:1376 fn=paintBanners cat=文本节点
+    前文="<div class=\"banner\" data-tone=\"bad\" role=\"alert\"><span class=\"grow\"><b>"
+    后文="+ \"。</b>\" +"
+local/ui/views/plan-panel.js:1377 fn=paintBanners cat=文本节点
+    前文="。</b>"
+    后文="+ \"</span>\" +"
+local/ui/views/plan-panel.js:1413 fn=paintBanners cat=其他
+    前文="「"
+    后文="+ \"」\").join(\"\") + \"到了开放时间，没有提交。\""
+local/ui/views/selection.js:74 fn=showPlanError cat=文本节点
+    前文="<div class=\"conflict-item\"><strong>"
+    后文="+ \"</strong><br>\" + (name ? \"「\" + esc(name) + \"」\" : \"\") + \""
+local/ui/views/selection.js:74 fn=showPlanError cat=其他
+    前文="「"
+    后文="+ \"」\" : \"\") + \"</div>\");"
+local/ui/views/selection.js:79 fn=showPlanError cat=文本节点
+    前文="<div class=\"conflict-item\"><strong>活动时间重叠</strong><br>「"
+    后文="+ \"」与「\" + esc(right.name) +"
+local/ui/views/selection.js:79 fn=showPlanError cat=其他
+    前文="」与「"
+    后文="+"
+local/ui/views/selection.js:80 fn=showPlanError cat=其他
+    前文="」举办时段重叠（"
+    后文="+ \" – \" + esc(shortTime(left.act_end)) + \"），只能选其中一场。</div>\""
+local/ui/views/selection.js:80 fn=showPlanError cat=其他
+    前文=" – "
+    后文="+ \"），只能选其中一场。</div>\");"
+local/ui/views/status-cards.js:77 fn=cardRows cat=文本节点
+    前文="<dt>"
+    后文="+ \"</dt><dd>\" + esc(row[1]) + \"</dd>\").join(\"\");"
+local/ui/views/status-cards.js:77 fn=cardRows cat=文本节点
+    前文="</dt><dd>"
+    后文="+ \"</dd>\").join(\"\");"
+local/ui/views/terms.js:26 fn=termsMetaStateHtml cat=文本节点
+    前文="你之前同意的是 <b>"
+    后文="+ \"</b>，新版还没同意。\";"
+local/ui/views/terms.js:185 fn=paintTermsToc cat=文本节点
+    前文="\">"
+    后文="+ \"</button>\").join(\"\");"
+local/ui/views/terms.js:268 fn=termsViewOnlyLineHtml cat=其他
+    前文="（"
+    后文="+ \" 同意）\""
+local/ui/views/terms.js:273 fn=termsViewOnlyLineHtml cat=文本节点
+    前文=" <b>"
+    后文="+ \"</b>\" + when +"
+local/ui/views/terms.js:347 fn=paintTermsIntro cat=其他 [esc结果被再加工]
+    前文="?"
+    后文=".replace(\"现在就看\","
+local/ui/views/terms.js:349 fn=paintTermsIntro cat=其他
+    前文=":"
+    后文=";"
+local/ui/views/terms.js:350 fn=paintTermsIntro cat=文本节点
+    前文="<li><b>"
+    后文="+ \"</b><span>\" + body + \"</span></li>\";"
+local/ui/views/terms.js:370 fn=paintTermsUpdateBox cat=文本节点
+    前文="<li><span class=\"tu-new\">新增</span><span>"
+    后文="+ \"</span></li>\").join(\"\");"
+== esc 非调用引用（含 const esc = ... 同名遮蔽、传参、判断）==
+local/ui/views/terms.js:46 fn=applyTermsFooter
+local/ui/views/terms.js:82 fn=applyTermsFooter
+local/ui/views/terms.js:85 fn=applyTermsFooter
+== 汇总 ==
+扫描文件数=40
+调用点=115 定义=1 非调用引用=3
+落点分类计数={"文本节点":77,"双引号属性":24,"其他":14}
+按文件={"local/ui/controllers/window.js":2,"local/ui/state/filters.js":7,"local/ui/views/clock-pop.js":12,"local/ui/views/conflict-tip.js":6,"local/ui/views/help.js":3,"local/ui/views/list.js":28,"local/ui/views/login.js":3,"local/ui/views/plan-panel.js":38,"local/ui/views/selection.js":6,"local/ui/views/status-cards.js":2,"local/ui/views/terms.js":8}
+所在函数分布={"local/ui/controllers/window.js#paintCloseStakes":2,"local/ui/state/filters.js#requirementFlags":1,"local/ui/state/filters.js#rewardChips":4,"local/ui/state/filters.js#rewardInline":2,"local/ui/views/clock-pop.js#renderClockPop":12,"local/ui/views/conflict-tip.js#tipHtml":6,"local/ui/views/help.js#fillHelp":3,"local/ui/views/list.js#groupHtml":2,"local/ui/views/list.js#rowHtml":16,"local/ui/views/list.js#cancelRxHtml":5,"local/ui/views/list.js#cancelButtonHtml":2,"local/ui/views/list.js#stateCellHtml":3,"local/ui/views/login.js#setResult":3,"local/ui/views/plan-panel.js#boardMetaHtml":3,"local/ui/views/plan-panel.js#paintChecks":1,"local/ui/views/plan-panel.js#paintPrewarn":2,"local/ui/views/plan-panel.js#paintWhy":2,"local/ui/views/plan-panel.js#paintTickets":7,"local/ui/views/plan-panel.js#paintPolicyLine":1,"local/ui/views/plan-panel.js#paintRunPanel":2,"local/ui/views/plan-panel.js#paintPlan":7,"local/ui/views/plan-panel.js#paintRoute":2,"local/ui/views/plan-panel.js#taskViaHtml":1,"local/ui/views/plan-panel.js#taskHtml":7,"local/ui/views/plan-panel.js#paintBanners":3,"local/ui/views/selection.js#showPlanError":6,"local/ui/views/status-cards.js#cardRows":2,"local/ui/views/terms.js#termsMetaStateHtml":1,"local/ui/views/terms.js#paintTermsToc":1,"local/ui/views/terms.js#termsViewOnlyLineHtml":2,"local/ui/views/terms.js#paintTermsIntro":3,"local/ui/views/terms.js#paintTermsUpdateBox":1}

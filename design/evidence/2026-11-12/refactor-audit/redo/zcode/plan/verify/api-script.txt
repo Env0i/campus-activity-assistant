@@ -1,0 +1,311 @@
+[summary]
+class Api 定义于 local/app.py:813（基线 7e2d31c）
+方法总数=153 公开=60 私有=93
+[public] name | line | decorators | section | doc-first-line
+clock_snapshot | L1036 | - | 独立北京时间（决策 012） | 当前业务时钟快照（无凭证）：bootstrap 与「重新校时」共用。
+sync_clock | L1046 | - | 独立北京时间（决策 012） | 界面「重新校时」：去重后台重校，完成后推 business_clock 事件。
+bootstrap | L1149 | - | 独立北京时间（决策 012） | -
+help | L1245 | - | 独立北京时间（决策 012） | -
+download_advanced_feature | L1425 | - | 独立北京时间（决策 012） | 用户主动下载组件包（手机控制或验证码识别）：单飞，重复点击直接回 busy。
+cancel_advanced_feature_download | L1452 | - | 独立北京时间（决策 012） | 取消正在进行的组件下载；未在下载时如实说没有任务。
+enable_advanced_feature | L1459 | - | 独立北京时间（决策 012） | 启用一个已装好但没开启的组件（settings-gap B2，OC08「启用」按钮）。
+advanced_component_location | L1488 | - | 独立北京时间（决策 012） | 组件在本机的安装位置（settings-gap B3，只给电脑端设置抽屉用）。
+open_advanced_component_dir | L1506 | - | 独立北京时间（决策 012） | 用资源管理器打开组件所在文件夹（B3，只给电脑端）。
+advanced_features_state | L1525 | - | 独立北京时间（决策 012） | 帮助弹窗使用的高级功能快照；不返回密码、密文或安装路径。
+inspect_advanced_component | L1606 | - | 独立北京时间（决策 012） | 只读自检：用户选的这份文件到底是不是这里要装的东西。
+pick_advanced_component | L1624 | - | 独立北京时间（决策 012） | 弹系统文件选择框，把用户选中的路径交回给对话框。
+install_advanced_feature | L1644 | - | 独立北京时间（决策 012） | 只响应帮助弹窗明确点击的固定组件，不接受任意 pip 包名。
+remove_advanced_feature | L1733 | - | 独立北京时间（决策 012） | -
+save_relogin_credentials | L1770 | - | 独立北京时间（决策 012） | 保存续登录用的账号密码（DPAPI 加密落盘）。
+clear_relogin_credentials | L1795 | - | 独立北京时间（决策 012） | -
+front_ready | L2052 | - | 独立北京时间（决策 012） | -
+check_update | L2057 | - | 独立北京时间（决策 012） | 只登记轻量后台查询，不在桥接线程等待网络，也不改变报名门禁。
+update_download | L2117 | - | 独立北京时间（决策 012） | 用户确认后启动安装器下载：单飞后台流式下载并校验，事件回推进度与结论。
+update_cancel | L2171 | - | 独立北京时间（决策 012） | 用户取消下载：只置取消标记，下载线程在下一块之间停下并清理半成品。
+update_launch | L2177 | - | 独立北京时间（决策 012） | 用户确认后启动已校验的安装器；启动前先回推 launching 状态。
+check | L2252 | - | 独立北京时间（决策 012） | -
+list_activities | L2283 | - | 独立北京时间（决策 012） | -
+cancel_signup | L2555 | - | 独立北京时间（决策 012） | 取消一场已报名的活动。返回 {ok, kind, reason?, message?}：
+login | L2762 | - | 独立北京时间（决策 012） | -
+grab | L2780 | - | 独立北京时间（决策 012） | -
+start_request_state | L2854 | - | 独立北京时间（决策 012） | 只读对账：这次开始到底是 pending / accepted / rejected / canceled。
+cancel_start_request | L2891 | - | 独立北京时间（决策 012） | 放弃待确认的开始；未知 ID 先登记取消，拦住网络中迟到的原请求。
+start_plan | L2923 | - | 独立北京时间（决策 012） | 校验并启动计划；带 request_id 时按进程内登记实现幂等（R11）。
+cancel_task | L3234 | - | 独立北京时间（决策 012） | -
+stop_plan | L3242 | - | 独立北京时间（决策 012） | -
+plan_active_for_close | L3271 | - | 独立北京时间（决策 012） | 计划在跑或已就绪：关窗必须先问，不能静默最小化/退出。
+ask_window_close | L3310 | - | 独立北京时间（决策 012） | 把「要关了，你想怎样」推给界面去选；返回本次判定依据。
+request_window_close | L3334 | - | 独立北京时间（决策 012） | 界面四选的结果：hide 藏到后台 / minimize / exit / 先不关，remember_ 表示「以后都这样」。
+hide_window | L3389 | - | 独立北京时间（决策 012） | 把窗口藏起来：手机访问、报名计划、校时全都继续跑。
+show_window | L3427 | - | 独立北京时间（决策 012） | 把藏起来的窗口叫回来（托盘菜单、手机页都用这一个入口）。
+window_visibility | L3443 | - | 独立北京时间（决策 012） | 窗口是否藏在托盘里（界面自动刷新活动列表前问一次）。
+shutdown | L3521 | - | 独立北京时间（决策 012） | 窗口正常关闭的进程收尾：先同锁置关闭屏障并取快照，再停协调器、树终止**仅本 Api 登记**的 worker。
+stop | L3621 | - | 独立北京时间（决策 012） | -
+phone_access_state | L3767 | - | 独立北京时间（决策 012） | 帮助弹窗：监听状态、远程通道、地址、二维码与一次性配对码。
+start_phone_access | L3812 | - | 独立北京时间（决策 012） | -
+set_phone_access_preferences | L3897 | - | 独立北京时间（决策 012） | 记住用户选的通道；只影响下次启动是否自动恢复，不动当前监听。
+restore_phone_access | L3913 | - | 独立北京时间（决策 012） | 窗口就绪后按上次的通道恢复入口：只恢复 Tailscale，绝不自动恢复 Cloudflare。
+schedule_phone_restore | L3937 | - | 独立北京时间（决策 012） | 窗口加载完再恢复手机入口：此时界面能收到日志，HTTP 桥也已就绪。
+schedule_component_auto_update | L3963 | - | 独立北京时间（决策 012） | 窗口加载完后把「只差版本」的组件补上；每次启动只走一遍，不重试。
+stop_phone_access | L4017 | - | 独立北京时间（决策 012） | -
+prepare_phone_relogin | L4043 | - | 独立北京时间（决策 012） | 桌面「准备手机重登」：账号密码只进当前进程内存，响应只回 ready 布尔。
+relogin_begin | L4153 | - | 独立北京时间（决策 012） | 电脑上点「重新登录」。四种情况（设计 9.3）：
+relogin_submit | L4182 | - | 独立北京时间（决策 012） | 电脑上输的验证码。
+relogin_cancel | L4186 | - | 独立北京时间（决策 012） | 取消电脑上发起或接手的这一场登录；旧场的 flow_id 不取消新场。
+relogin_auto_once | L4194 | - | 独立北京时间（决策 012） | 有保存的账号又装了验证码识别：用户确认后让电脑自动登录一次。
+phone_relogin_begin | L4211 | - | 独立北京时间（决策 012） | -
+phone_relogin_submit | L4244 | - | 独立北京时间（决策 012） | -
+phone_relogin_cancel | L4248 | - | 独立北京时间（决策 012） | -
+open_data | L4333 | - | 独立北京时间（决策 012） | 打开数据目录，并把**真实路径**回给界面。
+open_latest_release | L4344 | - | 独立北京时间（决策 012） | 用户点「GitHub 最新版本」时用系统默认浏览器打开固定的 releases/latest 页。
+get_license_text | L4357 | - | 独立北京时间（决策 012） | 全文弹窗「MIT 许可证」页签的随包 LICENSE 原文（UTF-8 读入，原样回传）。
+save_prefs | L4376 | - | 独立北京时间（决策 012） | -
+accept_terms | L4383 | - | 独立北京时间（决策 012） | 同意使用条款：先核验界面实际读到的文档版本，再经 ui.json 原子偏好事务落盘。
+withdraw_terms | L4409 | - | 独立北京时间（决策 012） | 撤回条款同意：清空已同意版本、记下撤回时刻，学校动作随即回到条款门之后。
+[detail] name | assigned | read | calls
+clock_snapshot | - | _clock | str
+sync_clock | _clock_syncing | _clock,_clock_payload,_clock_syncing,_emit,_lock,clock_snapshot | -
+bootstrap | - | _bootstrap_plan_snapshot,_clock,_clock_payload,_find_request_id,_last_check,_lock,_plan_generation,_plan_source_of,_update_installer_path,_update_request_id,_update_result,_updating,advanced_features_state,help | _last_check_fields,_retry_options_payload,dict,get_lifecycle,load_prefs,login_state,migration_record,terms_state
+help | - | - | -
+download_advanced_feature | _advanced_busy | _advanced_busy,_closing,_component_finished,_component_service_for,_emit,_is_busy_locked,_lock,_phone_access_lock | _component_title,bool,getattr,str
+cancel_advanced_feature_download | - | _component_service_for | str
+enable_advanced_feature | - | _auto_relogin,_closing,_credential_lock,_lock | bool,dict,getattr,load_prefs,str,update_prefs
+advanced_component_location | - | - | len,str
+open_advanced_component_dir | - | advanced_component_location | Path,str,type
+advanced_features_state | - | _advanced_busy,_auto_relogin,_cloudflare,_cloudflare_status_snapshot,_component_service_for,_last_login_origin,_relay | _credential_store_available,_phone_access_prefs,bool,dict,getattr,load_prefs,str
+inspect_advanced_component | - | - | Path,str
+pick_advanced_component | - | _window | str
+install_advanced_feature | _advanced_busy | _advanced_busy,_closing,_cloudflare,_credential_lock,_install_selected_feature,_is_busy_locked,_lock,_phone,_phone_access_lock,inspect_advanced_component,stop_phone_access | dict,load_prefs,str,update_prefs
+remove_advanced_feature | _advanced_busy | _advanced_busy,_auto_relogin,_closing,_cloudflare,_component_service,_credential_lock,_lock,_phone_access_lock,_relay,stop_phone_access | dict,getattr,load_prefs,str,update_prefs
+save_relogin_credentials | _once_creds_rejected | _auto_relogin,_credential_lock,_lock | _credential_store_available,str,type
+clear_relogin_credentials | _once_creds_rejected | _auto_relogin,_credential_lock,_lock,_relay | -
+front_ready | - | _trace | -
+check_update | _update_request_id,_update_staging_path,_updating | _closing,_do_check_update,_lock,_publish_update,_update_request_id,_update_result,_update_staging_path,_updating | isinstance,str,update_version_paths
+update_download | _update_cancelled,_update_request_id,_updating | _closing,_do_update_download,_lock,_update_installer,_update_request_id,_updating | isinstance
+update_cancel | _update_cancelled | _lock | -
+update_launch | - | _closing,_emit,_lock,_publish_update,_update_installer_path,_update_result,_update_staging_path,request_window_close | _env,defer_close_action,dict,isinstance,str,type,update_launcher_command,update_version_paths,version_switch_available
+check | _check_again,_check_request_id,_checking | _cancelling,_check_last,_check_request_id,_checking,_closing,_do_check,_lock,_terms_gate | dict
+list_activities | _list_request_id,_listing | _cancelling,_closing,_do_list,_list_last,_list_request_id,_listing,_lock,_terms_gate | dict
+cancel_signup | _cancelling | _activities,_after_cancelled,_cancel_busy_reason_locked,_cancel_refusal,_cancel_signup_run,_emit,_lock,_terms_gate | dict,isinstance
+login | - | _closing,_lock,_plan,_spawn,_terms_gate | worker_command
+grab | - | _spawn,_terms_gate | worker_command
+start_request_state | - | _latest_plan_id,_lock,_plan,_plan_generation,_start_requests | getattr,set,str
+cancel_start_request | - | __dict__,_lock,_remember_start,_start_requests | len,set,str
+start_plan | _next_plan_source | _lock,_remember_start,_start_plan_inner,_start_replay,_start_requests,_terms_gate | dict,getattr,isinstance,set,str,type
+cancel_task | - | _lock,_plan | str
+stop_plan | - | _lock,_plan,_terminate_plan_procs | str
+plan_active_for_close | - | - | getattr
+ask_window_close | - | _close_plan_burden,_emit,_ensure_tray,_phone,plan_active_for_close | bool,dict,load_prefs,resolve_close_action
+request_window_close | _close_approved,_window_minimized | _remember_close_action,_window,hide_window | len,str
+hide_window | _window_hidden | _ensure_tray,_notify_window_hidden,_phone,_tray,_window | phone_log
+show_window | _window_hidden,_window_minimized | _tray,_window | phone_log
+window_visibility | - | _lock,_window_hidden | bool
+shutdown | _closing,_phone_channel | _auto_relogin,_aux_procs,_aux_trees,_closing,_lock,_phone,_plan,_plan_procs,_plan_trees,_proc,_proc_tree,_relay,_shutdown_done_event,_stop_cloudflare_checked,_stop_tray | _kill_tree,getattr,id,list,set
+stop | _proc,_proc_tree,_relay_proc_tree | _emit,_lock,_plan,_proc,_proc_tree,_relay_proc_tree,stop_plan | _kill_tree
+phone_access_state | - | _phone,_phone_channel,_reconcile_cloudflare_lifecycle,advanced_features_state | _phone_access_prefs,_phone_qr_data,bool,dict,getattr,load_prefs
+start_phone_access | - | _phone_access_lock,_start_phone_access | -
+set_phone_access_preferences | - | - | _phone_access_prefs,load_prefs,str,update_prefs
+restore_phone_access | - | _closing,_lock,_phone,_phone_channel,start_phone_access | _phone_access_prefs,dict,load_prefs
+schedule_phone_restore | - | _emit,restore_phone_access,schedule_component_auto_update | getattr,type
+schedule_component_auto_update | - | _emit,_wait_component_settled,download_advanced_feature | auto_update_outdated_components,bool,getattr,load_prefs,type
+stop_phone_access | _cloudflare_exit_notice | _phone_access_lock,_stop_phone_access | -
+prepare_phone_relogin | _once_creds_rejected,_pending_save,_relay_creds_source | _emit,_lock,_relay | _credential_store_available,bool,str
+relogin_begin | - | _begin_typed_relogin,_log_event,_relay,_relogin_entry_gate,_relogin_manual_case,_relogin_ocr_ready,prepare_phone_relogin | bool,dict,str,worker_command
+relogin_submit | - | _relay | -
+relogin_cancel | - | _relay | -
+relogin_auto_once | - | _begin_auto_relogin,_relay,_relogin_entry_gate | dict,str
+phone_relogin_begin | - | _begin_auto_relogin,_begin_typed_relogin,_manual_relogin_wanted,_relay,_relogin_entry_gate,_terms_gate,prepare_phone_relogin | bool,str,worker_command
+phone_relogin_submit | - | _relay | -
+phone_relogin_cancel | - | _relay | -
+open_data | - | - | ensure_data_dir,str
+open_latest_release | - | - | type
+get_license_text | - | - | license_candidates,str
+save_prefs | - | - | update_prefs
+accept_terms | - | - | isinstance,load_prefs,terms_state,update_prefs
+withdraw_terms | - | plan_active_for_close | dict,load_prefs,terms_state,update_prefs
+[fields] field | writers | readers
+CANCEL_BUSY_TEXT | - | _cancel_refusal
+CANCEL_WORKER_TIMEOUT_S | - | _cancel_signup_run
+FINISHED_PLAN_KEEP | - | _prune_finished_plans_locked
+SIGNED_SYNC_WINDOW_S | - | _merge_list_activities
+START_KEEP | - | _remember_start
+__dict__ | - | cancel_start_request
+_activities | __init__,_do_list_inner | cancel_signup,_after_cancelled,_confirm_signed,_merge_list_activities,_start_plan_inner,_phone_raw_state
+_advanced_busy | __init__,_component_finished,download_advanced_feature,install_advanced_feature,remove_advanced_feature | download_advanced_feature,advanced_features_state,install_advanced_feature,remove_advanced_feature,_auto_relogin_eligible,_cancel_busy_reason_locked,_start_phone_access
+_after_cancelled | - | cancel_signup
+_anchor_login_success | - | __init__,_pump
+_auto_relogin | __init__ | __init__,_install_downloaded_ocr,_commit_downloaded_ocr_group,enable_advanced_feature,advanced_features_state,_install_selected_feature,remove_advanced_feature,save_relogin_credentials,clear_relogin_credentials,_silent_relogin_state,_request_auto_relogin,_manual_relogin_wanted,_phone_relay_view,_begin_auto_relogin_once,_do_check,shutdown,_commit_pending_save,_relay_finished
+_auto_relogin_eligible | - | __init__,_begin_auto_relogin_once
+_auto_relogin_paused | - | __init__,_silent_relogin_ready,_begin_auto_relogin_once
+_auto_relogin_started_at | __init__,_begin_auto_relogin | _relay_finished,_anchor_login_success
+_aux_procs | __init__ | shutdown,_run
+_aux_trees | __init__ | shutdown,_run
+_begin_auto_relogin | - | __init__,relogin_auto_once,phone_relogin_begin
+_begin_auto_relogin_once | - | _begin_auto_relogin
+_begin_typed_relogin | - | relogin_begin,phone_relogin_begin
+_bootstrap_plan_snapshot | - | bootstrap
+_cancel_busy_reason_locked | - | cancel_signup
+_cancel_refusal | - | cancel_signup,_cancel_signup_run
+_cancel_signup_run | - | cancel_signup
+_canceled_start_ids | __init__ | -
+_cancelling | __init__,cancel_signup | _auto_relogin_eligible,check,list_activities,_cancel_busy_reason_locked,_spawn_relay_worker,_is_busy_locked
+_check_again | __init__,check,_do_check | _do_check
+_check_last | __init__,_emit | check
+_check_request_id | __init__,check | _emit,check
+_checking | __init__,check,_do_check | _auto_relogin_eligible,check,_cancel_busy_reason_locked,_start_plan_inner,_spawn_relay_worker
+_classify_captcha | - | __init__
+_clock | __init__ | _clock_now,_clock_ready,clock_snapshot,sync_clock,_start_clock_monitor,bootstrap,_do_check_inner,_phone_raw_state,_anchor_login_success
+_clock_monitor_started | _start_clock_monitor | -
+_clock_now | - | __init__,_start_clock_monitor,_log_event,_pc_clock_text,_confirm_signed,_merge_list_activities,_do_list_inner,_start_plan_inner,_on_second_open,_relogin_late_answer,_run_plan_task
+_clock_payload | - | sync_clock,bootstrap,_phone_raw_state
+_clock_ready | - | _wait_for_list_clock,_start_plan_inner,_close_plan_burden
+_clock_syncing | __init__,sync_clock | sync_clock
+_close_approved | __init__,request_window_close | -
+_close_plan_burden | - | ask_window_close
+_closing | __init__,shutdown | _wait_for_list_clock,_install_downloaded_component,_commit_downloaded_component_group,_install_downloaded_ocr,_commit_downloaded_ocr_group,download_advanced_feature,enable_advanced_feature,install_advanced_feature,_install_selected_feature,remove_advanced_feature,_auto_relogin_eligible,check_update,_publish_update,update_download,update_launch,check,list_activities,_do_check,_cancel_busy_reason_locked,login,_start_plan_inner,shutdown,_start_phone_access,restore_phone_access,_wait_component_settled,_relogin_entry_gate,_spawn_relay_worker,_run_plan_task,_run,_spawn
+_cloudflare | __init__ | _stop_cloudflare_checked,_component_installed,advanced_features_state,install_advanced_feature,_install_selected_feature,remove_advanced_feature,_cloudflare_status_snapshot,_start_phone_access
+_cloudflare_exit_notice | __init__,_cloudflare_status_snapshot,_start_phone_access,stop_phone_access | _cloudflare_status_snapshot
+_cloudflare_starting | __init__,_start_phone_access | _start_phone_access
+_cloudflare_status_snapshot | - | advanced_features_state,_reconcile_cloudflare_lifecycle
+_commit_downloaded_component_group | - | __init__
+_commit_downloaded_ocr_group | - | __init__
+_commit_pending_save | - | _anchor_login_success
+_component_finished | - | __init__,download_advanced_feature
+_component_installed | - | __init__
+_component_service | __init__ | _component_finished,remove_advanced_feature
+_component_service_for | - | download_advanced_feature,cancel_advanced_feature_download,advanced_features_state,_wait_component_settled
+_confirm_signed | - | _start_plan_inner
+_credential_lock | __init__ | _install_downloaded_component,_commit_downloaded_component_group,_install_downloaded_ocr,_commit_downloaded_ocr_group,enable_advanced_feature,install_advanced_feature,_install_selected_feature,remove_advanced_feature,save_relogin_credentials,clear_relogin_credentials,_begin_auto_relogin_once,_commit_pending_save
+_do_check | - | check,_do_check
+_do_check_inner | - | _do_check
+_do_check_update | - | check_update
+_do_list | - | list_activities
+_do_list_inner | - | _do_list
+_do_update_download | - | update_download
+_emit | - | __init__,_wait_for_list_clock,sync_clock,_stop_cloudflare_checked,_component_finished,_component_installed,_ocr_component_installed,download_advanced_feature,_begin_auto_relogin,_publish_update,update_launch,_do_check,_push_login_expired,_do_check_inner,_do_list,cancel_signup,_cancel_signup_run,_after_cancelled,_do_list_inner,_start_plan_inner,ask_window_close,_on_second_open,stop,_reconcile_cloudflare_lifecycle,_start_phone_access,_remember_phone_channel,schedule_phone_restore,schedule_component_auto_update,_stop_phone_access,prepare_phone_relogin,_commit_pending_save,_relay_finished,_run_plan_task,_spawn,_pump
+_ensure_tray | - | ask_window_close,hide_window,_notify_plan_done
+_expiry_pushed | __init__,_note_login_conclusion | _note_login_conclusion
+_find_request_id | - | bootstrap
+_finished_plan_ids | __init__ | _prune_finished_plans_locked,_start_plan_inner
+_forget_phone_autostart | - | _stop_phone_access
+_install_downloaded_component | - | __init__
+_install_downloaded_ocr | - | __init__
+_install_selected_feature | - | install_advanced_feature
+_is_busy_locked | - | _bootstrap_plan_snapshot,download_advanced_feature,install_advanced_feature,_start_plan_inner,_phone_raw_state,_is_busy,_spawn
+_last_check | __init__,_do_check,_do_check_inner | bootstrap,_do_check,_do_check_inner,_start_plan_inner,_phone_raw_state
+_last_login_origin | __init__,_anchor_login_success | advanced_features_state
+_last_plan | __init__,_start_plan_inner | _bootstrap_plan_snapshot,_phone_raw_state
+_latest_plan_id | __init__,_start_plan_inner | _protect_start,start_request_state,_start_plan_inner
+_list_last | __init__,_emit,_after_cancelled | list_activities,_after_cancelled
+_list_request_id | __init__,list_activities | _emit,list_activities
+_listing | __init__,list_activities,_do_list | _auto_relogin_eligible,list_activities,_cancel_busy_reason_locked,_spawn_relay_worker
+_lock | __init__ | _wait_for_list_clock,sync_clock,_start_clock_monitor,bootstrap,_find_request_id,_bootstrap_plan_snapshot,_install_downloaded_component,_commit_downloaded_component_group,_component_finished,_install_downloaded_ocr,_commit_downloaded_ocr_group,download_advanced_feature,enable_advanced_feature,install_advanced_feature,_install_selected_feature,remove_advanced_feature,save_relogin_credentials,clear_relogin_credentials,_auto_relogin_eligible,_once_credentials_staged,_auto_relogin_paused,_request_auto_relogin,_begin_auto_relogin_once,check_update,_publish_update,update_download,update_cancel,update_launch,check,list_activities,_do_check,_note_login_conclusion,_note_pc_list_error,_do_list,cancel_signup,_after_cancelled,_confirm_signed,_do_list_inner,login,start_request_state,cancel_start_request,start_plan,_start_plan_inner,cancel_task,stop_plan,_terminate_plan_procs,window_visibility,_plan_source_of,shutdown,stop,_phone_raw_state,_start_phone_access,restore_phone_access,_wait_component_settled,prepare_phone_relogin,_commit_pending_save,_relogin_late_answer,_relogin_entry_gate,_begin_typed_relogin,_spawn_relay_worker,_relay_finished,_is_busy,_run_plan_task,_run,_spawn,_anchor_login_success,_pump
+_log_event | - | __init__,_begin_auto_relogin,_note_login_conclusion,_begin_typed_relogin,relogin_begin,_relay_finished,_anchor_login_success
+_login_expired_logged | __init__,_note_login_conclusion | -
+_login_seen_valid | __init__,_note_login_conclusion | _note_login_conclusion
+_login_wait_pending | __init__,_request_auto_relogin,_begin_auto_relogin_once | _relogin_blocked_locked
+_manual_relogin_wanted | - | _phone_relay_view,phone_relogin_begin
+_merge_list_activities | - | _do_list_inner
+_next_plan_source | __init__,start_plan,_start_plan_inner | -
+_note_login_conclusion | - | _do_check
+_note_pc_list_error | - | _do_list,_do_list_inner
+_notify_plan_done | - | _start_plan_inner
+_notify_window_hidden | - | hide_window
+_ocr_component_installed | - | __init__
+_ocr_component_service | __init__ | _component_finished
+_once_credentials_staged | - | _silent_relogin_ready,_begin_auto_relogin_once
+_once_creds_rejected | __init__,save_relogin_credentials,clear_relogin_credentials,prepare_phone_relogin,_relay_finished | _auto_relogin_paused
+_pc_clock_text | - | _note_pc_list_error,_do_list_inner
+_pc_list_error | __init__,_note_pc_list_error,_do_list_inner | _phone_raw_state
+_pc_list_ok_at | __init__,_do_list_inner | _note_pc_list_error
+_pending_save | __init__,_begin_auto_relogin_once,prepare_phone_relogin,_commit_pending_save,_begin_typed_relogin,_relay_finished | _commit_pending_save
+_phone | __init__ | _emit,_install_downloaded_component,_commit_downloaded_component_group,install_advanced_feature,_install_selected_feature,ask_window_close,hide_window,shutdown,_reconcile_cloudflare_lifecycle,phone_access_state,_start_phone_access,restore_phone_access,_stop_phone_access
+_phone_access_lock | __init__ | _install_downloaded_component,_commit_downloaded_component_group,download_advanced_feature,install_advanced_feature,_install_selected_feature,remove_advanced_feature,_reconcile_cloudflare_lifecycle,start_phone_access,stop_phone_access
+_phone_channel | __init__,_install_downloaded_component,_commit_downloaded_component_group,shutdown,_reconcile_cloudflare_lifecycle,_start_phone_access,_stop_phone_access | _reconcile_cloudflare_lifecycle,phone_access_state,_start_phone_access,restore_phone_access,_stop_phone_access
+_phone_raw_state | - | __init__
+_phone_relay_view | - | _emit,_phone_raw_state
+_phone_relogin_setup | - | _phone_raw_state
+_plan | __init__,_start_plan_inner | _start_clock_monitor,_bootstrap_plan_snapshot,_cancel_busy_reason_locked,login,_protect_start,start_request_state,_start_plan_inner,cancel_task,stop_plan,shutdown,stop,_phone_raw_state,_relogin_late_answer,_is_busy_locked
+_plan_generation | __init__,_start_plan_inner | bootstrap,start_request_state,_start_plan_inner
+_plan_procs | __init__ | _relogin_blocked_locked,_cancel_busy_reason_locked,_terminate_plan_procs,shutdown,_is_busy_locked,_run_plan_task
+_plan_source_of | - | bootstrap,_phone_raw_state
+_plan_sources | __init__ | _start_plan_inner,_plan_source_of
+_plan_trees | __init__ | _terminate_plan_procs,shutdown,_run_plan_task
+_proc | __init__,stop,_spawn_relay_worker,_relay_finished,_spawn,_pump | _relogin_blocked_locked,_cancel_busy_reason_locked,shutdown,stop,_spawn_relay_worker,_relay_finished,_is_busy_locked,_pump
+_proc_tree | __init__,stop,_spawn_relay_worker,_relay_finished,_spawn,_pump | shutdown,stop,_relay_finished,_pump
+_protect_start | - | _remember_start
+_prune_finished_plans_locked | - | _start_plan_inner
+_publish_update | - | check_update,_do_update_download,update_launch
+_pump | - | _spawn
+_push_login_expired | - | _note_login_conclusion
+_reconcile_cloudflare_lifecycle | - | phone_access_state
+_relay | __init__ | __init__,_install_downloaded_ocr,_commit_downloaded_ocr_group,advanced_features_state,_install_selected_feature,remove_advanced_feature,clear_relogin_credentials,_silent_relogin_state,_once_credentials_staged,_manual_relogin_wanted,_phone_relay_view,_begin_auto_relogin,_begin_auto_relogin_once,shutdown,_stop_phone_access,prepare_phone_relogin,_begin_typed_relogin,relogin_begin,relogin_submit,relogin_cancel,relogin_auto_once,phone_relogin_begin,phone_relogin_submit,phone_relogin_cancel,_relay_finished,_pump
+_relay_creds_source | __init__,_begin_auto_relogin_once,prepare_phone_relogin | _once_credentials_staged,_relay_finished
+_relay_finished | - | __init__
+_relay_proc_tree | __init__,stop,_spawn_relay_worker,_relay_finished | stop,_relay_finished
+_relogin_blocked_locked | - | _auto_relogin_eligible
+_relogin_entry_gate | - | relogin_begin,relogin_auto_once,phone_relogin_begin
+_relogin_late_answer | - | _relogin_entry_gate
+_relogin_manual_case | - | relogin_begin
+_relogin_ocr_ready | - | _manual_relogin_wanted,_phone_relogin_setup,_begin_typed_relogin,relogin_begin
+_relogin_wait_s | - | _run_plan_task
+_remember_close_action | - | request_window_close
+_remember_phone_channel | - | _start_phone_access
+_remember_start | - | cancel_start_request,start_plan,_start_plan_inner
+_request_auto_relogin | - | _run_plan_task
+_resolve_component_asset | - | __init__
+_run | - | _do_check_inner,_cancel_signup_run,_do_list_inner
+_run_plan_task | - | _start_plan_inner
+_shutdown_done_event | __init__ | shutdown
+_silent_relogin_ready | - | _silent_relogin_state,_auto_relogin_eligible,_relogin_wait_s
+_silent_relogin_state | - | _do_check,_note_login_conclusion,_do_check_inner,_phone_raw_state
+_spawn | - | login,grab
+_spawn_relay_worker | - | __init__
+_start_order | __init__ | _remember_start
+_start_phone_access | - | start_phone_access
+_start_plan_inner | - | start_plan
+_start_replay | - | start_plan
+_start_requests | __init__ | _find_request_id,_protect_start,_remember_start,start_request_state,cancel_start_request,start_plan,_start_plan_inner
+_stop_cloudflare_checked | - | _install_downloaded_component,_commit_downloaded_component_group,shutdown,_stop_phone_access
+_stop_phone_access | - | _reconcile_cloudflare_lifecycle,stop_phone_access
+_stop_tray | - | shutdown
+_terminate_plan_procs | - | stop_plan
+_terms_gate | - | _silent_relogin_ready,check,list_activities,cancel_signup,login,grab,start_plan,_phone_raw_state,_relogin_entry_gate,phone_relogin_begin
+_trace | - | front_ready
+_tray | __init__,_ensure_tray,_stop_tray | hide_window,_notify_window_hidden,show_window,_notify_plan_done,_ensure_tray,_stop_tray
+_update_cancelled | __init__,update_download,update_cancel | -
+_update_installer | __init__ | update_download
+_update_installer_path | __init__ | bootstrap,update_launch
+_update_request_id | __init__,check_update,update_download | bootstrap,check_update,update_download
+_update_result | __init__,_publish_update | bootstrap,check_update,_do_update_download,update_launch
+_update_staging_path | __init__,check_update | check_update,update_launch
+_updating | __init__,check_update,_publish_update,update_download | bootstrap,check_update,update_download
+_wait_component_settled | - | schedule_component_auto_update
+_wait_for_list_clock | - | _do_list_inner
+_window | __init__ | _emit,pick_advanced_component,_install_selected_feature,request_window_close,hide_window,show_window
+_window_hidden | __init__,hide_window,show_window | window_visibility,_notify_plan_done
+_window_minimized | __init__,request_window_close,show_window,_on_window_minimized,_on_window_restored | _notify_plan_done
+advanced_component_location | - | open_advanced_component_dir
+advanced_features_state | - | bootstrap,phone_access_state
+check | - | __init__,_anchor_login_success
+clock_snapshot | - | _clock_payload,sync_clock
+download_advanced_feature | - | schedule_component_auto_update
+help | - | bootstrap
+hide_window | - | request_window_close
+inspect_advanced_component | - | install_advanced_feature
+plan_active_for_close | - | ask_window_close,withdraw_terms
+prepare_phone_relogin | - | _begin_typed_relogin,relogin_begin,phone_relogin_begin
+request_window_close | - | update_launch,_ensure_tray
+restore_phone_access | - | schedule_phone_restore
+schedule_component_auto_update | - | schedule_phone_restore
+show_window | - | _on_second_open,_ensure_tray
+start_phone_access | - | restore_phone_access
+stop_phone_access | - | install_advanced_feature,_install_selected_feature,remove_advanced_feature
+stop_plan | - | stop
+[locks] 模块级/实例锁来源（threading.Lock/RLock/Event/Condition 赋值行）
+L147: _PHONE_LOG_LOCK = threading.Lock()
+L779: _LIFECYCLE_LOCK = threading.Lock()
+L842: self._lock = threading.Lock()
+L843: self._credential_lock = threading.RLock()
+L845: self._phone_access_lock = threading.RLock()
+L856: self._shutdown_done_event = threading.Event()
