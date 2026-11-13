@@ -1,0 +1,64 @@
+# ruff 配置：只查语法错误与 pyflakes 两类问题，不查格式，也不做自动修复。
+# 只开 E9 与 F：E9 是语法错误，F 是 pyflakes（未使用、未定义、重复定义）。样式类规则留到以后的批次；
+# ruff format 也不用，避免一次重排大批存量代码。
+target-version = "py310"
+
+# 这些目录不查：文档、构建产物、本地数据、第三方依赖与工具缓存。
+exclude = [
+    "design/",
+    "docs/",
+    "dist/",
+    ".claude/",
+    "local/data/",
+    "server/data/",
+    "local/bin/",
+    "node_modules/",
+]
+
+[lint]
+select = ["E9", "F"]
+
+# 存量名单：这些文件里已经存在的告警暂时保留，按「文件、规则码」精确到项。
+# 只减不增：新代码不许加项；确实需要时先问用户，别为了变绿把新告警塞进来。
+[lint.per-file-ignores]
+"local/advanced_helper.py" = ["F401"]
+"local/app.py" = ["F401"]
+"local/application/advanced_component_service.py" = ["F401"]
+"local/application/login_relay_service.py" = ["F401"]
+"local/application/phone_service.py" = ["F401"]
+"local/build/build_installer.py" = ["F401"]
+"local/grab.py" = ["F401"]
+"local/infrastructure/credential_store.py" = ["F841"]
+"local/infrastructure/lifecycle_store.py" = ["F841"]
+"local/signup_plan.py" = ["F401"]
+"local/tests/test_advanced_features.py" = ["F401"]
+"local/tests/test_auto_relogin.py" = ["F401"]
+"local/tests/test_business_clock.py" = ["F401"]
+"local/tests/test_business_clock_wiring.py" = ["F401"]
+"local/tests/test_cancel_signup.py" = ["F401"]
+"local/tests/test_lifecycle_release.py" = ["F841"]
+"local/tests/test_login_relay.py" = ["F401"]
+"local/tests/test_login_relay_service.py" = ["F401"]
+"local/tests/test_network_policy.py" = ["F401"]
+"local/tests/test_phone_http.py" = ["F401", "F841"]
+"local/tests/test_phone_service.py" = ["F401", "F841"]
+"local/tests/test_release_audit.py" = ["F401"]
+"local/tests/test_retry_phone_policy.py" = ["F401"]
+"local/tests/test_retry_policy.py" = ["F841"]
+"local/tests/test_session_persistence.py" = ["F401", "F823"]
+"local/tests/test_signup_plan.py" = ["F841"]
+"local/tests/test_time_contract.py" = ["F401"]
+"local/tests/test_ui_contract_settings.py" = ["F401"]
+"local/tests/test_ui_contract_shell.py" = ["F401"]
+"local/tests/test_updater.py" = ["F811"]
+"local/tests/test_worker_boundaries.py" = ["F841"]
+"server/deploy/auto_login.py" = ["F401"]
+"server/deploy/grab_signup.py" = ["F401"]
+"server/scripts/common.py" = ["F401"]
+"server/scripts/dev/explore.py" = ["F401"]
+"server/scripts/fetch.py" = ["F541"]
+"server/scripts/token_probe.py" = ["F841"]
+"server/scripts/token_report.py" = ["F841"]
+"tools/qa_business_clock_worker.py" = ["F401"]
+"tools/qa_runtime_reliability.py" = ["F841"]
+"tools/split_branches.py" = ["F401"]

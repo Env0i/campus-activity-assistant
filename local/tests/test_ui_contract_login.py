@@ -2,7 +2,6 @@
 """界面契约：登录三态、启动闸门与重登后刷新。"""
 from __future__ import annotations
 
-import json
 import sys
 import unittest
 from pathlib import Path

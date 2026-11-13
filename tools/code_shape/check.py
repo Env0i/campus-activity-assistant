@@ -174,7 +174,6 @@ def js_units(files: list[str]) -> tuple[list[dict], str]:
 
 def collect() -> dict:
     files = list_sources()
-    py_files = [f for f in files if f.endswith(".py")]
     product_files: dict[str, int] = {}
     product_funcs: list[dict] = []
     test_funcs: list[dict] = []

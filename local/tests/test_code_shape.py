@@ -12,6 +12,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -222,3 +223,48 @@ class NoNodeRefusalTests(unittest.TestCase):
         self.assertNotEqual(0, rc, "--init 在没有 JS 数据时必须非零退出")
         self.assertIn("node", err, "被拒绝的原因要打到标准错误")
         self.assertFalse(module.BASELINE.exists(), "被拒绝时不能生成 baseline.json")
+
+
+class RuffGuardTests(unittest.TestCase):
+    """ruff 的两条守卫：实际告警为零；不带忽略时的「文件×规则码」与存量名单逐项相等。"""
+
+    @classmethod
+    def setUpClass(cls):
+        if importlib.util.find_spec("ruff") is None:
+            raise unittest.SkipTest("本机没装 ruff：跳过 ruff 守卫，装了再跑")
+        spec = importlib.util.spec_from_file_location("code_shape_check", CHECK)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cls.repo = module.ROOT
+        cls.ignores = cls._read_ignores()
+
+    @classmethod
+    def _read_ignores(cls) -> set[tuple[str, str]]:
+        import tomllib
+        data = tomllib.loads((cls.repo / "ruff.toml").read_text(encoding="utf-8"))
+        table = data.get("lint", {}).get("per-file-ignores", {})
+        return {(path.replace("\\", "/"), code) for path, codes in table.items() for code in codes}
+
+    @classmethod
+    def _run_ruff(cls, *extra: str):
+        return subprocess.run([sys.executable, "-m", "ruff", "check", "local", "server", "tools",
+                               "--no-cache", *extra],
+                              cwd=str(cls.repo), capture_output=True, text=True,
+                              encoding="utf-8", errors="replace")
+
+    def test_ruff_reports_no_warnings(self):
+        """配置生效时 ruff 必须零告警，新增的告警不许靠忽略名单过关。"""
+        proc = self._run_ruff()
+        self.assertEqual(0, proc.returncode, proc.stdout + proc.stderr)
+
+    def test_ignore_list_matches_actual_warnings(self):
+        """不带忽略再跑一次：多出来的是新告警，少了的是名单里没用的项，两边都红。"""
+        proc = self._run_ruff("--config", "lint.per-file-ignores = {}",
+                              "--output-format", "concise")
+        actual = set()
+        for line in (proc.stdout + proc.stderr).splitlines():
+            m = re.match(r"^([^:]+):\d+:\d+: ([EF]\d{1,3}) ", line)
+            if m:
+                actual.add((m.group(1).replace("\\", "/"), m.group(2)))
+        self.assertNotEqual(0, proc.returncode, "名单全带忽略时应当仍有存量告警，否则用例失去意义")
+        self.assertEqual(self.ignores, actual, "ruff.toml 的 per-file-ignores 与真实告警不一致")

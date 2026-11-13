@@ -1,0 +1,3 @@
+# 开发期检查工具，不进安装包、不进绿色版，也不写进 local/requirements.txt。
+# 用 python -m pip install -r requirements-dev.txt 安装。
+ruff==0.17.5
