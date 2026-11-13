@@ -495,7 +495,9 @@ function handleDone(payload) {
       syncLoginDependentView();
       setResult({ ok: true, title: "登录成功", text: "正在加载活动列表。", autoClose: Date.now() + 6000 });
       doCheck();
-      refresh(true);
+      /* 登录成功后的刷新是程序自己发起的（U2/U3）：列表已有内容就走后台轮，失败不清列表和勾选；
+       * 列表空着（常常正是因为没登录才空）走前台轮，才有骨架和错误空态可看 */
+      refresh(true, S.items.length ? { background: true } : undefined);
     } else {
       /* 取消 / 超时 / 窗口关闭 / 登录失败：整份回滚到尝试前——旧会话仍然有效，
        * 不能因为这次没登成把胶囊画成「登录已失效」或丢掉剩余时间；

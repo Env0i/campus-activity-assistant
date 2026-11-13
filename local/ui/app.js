@@ -638,7 +638,7 @@ document.addEventListener("visibilitychange", () => {
     if (info) {
       ingestBootstrapPlan(info);
       if (!!info.busy !== S.busy) setBusy(!!info.busy);
-      if (!info.busy) refresh(true);
+      if (!info.busy) refresh(true, { background: true });   /* 窗口恢复是程序自己发起的：不闪骨架，失败不清列表（U2/U3） */
     }
     /* 窗口变为可见：计划运行中上面不会刷新，隐藏期间错过的那次自动刷新在这里立即补上；
      * 上面刚刷新过的话，autoRefreshTick 会因为「正在拉列表」自己跳过，不会连刷两次 */

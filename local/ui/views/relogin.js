@@ -435,7 +435,10 @@ function reloginSucceeded(flowId) {
   if (flow === reloginRefreshedFlow) return;
   reloginRefreshedFlow = flow;
   if (typeof doCheck === "function") doCheck();
-  if (typeof refresh === "function") refresh(true);
+  /* 程序自己发起的刷新（U2/U3）：列表已有内容就走后台轮，失败不清列表和勾选；
+   * 列表空着（常常正是因为登录失效才拉不到列表）走前台轮，才有骨架和错误空态可看。
+   * 与 controllers/plan.js 浏览器登录成功后的判定同一口径。 */
+  if (typeof refresh === "function") refresh(true, S.items.length ? { background: true } : undefined);
 }
 
 /* 后端推来的这一场进度（与手机同一份 public_state）：只在对话框开着时接管画面 */

@@ -125,7 +125,7 @@ function showTaskResult(task) {
      * 计划还在跑也要查——不能因为改成「只更新单场反馈」就把这条副作用丢掉。 */
     if (!S.recheckPending) {
       S.recheckPending = true;
-      setTimeout(() => { S.recheckPending = false; refresh(true); }, 400);
+      setTimeout(() => { S.recheckPending = false; refresh(true, { background: true }); }, 400);   /* 程序自己发起的复查走后台轮（U2/U3） */
     }
   }
 }

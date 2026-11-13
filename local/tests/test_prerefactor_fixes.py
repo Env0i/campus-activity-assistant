@@ -286,6 +286,152 @@ out.push({ sent, after });
 """
 
 
+class ProgramRefreshTests(unittest.TestCase):
+    """U2/U3：程序自己发起的刷新走后台轮——不画骨架，失败不清列表也不清勾选。"""
+
+    def check_background(self, trigger, label):
+        data = run_ui(PROGRAM_REFRESH + trigger + PROGRAM_TAIL)[0]
+        self.assertEqual(data["sent"]["listCalls"], 1, "%s：刷新确实要发出一轮" % label)
+        self.assertEqual(data["sent"]["state"], "ready",
+                         "%s：发出刷新时列表不能退回骨架（loading）：%r" % (label, data["sent"]))
+        self.assertTrue(data["sent"]["bg"], "%s：应是后台轮" % label)
+        self.assertEqual(data["after"]["items"], 2, "%s：学校回包失败后列表不能被清空" % label)
+        self.assertEqual(data["after"]["selected"], ["a1"], "%s：勾选不能丢" % label)
+        self.assertEqual(data["after"]["state"], "ready", "%s：不能切到错误空态" % label)
+
+    def test_window_becoming_visible_refreshes_in_the_background(self):
+        self.check_background(r"""
+document.hidden = false;
+window.__docListeners.visibilitychange.forEach((fn) => fn());
+""", "窗口重新可见 app.js:641")
+
+    def test_cancel_success_refreshes_in_the_background(self):
+        self.check_background(r"""
+S.cancel.busyId = "a1";
+cancelSettle("a1", { ok: true, kind: "cancelled" });
+""", "取消报名成功 cancel.js:52")
+
+    def test_failed_task_recheck_refreshes_in_the_background(self):
+        self.check_background(r"""
+showTaskResult({ task_id: "t1", activity_id: "a1", name: "活动甲", status: "failed",
+  reason: "名额已满", stop_reason: "max_attempts" });
+__fire(400);
+""", "报名失败后复查 plan-events.js:123")
+
+    def test_signed_bounded_refresh_runs_in_the_background(self):
+        self.check_background(r"""
+scheduleSignedRefresh();
+__fire(800);
+""", "报名成功后的有界刷新 refresh.js:456")
+
+    def test_relogin_success_refreshes_in_the_background(self):
+        self.check_background(r"""
+reloginSucceeded("f1");
+""", "重新登录成功且列表已有内容 relogin.js")
+
+    def test_relogin_success_with_an_empty_list_keeps_the_skeleton(self):
+        """重新登录成功时列表空着（常常正是因为登录失效才拉不到列表）：走前台轮，才有骨架与错误空态。"""
+        res = run_ui(PRELUDE + r"""
+reloginSucceeded("f1");
+await __flush();
+out.push({ state: S.listState, bg: !!S.round.background, listCalls: __calls.list.length });
+""")
+        data = res[0]
+        self.assertEqual(data["listCalls"], 1, "重新登录成功后要加载一次列表")
+        self.assertEqual(data["state"], "loading", "列表为空时前台轮才有骨架")
+        self.assertFalse(data["bg"])
+
+    def test_browser_login_success_with_a_list_refreshes_in_the_background(self):
+        self.check_background(r"""
+S.login.loginPending = true;
+handleDone({ kind: "login", ok: true });
+""", "浏览器登录成功且列表已有内容 plan.js:471")
+
+    def test_browser_login_success_with_an_empty_list_keeps_the_skeleton(self):
+        """列表为空时前台轮才有骨架和错误空态可看：这一支保持原行为。"""
+        res = run_ui(PRELUDE + r"""
+S.login.loginPending = true;
+handleDone({ kind: "login", ok: true });
+await __flush();
+out.push({ state: S.listState, bg: !!S.round.background, listCalls: __calls.list.length });
+""")
+        data = res[0]
+        self.assertEqual(data["listCalls"], 1)
+        self.assertEqual(data["state"], "loading")
+        self.assertFalse(data["bg"])
+
+    def accept_terms_js(self):
+        return r"""
+window.pywebview.api.accept_terms = () => Promise.resolve({ ok: true, terms: { version: "2026-10-27",
+  accepted_version: "2026-10-27", accepted_at: "2026-10-27 12:00:00" } });
+window.pywebview.api.save_prefs = () => Promise.resolve({ ok: true });
+S.prefs = {};
+ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro");
+document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
+document.querySelector("#chk-terms-agree").checked = true;
+document.querySelector("#btn-terms-accept").click();
+"""
+
+    def test_accepting_terms_with_a_list_refreshes_in_the_background(self):
+        self.check_background(self.accept_terms_js(), "同意条款后补加载（列表已有内容）terms.js:354")
+
+    def test_accepting_terms_with_an_empty_list_keeps_the_skeleton(self):
+        res = run_ui(PRELUDE + self.accept_terms_js() + r"""
+await __flush(12);
+out.push({ state: S.listState, bg: !!S.round.background, listCalls: __calls.list.length });
+""")
+        data = res[0]
+        self.assertEqual(data["listCalls"], 1, "同意后要补加载一次")
+        self.assertEqual(data["state"], "loading")
+        self.assertFalse(data["bg"])
+
+    def recheck_terms_js(self):
+        return r"""
+window.pywebview.api.accept_terms = () => new Promise(() => {});
+window.pywebview.api.bootstrap = () => Promise.resolve({ terms: { version: "2026-10-27",
+  accepted_version: "2026-10-27", accepted_at: "2026-10-27 12:00:00" } });
+window.pywebview.api.save_prefs = () => Promise.resolve({ ok: true });
+S.prefs = {};
+ingestTerms({ version: "2026-10-27", accepted_version: "", accepted_at: "" });
+openTermsReader("intro");
+document.querySelector("#dlg-terms-document-version").textContent = "2026-10-27";
+document.querySelector("#chk-terms-agree").checked = true;
+document.querySelector("#btn-terms-accept").click();
+__fire(10000);                              /* 10 秒没有回执：转「保存结果未确认」 */
+document.querySelector("#btn-terms-recheck").click();
+"""
+
+    def test_terms_recheck_success_with_a_list_refreshes_in_the_background(self):
+        self.check_background(self.recheck_terms_js(), "重新确认条款后补加载（列表已有内容）terms.js:414")
+
+    def test_terms_recheck_success_with_an_empty_list_keeps_the_skeleton(self):
+        res = run_ui(PRELUDE + self.recheck_terms_js() + r"""
+await __flush(12);
+out.push({ state: S.listState, bg: !!S.round.background, listCalls: __calls.list.length });
+""")
+        data = res[0]
+        self.assertEqual(data["listCalls"], 1)
+        self.assertEqual(data["state"], "loading")
+        self.assertFalse(data["bg"])
+
+    def test_user_clicked_refresh_and_startup_stay_foreground(self):
+        """守卫：用户点的刷新照旧出骨架、失败清空；启动那一处源码里仍是前台调用。"""
+        data = run_ui(PROGRAM_REFRESH + r"""
+refresh(false);
+await __flush();
+const sent = __look();
+__failList();
+out.push({ sent, after: __look() });
+""")[0]
+        self.assertEqual(data["sent"]["state"], "loading")
+        self.assertFalse(data["sent"]["bg"])
+        self.assertEqual(data["after"]["items"], 0, "用户点的刷新失败仍清空列表")
+        boot = (UI_DIR / "app.js").read_text(encoding="utf-8")
+        self.assertIn("    refresh(true);\n    startAutoRefresh();", boot,
+                      "启动流程里的首轮刷新要保持前台")
+
+
 # AA3-03：报名成功后的有界刷新。原先 local/tests 里零引用，重构挪动 state 层时可能「绿着坏」
 AA3_SNIPPET = PRELUDE + r"""
 load([mk("a1", "活动甲", { sign_start: "2026-11-06 13:00:00" }),
@@ -339,6 +485,40 @@ blockedRun("starting", () => { S.starting = true; }, () => { S.starting = false;
 blockedRun("demo", () => { S.demo = true; }, () => { S.demo = false; }, "p5", 5, "b3");
 out.push({ armedAfterOne, sentOnce, armedAfterTwo, fired, none, blocked });
 """
+
+
+class SignedRefreshTests(unittest.TestCase):
+    """AA3-03：报名成功后的有界刷新（state/plan.js 的调用 → refresh.js scheduleSignedRefresh）。"""
+
+    @staticmethod
+    def assert_aa3(case, data):
+        case.assertEqual(data["armedAfterOne"], 1, "报名成功后要安排一次有界刷新（约 800ms）")
+        case.assertEqual(data["sentOnce"], 1, "到点要发出一轮刷新")
+        case.assertEqual(data["armedAfterTwo"], 1, "连续成功只留一个定时器")
+        case.assertEqual(data["fired"], 1, "连续成功只发一次")
+        case.assertFalse(data["none"], "触发过的定时器不会再有第二个")
+        case.assertEqual(data["blocked"], {name: {"armed": 1, "sent": 0}
+                                           for name in ("busy", "starting", "demo")},
+                         "忙碌、启动中、演示模式：定时器照常安排，到点不发刷新")
+
+    def test_success_event_schedules_one_bounded_refresh(self):
+        self.assert_aa3(self, run_ui(AA3_SNIPPET)[0])
+
+    def test_removing_the_call_in_state_layer_is_caught(self):
+        """变异：在 mkdtemp 副本里删掉 state/plan.js 的调用，上面的断言必须红。
+        仓库里的文件不动；这条用例让「用例能抓到删调用」一直有据可查。"""
+        with tempfile.TemporaryDirectory() as name:
+            copy = Path(name) / "ui"
+            shutil.copytree(UI_DIR, copy)
+            target = copy / "state" / "plan.js"
+            text = target.read_text(encoding="utf-8")
+            old = "if (noteSignedTasks([task])) scheduleSignedRefresh();"
+            self.assertEqual(text.count(old), 1, "变异点必须唯一存在")
+            target.write_text(text.replace(old, "noteSignedTasks([task]);"), encoding="utf-8")
+            mutated = run_ui(AA3_SNIPPET, ui_dir=copy)[0]
+        with self.assertRaises(AssertionError) as caught:
+            self.assert_aa3(self, mutated)
+        self.assertIn("有界刷新", str(caught.exception))
 
 
 if __name__ == "__main__":

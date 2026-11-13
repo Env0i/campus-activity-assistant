@@ -453,7 +453,7 @@ function scheduleSignedRefresh() {
   confirmedRefreshTimer = setTimeout(() => {
     confirmedRefreshTimer = null;
     if (S.busy || S.starting || S.demo) return;
-    refresh(true);
+    refresh(true, { background: true });   /* 程序自己发起的刷新走后台轮：失败不清列表和勾选（U2/U3） */
   }, 800);
 }
 

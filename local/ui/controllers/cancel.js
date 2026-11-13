@@ -49,7 +49,7 @@ function cancelSettle(id, res) {
     S.confirmed.delete(id);
     addLog("取消报名：「" + name + "」已取消，学校记录已核对");
     render();
-    refresh(true);
+    refresh(true, { background: true });   /* 程序自己发起的刷新走后台轮：失败不清列表和勾选（U2/U3） */
     return;
   }
   if (kind === "refused") {

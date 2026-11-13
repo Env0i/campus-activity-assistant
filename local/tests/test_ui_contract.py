@@ -869,8 +869,10 @@ class RetryPolicyUiContractTests(unittest.TestCase):
                       "静默复查必须有去重标志（S.recheckPending）")
         recheck = js.index("S.recheckPending = true")
         block = js[recheck:recheck + 160]
-        self.assertIn("refresh(true)", block,
-                      "失败后必须静默复查登录态与列表（refresh(true)）")
+        # 原断言钉住字面 refresh(true)（前台轮）；该处是程序自己发起的复查，
+        # 前台轮会画骨架、失败时清空列表与勾选（U2/U3，计划 20261113-prerefactor-fixes），改走后台轮
+        self.assertIn("refresh(true, { background: true })", block,
+                      "失败后必须静默复查登录态与列表（后台轮 refresh(true, { background: true })）")
         self.assertIn("}, 400);", block, "复查必须挂在 400ms 去重窗口里（setTimeout 400）")
 
     def test_backend_contract_strings(self):

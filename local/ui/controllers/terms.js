@@ -351,7 +351,8 @@ function acceptTerms() {
     paintTerms();
     paintBanners();
     updateControls();
-    if (hasBridge()) refresh(true); /* 完整成功最多补加载一次 */
+    /* 补加载是程序自己发起的（U2/U3）：列表已有内容走后台轮，空着才走前台轮 */
+    if (hasBridge()) refresh(true, S.items.length ? { background: true } : undefined); /* 完整成功最多补加载一次 */
     focusHelpButton();
     resumeTermsTour(); /* 打开时让位的引导回原步骤 */
     runDeferredIntro(); /* boot 被条款推迟的首次欢迎/引导只继续一次 */
@@ -411,7 +412,8 @@ function recheckTerms() {
       paintTerms();
       paintBanners();
       updateControls();
-      if (hasBridge()) refresh(true);
+      /* 同 acceptTerms 成功路径：程序自己发起的补加载，有列表走后台轮 */
+      if (hasBridge()) refresh(true, S.items.length ? { background: true } : undefined);
       focusHelpButton();
       resumeTermsTour();
       runDeferredIntro();
