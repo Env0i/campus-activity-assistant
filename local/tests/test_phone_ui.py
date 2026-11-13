@@ -5043,7 +5043,8 @@ const ui = PhoneUI;
 ui.model.paired = true;
 const state = { activities: [{id: "a1", name: "篮球赛", place: "体育馆", open_ts: 7200}],
   busy: false, plan: null, terms_ok: true,
-  business_clock: {state: "ready", epoch_s: 3600, tick_s: 5, sampled_tick_s: 5},
+  // 快照取半秒，避开整秒边界；否则首绘与 tick 落在同一毫秒两侧时，倒计时取整会差一秒。
+  business_clock: {state: "ready", epoch_s: 3600.5, tick_s: 5, sampled_tick_s: 5},
   retry_options: { default: 120, choices: [] } };
 globalThis.__fetch = async () => ({status: 200, json: async () => ({state, events: [], seq: 1})});
 await ui.poll(true);

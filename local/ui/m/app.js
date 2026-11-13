@@ -2704,10 +2704,18 @@ if (typeof document !== "undefined") {
     }
     const syncLine = $("last-sync");
     if (syncLine) {
-      const at = new Date();
-      const hh = String(at.getHours()).padStart(2, "0");
-      const mm = String(at.getMinutes()).padStart(2, "0");
-      syncLine.textContent = "最近同步 " + hh + ":" + mm;
+      /* U7：按北京时间写，取法同本文件其他处（业务此刻 → beijingSecOf）。原来读手机本机时钟和手机时区，
+         手机不在东八区就是错的；业务钟不可用时与离线档「最后同步」一样落 --:--，不拿手机时钟冒充 */
+      const syncNow = PhoneModel.businessNowS(model);
+      const syncAt = syncNow !== null
+        ? PhoneModel.hhmmss(PhoneModel.beijingSecOf(syncNow)).slice(0, 5) : "--:--";
+      syncLine.textContent = "最近同步 " + syncAt;
+    }
+    /* U4：核对弹层开着时轮询带回的新状态也要重画（列表、勾选、提醒都可能变了），
+       不然弹层停在打开那一刻的样子；勾选被新状态清空了就收起，同 removeFromReview 的收口 */
+    if (model.sheetId === "review") {
+      if (!model.selected.length) closeSheet(true);
+      else renderReview();
     }
     if (model.pending && !model.pending.done) void reconcile();
   }
