@@ -1,6 +1,12 @@
 playwright>=1.40
 pillow>=9.0
-pywebview>=5.0
+# pywebview 锁定：产品靠它把本地页面经本机回环地址供出，这个行为随版本变，
+# 所以连同它的依赖一起锁定；依据见 design/evidence/2026-11-12/esm-verify/README.md。
+pywebview==6.2.1
+bottle==0.13.4
+proxy-tools==0.1.0
+pythonnet==3.2.1; sys_platform == "win32"
+clr-loader==0.3.1; sys_platform == "win32"
 
 # 高级功能按需安装，不随基础安装拉取：
 #   手机控制：segno

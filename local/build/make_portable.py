@@ -37,7 +37,8 @@ EMBED_SOURCES = [
 ]
 GET_PIP = "https://bootstrap.pypa.io/get-pip.py"
 PIP_INDEX = "https://pypi.tuna.tsinghua.edu.cn/simple"
-PIP_PACKAGES = ["playwright>=1.40", "pillow>=9.0", "pywebview>=5.0"]
+# 要与 requirements.txt 保持一致，test_dependency_pins 会比对
+PIP_PACKAGES = ["playwright>=1.40", "pillow>=9.0", "pywebview==6.2.1", "bottle==0.13.4", "proxy-tools==0.1.0", "pythonnet==3.2.1", "clr-loader==0.3.1"]
 
 # 应用本体：脚本 + 依赖清单 + 说明。源文件在 local/ 根目录，包内同名放包根目录
 # （runtime_paths.py 是 app/grab 的数据根依赖，漏掉直接 ImportError）
