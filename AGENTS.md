@@ -15,7 +15,7 @@
 | `contracts/` | 学校接口的脱敏样例 | — |
 | `docs/` | 架构、运维、登录、自动报名、飞书、配置，是工程真源 | — |
 | `design/` | 决策记录（篇数见 `design/decisions/README.md`）、规格、流程、新工作台原型 | — |
-| `tools/` | 发版和 QA 脚本 | — |
+| `tools/` | 发版、QA 和代码结构检查脚本 | — |
 
 ## 硬边界
 
@@ -107,6 +107,13 @@ node server/deploy/test_atomic_json.js
 python -m compileall local server
 for f in local/ui/*.js local/ui/*/*.js; do node --check "$f" || break; done
 
+# 代码结构：大小名单只读比对；名单只许变短
+python tools/code_shape/check.py
+# 开发依赖（ruff），不进安装包
+python -m pip install -r requirements-dev.txt
+# 只查不改的静态检查
+ruff check local server tools
+
 # 不登录，用假活动跑界面
 python local/app.py --demo
 
@@ -126,6 +133,8 @@ python tools/release.py --prepare
 - **界面测试有两类**：
   - 契约测试：按 `index.html` 的加载顺序把脚本拼起来（`read_ui_scripts()`，不含 led.js），在拼接结果上做文本断言。
   - 行为测试：用 node 沙箱按同一顺序回放。本机没有 node 时会跳过，跳过要如实报告。
+  - 界面契约测试按功能分在 `local/tests/test_ui_contract_*.py`，公共的读取函数和 node 沙箱在 `local/tests/fixtures/ui_harness.py`。
+  - 新测试文件先把测试目录放进 `sys.path` 再 import fixtures，文件尾带 `unittest.main()` 入口。
 - **脚本式的 server 测试**：`server/tests/` 里的 `test_dedup.py`、`test_endpoints.py`、`test_notify.py` 没有 `test_` 函数，pytest 收集不到。其中 `test_dedup.py` 会临时改写 `server/data/state.json`，不要跑。
 - **临时目录**：一律放在 `tempfile.gettempdir()` 下面；server 测试也可以用环境变量 `CAMPUS_TEST_ROOT` 指定。
   - `<tmp>` 只是文档里的占位符，不是路径。夹具里出现 `<tmp>` 字面量就是缺陷，改成 `tempfile.gettempdir()` 不算「改测试路径凑绿」（用户 2026-11-06 定）。
@@ -193,6 +202,29 @@ python tools/release.py --prepare
 - 版本号的真源是根目录的 `VERSION`。
 - `tools/release.py --prepare` 构建一份冻结 EXE，再由同一份 EXE 派生出独立 EXE、四成员 ZIP、安装版和 manifest。
 - `--publish` 要求三件事：在干净的 main 上，逐项核验资产，人工确认。
+
+## 代码结构规则
+
+这些规则由 `local/tests/` 的 `test_code_shape.py`、`test_layer_boundaries.py`、`test_ui_layers.py` 守着，量法、名单和命令的细节见 `tools/code_shape/README.md`。
+
+- **大小**：
+  - 新文件不超过 500 行，新函数不超过 60 行。
+  - 存量超限的记在 `tools/code_shape/baseline.json`，只许变短，变长就红；超过 800 行的文件与超过 100 行的函数在名单里带一句理由。
+  - 测试文件不限行数，单个测试函数（`test_` 开头）不超过 60 行。
+  - 一个类里在三个及以上方法中赋值的实例属性不超过 5 个。
+- **后端分层**：
+  - `domain` 只 import 标准库和 domain；`application` 只 import 标准库、domain、application；这两层不 import 第三方包。
+  - `infrastructure` 可以 import 标准库、第三方包、domain、infrastructure。
+  - 三层都不 import `local/` 根目录下的模块，依赖由 `app.py` 注入。
+- **前端分层**：
+  - `state/` 不引用 `views/`、`controllers/`、`app.js` 里定义的名字。
+  - `views/` 不引用 `controllers/`、`app.js` 里定义的名字，不发桥接请求。
+  - 存量例外记在 `tools/code_shape/ui_layer_allow.json`。
+- **名单只减不增**：
+  - 不往 `baseline.json`、分层白名单、`ruff.toml` 的 `per-file-ignores` 里加项，确实需要时先问用户。
+  - 消掉前端白名单的一项只有两种做法——把定义搬到正确的层，或者改成状态变了由视图订阅重画；不能把上层函数当参数或回调塞进下层。
+  - 每发一版跑一次 `python tools/code_shape/check.py --tighten` 收紧记录值。
+- **ruff**：只查不改，不用 `ruff format`，不用自动修复，不为消告警改存量代码。
 
 ## 提交规范
 
