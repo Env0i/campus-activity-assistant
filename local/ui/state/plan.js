@@ -167,3 +167,9 @@ function unknownLabel(outcome) {
 
 /* 计划终态的唯一呈现入口：plan_done 事件与 F5/bootstrap 恢复共用一份，
  * 这样「实时结束」和「重载后恢复」不会出现两套结论（FR05）。 */
+
+/* 从 views/plan-panel.js 搬来：选中态的纯投影，只读 S、不写 S、不碰 DOM。 */
+
+function selectionSignature() {
+  return Array.from(S.selected).slice().sort().join(",");
+}

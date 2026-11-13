@@ -168,3 +168,81 @@ function executionView() {
            item: taskDisplayItem(best.task), count: batchCount(best.task.sign_start),
            openAt: best.at, retryUntil: null };
 }
+
+/* 从 views/plan-panel.js 搬来：任务卡用的纯投影，只读 S、不写 S、不碰 DOM。 */
+
+/* 刷新核对确认过的待核对场次：结束时没拿到结论，事后学校列表显示已报名 */
+function verifiedSigned(task) {
+  if (!task || String(task.stop_reason || "") !== "unconfirmed") return false;
+  const item = findItem(task.activity_id);
+  return !!(item && item.signed);
+}
+
+/* telemetry 的 retry_deadline 是 epoch 秒（后端结构化行）；空串/0 表示没有 */
+function telemetryDeadline(task) {
+  const epoch = Number(task && task.retry_deadline);
+  return Number.isFinite(epoch) && epoch > 0 ? epoch : null;
+}
+
+/* 提交中任务卡的说明（原型 card 的 submitting 支）：「已提交 N 次（上限 M 次）。最近：<原因>，重试到 HH:MM:SS」。
+ * taskHtml 与每秒走字共用这一份；0 表示不限，必须明说。截止优先 telemetry，其次统一推导；
+ * 截止未知（已开放又没有任何启动参考点）时最后一段写「等待提交结果」，不编 0 秒。 */
+function submittingDetail(task) {
+  const attempts = Math.max(0, Math.floor(Number(task && task.attempts) || 0));
+  const cap = Number(task && task.max_attempts);
+  const limited = Number.isFinite(cap) && cap > 0;
+  const head = "已提交 " + attempts + " 次（" + (limited ? "上限 " + cap + " 次" : "不限次数") + "）";
+  const tail = [];
+  const last = String(task && task.last_reason || "").trim();
+  if (last) tail.push("最近：" + last);
+  const deadline = effectiveRetryDeadline(task);
+  tail.push(deadline === null ? "等待提交结果" : "重试到 " + hmsDay(deadline));
+  return head + "。" + tail.join("，");
+}
+
+/* 统一的有效重试截止（路线图、任务卡、LED、终态文案共用唯一来源）：
+ * 优先 worker telemetry 的真实截止（epoch 秒）；没有再按任务推导。
+ *
+ * 推导锚点必须**不随墙钟跨过开放时刻而切换**。worker 的 retry_anchor()
+ * 在 page.goto 之前取一次 max(原定开放, 启动时刻) 之后就钉死（grab.py），
+ * 界面若按「open 还在未来就用 open，否则改用启动点」逐帧重算，会在开放那一秒
+ * 把截止倒退 lead_s——预报名提前 100 秒开页，就会提前 100 秒归零。
+ * 因此：有真实启动参考点时锚点固定为 max(原定开放, 启动点)；缺 open 只用启动点；
+ * 只有「未来场且还没启动」才拿原定开放当计划参考。
+ *
+ * 「直到报名截止」且 sign_end 已知时，截止就是 sign_end，与启动点/开放点无关——
+ * 排队中或快照字段还没齐时正会出现「有绝对截止、没有启动参考点」，这时不能判未知。
+ *
+ * 返回 null = 既没有绝对截止、也没有任何时间参考：调用方显示未知/预计，
+ * 不拿当前时刻冒充 0 秒。缺 sign_end 的 0 时长回退 120 秒、sign_end 硬截断都保留。
+ * 这里只算界面参考点，worker 的实际停止时机仍由后端决定。 */
+function effectiveRetryDeadline(task, fallbackNow) {
+  const telemetry = telemetryDeadline(task);
+  /* 倒计时优先后端已接纳的 deadline：合法扩窗后的权威截止也从这里接管 */
+  if (telemetry !== null) return telemetry;
+  const now = Number.isFinite(fallbackNow) ? fallbackNow : bnowS();
+  const rawFor = task && Number.isFinite(Number(task.retry_for_s)) ? Number(task.retry_for_s) : RETRY_WINDOW_S;
+  /* -1 自动延长：初始预算按 120 秒算，扩窗后由上面的 telemetry 接管；
+   * 它不是「直到报名截止」——只有 0 才直接取 sign_end */
+  const retryFor = rawFor === -1 ? RETRY_WINDOW_S : rawFor;
+  const signEnd = task ? toTs(task.sign_end) : null;
+  /* 绝对截止不依赖任何起点：先把这条独立路径处理掉，别被 anchor 判空挡住 */
+  if (retryFor === 0 && signEnd !== null) return signEnd;
+  /* 计划接纳时冻结的起点最权威：worker 就是拿它算 --retry-start，
+   * 界面用它推导与 worker 完全同一口径（慢启动不会让两边差出几秒） */
+  const policyStart = Number(task && task.retry_started_at);
+  if (Number.isFinite(policyStart) && policyStart > 0) {
+    let frozen = retryFor > 0 ? policyStart + retryFor : policyStart + RETRY_WINDOW_S;
+    if (signEnd !== null) frozen = Math.min(frozen, signEnd);
+    return frozen;
+  }
+  const started = Number(task && task.run_started_at) || Number(task && task.submitSeen) / 1000 || null;
+  const open = toTs(task && task.sign_start);
+  let anchor = null;
+  if (started !== null) anchor = open !== null ? Math.max(open, started) : started;
+  else if (open !== null && open > now) anchor = open;
+  if (anchor === null) return null;
+  let deadline = retryFor > 0 ? anchor + retryFor : anchor + RETRY_WINDOW_S;
+  if (signEnd !== null) deadline = Math.min(deadline, signEnd);
+  return deadline;
+}

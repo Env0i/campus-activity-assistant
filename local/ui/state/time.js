@@ -130,3 +130,25 @@ function cssEscape(value) {
 
 /* ---------------------------------------------------------------- 五步可重播引导 */
 /* 引导「可见」= 遮罩在场且没被计划运行暂停：只有可见时才约束键盘焦点 */
+
+/* 从 views/plan-panel.js 搬来：学校时刻的纯投影与格式化，只读 S、不写 S、不碰 DOM。 */
+
+/* 原型 hms()：HH:MM:SS，跨天时前面加「明天 / 后天 / N 天后」（学校时区）。
+ * 读不到可信的现在时只给时刻，不猜是哪一天。 */
+function hmsDay(ts) {
+  if (ts === null || ts === undefined || !Number.isFinite(Number(ts))) return "—";
+  const clock = fmtClock(ts);
+  const bnMs = businessNowMs();
+  if (bnMs == null) return clock;
+  const diff = Math.round((startOfDay(ts * 1000) - startOfDay(bnMs)) / 86400000);
+  if (diff <= 0) return clock;
+  return (diff === 1 ? "明天 " : (diff === 2 ? "后天 " : diff + " 天后 ")) + clock;
+}
+
+/* 秒级时间戳 → 学校时区 HH:MM:SS（LED 标注与点阵同款数字口径） */
+function fmtClock(ts) {
+  if (ts === null || ts === undefined) return "—";
+  const p = schoolParts(ts * 1000);
+  const pad = (n) => String(n).padStart(2, "0");
+  return pad(p.h) + ":" + pad(p.mi) + ":" + pad(p.s);
+}

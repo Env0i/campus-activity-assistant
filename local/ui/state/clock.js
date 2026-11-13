@@ -306,3 +306,9 @@ function clockLastSyncText() {
 }
 
 /* 顶栏唯一时间入口：正常只显示北京时间 + 时分秒 + 小状态图形。 */
+
+/* 从 views/clock-pop.js 搬来：顶栏时间浮层的纯投影，只读 S、不写 S、不碰 DOM。 */
+
+function clockPopOpenNow() {
+  return !!S.clockPopOpen;
+}

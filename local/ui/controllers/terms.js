@@ -1,21 +1,4 @@
 /* 条款门禁用例：状态编排、确认/拒绝/复查与桥接效果（DOM 呈现见 views/terms.js）。 */
-function termsAccepted() {
-  return !!S.terms.version && S.terms.acceptedVersion === S.terms.version;
-}
-
-/* 学校动作是否被条款拦下（决策 013 返修）：
- * - 离线演示（demo）不做学校网络动作，不受限；
- * - unknown（bootstrap 失败、返回 null、缺 terms、版本为空或结构非法）一律拦，
- *   没有任何依据可以放行学校动作；
- * - 有版本但没同意当前版本 → 拦；
- * - 还没拿到任何条款状态（version 为空且未标 unknown，例如测试桩或桥接未
- *   就绪）→ 前端没有依据，交给后端门禁兜底，不在此处冒充「已确认未同意」。 */
-function termsLocked() {
-  if (S.demo) return false;
-  if (S.terms.unknown) return true;
-  if (!S.terms.version) return false;
-  return !termsAccepted();
-}
 
 /* 后端明确回绝时的界面收敛：后端是最终防线，前端要把状态跟上——
  * 有版本就按「未同意当前版本」，没有版本就按未知，两者都不放行学校动作。 */

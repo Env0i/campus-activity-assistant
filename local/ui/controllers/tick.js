@@ -159,8 +159,6 @@ function listErrorCopy(raw) {
 
 function needLogin(text) { return /登录状态|登录状态|未登录|请先登录|session|401|403|token/i.test(String(text || "")); }
 function leftText(hours) { return hours >= 1 ? Math.round(hours) + " 小时" : Math.max(1, Math.round(hours * 60)) + " 分钟"; }
-function numOrNull(value) { return typeof value === "number" && isFinite(value) ? value : null; }
-function msg(error) { return String((error && error.message) || error || "未知错误"); }
 
 /* ---------------------------------------------------------------- 时间工具 */
 /* 学校时间恒为 UTC+8：不跟随本机时区，也不因夏令时变化。

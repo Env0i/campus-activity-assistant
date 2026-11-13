@@ -190,3 +190,10 @@ const S = {
 };
 
 /* 轮次 ID：同一轮的所有事件共享，旧轮迟到消息不得改写新轮 */
+
+/* ---------------------------------------------------------------- 小工具 */
+/* 从 controllers/tick.js 搬来：不碰 S、不碰 DOM 的小工具。 */
+
+function numOrNull(value) { return typeof value === "number" && isFinite(value) ? value : null; }
+
+function msg(error) { return String((error && error.message) || error || "未知错误"); }

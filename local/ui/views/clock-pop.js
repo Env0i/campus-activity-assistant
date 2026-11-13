@@ -26,9 +26,6 @@ function paintClockSkew() {
 }
 
 /* ---------------------------------------------------------------- 时间详情 */
-function clockPopOpenNow() {
-  return !!S.clockPopOpen;
-}
 
 function closeClockPop(restoreFocus) {
   const pop = $("#clock-pop");
