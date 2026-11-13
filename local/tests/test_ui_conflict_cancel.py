@@ -16,7 +16,7 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
 
-from test_ui_contract import LOCAL, read_ui_scripts, run_js  # noqa: E402
+from fixtures.ui_harness import LOCAL, read_ui_scripts, run_js  # noqa: E402
 
 WJ = "⁠"
 

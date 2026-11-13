@@ -19,7 +19,7 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
 
-from test_ui_contract import LOCAL, run_js  # noqa: E402
+from fixtures.ui_harness import LOCAL, run_js  # noqa: E402
 
 # 业务现在 = 北京时间 2026-11-06 14:00
 SETUP = r"""

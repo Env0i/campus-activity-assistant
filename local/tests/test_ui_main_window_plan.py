@@ -20,7 +20,7 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
 
-from test_ui_contract import LOCAL, run_js  # noqa: E402
+from fixtures.ui_harness import LOCAL, run_js  # noqa: E402
 from test_ui_main_window_list import SETUP  # noqa: E402
 
 # 在 SETUP（业务现在 = 北京时间 2026-11-06 14:00）之上：窄档 dock、演示登录（不挡开始）、任务造数

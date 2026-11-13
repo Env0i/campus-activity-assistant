@@ -24,7 +24,7 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
 
-from test_ui_contract import run_js  # noqa: E402
+from fixtures.ui_harness import run_js  # noqa: E402
 
 
 class ClockRoundTests(unittest.TestCase):

@@ -16,7 +16,7 @@
   且不被 `max-height:720px` 的 50px 顶栏级联裁剪；断点与具体尺寸以
   `design/specs/terms-consent.md` §八 为唯一来源，本文件不复制数值。
 - 「准点」是早期视觉原型（`design/archive/prototype-2026-10-22/`）的历史称呼，只允许出现在历史说明与设计资料里，**不得**作为运行时产品名、窗口标题或帮助标题出现。
-- 名称契约由 `local/tests/test_ui_contract.py` 的 NameContractTests 静态守护。
+- 名称契约由 `local/tests/test_ui_contract_shell.py` 的 NameContractTests 静态守护。
 
 | 可以重写 | 本轮仍不能动 |
 |---|---|
@@ -270,7 +270,7 @@
 4. **行内文案**：需要签到/签退且有真实时间段时显示「签到 19:00–19:40」「签退 21:00–21:20」；明确无需显示「无需签到」「无需签退」；详情尚未返回显示「签到信息同步中」/「签退信息同步中」；详情已返回但确实没有数据才显示「签到时间待确认」/「签退时间待确认」。`null` 不得显示成「无需」，有文字不只靠颜色。
 5. **偏好保存**：`filter.checkin` / `filter.checkout` 随其他筛选一起保存到 `data/ui.json` 并在下次启动恢复。
 6. **筛选隔离**：筛选只影响时刻表可见行。全局「下一场开放」、已选计划集合、冲突校验（含跨开放批次）、任务执行与结果全部基于全量数据计算，不得被筛选结果污染。
-7. **静态回归**：`local/tests/test_ui_contract.py` 用 UTF-8 直读 `index.html` / `app.js` / `grab.py` / `app.py` 核对控件、字段名、unknown 保留规则、保存键与桥接方法名；改丢任何一条测试必须失败并指出缺口。
+7. **静态回归**：`local/tests/test_ui_contract_*.py` 用 UTF-8 直读 `index.html` / `app.js` / `grab.py` / `app.py` 核对控件、字段名、unknown 保留规则、保存键与桥接方法名；改丢任何一条测试必须失败并指出缺口。
 
 ### 5.7 原型未覆盖的真实业务边界（验收条款）
 

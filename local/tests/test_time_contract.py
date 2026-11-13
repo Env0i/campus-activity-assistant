@@ -30,7 +30,7 @@ sys.path.insert(0, str(TESTS))
 
 import grab  # noqa: E402
 import time_contract  # noqa: E402
-from test_ui_contract import run_js  # noqa: E402
+from fixtures.ui_harness import run_js  # noqa: E402
 
 SCHOOL_20 = "2026-10-26 20:00:00"
 SCHOOL_20_EPOCH = 1793016000.0

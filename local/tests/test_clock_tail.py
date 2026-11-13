@@ -20,7 +20,7 @@ if str(LOCAL) not in sys.path:
     sys.path.insert(0, str(LOCAL))
 if str(LOCAL / 'tests') not in sys.path:
     sys.path.insert(0, str(LOCAL / 'tests'))
-from test_ui_contract import run_js, read_ui_scripts
+from fixtures.ui_harness import run_js, read_ui_scripts
 from business_clock import BusinessClock
 from fixtures.business_clock import ntp_response
 from fixtures.api_threads import stop_auto_relogin_on_cleanup

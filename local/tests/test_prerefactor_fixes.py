@@ -26,7 +26,7 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
 
-from test_ui_contract import JS_HARNESS, LOCAL  # noqa: E402
+from fixtures.ui_harness import JS_HARNESS, LOCAL  # noqa: E402
 from test_ui_reliability import TIMER_HARNESS  # noqa: E402
 
 UI_DIR = LOCAL / "ui"

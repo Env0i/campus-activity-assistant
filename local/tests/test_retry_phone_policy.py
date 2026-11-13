@@ -518,7 +518,7 @@ class PlanServiceModeTests(_ServiceCase):
 def _run_js(snippet: str):
     """node vm 执行真实 UI 脚本（复用项目既有行为测试装置）；无 node 时 skip。"""
     try:
-        from test_ui_contract import run_js
+        from fixtures.ui_harness import run_js
     except Exception as exc:                       # pragma: no cover - 装置缺失
         raise unittest.SkipTest("UI 行为装置不可用：%s" % exc)
     return run_js(snippet)
