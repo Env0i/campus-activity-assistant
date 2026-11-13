@@ -368,9 +368,8 @@ local/
 │  ├─ controllers/          用例与桥接（bridge/refresh/plan/plan-events/clock/terms/update/prefs/tick）
 │  ├─ views/                DOM 呈现（list/board/login/clock/clock-pop/log/selection/terms/help/update/tour）
 │  └─ app.js                唯一入口：初始化、window.onBackend 事件绑定
-├─ gui.py                   旧版 tkinter 界面（已停用，保留作对照）
 ├─ ui/                      界面源码（README 不再依赖截图文件）
-├─ requirements.txt         依赖清单：playwright + pillow + pywebview
+├─ requirements.txt         依赖清单：playwright + pillow + pywebview；pywebview 锁定 6.2.1
 ├─ config.example.json      配置模板：复制成 config.json，填写目标学校 site.base（可选再填 webhook）
 ├─ build/                   打包脚本（开发者在仓库根运行，产物在 ../dist/）
 │  ├─ make_portable.py      打绿色版用（历史形态；产物在 ../dist/campus-grab-portable/）
