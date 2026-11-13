@@ -1,0 +1,102 @@
+{
+  "scenario": "h9-chain",
+  "page": "h9/chain/index.html",
+  "url_kind": "unchanged-absolute-path",
+  "allow_file_urls": true,
+  "allow_file_urls_at_start": true,
+  "allow_file_urls_set_by_probe": null,
+  "pywebview_default_allow_file_urls": true,
+  "allow_file_urls_is_pywebview_default": true,
+  "loaded_event": {
+    "fired": true
+  },
+  "env": {
+    "frozen": false,
+    "resource_root": "<资源根>",
+    "python": "3.12.10",
+    "system": "Windows-11-10.0.26300-SP0",
+    "pywebview": "6.2.1"
+  },
+  "backend_push": [],
+  "snapshot": {
+    "page": "h9",
+    "location": {
+      "protocol": "http:",
+      "host": "127.0.0.1:31331",
+      "hostname": "127.0.0.1",
+      "port": "31331",
+      "origin": "http://127.0.0.1:31331",
+      "pathname": "/index.html",
+      "href": "http://127.0.0.1:31331/index.html?auto=0"
+    },
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+    "ua_platform": "Win32",
+    "caps": {},
+    "csp_violations": [],
+    "inline_module": {
+      "ran": false
+    },
+    "errors": [],
+    "missing_module": {
+      "element_error": null,
+      "window_error": null
+    },
+    "backend_events": [],
+    "backend_queued": [],
+    "backend_replayed": 0,
+    "fallback": {
+      "shown": false,
+      "at_ms": null
+    },
+    "ready": false,
+    "done_ms": 1518.1000000089407,
+    "esm_order": [
+      "m36",
+      "m31",
+      "m26",
+      "m21",
+      "m16",
+      "m11",
+      "m06",
+      "m01",
+      "m37",
+      "m32",
+      "m27",
+      "m22",
+      "m17",
+      "m12",
+      "m07",
+      "m02",
+      "m38",
+      "m33",
+      "m28",
+      "m23",
+      "m18",
+      "m13",
+      "m08",
+      "m03",
+      "m39",
+      "m34",
+      "m29",
+      "m24",
+      "m19",
+      "m14",
+      "m09",
+      "m04",
+      "m35",
+      "m30",
+      "m25",
+      "m20",
+      "m15",
+      "m10",
+      "m05"
+    ],
+    "esm_count": 40,
+    "timings": {
+      "dom_content_loaded": 1518.300000011921,
+      "load": 1519.2000000029802
+    }
+  },
+  "collect_error": null,
+  "elapsed_ms": 6092.0
+}

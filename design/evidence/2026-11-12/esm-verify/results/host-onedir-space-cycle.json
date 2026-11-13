@@ -1,0 +1,77 @@
+{
+  "scenario": "cycle",
+  "page": "h3/cycle/index.html",
+  "url_kind": "unchanged-absolute-path",
+  "allow_file_urls": true,
+  "allow_file_urls_at_start": true,
+  "allow_file_urls_set_by_probe": null,
+  "pywebview_default_allow_file_urls": true,
+  "allow_file_urls_is_pywebview_default": true,
+  "loaded_event": {
+    "fired": true
+  },
+  "env": {
+    "frozen": true,
+    "resource_root": "<资源根>",
+    "python": "3.12.9",
+    "system": "Windows-11-10.0.26300-SP0",
+    "pywebview": "6.2.1"
+  },
+  "backend_push": [],
+  "snapshot": {
+    "page": "h3-cycle",
+    "location": {
+      "protocol": "http:",
+      "host": "127.0.0.1:14966",
+      "hostname": "127.0.0.1",
+      "port": "14966",
+      "origin": "http://127.0.0.1:14966",
+      "pathname": "/index.html",
+      "href": "http://127.0.0.1:14966/index.html"
+    },
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+    "ua_platform": "Win32",
+    "caps": {
+      "cycle_dynamic": {
+        "ok": false,
+        "error": "Cannot access 'a' before initialization",
+        "name": "ReferenceError"
+      }
+    },
+    "csp_violations": [],
+    "inline_module": {
+      "ran": false
+    },
+    "errors": [
+      {
+        "kind": "window.error",
+        "message": "Uncaught ReferenceError: Cannot access 'a' before initialization",
+        "filename": "http://127.0.0.1:14966/cycle-b.mjs",
+        "lineno": 3
+      }
+    ],
+    "missing_module": {
+      "element_error": null,
+      "window_error": {
+        "message": "Uncaught ReferenceError: Cannot access 'a' before initialization"
+      }
+    },
+    "backend_events": [],
+    "backend_queued": [],
+    "backend_replayed": 0,
+    "fallback": {
+      "shown": false,
+      "at_ms": null
+    },
+    "ready": true,
+    "done_ms": null,
+    "esm_order": [],
+    "esm_count": 0,
+    "timings": {
+      "dom_content_loaded": 106,
+      "load": 106.29999999701977
+    }
+  },
+  "collect_error": null,
+  "elapsed_ms": 3448.2
+}

@@ -1,0 +1,87 @@
+{
+  "scenario": "file-url-allow",
+  "page": "h2/page.html",
+  "url_kind": "file-uri",
+  "allow_file_urls": true,
+  "allow_file_urls_at_start": true,
+  "allow_file_urls_set_by_probe": true,
+  "pywebview_default_allow_file_urls": true,
+  "allow_file_urls_is_pywebview_default": true,
+  "loaded_event": {
+    "fired": true
+  },
+  "env": {
+    "frozen": false,
+    "resource_root": "<资源根>",
+    "python": "3.12.10",
+    "system": "Windows-11-10.0.26300-SP0",
+    "pywebview": "6.2.1"
+  },
+  "backend_push": [],
+  "snapshot": {
+    "page": "h2",
+    "location": {
+      "protocol": "file:",
+      "host": "<主机名>",
+      "hostname": "<主机名>",
+      "port": "",
+      "origin": "file://",
+      "pathname": "<资源根>",
+      "href": "file://<资源根>"
+    },
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+    "ua_platform": "Win32",
+    "caps": {
+      "static_import": {
+        "default_type": "object",
+        "named_value": "helper-named",
+        "named_version": "1",
+        "default_version": "1"
+      },
+      "dynamic_import": {
+        "ok": true,
+        "named": "helper-named"
+      },
+      "import_meta_url": "file://<资源根>",
+      "top_level_await": "tla-ok",
+      "modulepreload": {
+        "link_count": 1,
+        "helper_initiator_types": []
+      },
+      "fetch_json": {
+        "ok": true,
+        "status": 200
+      },
+      "all_caps_ok": true
+    },
+    "csp_violations": [],
+    "inline_module": {
+      "ran": true
+    },
+    "errors": [],
+    "missing_module": {
+      "element_error": {
+        "src": "file://<资源根>",
+        "phase": "document-capture"
+      },
+      "window_error": null
+    },
+    "backend_events": [],
+    "backend_queued": [],
+    "backend_replayed": 0,
+    "fallback": {
+      "shown": false,
+      "at_ms": null
+    },
+    "ready": true,
+    "done_ms": 374.6000000089407,
+    "esm_order": [],
+    "esm_count": 0,
+    "timings": {
+      "dom_content_loaded": 279.6000000089407,
+      "load": 280.6000000089407
+    }
+  },
+  "collect_error": null,
+  "elapsed_ms": 7359.8
+}

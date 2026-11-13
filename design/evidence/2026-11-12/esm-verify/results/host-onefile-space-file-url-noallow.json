@@ -1,0 +1,65 @@
+{
+  "scenario": "file-url-noallow",
+  "page": "h2/page.html",
+  "url_kind": "file-uri",
+  "allow_file_urls": false,
+  "allow_file_urls_at_start": true,
+  "allow_file_urls_set_by_probe": false,
+  "pywebview_default_allow_file_urls": true,
+  "allow_file_urls_is_pywebview_default": false,
+  "loaded_event": {
+    "fired": true
+  },
+  "env": {
+    "frozen": true,
+    "resource_root": "<资源根>",
+    "python": "3.12.9",
+    "system": "Windows-11-10.0.26300-SP0",
+    "pywebview": "6.2.1"
+  },
+  "backend_push": [],
+  "snapshot": {
+    "page": "h2",
+    "location": {
+      "protocol": "file:",
+      "host": "",
+      "hostname": "",
+      "port": "",
+      "origin": "file://",
+      "pathname": "/<资源根>",
+      "href": "file:///<资源根>"
+    },
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+    "ua_platform": "Win32",
+    "caps": {},
+    "csp_violations": [],
+    "inline_module": {
+      "ran": true
+    },
+    "errors": [],
+    "missing_module": {
+      "element_error": {
+        "src": "file:///<资源根>",
+        "phase": "document-capture"
+      },
+      "window_error": null
+    },
+    "backend_events": [],
+    "backend_queued": [],
+    "backend_replayed": 0,
+    "fallback": {
+      "shown": false,
+      "at_ms": null
+    },
+    "ready": false,
+    "done_ms": null,
+    "esm_order": [],
+    "esm_count": 0,
+    "timings": {
+      "dom_content_loaded": 25.599999994039536,
+      "load": 25.799999997019768
+    }
+  },
+  "collect_error": null,
+  "elapsed_ms": 4914.8
+}

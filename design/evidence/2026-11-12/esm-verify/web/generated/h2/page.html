@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page="h2">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESM 探针（H2/H4/H5）</title>
+<link rel="stylesheet" href="common/probe.css">
+<link rel="modulepreload" href="helper.mjs">
+<script src="common/base.js"></script>
+</head>
+<body>
+<h1>ESM 探针（H2/H4/H5）</h1>
+<div id="fallback">页面没有加载完整，请刷新或重新扫码</div>
+<pre id="result">running…</pre>
+<!-- H4：内联 type=module，在 CSP script-src 'self' 下应被拦 -->
+<script type="module">
+  window.__probe.inline_module_ran = true;
+</script>
+<script type="module" src="main.mjs"></script>
+<!-- H4/H11：故意 404 的模块，用来观察 error 事件 -->
+<script type="module" src="absent.mjs"></script>
+
+</body>
+</html>

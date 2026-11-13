@@ -1,0 +1,7 @@
+html { font-family: system-ui, "Segoe UI", sans-serif; margin: 0; }
+body { padding: 16px; line-height: 1.5; }
+h1 { font-size: 18px; margin: 0 0 8px; }
+pre { background: #f4f6fa; padding: 12px; overflow: auto; }
+#fallback { display: none; background: #fff1f0; border: 1px solid #ffa39e;
+  padding: 12px; margin: 12px 0; }
+a { display: block; padding: 6px 0; }

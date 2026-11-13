@@ -1,0 +1,89 @@
+{
+  "scenario": "http-server",
+  "page": "h2/page.html",
+  "url_kind": "unchanged-absolute-path",
+  "allow_file_urls": true,
+  "allow_file_urls_at_start": true,
+  "allow_file_urls_set_by_probe": null,
+  "pywebview_default_allow_file_urls": true,
+  "allow_file_urls_is_pywebview_default": true,
+  "loaded_event": {
+    "fired": true
+  },
+  "env": {
+    "frozen": false,
+    "resource_root": "<资源根>",
+    "python": "3.12.10",
+    "system": "Windows-11-10.0.26300-SP0",
+    "pywebview": "6.2.1"
+  },
+  "backend_push": [],
+  "snapshot": {
+    "page": "h2",
+    "location": {
+      "protocol": "http:",
+      "host": "127.0.0.1:64473",
+      "hostname": "127.0.0.1",
+      "port": "64473",
+      "origin": "http://127.0.0.1:64473",
+      "pathname": "/page.html",
+      "href": "http://127.0.0.1:64473/page.html"
+    },
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+    "ua_platform": "Win32",
+    "caps": {
+      "static_import": {
+        "default_type": "object",
+        "named_value": "helper-named",
+        "named_version": "1",
+        "default_version": "1"
+      },
+      "dynamic_import": {
+        "ok": true,
+        "named": "helper-named"
+      },
+      "import_meta_url": "http://127.0.0.1:64473/main.mjs",
+      "top_level_await": "tla-ok",
+      "modulepreload": {
+        "link_count": 1,
+        "helper_initiator_types": [
+          "other"
+        ]
+      },
+      "fetch_json": {
+        "ok": true,
+        "status": 200
+      },
+      "all_caps_ok": true
+    },
+    "csp_violations": [],
+    "inline_module": {
+      "ran": true
+    },
+    "errors": [],
+    "missing_module": {
+      "element_error": {
+        "src": "http://127.0.0.1:64473/absent.mjs",
+        "phase": "document-capture"
+      },
+      "window_error": null
+    },
+    "backend_events": [],
+    "backend_queued": [],
+    "backend_replayed": 0,
+    "fallback": {
+      "shown": false,
+      "at_ms": null
+    },
+    "ready": true,
+    "done_ms": 652.7999999970198,
+    "esm_order": [],
+    "esm_count": 0,
+    "timings": {
+      "dom_content_loaded": 557.5999999940395,
+      "load": 558.7000000029802
+    }
+  },
+  "collect_error": null,
+  "elapsed_ms": 7047.4
+}

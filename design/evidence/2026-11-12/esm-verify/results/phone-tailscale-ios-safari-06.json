@@ -1,0 +1,73 @@
+{
+  "channel": "tailscale",
+  "received_at": "2026-11-12T21:15:51+08:00",
+  "server": {
+    "bind_host": "100.x",
+    "public_host": "tailscale",
+    "host_header": "tailscale:8765",
+    "scheme": "http"
+  },
+  "client": {
+    "browser": "ios-safari",
+    "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Mobile/15E148 Safari/604.1"
+  },
+  "payload": {
+    "page": "h9",
+    "form": "flat",
+    "run": 1,
+    "runs_per_form": 3,
+    "module_count": 40,
+    "expected_count": 40,
+    "order": [
+      "v01",
+      "s01",
+      "v02",
+      "s02",
+      "v03",
+      "s03",
+      "v04",
+      "s04",
+      "v05",
+      "s05",
+      "v06",
+      "s06",
+      "v07",
+      "s07",
+      "v08",
+      "s08",
+      "v09",
+      "s09",
+      "v10",
+      "s10",
+      "v11",
+      "s11",
+      "v12",
+      "s12",
+      "v13",
+      "s13",
+      "c01",
+      "c02",
+      "c03",
+      "c04",
+      "c05",
+      "c06",
+      "c07",
+      "c08",
+      "c09",
+      "c10",
+      "c11",
+      "c12",
+      "c13"
+    ],
+    "done_ms": 3824,
+    "dom_ready_ms": 3824,
+    "load_ms": 3824,
+    "location": {
+      "protocol": "http:",
+      "host": "tailscale:8765",
+      "origin": "http://tailscale:8765",
+      "pathname": "/h9/flat/"
+    },
+    "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Mobile/15E148 Safari/604.1"
+  }
+}

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page="h11">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESM 兜底提示（H11）</title>
+<link rel="stylesheet" href="common/probe.css">
+<script src="common/base.js"></script>
+</head>
+<body>
+<h1>ESM 兜底提示（H11）</h1>
+<div id="fallback">页面没有加载完整，请刷新或重新扫码</div>
+<pre id="result">running…</pre>
+<!-- H11：入口模块故意不存在，5 秒内不会有模块报到 -->
+<script type="module" src="absent-main.mjs"></script>
+
+</body>
+</html>

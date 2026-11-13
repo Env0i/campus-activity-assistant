@@ -1,0 +1,31 @@
+=== is_local_url（util.py:75）===
+def is_local_url(url: str | callable | None) -> bool:
+    return not (
+        (is_app(url))
+        or (
+            (not url)
+            or (url.startswith('http://'))
+            or (url.startswith('https://'))
+            or url.startswith('file://')
+        )
+    )
+
+=== 自动起内置服务（__init__.py）===
+271: urls = [w.original_url for w in windows]
+272: has_local_urls = not not [w.original_url for w in windows if is_local_url(w.original_url)]
+273: # start the global server if it's not running and we need it
+274: if (http.global_server is None) and (http_server or has_local_urls):
+275: if not _state['private_mode'] and not http_port:
+276: http_port = settings['DEFAULT_HTTP_PORT']
+
+277: *_, server = http.start_global_server(
+278: http_port=http_port, urls=urls, server=server, **server_args
+
+279: )
+280: 
+281: for window in windows:
+
+=== ALLOW_FILE_URLS（platforms\edgechromium.py）===
+84: if webview_settings['ALLOW_FILE_URLS']:
+85: props.AdditionalBrowserArguments += ' --allow-file-access-from-files'
+

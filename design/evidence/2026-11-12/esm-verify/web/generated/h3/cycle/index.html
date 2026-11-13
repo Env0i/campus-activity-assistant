@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page="h3-cycle">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESM 顶层循环依赖（H3）</title>
+<link rel="stylesheet" href="common/probe.css">
+<script src="common/base.js"></script>
+</head>
+<body>
+<h1>ESM 顶层循环依赖（H3）</h1>
+<div id="fallback">页面没有加载完整，请刷新或重新扫码</div>
+<pre id="result">running…</pre>
+<script type="module" src="cycle-a.mjs"></script>
+<script>
+  // 再用动态 import 抓一次，拿到可读的异常名与消息
+  window.__probe.caps.cycle_dynamic = { ok: false, error: null, name: null };
+  import('./cycle-a.mjs').then(function () {
+    window.__probe.caps.cycle_dynamic.ok = true;
+  }).catch(function (err) {
+    window.__probe.caps.cycle_dynamic.error = String(err && err.message ? err.message : err);
+    window.__probe.caps.cycle_dynamic.name = String(err && err.name ? err.name : '');
+  });
+  setTimeout(function () {
+    window.__probe.ready = true;
+    var c = window.__probe.caps.cycle_dynamic;
+    var box = document.getElementById('result');
+    if (box) {
+      box.textContent = c.ok ? '通过：顶层循环也能执行'
+                             : '失败（预期）：' + c.name + ': ' + c.error;
+    }
+    window.__finish(window.__collect());
+  }, 1200);
+</script>
+
+</body>
+</html>

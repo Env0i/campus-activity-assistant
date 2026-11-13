@@ -1,0 +1,73 @@
+{
+  "channel": "tailscale",
+  "received_at": "2026-11-12T06:09:31+08:00",
+  "server": {
+    "bind_host": "127.0.0.1",
+    "public_host": "127.0.0.1",
+    "host_header": "127.0.0.1:8765",
+    "scheme": "http"
+  },
+  "client": {
+    "browser": "desktop-webview2",
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+  },
+  "payload": {
+    "page": "h9",
+    "form": "preload-chain",
+    "run": 2,
+    "runs_per_form": 3,
+    "module_count": 40,
+    "expected_count": 40,
+    "order": [
+      "m36",
+      "m31",
+      "m26",
+      "m21",
+      "m16",
+      "m11",
+      "m06",
+      "m01",
+      "m37",
+      "m32",
+      "m27",
+      "m22",
+      "m17",
+      "m12",
+      "m07",
+      "m02",
+      "m38",
+      "m33",
+      "m28",
+      "m23",
+      "m18",
+      "m13",
+      "m08",
+      "m03",
+      "m39",
+      "m34",
+      "m29",
+      "m24",
+      "m19",
+      "m14",
+      "m09",
+      "m04",
+      "m35",
+      "m30",
+      "m25",
+      "m20",
+      "m15",
+      "m10",
+      "m05"
+    ],
+    "done_ms": 3688.2000000029802,
+    "dom_ready_ms": 3688.5999999940395,
+    "load_ms": 3688.9000000059605,
+    "location": {
+      "protocol": "http:",
+      "host": "127.0.0.1:8765",
+      "origin": "http://127.0.0.1:8765",
+      "pathname": "/h9/preload-chain/"
+    },
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+  }
+}

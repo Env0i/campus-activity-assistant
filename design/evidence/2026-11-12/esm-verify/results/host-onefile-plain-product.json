@@ -1,0 +1,175 @@
+{
+  "scenario": "product",
+  "page": "h2/page.html",
+  "url_kind": "unchanged-absolute-path",
+  "allow_file_urls": true,
+  "allow_file_urls_at_start": true,
+  "allow_file_urls_set_by_probe": null,
+  "pywebview_default_allow_file_urls": true,
+  "allow_file_urls_is_pywebview_default": true,
+  "loaded_event": {
+    "fired": true
+  },
+  "env": {
+    "frozen": true,
+    "resource_root": "<资源根>",
+    "python": "3.12.9",
+    "system": "Windows-11-10.0.26300-SP0",
+    "pywebview": "6.2.1"
+  },
+  "backend_push": [
+    {
+      "n": -1,
+      "phase": "gui_start",
+      "loaded_at_send": false,
+      "returned": null,
+      "error": null,
+      "duration_ms": 613.46,
+      "received_by_page": true
+    },
+    {
+      "n": 1,
+      "phase": "after_loaded",
+      "loaded_at_send": true,
+      "returned": null,
+      "error": null,
+      "duration_ms": 1.42,
+      "received_by_page": true
+    },
+    {
+      "n": 2,
+      "phase": "after_loaded",
+      "loaded_at_send": true,
+      "returned": null,
+      "error": null,
+      "duration_ms": 2.87,
+      "received_by_page": true
+    },
+    {
+      "n": 3,
+      "phase": "after_loaded",
+      "loaded_at_send": true,
+      "returned": null,
+      "error": null,
+      "duration_ms": 1.22,
+      "received_by_page": true
+    },
+    {
+      "n": 4,
+      "phase": "after_loaded",
+      "loaded_at_send": true,
+      "returned": null,
+      "error": null,
+      "duration_ms": 1.18,
+      "received_by_page": true
+    },
+    {
+      "n": 5,
+      "phase": "after_loaded",
+      "loaded_at_send": true,
+      "returned": null,
+      "error": null,
+      "duration_ms": 1.22,
+      "received_by_page": true
+    }
+  ],
+  "snapshot": {
+    "page": "h2",
+    "location": {
+      "protocol": "http:",
+      "host": "127.0.0.1:41929",
+      "hostname": "127.0.0.1",
+      "port": "41929",
+      "origin": "http://127.0.0.1:41929",
+      "pathname": "/page.html",
+      "href": "http://127.0.0.1:41929/page.html"
+    },
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+    "ua_platform": "Win32",
+    "caps": {
+      "static_import": {
+        "default_type": "object",
+        "named_value": "helper-named",
+        "named_version": "1",
+        "default_version": "1"
+      },
+      "dynamic_import": {
+        "ok": true,
+        "named": "helper-named"
+      },
+      "import_meta_url": "http://127.0.0.1:41929/main.mjs",
+      "top_level_await": "tla-ok",
+      "modulepreload": {
+        "link_count": 1,
+        "helper_initiator_types": [
+          "other"
+        ]
+      },
+      "fetch_json": {
+        "ok": true,
+        "status": 200
+      },
+      "all_caps_ok": true
+    },
+    "csp_violations": [],
+    "inline_module": {
+      "ran": true
+    },
+    "errors": [],
+    "missing_module": {
+      "element_error": {
+        "src": "http://127.0.0.1:41929/absent.mjs",
+        "phase": "document-capture"
+      },
+      "window_error": null
+    },
+    "backend_events": [
+      {
+        "n": -1,
+        "at": 134.89999999850988,
+        "phase": "module"
+      },
+      {
+        "n": 1,
+        "at": 135.5,
+        "phase": "module"
+      },
+      {
+        "n": 2,
+        "at": 197.39999999850988,
+        "phase": "module"
+      },
+      {
+        "n": 3,
+        "at": 242.30000000447035,
+        "phase": "module"
+      },
+      {
+        "n": 4,
+        "at": 351,
+        "phase": "module"
+      },
+      {
+        "n": 5,
+        "at": 644.8999999985099,
+        "phase": "module"
+      }
+    ],
+    "backend_queued": [],
+    "backend_replayed": 0,
+    "fallback": {
+      "shown": false,
+      "at_ms": null
+    },
+    "ready": true,
+    "done_ms": 131.39999999850988,
+    "esm_order": [],
+    "esm_count": 0,
+    "timings": {
+      "dom_content_loaded": 107.39999999850988,
+      "load": 107.70000000298023
+    }
+  },
+  "collect_error": null,
+  "elapsed_ms": 5074.2
+}

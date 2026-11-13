@@ -1,0 +1,27 @@
+﻿{
+    "label":  "installed-run2",
+    "args":  "--demo",
+    "file_version":  null,
+    "product_version":  null,
+    "sha256":  "6F1A45971CD25EBB1A450016BFBF83746B4CECFDEE4C459BBD31D0539CC2F247",
+    "tree_processes":  [
+                           "campus-activity-watch.exe#38560",
+                           "msedgewebview2.exe#30708",
+                           "msedgewebview2.exe#37344",
+                           "msedgewebview2.exe#37572",
+                           "msedgewebview2.exe#47228",
+                           "msedgewebview2.exe#26352",
+                           "msedgewebview2.exe#27132"
+                       ],
+    "listen_ports":  [
+                         6840
+                     ],
+    "screenshot_captured":  true,
+    "rows":  [
+                 {
+                     "port":  6840,
+                     "status":  200,
+                     "head":  "\u003c!doctype html\u003e\n\u003chtml lang=\"zh-CN\"\u003e\n\u003chead\u003e\n  \u003cmeta charset=\"UTF-8\"\u003e\n  \u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"\u003e\n  \u003ctitle\u003e校园活动预报名工具\u003c/title\u003e\n  \u003clink rel=\"icon\" href=\"brand/fav"
+                 }
+             ]
+}

@@ -1,0 +1,4 @@
+{
+  "ok": true,
+  "note": "H4 用 fetch 读 JSON，不用 import 断言"
+}

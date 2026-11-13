@@ -1,0 +1,47 @@
+import './state/s01.mjs';
+import './state/s02.mjs';
+import './state/s03.mjs';
+import './state/s04.mjs';
+import './state/s05.mjs';
+import './state/s06.mjs';
+import './state/s07.mjs';
+import './state/s08.mjs';
+import './state/s09.mjs';
+import './state/s10.mjs';
+import './state/s11.mjs';
+import './state/s12.mjs';
+import './state/s13.mjs';
+import './views/v01.mjs';
+import './views/v02.mjs';
+import './views/v03.mjs';
+import './views/v04.mjs';
+import './views/v05.mjs';
+import './views/v06.mjs';
+import './views/v07.mjs';
+import './views/v08.mjs';
+import './views/v09.mjs';
+import './views/v10.mjs';
+import './views/v11.mjs';
+import './views/v12.mjs';
+import './views/v13.mjs';
+import './controllers/c01.mjs';
+import './controllers/c02.mjs';
+import './controllers/c03.mjs';
+import './controllers/c04.mjs';
+import './controllers/c05.mjs';
+import './controllers/c06.mjs';
+import './controllers/c07.mjs';
+import './controllers/c08.mjs';
+import './controllers/c09.mjs';
+import './controllers/c10.mjs';
+import './controllers/c11.mjs';
+import './controllers/c12.mjs';
+import './controllers/c13.mjs';
+
+import { build01 } from './controllers/c01.mjs';
+
+// 调一次，证明函数调用期的循环引用不会在运行时炸
+window.__cycleCallOk = build01().card === 'card-1';
+window.__esmCount = (window.__esmCount || 0) + 1;
+window.__esmDone = true;
+window.__esmDoneAt = performance.now();

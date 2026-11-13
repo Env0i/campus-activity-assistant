@@ -1,0 +1,37 @@
+[21:14:26] 样机服务已启动，通道=tailscale，端口=8765，允许的 Host 数量=2
+[21:14:26] 手机打开（日志已脱敏）：http://tailscale:8765/
+[21:14:26] 预计 900 秒后自动退出
+[21:15:33] 收到上报 → phone-tailscale-ios-safari-01.json（page=h11 form=None run=None）
+[21:15:42] 收到上报 → phone-tailscale-ios-safari-02.json（page=h3-cycle form=None run=None）
+[21:15:46] 收到上报 → phone-tailscale-ios-safari-03.json（page=h9 form=legacy run=1）
+[21:15:47] 收到上报 → phone-tailscale-ios-safari-04.json（page=h9 form=legacy run=2）
+[21:15:47] 收到上报 → phone-tailscale-ios-safari-05.json（page=h9 form=legacy run=3）
+[21:15:51] 收到上报 → phone-tailscale-ios-safari-06.json（page=h9 form=flat run=1）
+[21:15:57] 收到上报 → phone-tailscale-ios-safari-07.json（page=h9 form=None run=None）
+[21:15:57] 收到上报 → phone-tailscale-ios-safari-08.json（page=h9 form=flat run=2）
+[21:15:58] 收到上报 → phone-tailscale-ios-safari-09.json（page=h9 form=flat run=3）
+[21:15:59] 收到上报 → phone-tailscale-ios-safari-10.json（page=h9 form=chain run=1）
+[21:16:00] 收到上报 → phone-tailscale-ios-safari-11.json（page=h9 form=chain run=2）
+[21:16:01] 收到上报 → phone-tailscale-ios-safari-12.json（page=h9 form=chain run=3）
+[21:16:02] 收到上报 → phone-tailscale-ios-safari-13.json（page=h9 form=preload-chain run=1）
+[21:16:02] 收到上报 → phone-tailscale-ios-safari-14.json（page=h9 form=preload-chain run=2）
+[21:16:05] 收到上报 → phone-tailscale-ios-safari-15.json（page=h9 form=preload-chain run=3）
+[21:16:07] 收到上报 → phone-tailscale-ios-safari-16.json（page=h9 form=None run=None）
+[21:16:20] 收到上报 → phone-tailscale-ios-safari-17.json（page=h9 form=chain run=1）
+[21:16:21] 收到上报 → phone-tailscale-ios-safari-18.json（page=h9 form=chain run=2）
+[21:16:21] 收到上报 → phone-tailscale-ios-safari-19.json（page=h9 form=chain run=3）
+[21:16:22] 收到上报 → phone-tailscale-ios-safari-20.json（page=h9 form=preload-chain run=1）
+[21:16:22] 收到上报 → phone-tailscale-ios-safari-21.json（page=h9 form=preload-chain run=2）
+[21:16:23] 收到上报 → phone-tailscale-ios-safari-22.json（page=h9 form=preload-chain run=3）
+[21:16:28] 收到上报 → phone-tailscale-ios-safari-23.json（page=h9 form=None run=None）
+[21:24:11] 收到上报 → phone-tailscale-ios-safari-24.json（page=h9 form=preload-chain run=1）
+[21:24:12] 收到上报 → phone-tailscale-ios-safari-25.json（page=h9 form=preload-chain run=2）
+[21:24:12] 收到上报 → phone-tailscale-ios-safari-26.json（page=h9 form=preload-chain run=3）
+[21:24:17] 收到上报 → phone-tailscale-ios-safari-27.json（page=h9 form=None run=None）
+[21:27:35] 收到上报 → phone-tailscale-ios-safari-28.json（page=h11 form=None run=None）
+[21:27:44] 收到上报 → phone-tailscale-ios-safari-29.json（page=h11 form=None run=None）
+[21:27:51] 收到上报 → phone-tailscale-ios-safari-30.json（page=h11 form=None run=None）
+[21:27:58] 收到上报 → phone-tailscale-ios-safari-31.json（page=h11 form=None run=None）
+[21:28:23] 收到上报 → phone-tailscale-ios-safari-32.json（page=h2 form=None run=None）
+[21:29:26] 停止：到时自动退出
+[21:29:27] 端口已释放=True（100.x:8765）

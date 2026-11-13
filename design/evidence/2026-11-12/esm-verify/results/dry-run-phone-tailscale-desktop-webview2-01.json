@@ -1,0 +1,96 @@
+{
+  "channel": "tailscale",
+  "received_at": "2026-11-12T06:08:42+08:00",
+  "server": {
+    "bind_host": "127.0.0.1",
+    "public_host": "127.0.0.1",
+    "host_header": "127.0.0.1:8765",
+    "scheme": "http"
+  },
+  "client": {
+    "browser": "desktop-webview2",
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+  },
+  "payload": {
+    "page": "h2",
+    "location": {
+      "protocol": "http:",
+      "host": "127.0.0.1:8765",
+      "hostname": "127.0.0.1",
+      "port": "8765",
+      "origin": "http://127.0.0.1:8765",
+      "pathname": "/h2/page.html",
+      "href": "http://127.0.0.1:8765/h2/page.html"
+    },
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+    "ua_platform": "Win32",
+    "caps": {
+      "csp_violation": {
+        "blocked_uri": "inline",
+        "violated_directive": "script-src-elem",
+        "effective_directive": "script-src-elem"
+      },
+      "static_import": {
+        "default_type": "object",
+        "named_value": "helper-named",
+        "named_version": "1",
+        "default_version": "1"
+      },
+      "dynamic_import": {
+        "ok": true,
+        "named": "helper-named"
+      },
+      "import_meta_url": "http://127.0.0.1:8765/h2/main.mjs",
+      "top_level_await": "tla-ok",
+      "modulepreload": {
+        "link_count": 1,
+        "helper_initiator_types": [
+          "other"
+        ]
+      },
+      "fetch_json": {
+        "ok": true,
+        "status": 200
+      },
+      "all_caps_ok": true
+    },
+    "csp_violations": [
+      {
+        "blocked_uri": "inline",
+        "violated_directive": "script-src-elem",
+        "effective_directive": "script-src-elem"
+      },
+      {
+        "blocked_uri": "inline",
+        "violated_directive": "style-src-elem",
+        "effective_directive": "style-src-elem"
+      }
+    ],
+    "inline_module": {
+      "ran": false
+    },
+    "errors": [],
+    "missing_module": {
+      "element_error": {
+        "src": "http://127.0.0.1:8765/h2/absent.mjs",
+        "phase": "document-capture"
+      },
+      "window_error": null
+    },
+    "backend_events": [],
+    "backend_queued": [],
+    "backend_replayed": 0,
+    "fallback": {
+      "shown": false,
+      "at_ms": null
+    },
+    "ready": true,
+    "done_ms": 907,
+    "esm_order": [],
+    "esm_count": 0,
+    "timings": {
+      "dom_content_loaded": 801.1000000089407,
+      "load": 801.6000000089407
+    }
+  }
+}

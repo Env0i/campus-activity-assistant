@@ -1,0 +1,22 @@
+﻿{
+    "label":  "standalone-run1",
+    "args":  "--demo",
+    "file_version":  null,
+    "product_version":  null,
+    "sha256":  "CBCD992BBE4753CED16BE7956D486274AF068F26C66C94234CE9E7F786B9E082",
+    "tree_processes":  [
+                           "campus-activity-watch-v1.2.2-win-x64.exe#10044",
+                           "campus-activity-watch-v1.2.2-win-x64.exe#34656"
+                       ],
+    "listen_ports":  [
+                         21155
+                     ],
+    "screenshot_captured":  true,
+    "rows":  [
+                 {
+                     "port":  21155,
+                     "status":  200,
+                     "head":  "\u003c!doctype html\u003e\n\u003chtml lang=\"zh-CN\"\u003e\n\u003chead\u003e\n  \u003cmeta charset=\"UTF-8\"\u003e\n  \u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"\u003e\n  \u003ctitle\u003e校园活动预报名工具\u003c/title\u003e\n  \u003clink rel=\"icon\" href=\"brand/fav"
+                 }
+             ]
+}

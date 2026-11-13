@@ -1,0 +1,23 @@
+[06:08:24] 样机服务已启动，通道=tailscale，端口=8765，允许的 Host 数量=1
+[06:08:24] 手机打开（日志已脱敏）：http://127.0.0.1:8765/
+[06:08:24] 预计 900 秒后自动退出
+[06:08:42] 收到上报 → phone-tailscale-desktop-webview2-01.json（page=h2 form=None run=None）
+[06:08:42] 自测 /h2/page.html：通过
+[06:08:50] 收到上报 → phone-tailscale-desktop-webview2-02.json（page=h11 form=None run=None）
+[06:08:50] 自测 /h11/：通过
+[06:08:54] 收到上报 → phone-tailscale-desktop-webview2-03.json（page=h9 form=legacy run=1）
+[06:08:57] 收到上报 → phone-tailscale-desktop-webview2-04.json（page=h9 form=legacy run=2）
+[06:09:01] 收到上报 → phone-tailscale-desktop-webview2-05.json（page=h9 form=legacy run=3）
+[06:09:05] 收到上报 → phone-tailscale-desktop-webview2-06.json（page=h9 form=flat run=1）
+[06:09:09] 收到上报 → phone-tailscale-desktop-webview2-07.json（page=h9 form=flat run=2）
+[06:09:12] 收到上报 → phone-tailscale-desktop-webview2-08.json（page=h9 form=flat run=3）
+[06:09:16] 收到上报 → phone-tailscale-desktop-webview2-09.json（page=h9 form=chain run=1）
+[06:09:20] 收到上报 → phone-tailscale-desktop-webview2-10.json（page=h9 form=chain run=2）
+[06:09:23] 收到上报 → phone-tailscale-desktop-webview2-11.json（page=h9 form=chain run=3）
+[06:09:27] 收到上报 → phone-tailscale-desktop-webview2-12.json（page=h9 form=preload-chain run=1）
+[06:09:31] 收到上报 → phone-tailscale-desktop-webview2-13.json（page=h9 form=preload-chain run=2）
+[06:09:35] 收到上报 → phone-tailscale-desktop-webview2-14.json（page=h9 form=preload-chain run=3）
+[06:09:35] 自测 /h9/legacy/?run=1：通过
+[06:09:35] 自测完成，汇总={"total": 14, "counts": {"h2": 1, "h11": 1, "h9:legacy": 3, "h9:flat": 3, "h9:chain": 3, "h9:preload-chain": 3}, "failures": []}
+[06:09:36] 端口已释放=True（127.0.0.1:8765）
+[06:09:36] 自测结束，硬退出

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESM 补验样机</title>
+<link rel="stylesheet" href="/common/probe.css">
+</head>
+<body>
+<h1>ESM 补验样机</h1>
+<div id="fallback" style="display:none">页面没有加载完整，请刷新或重新扫码</div>
+<p>按顺序点下面几项，跑完回来看汇总。每一步都会自动上报，不需要手工记录。</p>
+<a href="/h2/page.html">H2/H4/H5 探针（加载机制、能力矩阵、后端早推）</a>
+<a href="/h11/">H11 缺模块兜底</a>
+<a href="/h3/cycle/">H3 顶层循环依赖的报错样子</a>
+<a href="/h9/legacy/">H9 四形态计时（自动 4 形态 x 3 次）</a>
+<a href="/h9/chain/">（单项）8 层链式</a>
+<a href="/h9/preload-chain/">（单项）链式 + modulepreload</a>
+<pre id="summary">汇总读取中…</pre>
+<script>
+(function () {
+  function refresh() {
+    fetch('/__summary', { cache: 'no-store' }).then(function (r) { return r.json(); })
+      .then(function (data) {
+        document.getElementById('summary').textContent =
+          '已收到 ' + data.total + ' 份上报\n' + JSON.stringify(data.counts, null, 2);
+      }, function () {
+        document.getElementById('summary').textContent = '读不到汇总（服务已退出？）';
+      });
+  }
+  refresh();
+  setInterval(refresh, 3000);
+})();
+</script>
+</body>
+</html>
