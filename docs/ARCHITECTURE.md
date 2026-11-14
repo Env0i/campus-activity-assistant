@@ -176,10 +176,11 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 | infrastructure | `prefs_store` | ui.json 跨进程锁 + 原子读-合并-写 | app 外观、lifecycle_store | 无 |
 | infrastructure | `process_tree` | Windows Job Object 进程树所有权、taskkill 整树终止 | app 外观（spawn 端口） | 无 |
 | infrastructure | `lifecycle_store` | 启动冻结/心跳/正常关闭的 ui.json 记账 | app.get_lifecycle | prefs_store + domain |
+| infrastructure | `webview_mime` | 把 .js 显式登记为 text/javascript（标准库 mimetypes），压过 Windows 注册表可能记下的 text/plain——模块脚本严格要求 JavaScript 类型，类型不对整张模块图都不加载 | infrastructure 包导入时调用一次（拆 Api、起窗代码搬出 app.py 后改为起窗前显式调用） | 无 |
 | interface | `app.py` | Api 的公开方法、条款门禁、事件发射、worker 命令装配、main；composition root：向 domain/application 注入 signup_plan 纯函数、time_contract 换算、business_clock 异常类型 | pywebview / 测试 | 全部下层（裸名注入缝保持 app.X 可替换） |
-| interface | `ui/state/**` | 状态仓库 S 与纯投影（clock/plan/login/filters/labels/time/task-display/terms） | controllers/views | 仍引用上层名字的存量例外记在 `tools/code_shape/ui_layer_allow.json`，只减不增（如 state/clock.js 调 views/list.js 的 `render`） |
-| interface | `ui/controllers/**` | 用例编排与桥接（bridge/refresh/plan/plan-events/clock/terms/update/prefs/tick） | app.js 事件绑定 | state + api()；terms/update 两个 controller 零 DOM（结构契约测试守护） |
-| interface | `ui/views/**` | DOM 呈现（list/board/login/clock/clock-pop/log/selection/terms/help/update/tour） | render/tick 与 controller 调用 | state 投影；terms/update 的 DOM 查询与呈现全部在此；原则上只依赖 state、不发桥接请求、不调控制器，存量例外同样记在 `tools/code_shape/ui_layer_allow.json` |
+| interface | `ui/state/**` | 状态仓库 S 与纯投影（clock/plan/login/filters/labels/time/task-display/terms） | controllers/views | 仍引用上层名字的存量例外记在 `tools/code_shape/ui_layer_allow.json`，只减不增（如 state/clock.js 调 views/list.js 的 `render`）；过渡期起，迁成模块的状态文件在 `ui/features/<功能>/state*.js`（首个是 features/terms/state.js），模块的层规则与检查见 `tools/code_shape/README.md` 的 ui_modules.mjs |
+| interface | `ui/controllers/**` | 用例编排与桥接（bridge/refresh/plan/plan-events/clock/terms/update/prefs/tick） | app.js 事件绑定 | state + api()；terms/update 两个 controller 零 DOM（结构契约测试守护）；迁成模块的编排文件将是 `ui/features/<功能>/actions*.js`（本批还没有），入口 `main.js` 与过渡名单 `legacy-globals.js` 不限层；模块的层规则与检查见 `tools/code_shape/README.md` |
+| interface | `ui/views/**` | DOM 呈现（list/board/login/clock/clock-pop/log/selection/terms/help/update/tour） | render/tick 与 controller 调用 | state 投影；terms/update 的 DOM 查询与呈现全部在此；原则上只依赖 state、不发桥接请求、不调控制器，存量例外同样记在 `tools/code_shape/ui_layer_allow.json`；迁成模块的视图文件将是 `ui/features/<功能>/view*.js`（本批还没有）；过渡期普通脚本先跑、模块后跑，两边经 window 上挂的名字互调；模块的层规则与检查见 `tools/code_shape/README.md` |
 
 前端脚本按 index.html 的加载序执行（保持原 app.js 的顶层初始化依赖；views/terms.js、
 views/update.js 排在消费它们的 controller 之前），app.js 只保留 boot 初始化、
