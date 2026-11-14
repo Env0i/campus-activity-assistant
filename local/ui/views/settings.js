@@ -376,12 +376,18 @@ function wireSettings() {
   const confirm = $("#btn-terms-withdraw-confirm");
   if (confirm) confirm.addEventListener("click", () => { void withdrawTerms(); });
   const ocrDownload = $("#btn-ocr-download");
-  if (ocrDownload && window.PhonePanel) {
-    ocrDownload.addEventListener("click", () => void window.PhonePanel.downloadComponent("relogin_ocr"));
+  if (ocrDownload) {
+    /* 手机面板已搬成模块：绑定发生在普通脚本阶段，模块那时还没执行，所以把
+       「window.PhonePanel 在不在」的判断挪进点击处理里（写法同下面导入入口那处）。 */
+    ocrDownload.addEventListener("click", () => {
+      if (window.PhonePanel) void window.PhonePanel.downloadComponent("relogin_ocr");
+    });
   }
   const ocrCancel = $("#btn-ocr-cancel");
-  if (ocrCancel && window.PhonePanel) {
-    ocrCancel.addEventListener("click", () => void window.PhonePanel.cancelComponent("relogin_ocr"));
+  if (ocrCancel) {
+    ocrCancel.addEventListener("click", () => {
+      if (window.PhonePanel) void window.PhonePanel.cancelComponent("relogin_ocr");
+    });
   }
   const ocrEnable = $("#btn-ocr-enable");
   if (ocrEnable) ocrEnable.addEventListener("click", () => void enableOcr());

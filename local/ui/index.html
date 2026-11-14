@@ -260,7 +260,7 @@
     <div class="draw-b" id="settings-body">
       <h3 class="set-g" id="set-adv" tabindex="-1">高级功能<small>可选，用到时点一下就装</small></h3>
       <!-- 手机访问照原型 phView（settings-gap 一、PH01–PH32）：标题行右侧二选一，没装或下载中放按钮、装好后放状态 chip；
-           状态机 没装 / 下载中 / 校验中 / 装好未开启 / 开启中 / 已开启，各块显隐由 views/phone.js paintPhoneAccess 决定。
+           状态机 没装 / 下载中 / 校验中 / 装好未开启 / 开启中 / 已开启，各块显隐由 features/phone-access/view.js paintPhoneAccess 决定。
            二维码和配对码保留真实图和文本码，不做点阵（决策 014 b-amendment-009，桌面抽屉同样不做）。 -->
       <section class="help-tools help-advanced ph-sec" aria-label="手机访问">
         <div class="set-h"><b>手机访问</b><span class="ph-slot"><span class="ph-st" id="phone-feature-status" hidden>未开启</span><button class="btn btn-line" id="btn-phone-feature-install" type="button" hidden>启用手机控制</button><button class="btn btn-solid" id="btn-phone-component-install" type="button">下载并安装</button><button class="btn btn-line" id="btn-phone-component-cancel" type="button" hidden>取消下载</button></span></div>
@@ -332,7 +332,7 @@
       </section>
       <h3 class="set-g" id="set-login" tabindex="-1">登录</h3>
       <!-- 登录恢复照原型 credView（settings-gap 三、CR01–CR22）：标题行右侧一个按钮（没账号「填写账号密码」，有账号「更换」），
-           下面依次是 lead、已保存账号行、自动登录结论行、表单、清除确认、坏密码红字、行内反馈；由 views/phone.js paintRelogin 决定显隐。
+           下面依次是 lead、已保存账号行、自动登录结论行、表单、清除确认、坏密码红字、行内反馈；由 features/login/view-recovery.js paintRelogin 决定显隐。
            「存储不可用」「最近一次登录」「手机上重新登录」三行原型没有、代码里有真实信号，保留（kept_not_in_prototype）。 -->
       <section class="help-tools ph-sec" id="relogin-card" aria-label="登录恢复">
         <div class="set-h"><b>登录恢复</b><span class="ph-slot"><button class="btn btn-line" id="btn-credentials-manage" type="button">填写账号密码</button></span></div>
@@ -583,7 +583,6 @@
   <script src="views/update.js"></script>
   <script src="views/help.js"></script>
   <script src="views/settings.js"></script>
-  <script src="views/phone.js"></script>
   <script src="controllers/update.js"></script>
   <script src="controllers/prefs.js"></script>
   <script src="state/filters.js"></script>

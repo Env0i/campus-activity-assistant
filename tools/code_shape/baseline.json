@@ -21,10 +21,6 @@
         "value": 3365,
         "reason": "步骤 1 手机页"
       },
-      "local/ui/views/phone.js": {
-        "value": 1252,
-        "reason": "步骤 1A 组件"
-      },
       "local/ui/views/plan-panel.js": {
         "value": 1367,
         "reason": "步骤 1C 计划栏"
@@ -174,10 +170,6 @@
         "value": 103,
         "reason": "步骤 1B 登录"
       },
-      "local/ui/views/phone.js::paintPhoneAccess": {
-        "value": 262,
-        "reason": "步骤 1A 组件"
-      },
       "local/ui/views/plan-panel.js::paintLed": {
         "value": 116,
         "reason": "步骤 1C 计划栏"
@@ -225,6 +217,10 @@
       "tools/release.py::verify_release_assets": {
         "value": 125,
         "reason": "不在本轮重构范围"
+      },
+      "local/ui/features/phone-access/view.js::paintPhoneAccess": {
+        "value": 262,
+        "reason": "步骤 1A 组件"
       }
     },
     "over60": {
@@ -387,12 +383,6 @@
       "local/ui/views/list.js::rowHtml": {
         "value": 68
       },
-      "local/ui/views/phone.js::paintRelogin": {
-        "value": 88
-      },
-      "local/ui/views/phone.js::wire": {
-        "value": 65
-      },
       "local/ui/views/plan-panel.js::paintBanners": {
         "value": 95
       },
@@ -485,6 +475,12 @@
       },
       "tools/verify_autologin_loop.py::main": {
         "value": 87
+      },
+      "local/ui/features/login/view-recovery.js::paintRelogin": {
+        "value": 88
+      },
+      "local/ui/features/phone-access/actions-panel.js::wire": {
+        "value": 65
       }
     }
   },

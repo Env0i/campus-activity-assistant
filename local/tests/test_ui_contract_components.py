@@ -9,7 +9,11 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
 
-from fixtures.ui_harness import LOCAL, read  # noqa: E402
+from fixtures.ui_harness import (  # noqa: E402
+    LOCAL, module_group_raw_src, read)
+
+# 手机面板搬成模块后的装配文件（模块入口）：读源码改读这组模块的原文拼接
+PANEL_ENTRY = "features/phone-access/actions-panel.js"
 
 
 class ChannelInstallContractTests(unittest.TestCase):
@@ -18,7 +22,7 @@ class ChannelInstallContractTests(unittest.TestCase):
     def setUp(self):
         self.html = read("ui/index.html")
         self.css = read("ui/styles.css")
-        self.view = read("ui/views/phone.js")
+        self.view = module_group_raw_src(PANEL_ENTRY)
 
     def test_component_download_elements_exist(self):
         for marker in ('id="phone-component-state"',
@@ -74,7 +78,7 @@ class AdvancedComponentDialogContractTests(unittest.TestCase):
     def setUp(self):
         self.html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
         self.css = (LOCAL / "ui" / "styles.css").read_text(encoding="utf-8")
-        self.phone = (LOCAL / "ui" / "views" / "phone.js").read_text(encoding="utf-8")
+        self.phone = module_group_raw_src(PANEL_ENTRY)
 
     def test_the_dialog_lists_one_row_per_component(self):
         # fe-ocr-login 同步（IM01）：弹窗改成「每次导入一个组件」——两行各自带路径、选择文件、结论、需要说明，
@@ -138,7 +142,7 @@ class DocAndCopySyncTests(unittest.TestCase):
         self.doc = (LOCAL.parent / "docs" / "PHONE_ACCESS.md").read_text(encoding="utf-8")
         self.readme = (LOCAL / "README.md").read_text(encoding="utf-8")
         self.html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
-        self.phone_view = (LOCAL / "ui" / "views" / "phone.js").read_text(encoding="utf-8")
+        self.phone_view = module_group_raw_src(PANEL_ENTRY)
 
     def test_docs_point_at_the_component_package_not_the_path(self):
         """task-1 之后 PATH 回退没了：文档再教人自备 cloudflared 就是骗人。"""
@@ -184,10 +188,11 @@ class DocAndCopySyncTests(unittest.TestCase):
     def test_a_check_event_refreshes_the_desktop_relogin_card(self):
         """重登成功后顶栏会变，右侧「电脑续登录」卡片也得跟着刷新。"""
         app_js = (LOCAL / "ui" / "app.js").read_text(encoding="utf-8")
+        legacy = (LOCAL / "ui" / "legacy-globals.js").read_text(encoding="utf-8")
         self.assertIn("window.PhonePanel", app_js)
         self.assertIn("PhonePanel.refresh", app_js)
         # 顶层 const 不会挂到 window 上：必须显式暴露，否则上面的调用永远是空
-        self.assertIn("window.PhonePanel = PhonePanel;", self.phone_view)
+        self.assertIn("window.PhonePanel = PhonePanel;", legacy)
 
 
 if __name__ == "__main__":

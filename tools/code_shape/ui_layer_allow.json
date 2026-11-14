@@ -47,10 +47,6 @@
     "views/log.js": [
       "savePrefs"
     ],
-    "views/phone.js": [
-      "api",
-      "refresh"
-    ],
     "views/plan-panel.js": [
       "refresh",
       "runtimeErrorCopy"

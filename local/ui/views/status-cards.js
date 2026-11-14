@@ -114,7 +114,7 @@ function phoneSnapshot() {
 
 /* 「手机已连接」（settings-gap PH23，审核决定 A4）：开着，且本次兑换过配对码（paired_count，B1）
  * 或有活动会话（live_session，重启后靠设备信任 cookie 回来的手机）。不再看 pair_code_status.reason：
- * 那个 reason 只挂在刚换出的那张码上，码过期后「已连接」会自己消失。设置抽屉用同一条规则（views/phone.js） */
+ * 那个 reason 只挂在刚换出的那张码上，码过期后「已连接」会自己消失。设置抽屉用同一条规则（features/phone-access/state.js） */
 function phoneLinked(state) {
   return !!(state && state.running)
     && (Number(state.paired_count || 0) > 0 || state.live_session === true);

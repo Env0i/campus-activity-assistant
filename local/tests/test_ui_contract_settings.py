@@ -9,7 +9,12 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
 
-from fixtures.ui_harness import LOCAL, read, help_dialog, HELP_TEST_VERSION, HELP_TEST_URL, load_backend_help, run_js, settings_drawer  # noqa: E402
+from fixtures.ui_harness import (  # noqa: E402
+    LOCAL, help_dialog, HELP_TEST_VERSION, HELP_TEST_URL, load_backend_help,
+    module_group_raw_src, read, run_js, settings_drawer)
+
+# 手机面板搬成模块后的装配文件（模块入口）：读源码改读这组模块的原文拼接
+PANEL_ENTRY = "features/phone-access/actions-panel.js"
 
 
 class TourAndLifecycleContractTests(unittest.TestCase):
@@ -967,7 +972,7 @@ class BookmarkCopyContractTests(unittest.TestCase):
     def test_desktop_and_mobile_share_the_same_hint(self):
         desktop = self._read("ui", "index.html")
         mobile = self._read("ui", "m", "index.html")
-        view = self._read("ui", "views", "phone.js")
+        view = module_group_raw_src(PANEL_ENTRY)
         # fe-phone 同步：桌面抽屉照原型删了两处旧书签句（PH22），只在开启 Tailscale 后留一句
         # 「地址固定，建议在手机上存成书签，下次直接打开。」（PH27）。手机页不在本计划范围（local/ui/m/** 禁改），
         # 仍是旧句；两页措辞不再逐字相同，这一处列进 result 给用户定

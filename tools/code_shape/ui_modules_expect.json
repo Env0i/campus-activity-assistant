@@ -5,9 +5,20 @@
   "unattached_module_names": [],
   "unused_legacy_globals": [],
   "plain_globals_used": [
-    "S"
+    "$",
+    "OcrPanel",
+    "S",
+    "api",
+    "openSettings",
+    "paintCountdown",
+    "paintOcrDownload",
+    "paintStatusCards",
+    "refresh"
   ],
   "legacy_globals_attached": [
+    "PhonePanel",
+    "downloadFailText",
+    "maskAccount",
     "termsAccepted",
     "termsLocked"
   ]

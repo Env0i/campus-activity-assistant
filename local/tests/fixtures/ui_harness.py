@@ -175,6 +175,18 @@ def read(rel: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def module_group_sandbox_src(entry: str) -> str:
+    """模块入口的整张引用图（被引用的在前），剥掉 import 与 export 后的拼接源码。
+
+    与 read_ui_scripts 的模块段同一口径，只取这一个入口的那组模块。"""
+    return "\n".join(_module_sandbox_src(rel) for rel in _module_graph(entry))
+
+
+def module_group_raw_src(entry: str) -> str:
+    """模块入口的整张引用图的原文拼接（不剥壳），给读源码的字面断言用。"""
+    return "\n".join(_read_ui(rel) for rel in _module_graph(entry))
+
+
 def read_ui_scripts() -> str:
     """index.html 加载序的全部业务脚本拼接（led.js 除外）。
 
@@ -637,6 +649,7 @@ SMOKE_HARNESS = (
     'const uiDir = process.argv[2];\n'
     'const listFile = process.argv[3];\n'
     'const namesFile = process.argv[4];\n'
+    'const afterFile = process.argv[5] || "";\n'
     + _SMOKE_STUBS
     + 'for (const [k, v] of Object.entries(sandbox)) {\n'
     '  try { Object.defineProperty(globalThis, k, { value: v, writable: true, configurable: true }); }\n'
@@ -648,10 +661,15 @@ SMOKE_HARNESS = (
     'for (const rel of list) {\n'
     '  vm.runInThisContext(fs.readFileSync(path.join(uiDir, rel), "utf8"), { filename: rel });\n'
     '}\n'
-    'import(pathToFileURL(path.join(uiDir, "main.js")).href).then(() => {\n'
+    'import(pathToFileURL(path.join(uiDir, "main.js")).href).then(async () => {\n'
+    '  if (afterFile) {\n'
+    '    await vm.runInThisContext("(async () => {\\n" + fs.readFileSync(afterFile, "utf8") + "\\n})()",\n'
+    '      { filename: "after-snippet.js" });\n'
+    '  }\n'
     '  process.stdout.write("__RESULT__" + JSON.stringify([{\n'
     '    modulesReady: window.__modulesReady === true,\n'
-    '    names: attached.map((name) => ({ name: name, isFunction: typeof window[name] === "function" })),\n'
+    '    names: attached.map((name) => ({ name: name, isDefined: typeof window[name] !== "undefined" })),\n'
+    '    after: out,\n'
     '  }]));\n'
     '}, (err) => { process.stderr.write(String(err)); process.exit(1); });\n'
 )
@@ -673,12 +691,14 @@ def _copy_ui_tree(dest: Path) -> None:
     (dest / "package.json").write_text('{"type": "module"}', encoding="utf-8")
 
 
-def run_native_smoke(names: list) -> dict:
+def run_native_smoke(names: list, after: str | None = None) -> dict:
     """真实的动态 import 加载 main.js，返回挂回名字的逐个核对结果。node 缺失时 skip。
 
     names 是模块图报告里挂回 window 的名字清单：真加载完成后逐个断言 window 上
-    对应的是函数。普通脚本与 main.js 都从临时副本目录读，模块的 import 由 node 的
-    真实加载器按副本里的 package.json（type: module）解析。"""
+    对应的名字有定义（函数或对象都算）。普通脚本与 main.js 都从临时副本目录读，
+    模块的 import 由 node 的真实加载器按副本里的 package.json（type: module）解析。
+    after 是可选片段：真加载完成之后在同一个全局环境里执行并把 out 带回来，供
+    「真加载下再点控件」一类的断言用；不给时行为与原来一致。"""
     import json
     import shutil
     import subprocess
@@ -693,11 +713,15 @@ def run_native_smoke(names: list) -> dict:
         harness = Path(name) / "smoke-harness.js"
         part = Path(name) / "list.json"
         namesfile = Path(name) / "names.json"
+        afterfile = Path(name) / "after.js"
         harness.write_text(SMOKE_HARNESS, encoding="utf-8")
         part.write_text(json.dumps(plain), encoding="utf-8")
         namesfile.write_text(json.dumps(list(names)), encoding="utf-8")
-        res = subprocess.run([node, str(harness), str(dest), str(part), str(namesfile)],
-                             capture_output=True, text=True, encoding="utf-8",
+        cmd = [node, str(harness), str(dest), str(part), str(namesfile)]
+        if after:
+            afterfile.write_text(after, encoding="utf-8")
+            cmd.append(str(afterfile))
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
                              errors="replace", timeout=60)
         if res.returncode != 0:
             raise AssertionError("原生加载冒烟崩溃：%s" % res.stderr[-800:])

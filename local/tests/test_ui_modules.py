@@ -140,16 +140,90 @@ class NativeLoadSmokeTests(unittest.TestCase):
     """拼起来能跑 ≠ 真加载能跑——main.js 用真实的动态 import 加载，不走夹具拼接，
     也不从仓库目录直接加载（仓库在网络共享盘上时 node 沿上层找 package.json 会出错）。"""
 
+    # 手机面板搬成模块之前 PhonePanel 的全部成员名（顶层字段加方法，从面板搬走前
+    # 的原文件里取出写成字面量）；搬完装配回同一个对象，成员一个不多、一个不少。
+    PANEL_MEMBERS = [
+        "state", "busy", "pending", "pollTimer", "pollTicks", "tickTimer", "lastCode",
+        "channel", "notes", "stopAsk", "addPair", "addPairAt", "copied", "copyTimer",
+        "location", "lastDownload", "codeLeft", "codeSync", "picked", "verified",
+        "clearConfirm", "credForm", "credNote", "credNoteTone", "importKey", "installing",
+        "refresh", "loadLocation", "downloadActive", "needsPolling", "startPolling",
+        "stopPolling", "startTick", "stopTick", "feature", "selectedChannel", "paint",
+        "paintRelogin", "paintCredForm", "paintPhoneAccess", "paintCountdown",
+        "openComponents", "paintComponents", "pickComponent", "inspectComponent",
+        "showComponentNote", "installComponent", "closeComponents", "featureAction",
+        "enableFeature", "toggleStart", "toggleStop", "askStop", "cancelStop",
+        "confirmStop", "addPairing", "goSaveCredentials", "openComponentDir",
+        "copyByTextarea", "copyAddress", "downloadComponent", "cancelComponent",
+        "changeChannel", "recheckTailscale", "saveCredentials", "openCredForm",
+        "cancelCredForm", "askClearCredentials", "cancelClearCredentials",
+        "confirmClearCredentials", "clearCredentials", "wire",
+    ]
+
     def test_real_module_load_attaches_every_reported_name(self):
-        """真加载后，模块图报告里挂回的每个名字在 window 上都得是函数，缺一个点名。"""
+        """真加载后，模块图报告里挂回的每个名字在 window 上都得有定义（函数或对象
+        都算，PhonePanel 是对象），缺一个点名。"""
         report = _run_ui_modules()
         result = run_native_smoke(report["legacy_globals_attached"])
         self.assertTrue(result["modulesReady"], "真加载后 main.js 必须置 __modulesReady")
-        missing = [entry["name"] for entry in result["names"] if not entry["isFunction"]]
+        missing = [entry["name"] for entry in result["names"] if not entry["isDefined"]]
         self.assertEqual([], missing,
                          "真加载下 window 没挂回这些名字（拼接沙箱里模块名恰好是全局的，"
                          "这类缺陷拼接测试发现不了，真窗口里普通脚本一调用就是 "
                          "ReferenceError）：%r" % (missing,))
+
+    def test_real_load_phone_panel_has_exactly_the_same_members(self):
+        """真加载装配后的 PhonePanel：成员名排序后与搬之前逐个相等，一个不多一个不少。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+out.push({ members: Object.keys(window.PhonePanel).sort() });
+""")
+        self.assertTrue(result["modulesReady"], "真加载后 main.js 必须置 __modulesReady")
+        self.assertEqual(sorted(result["after"][0]["members"]), sorted(self.PANEL_MEMBERS),
+                         "真加载装配后的 PhonePanel 成员与搬之前不一致")
+
+    def test_real_load_ocr_download_and_cancel_send_their_requests(self):
+        """真加载下点识别行的「下载并安装」与「取消下载」：各发出一次对应请求。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.pywebview = { api: new Proxy({}, {
+  get: (target, name) => (...args) => {
+    window.__calls.push([String(name), ...args]);
+    return Promise.resolve({ ok: true });
+  },
+}) };
+window.__calls = [];
+const __flush = async (n = 8) => { for (let i = 0; i < n; i += 1) await Promise.resolve(); };
+$("#btn-ocr-download").click();
+await __flush();
+$("#btn-ocr-cancel").click();
+await __flush();
+out.push({ download: window.__calls.filter((c) => c[0] === "download_advanced_feature"),
+           cancel: window.__calls.filter((c) => c[0] === "cancel_advanced_feature_download") });
+""")
+        self.assertEqual(result["after"][0]["download"],
+                         [["download_advanced_feature", "relogin_ocr"]],
+                         "真加载下点识别行「下载并安装」要发出验证码识别的下载请求")
+        self.assertEqual(result["after"][0]["cancel"],
+                         [["cancel_advanced_feature_download", "relogin_ocr"]],
+                         "真加载下点识别行「取消下载」要发出验证码识别的取消请求")
+
+    def test_real_load_start_sends_the_start_request(self):
+        """真加载下点手机行的「开启手机访问」：发出开启请求。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.pywebview = { api: new Proxy({}, {
+  get: (target, name) => (...args) => {
+    window.__calls.push([String(name), ...args]);
+    return Promise.resolve({ ok: true });
+  },
+}) };
+window.__calls = [];
+$("#btn-phone-start").click();
+out.push({ start: window.__calls.filter((c) => c[0] === "start_phone_access") });
+""")
+        self.assertEqual(result["after"][0]["start"], [["start_phone_access", "tailscale"]],
+                         "真加载下点手机行「开启手机访问」要发出开启请求")
 
 
 if __name__ == "__main__":

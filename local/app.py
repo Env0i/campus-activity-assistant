@@ -115,7 +115,7 @@ _CREDENTIAL_STORE_OK = None
 # 电脑自己识别验证码连续失败这么多次，才把图交给手机上的人来打。
 # 只改这一个数字就能调整「多信任 OCR」的程度。
 _MANUAL_RELOGIN_AFTER = 3
-# G2：组件下载失败写进运行记录的说法，与界面红条（ui/views/phone.js 的 PHONE_DOWNLOAD_REASON）同源
+# G2：组件下载失败写进运行记录的说法，与界面红条（ui/features/components/state.js 的 PHONE_DOWNLOAD_REASON）同源
 _DOWNLOAD_FAIL_REASONS = {
     "network_error": "连不上发布页",
     "http_error": "GitHub 暂时无法响应，请稍后重试",
