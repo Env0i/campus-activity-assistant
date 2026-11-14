@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -69,29 +70,15 @@ VERSION_FILE = ROOT / "VERSION"
 # 构建时注入的站点地址模块：只在构建机 prepare 期间存在（.gitignore 排除），
 # 随 PyInstaller 进资源根；源码态找不到它就当没有（见 local/site_target.py）。
 SITE_BUILD_MODULE = ROOT / "local" / "_site_build.py"
-_SITE_ORIGIN_RE = re.compile(r"^https://[^/\s]+(/[^\s]*)?$")
 
-
-def site_origin_for_build(preview: bool) -> str:
-    """读取构建环境 SCHOOL_ORIGIN 并校验；正式构建缺值或不是 https 直接失败。
-
-    地址只来自构建环境变量，绝不写进仓库任何文件；值本身也不进 manifest。
-    预览构建（来源脏）允许缺席，产物仅供人工验收，manifest 记 site_configured=false。
-    """
-    origin = (os.environ.get("SCHOOL_ORIGIN") or "").strip()
-    if not origin:
-        if preview:
-            print("[prepare] 预览构建：未设 SCHOOL_ORIGIN，发布物不含内置站点地址")
-            return ""
-        raise SystemExit("[prepare] 正式构建缺 SCHOOL_ORIGIN：站点地址必须在构建环境注入，"
-                         "不写进仓库；本次不产出任何资产")
-    if not _SITE_ORIGIN_RE.match(origin):
-        if preview:
-            print("[prepare] 预览构建：SCHOOL_ORIGIN 不是 https 地址，按未注入处理")
-            return ""
-        raise SystemExit("[prepare] SCHOOL_ORIGIN 必须是 https 站点根地址（不带查询或空白）；"
-                         "本次不产出任何资产")
-    return origin.rstrip("/")
+# 发版守卫与构建前站点地址检查住在 tools/release_guards.py；按路径加载不污染 sys.path，
+# RUN_GUARDS 是模块级名字供测试替换（local/tests/test_release_guards.py），真发版才执行。
+_guards_spec = importlib.util.spec_from_file_location(
+    "release_guards", Path(__file__).resolve().parent / "release_guards.py")
+_RELEASE_GUARDS = importlib.util.module_from_spec(_guards_spec)
+_guards_spec.loader.exec_module(_RELEASE_GUARDS)
+site_origin_for_build = _RELEASE_GUARDS.site_origin_for_build
+RUN_GUARDS = _RELEASE_GUARDS.run_guards
 
 
 def write_site_build(origin: str) -> None:
@@ -1261,6 +1248,16 @@ def do_publish(tag: str, assume_yes: bool, version: str, clobber: bool = False) 
     print("[提示] 绿色版/服务器版打包与 local/server 分发分支同步属兼容发行流程，需另行授权执行。")
 
 
+def _guards_or_exit() -> None:
+    """真命令行发版（--prepare/--publish）先跑守卫，不过就停；被测试导入驱动时跳过——
+    现有发版用例直接调入口且不许改，不能让它们去跑真实的全量（防嵌套递归）。"""
+    if __name__ != "__main__":
+        return
+    ok, failed = RUN_GUARDS(ROOT)
+    if not ok:
+        raise SystemExit("守卫没过，没有开始构建（%s）" % failed)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="打 Release（版本号读 VERSION，默认只做只读检查）")
     ap.add_argument("tag", nargs="?",
@@ -1301,6 +1298,8 @@ def main() -> int:
             raise SystemExit("[release] 位置 tag 不再单独触发发布；请显式 --publish"
                              "（或 --check / --prepare）")
 
+    if args.publish or args.prepare:
+        _guards_or_exit()
     if args.publish:
         do_publish(derived, args.yes, version, args.clobber)
         return 0
