@@ -1,6 +1,8 @@
-/* 条款状态的纯投影：只读 S，不写 S、不碰 DOM、不发桥接请求（门禁编排见 controllers/terms.js）。 */
+/* 条款状态的纯投影：只读 S，不写 S、不碰 DOM、不发桥接请求（门禁编排见 controllers/terms.js）。
+ * 属于状态层；自 local/ui/state/terms.js 原样迁来（ESM 地基批，2026-11-14），
+ * 两个函数体与各自的注释逐字未改；普通脚本经 legacy-globals.js 挂回的 window 名字使用它们。 */
 
-function termsAccepted() {
+export function termsAccepted() {
   return !!S.terms.version && S.terms.acceptedVersion === S.terms.version;
 }
 
@@ -11,7 +13,7 @@ function termsAccepted() {
  * - 有版本但没同意当前版本 → 拦；
  * - 还没拿到任何条款状态（version 为空且未标 unknown，例如测试桩或桥接未
  *   就绪）→ 前端没有依据，交给后端门禁兜底，不在此处冒充「已确认未同意」。 */
-function termsLocked() {
+export function termsLocked() {
   if (S.demo) return false;
   if (S.terms.unknown) return true;
   if (!S.terms.version) return false;

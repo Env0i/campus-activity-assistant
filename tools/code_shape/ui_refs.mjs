@@ -4,12 +4,21 @@
 // 属性访问、对象字面量的键、注释与字符串里的不算；本文件内有同名局部声明的不算。
 // 精简自同目录审计脚本 globals.mjs（只保留跨层引用这部分，报表部分没有搬），量法不得改。
 //
+// 过渡期（ESM 地基批）清单口径：index.html 的普通脚本按加载序在前，模块入口的
+// 引用图随后、被引用的在前；与测试夹具（local/tests/fixtures/ui_harness.py）同一口径。
+// 清单与 import 解析函数从这里导出，ui_modules.mjs 复用。认层：普通脚本按目录；
+// 模块按文件名规则并进现有四档词表——state-*/view-*/actions-* 分别并到 state/
+// views/controllers 档，shared/ 下的并到 state 档（公共层的引用方向与状态档最接近，层规则的
+// 精确规则由 ui_modules.mjs 单独守），main.js 与 legacy-globals.js 是过渡期的入口与桥，
+// 照 root 档（不限层）。
+//
 // 从仓库根运行：node tools/code_shape/ui_refs.mjs
-// 只读：按 local/ui/index.html 的加载顺序读脚本，向标准输出打印 JSON，不写任何文件。
-// 不含 local/ui/m/：index.html 不加载它。led.js 会被加载，和 app.js 一样算根层。
+// 只读：向标准输出打印 JSON，不写任何文件。不含 local/ui/m/：index.html 不加载它。
+// led.js 会被加载，和 app.js 一样算根层。
 
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, normalize } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { KEYWORDS } from "./jslex.mjs";
 import { findFunctions } from "./jsscan.mjs";
@@ -19,23 +28,106 @@ const UI = "local/ui";
 const isP = (t, v) => !!t && t.type === "punct" && t.value === v;
 const isId = (t, v) => !!t && t.type === "id" && (v === undefined || t.value === v);
 
-// index.html 里的 <script src>，即浏览器加载顺序。
-function scriptOrder(htmlPath) {
+// ---- 页面脚本清单（公共口径）-----------------------------------------------
+
+// index.html 里带 src 的 <script> 标签按出现顺序给 {src, module}；旧写法只认
+// <script src="…"></script>，放宽到同时认 type="module" 的入口。
+const TAG_RE = /<script\b([^>]*)>/g;
+const SRC_RE = /\bsrc="([^"]+)"/;
+const MODULE_TYPE_RE = /type\s*=\s*["']module["']/;
+
+export function indexHtmlTags(htmlPath) {
   const html = readFileSync(htmlPath, "utf8");
   const out = [];
-  const re = /<script\s+[^>]*src="([^"]+)"/g;
-  let m;
-  while ((m = re.exec(html))) out.push(m[1]);
+  for (const m of html.matchAll(TAG_RE)) {
+    const src = SRC_RE.exec(m[1]);
+    if (src) out.push({ src: src[1], module: MODULE_TYPE_RE.test(m[1]) });
+  }
   return out;
 }
 
-// 层按目录定：state/、views/、controllers/，其余算根目录（app.js、led.js 等）。
-function layerOf(rel) {
-  if (rel.startsWith("state/")) return "state";
-  if (rel.startsWith("views/")) return "views";
-  if (rel.startsWith("controllers/")) return "controllers";
+// 模块的具名导入（只允许这一种写法，不改名）：import { 名字 } from "./相对路径"; 单行；
+// 别的写法直接报错，不静默跳过。
+const IMPORT_RE = /^import\s*\{([^}]*)\}\s*from\s*"(?<spec>[^"]+)"\s*;\s*$/;
+const IMPORT_KEYWORD_RE = /^import\b/;
+
+export function moduleImports(rel, src) {
+  const out = [];
+  for (const raw of src.split("\n")) {
+    const line = raw.trim();
+    if (!IMPORT_KEYWORD_RE.test(line)) continue;
+    const m = IMPORT_RE.exec(line);
+    if (!m) throw new Error(`${rel} 的 import 不是「import { 名字 } from "./相对路径";」的单行具名导入：${line}`);
+    const names = m[1].split(",").map((s) => s.trim());
+    if (names.some((n) => !/^[A-Za-z_$][\w$]*$/.test(n))) {
+      throw new Error(`${rel} 的 import 列表只许逗号分隔的具名名字（不改名、不用 as）：${line}`);
+    }
+    if (!/^\.{1,2}\//.test(m.groups.spec)) {
+      throw new Error(`${rel} 的 import 路径必须是 ./ 或 ../ 开头的相对路径：${m.groups.spec}`);
+    }
+    const dep = normalize(join(dirname(rel), m.groups.spec)).split("\\").join("/");
+    if (dep.startsWith("..")) throw new Error(`${rel} 的 import 越出了 ui 目录：${m.groups.spec}`);
+    out.push({ names, from: dep });
+  }
+  return out;
+}
+
+// 模块入口的引用图，被引用的在前（后序）；顶层循环引用直接报错（esm-verify H3：整张图起不来）。
+export function moduleGraph(entry, readFile) {
+  const order = [];
+  const visiting = new Set();
+  const visit = (rel, path) => {
+    if (order.includes(rel)) return;
+    if (visiting.has(rel)) throw new Error(`模块顶层循环引用：${path.concat(rel).join(" -> ")}`);
+    visiting.add(rel);
+    for (const imp of moduleImports(rel, readFile(rel))) visit(imp.from, path.concat(rel));
+    visiting.delete(rel);
+    order.push(rel);
+  };
+  if (entry) visit(entry, []);
+  return order;
+}
+
+// 页面脚本清单：普通脚本按加载序在前，之后是模块入口引用图（被引用的在前）。
+// includeLed 给本脚本用（led.js 会被加载，和 app.js 同算根层）；测试夹具与契约拼接
+// 不带 led.js——它是独立字库渲染器，不含业务契约文本。
+export function pageFiles(includeLed) {
+  const tags = indexHtmlTags(join(UI, "index.html"));
+  const plain = [];
+  const entries = [];
+  for (const t of tags) {
+    if (t.module) entries.push(t.src);
+    else if (includeLed || t.src !== "led.js") plain.push(t.src);
+  }
+  if (entries.length > 1) throw new Error(`index.html 有多个模块入口：${entries.join(", ")}`);
+  const read = (rel) => readFileSync(join(UI, rel), "utf8");
+  const files = plain.map((rel) => ({ rel, isModule: false, src: read(rel) }));
+  for (const rel of moduleGraph(entries[0] || null, read)) {
+    files.push({ rel, isModule: true, src: read(rel) });
+  }
+  return files;
+}
+
+// ---- 层认法------------------------------------------------------------------
+
+// 层认法：普通脚本按目录；模块按文件名规则并进现有四档词表（见文件头）。
+function layerOf(rel, isModule) {
+  if (!isModule) {
+    if (rel.startsWith("state/")) return "state";
+    if (rel.startsWith("views/")) return "views";
+    if (rel.startsWith("controllers/")) return "controllers";
+    return "root";
+  }
+  if (rel === "main.js" || rel === "legacy-globals.js") return "root";
+  if (rel.startsWith("shared/")) return "state";
+  const base = rel.slice(rel.lastIndexOf("/") + 1);
+  if (base === "state.js" || base.startsWith("state-")) return "state";
+  if (base === "view.js" || base.startsWith("view-")) return "views";
+  if (base === "actions.js" || base.startsWith("actions-")) return "controllers";
   return "root";
 }
+
+// ---- 名字与引用分析（量法不得改）---------------------------------------------------
 
 // 每个记号的花括号深度与圆方括号深度（用于判「顶层」）。
 function computeDepths(file) {
@@ -145,6 +237,16 @@ function collectLocals(file) {
   }
 }
 
+// 单个源码文件的完整分析：记号、函数、深度、局部名。给本脚本与 ui_modules.mjs 共用。
+export function analyzeFile(src) {
+  const { tokens, funcs, balanced } = findFunctions(src);
+  const file = { tokens, funcs, balanced };
+  computeDepths(file);
+  bindInner(file);
+  collectLocals(file);
+  return file;
+}
+
 // 这个记号处，名字 name 是不是被某一层外层函数的局部声明遮住了。
 function shadowed(file, k, name) {
   let f = file.inner[k];
@@ -156,7 +258,7 @@ function shadowed(file, k, name) {
 }
 
 // 顶层定义：花括号深度 0、圆方括号深度 0 的 function / const / let / var / class，以及 window.X =。
-function topDefs(file) {
+export function topDefs(file) {
   const { tokens, brace, paren } = file;
   const defs = [];
   for (let k = 0; k < tokens.length; k += 1) {
@@ -181,7 +283,7 @@ function topDefs(file) {
 }
 
 // 找出对一组「全局名字」的引用。skipTok：本文件里属于声明本身的记号下标。
-function scanUses(file, names, skipTok) {
+export function scanUses(file, names, skipTok) {
   const { tokens } = file;
   const refs = [];
   for (let k = 0; k < tokens.length; k += 1) {
@@ -198,6 +300,16 @@ function scanUses(file, names, skipTok) {
   return refs;
 }
 
+// ---- 本脚本自己的报表（跨层引用清点）----------------------------------------------
+
+function loadAll() {
+  return pageFiles(true).map((item) => {
+    const file = { rel: item.rel, isModule: item.isModule,
+      layer: layerOf(item.rel, item.isModule), src: item.src, ...analyzeFile(item.src) };
+    return file;
+  });
+}
+
 // 越界的判定：从某层出发，定义在哪些层/文件里的名字算越界。
 function isViolation(fromLayer, def) {
   if (fromLayer === "state") {
@@ -207,21 +319,6 @@ function isViolation(fromLayer, def) {
     return def.layer === "controllers" || def.layer === "root";
   }
   return false;
-}
-
-function loadAll() {
-  const order = scriptOrder(join(UI, "index.html"));
-  const files = order.map((rel) => {
-    const path = join(UI, rel);
-    const src = readFileSync(path, "utf8");
-    const { tokens, funcs, balanced } = findFunctions(src);
-    const file = { rel, layer: layerOf(rel), path, src, tokens, funcs, balanced };
-    computeDepths(file);
-    bindInner(file);
-    collectLocals(file);
-    return file;
-  });
-  return files;
 }
 
 // 名字 → 定义信息。同一文件里先 const X 再 window.X = X 只算一次；跨文件重名仍记第一处。
@@ -259,18 +356,22 @@ function rows(files, names, fromLayer) {
   return out;
 }
 
-const files = loadAll();
-const names = collectNames(files);
-for (const f of files) {
-  f.refs = scanUses(f, names, f.skip);
-  if (!f.balanced) {
-    process.stderr.write(`${f.rel} 括号没配平，结果不可信\n`);
+function main() {
+  const files = loadAll();
+  const names = collectNames(files);
+  for (const f of files) {
+    f.refs = scanUses(f, names, f.skip);
+    if (!f.balanced) {
+      process.stderr.write(`${f.rel} 括号没配平，结果不可信\n`);
+    }
   }
+  process.stdout.write(JSON.stringify({
+    ui: UI,
+    files: files.length,
+    state: rows(files, names, "state"),
+    views: rows(files, names, "views"),
+  }, null, 2) + "\n");
 }
 
-process.stdout.write(JSON.stringify({
-  ui: UI,
-  files: files.length,
-  state: rows(files, names, "state"),
-  views: rows(files, names, "views"),
-}, null, 2) + "\n");
+// 直接运行本文件时才清点；被 ui_modules.mjs import 时只取上面导出的函数。
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

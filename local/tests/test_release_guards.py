@@ -226,7 +226,7 @@ class WorkflowCommandTests(unittest.TestCase):
         (root / "good.js").write_text("const answer = 42;\n", encoding="utf-8")
         (root / "bad.js").write_text("const answer = ;\n", encoding="utf-8")
         globbed = (root / "*.js").as_posix()
-        command = command.replace("local/ui/*.js", globbed).replace("local/ui/*/*.js", globbed)
+        command = command.replace("local/ui/*.js", globbed).replace("local/ui/*/*.js", globbed).replace("local/ui/*/*/*.js", globbed)
         with_bad = subprocess.run([bash, "-c", command], capture_output=True, text=True)
         self.assertNotEqual(0, with_bad.returncode,
                             "有语法错误的脚本时命令仍返回 0：%r" % (with_bad.stdout + with_bad.stderr))

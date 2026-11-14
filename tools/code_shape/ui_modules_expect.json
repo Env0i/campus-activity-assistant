@@ -1,0 +1,14 @@
+{
+  "cycles": [],
+  "missing_imports": [],
+  "layer_violations": [],
+  "unattached_module_names": [],
+  "unused_legacy_globals": [],
+  "plain_globals_used": [
+    "S"
+  ],
+  "legacy_globals_attached": [
+    "termsAccepted",
+    "termsLocked"
+  ]
+}

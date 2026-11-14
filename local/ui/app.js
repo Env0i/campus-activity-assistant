@@ -647,9 +647,3 @@ document.addEventListener("visibilitychange", () => {
 });
 
 setInterval(tick, 1000);
-boot().catch((error) => {
-  /* 启动链路整体失败同样没有条款依据：先按未知拦住学校动作再报错 */
-  markTermsUnknown();
-  addLog("[X] 界面初始化失败：" + msg(error));
-  render();
-});

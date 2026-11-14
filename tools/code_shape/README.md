@@ -15,7 +15,7 @@
      相对 import 按 level 解析到实际的包（level 1 是同包，不算越界）；函数体里的延迟 import 也算。
    - 存量例外写在 `local/tests/test_layer_boundaries.py` 的 `LEGACY_DIRECTION_VIOLATIONS`，
      键是「文件、完整模块名」，按模块锁、不按包锁；每条带理由与去向。
-2. **前端**（`local/ui`，按 `index.html` 的加载顺序；`led.js` 会被加载，和 `app.js` 同算根层；不含手机页 `m/`）
+2. **前端**（`local/ui`，按 `index.html` 的加载顺序；`led.js` 会被加载，和 `app.js` 同算根层；不含手机页 `m/`；过渡期模块与普通脚本并存，清单口径与模块专守见下面「模块图守卫」一节）
    - `state/` 不引用 `views/`、`controllers/`、`app.js` 定义的顶层名字；
    - `views/` 不引用 `controllers/`、`app.js` 定义的顶层名字；
    - 「引用」按名字匹配：属性访问、对象字面量的键、注释与字符串里的不算，本文件有同名局部声明的不算。
@@ -26,6 +26,41 @@
 不许把上层函数当参数或回调塞进下层——那样名字不在调用点，守卫看不见，但依赖是真实的。
 
 两组名单都**只减不增**：代码里多出名单外的一项就红；名单里的项在代码里没有了也红，提示把它删掉。
+
+## 模块图守卫（ESM 过渡期）
+
+界面正在从「按顺序加载的普通脚本」迁到 ES Modules（目标目录见
+`design/proposals/engineering-refactor.md` 的「前端目标目录」一节）。过渡期普通脚本先跑、
+模块后跑，这里的清单口径是：`index.html` 的普通脚本按加载序在前，模块入口 `main.js` 的
+整张引用图随后、被引用的在前；模块只允许「import { 名字 } from 相对路径;」的单行具名
+导入与 export 声明 / export { 列表 }，别的写法直接报错。`ui_refs.mjs` 按这个清单清点
+跨层引用（认层：普通脚本按目录，模块按文件名规则——`state-`/`view-`/`actions-` 开头
+分属状态/视图/编排，`shared/` 下是公共层，入口 `main.js` 与过渡名单 `legacy-globals.js`
+不限——并进现有四档词表）；`local/tests/fixtures/ui_harness.py` 是同一口径的另两份
+实现（Python 拼接一份、node 沙箱一份），两边各有测试守着。
+
+`ui_modules.mjs` 只读地输出模块报告：模块清单与各自的层、每个模块引入了哪些名字、
+顶层循环引用、「用了别的模块定义的名字却没有 import」、违反层规则的引用、「模块直接
+用到的普通脚本全局名字」（入口 `main.js` 不进这份清单——它是过渡期的桥，对普通脚本
+全局名字的引用就是迁移机制本身，全部迁完时随它一起消失）、`legacy-globals.js` 挂回
+window 的名字、挂出去却没有任何普通脚本在用的名字（有就必须删）。
+
+`unattached_module_names` 量的是「搬进模块却没挂回」：普通脚本引用了一个名字，这个名字
+的顶层定义只在模块里（没有任何普通脚本定义同名），而它不在 `legacy-globals.js` 挂回
+window 的名单里。每项给出 file、name、line、defined_in。拼接式测试发现不了这类缺陷——
+拼接以后模块里的名字恰好进了全局作用域，调用照常返回；真加载下模块名不进全局，普通
+脚本一调用就是 ReferenceError，要等用户在真窗口点到那里才坏。
+
+```bash
+node tools/code_shape/ui_modules.mjs                                      # 只读报告
+node tools/code_shape/ui_modules.mjs --expect > tools/code_shape/ui_modules_expect.json
+```
+
+期望值由 `--expect` 生成，不手写；`local/tests/test_ui_modules.py` 比对：五类问题
+（顶层循环、缺 import、普通脚本引用了没挂回的模块名字、违反层规则、挂出去没人用）
+必须为空，「模块用到的普通脚本全局
+名字」与「挂回名单」两份清单与实际逐项相等，多一项少一项都红。「模块用到的普通脚本
+全局名字」就是过渡期的迁移清单：迁完一块少几个名字，全部迁完时应当为空。
 
 ## 四条大小规则
 
@@ -65,7 +100,9 @@ python -B -X utf8 tools/code_shape/check.py --init     # 只在 baseline.json �
 - `jslex.mjs`：JS 词法（token 化），搬自审计目录，拆成不超过 60 行的若干函数。
 - `jsscan.mjs`：从 token 找函数声明与函数体范围，同样拆开。
 - `jsfuncs.mjs`：输出函数表 JSON（文件、限定名、起始行、行数），供 `check.py` 与等价性核对使用。
-- `ui_refs.mjs`：只读清点前端跨层引用，输出 JSON。
+- `ui_refs.mjs`：只读清点前端跨层引用，输出 JSON；页面脚本清单（普通脚本加模块图）与 import 解析也从这里导出，`ui_modules.mjs` 复用。
+- `ui_modules.mjs`：模块图守卫，只读报告与期望值生成。
+- `ui_modules_expect.json`：`ui_modules.mjs --expect` 生成的期望值，不手写。
 - `ui_layer_allow.json`：前端分层的存量白名单。
 - `check.py`：大小守卫命令行。
 - `baseline.json`：大小名单。

@@ -105,9 +105,9 @@ node server/bot/test_bot_runtime.js
 node server/bot/test_handled_messages.js
 node server/deploy/test_atomic_json.js
 
-# 语法检查；前端脚本拆成了多个文件，要逐个 node --check
+# 语法检查；前端脚本拆成了多个文件（含 features 两层目录），要逐个 node --check
 python -m compileall local server
-ls local/ui/*.js local/ui/*/*.js | xargs -n 1 node --check
+ls local/ui/*.js local/ui/*/*.js local/ui/*/*/*.js | xargs -n 1 node --check
 
 # 依赖安装（持续集成同款）：本机版基础依赖、两个高级功能依赖、服务器版依赖、pytest
 python -m pip install -r local/requirements.txt
@@ -140,8 +140,8 @@ python tools/release.py --prepare
   - 业务时钟用 `FakeBusinessClock` 或 `configure_time_source` 注入，不读本机墙钟。
   - 不这样做，换个时区跑就会错位。
 - **界面测试有两类**：
-  - 契约测试：按 `index.html` 的加载顺序把脚本拼起来（`read_ui_scripts()`，不含 led.js），在拼接结果上做文本断言。
-  - 行为测试：用 node 沙箱按同一顺序回放。本机没有 node 时会跳过，跳过要如实报告。
+  - 契约测试：按 `index.html` 的加载顺序把脚本拼起来（`read_ui_scripts()`，不含 led.js），在拼接结果上做文本断言。过渡期模块与普通脚本并存（ESM 地基批）：清单是普通脚本在前、模块入口的引用图随后（被引用的在前），拼接时模块去掉 import 语句与 export 关键字后排在后面。
+  - 行为测试：用 node 沙箱按同一顺序回放（沙箱里是同一口径的另一份清单实现）。本机没有 node 时会跳过，跳过要如实报告。
   - 界面契约测试按功能分在 `local/tests/test_ui_contract_*.py`，公共的读取函数和 node 沙箱在 `local/tests/fixtures/ui_harness.py`。
   - 新测试文件先把测试目录放进 `sys.path` 再 import fixtures，文件尾带 `unittest.main()` 入口。
 - **脚本式的 server 测试**：`server/tests/` 里的 `test_dedup.py`、`test_endpoints.py`、`test_notify.py` 没有 `test_` 函数，pytest 收集不到。其中 `test_dedup.py` 会临时改写 `server/data/state.json`，不要跑。
@@ -191,6 +191,7 @@ python tools/release.py --prepare
   4. 占位地址。这时 `CONFIGURED=False`，所有学校动作直接拒绝。
 - **前端**：
   - 没有打包器。`local/ui/index.html` 按 `<script>` 顺序加载 `state/`（唯一的状态仓库 `S` 和纯投影）、`views/`（DOM 呈现）、`controllers/`（编排和桥接）和 `app.js`（启动和事件分发）。加载顺序本身就是依赖关系。
+  - 过渡期（ESM 地基批）普通脚本先跑、模块后跑：脚本清单末尾是 `boot-guard.js`（普通脚本，管后端事件的排队重放和「界面没有加载完整」的兜底提示）与 `type="module"` 的 `main.js`（模块入口，依次挂回过渡名单、执行原先 app.js 末尾的启动调用、置 `__modulesReady`、放出排队的事件）。`legacy-globals.js` 把模块里的名字挂回 window 给普通脚本用，名单里每个名字没有普通脚本再用时必须删，全部迁完后整个文件删除。顶层循环引用会让整张模块图起不来，由 `tools/code_shape/ui_modules.mjs` 守着。
   - 手机页在 `local/ui/m/`，由 `infrastructure/phone_http` 在 8765 端口提供。
 
 ### 服务器版
@@ -229,7 +230,8 @@ python tools/release.py --prepare
 - **前端分层**：
   - `state/` 不引用 `views/`、`controllers/`、`app.js` 里定义的名字。
   - `views/` 不引用 `controllers/`、`app.js` 里定义的名字，不发桥接请求。
-  - 存量例外记在 `tools/code_shape/ui_layer_allow.json`。
+  - 迁成模块的文件放在 `local/ui/features/<功能>/` 下（九个功能目录：login、components、phone-access、plan、list、clock、terms、update、shell），公共件在 `local/ui/shared/`；模块按文件名认层——`state.js` 或 `state-` 开头是状态层，`view.js` 或 `view-` 开头是视图层，`actions.js` 或 `actions-` 开头是编排层，`shared/` 下是公共层。模块的层规则：公共层只引公共层；状态层只引公共层和状态层；视图层可引公共层、状态层、视图层；编排层、入口 `main.js` 和过渡名单 `legacy-globals.js` 不限。跨功能引用允许，受同一条层规则约束。
+  - 存量例外记在 `tools/code_shape/ui_layer_allow.json`；模块的层规则由 `tools/code_shape/ui_modules.mjs` 守着（见 `tools/code_shape/README.md`）。
 - **名单只减不增**：
   - 不往 `baseline.json`、分层白名单、`ruff.toml` 的 `per-file-ignores` 里加项，确实需要时先问用户。
   - 消掉前端白名单的一项只有两种做法——把定义搬到正确的层，或者改成状态变了由视图订阅重画；不能把上层函数当参数或回调塞进下层。
