@@ -87,8 +87,10 @@
 
 以下命令都在仓库根执行。本机测试环境是 Python 3.12（Windows 上是 `py -3.12`），README 写的最低版本是 3.10。
 
+推送到远端后，持续集成会自动跑下面全部测试与检查（.github/workflows/ci.yml）。
+
 ```bash
-# 本机版全量，约 1700 例；仓库在共享盘上，要跑几分钟
+# 本机版全量；仓库在共享盘上，要跑几分钟
 python -m unittest discover -s local/tests -p "test_*.py" -v
 # 单个文件；加 -k 按用例名片段过滤
 python -m unittest discover -s local/tests -p "test_signup_plan.py" -v
@@ -105,7 +107,14 @@ node server/deploy/test_atomic_json.js
 
 # 语法检查；前端脚本拆成了多个文件，要逐个 node --check
 python -m compileall local server
-for f in local/ui/*.js local/ui/*/*.js; do node --check "$f" || break; done
+ls local/ui/*.js local/ui/*/*.js | xargs -n 1 node --check
+
+# 依赖安装（持续集成同款）：本机版基础依赖、两个高级功能依赖、服务器版依赖、pytest
+python -m pip install -r local/requirements.txt
+python -m pip install -r local/requirements-advanced-ocr.txt
+python -m pip install -r local/requirements-advanced-phone.txt
+python -m pip install -r server/requirements.txt
+python -m pip install pytest
 
 # 代码结构：大小名单只读比对；名单只许变短
 python tools/code_shape/check.py
@@ -202,6 +211,7 @@ python tools/release.py --prepare
 - 版本号的真源是根目录的 `VERSION`。
 - `tools/release.py --prepare` 构建一份冻结 EXE，再由同一份 EXE 派生出独立 EXE、四成员 ZIP、安装版和 manifest。
 - `--publish` 要求三件事：在干净的 main 上，逐项核验资产，人工确认。
+- `--prepare` 与 `--publish` 动手前先跑发版守卫（tools/release_guards.py），任何一步不过就不构建、不发布；命令行上没有跳过守卫的开关。
 
 ## 代码结构规则
 
