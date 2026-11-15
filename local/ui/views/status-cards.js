@@ -112,39 +112,33 @@ function phoneSnapshot() {
   return (window.PhonePanel && window.PhonePanel.state) || {};
 }
 
-/* 「手机已连接」（settings-gap PH23，审核决定 A4）：开着，且本次兑换过配对码（paired_count，B1）
- * 或有活动会话（live_session，重启后靠设备信任 cookie 回来的手机）。不再看 pair_code_status.reason：
- * 那个 reason 只挂在刚换出的那张码上，码过期后「已连接」会自己消失。设置抽屉用同一条规则（features/phone-access/state.js） */
-function phoneLinked(state) {
-  return !!(state && state.running)
-    && (Number(state.paired_count || 0) > 0 || state.live_session === true);
-}
-
-/* 手机标识只在手机访问开启时出现：开启了就常显，关了就收起 */
+/* 手机标识只在手机访问开启时出现：开启了就常显，关了就收起。「连着没有」读后端 link
+ * （手机两分钟没来就是「已断开 · N 分钟前」），规则在 features/phone-access/state-link.js；
+ * 配对与否与标识无关，点进详情卡才看得到。 */
 function paintPhoneBadge() {
   const badge = $("#phone-badge");
   if (!badge) return;
-  const state = phoneSnapshot();
-  const running = !!state.running;
-  badge.hidden = !running;
-  if (!running) return;
-  const linked = phoneLinked(state);
-  badge.className = "pill phone-badge" + (linked ? " is-ok" : "");
-  $("#phone-badge-text").textContent = linked ? "手机已连接" : "等手机连接";
+  const view = phoneLinkView(phoneSnapshot());
+  badge.hidden = view.link === "off";
+  badge.dataset.link = view.link;
+  if (badge.hidden) return;
+  badge.className = "pill phone-badge" + (view.tone === "ok" ? " is-ok" : "");
+  $("#phone-badge-text").textContent = view.title;
 }
 
 function renderPhoneCard() {
   const state = phoneSnapshot();
-  const linked = phoneLinked(state);
+  const view = phoneLinkView(state);
+  const paired = phoneLinkedNow(state);
   const chip = $("#phone-pop-chip");
-  if (chip) chip.dataset.tone = state.running ? (linked ? "ok" : "warn") : "";
-  $("#phone-pop-chip-text").textContent = state.running ? (linked ? "已连接" : "等手机连接") : "未开启";
-  $("#phone-pop-big").textContent = state.running ? (linked ? "手机已连接" : "等手机连接") : "手机访问未开启";
+  if (chip) chip.dataset.tone = view.tone;
+  $("#phone-pop-chip-text").textContent = view.chip;
+  $("#phone-pop-big").textContent = view.big;
   const channel = state.channel === "cloudflare" ? "Cloudflare 临时地址" : (state.channel ? "Tailscale" : "—");
   $("#phone-pop-sub").textContent = state.running ? "通道：" + channel : "到设置 → 高级功能里开启";
   $("#phone-pop-rows").innerHTML = state.running ? cardRows([
     ["手机地址", String(state.address || "—")],
-    ["配对", linked ? "已配对，配对码已收起" : "在设置里看配对码"],
+    ["配对", paired ? "已配对，配对码已收起" : "在设置里看配对码"],
   ]) : "";
 }
 

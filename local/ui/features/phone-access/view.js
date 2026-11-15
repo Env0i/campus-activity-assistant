@@ -3,6 +3,7 @@
 
 
 import { PhonePanel, channelCards, pairLeftText, phoneLinkedNow, phonePhase, retryWaitBase } from "./state.js";
+import { phoneLinkView } from "./state-link.js";
 import { componentState } from "../components/state-machine.js";
 import { BROKEN_NOTE, paintComponentRow } from "../components/view-row.js";
 import { downloadFailText } from "../components/state.js";
@@ -140,10 +141,9 @@ export const phonePaintPack = {
     // PH06：chip 说的是「手机访问开没开」，不是「组件装没装」；没装和下载中没有 chip
     const chip = $("#phone-feature-status");
     if (chip) {
-      let text = "";
-      let tone = "";
+      let text = "", tone = "", link = "";
       if (phase === "off") text = "未开启";
-      else if (phase === "on") { text = linked ? "手机已连接" : "等手机连接"; tone = linked ? "ok" : "warn"; }
+      else if (phase === "on") { const view = phoneLinkView(st); text = view.title; tone = view.tone; link = view.link; }
       else if (phase === "outdated") { text = "需要更新"; tone = "warn"; }
       else if (phase === "broken") { text = "加载失败"; tone = "warn"; }
       else if (phase === "disabled") text = "已停用";
@@ -151,6 +151,7 @@ export const phonePaintPack = {
       chip.textContent = text;
       chip.className = "ph-st" + (tone ? " " + tone : "");
       chip.dataset.state = phase;
+      chip.dataset.link = link;
     }
     // PH05：lead 随状态变
     const lead = $("#phone-feature-note");

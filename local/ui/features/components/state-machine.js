@@ -9,6 +9,15 @@
  * 两边算法不同（那边按等待起点算，这边按这一次点的重试起点算），30 秒这个数要一起改。 */
 const PROBE_TIMEOUT_S = 30;
 
+/* 这台状态机只会给出这些状态与这些读状态，顺序就是判断的先后；测试按这两份清单核对
+ * 「推导只返回清单里的值」，一个地方就能看全这台机有哪些状态。 */
+export const COMPONENT_STATES = Object.freeze([
+  "downloading", "verifying", "checking", "outdated", "broken", "enabled",
+  "disabled", "missing",
+]);
+
+export const COMPONENT_PROBES = Object.freeze(["", "waiting", "timeout", "unreadable"]);
+
 /* 状态与界面的对应（判断顺序即先后优先级，与改前两份认阶段逐行相同）：
  * missing 没装——标题行放「下载并安装」，出现「没装」块；
  * downloading 下载中——标题行放「取消下载」，进度块说正在下载；

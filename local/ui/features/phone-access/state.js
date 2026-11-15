@@ -36,7 +36,7 @@ export function phonePhase(st, row) {
 /* PH06 / PH23（审核决定 A4）：「手机已连接」= 开着，且本次兑换过配对码或有活动会话。
  * 只看 paired_count 会漏掉重启后靠设备信任 cookie 回来的手机；不再看 pair_code_status.reason，
  * 那个 reason 只挂在刚换出的那张码上，码一过期「已连接」就会自己消失。
- * 顶栏手机标识用同一条规则（views/status-cards.js phoneLinked）。 */
+ * 这里只管「配过对没有」（配对码、绿条、详情卡的配对行）；「现在连着没有」读后端 link，见 ./state-link.js 的 phoneLinkView。 */
 export function phoneLinkedNow(st) {
   return !!(st && st.running) && (Number(st.paired_count || 0) > 0 || st.live_session === true);
 }

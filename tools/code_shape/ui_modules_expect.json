@@ -18,6 +18,8 @@
     "PhonePanel",
     "maskAccount",
     "paintOcrDownload",
+    "phoneLinkView",
+    "phoneLinkedNow",
     "termsAccepted",
     "termsLocked"
   ]

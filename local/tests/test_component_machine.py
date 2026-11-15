@@ -126,6 +126,59 @@ out.push([downloading.state, downloading.downloading, downloading.loading]);
         self.assertEqual(res[3], ["downloading", True, True])
 
 
+class StateInventoryTests(unittest.TestCase):
+    """两台状态机各导出一份状态清单：推导函数只会返回清单里的值，看一处就知道有哪几种。"""
+
+    def test_component_state_only_returns_the_listed_states(self):
+        """整张输入网格（下载六档、状态五档、ready/available/running、三种忙的现象）都落在清单里。"""
+        data = run_js("""
+const seen = { state: [], probe: [] };
+const dl = ["", "downloading", "verifying", "installed", "failed", "cancelled"];
+const st = ["", "missing", "checking", "outdated", "failed", "ready"];
+for (const d of dl) for (const s of st) for (const ready of [false, true])
+  for (const avail of [false, true]) for (const running of [false, true])
+    for (const read_error of [false, true]) for (const timed_out of [false, true])
+      for (const busy of [false, true]) {
+        const row = { download: { state: d }, status: s, ready: ready, available: avail,
+                      busy: busy, read_error: read_error, check_timed_out: timed_out,
+                      lock_wait_s: 90 };
+        const facts = componentState(row, { installing: false, busy: busy, running: running,
+                                           retryWaitBase: 0 });
+        seen.state.push(facts.state);
+        seen.probe.push(facts.probe);
+      }
+out.push({ seen: seen, states: COMPONENT_STATES, probes: COMPONENT_PROBES,
+           frozen: [Object.isFrozen(COMPONENT_STATES), Object.isFrozen(COMPONENT_PROBES)] });
+""")[0]
+        self.assertEqual(data["frozen"], [True, True], "清单要冻结，不能让别处改")
+        for key, listed in (("state", data["states"]), ("probe", data["probes"])):
+            self.assertEqual(sorted(set(data["seen"][key])), sorted(listed),
+                             key + "：清单要与推导实际会返回的值一一对上")
+            for value in data["seen"][key]:
+                self.assertIn(value, listed, key + "：推导返回了清单外的值")
+
+    def test_phone_link_view_only_returns_the_listed_states(self):
+        """手机连接状态同理：开着没开着、六种 link、配对与活动会话、四种秒数都落在四种状态里。"""
+        data = run_js("""
+const seen = [];
+const links = [undefined, "unknown", "off", "waiting", "connected", "disconnected"];
+const agos = [null, 30, 150, 4000];
+for (const running of [false, true]) for (const link of links)
+  for (const paired of [0, 1]) for (const live of [false, true]) for (const ago of agos) {
+    const view = phoneLinkView({ running: running, link: link, paired_count: paired,
+                                 live_session: live, last_contact_ago_s: ago });
+    seen.push([view.link, typeof view.title, typeof view.big, typeof view.chip]);
+  }
+out.push({ seen: seen, listed: PHONE_LINK_STATES, frozen: Object.isFrozen(PHONE_LINK_STATES) });
+""")[0]
+        self.assertTrue(data["frozen"], "清单要冻结，不能让别处改")
+        observed = [item[0] for item in data["seen"]]
+        self.assertEqual(sorted(set(observed)), sorted(data["listed"]))
+        for item in data["seen"]:
+            self.assertIn(item[0], data["listed"])
+            self.assertEqual(item[1:], ["string", "string", "string"], "每档都要给出可直接写的字")
+
+
 class PhaseAdapterTests(unittest.TestCase):
     """phonePhase 与 ocrPhase：名字、参数、返回值不变，判断交给共用状态机。"""
 

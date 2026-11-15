@@ -3,7 +3,8 @@
  * 有普通脚本在用（tools/code_shape/ui_modules.mjs 守着，没人用就红），一旦没有就要从
  * 这里删掉；全部脚本迁成模块、清单清空后，整个文件连同 main.js 里的调用一起删除。 */
 import { termsAccepted, termsLocked } from "./features/terms/state.js";
-import { PhonePanel } from "./features/phone-access/state.js";
+import { PhonePanel, phoneLinkedNow } from "./features/phone-access/state.js";
+import { phoneLinkView } from "./features/phone-access/state-link.js";
 import { maskAccount } from "./features/login/state-recovery.js";
 import { OcrPanel } from "./features/components/state-ocr.js";
 import { paintOcrDownload } from "./features/components/view-ocr.js";
@@ -15,6 +16,10 @@ export function installLegacyGlobals() {
    * 一个显式挂载点：顶层 const 不会自动变成 window 属性。 */
   if (typeof window !== "undefined") window.PhonePanel = PhonePanel;
   window.maskAccount = maskAccount;
+  /* 顶栏标识与手机详情卡（views/status-cards.js，还是普通脚本）：连接状态读后端 link，
+   * 详情卡的「配对」那一行问配过对没有。 */
+  window.phoneLinkView = phoneLinkView;
+  window.phoneLinkedNow = phoneLinkedNow;
   window.OcrPanel = OcrPanel;
   window.paintOcrDownload = paintOcrDownload;
 }
