@@ -277,6 +277,11 @@ controller/view DOM 分离不在本轮范围。
 
 - `feature_state` 遇到事务锁超时不抛异常：有上一次成功的结果就返回它的副本并带 `busy=true`；一次都没成功过就返回
   `status=checking`、`error=""`、`busy=true`。缓存只存组件状态，启用开关按本次偏好重算，进程退出即丢。
+- 组件状态行还带三个「这一次查询的事实」字段，只在发生时出现，前端按缺字段判断：等组件事务锁时给
+  `lock_wait_s`（这一轮连续等锁的秒数，用单调时钟累计、读成功或读错即清零，改系统时间不能让它跳）与
+  `check_timed_out`（连续等满 30 秒为真，阈值在 `domain/component_rules.py` 的 `COMPONENT_CHECK_TIMEOUT_S`）；
+  读状态出错（PackageError、OSError、ValueError）时不冒异常，退回上一次成功的结果（一次都没成功过就按检查中，
+  不误画成「没装」），并带 `read_error=true`。
 - `stored_cloudflared` 的版本探测要起子进程，结果按（路径、大小、mtime_ns）缓存在进程内存；
   哈希仍每次核对。调用方自带的 `probe` 不进缓存。
 
