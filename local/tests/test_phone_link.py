@@ -38,14 +38,19 @@ const __set = (patch) => {
     credential: { saved: false, staged: false } };
 };
 const __paint = () => { S.statusCard = { kind: "phone", pinned: false }; PhonePanel.paint(); };
+const __rows = () => $("#phone-pop-rows").innerHTML;
 const __view = () => ({
   chip: [$("#phone-feature-status").hidden, $("#phone-feature-status-text").textContent,
          $("#phone-feature-status").className, $("#phone-feature-status").dataset.link],
   badge: [$("#phone-badge").hidden, $("#phone-badge-text").textContent,
-          $("#phone-badge").className, $("#phone-badge").dataset.link],
-  cardChip: [$("#phone-pop-chip-text").textContent, $("#phone-pop-chip").dataset.tone],
+          $("#phone-badge").className, $("#phone-badge").dataset.link,
+          $("#phone-badge-spin").hidden],
+  cardChip: [$("#phone-pop-chip-text").textContent, $("#phone-pop-chip").dataset.tone,
+             $("#phone-pop-cap").textContent],
   cardBig: $("#phone-pop-big").textContent,
-  pairRows: $("#phone-pop-rows").textContent,
+  cardSub: $("#phone-pop-sub").textContent,
+  cardNote: $("#phone-pop-note").textContent,
+  rows: __rows(),
 });
 const __pairBits = () => ({
   lead: $("#phone-feature-note").textContent,
@@ -53,7 +58,7 @@ const __pairBits = () => ({
   pair: $("#phone-pair").hidden,
   add: $("#btn-phone-add-pair").hidden,
   tip: $("#phone-cred-tip").hidden,
-  rows: $("#phone-pop-rows").textContent,
+  rows: __rows(),
 });
 """
 
@@ -72,45 +77,51 @@ __paint();
 out.push(__view());
 """)[0]
         self.assertEqual(view["chip"], [False, WAITING, "adv-s amber blink", "waiting"])
-        self.assertEqual(view["badge"], [False, WAITING, "pill phone-badge", "waiting"])
-        self.assertEqual(view["cardChip"], [WAITING, "warn"])
+        self.assertEqual(view["badge"], [False, WAITING, "pill phone-badge is-warn blink", "waiting", True])
+        self.assertEqual(view["cardChip"], ["等连接", "warn", "长期地址"])
         self.assertEqual(view["cardBig"], WAITING)
+        self.assertEqual(view["cardSub"], "用手机扫码打开页面，再输入配对码")
 
     def test_connected_says_connected_everywhere(self):
         """最近两分钟手机来过：三处都是「已连接」那套字，标识与详情卡小 chip 都是 ok。"""
         view = run_js(PRELUDE + r"""
-__set({ link: "connected", last_contact_ago_s: 12 });
+__set({ paired_count: 1, link: "connected", last_contact_ago_s: 12 });
 __paint();
 out.push(__view());
 """)[0]
         self.assertEqual(view["chip"], [False, CONNECTED, "adv-s green", "connected"])
-        self.assertEqual(view["badge"], [False, CONNECTED, "pill phone-badge is-ok", "connected"])
-        self.assertEqual(view["cardChip"], ["已连接", "ok"])
+        self.assertEqual(view["badge"], [False, CONNECTED, "pill phone-badge is-ok", "connected", True])
+        self.assertEqual(view["cardChip"], ["已连接", "ok", "长期地址"])
         self.assertEqual(view["cardBig"], CONNECTED)
+        self.assertEqual(view["cardSub"], "在手机上能看活动、开始和停止计划")
+        self.assertIn("<dt>手机最近访问</dt><dd>12 秒前</dd>", view["rows"])
 
     def test_disconnected_shows_how_long_ago_the_phone_left(self):
         """已断开：抽屉与标识写「已断开 · N 分钟前」，详情卡小 chip 只写「已断开」。"""
         view = run_js(PRELUDE + r"""
-__set({ link: "disconnected", last_contact_ago_s: 150 });
+__set({ paired_count: 1, link: "disconnected", last_contact_ago_s: 150 });
 __paint();
 out.push(__view());
 """)[0]
         title = "已断开 · 2 分钟前"
         self.assertEqual(view["chip"], [False, title, "adv-s grey", "disconnected"])
-        self.assertEqual(view["badge"], [False, title, "pill phone-badge", "disconnected"])
-        self.assertEqual(view["cardChip"], ["已断开", ""])
+        self.assertEqual(view["badge"], [False, title, "pill phone-badge", "disconnected", True])
+        self.assertEqual(view["cardChip"], ["已断开", "", "长期地址"])
         self.assertEqual(view["cardBig"], title)
+        self.assertEqual(view["cardSub"], "手机一段时间没来访问，不算出错；手机回来会自动变成已连接")
+        self.assertIn("<dt>手机最近访问</dt><dd>2 分钟前</dd>", view["rows"])
 
     def test_disconnected_without_a_contact_time_says_only_disconnected(self):
         """秒数是空的（从未有过来访）：只说「已断开」，不留一个空的「· 」。"""
         view = run_js(PRELUDE + r"""
-__set({ link: "disconnected", last_contact_ago_s: null });
+__set({ paired_count: 1, link: "disconnected", last_contact_ago_s: null });
 __paint();
 out.push(__view());
 """)[0]
         self.assertEqual(view["chip"][:2], [False, "已断开"])
         self.assertEqual(view["badge"][:2], [False, "已断开"])
         self.assertEqual(view["cardBig"], "已断开")
+        self.assertIn("<dt>手机最近访问</dt><dd>—</dd>", view["rows"])
 
     def test_phone_comes_back_and_the_words_return(self):
         """一条转移：已断开 → 手机又来了 → 回到「手机已连接」，标识重新带上 is-ok。"""
@@ -124,7 +135,7 @@ out.push(__view());
 """)
         self.assertEqual(before["chip"][1], "已断开 · 1 小时前")
         self.assertEqual(after["chip"], [False, CONNECTED, "adv-s green", "connected"])
-        self.assertEqual(after["badge"], [False, CONNECTED, "pill phone-badge is-ok", "connected"])
+        self.assertEqual(after["badge"], [False, CONNECTED, "pill phone-badge is-ok", "connected", True])
 
     def test_not_running_hides_the_badge_and_says_not_enabled(self):
         """没开：标识收起，抽屉 chip「未开启」，详情卡「未开启」「手机访问未开启」。"""
@@ -135,7 +146,8 @@ out.push(__view());
 """)[0]
         self.assertEqual(view["badge"][0], True)
         self.assertEqual(view["badge"][3], "off")
-        self.assertEqual(view["cardChip"], ["未开启", ""])
+        self.assertEqual(view["badge"][4], True, "收起时转圈也不该在页面上")
+        self.assertEqual(view["cardChip"], ["未开启", "", "长期地址"])
         self.assertEqual(view["cardBig"], "手机访问未开启")
 
 
@@ -166,7 +178,7 @@ __paint();
 out.push(__view());
 """)
         self.assertEqual(unknown["chip"][1], CONNECTED)
-        self.assertEqual(unknown["cardChip"], ["已连接", "ok"])
+        self.assertEqual(unknown["cardChip"], ["已连接", "ok", "长期地址"])
         self.assertEqual(off_link["chip"], [False, WAITING, "adv-s amber blink", "waiting"])
 
 
@@ -183,9 +195,15 @@ __set({ paired_count: 1, link: "disconnected", last_contact_ago_s: 150 });
 __paint();
 out.push(__pairBits());
 """)
-        self.assertEqual(gone, connected, "配过对的事实不受连接状态影响")
-        self.assertIn("已配对，配对码已收起", connected["rows"],
+        # 详情卡最后一行「手机最近访问」写的是连接信息，它本来就该变；其余各块一个字不变
+        self.assertEqual([connected["lead"], connected["ok"], connected["pair"], connected["add"],
+                          connected["tip"]],
+                         [gone["lead"], gone["ok"], gone["pair"], gone["add"], gone["tip"]])
+        self.assertIn("<dt>已配对</dt><dd>1 台手机</dd>", connected["rows"],
                       "详情卡配对行看的是配过对没有，不是连着没有")
+        self.assertIn("<dt>已配对</dt><dd>1 台手机</dd>", gone["rows"])
+        self.assertIn("<dd>5 秒前</dd>", connected["rows"])
+        self.assertIn("<dd>2 分钟前</dd>", gone["rows"])
         self.assertFalse(connected["ok"], "绿条：配对码已换过的那条按配过对显示，不随连接状态")
         self.assertEqual(gone["add"], False, "配过对就能「再配一台手机」")
 

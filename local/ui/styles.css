@@ -72,6 +72,9 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .pill.is-warn .sub { color: var(--warn); }
 .pill.is-bad { background: var(--bad-tint); color: var(--bad); box-shadow: inset 0 0 0 1px #ebb4ad; }
 .pill.is-bad i { background: var(--bad); }
+/* 等手机连接：只有手机图标慢闪，文字不动；转圈只给「正在开启…」「正在停止…」 */
+.pill.blink svg { animation: pulse 1.4s ease-in-out infinite; }
+.pill .pill-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line-2); border-top-color: var(--ink-2); animation: advspin .9s linear infinite; flex: none; }
 .pill.is-busy { color: var(--blue); }
 .pill.is-busy i { background: var(--blue); animation: pulse 1.4s ease-in-out infinite; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; font-weight: 600; white-space: nowrap; }
@@ -779,6 +782,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .tour.is-bottom .tour-card { left: 50% !important; top: auto !important; bottom: 16px; transform: translateX(-50%); }
 
 @keyframes pulse { 50% { opacity: .42; } }
+@keyframes advspin { to { transform: rotate(360deg); } }
 @keyframes sweep { from { background-position: -40% 0; } to { background-position: 140% 0; } }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 

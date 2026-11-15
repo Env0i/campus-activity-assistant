@@ -18,6 +18,9 @@ function statusCardOpen() {
 function openStatusCard(kind, pinned) {
   const spec = STATUS_CARDS[kind];
   if (!spec) return;
+  /* 手机访问正在开启或停止时只有标识在说话，详情卡没有可讲的（照原型：开启中、停止中不弹卡） */
+  if (kind === "phone" && typeof PhonePanel !== "undefined"
+    && (PhonePanel.pending === "starting" || PhonePanel.pending === "stopping")) return;
   if (S.statusCard && S.statusCard.kind !== kind) closeStatusCards(false);
   S.statusCard = { kind: kind, pinned: !!pinned };
   if (kind === "clock") {
@@ -108,22 +111,87 @@ function renderLoginCard() {
   if (check) check.disabled = S.busy || !!S.login.checking || termsLocked() || !!S.runtime.error;
 }
 
+/* 手机访问的快照挂在 features 里，由 legacy-globals 挂回 window 给普通脚本用；
+ * 这里直接写 PhonePanel（挂回后的全局名），typeof 兜住启动早期还没挂上的那一瞬。 */
 function phoneSnapshot() {
-  return (window.PhonePanel && window.PhonePanel.state) || {};
+  return typeof PhonePanel === "undefined" ? {} : (PhonePanel.state || {});
 }
 
-/* 手机标识只在手机访问开启时出现：开启了就常显，关了就收起。「连着没有」读后端 link
- * （手机两分钟没来就是「已断开 · N 分钟前」），规则在 features/phone-access/state-link.js；
- * 配对与否与标识无关，点进详情卡才看得到。 */
+function phonePending() {
+  return typeof PhonePanel === "undefined" ? "" : String(PhonePanel.pending || "");
+}
+
+/* 标识的五个样子：「连着没有」读后端 link（手机两分钟没来就是「已断开 · N 分钟前」，
+ * 规则在 features/phone-access/state-link.js），过程读 PhonePanel.pending：
+ *   正在开启… / 正在停止…   灰色，前面挂一个转圈（说话的是过程，不是连接状态）
+ *   手机已连接              绿底
+ *   等手机连接              琥珀底，手机图标慢闪
+ *   已断开 · N 分钟前       灰底，带时间
+ * 没开就收起；配对与否与标识无关，点进详情卡才看得到。 */
+function phoneBadgeLook() {
+  const state = phoneSnapshot();
+  const view = phoneLinkView(state);
+  const pending = phonePending();
+  const busy = pending === "starting" || pending === "stopping";
+  if (busy) {
+    const text = pending === "starting" ? "正在开启…" : "正在停止…";
+    return { show: true, link: view.link, text: text, tone: "", busy: true };
+  }
+  return { show: view.link !== "off", link: view.link, text: view.title, tone: view.tone, busy: false };
+}
+
 function paintPhoneBadge() {
   const badge = $("#phone-badge");
   if (!badge) return;
-  const view = phoneLinkView(phoneSnapshot());
-  badge.hidden = view.link === "off";
-  badge.dataset.link = view.link;
-  if (badge.hidden) return;
-  badge.className = "pill phone-badge" + (view.tone === "ok" ? " is-ok" : "");
-  $("#phone-badge-text").textContent = view.title;
+  const look = phoneBadgeLook();
+  const spin = $("#phone-badge-spin");
+  badge.hidden = !look.show;
+  badge.dataset.link = look.link;
+  if (spin) spin.hidden = !look.busy;
+  if (!look.show) return;
+  const tone = look.tone === "ok" ? " is-ok" : (look.tone === "warn" ? " is-warn blink" : "");
+  badge.className = "pill phone-badge" + tone;
+  $("#phone-badge-text").textContent = look.text;
+  /* 屏幕阅读器要听得出是哪种状态；等手机连接那句单独写全，因为它不能只念「等手机连接」 */
+  const spoken = look.busy ? look.text : (look.link === "waiting" ? "手机访问已开启，等手机连接" : look.text);
+  badge.setAttribute("aria-label", spoken + "，查看详情");
+}
+
+/* 详情卡的三句话：副句随连接状态走，底部提醒随通道走（临时地址会变、程序退出手机就打不开） */
+const PHONE_CARD_SUB = {
+  waiting: "用手机扫码打开页面，再输入配对码",
+  connected: "在手机上能看活动、开始和停止计划",
+  disconnected: "手机一段时间没来访问，不算出错；手机回来会自动变成已连接",
+};
+const PHONE_CARD_NOTE = {
+  cloudflare: "这是临时地址，关闭访问或重启程序后就会变，手机要重新扫码配对。",
+  tailscale: "程序退出后手机就打不开了。想在外面随时用，关窗口时选最小化或隐藏到后台。",
+};
+
+/* 配对码还剩多久：「m:ss」。这里不引 features 里的同名函数——普通脚本只能看挂回 window 的名字，
+ * 为一个倒计时多挂一个全局不划算，格式只有这一行。 */
+function countdown(seconds) {
+  const left = Math.max(0, Math.floor(Number(seconds) || 0));
+  return Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+}
+
+function phoneCardRows(state, view, paired) {
+  if (!state.running) return [];
+  const cf = state.channel === "cloudflare";
+  const rows = [
+    ["通道", cf ? "Cloudflare，临时地址" : "Tailscale，地址固定"],
+    ["地址", String(state.address || "—").replace(/^https?:\/\//, "").replace(/\/$/, "")],
+  ];
+  if (paired) {
+    /* 只有活动会话、还没真配过对时不能写「1 台手机」，那是另一件事 */
+    const count = Number(state.paired_count || 0);
+    rows.push(["已配对", count > 1 ? count + " 台手机" : (count === 1 ? "1 台手机" : "有手机连着")]);
+    rows.push(["手机最近访问", view.ago || "—"]);
+    return rows;
+  }
+  const info = state.pair_code_status || {};
+  rows.push(["配对码", info.code ? countdown(info.expires_in) + " 后换新" : "在设置里看配对码"]);
+  return rows;
 }
 
 function renderPhoneCard() {
@@ -131,15 +199,19 @@ function renderPhoneCard() {
   const view = phoneLinkView(state);
   const paired = phoneLinkedNow(state);
   const chip = $("#phone-pop-chip");
-  if (chip) chip.dataset.tone = view.tone;
-  $("#phone-pop-chip-text").textContent = view.chip;
-  $("#phone-pop-big").textContent = view.big;
-  const channel = state.channel === "cloudflare" ? "Cloudflare 临时地址" : (state.channel ? "Tailscale" : "—");
-  $("#phone-pop-sub").textContent = state.running ? "通道：" + channel : "到设置 → 高级功能里开启";
-  $("#phone-pop-rows").innerHTML = state.running ? cardRows([
-    ["手机地址", String(state.address || "—")],
-    ["配对", paired ? "已配对，配对码已收起" : "在设置里看配对码"],
-  ]) : "";
+  if (chip) chip.dataset.tone = state.running ? view.tone : "";
+  $("#phone-pop-chip-text").textContent = state.running ? view.chip : "未开启";
+  const cap = $("#phone-pop-cap");
+  if (cap) cap.textContent = state.channel === "cloudflare" ? "临时地址" : "长期地址";
+  $("#phone-pop-big").textContent = state.running ? view.big : "手机访问未开启";
+  $("#phone-pop-sub").textContent = state.running ? (PHONE_CARD_SUB[view.link] || "") : "到设置 → 高级功能里开启";
+  const note = $("#phone-pop-note");
+  if (note) {
+    note.textContent = state.running
+      ? (state.channel === "cloudflare" ? PHONE_CARD_NOTE.cloudflare : PHONE_CARD_NOTE.tailscale)
+      : "";
+  }
+  $("#phone-pop-rows").innerHTML = cardRows(phoneCardRows(state, view, paired));
 }
 
 function wireStatusCards() {

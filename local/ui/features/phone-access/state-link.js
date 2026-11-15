@@ -17,7 +17,7 @@ export const PHONE_LINK_STATES = Object.freeze(["off", "waiting", "connected", "
 /* 四种状态各自的屏上文字与语气；off 的标题行为空（标识收起，详情卡另写「手机访问未开启」） */
 const LINK_TEXT = {
   off: { title: "", big: "手机访问未开启", chip: "未开启", tone: "" },
-  waiting: { title: "等手机连接", big: "等手机连接", chip: "等手机连接", tone: "warn" },
+  waiting: { title: "等手机连接", big: "等手机连接", chip: "等连接", tone: "warn" },
   connected: { title: "手机已连接", big: "手机已连接", chip: "已连接", tone: "ok" },
   disconnected: { title: "已断开", big: "已断开", chip: "已断开", tone: "" },
 };
@@ -29,19 +29,22 @@ function contactAgo(ago) {
   return Number.isFinite(value) ? agoText(value) : "";
 }
 
-function withAgo(link, ago) {
+/* tail 才加在文字后面（只有「已断开」要「· 2 分钟前」）；ago 一律单独带出去，
+ * 详情卡的「手机最近访问」用它，已连接时读得到「12 秒前」而标题仍是「手机已连接」 */
+function withAgo(link, tail, ago) {
   const base = LINK_TEXT[link];
-  const tail = ago ? " · " + ago : "";
-  return { link: link, title: base.title + tail, big: base.big + tail,
-           chip: base.chip, tone: base.tone };
+  const suffix = tail ? " · " + tail : "";
+  return { link: link, title: base.title + suffix, big: base.big + suffix,
+           chip: base.chip, tone: base.tone, ago: ago || "" };
 }
 
 export function phoneLinkView(st) {
   const state = st || {};
-  if (!state.running) return withAgo("off", "");
+  if (!state.running) return withAgo("off", "", "");
+  const ago = contactAgo(state.last_contact_ago_s);
   const link = String(state.link || "");
-  if (link === "waiting" || link === "connected") return withAgo(link, "");
-  if (link === "disconnected") return withAgo(link, contactAgo(state.last_contact_ago_s));
+  if (link === "waiting" || link === "connected") return withAgo(link, "", ago);
+  if (link === "disconnected") return withAgo(link, ago, ago);
   /* 没有 link、unknown，或开着却给了 off：退回配对与活动会话的两档规则，老快照下界面一字不变 */
-  return withAgo(phoneLinkedNow(state) ? "connected" : "waiting", "");
+  return withAgo(phoneLinkedNow(state) ? "connected" : "waiting", "", ago);
 }

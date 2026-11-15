@@ -19,7 +19,7 @@
       <div class="status" id="status-group" data-tour-target="login">
         <button class="clock" id="clock" type="button" aria-haspopup="dialog" aria-controls="clock-pop" aria-expanded="false" aria-label="北京时间，查看时间详情"><span class="clock-label" id="clock-label">北京时间</span><span class="clock-time" id="clock-time">--:--:--</span><span class="state-icon" id="clock-icon" aria-hidden="true"></span><span class="clock-retry-hint" id="clock-retry-hint" hidden></span></button>
         <button class="pill" id="pill" type="button" data-state="unknown" aria-haspopup="dialog" aria-controls="login-pop" aria-expanded="false" aria-label="登录状态，查看详情"><i aria-hidden="true"></i><b id="pill-text">登录状态未知</b><span class="sub" id="pill-sub"></span></button>
-        <button class="pill phone-badge" id="phone-badge" type="button" aria-haspopup="dialog" aria-controls="phone-pop" aria-expanded="false" aria-label="手机访问状态，查看详情" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg><b id="phone-badge-text">手机</b></button>
+        <button class="pill phone-badge" id="phone-badge" type="button" aria-haspopup="dialog" aria-controls="phone-pop" aria-expanded="false" aria-label="手机访问状态，查看详情" hidden><span class="pill-spin" id="phone-badge-spin" hidden aria-hidden="true"></span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg><b id="phone-badge-text">手机</b></button>
         <span id="status-detail" class="sr-only"></span>
       </div>
       <span class="top-sep" aria-hidden="true"></span>
@@ -435,8 +435,9 @@
   </div>
   <!-- 手机访问详情卡：只在手机访问开启时有入口 -->
   <div class="pop pop-card" id="phone-pop" role="dialog" aria-label="手机访问详情" hidden>
-    <div class="sc-h"><div class="sc-top"><span class="sc-chip" id="phone-pop-chip"><i></i><span id="phone-pop-chip-text">手机访问</span></span><span class="sc-cap">手机访问</span></div><div class="sc-big" id="phone-pop-big">—</div><p class="sc-sub" id="phone-pop-sub"></p></div>
+    <div class="sc-h"><div class="sc-top"><span class="sc-chip" id="phone-pop-chip"><i></i><span id="phone-pop-chip-text">手机访问</span></span><span class="sc-cap" id="phone-pop-cap">长期地址</span></div><div class="sc-big" id="phone-pop-big">—</div><p class="sc-sub" id="phone-pop-sub"></p></div>
     <dl class="sc-rows" id="phone-pop-rows"></dl>
+    <p class="sc-note" id="phone-pop-note"></p>
     <div class="sc-f"><span class="sc-hint">Esc 关闭</span><button class="btn btn-line" id="btn-phone-manage" type="button">管理手机访问</button></div>
   </div>
   <!-- 重新登录（设计 9.3，原型 Main.dc.html:826-854）：五种情况各走一步，外壳、标题和按钮位置照原型——
