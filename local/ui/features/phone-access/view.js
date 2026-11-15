@@ -5,31 +5,42 @@
 import { PhonePanel, channelCards, pairLeftText, phoneLinkedNow, phonePhase, retryWaitBase } from "./state.js";
 import { phoneLinkView } from "./state-link.js";
 import { componentState } from "../components/state-machine.js";
-import { BROKEN_NOTE, paintComponentRow } from "../components/view-row.js";
+import { setRowOpen } from "../components/state-row.js";
+import { paintComponentRow } from "../components/view-row.js";
 import { downloadFailText } from "../components/state.js";
 import { paintOcrDownload } from "../components/view-ocr.js";
 
 
 
-/* 手机控制这一行的元素 id 与固定文字：共有部分由 features/components/view-row.js
- * 的 paintComponentRow 画，行与行的差别（下载文案等）由这里的 spec 常量与调用方
- * 算好的 texts 保留。 */
+/* 手机控制这一行的元素 id：按钮位里放的是下载、取消、重试、启用手机控制、开启、关闭六只，
+ * 同一时刻最多看得见一只；状态句、进度条、小字、红条与展开区的落点也在这里登记一次，
+ * 画法在 features/components/view-row.js，长什么样由 features/components/state-row.js 定。 */
 const PHONE_ROW_SPEC = {
-  installId: "#btn-phone-component-install",
-  cancelId: "#btn-phone-component-cancel",
-  missingId: "#phone-missing",
-  importLineId: "#phone-import-line",
-  loadingId: "#phone-loading",
-  progTextId: "#phone-prog-text",
-  progNumId: "#phone-prog-num",
-  progressBarId: "#phone-component-progress",
-  progFillId: "#phone-prog-fill",
+  kind: "phone",
+  statusId: "#phone-feature-status",
+  statusTextId: "#phone-feature-status-text",
+  buttons: {
+    install: "#btn-phone-component-install",
+    cancel: "#btn-phone-component-cancel",
+    retry: "#btn-phone-component-retry",
+    enable: "#btn-phone-feature-install",
+    package: "#btn-phone-feature-install",
+    start: "#btn-phone-start",
+    stop: "#btn-phone-stop",
+  },
+  barId: "#phone-loading",
+  fillId: "#phone-prog-fill",
+  noteId: "#phone-probe",
   errorId: "#phone-component-error",
-  probeId: "#phone-probe",
-  retryId: "#btn-phone-component-retry",
+  detailId: "#phone-row-detail",
+  toggleId: "#btn-phone-row-toggle",
+  collapseLabel: "收起手机访问详情",
+  expandLabel: "展开手机访问详情",
+  missingId: "#phone-missing",
+  loadingNoteId: "#phone-loading-note",
+  importLineId: "#phone-import-line",
   locIds: ["#phone-loc-before", "#phone-loc-after"],
   openLocId: "#btn-phone-open-loc",
-  downloadText: "正在下载手机控制组件",
 };
 
 
@@ -76,11 +87,14 @@ export const phonePaintPack = {
 
 
   /* 手机访问一组（settings-gap 一、PH01–PH32），按 phonePhase 的状态机逐块显隐。
-   * 文案逐字照原型 phView；原型没画的状态（PH14b 等）保留现状。 */
+   * 标题行（圆点状态、按钮位、进度条、小字、红条、展开箭头）交给两行共有的
+   * paintComponentRow 画，这里只算它要的 extra：状态相位、连接结论、通道名，以及
+   * 开启与关闭这两只按钮该不该禁用；展开区里各块照旧逐块显隐。 */
   paintPhoneAccess(st, phoneRow, cred) {
     const busy = !!PhonePanel.busy;
     const pending = String(PhonePanel.pending || "");
     const starting = pending === "starting";
+    const stopping = pending === "stopping";
     const download = phoneRow.download || {};
     const dl = String(download.state || "");
     const phase = phonePhase(st, phoneRow);
@@ -98,7 +112,11 @@ export const phonePaintPack = {
     // 看到「不可用」却没有任何地方能补装，界面就把自己锁死了（原型没画，保留现状）。
     const componentMissing = cloudflare.error === "cloudflared_missing"
       || cloudflare.state === "missing";
+    // PH31：隧道自己断开时快照里 running 已被置假、cloudflare.state 是 exited
+    const tunnelGone = cloudflare.state === "exited" || cloudflare.error === "tunnel_exited";
     const failed = dl === "failed";
+    const selected = PhonePanel.selectedChannel();
+    const tsBad = selected === "tailscale" && !tailscale.available;
 
     // PH32：亲眼看着下载 → 校验 → 装好，才说一句「已安装」；刷新到旧的 installed 不重复说
     const prev = PhonePanel.lastDownload;
@@ -113,46 +131,40 @@ export const phonePaintPack = {
       notes.onErr = "";
     }
 
-    // 组件那一行（标题行两个按钮、没装块、导入兜底、进度块、位置两行、红条、读状态说明）
-    // 由两行共有的 paintComponentRow 画；手机访问开着时状态机按 running 直接给装好，
-    // 这里不再改写 facts。
+    // 标题行：手机访问开着时状态机按 running 直接给装好，这里不再改写 facts
     const facts = componentState(phoneRow, {
       busy: busy, installing: installing, location: PhonePanel.location,
       running: !!st.running, retryWaitBase: retryWaitBase("phone_control"),
     });
-    // 手机行的红条：没装、需要更新或坏了才显示；先说面板留的备注，其次下载失败那句，
-    // 坏了又没失败过就说明文件本身不完整
-    const componentErr = (phase === "missing" || phase === "outdated" || phase === "broken")
-      && !installing
-      ? (notes.missing || (failed ? downloadFailText(download)
-        : (phase === "broken" ? BROKEN_NOTE : ""))) : "";
-    paintComponentRow(PHONE_ROW_SPEC, facts, { componentError: componentErr });
-    // 原型没画的两种（保留现状）：启用位没开要启用（走 B2）、缺 cloudflared 要补装；
-    // 读不到组件状态时两个都不给——那时连装没装都还没有结论
+    // 红条只讲下载失败：没装、需要更新或坏了才显示，先说面板留的备注，其次下载失败那句。
+    // 文件本身不完整那句走标题行下的小字，不再挤进红条。
+    // 确认块收在展开区里：要点「关闭手机访问」时先把这一行展开，别让用户点了没反应
+    if (PhonePanel.stopAsk) setRowOpen("phone", true);
+    // 开不起来的原因（上一次失败、隧道自己断开、端口被占）写进标题行下那条红条：
+    // 它属于「这次出错了」，与下载没完成是同一种表现；未开启时组件已装好，没有下载失败可讲
+    const startError = notes.offErr
+      || (tunnelGone ? "Cloudflare 隧道断了，旧地址和二维码已失效。重新开启后要重新扫码配对。" : "");
+    const componentErr = phase === "off" ? startError
+      : ((phase === "missing" || phase === "outdated" || phase === "broken") && !installing
+        ? (notes.missing || (failed ? downloadFailText(download) : "")) : "");
+    paintComponentRow(PHONE_ROW_SPEC, facts, {
+      /* 安装中状态机不改状态，只有收尾时才知道；标题行这一档要自己说出来 */
+      phase: installing ? "installing" : phase,
+      link: phoneLinkView(st),
+      starting: starting,
+      stopping: stopping,
+      channelName: selected === "cloudflare" ? "Cloudflare" : "Tailscale",
+      startDisabled: busy || !!pending || loading || tsBad,
+      startFailed: !!(notes.offErr || tunnelGone),
+      stopAsk: !!PhonePanel.stopAsk || !!busy,
+      busy: busy,
+      componentError: componentErr,
+    });
+    // 原型没画、代码里有真实信号的两种（保留现状）：启用位没开要启用、缺 cloudflared 要补装。
+    // 两只共用一个按钮位元素，按状态换动作；读不到组件状态时推导里不给按钮，这里也不必再挡。
     const featureBtn = $("#btn-phone-feature-install");
-    const featureAction = phase === "disabled" ? "启用手机控制"
-      : (phase === "off" && componentMissing ? "安装/更换组件包" : "");
-    if (featureBtn) {
-      featureBtn.hidden = !featureAction || !!facts.probe;
-      featureBtn.disabled = busy;
-      featureBtn.textContent = featureAction;
-      featureBtn.dataset.action = phase === "disabled" ? "enable" : "import";
-    }
-    // PH06：chip 说的是「手机访问开没开」，不是「组件装没装」；没装和下载中没有 chip
-    const chip = $("#phone-feature-status");
-    if (chip) {
-      let text = "", tone = "", link = "";
-      if (phase === "off") text = "未开启";
-      else if (phase === "on") { const view = phoneLinkView(st); text = view.title; tone = view.tone; link = view.link; }
-      else if (phase === "outdated") { text = "需要更新"; tone = "warn"; }
-      else if (phase === "broken") { text = "加载失败"; tone = "warn"; }
-      else if (phase === "disabled") text = "已停用";
-      chip.hidden = !text;
-      chip.textContent = text;
-      chip.className = "ph-st" + (tone ? " " + tone : "");
-      chip.dataset.state = phase;
-      chip.dataset.link = link;
-    }
+    if (featureBtn) featureBtn.dataset.action = phase === "disabled" ? "enable" : "import";
+
     // PH05：lead 随状态变
     const lead = $("#phone-feature-note");
     if (lead) {
@@ -171,11 +183,10 @@ export const phonePaintPack = {
     phoneShow("#phone-access-detail", phase === "off" || phase === "on");
     phoneShow("#phone-off", phase === "off");
     phoneShow("#phone-on", phase === "on");
-    // 进度块里的加载错误行只有手机行有；进度块本体与文字由共有绘制画
+    // 进度块里的加载错误行只有手机行有；进度条本体与状态句由共有绘制画
     phoneText("#phone-loading-error", loading ? notes.loading : "");
 
     // ---- 装好未开启（PH16–PH21、PH31、PH32）----
-    const selected = PhonePanel.selectedChannel();
     const cards = channelCards(channels);
     ["tailscale", "cloudflare"].forEach((key) => {
       const card = cards[key];
@@ -195,14 +206,6 @@ export const phonePaintPack = {
       }
       phoneText("#phone-chan-" + key + "-text", card.text);
     });
-    const tsBad = selected === "tailscale" && !tailscale.available;
-    const start = $("#btn-phone-start");
-    if (start) {
-      start.hidden = !!st.running;
-      // 组件还在下载/校验时、Tailscale 没连上时都不许点（PH18）
-      start.disabled = busy || !!pending || loading || tsBad;
-      start.textContent = starting ? "启动中…" : "开启手机访问";
-    }
     const recheck = phoneShow("#btn-tailscale-recheck", tsBad && !starting);
     if (recheck) recheck.disabled = busy;
     // PH20：提示就在按钮下面一行
@@ -211,13 +214,13 @@ export const phonePaintPack = {
     else if (tsBad && tailscale.state === "missing") hint = "还差一步：装好 Tailscale 后点“重新检测”，或者改用 Cloudflare。";
     if (starting && selected === "cloudflare") hint = "正在建立临时隧道，最多等 20 秒。";
     phoneText("#phone-channel-hint", hint);
-    // PH31：隧道断开时快照里 running 已被置假，cloudflare.state 是 exited
-    const tunnelGone = cloudflare.state === "exited" || cloudflare.error === "tunnel_exited";
-    phoneText("#phone-off-error", phase === "off"
-      ? (notes.offErr || (failed ? downloadFailText(download)
-        : (tunnelGone ? "Cloudflare 隧道断了，旧地址和二维码已失效。重新开启后要重新扫码配对。" : ""))) : "");
+    /* 展开区这条红条只讲「下载没成」；开不起来的原因在标题行下那条红条里（见上面 startError） */
+    phoneText("#phone-off-error", phase === "off" && failed ? downloadFailText(download) : "");
     phoneText("#phone-off-note", phase === "off"
       ? (notes.off || (dl === "cancelled" ? "下载已取消，现有组件没有改动。" : "")) : "");
+    /* 缺 cloudflared 时标题行照常给「开启」，补装这只收在展开区，否则用户看着「不可用」却无处补 */
+    const packageBtn = phoneShow("#btn-phone-package", phase === "off" && componentMissing && !starting);
+    if (packageBtn) packageBtn.disabled = busy;
 
     // ---- 已开启（PH22–PH29）----
     phoneShow("#phone-ok", phase === "on" && linked);
@@ -286,12 +289,6 @@ export const phonePaintPack = {
     // PH28：确认块开着时收起「关闭手机访问」那一行
     phoneShow("#phone-stop-confirm", phase === "on" && PhonePanel.stopAsk);
     phoneShow("#phone-stop-row", !PhonePanel.stopAsk);
-    const stop = $("#btn-phone-stop");
-    if (stop) {
-      stop.hidden = !st.running;
-      stop.disabled = busy || !!pending;
-      stop.textContent = pending === "stopping" ? "关闭中…" : "关闭手机访问";
-    }
     // PH29：已连接、配对区收起时才给「再配对一台手机」
     const addPair = phoneShow("#btn-phone-add-pair", phase === "on" && linked && !showPair);
     if (addPair) addPair.disabled = busy;

@@ -602,8 +602,8 @@ PhonePanel.state.advanced = {features: {
 }};
 PhonePanel.paint();
 out.push($("#btn-phone-feature-install").textContent);
-out.push($("#phone-feature-status").textContent);
-out.push($("#ocr-feature-status").textContent);
+out.push($("#phone-feature-status-text").textContent);
+out.push($("#ocr-feature-status-text").textContent);
 out.push($("#btn-ocr-download").textContent);
 out.push($("#phone-access-detail").hidden);
 ''', files=[PANEL_ENTRY, "views/settings.js"])
@@ -616,8 +616,8 @@ out.push($("#phone-access-detail").hidden);
         values = run_phone_js('''
 PhonePanel.busy = true;
 PhonePanel.paint();
-out.push(["#btn-phone-start", "#btn-ocr-retry", "#btn-credentials-save",
-          "#btn-phone-feature-remove"].every((id) => $(id).disabled));
+out.push([$("#btn-phone-start").hidden || $("#btn-phone-start").disabled, $("#btn-ocr-retry").hidden,
+          $("#btn-credentials-save").disabled, $("#btn-phone-feature-remove").disabled]);
 PhonePanel.busy = false;
 globalThis.__api = async (name) => name === "pick_advanced_component"
   ? {ok: true, canceled: true} : {ok: true};
@@ -625,7 +625,7 @@ await PhonePanel.pickComponent("phone_control");
 out.push([$("#comp-phone-note").textContent, PhonePanel.verified.phone_control]);
 ''', files=[PANEL_ENTRY, "views/settings.js"])
         # fe-ocr-login 同步：同上，验证码识别的「重新导入」按钮由 settings.js 绘制
-        self.assertEqual(values, [True, ["", ""]])
+        self.assertEqual(values, [[True, True, True, True], ["", ""]])
 
     def test_failed_save_clears_password_and_recovers_buttons(self):
         values = run_phone_js('''
@@ -656,13 +656,13 @@ PhonePanel.state.advanced = {features: {
 PhonePanel.paint();
 out.push($("#btn-phone-component-install").textContent);
 out.push($("#btn-phone-component-install").hidden);
-out.push($("#phone-feature-status").textContent);
-out.push($("#phone-feature-note").textContent);
+out.push($("#phone-feature-status-text").textContent);
+out.push($("#phone-probe").textContent);
 out.push($("#btn-phone-feature-install").hidden);
 out.push($("#phone-component-error").hidden);
 out.push($("#btn-ocr-download").textContent);
 out.push($("#btn-ocr-download").hidden);
-out.push($("#ocr-feature-status").textContent);
+out.push($("#ocr-feature-status-text").textContent);
 out.push($("#ocr-feature-status").hidden);
 out.push($("#ocr-download-state").textContent);
 out.push($("#phone-import-line").hidden);
@@ -674,13 +674,13 @@ out.push($("#ocr-import-line").hidden);
         self.assertEqual(install_text, "更新组件")
         self.assertFalse(install_hidden)
         self.assertEqual(phone_chip, "需要更新")
-        self.assertIn("主程序已升级", phone_note)
+        self.assertIn("主程序升级了", phone_note)
         self.assertTrue(reimport_hidden, "版本旧不该引导去重新导入")
         self.assertTrue(error_hidden, "版本旧不是加载失败")
         self.assertEqual(ocr_btn, "更新组件")
         self.assertFalse(ocr_hidden)
         self.assertEqual(ocr_chip, "需要更新")
-        self.assertIn("主程序已升级", ocr_lead)
+        self.assertIn("主程序已升级", ocr_lead, "识别一行的那句还在下载区导语里")
         self.assertNotIn('id="btn-ocr-feature-install"', html,
                          "识别行的重新导入入口按本批删掉")
         self.assertTrue(phone_import_hidden, "没失败不引导去手动导入")
@@ -964,8 +964,7 @@ PhonePanel.channel = "cloudflare";
 const task = PhonePanel.toggleStart();
 await Promise.resolve();
 out.push({mark:"pending", hidden: $("#btn-phone-start").hidden,
-          disabled: $("#btn-phone-start").disabled,
-          text: $("#btn-phone-start").textContent,
+          statusText: $("#phone-feature-status-text").textContent,
           channelDisabled: $("#phone-chan-cloudflare").disabled && $("#phone-chan-tailscale").disabled,
           hint: $("#phone-channel-hint").textContent,
           lead: $("#phone-feature-note").textContent});
@@ -978,9 +977,8 @@ out.push({mark:"done", startHidden: $("#btn-phone-start").hidden,
           stopText: $("#btn-phone-stop").textContent});
 ''', files=[PANEL_ENTRY])
         marks = {item["mark"]: item for item in values if isinstance(item, dict) and "mark" in item}
-        self.assertFalse(marks["pending"]["hidden"], "启动过程中按钮不能消失")
-        self.assertTrue(marks["pending"]["disabled"], "启动过程中按钮必须禁用，防重复点击")
-        self.assertIn("启动中", marks["pending"]["text"])
+        self.assertTrue(marks["pending"]["hidden"], "启动过程中按钮位收起来，状态句说正在开启")
+        self.assertEqual(marks["pending"]["statusText"], "正在开启…")
         self.assertTrue(marks["pending"]["channelDisabled"],
                         "启动过程中不能改通道，否则拿到的地址和界面显示对不上")
         self.assertEqual(marks["pending"]["hint"], "正在建立临时隧道，最多等 20 秒。")
@@ -999,23 +997,22 @@ globalThis.__api = (name) => {
   return Promise.resolve({ok:true, running:false});
 };
 PhonePanel.state.running = true;
+PhonePanel.state.advanced = {features:{phone_control:{ready:true, available:true}}};
 PhonePanel.paint();
 const task = PhonePanel.toggleStop();
 await Promise.resolve();
 out.push({mark:"pending", hidden: $("#btn-phone-stop").hidden,
-          disabled: $("#btn-phone-stop").disabled,
-          text: $("#btn-phone-stop").textContent});
+          statusText: $("#phone-feature-status-text").textContent});
 release({ok:true});
 await task;
 out.push({mark:"done", startText: $("#btn-phone-start").textContent,
           startHidden: $("#btn-phone-start").hidden});
 ''', files=[PANEL_ENTRY])
         marks = {item["mark"]: item for item in values if isinstance(item, dict) and "mark" in item}
-        self.assertFalse(marks["pending"]["hidden"])
-        self.assertTrue(marks["pending"]["disabled"])
-        self.assertIn("关闭中", marks["pending"]["text"])
+        self.assertTrue(marks["pending"]["hidden"], "关闭过程中按钮位收起来，状态句说正在停止")
+        self.assertEqual(marks["pending"]["statusText"], "正在停止…")
         self.assertFalse(marks["done"]["startHidden"])
-        self.assertEqual(marks["done"]["startText"], "开启手机访问")
+        self.assertEqual(marks["done"]["startText"], "开启")
 
     def test_copy_address_reports_success_and_failure(self):
         # fe-phone 同步：复制结果不再写抽屉底部（PH30）。成功时按钮 1.6 秒内显示「已复制」（PH26），
@@ -1085,14 +1082,12 @@ class ComponentDownloadUiTests(unittest.TestCase):
                 % json.dumps(download, ensure_ascii=False))
 
     def test_downloading_shows_progress_and_offers_cancel(self):
-        # fe-phone 同步：进度文字与数字拆成左右两处（PH13），进度条改成 div 进度块（role=progressbar，墨色），
-        # 取消按钮在标题行右侧；下载中没有状态 chip（PH06）
+        # 一项一行：「下载中 x / y MB」写在标题行状态句里，进度条在标题行下，按钮位只剩「取消」
         snippet = self._features(state="downloading", downloaded=32 * 1048576,
                                  total_bytes=100 * 1048576) + '''
 PhonePanel.paint();
-out.push({text:$("#phone-prog-text").textContent,
-          num:$("#phone-prog-num").textContent,
-          progress:$("#phone-component-progress")["attr_aria-valuenow"],
+out.push({text:$("#phone-feature-status-text").textContent,
+          progress:$("#phone-loading")["attr_aria-valuenow"],
           fill:$("#phone-prog-fill").style.width,
           loadingHidden:$("#phone-loading").hidden,
           missingHidden:$("#phone-missing").hidden,
@@ -1100,21 +1095,19 @@ out.push({text:$("#phone-prog-text").textContent,
           cancelHidden:$("#btn-phone-component-cancel").hidden,
           cancelText:$("#btn-phone-component-cancel").textContent,
           chipHidden:$("#phone-feature-status").hidden,
-          startDisabled:$("#btn-phone-start").disabled});
+          startHidden:$("#btn-phone-start").hidden});
 '''
         row = run_phone_js(snippet, files=[PANEL_ENTRY])[0]
-        self.assertEqual(row["text"], "正在下载手机控制组件")
-        self.assertEqual(row["num"], "32.0 / 100.0 MB")
+        self.assertEqual(row["text"], "下载中 32.0 / 100.0 MB")
         self.assertEqual(row["progress"], "32")
         self.assertEqual(row["fill"], "32%")
-        self.assertFalse(row["loadingHidden"])
+        self.assertFalse(row["loadingHidden"], "下载中进度条要露出来")
         self.assertTrue(row["missingHidden"])
         self.assertTrue(row["installHidden"], "下载中不能再点安装")
         self.assertFalse(row["cancelHidden"])
-        self.assertEqual(row["cancelText"], "取消下载")
-        self.assertTrue(row["chipHidden"])
-        self.assertTrue(row["startDisabled"], "组件没落地就别让开通道")
-
+        self.assertEqual(row["cancelText"], "取消")
+        self.assertFalse(row["chipHidden"], "状态句常显在标题行")
+        self.assertTrue(row["startHidden"], "组件没落地就别让开通道")
     def test_failure_shows_reason_and_allows_retry(self):
         # fe-phone 同步：失败后回到没装态，标题行按钮叫「重新下载」、红条照原型拼句（PH11）；
         # 认不出的错误码回落后端原话。旧的「手机控制组件：安装失败」状态行按 PH03 删除
@@ -1161,19 +1154,22 @@ out.push({error:$("#phone-component-error").textContent});
 PhonePanel.paint();
 out.push({installHidden:$("#btn-phone-component-install").hidden,
           installText:$("#btn-phone-component-install").textContent,
-          featureHidden:$("#btn-phone-feature-install").hidden});
+          featureHidden:$("#btn-phone-feature-install").hidden,
+          packHidden:$("#btn-phone-package").hidden});
 PhonePanel.state.advanced.features.phone_control = {ready:true, available:true, download:{state:"installed"}};
 PhonePanel.paint();
 out.push({featureHidden:$("#btn-phone-feature-install").hidden,
-          featureText:$("#btn-phone-feature-install").textContent,
+          startText:$("#btn-phone-start").textContent,
+          packHidden:$("#btn-phone-package").hidden,
           cf:$("#phone-chan-cloudflare-status").textContent});
 '''
         missing, ready = run_phone_js(snippet, files=[PANEL_ENTRY])
         self.assertFalse(missing["installHidden"], "缺组件时安装入口不能消失")
         self.assertEqual(missing["installText"], "下载并安装")
         self.assertTrue(missing["featureHidden"])
-        self.assertFalse(ready["featureHidden"], "ready 但缺 cloudflared 时补装入口不能消失")
-        self.assertEqual(ready["featureText"], "安装/更换组件包")
+        self.assertFalse(ready["packHidden"], "ready 但缺 cloudflared 时补装入口不能消失")
+        self.assertTrue(ready["featureHidden"], "补装那只已经挪进展开区，标题行不再占位")
+        self.assertEqual(ready["startText"], "开启", "标题行照常给「开启」")
         self.assertEqual(ready["cf"], "不可用")
 
     def test_cancel_leaves_no_trace_on_the_phone_row(self):
@@ -1252,7 +1248,7 @@ out.push(downloadFailText({state: "failed", error_code: "network_error", text: "
         self.assertEqual(values[1], "下载没有完成：连不上发布页，可以重试。", "其他原因不受影响")
 
     def test_install_shows_installing_until_refresh_returns(self):
-        """I1：点「安装这份」到快照刷新完成为止，手机访问一节显示「正在安装组件…」，
+        """I1：点「安装这份」到快照刷新完成为止，手机访问一行的状态句说「正在安装组件…」，
         不闪回导入前的「下载没有完成」红条与导入行；刷新回来后才按真实状态画。"""
         snippet = r"""
 PhonePanel.state.advanced = {features:{phone_control:{available:false, ready:false, status:"missing",
@@ -1273,8 +1269,8 @@ const pending = PhonePanel.installComponent("phone_control");
 for (let i = 0; i < 8; i += 1) await Promise.resolve();
 out.push({before: before,
   during: {err: $("#phone-component-error").textContent, importHidden: $("#phone-import-line").hidden,
-    loadingHidden: $("#phone-loading").hidden, progText: $("#phone-prog-text").textContent,
-    installDisabled: $("#btn-phone-component-install").disabled}});
+    loadingHidden: $("#phone-loading").hidden, statusText: $("#phone-feature-status-text").textContent,
+    installHidden: $("#btn-phone-component-install").hidden}});
 releaseRefresh();
 await pending;
 out.push({after: {loadingHidden: $("#phone-loading").hidden, err: $("#phone-component-error").textContent}});
@@ -1285,14 +1281,13 @@ out.push({after: {loadingHidden: $("#phone-loading").hidden, err: $("#phone-comp
         self.assertFalse(before["importHidden"], "前提：导入前导入行本来可见")
         self.assertEqual(during["err"], "", "安装中不显示旧的失败红条")
         self.assertTrue(during["importHidden"], "安装中不显示导入行")
-        self.assertFalse(during["loadingHidden"], "安装中进度区可见")
-        self.assertEqual(during["progText"], "正在安装组件…")
-        self.assertTrue(during["installDisabled"], "安装中主按钮禁用")
-        self.assertTrue(after["loadingHidden"], "刷新返回后进度区收起")
+        self.assertTrue(during["loadingHidden"], "安装中进度条收着")
+        self.assertEqual(during["statusText"], "正在安装组件…")
+        self.assertTrue(during["installHidden"], "安装中按钮位收起来")
+        self.assertTrue(after["loadingHidden"], "刷新返回后进度条收起")
         self.assertEqual(after["err"], "")
-
     def test_ocr_install_shows_installing_until_refresh_returns(self):
-        """I1（验证码识别一节，同口径）：安装中不显示旧红条与导入行，进度区说「正在安装组件…」。"""
+        """I1（验证码识别一行，同口径）：安装中不显示旧红条与导入行，状态句说「正在安装组件…」。"""
         snippet = r"""
 PhonePanel.state.advanced = {features:{relogin_ocr:{available:false, ready:false, status:"missing",
   download:{state:"failed", error_code:"network_error", text:"连不上发布页"}}}};
@@ -1312,8 +1307,8 @@ const pending = PhonePanel.installComponent("relogin_ocr");
 for (let i = 0; i < 8; i += 1) await Promise.resolve();
 out.push({before: before,
   during: {err: $("#ocr-download-error").textContent, importHidden: $("#ocr-import-line").hidden,
-    loadingHidden: $("#ocr-loading").hidden, progText: $("#ocr-prog-text").textContent,
-    installDisabled: $("#btn-ocr-download").disabled}});
+    loadingHidden: $("#ocr-loading").hidden, statusText: $("#ocr-feature-status-text").textContent,
+    installHidden: $("#btn-ocr-download").hidden}});
 releaseRefresh();
 await pending;
 out.push({after: {loadingHidden: $("#ocr-loading").hidden, err: $("#ocr-download-error").textContent}});
@@ -1324,12 +1319,11 @@ out.push({after: {loadingHidden: $("#ocr-loading").hidden, err: $("#ocr-download
         self.assertFalse(before["importHidden"], "前提：导入前导入行本来可见")
         self.assertEqual(during["err"], "", "安装中不显示旧的失败红条")
         self.assertTrue(during["importHidden"], "安装中不显示导入行")
-        self.assertFalse(during["loadingHidden"], "安装中进度区可见")
-        self.assertEqual(during["progText"], "正在安装组件…")
-        self.assertTrue(during["installDisabled"], "安装中主按钮禁用")
-        self.assertTrue(after["loadingHidden"], "刷新返回后进度区收起")
+        self.assertTrue(during["loadingHidden"], "安装中进度条收着")
+        self.assertEqual(during["statusText"], "正在安装组件…")
+        self.assertTrue(during["installHidden"], "安装中按钮位收起来")
+        self.assertTrue(after["loadingHidden"], "刷新返回后进度条收起")
         self.assertEqual(after["err"], "")
-
 class PhoneAccessStateMachineTests(unittest.TestCase):
     """fe-phone：设置抽屉手机访问一组照原型 phView 的状态机（settings-gap 一、PH01–PH32）。"""
 
@@ -1425,7 +1419,7 @@ out.push({calls:calls.filter((c) => c[0] === "cancel_advanced_feature_download")
 const st = PhonePanel.state;
 st.running = true; st.address = "http://pc.tail.ts.net:8765/";
 st.pair_code_status = {code:"123456", expires_in:120, seq:3, reason:"paired"};
-const read = () => ({chip:$("#phone-feature-status").textContent, ok:!$("#phone-ok").hidden,
+const read = () => ({chip:$("#phone-feature-status-text").textContent, ok:!$("#phone-ok").hidden,
   pair:!$("#phone-pair").hidden, add:!$("#btn-phone-add-pair").hidden,
   badge:$("#phone-badge-text").textContent});
 st.paired_count = 0; st.live_session = false;
@@ -1544,13 +1538,14 @@ const st = PhonePanel.state;
 PhonePanel.paint();
 out.push({chip:$("#phone-feature-status").hidden, cancel:$("#btn-phone-component-cancel").textContent,
           cancelDisabled:$("#btn-phone-component-cancel").disabled,
-          text:$("#phone-prog-text").textContent});
+          text:$("#phone-feature-status-text").textContent});
 st.advanced.features.phone_control = {ready:true, available:true, download:{state:"installed"}};
 PhonePanel.paint();
-out.push({chip:$("#phone-feature-status").textContent, note:$("#phone-off-note").textContent});
+out.push({chip:$("#phone-feature-status-text").textContent, note:$("#phone-off-note").textContent});
 st.advanced.channels = {cloudflare:{available:true, state:"exited", error:"tunnel_exited"}};
 PhonePanel.paint();
-out.push($("#phone-off-error").textContent);
+out.push({note:$("#phone-probe").textContent, err:$("#phone-component-error").textContent,
+          start:$("#btn-phone-start").textContent});
 globalThis.__api = async (name) => name === "phone_access_state"
   ? {ok:true, running:false} : {ok:true};
 st.running = true;
@@ -1558,10 +1553,15 @@ await PhonePanel.toggleStop();
 out.push($("#phone-off-note").textContent);
 """, files=[PANEL_ENTRY])
         verifying, installed, gone, closed = values
-        self.assertEqual(verifying, {"chip": True, "cancel": "校验中…", "cancelDisabled": True,
-                                     "text": "下载完成，正在校验组件…"})
-        self.assertEqual(installed, {"chip": "未开启", "note": "手机控制组件已安装，选一条通道就能开启。"})
-        self.assertEqual(gone, "Cloudflare 隧道断了，旧地址和二维码已失效。重新开启后要重新扫码配对。")
+        self.assertEqual(verifying, {"chip": False, "cancel": "校验中…", "cancelDisabled": True,
+                                     "text": "下载完了，正在校验…"})
+        self.assertTrue(installed["chip"].startswith("未开启"), "装好了但还没开：状态句说未开启")
+        self.assertEqual(installed["note"], "手机控制组件已安装，选一条通道就能开启。")
+        self.assertEqual(gone["note"], "",
+                         "隧道自己断开不写标题行下那行字")
+        self.assertEqual(gone["err"], "Cloudflare 隧道断了，旧地址和二维码已失效。重新开启后要重新扫码配对。",
+                         "隧道自己断开：原因写在标题行下那条红条里")
+        self.assertEqual(gone["start"], "重新开启", "断过一次，按钮说重新开启")
         self.assertEqual(closed, "手机访问已关闭，手机需要重新配对才能再进。")
 
     def test_installed_but_disabled_enables_through_the_backend(self):
@@ -1586,6 +1586,7 @@ out.push([calls.filter((c) => c[0] === "enable_advanced_feature"), opened]);
 PhonePanel.state.running = false;
 PhonePanel.paint();
 out.push({phase: phonePhase(PhonePanel.state, PhonePanel.feature("phone_control")),
+          statusText: $("#phone-feature-status-text").textContent,
           install: $("#btn-phone-component-install").hidden,
           featureBtn: $("#btn-phone-feature-install").hidden,
           cancel: $("#btn-phone-component-cancel").hidden,
@@ -1593,12 +1594,14 @@ out.push({phase: phonePhase(PhonePanel.state, PhonePanel.feature("phone_control"
           loading: $("#phone-loading").hidden,
           probe: [$("#phone-probe").hidden, $("#phone-probe").textContent, $("#phone-probe").dataset.probe],
           retry: $("#btn-phone-component-retry").hidden,
-          start: $("#btn-phone-start").disabled});
+          start: $("#btn-phone-start").hidden});
 """, files=[PANEL_ENTRY])
         self.assertEqual(values[0], {"phase": "checking", "install": True, "featureBtn": True,
                                      "cancel": True, "missing": True, "loading": True,
-                                     "probe": [False, "正在确认组件状态…", "waiting"],
-                                     "retry": True, "start": True})
+                                     "statusText": "正在确认组件状态…",
+                                     "probe": [True, "", "waiting"],
+                                     "retry": True, "start": True},
+                         "检查中不给开通道入口，先等结论")
 
     def test_static_copy_follows_the_prototype(self):
         """PH04、PH08、IM02：多出的二级行删掉；体积只做「现在读不到」形态；导入弹窗不再说本程序不联网下载。"""
@@ -1637,8 +1640,8 @@ PhonePanel.state.advanced = {features:{relogin_ocr:{available:true, enabled:fals
   status:"ready", package_version:"1.2.0", download:{state:"available"}}}, credential:{}};
 PhonePanel.paint();
 out.push({enable: $("#btn-ocr-enable").hidden,
-          download: $("#btn-ocr-download").hidden, chip: $("#ocr-title-chip").hidden,
-          doneChip: $("#ocr-feature-status").hidden,
+          download: $("#btn-ocr-download").hidden,
+          chipText: $("#ocr-feature-status-text").textContent,
           lead: $("#ocr-download-state").textContent,
           offNote: $("#ocr-off-note").hidden,
           missing: $("#ocr-missing").hidden, importLine: $("#ocr-import-line").hidden});
@@ -1652,8 +1655,7 @@ out.push({calls: calls.filter((c) => c[0] === "enable_advanced_feature"), opened
         # 按钮名、chip 字样、说明句是 index.html 里的静态文字，由 test_static_copy_follows_the_prototype 核对
         self.assertFalse(shown["enable"], "已装好没启用：标题行右侧是「启用」")
         self.assertTrue(shown["download"], "已装好就不再露出「下载并安装」")
-        self.assertFalse(shown["chip"], "已装没启用：标题旁挂中性 chip「未启用」")
-        self.assertTrue(shown["doneChip"])
+        self.assertEqual(shown["chipText"], "已装好还没启用", "已装没启用：状态句说清还差一步")
         self.assertEqual(shown["lead"], "已装好（版本 1.2.0），还没启用。启用后，登录失效时电脑会自己认验证码；"
                                         "配合“登录恢复”里的账号密码，就能无人值守自动登录。")
         self.assertFalse(shown["offNote"])
@@ -1685,16 +1687,18 @@ PhonePanel.state.advanced = {features:{relogin_ocr:{available:false, ready:false
                              credential:{staged:true}};
 PhonePanel.paint();
 out.push({phase: ocrPhase(PhonePanel.feature("relogin_ocr")),
+          statusText: $("#ocr-feature-status-text").textContent,
           btn: $("#btn-ocr-download").hidden,
           missing: $("#ocr-missing").hidden,
           loading: $("#ocr-loading").hidden,
-          probe: [$("#ocr-probe").hidden, $("#ocr-probe").textContent, $("#ocr-probe").dataset.probe],
+          probe: [$("#ocr-note").hidden, $("#ocr-note").textContent, $("#ocr-note").dataset.probe],
           retry: $("#btn-ocr-retry").hidden,
           cancel: $("#btn-ocr-cancel").hidden,
           auto: $("#relogin-auto-path").textContent});
 """)
         self.assertEqual(values[0], {"phase": "checking", "btn": True, "missing": True, "loading": True,
-                                     "probe": [False, "正在确认组件状态…", "waiting"],
+                                     "statusText": "正在确认组件状态…",
+                                     "probe": [True, "", "waiting"],
                                      "retry": True, "cancel": True,
                                      "auto": "失效后自动登录：正在检查验证码识别组件。"})
 
@@ -1716,12 +1720,12 @@ out.push({btn: [$("#btn-ocr-download").hidden, $("#btn-ocr-download").textConten
           lead: $("#ocr-download-state").textContent, err: $("#ocr-download-error").hidden});
 set({state:"downloading", downloaded:9961472, total_bytes:33128448});
 out.push({cancel: [$("#btn-ocr-cancel").hidden, $("#btn-ocr-cancel").textContent],
-          loading: $("#ocr-loading").hidden, num: $("#ocr-prog-num").textContent,
-          text: $("#ocr-prog-text").textContent, now: $("#ocr-component-progress").getAttribute("aria-valuenow"),
+          loading: $("#ocr-loading").hidden, text: $("#ocr-feature-status-text").textContent,
+          now: $("#ocr-loading").getAttribute("aria-valuenow"),
           fill: $("#ocr-prog-fill").style.width, missing: $("#ocr-missing").hidden});
 set({state:"verifying"});
 out.push({cancel: [$("#btn-ocr-cancel").textContent, $("#btn-ocr-cancel").disabled],
-          text: $("#ocr-prog-text").textContent});
+          text: $("#ocr-feature-status-text").textContent});
 set({state:"failed", error_code:"network_error", text:"后端原话"});
 out.push({btn: $("#btn-ocr-download").textContent, err: $("#ocr-download-error").textContent,
           importLine: $("#ocr-import-line").hidden});
@@ -1738,13 +1742,12 @@ out.push({opened: opened});
         self.assertEqual(idle["lead"], "登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。"
                                        "没装或认不出来时，由你在手机上手动输入。")
         self.assertTrue(idle["err"])
-        self.assertEqual(loading["cancel"], [False, "取消下载"])
+        self.assertEqual(loading["cancel"], [False, "取消"])
         self.assertFalse(loading["loading"])
         self.assertTrue(loading["missing"])
-        self.assertEqual(loading["num"], "9.5 / 31.6 MB")
-        self.assertEqual(loading["text"], "正在下载验证码识别组件")
+        self.assertEqual(loading["text"], "下载中 9.5 / 31.6 MB")
         self.assertEqual((loading["now"], loading["fill"]), ("30", "30%"))
-        self.assertEqual(verifying, {"cancel": ["校验中…", True], "text": "下载完成，正在校验组件…"})
+        self.assertEqual(verifying, {"cancel": ["校验中…", True], "text": "下载完了，正在校验…"})
         self.assertEqual(failed["btn"], "重新下载")
         self.assertEqual(failed["err"], "下载没有完成：连不上发布页，可以重试。")
         self.assertFalse(failed["importLine"])
@@ -1777,7 +1780,7 @@ await PhonePanel.downloadComponent("relogin_ocr");
 out.push({err: $("#ocr-download-error").textContent});
 set({available:false, ready:false, status:"missing", download:{state:"downloading", downloaded:1, total_bytes:10}});
 set({available:true, ready:true, status:"ready", package_version:"1.2.0", download:{state:"installed"}});
-out.push({chip: [$("#ocr-feature-status").hidden, $("#ocr-feature-status").textContent],
+out.push({chip: [$("#ocr-feature-status").hidden, $("#ocr-feature-status-text").textContent],
           lead: $("#ocr-download-state").textContent, note: $("#ocr-note").textContent,
           after: [$("#ocr-loc-after").hidden, $("#ocr-loc-after-path").textContent], before: $("#ocr-loc-before").hidden});
 calls.length = 0;
@@ -1792,7 +1795,7 @@ out.push({opened: calls.filter((c) => c[0] === "open_advanced_component_dir")});
         self.assertEqual(located["before"], [False, "…/advanced/relogin_ocr"])
         self.assertTrue(located["after"])
         self.assertEqual(failed["err"], "现在连不上，稍后再试。")
-        self.assertEqual(installed["chip"], [False, "已启用"])
+        self.assertEqual(installed["chip"], [False, "已启用 · 版本 1.2.0"])
         self.assertEqual(installed["lead"], "版本 1.2.0。电脑会自己认验证码，连续认错 3 次再转给手机手动输入。")
         self.assertEqual(installed["note"], "验证码识别组件已安装并启用。")
         self.assertEqual(installed["after"], [False, "…/advanced/relogin_ocr"])
@@ -1958,7 +1961,7 @@ out.push({calls: calls.filter((c) => c === "clear_relogin_credentials"), note: $
                      "这一项关系到自动登录，所以装好了也不会自己打开。",
                      "一直下载不了的话，可以到发布页手动下载组件包，再",
                      'id="btn-ocr-enable" type="button" hidden>启用</button>',
-                     'id="ocr-title-chip" hidden>未启用</span>',
+                     'id="ocr-feature-status-text"',
                      "导入验证码识别组件", "选择文件…"):
             self.assertIn(text, html, "缺少原型文案：%s" % text)
         self.assertNotIn("登录信息、设置和运行记录都只保存在这台电脑。", html, "旧的本机数据说明句要换掉（DT01）")
@@ -4837,7 +4840,7 @@ class LayoutStaticTests(unittest.TestCase):
         self.assertIn('id="btn-phone-feature-install"', html)
         self.assertNotIn('id="btn-ocr-feature-install"', html,
                          "坏了改走主按钮重新安装，标题行不再另给导入入口")
-        for marker in ('id="phone-probe"', 'id="ocr-probe"',
+        for marker in ('id="phone-probe"', 'id="ocr-note"',
                        'id="btn-phone-component-retry"', 'id="btn-ocr-retry"'):
             self.assertIn(marker, html, marker)
         self.assertIn("features/phone-access/actions-panel.js",

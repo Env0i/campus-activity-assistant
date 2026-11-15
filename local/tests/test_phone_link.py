@@ -39,7 +39,7 @@ const __set = (patch) => {
 };
 const __paint = () => { S.statusCard = { kind: "phone", pinned: false }; PhonePanel.paint(); };
 const __view = () => ({
-  chip: [$("#phone-feature-status").hidden, $("#phone-feature-status").textContent,
+  chip: [$("#phone-feature-status").hidden, $("#phone-feature-status-text").textContent,
          $("#phone-feature-status").className, $("#phone-feature-status").dataset.link],
   badge: [$("#phone-badge").hidden, $("#phone-badge-text").textContent,
           $("#phone-badge").className, $("#phone-badge").dataset.link],
@@ -71,7 +71,7 @@ __set({ link: "waiting" });
 __paint();
 out.push(__view());
 """)[0]
-        self.assertEqual(view["chip"], [False, WAITING, "ph-st warn", "waiting"])
+        self.assertEqual(view["chip"], [False, WAITING, "adv-s amber blink", "waiting"])
         self.assertEqual(view["badge"], [False, WAITING, "pill phone-badge", "waiting"])
         self.assertEqual(view["cardChip"], [WAITING, "warn"])
         self.assertEqual(view["cardBig"], WAITING)
@@ -83,7 +83,7 @@ __set({ link: "connected", last_contact_ago_s: 12 });
 __paint();
 out.push(__view());
 """)[0]
-        self.assertEqual(view["chip"], [False, CONNECTED, "ph-st ok", "connected"])
+        self.assertEqual(view["chip"], [False, CONNECTED, "adv-s green", "connected"])
         self.assertEqual(view["badge"], [False, CONNECTED, "pill phone-badge is-ok", "connected"])
         self.assertEqual(view["cardChip"], ["已连接", "ok"])
         self.assertEqual(view["cardBig"], CONNECTED)
@@ -96,7 +96,7 @@ __paint();
 out.push(__view());
 """)[0]
         title = "已断开 · 2 分钟前"
-        self.assertEqual(view["chip"], [False, title, "ph-st", "disconnected"])
+        self.assertEqual(view["chip"], [False, title, "adv-s grey", "disconnected"])
         self.assertEqual(view["badge"], [False, title, "pill phone-badge", "disconnected"])
         self.assertEqual(view["cardChip"], ["已断开", ""])
         self.assertEqual(view["cardBig"], title)
@@ -123,7 +123,7 @@ __paint();
 out.push(__view());
 """)
         self.assertEqual(before["chip"][1], "已断开 · 1 小时前")
-        self.assertEqual(after["chip"], [False, CONNECTED, "ph-st ok", "connected"])
+        self.assertEqual(after["chip"], [False, CONNECTED, "adv-s green", "connected"])
         self.assertEqual(after["badge"], [False, CONNECTED, "pill phone-badge is-ok", "connected"])
 
     def test_not_running_hides_the_badge_and_says_not_enabled(self):
@@ -152,8 +152,8 @@ __set({ paired_count: 0, live_session: false });
 __paint();
 out.push(__view());
 """)
-        self.assertEqual(paired["chip"], [False, CONNECTED, "ph-st ok", "connected"])
-        self.assertEqual(waiting["chip"], [False, WAITING, "ph-st warn", "waiting"])
+        self.assertEqual(paired["chip"], [False, CONNECTED, "adv-s green", "connected"])
+        self.assertEqual(waiting["chip"], [False, WAITING, "adv-s amber blink", "waiting"])
 
     def test_unknown_and_off_links_also_fall_back(self):
         """unknown 与「开着却给了 off」都当没有结论：有活动会话时仍按旧规则说已连接。"""
@@ -167,7 +167,7 @@ out.push(__view());
 """)
         self.assertEqual(unknown["chip"][1], CONNECTED)
         self.assertEqual(unknown["cardChip"], ["已连接", "ok"])
-        self.assertEqual(off_link["chip"], [False, WAITING, "ph-st warn", "waiting"])
+        self.assertEqual(off_link["chip"], [False, WAITING, "adv-s amber blink", "waiting"])
 
 
 class PairingIsNotLinkTests(unittest.TestCase):

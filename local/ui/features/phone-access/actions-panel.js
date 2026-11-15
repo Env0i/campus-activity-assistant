@@ -7,7 +7,7 @@ import { PhonePanel } from "./state.js";
 import { phonePaintPack } from "./view.js";
 import { phoneActionsPack } from "./actions.js";
 import { componentsPaintPack } from "../components/view.js";
-import { componentsActionsPack, wireComponentRetries } from "../components/actions.js";
+import { componentsActionsPack, wireComponentRetries, wireRowToggles } from "../components/actions.js";
 import { recoveryPaintPack } from "../login/view-recovery.js";
 import { recoveryActionsPack } from "../login/actions-recovery.js";
 
@@ -97,5 +97,6 @@ export function startPhonePanel() {
     else document.addEventListener("DOMContentLoaded", PhonePanel.wire);
     // 两个「重试」在面板里是常驻元素，不经过 wire 挂（wire 的绑定清单不再变长）
     wireComponentRetries();
+  wireRowToggles();
   }
 }

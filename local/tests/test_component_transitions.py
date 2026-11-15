@@ -56,17 +56,19 @@ const __ui = () => ({
                    $("#phone-probe").dataset.probe],
            retry: [$("#btn-phone-component-retry").hidden, $("#btn-phone-component-retry").disabled],
            feature: $("#btn-phone-feature-install").hidden,
-           chip: $("#phone-feature-status").hidden ? "" : $("#phone-feature-status").textContent,
+           chip: [$("#phone-feature-status").hidden, $("#phone-feature-status-text").textContent,
+                  $("#phone-feature-status").className],
            err: [$("#phone-component-error").hidden, $("#phone-component-error").textContent],
            imp: $("#phone-import-line").hidden },
   ocr: { install: [$("#btn-ocr-download").hidden, $("#btn-ocr-download").textContent,
                    $("#btn-ocr-download").disabled],
          cancel: [$("#btn-ocr-cancel").hidden, $("#btn-ocr-cancel").disabled],
          missing: $("#ocr-missing").hidden, loading: $("#ocr-loading").hidden,
-         probe: [$("#ocr-probe").hidden, $("#ocr-probe").textContent, $("#ocr-probe").dataset.probe],
+         probe: [$("#ocr-note").hidden, $("#ocr-note").textContent, $("#ocr-note").dataset.probe],
          retry: [$("#btn-ocr-retry").hidden, $("#btn-ocr-retry").disabled],
          enable: $("#btn-ocr-enable").hidden,
-         chip: $("#ocr-feature-status").hidden ? "" : $("#ocr-feature-status").textContent,
+         chip: [$("#ocr-feature-status").hidden, $("#ocr-feature-status-text").textContent,
+                $("#ocr-feature-status").className],
          err: [$("#ocr-download-error").hidden, $("#ocr-download-error").textContent],
          imp: $("#ocr-import-line").hidden },
 });
@@ -96,8 +98,9 @@ out.push({ before: before, after: __ui(), polling: PhonePanel.needsPolling() });
         data = res[0]
         after = data["after"]
         for side in ("phone", "ocr"):
-            self.assertEqual(after[side]["chip"], data["before"][side]["chip"],
+            self.assertEqual(after[side]["chip"][1], data["before"][side]["chip"][1],
                              side + "：等锁时原来的字要保留")
+            self.assertEqual(after[side]["chip"][2], "adv-s blue", side + "：只把圆点变蓝")
             self.assertTrue(after[side]["probe"][0], side + "：有结论就不用再说一句")
             self.assertTrue(after[side]["retry"][0], side + "：没到 30 秒不给「重试」")
             self.assertTrue(after[side]["install"][0], side + "：还没结论不给主按钮")
@@ -135,7 +138,8 @@ out.push({ ui: __ui(), polling: PhonePanel.needsPolling() });
         data = res[0]
         ui = data["ui"]
         for side in ("phone", "ocr"):
-            self.assertEqual(ui[side]["probe"], [False, WAITING, "waiting"], side + "：要说在确认")
+            self.assertEqual(ui[side]["chip"][1], WAITING, side + "：状态句要说在确认")
+            self.assertTrue(ui[side]["probe"][0], side + "：确认中不叠第二句")
             self.assertTrue(ui[side]["retry"][0], side + "：还没到 30 秒不给「重试」")
             self.assertTrue(ui[side]["install"][0], side + "：没结论不给主按钮")
             self.assertTrue(ui[side]["cancel"][0], side + "：不是在下载")
@@ -173,7 +177,8 @@ out.push({ cached: cached, fresh: fresh, backendSaysTimedOut: __ui(),
         for name in ("cached", "fresh", "backendSaysTimedOut"):
             ui = data[name]
             for side in ("phone", "ocr"):
-                self.assertEqual(ui[side]["probe"], [False, TIMEOUT, "timeout"], side + "：要说明在等")
+                self.assertEqual(ui[side]["chip"][1], TIMEOUT, side + "：状态句要说明在等")
+                self.assertTrue(ui[side]["probe"][0], side + "：等超时只说一句")
                 self.assertEqual(ui[side]["retry"], [False, False], side + "：「重试」要可见可点")
                 self.assertTrue(ui[side]["install"][0], side + "：超时不给主按钮")
                 self.assertTrue(ui[side]["missing"], side + "：不能显示成没装")
@@ -206,7 +211,7 @@ out.push({ later: __ui().phone });
         self.assertTrue(clicked["retry"][0], "还不到 30 秒：不显示「重试」")
         self.assertTrue(mid["probe"][0], "差 25 秒还在窗口里：说明仍然收起")
         self.assertTrue(mid["retry"][0], "差 25 秒不给「重试」")
-        self.assertEqual(later["probe"], [False, TIMEOUT, "timeout"], "又等满 30 秒：再次说清在等")
+        self.assertEqual(later["chip"][1], TIMEOUT, "又等满 30 秒：再次说清在等")
         self.assertEqual(later["retry"], [False, False], "又超时：「重试」回来")
 
     def test_reading_recovers_and_clears_the_retry_start(self):
@@ -275,7 +280,8 @@ out.push({ ui: ui, calls: window.__calls.slice() });
         ui = data["ui"]
         for side in ("phone", "ocr"):
             self.assertEqual(ui[side]["install"], [False, "重新安装", False], side + "：主按钮改重新安装")
-            self.assertEqual(ui[side]["err"], [False, BROKEN], side + "：要说清不会动账号和设置")
+            self.assertEqual(ui[side]["probe"], [False, BROKEN, ""], side + "：要说清不会动账号和设置")
+            self.assertTrue(ui[side]["err"][0], side + "：文件不完整那句不进红条")
             self.assertTrue(ui[side]["retry"][0], side + "：坏了不是读状态，不给「重试」")
         self.assertTrue(ui["phone"]["feature"], "坏了不再另给一个导入入口")
         self.assertTrue(ui["ocr"]["enable"], "坏了的识别行不给「启用」")

@@ -5,6 +5,7 @@
 import { PhonePanel, phonePhase, setRetryWaitBase } from "../phone-access/state.js";
 import { importCheckText } from "./view.js";
 import { OcrPanel } from "./state-ocr.js";
+import { rowOpen, setRowOpen } from "./state-row.js";
 
 
 
@@ -229,6 +230,9 @@ export function retryComponent(key) {
 /* 两个「重试」按钮的绑定：由 features/phone-access/actions-panel.js 的 startPhonePanel
  * 在挂完全部面板绑定之后调一次（wire 里的绑定清单不动）。 */
 export function wireComponentRetries() {
+  /* 缺 cloudflared 时的补装入口：标题行只留「开启」，这只在展开区 */
+  const pack = $("#btn-phone-package");
+  if (pack) pack.addEventListener("click", () => PhonePanel.openComponents("phone_control"));
   const phoneRetry = $("#btn-phone-component-retry");
   if (phoneRetry) {
     phoneRetry.addEventListener("click", () => retryComponent("phone_control"));
@@ -237,4 +241,19 @@ export function wireComponentRetries() {
   if (ocrRetry) {
     ocrRetry.addEventListener("click", () => retryComponent("relogin_ocr"));
   }
+}
+
+
+/* 两只展开箭头：开合状态记在 features/components/state-row.js 的模块变量里（一次运行内记住、
+ * 不落盘），点了就地重画——手机访问默认展开、验证码识别默认收起。绑定同样由
+ * features/phone-access/actions-panel.js 的 startPhonePanel 调一次，wire 里的清单不动。 */
+export function wireRowToggles() {
+  [["#btn-phone-row-toggle", "phone"], ["#btn-ocr-row-toggle", "ocr"]].forEach((pair) => {
+    const btn = $(pair[0]);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      setRowOpen(pair[1], !rowOpen(pair[1]));
+      PhonePanel.paint();
+    });
+  });
 }

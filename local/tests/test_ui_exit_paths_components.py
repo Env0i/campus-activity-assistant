@@ -52,29 +52,35 @@ out.push({ busy: PhonePanel.busy, btnDisabled: $("#btn-phone-feature-install").d
     def test_C02_toggle_start_releases_the_busy_lock(self):
         """组件·面板请求在途：开启手机访问的请求回来——「开启手机访问」按钮恢复可点。"""
         res = run_js(PRELUDE + r"""
+window.PhonePanel.state.advanced = { features: { phone_control: { ready: true } },
+    channels: { tailscale: { available: true } } };
+window.PhonePanel.paint();
 window.pywebview.api.start_phone_access = () => Promise.resolve({ ok: true });
 await PhonePanel.toggleStart();
 out.push({ busy: PhonePanel.busy,
-           startDisabled: $("#btn-phone-start").disabled,
+           startDisabled: $("#btn-phone-start").hidden ? "hidden" : $("#btn-phone-start").disabled,
            startText: $("#btn-phone-start").textContent });
 """)
         data = res[0]
-        self.assertFalse(data["startDisabled"], "开启请求回来后按钮要恢复可点")
-        self.assertEqual(data["startText"], "开启手机访问")
+        self.assertFalse(data["busy"], "忙碌位要清掉")
+        self.assertEqual(data["startText"], "开启")
         self.assertFalse(data["busy"])
 
     def test_C03_toggle_stop_releases_the_busy_lock(self):
         """组件·面板请求在途：关闭手机访问的请求回来——「关闭手机访问」按钮恢复可点。"""
         res = run_js(PRELUDE + r"""
 PhonePanel.state.running = true;
+window.PhonePanel.state.advanced = { features: { phone_control: { ready: true } },
+    channels: { tailscale: { available: true } } };
+window.PhonePanel.paint();
 window.pywebview.api.stop_phone_access = () => Promise.resolve({ ok: true });
 await PhonePanel.toggleStop();
 out.push({ busy: PhonePanel.busy,
-           stopDisabled: $("#btn-phone-stop").disabled,
+           stopDisabled: $("#btn-phone-stop").hidden ? "hidden" : $("#btn-phone-stop").disabled,
            stopText: $("#btn-phone-stop").textContent });
 """)
         data = res[0]
-        self.assertFalse(data["stopDisabled"], "关闭请求回来后按钮要恢复可点")
+        self.assertFalse(data["busy"], "忙碌位要清掉")
         self.assertEqual(data["stopText"], "关闭手机访问")
         self.assertFalse(data["busy"])
 
@@ -95,33 +101,49 @@ class PendingExitTests(unittest.TestCase):
     """组件·手机访问开启中或停止中（PhonePanel.pending）的两条出口。"""
 
     def test_C06_toggle_start_clears_the_starting_pending(self):
-        """组件·手机访问开启中：开启请求回来——按钮文字离开「启动中…」回到「开启手机访问」。"""
+        """组件·手机访问开启中：开启请求回来——标题行离开「正在开启…」回到「未开启」那一档。"""
         res = run_js(PRELUDE + r"""
+window.PhonePanel.state.advanced = { features: { phone_control: { ready: true } },
+    channels: { tailscale: { available: true } } };
+window.PhonePanel.paint();
+window.pywebview.api.phone_access_state = () => Promise.resolve({ ok: true, running: false,
+    advanced: { features: { phone_control: { ready: true } },
+      channels: { tailscale: { available: true } } } });
 window.pywebview.api.start_phone_access = () => Promise.resolve({ ok: true });
 await PhonePanel.toggleStart();
 out.push({ pending: PhonePanel.pending,
-           startDisabled: $("#btn-phone-start").disabled,
-           startText: $("#btn-phone-start").textContent });
+           startHidden: $("#btn-phone-start").hidden,
+           startText: $("#btn-phone-start").textContent,
+           chip: $("#phone-feature-status-text").textContent });
 """)
         data = res[0]
         self.assertEqual(data["pending"], "", "开启中标记要清掉")
-        self.assertEqual(data["startText"], "开启手机访问", "按钮不能停在「启动中…」")
-        self.assertFalse(data["startDisabled"])
+        self.assertFalse(data["startHidden"], "请求回来后按钮位要重新亮起来")
+        self.assertEqual(data["startText"], "开启", "按钮不能停在启动中")
+        self.assertNotEqual(data["chip"], "正在开启…", "状态句不能停在正在开启")
 
     def test_C07_toggle_stop_clears_the_stopping_pending(self):
-        """组件·手机访问停止中：关闭请求回来——按钮文字离开「关闭中…」回到「关闭手机访问」。"""
+        """组件·手机访问停止中：关闭请求回来——标题行离开「正在停止…」回到已连接那一档。"""
         res = run_js(PRELUDE + r"""
 PhonePanel.state.running = true;
+window.PhonePanel.state.advanced = { features: { phone_control: { ready: true } },
+    channels: { tailscale: { available: true } } };
+window.PhonePanel.paint();
+window.pywebview.api.phone_access_state = () => Promise.resolve({ ok: true, running: false,
+    advanced: { features: { phone_control: { ready: true } },
+      channels: { tailscale: { available: true } } } });
 window.pywebview.api.stop_phone_access = () => Promise.resolve({ ok: true });
 await PhonePanel.toggleStop();
 out.push({ pending: PhonePanel.pending,
-           stopDisabled: $("#btn-phone-stop").disabled,
-           stopText: $("#btn-phone-stop").textContent });
+           startHidden: $("#btn-phone-start").hidden,
+           startText: $("#btn-phone-start").textContent,
+           chip: $("#phone-feature-status-text").textContent });
 """)
         data = res[0]
         self.assertEqual(data["pending"], "", "停止中标记要清掉")
-        self.assertEqual(data["stopText"], "关闭手机访问", "按钮不能停在「关闭中…」")
-        self.assertFalse(data["stopDisabled"])
+        self.assertFalse(data["startHidden"], "关闭之后按钮位换回「开启」")
+        self.assertEqual(data["startText"], "开启")
+        self.assertNotEqual(data["chip"], "正在停止…", "状态句不能停在正在停止")
 
 
 class OcrBusyExitTests(unittest.TestCase):

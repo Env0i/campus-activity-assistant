@@ -48,9 +48,9 @@ out.push({ btnText: $("#btn-phone-component-install").textContent,
            btnHidden: $("#btn-phone-component-install").hidden,
            btnDisabled: $("#btn-phone-component-install").disabled,
            featureBtnHidden: $("#btn-phone-feature-install").hidden,
-           chip: $("#phone-feature-status").textContent,
-           errorHidden: $("#phone-component-error").hidden,
-           errorText: $("#phone-component-error").textContent });
+           chip: $("#phone-feature-status-text").textContent,
+           errorHidden: $("#phone-probe").hidden,
+           errorText: $("#phone-probe").textContent });
 $("#btn-phone-component-install").click();
 await __flush();
 out.push({ calls: __calls.slice() });
@@ -108,7 +108,8 @@ out.push({ saveDisabled: $("#btn-credentials-save").disabled });
         """手机访问：面板忙碌时「开启手机访问」按钮要禁用（通道可用、没有其他禁用原因）。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.busy = true;
-window.PhonePanel.state.advanced = { channels: { tailscale: { available: true } } };
+window.PhonePanel.state.advanced = { features: { phone_control: { ready: true } },
+  channels: { tailscale: { available: true } } };
 window.PhonePanel.paint();
 out.push({ startDisabled: $("#btn-phone-start").disabled,
            startHidden: $("#btn-phone-start").hidden });
@@ -305,31 +306,33 @@ out.push({ disabledFree: $("#btn-phone-component-cancel").disabled });
         busy, free = res
         self.assertTrue(busy["loadingShown"], "下载中进度块要显示")
         self.assertFalse(busy["cancelHidden"], "下载中标题行「取消下载」要看得见")
-        self.assertEqual(busy["cancelText"], "取消下载")
+        self.assertEqual(busy["cancelText"], "取消")
         self.assertTrue(busy["disabledBusy"], "面板忙时取消按钮要禁用")
         self.assertFalse(free["disabledFree"], "面板空闲时同一颗按钮要可点")
 
-    def test_busy_read_disables_the_title_action_button_on_missing_cloudflared(self):
-        """手机控制·已装未开启但 Cloudflare 缺组件包：标题行「安装/更换组件包」看得见，
-        面板忙时要禁用，空闲时可点——缺包的补装入口不能被忙碌位关死。"""
+    def test_busy_read_disables_the_package_button_on_missing_cloudflared(self):
+        """手机控制·已装未开启但 Cloudflare 缺组件包：标题行照常是「开启」，
+        补装入口在展开区的 #btn-phone-package 上——面板忙时要禁用，空闲时可点。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.state.advanced = { features: { phone_control: { ready: true } },
   channels: { tailscale: { available: true },
               cloudflare: { error: "cloudflared_missing" } } };
 window.PhonePanel.busy = true;
 window.PhonePanel.paint();
-out.push({ btnHidden: $("#btn-phone-feature-install").hidden,
-           btnText: $("#btn-phone-feature-install").textContent,
-           disabledBusy: $("#btn-phone-feature-install").disabled });
+out.push({ titleHidden: $("#btn-phone-start").hidden,
+           titleText: $("#btn-phone-start").textContent,
+           packHidden: $("#btn-phone-package").hidden,
+           disabledBusy: $("#btn-phone-package").disabled });
 window.PhonePanel.busy = false;
 window.PhonePanel.paint();
-out.push({ disabledFree: $("#btn-phone-feature-install").disabled });
+out.push({ disabledFree: $("#btn-phone-package").disabled });
 """)
         busy, free = res
-        self.assertFalse(busy["btnHidden"], "缺组件包时标题行按钮要看得见")
-        self.assertEqual(busy["btnText"], "安装/更换组件包")
-        self.assertTrue(busy["disabledBusy"], "面板忙时标题行按钮要禁用")
-        self.assertFalse(free["disabledFree"], "面板空闲时同一颗按钮要可点")
+        self.assertFalse(busy["titleHidden"], "缺组件包时标题行照常给「开启」")
+        self.assertEqual(busy["titleText"], "开启")
+        self.assertFalse(busy["packHidden"], "缺组件包时补装入口要看得见")
+        self.assertTrue(busy["disabledBusy"], "面板忙时补装入口要禁用")
+        self.assertFalse(free["disabledFree"], "面板空闲时补装入口要可点")
 
 
 class PhoneAccessUsePointTests(unittest.TestCase):
@@ -501,9 +504,9 @@ out.push({ tsFreeAgain: $("#phone-chan-tailscale").disabled });
         self.assertTrue(pending["cfDisabledPending"], "启动中 Cloudflare 单选要禁用")
         self.assertFalse(again["tsFreeAgain"], "空闲时单选要可点")
 
-    def test_pending_and_installing_disable_the_start_button(self):
-        """手机访问·已装未开启：启动中「开启手机访问」说「启动中…」并禁用、lead 说正在
-        开启，空闲时可点；安装中（进度块显示时）同一颗也要禁用，装完空闲时可点。"""
+    def test_pending_and_installing_take_the_start_button_away(self):
+        """手机访问·已装未开启：启动中按钮位不亮、标题行只说「正在开启…」；空闲时亮
+        「开启」这颗并说「开启手机访问」，可点；安装中按钮位同样不亮（正在装组件）。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.state.advanced = { features: { phone_control: { ready: true } },
   channels: { tailscale: { available: true } } };
@@ -511,37 +514,39 @@ window.PhonePanel.pending = "starting";
 window.PhonePanel.paint();
 out.push({ offShown: !$("#phone-off").hidden,
            startHidden: $("#btn-phone-start").hidden,
-           startText: $("#btn-phone-start").textContent,
-           lead: $("#phone-feature-note").textContent,
-           disabledPending: $("#btn-phone-start").disabled });
+           chip: $("#phone-feature-status-text").textContent,
+           lead: $("#phone-feature-note").textContent });
 window.PhonePanel.pending = "";
 window.PhonePanel.paint();
-out.push({ disabledFree: $("#btn-phone-start").disabled,
-           freeText: $("#btn-phone-start").textContent });
+out.push({ startHidden: $("#btn-phone-start").hidden,
+           startText: $("#btn-phone-start").textContent,
+           disabledFree: $("#btn-phone-start").disabled });
 window.PhonePanel.installing.phone_control = true;
 window.PhonePanel.paint();
-out.push({ loadingShown: !$("#phone-loading").hidden,
-           disabledInstalling: $("#btn-phone-start").disabled });
+out.push({ startHidden: $("#btn-phone-start").hidden,
+           chip: $("#phone-feature-status-text").textContent });
 window.PhonePanel.installing.phone_control = false;
 window.PhonePanel.paint();
 out.push({ disabledAfterInstallFlag: $("#btn-phone-start").disabled });
 """)
         pending, free, installing, after = res
         self.assertTrue(pending["offShown"], "已装未开启时「未开启」块要看得见")
-        self.assertFalse(pending["startHidden"], "启动中开启按钮要看得见")
-        self.assertEqual(pending["startText"], "启动中…", "启动中按钮要说明自己在启动")
+        self.assertTrue(pending["startHidden"], "启动中按钮位不亮，别再让人点第二下")
+        self.assertEqual(pending["chip"], "正在开启…", "启动中标题行要说明自己在开启")
         self.assertEqual(pending["lead"], "正在开启，先不要切换通道。", "lead 要说正在开启")
-        self.assertTrue(pending["disabledPending"], "启动中开启按钮要禁用")
+        self.assertFalse(free["startHidden"], "空闲时「开启」要看得见")
+        self.assertEqual(free["startText"], "开启")
         self.assertFalse(free["disabledFree"], "空闲时开启按钮要可点")
-        self.assertEqual(free["freeText"], "开启手机访问")
-        self.assertTrue(installing["loadingShown"], "安装中进度块要显示")
-        self.assertTrue(installing["disabledInstalling"], "安装中开启按钮要禁用")
+        self.assertTrue(installing["startHidden"], "安装中按钮位不亮")
+        self.assertEqual(installing["chip"], "正在安装组件…", "安装中标说明正在装组件")
         self.assertFalse(after["disabledAfterInstallFlag"], "装完空闲时开启按钮要可点")
 
-    def test_busy_and_pending_disable_the_stop_button(self):
+    def test_busy_read_disables_the_stop_button(self):
         """手机访问·已开启：「关闭手机访问」看得见；面板忙时要禁用、空闲时可点；
-        关闭进行中说「关闭中…」并禁用，空闲时按钮字回到「关闭手机访问」。"""
+        关闭进行中按钮位不亮、标题行只说「正在停止…」，空闲后按钮字回到「关闭手机访问」。"""
         res = run_js(PRELUDE + r"""
+window.PhonePanel.state.advanced = { features: { phone_control: { ready: true } },
+  channels: { tailscale: { available: true } } };
 window.PhonePanel.state.running = true;
 window.PhonePanel.busy = true;
 window.PhonePanel.paint();
@@ -553,8 +558,8 @@ window.PhonePanel.paint();
 out.push({ disabledFree: $("#btn-phone-stop").disabled });
 window.PhonePanel.pending = "stopping";
 window.PhonePanel.paint();
-out.push({ disabledPending: $("#btn-phone-stop").disabled,
-           stopText: $("#btn-phone-stop").textContent });
+out.push({ stopHidden: $("#btn-phone-stop").hidden,
+           chip: $("#phone-feature-status-text").textContent });
 window.PhonePanel.pending = "";
 window.PhonePanel.paint();
 out.push({ freeText: $("#btn-phone-stop").textContent });
@@ -564,8 +569,8 @@ out.push({ freeText: $("#btn-phone-stop").textContent });
         self.assertFalse(busy["stopHidden"], "已开启时「关闭手机访问」要看得见")
         self.assertTrue(busy["disabledBusy"], "面板忙时关闭按钮要禁用")
         self.assertFalse(free["disabledFree"], "面板空闲时关闭按钮要可点")
-        self.assertTrue(pending["disabledPending"], "关闭进行中按钮要禁用")
-        self.assertEqual(pending["stopText"], "关闭中…", "关闭进行中按钮要说明自己在关闭")
+        self.assertTrue(pending["stopHidden"], "关闭进行中按钮位不亮")
+        self.assertEqual(pending["chip"], "正在停止…", "关闭进行中标题行要说明自己在停止")
         self.assertEqual(again["freeText"], "关闭手机访问")
 
 

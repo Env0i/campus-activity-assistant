@@ -38,19 +38,20 @@ class OcrPanelBusyReadTests(unittest.TestCase):
     """读进行中标志·验证码识别面板：忙碌时本节按钮要按住。"""
 
     def test_ocr_busy_read_disables_the_ocr_buttons(self):
-        """验证码识别：识别面板自己的忙碌位亮着时，「启用」与「下载并安装」都要禁用。"""
+        """验证码识别已装未用、面板忙：这一行只给「启用」，忙时要禁用；
+        「下载并安装」这一档此刻不在，不能因为忙没忙过来又亮一次。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.state.advanced = { features: { relogin_ocr: { available: true } } };
 OcrPanel.busy = true;
 paintOcrDownload();
 out.push({ enableDisabled: $("#btn-ocr-enable").disabled,
-           downloadDisabled: $("#btn-ocr-download").disabled,
+           downloadHidden: $("#btn-ocr-download").hidden,
            enableHidden: $("#btn-ocr-enable").hidden });
 """)
         data = res[0]
-        self.assertFalse(data["enableHidden"], "已装没启用时「启用」按钮要看得见")
+        self.assertFalse(data["enableHidden"], "装好没用时「启用」按钮要看得见")
         self.assertTrue(data["enableDisabled"], "面板忙碌时启用按钮要禁用")
-        self.assertTrue(data["downloadDisabled"], "面板忙碌时下载按钮要禁用")
+        self.assertTrue(data["downloadHidden"], "这一档不给「下载并安装」")
 
     def test_busy_guard_in_enable_ocr_sends_nothing(self):
         """验证码识别·启用：面板忙碌时再点「启用」，不发 enable_advanced_feature。"""
@@ -69,7 +70,7 @@ class OcrButtonUsePointTests(unittest.TestCase):
     """使用点·验证码识别一节的三处按钮与红条：忙时要按住，安装中不翻旧账。"""
 
     def test_busy_read_disables_the_ocr_cancel_button(self):
-        """验证码识别·下载中：标题行「取消下载」看得见，面板忙时要禁用，空闲时可点。"""
+        """验证码识别在下载：这次只给「取消」，忙时禁用、空闲时可点。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.state.advanced = { features: { relogin_ocr: {
   download: { state: "downloading", downloaded: 3145728, total_bytes: 9437184 } } } };
@@ -84,15 +85,15 @@ window.PhonePanel.paint();
 out.push({ disabledFree: $("#btn-ocr-cancel").disabled });
 """)
         busy, free = res
-        self.assertTrue(busy["loadingShown"], "下载中进度块要显示")
-        self.assertFalse(busy["cancelHidden"], "下载中标题行「取消下载」要看得见")
-        self.assertEqual(busy["cancelText"], "取消下载")
+        self.assertTrue(busy["loadingShown"], "下载中进度条要显示")
+        self.assertFalse(busy["cancelHidden"], "下载中标题行只给「取消」")
+        self.assertEqual(busy["cancelText"], "取消")
         self.assertTrue(busy["disabledBusy"], "面板忙时取消按钮要禁用")
-        self.assertFalse(free["disabledFree"], "面板空闲时同一颗按钮要可点")
+        self.assertFalse(free["disabledFree"], "面板空闲时同一只按钮要可点")
 
     def test_installing_keeps_the_old_ocr_error_hidden(self):
-        """验证码识别·安装中：之前留下的失败红条要收着，进度块照常显示；
-        安装标志放下后同一条红条才出现——不能让旧失败吓住正在进行的安装。"""
+        """验证码识别·安装中：之前留下的失败红条要收着，进度条也收着。
+        装完标志清掉后，同一句红条才重新出现。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.state.advanced = { features: { relogin_ocr: {} } };
 OcrPanel.error = "下载没有完成：连不上发布页，可以重试。";
@@ -107,11 +108,11 @@ out.push({ errTextWhenFree: $("#ocr-download-error").textContent,
            errHiddenWhenFree: $("#ocr-download-error").hidden });
 """)
         data = res[0]
-        self.assertTrue(data["loadingShown"], "安装中进度块要显示")
+        self.assertTrue(data["loadingShown"] is False, "安装中进度条收着")
         self.assertEqual(data["errText"], "", "安装中不显示旧的失败红条")
         self.assertTrue(data["errHidden"], "安装中红条要收起")
         self.assertEqual(res[1]["errTextWhenFree"], "下载没有完成：连不上发布页，可以重试。",
-                         "安装标志放下后旧失败要重新可见")
+                         "安装标志清掉后旧失败要重新可见")
         self.assertFalse(res[1]["errHiddenWhenFree"])
 
     def test_busy_read_disables_the_ocr_open_location_button(self):
@@ -158,7 +159,7 @@ class InstallingRowTests(unittest.TestCase):
     """读进行中标志·安装路径与三个必有的界面场景。"""
 
     def test_phone_downloads_while_ocr_installs_rows_do_not_mix(self):
-        """两个组件：手机控制在下载、验证码识别在安装——两行各显示各的进度字，互不串。"""
+        """手机控制在下、验证码识别在装：两行各写各的进度，互不串。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.state.advanced = { features: {
   phone_control: { download: { state: "downloading",
@@ -166,39 +167,39 @@ window.PhonePanel.state.advanced = { features: {
   relogin_ocr: { ready: true } } };
 window.PhonePanel.installing.relogin_ocr = true;
 window.PhonePanel.paint();
-out.push({ phoneProg: $("#phone-prog-text").textContent,
+out.push({ phoneText: $("#phone-feature-status-text").textContent,
            phoneLoadingHidden: $("#phone-loading").hidden,
-           ocrProg: $("#ocr-prog-text").textContent,
+           ocrText: $("#ocr-feature-status-text").textContent,
            ocrLoadingHidden: $("#ocr-loading").hidden });
 """)
         data = res[0]
-        self.assertEqual(data["phoneProg"], "正在下载手机控制组件", "手机控制行说自己在下载")
-        self.assertEqual(data["ocrProg"], "正在安装组件…", "验证码识别行说自己在安装")
-        self.assertFalse(data["phoneLoadingHidden"], "手机控制的进度块要显示")
-        self.assertFalse(data["ocrLoadingHidden"], "验证码识别的进度块要显示")
+        self.assertIn("下载中", data["phoneText"], "手机控制行说自己在下")
+        self.assertEqual(data["ocrText"], "正在安装组件…", "验证码识别行说自己在装")
+        self.assertFalse(data["phoneLoadingHidden"], "手机控制的进度条要显示")
+        self.assertTrue(data["ocrLoadingHidden"], "验证码识别的进度条要收着")
 
     def test_each_component_shows_its_own_installing_row(self):
-        """两个组件各自「正在安装」：两行的进度区都说「正在安装组件…」，不再当没装。"""
+        """两行都在装：各写各的「正在安装组件…」，谁也不跌回「没装」。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.state.advanced = { features: {
   phone_control: { ready: true }, relogin_ocr: { ready: true } } };
 window.PhonePanel.installing.phone_control = true;
 window.PhonePanel.installing.relogin_ocr = true;
 window.PhonePanel.paint();
-out.push({ phoneProg: $("#phone-prog-text").textContent,
-           ocrProg: $("#ocr-prog-text").textContent,
+out.push({ phoneText: $("#phone-feature-status-text").textContent,
+           ocrText: $("#ocr-feature-status-text").textContent,
            phoneMissingHidden: $("#phone-missing").hidden,
            ocrMissingHidden: $("#ocr-missing").hidden });
 """)
         data = res[0]
-        self.assertEqual(data["phoneProg"], "正在安装组件…", "手机控制行要说正在安装")
-        self.assertEqual(data["ocrProg"], "正在安装组件…", "验证码识别行要说正在安装")
-        self.assertTrue(data["phoneMissingHidden"], "安装中不能显示成没装")
-        self.assertTrue(data["ocrMissingHidden"], "安装中不能显示成没装")
+        self.assertEqual(data["phoneText"], "正在安装组件…", "手机控制行要说明在安装")
+        self.assertEqual(data["ocrText"], "正在安装组件…", "验证码识别行要说明在安装")
+        self.assertTrue(data["phoneMissingHidden"], "安装中不能显示成「没装」")
+        self.assertTrue(data["ocrMissingHidden"], "安装中不能显示成「没装」")
 
     def test_each_component_installs_from_missing_without_showing_missing_blocks(self):
-        """两个组件·从「没装」出发的安装中：「没装」块都不显示（安装中不能当没装），
-        进度区都说「正在安装组件…」并显示，标题行主按钮禁用。"""
+        """两行都在装、都没装过：没装块不能显示，标题行也只写状态——安装中按钮位不亮，
+        免得用户在装到一半时再点一次。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.state.advanced = { features: { phone_control: {}, relogin_ocr: {} } };
 window.PhonePanel.installing.phone_control = true;
@@ -206,30 +207,26 @@ window.PhonePanel.installing.relogin_ocr = true;
 window.PhonePanel.paint();
 out.push({ phoneMissingHidden: $("#phone-missing").hidden,
            phoneInstallHidden: $("#btn-phone-component-install").hidden,
-           phoneInstallDisabled: $("#btn-phone-component-install").disabled,
-           phoneProg: $("#phone-prog-text").textContent,
-           phoneLoadingShown: !$("#phone-loading").hidden,
+           phoneText: $("#phone-feature-status-text").textContent,
+           phoneLoadingHidden: $("#phone-loading").hidden,
            ocrMissingHidden: $("#ocr-missing").hidden,
            ocrDownloadHidden: $("#btn-ocr-download").hidden,
-           ocrDownloadDisabled: $("#btn-ocr-download").disabled,
-           ocrProg: $("#ocr-prog-text").textContent,
-           ocrLoadingShown: !$("#ocr-loading").hidden });
+           ocrText: $("#ocr-feature-status-text").textContent,
+           ocrLoadingHidden: $("#ocr-loading").hidden });
 """)
         data = res[0]
-        self.assertTrue(data["phoneMissingHidden"], "安装中的手机控制不能显示成没装")
-        self.assertFalse(data["phoneInstallHidden"], "没装时标题行主按钮要看得见")
-        self.assertTrue(data["phoneInstallDisabled"], "安装中主按钮要禁用")
-        self.assertEqual(data["phoneProg"], "正在安装组件…", "手机控制行要说正在安装")
-        self.assertTrue(data["phoneLoadingShown"], "手机控制的进度块要显示")
-        self.assertTrue(data["ocrMissingHidden"], "安装中的验证码识别不能显示成没装")
-        self.assertFalse(data["ocrDownloadHidden"], "没装时「下载并安装」要看得见")
-        self.assertTrue(data["ocrDownloadDisabled"], "安装中「下载并安装」要禁用")
-        self.assertEqual(data["ocrProg"], "正在安装组件…", "验证码识别行要说正在安装")
-        self.assertTrue(data["ocrLoadingShown"], "验证码识别的进度块要显示")
+        self.assertTrue(data["phoneMissingHidden"], "安装中的手机控制不能显示成「没装」")
+        self.assertTrue(data["phoneInstallHidden"], "安装中标题行不给第二次「下载并安装」")
+        self.assertEqual(data["phoneText"], "正在安装组件…", "手机控制要说明在安装")
+        self.assertTrue(data["phoneLoadingHidden"], "安装中进度条收着")
+        self.assertTrue(data["ocrMissingHidden"], "安装中的验证码识别不能显示成「没装」")
+        self.assertTrue(data["ocrDownloadHidden"], "安装中标题行不给第二次「下载并安装」")
+        self.assertEqual(data["ocrText"], "正在安装组件…", "验证码识别要说明在安装")
+        self.assertTrue(data["ocrLoadingHidden"], "安装中进度条收着")
 
     def test_checking_state_is_not_missing_on_both_rows(self):
-        """后端给「检查中」（组件事务锁被占）时，两行都不显示成「没装」，
-        也不假装在下载：进度块收起，改由读状态说明说「正在确认组件状态…」。"""
+        """两行都在检查中：一行一行显示成「没装」或「装好了」都不对。
+        检查中不假装下载、也不假装没装，状态句要写清正在确认；说明位留给别的结论，检查中空着。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.state.advanced = { features: {
   phone_control: { status: "checking", available: true },
@@ -239,32 +236,28 @@ out.push({ phoneMissingHidden: $("#phone-missing").hidden,
            ocrMissingHidden: $("#ocr-missing").hidden,
            phoneLoadingHidden: $("#phone-loading").hidden,
            ocrLoadingHidden: $("#ocr-loading").hidden,
-           phoneProbe: $("#phone-probe").textContent,
+           phoneText: $("#phone-feature-status-text").textContent,
+           ocrText: $("#ocr-feature-status-text").textContent,
            phoneProbeHidden: $("#phone-probe").hidden,
+           ocrProbeHidden: $("#ocr-note").hidden,
            phoneProbeKind: $("#phone-probe").dataset.probe,
-           ocrProbe: $("#ocr-probe").textContent,
-           ocrProbeHidden: $("#ocr-probe").hidden,
-           ocrProbeKind: $("#ocr-probe").dataset.probe,
+           ocrProbeKind: $("#ocr-note").dataset.probe,
            phoneRetryHidden: $("#btn-phone-component-retry").hidden,
            ocrRetryHidden: $("#btn-ocr-retry").hidden });
 """)
         data = res[0]
-        self.assertTrue(data["phoneMissingHidden"], "检查中的手机控制不能显示成没装")
-        self.assertTrue(data["ocrMissingHidden"], "检查中的验证码识别不能显示成没装")
-        self.assertTrue(data["phoneLoadingHidden"], "检查中不是在下载，进度块要收起")
-        self.assertTrue(data["ocrLoadingHidden"], "检查中不是在下载，进度块要收起")
-        self.assertFalse(data["phoneProbeHidden"], "手机控制行要说清正在确认状态")
-        self.assertEqual(data["phoneProbe"], "正在确认组件状态…")
+        self.assertTrue(data["phoneMissingHidden"], "检查中的手机控制不能显示成「没装」")
+        self.assertTrue(data["ocrMissingHidden"], "检查中的验证码识别不能显示成「没装」")
+        self.assertTrue(data["phoneLoadingHidden"], "检查中不是下载，进度块要收着")
+        self.assertTrue(data["ocrLoadingHidden"], "检查中不是下载，进度块要收着")
+        self.assertEqual(data["phoneText"], "正在确认组件状态…", "手机控制要写清正在确认状态")
+        self.assertEqual(data["ocrText"], "正在确认组件状态…", "验证码识别要写清正在确认状态")
+        self.assertTrue(data["phoneProbeHidden"], "检查中说明位留空")
+        self.assertTrue(data["ocrProbeHidden"], "检查中说明位留空")
         self.assertEqual(data["phoneProbeKind"], "waiting")
-        self.assertFalse(data["ocrProbeHidden"], "验证码识别行要说清正在确认状态")
-        self.assertEqual(data["ocrProbe"], "正在确认组件状态…")
         self.assertEqual(data["ocrProbeKind"], "waiting")
-        self.assertTrue(data["phoneRetryHidden"], "还在等锁，没到 30 秒不给「重试」")
-        self.assertTrue(data["ocrRetryHidden"], "还在等锁，没到 30 秒不给「重试」")
-
-
-class DialogContractBehaviorTests(unittest.TestCase):
-    """导入弹窗：安装按钮先过自检才可点；标题行的导入入口只开弹窗不安装。"""
+        self.assertTrue(data["phoneRetryHidden"], "刚在检查中不给「重试」")
+        self.assertTrue(data["ocrRetryHidden"], "刚在检查中不给「重试」")
 
     def test_dialog_install_button_stays_disabled_until_a_file_passes(self):
         """导入弹窗·手机控制：没选文件时「安装这份」不可点；自检通过后才可点，
@@ -284,8 +277,8 @@ out.push({ disabledAfter: $("#btn-comp-phone-install").disabled,
         self.assertEqual(second["note"], "已识别为「手机控制」组件包，版本 9.9。",
                          "结论行要说识别出了什么")
 
-    def test_feature_action_import_opens_the_dialog_without_installing(self):
-        """手机控制·缺组件包：标题行「安装/更换组件包」点了只开弹窗，不调安装接口。"""
+    def test_package_button_opens_the_dialog_without_installing(self):
+        """手机控制·缺组件包：展开区那只「安装/更换组件包」点了只开弹窗，不调安装接口。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.state.advanced = {
   features: { phone_control: { ready: true } },
@@ -293,14 +286,16 @@ window.PhonePanel.state.advanced = {
 window.__installCalls = 0;
 window.pywebview.api.install_advanced_feature = () => {
   window.__installCalls += 1; return Promise.resolve({ ok: true }); };
+wireComponentRetries();
 window.PhonePanel.paint();
-const btn = $("#btn-phone-feature-install");
+const btn = $("#btn-phone-package");
+const shown = !btn.hidden;
 btn.click();
-out.push({ btnText: btn.textContent, dlgOpen: $("#dlg-components").open,
+out.push({ shown: shown, dlgOpen: $("#dlg-components").open,
            installCalls: window.__installCalls });
 """)
         data = res[0]
-        self.assertEqual(data["btnText"], "安装/更换组件包", "缺组件包时标题行给导入入口")
+        self.assertTrue(data["shown"], "缺组件包时展开区给补装入口")
         self.assertTrue(data["dlgOpen"], "点了要打开导入弹窗")
         self.assertEqual(data["installCalls"], 0, "入口只开弹窗，不能直接装")
 

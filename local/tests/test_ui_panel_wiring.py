@@ -182,14 +182,19 @@ class WirePhoneAccessTests(unittest.TestCase):
     """手机访问开合这一组按钮的接线。"""
 
     def test_wire_start_sends_the_start_request_and_says_starting(self):
-        """「开启手机访问」：点击先说「启动中…」，随后发出开启请求。"""
+        """「开启」：点击后标题行先换成「正在开启…」并收起按钮，随后发出开启请求。"""
         res = run_js(PRELUDE + r"""
+window.PhonePanel.state.advanced = { features: { phone_control: { ready: true } },
+  channels: { tailscale: { available: true } } };
+window.PhonePanel.paint();
 $("#btn-phone-start").click();
-out.push({ text: $("#btn-phone-start").textContent });
+out.push({ chip: $("#phone-feature-status-text").textContent,
+           btnHidden: $("#btn-phone-start").hidden });
 await __flush();
 out.push({ call: window.__calls.filter((c) => c[0] === "start_phone_access") });
 """)
-        self.assertEqual(res[0]["text"], "启动中…", "点击后按钮要说启动中")
+        self.assertEqual(res[0]["chip"], "正在开启…", "点击后标题行要说正在开启")
+        self.assertTrue(res[0]["btnHidden"], "启动中按钮位不亮，别再让人点第二下")
         self.assertEqual(res[1]["call"], [["start_phone_access", "tailscale"]],
                          "要发出开启请求，默认通道是 Tailscale")
 

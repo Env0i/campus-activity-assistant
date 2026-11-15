@@ -1043,6 +1043,50 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .draw-b .ph-sec { padding-top: .75rem; padding-bottom: .75rem; border-bottom: 1px solid var(--line); }
 .draw-b .help-tool-row { padding: .75rem 0; }
 .set-g:focus { outline: 0; }
+/* 「高级功能」一项一行照原型 Main.dc.html:527-536 的 .adv-* 抄（rem 换成 px）：白纸卡片、标题行左边
+   图标与名称加圆点状态句、右边只亮一只主按钮、最右展开箭头；进度条与说明句长在标题行下面；说明句与
+   红条也在标题行下面；说明、大小、位置、通道、配对、地址这些都收进展开区。圆点五种颜色与慢闪照原型
+   的 .adv-s.* 取色；展开箭头收着时朝下、展开时朝上。 */
+.help-tools.adv-sec { margin: 0 0 8px; padding: 0; border: 0; border-radius: 12px; background: var(--paper); box-shadow: 0 0 0 1px var(--line); overflow: hidden; }
+.draw-b .help-tools.adv-sec { margin: 0 1.375rem 8px; padding: 0; border-bottom: 0; }
+.adv-h { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.adv-ic { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: 9px; background: var(--paper-2); color: #3d4852; }
+.adv-ic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.adv-t { flex: 1; min-width: 0; }
+.adv-t b { display: block; font-size: 14px; font-weight: 700; }
+.adv-s { display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; color: var(--ink-2); font-size: 12px; }
+.adv-s i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #9aa3ab; }
+.adv-s[hidden] { display: none; }
+/* 字用原型的深色（--ok/--warn/--bad），圆点保留亮色：亮字在浅底上对比度只有 2 到 3 */
+.adv-s.blue i { background: var(--blue); }
+.adv-s.green { color: var(--ok); }
+.adv-s.green i { background: #1f9d5c; }
+.adv-s.amber { color: var(--warn); }
+.adv-s.amber i { background: #e0a100; }
+.adv-s.red { color: var(--bad); }
+.adv-s.red i { background: #c0392b; }
+.adv-s.amber-dot i { background: #e0a100; }
+.adv-s.blink i { animation: pulse 1.4s ease-in-out infinite; }
+.adv-h .btn { flex: none; height: 30px; }
+.adv-h .btn[hidden] { display: none; }
+.adv-x { display: grid; flex: none; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--ink-3); cursor: pointer; }
+.adv-x:hover { background: var(--paper-2); color: var(--ink); }
+.adv-x svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.adv-x[aria-expanded="true"] svg { transform: rotate(180deg); }
+.adv-bar { height: 6px; margin: -4px 16px 14px 68px; overflow: hidden; border-radius: 3px; background: #edf1f4; }
+.adv-bar[hidden] { display: none; }
+.adv-bar i { display: block; width: 0; height: 100%; background: var(--blue); transition: width .2s; }
+/* 小字要跟正文列对齐：写成 .adv-sec p.adv-n，否则被更具体的 .ph-sec p 抢走外边距，贴在卡片左缘 */
+.adv-sec p.adv-n { margin: -6px 16px 14px 68px; color: var(--ink-2); font-size: 12px; overflow-wrap: anywhere; }
+.adv-n[hidden] { display: none; }
+/* 带上 .adv-sec 与 p 才压得过上面那条基础规则，否则深红与琥珀不生效 */
+.adv-sec p.adv-n.red { color: #8a2a20; }
+.adv-sec p.adv-n.green { color: var(--ok); }
+.adv-sec p.adv-n.amber { color: var(--warn); }
+.adv-sec p.adv-e { margin: -4px 16px 14px 68px; }
+.adv-sec p.adv-e[hidden] { display: none; }
+.adv-d { padding: 0 16px 16px 68px; }
+.adv-d[hidden] { display: none; }
 .update-actions .update-flow { display: inline-flex; gap: 6px; }
 .update-actions .update-flow[hidden] { display: none; }
 /* 版本与更新小节照原型（Main.dc.html:343-351，UP04/UP06/UP11/UP12；rem→px 按 1rem=16px）：

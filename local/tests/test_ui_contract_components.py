@@ -26,7 +26,7 @@ class ChannelInstallContractTests(unittest.TestCase):
 
     def test_component_download_elements_exist(self):
         for marker in ('id="phone-probe"',
-                       'id="phone-component-progress"',
+                       'id="phone-loading"',
                        'id="phone-component-error"',
                        'id="btn-phone-component-install"',
                        'id="btn-phone-component-cancel"',
@@ -125,7 +125,8 @@ class AdvancedComponentDialogContractTests(unittest.TestCase):
         # 验证码识别的导入入口搬到 settings.js（OC12 的句内链接，和 OC14 保留的「重新导入组件包」按钮共用一处绑定）
         settings = (LOCAL / "ui" / "views" / "settings.js").read_text(encoding="utf-8")
         self.assertEqual(0, self.phone.count("PhonePanel.openComponents()"))
-        self.assertEqual(2, self.phone.count('PhonePanel.openComponents("phone_control")'))
+        # 三处：点名称右侧那只（featureAction）、缺 cloudflared 时的补装入口、以及导出给别处的兜底调用
+        self.assertEqual(3, self.phone.count('PhonePanel.openComponents("phone_control")'))
         self.assertEqual(1, settings.count('PhonePanel.openComponents("relogin_ocr")'))
 
     def test_tailscale_and_bare_cloudflared_are_not_imported_here(self):
@@ -186,7 +187,10 @@ class DocAndCopySyncTests(unittest.TestCase):
         """
         self.assertIn("cloudflared_missing", self.phone_view)
         self.assertIn("componentMissing", self.phone_view)
-        self.assertIn("安装/更换组件包", self.phone_view)
+        self.assertIn('phoneShow("#btn-phone-package"', self.phone_view)
+        # 文案在页面里（标题行只留「开启」，补装入口收在展开区）
+        self.assertIn('id="btn-phone-package"', self.html)
+        self.assertIn("安装/更换组件包", self.html)
         self.assertNotIn("phoneInstall.hidden = phoneReady;", self.phone_view)
 
     def test_a_check_event_refreshes_the_desktop_relogin_card(self):
