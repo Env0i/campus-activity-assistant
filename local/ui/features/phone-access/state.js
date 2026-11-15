@@ -11,7 +11,7 @@
  * 入口沿用帮助弹窗的工具行，手机地址只在服务已开启时展示；密码字段在每次
  * 请求后清空，二维码只编码当前地址，不把配对码拼进 URL。 */
 
-/* 验证码识别一节的状态、按钮和文案在 views/settings.js（paintOcrDownload）；这里管手机访问、登录恢复和导入弹窗。 */
+/* 验证码识别一节的状态、按钮和文案在 features/components/view-ocr.js（paintOcrDownload）；这里管手机访问、登录恢复和导入弹窗。 */
 
 
 

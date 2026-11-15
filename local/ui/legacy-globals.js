@@ -5,7 +5,8 @@
 import { termsAccepted, termsLocked } from "./features/terms/state.js";
 import { PhonePanel } from "./features/phone-access/state.js";
 import { maskAccount } from "./features/login/state-recovery.js";
-import { downloadFailText } from "./features/components/state.js";
+import { OcrPanel } from "./features/components/state-ocr.js";
+import { paintOcrDownload } from "./features/components/view-ocr.js";
 
 export function installLegacyGlobals() {
   window.termsAccepted = termsAccepted;
@@ -14,5 +15,6 @@ export function installLegacyGlobals() {
    * 一个显式挂载点：顶层 const 不会自动变成 window 属性。 */
   if (typeof window !== "undefined") window.PhonePanel = PhonePanel;
   window.maskAccount = maskAccount;
-  window.downloadFailText = downloadFailText;
+  window.OcrPanel = OcrPanel;
+  window.paintOcrDownload = paintOcrDownload;
 }

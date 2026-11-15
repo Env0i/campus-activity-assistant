@@ -312,7 +312,7 @@
         <p class="help-status" id="phone-status" role="status" hidden></p>
       </section>
       <!-- 验证码识别照原型 ocrView（settings-gap 二、OC01–OC15）：标题行右侧二选一，没装放「下载并安装」、已装没启用放「启用」、
-           下载中放「取消下载 / 校验中…」、已启用放 chip；状态机由 views/settings.js paintOcrDownload 决定。 -->
+           下载中放「取消下载 / 校验中…」、已启用放 chip；状态机由 features/components/view-ocr.js paintOcrDownload 决定。 -->
       <section class="help-tools set-ocr ph-sec" id="set-ocr" aria-label="验证码识别">
         <div class="set-h"><b id="set-ocr-title">验证码识别<span class="ph-st set-chip" id="ocr-title-chip" hidden>未启用</span></b><span class="ph-slot"><span class="ph-st" id="ocr-feature-status" hidden>已启用</span><button class="btn btn-solid" id="btn-ocr-download" type="button">下载并安装</button><button class="btn btn-solid" id="btn-ocr-enable" type="button" hidden>启用</button><button class="btn btn-line" id="btn-ocr-feature-install" type="button" hidden>重新导入组件包</button><button class="btn btn-line" id="btn-ocr-cancel" type="button" hidden>取消下载</button></span></div>
         <p id="ocr-download-state">登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。没装或认不出来时，由你在手机上手动输入。</p>

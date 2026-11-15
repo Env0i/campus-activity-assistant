@@ -41,6 +41,10 @@ PHONE_DIR = LOCAL / "ui" / "m"
 # 加载时按引用序补齐整组模块、剥壳执行，并把 PhonePanel 挂到 window。
 PANEL_ENTRY = "features/phone-access/actions-panel.js"
 
+# 验证码识别一节的状态与绘制搬成模块后也进了装配文件的引用图：数手机面板源码里
+# 某句文案出现次数的两处读取范围跳过这两个文件，断言口径与搬家前一致。
+OCR_VIEW_MODULES = ["features/components/state-ocr.js", "features/components/view-ocr.js"]
+
 # 合法的一像素 PNG（1×1 透明）：投影层只放行真 PNG 魔数的图，
 # 'AAAA' 这类假图会被丢成空串，用它测正常流程等于测一个不可能发生的事件。
 CAPTCHA_PNG = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
@@ -1591,7 +1595,7 @@ out.push({phase: phonePhase(PhonePanel.state, PhonePanel.feature("phone_control"
     def test_static_copy_follows_the_prototype(self):
         """PH04、PH08、IM02：多出的二级行删掉；体积只做「现在读不到」形态；导入弹窗不再说本程序不联网下载。"""
         html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
-        view = module_group_raw_src(PANEL_ENTRY)
+        view = module_group_raw_src(PANEL_ENTRY, skip=OCR_VIEW_MODULES)
         self.assertIn("可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。", html)
         self.assertNotIn("约 18.4 MB", html + view, "打开设置不联网，不写死体积（审核决定 4）")
         self.assertNotIn("只提供 Tailscale 与 Cloudflare 两种远程通道", html)
@@ -1932,7 +1936,7 @@ out.push({calls: calls.filter((c) => c === "clear_relogin_credentials"), note: $
     def test_static_copy_follows_the_prototype(self):
         """CR01、CR02、CR04、CR13、CR17、DT01、DT04、IM01、IM02：静态文案逐字照原型。"""
         html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
-        view = module_group_raw_src(PANEL_ENTRY)
+        view = module_group_raw_src(PANEL_ENTRY, skip=OCR_VIEW_MODULES)
         for text in ("登录信息、设置、运行记录和下载的组件，都只保存在这台电脑。",
                      "登录失效时用账号密码自动登录。账号密码只用 Windows 当前用户加密保存在本机，手机页看不到。",
                      "登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。",

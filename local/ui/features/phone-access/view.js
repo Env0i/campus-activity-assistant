@@ -4,6 +4,7 @@
 
 import { PhonePanel, channelCards, pairLeftText, phoneLinkedNow, phonePhase } from "./state.js";
 import { downloadFailText } from "../components/state.js";
+import { paintOcrDownload } from "../components/view-ocr.js";
 
 
 
@@ -42,7 +43,7 @@ export const phonePaintPack = {
     PhonePanel.paintPhoneAccess(st, phoneRow, cred);
     if (phoneRemove) phoneRemove.disabled = busy;
     PhonePanel.paintRelogin(cred, ocrRow);
-    /* 验证码识别一节的状态、按钮和文案由设置抽屉按组件快照与下载事务统一决定（views/settings.js） */
+    /* 验证码识别一节的状态、按钮和文案由设置抽屉按组件快照与下载事务统一决定（features/components/view-ocr.js） */
     if (typeof paintOcrDownload === "function") paintOcrDownload();
   },
 

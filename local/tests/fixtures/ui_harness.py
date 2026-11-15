@@ -182,9 +182,14 @@ def module_group_sandbox_src(entry: str) -> str:
     return "\n".join(_module_sandbox_src(rel) for rel in _module_graph(entry))
 
 
-def module_group_raw_src(entry: str) -> str:
-    """模块入口的整张引用图的原文拼接（不剥壳），给读源码的字面断言用。"""
-    return "\n".join(_read_ui(rel) for rel in _module_graph(entry))
+def module_group_raw_src(entry: str, skip: list[str] | None = None) -> str:
+    """模块入口的整张引用图的原文拼接（不剥壳），给读源码的字面断言用。
+
+    skip 列出要跳过的模块路径（相对 local/ui）：一块代码搬成新模块后，读这组原文的
+    字面断言若不该把它算进范围（例如数某句文案出现次数），把新模块路径列进来；
+    不给时行为不变。"""
+    skipped = set(skip or [])
+    return "\n".join(_read_ui(rel) for rel in _module_graph(entry) if rel not in skipped)
 
 
 def read_ui_scripts() -> str:

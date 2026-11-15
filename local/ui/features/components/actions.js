@@ -4,6 +4,7 @@
 
 import { PhonePanel, phonePhase } from "../phone-access/state.js";
 import { importCheckText } from "./view.js";
+import { OcrPanel } from "./state-ocr.js";
 
 
 
@@ -172,7 +173,7 @@ export const componentsActionsPack = {
       PhonePanel.busy = false;
     }
     if (feature === "relogin_ocr") {
-      // OC11 / OC15：反馈就地写在验证码识别那一节（views/settings.js OcrPanel），不再走抽屉底部；开始下载不另说，进度块会出现
+      // OC11 / OC15：反馈就地写在验证码识别那一节（features/components/state-ocr.js OcrPanel），不再走抽屉底部；开始下载不另说，进度块会出现
       if (typeof OcrPanel !== "undefined") {
         OcrPanel.note = "";
         OcrPanel.error = result && result.ok ? "" : String((result && result.text) || "组件下载没有开始。");
@@ -196,7 +197,7 @@ export const componentsActionsPack = {
       result = { ok: false, text: "取消没有生效，请稍后重试。" };
     }
     if (feature === "relogin_ocr") {
-      // OC13：成功后回到没装态，取消的那句话由快照的 cancelled 派生（写在 views/settings.js）；失败才在本节红条里说
+      // OC13：成功后回到没装态，取消的那句话由快照的 cancelled 派生（写在 features/components/view-ocr.js）；失败才在本节红条里说
       if (typeof OcrPanel !== "undefined") {
         OcrPanel.note = "";
         OcrPanel.error = result && result.ok === false

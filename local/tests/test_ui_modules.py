@@ -225,6 +225,89 @@ out.push({ start: window.__calls.filter((c) => c[0] === "start_phone_access") })
         self.assertEqual(result["after"][0]["start"], [["start_phone_access", "tailscale"]],
                          "真加载下点手机行「开启手机访问」要发出开启请求")
 
+    def test_real_load_settings_drawer_asks_the_ocr_component_location(self):
+        """真加载下点设置按钮打开抽屉：发出一次验证码识别的组件位置请求。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.pywebview = { api: new Proxy({}, {
+  get: (target, name) => (...args) => {
+    window.__calls.push([String(name), ...args]);
+    return Promise.resolve({ ok: true });
+  },
+}) };
+window.__calls = [];
+const __flush = async (n = 8) => { for (let i = 0; i < n; i += 1) await Promise.resolve(); };
+$("#btn-settings").click();
+await __flush();
+out.push({ loc: window.__calls.filter(
+  (c) => c[0] === "advanced_component_location" && c[1] === "relogin_ocr") });
+""")
+        self.assertTrue(result["modulesReady"], "真加载后 main.js 必须置 __modulesReady")
+        self.assertEqual(result["after"][0]["loc"],
+                         [["advanced_component_location", "relogin_ocr"]],
+                         "真加载下打开设置抽屉要发出一次验证码识别的组件位置请求")
+
+    def test_real_load_ocr_enable_says_enabled_in_the_row(self):
+        """真加载下点识别行的「启用」：发出启用请求，识别行说明里出现启用成功那句。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.pywebview = { api: new Proxy({}, {
+  get: (target, name) => (...args) => {
+    window.__calls.push([String(name), ...args]);
+    return Promise.resolve({ ok: true });
+  },
+}) };
+window.__calls = [];
+const __flush = async (n = 12) => { for (let i = 0; i < n; i += 1) await Promise.resolve(); };
+$("#btn-ocr-enable").click();
+await __flush();
+out.push({ note: $("#ocr-note").textContent,
+           noteShown: !$("#ocr-note").hidden,
+           enable: window.__calls.filter((c) => c[0] === "enable_advanced_feature") });
+""")
+        self.assertTrue(result["modulesReady"], "真加载后 main.js 必须置 __modulesReady")
+        self.assertTrue(result["after"][0]["noteShown"], "启用成功后识别行说明要看得见")
+        self.assertEqual(result["after"][0]["note"], "验证码识别已启用。",
+                         "真加载下点「启用」后说明里要有启用成功那句（经面板字段与下载区绘制）")
+        self.assertEqual(result["after"][0]["enable"],
+                         [["enable_advanced_feature", "relogin_ocr"]],
+                         "真加载下点「启用」要发出启用请求")
+
+    def test_real_load_ocr_open_dir_sends_the_open_dir_request(self):
+        """真加载下点识别行「打开所在文件夹」：发出打开目录请求。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.pywebview = { api: new Proxy({}, {
+  get: (target, name) => (...args) => {
+    window.__calls.push([String(name), ...args]);
+    return Promise.resolve({ ok: true });
+  },
+}) };
+window.__calls = [];
+$("#btn-ocr-open-loc").click();
+out.push({ openDir: window.__calls.filter((c) => c[0] === "open_advanced_component_dir") });
+""")
+        self.assertTrue(result["modulesReady"], "真加载后 main.js 必须置 __modulesReady")
+        self.assertEqual(result["after"][0]["openDir"],
+                         [["open_advanced_component_dir", "relogin_ocr"]],
+                         "真加载下点「打开所在文件夹」要发出打开目录请求")
+
+    def test_real_load_ocr_failed_download_paints_the_retry_bar(self):
+        """真加载下识别行下载失败（原因是连不上发布页），调挂回的绘制后红条要看得见、
+        文字是「下载没有完成：连不上发布页，可以重试。」。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.PhonePanel.state.advanced = { features: { relogin_ocr: {
+  download: { state: "failed", error_code: "network_error" } } } };
+window.paintOcrDownload();
+const bar = $("#ocr-download-error");
+out.push({ barShown: !bar.hidden, text: bar.textContent });
+""")
+        self.assertTrue(result["modulesReady"], "真加载后 main.js 必须置 __modulesReady")
+        self.assertTrue(result["after"][0]["barShown"], "下载失败后识别行红条要看得见")
+        self.assertEqual(result["after"][0]["text"], "下载没有完成：连不上发布页，可以重试。",
+                         "红条文字要按失败原因拼出可重试那句")
+
 
 if __name__ == "__main__":
     unittest.main()

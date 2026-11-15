@@ -178,10 +178,6 @@
         "value": 124,
         "reason": "步骤 1C 计划栏"
       },
-      "local/ui/views/settings.js::paintOcrDownload": {
-        "value": 119,
-        "reason": "步骤 1A 组件"
-      },
       "local/ui/views/update.js::paintUpdate": {
         "value": 146,
         "reason": "步骤 2 更新"
@@ -220,6 +216,10 @@
       },
       "local/ui/features/phone-access/view.js::paintPhoneAccess": {
         "value": 262,
+        "reason": "步骤 1A 组件"
+      },
+      "local/ui/features/components/view-ocr.js::paintOcrDownload": {
+        "value": 119,
         "reason": "步骤 1A 组件"
       }
     },
