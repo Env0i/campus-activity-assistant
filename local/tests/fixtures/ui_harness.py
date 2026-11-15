@@ -661,6 +661,16 @@ SMOKE_HARNESS = (
     '  catch (err) { /* navigator 这类只读内建保持原样，桩的差异不影响冒烟断言 */ }\n'
     '}\n'
     'globalThis.window = globalThis;\n'
+    'const sizeFile = process.argv[6] || "";\n'
+    'if (sizeFile) {\n'
+    '  const size = JSON.parse(fs.readFileSync(sizeFile, "utf8"));\n'
+    '  globalThis.innerWidth = size.width;\n'
+    '  globalThis.innerHeight = size.height;\n'
+    '}\n'
+    'const beforeFile = process.argv[7] || "";\n'
+    'if (beforeFile) {\n'
+    '  vm.runInThisContext(fs.readFileSync(beforeFile, "utf8"), { filename: "before-snippet.js" });\n'
+    '}\n'
     'const attached = JSON.parse(fs.readFileSync(namesFile, "utf8"));\n'
     'const list = JSON.parse(fs.readFileSync(listFile, "utf8"));\n'
     'for (const rel of list) {\n'
@@ -696,14 +706,19 @@ def _copy_ui_tree(dest: Path) -> None:
     (dest / "package.json").write_text('{"type": "module"}', encoding="utf-8")
 
 
-def run_native_smoke(names: list, after: str | None = None) -> dict:
+def run_native_smoke(names: list, after: str | None = None, size: tuple | None = None,
+                     before: str | None = None) -> dict:
     """真实的动态 import 加载 main.js，返回挂回名字的逐个核对结果。node 缺失时 skip。
 
     names 是模块图报告里挂回 window 的名字清单：真加载完成后逐个断言 window 上
     对应的名字有定义（函数或对象都算）。普通脚本与 main.js 都从临时副本目录读，
     模块的 import 由 node 的真实加载器按副本里的 package.json（type: module）解析。
     after 是可选片段：真加载完成之后在同一个全局环境里执行并把 out 带回来，供
-    「真加载下再点控件」一类的断言用；不给时行为与原来一致。"""
+    「真加载下再点控件」一类的断言用；不给时行为与原来一致。before 是可选片段，
+    在普通脚本执行之前跑（用来按真实 index.html 的初始属性摆好 DOM 桩，例如把
+    「开始报名计划」摆成 disabled，那样普通脚本阶段的按档绘制才会走到起始检查）。size 是可选
+    (宽, 高)：给了就在普通脚本执行之前把窗口尺寸改成它，用来复现「普通脚本阶段
+    按窗口宽度走不同分支」的启动缺陷；不给时与原来完全一样（宽 1120、高 800）。"""
     import json
     import shutil
     import subprocess
@@ -722,10 +737,18 @@ def run_native_smoke(names: list, after: str | None = None) -> dict:
         harness.write_text(SMOKE_HARNESS, encoding="utf-8")
         part.write_text(json.dumps(plain), encoding="utf-8")
         namesfile.write_text(json.dumps(list(names)), encoding="utf-8")
+        sizefile = Path(name) / "size.json"
+        beforefile = Path(name) / "before.js"
         cmd = [node, str(harness), str(dest), str(part), str(namesfile)]
         if after:
             afterfile.write_text(after, encoding="utf-8")
-            cmd.append(str(afterfile))
+        cmd.append(str(afterfile) if after else "")
+        if size:
+            sizefile.write_text(json.dumps({"width": size[0], "height": size[1]}), encoding="utf-8")
+        cmd.append(str(sizefile) if size else "")
+        if before:
+            beforefile.write_text(before, encoding="utf-8")
+        cmd.append(str(beforefile) if before else "")
         res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
                              errors="replace", timeout=60)
         if res.returncode != 0:

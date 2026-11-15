@@ -247,6 +247,39 @@ out.push({ loc: window.__calls.filter(
                          [["advanced_component_location", "relogin_ocr"]],
                          "真加载下打开设置抽屉要发出一次验证码识别的组件位置请求")
 
+    def test_real_load_at_medium_and_narrow_widths_keeps_the_tail_bindings(self):
+        """按窗口宽度真加载两次（900 中档、430 窄档）。
+
+        app.js 顶层那句 applyBand() 会在普通脚本阶段就按宽度选分支一路往下跑，走到
+        paintDock -> startBlocker -> termsLocked() 时模块名还没挂回 window（挂回在
+        main.js 里），整页报 ReferenceError，其后那 40 余处绑定一处都装不上。所以
+        这里既要不崩，也要证明末尾那条「打开数据目录」的绑定确实点得动。
+        """
+        report = _run_ui_modules()
+        for width, height in ((900, 700), (430, 820)):
+            with self.subTest(width=width):
+                result = run_native_smoke(report["legacy_globals_attached"],
+                                          size=(width, height),
+                                          before='document.querySelector("#btn-plan").disabled = true;',
+                                          after=r'''
+window.pywebview = { api: new Proxy({}, {
+  get: (target, name) => (...args) => {
+    window.__calls.push([String(name), ...args]);
+    return Promise.resolve({ ok: true });
+  },
+}) };
+window.__calls = [];
+const __flush = async (n = 8) => { for (let i = 0; i < n; i += 1) await Promise.resolve(); };
+$("#btn-log-folder").click();
+await __flush();
+out.push({ opened: window.__calls.filter((c) => c[0] === "open_data") });
+''')
+                self.assertTrue(result["modulesReady"],
+                                "%d 宽真加载后 main.js 必须置 __modulesReady" % width)
+                self.assertEqual(result["after"][0]["opened"], [["open_data"]],
+                                 "%d 宽真加载下点「打开数据目录」要发出一次 open_data"
+                                 "（app.js 末尾那批绑定没装上就点不动）" % width)
+
     def test_real_load_ocr_enable_says_enabled_in_the_row(self):
         """真加载下点识别行的「启用」：发出启用请求，识别行说明里出现启用成功那句。"""
         report = _run_ui_modules()

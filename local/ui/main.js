@@ -8,6 +8,12 @@ import { installLegacyGlobals } from "./legacy-globals.js";
 import { startPhonePanel } from "./features/phone-access/actions-panel.js";
 
 installLegacyGlobals();
+/* 按窗口宽度分档的首次绘制（原来在 app.js 顶层，与其它顶层绑定同一批执行）。
+ * 它会一路走到 paintDock -> startBlocker -> termsLocked()，而那个名字要等上面
+ * installLegacyGlobals() 才挂回 window：中、窄档下计划栏可见，普通脚本阶段就调
+ * 会抛 ReferenceError，把 app.js 后面那 40 余处绑定整批带走。放到这里之后，
+ * 先挂回名字再绘制，宽档（不画计划栏）行为不变。 */
+applyBand();
 boot().catch((error) => {
   /* 启动链路整体失败同样没有条款依据：先按未知拦住学校动作再报错 */
   markTermsUnknown();

@@ -390,7 +390,6 @@ $("#btn-policy").addEventListener("click", () => {
   $("#btn-policy").textContent = open ? "收起" : "修改";   /* 原型 policyBtn */
 });
 window.addEventListener("resize", () => { applyBand(); if (S.tip.id) placeTip(); });
-applyBand();
 /* 计划栏里的就地动作：移除一场、开始前提醒的「去保存 / 去安装」、「还差一步」和运行中提醒的按钮 */
 $("#plan-tickets").addEventListener("click", (event) => {
   const btn = event.target.closest("[data-remove]");
