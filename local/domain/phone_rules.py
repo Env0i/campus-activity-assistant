@@ -418,6 +418,32 @@ def device_cookie_header_value(token) -> str:
         DEVICE_COOKIE_NAME, token, DEVICE_TTL_S)
 
 
+# ---- 手机连接状态（桌面面板）----------------------------------------------
+# 手机 2 分钟没来就算断开：不是会话寿命（那个由 SESSION_TTL_S 管），只管「现在连没连着」
+PHONE_IDLE_DISCONNECT_S = 120
+
+
+def phone_link_state(running, has_contacted, last_contact_ago_s,
+                     clock_ok=True) -> str:
+    """桌面面板的连接状态投影：off / waiting / connected / disconnected / unknown。
+
+    没在跑为 off；时钟不可用为 unknown；本次开启后还没有过来访为 waiting；
+    最近一次来访距今小于 120 秒为 connected，达到即为 disconnected。配对过
+    但会话已过期时来访时间拿不到：那不是「还没来」，也不是时钟坏了，按已断开。
+    """
+    if not running:
+        return "off"
+    if not clock_ok:
+        return "unknown"
+    if not has_contacted:
+        return "waiting"
+    try:
+        ago = float(last_contact_ago_s)
+    except (TypeError, ValueError):
+        return "disconnected"
+    return "disconnected" if ago >= PHONE_IDLE_DISCONNECT_S else "connected"
+
+
 # ---- 事件回放（重连对账）--------------------------------------------------
 def select_events(events, cursor):
     """按序号回放：cursor 太旧或超前返回 (全量, True)；否则返回 (增量, False)。

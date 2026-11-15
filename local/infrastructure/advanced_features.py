@@ -14,10 +14,12 @@ import re
 import subprocess
 import sys
 import threading
+import time
 import zipfile
 from dataclasses import dataclass
 from typing import Callable
 
+from domain.component_rules import check_timed_out
 from infrastructure import component_packages
 from infrastructure.prefs_store import PrefsLockTimeout
 
@@ -53,6 +55,10 @@ _OCR_ENGINES = {}
 # 界面状态查询拿它顶一下，不能让一次锁等待超时变成「组件装坏了」。
 _PACKAGE_CACHE = {}
 _PACKAGE_CACHE_LOCK = threading.Lock()
+# 这一轮连续等锁的起点，按 (root, key) 记，与缓存共用一把锁：等锁是「已经连续
+# 等了多久」，要用单调时钟累计（改系统时间不能让它跳），读成功或读错即清零。
+# 用单调时钟是因为这是「等了多久」，不是业务时刻。
+_LOCK_WAIT_START = {}
 
 
 def _enabled(prefs: dict | None, key: str) -> bool:
@@ -73,11 +79,14 @@ def feature_ready(prefs: dict | None, key: str, *, root=None, frozen=None) -> bo
     return bool(state.get(str(key), {}).get("ready"))
 
 
-def _frozen_package(key: str, root) -> dict:
+def _frozen_package(key: str, root, clock) -> dict:
     """冻结态的组件状态；拿事务锁超时（PrefsLockTimeout）时不向界面抛异常。
 
     有上一次成功的结果就返回它的副本并标 busy；一次都没成功过就返回 checking，
-    不报 failed，也不报 missing：此刻并不知道组件是什么状态。
+    不报 failed，也不报 missing：此刻并不知道组件是什么状态。等锁时按 (root,
+    key) 记「这一轮连续等锁的起点」，给出等了多少秒、是否到 30 秒，界面据此画
+    「检查超时」；读状态出错也不冒异常，退回上一次成功的结果（或检查中）并标
+    read_error，让界面说「暂时读不到组件状态」。
     """
     cache_key = (str(root) if root is not None else "", key)
     try:
@@ -85,23 +94,46 @@ def _frozen_package(key: str, root) -> dict:
     except PrefsLockTimeout:
         with _PACKAGE_CACHE_LOCK:
             cached = _PACKAGE_CACHE.get(cache_key)
+            started = _LOCK_WAIT_START.get(cache_key)
+            if started is None:
+                started = clock()
+                _LOCK_WAIT_START[cache_key] = started
+            lock_wait_s = max(0, int(clock() - started))
+        # 等锁的两个字段有缓存、没缓存两种包都要带：界面在「检查中」与「缓存顶住」
+        # 两种显示下都要能数出「已经等了多少秒、到没到 30 秒」
         if cached is not None:
-            return dict(cached, busy=True)
+            payload = dict(cached, busy=True, lock_wait_s=lock_wait_s,
+                           check_timed_out=check_timed_out(lock_wait_s))
+            return payload
         return {"available": False, "source": "imported", "error": "", "version": "",
-                "busy": True, "checking": True}
+                "busy": True, "checking": True,
+                "lock_wait_s": lock_wait_s,
+                "check_timed_out": check_timed_out(lock_wait_s)}
+    except (component_packages.PackageError, OSError, ValueError):
+        # 读错不同于等锁：状态真的读不出来。退回上一次成功的结果；没有就按
+        # 检查中（不说没装），两者都标 read_error。等锁起点一并清掉。
+        with _PACKAGE_CACHE_LOCK:
+            cached = _PACKAGE_CACHE.get(cache_key)
+            _LOCK_WAIT_START.pop(cache_key, None)
+        if cached is not None:
+            return dict(cached, read_error=True)
+        return {"available": False, "source": "imported", "error": "", "version": "",
+                "busy": True, "checking": True, "read_error": True}
     slim = {"available": package["available"], "source": package["source"],
             "error": package["error"], "version": str(package.get("version") or "")}
     with _PACKAGE_CACHE_LOCK:
         _PACKAGE_CACHE[cache_key] = slim
+        _LOCK_WAIT_START.pop(cache_key, None)
     return package
 
 
-def feature_state(prefs: dict | None = None, *, root=None, frozen=None) -> dict:
+def feature_state(prefs: dict | None = None, *, root=None, frozen=None,
+                  clock=time.monotonic) -> dict:
     """返回可直接给桌面 UI 的状态，不暴露安装路径或凭据。"""
     result = {}
     frozen = bool(getattr(sys, "frozen", False)) if frozen is None else bool(frozen)
     for key, spec in FEATURES.items():
-        package = _frozen_package(key, root) if frozen else {
+        package = _frozen_package(key, root, clock) if frozen else {
             "available": module_available(spec.module), "source": "source", "error": "",
             "version": ""}
         available = package["available"]
@@ -127,6 +159,13 @@ def feature_state(prefs: dict | None = None, *, root=None, frozen=None) -> dict:
         }
         if package.get("busy"):
             result[key]["busy"] = True
+        # 等锁与读错是「这一次查询的事实」，原样抄到那一行；没在等锁、没读错
+        # 时不出现，前端按缺字段判断
+        if "lock_wait_s" in package:
+            result[key]["lock_wait_s"] = package["lock_wait_s"]
+            result[key]["check_timed_out"] = package["check_timed_out"]
+        if "read_error" in package:
+            result[key]["read_error"] = package["read_error"]
     return result
 
 

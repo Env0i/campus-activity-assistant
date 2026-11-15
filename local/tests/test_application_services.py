@@ -161,6 +161,11 @@ class FakePhoneService:
     def has_live_session(self):
         return self.live
 
+    def link_status(self):
+        if not self.running:
+            return {"link": "off", "last_contact_ago_s": None}
+        return {"link": "waiting", "last_contact_ago_s": None}
+
     def start(self, host="127.0.0.1", port=0, public_host="", public_scheme="http",
               persistent_device=False):
         self.start_calls.append({"host": host, "public_host": public_host,
@@ -1189,6 +1194,15 @@ class AdvancedBackendFieldsTests(unittest.TestCase):
                       "只给布尔，不给 token 或 cookie")
         phone.running = False
         self.assertIs(self.api.phone_access_state()["live_session"], False)
+
+    # ---------- 后端补字段：连接状态透出（值来自手机服务本身）----------
+    def test_phone_access_state_carries_the_link_fields_from_the_service(self):
+        self.api._phone.running = True
+        state = self.api.phone_access_state()
+        self.assertEqual(state["link"], "waiting")
+        self.assertIsNone(state["last_contact_ago_s"])
+        self.api._phone.running = False
+        self.assertEqual(self.api.phone_access_state()["link"], "off")
 
 
 class WindowCloseHandlingTests(unittest.TestCase):

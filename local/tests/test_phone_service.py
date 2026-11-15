@@ -899,3 +899,84 @@ class DeviceTrustTests(DeviceTrustBase):
             self.assertEqual(again["csrf"], session["csrf"])
         finally:
             restarted.shutdown(preserve_devices=True)
+
+
+class PhoneLinkStatusTests(PhoneServiceBase):
+    """桌面面板的连接状态：2 分钟没来就算断开，来访（配对或校验通过）即恢复。"""
+
+    def _start_and_pair(self):
+        started = self.service.start("127.0.0.1", 0)
+        self.assertTrue(started["ok"], started)
+        redeemed = self.service.pair(self.service.current_pair_code(), ip="127.0.0.1")
+        self.assertTrue(redeemed["ok"], redeemed)
+        return redeemed
+
+    def test_not_running_is_off(self):
+        self.assertEqual(self.service.link_status(),
+                         {"link": "off", "last_contact_ago_s": None})
+
+    def test_running_without_any_contact_is_waiting(self):
+        self.service.start("127.0.0.1", 0)
+        self.assertEqual(self.service.link_status(),
+                         {"link": "waiting", "last_contact_ago_s": None})
+
+    def test_pairing_connects_and_two_idle_minutes_disconnect(self):
+        self._start_and_pair()
+        status = self.service.link_status()
+        self.assertEqual(status["link"], "connected")
+        self.assertEqual(status["last_contact_ago_s"], 0)
+        self.clock["now"] += 119
+        self.assertEqual(self.service.link_status()["link"], "connected")
+        self.clock["now"] += 1
+        self.assertEqual(self.service.link_status()["link"], "disconnected")
+
+    def test_a_later_visit_returns_to_connected_with_zero_ago(self):
+        redeemed = self._start_and_pair()
+        self.clock["now"] += 120
+        self.assertEqual(self.service.link_status()["link"], "disconnected")
+        session = self.service.authenticate(redeemed["cookie"])
+        self.assertIsNotNone(session)
+        status = self.service.link_status()
+        self.assertEqual(status["link"], "connected")
+        self.assertEqual(status["last_contact_ago_s"], 0)
+
+    def test_visits_do_not_extend_session_life(self):
+        redeemed = self._start_and_pair()
+        self.clock["now"] += 60
+        self.assertIsNotNone(self.service.authenticate(redeemed["cookie"]),
+                             "来访只算来访，当场会话仍然有效")
+        self.clock["now"] += SESSION_TTL_S
+        self.assertIsNone(self.service.authenticate(redeemed["cookie"]),
+                          "来访只刷新来访时间，不延长 8 小时寿命")
+
+    def test_stop_goes_off_and_reopening_waits_again(self):
+        self._start_and_pair()
+        self.service.stop()
+        self.assertEqual(self.service.link_status(),
+                         {"link": "off", "last_contact_ago_s": None})
+        self.service.start("127.0.0.1", 0)
+        self.assertEqual(self.service.link_status(),
+                         {"link": "waiting", "last_contact_ago_s": None})
+
+    def test_clock_failure_reads_unknown_instead_of_raising(self):
+        self._start_and_pair()
+
+        def boom():
+            raise RuntimeError("本轮没有可用的时间源响应")
+
+        with mock.patch.object(self.service, "_now", boom):
+            self.assertEqual(self.service.link_status(),
+                             {"link": "unknown", "last_contact_ago_s": None})
+
+
+class PhoneLinkRestoreTests(DeviceTrustBase):
+    def test_device_restore_counts_as_a_visit(self):
+        redeemed = self._pair_persistent()
+        self.clock["now"] += 120
+        self.assertEqual(self.service.link_status()["link"], "disconnected")
+        session, _headers = self.service.authenticate_or_restore(
+            "", redeemed["device_cookie"])
+        self.assertIsNotNone(session)
+        status = self.service.link_status()
+        self.assertEqual(status["link"], "connected")
+        self.assertEqual(status["last_contact_ago_s"], 0)

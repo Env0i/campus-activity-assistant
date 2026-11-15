@@ -17,6 +17,7 @@ if str(LOCAL) not in sys.path:
     sys.path.insert(0, str(LOCAL))
 
 import login_relay  # noqa: E402
+from domain import phone_rules  # noqa: E402
 from domain.phone_rules import (  # noqa: E402
     MAX_IMAGE_BYTES, TEXT_LIMIT, project_event, project_state, project_text,
     redact_log_text, strip_sensitive,
@@ -198,6 +199,36 @@ class LogRedactionTests(unittest.TestCase):
         self.assertEqual(event["payload"]["text"], LONG_PNG)
         event = project_event("phone_relogin", {"image": LONG_PNG})
         self.assertEqual(event["payload"]["image"], LONG_PNG)
+
+
+class PhoneLinkStateTests(unittest.TestCase):
+    """手机连接状态纯投影：off / waiting / connected / disconnected / unknown。"""
+
+    def test_not_running_is_off_regardless_of_other_inputs(self):
+        self.assertEqual(phone_rules.phone_link_state(False, False, None), "off")
+        self.assertEqual(phone_rules.phone_link_state(False, True, 0), "off")
+
+    def test_broken_clock_is_unknown(self):
+        self.assertEqual(
+            phone_rules.phone_link_state(True, True, 0, clock_ok=False), "unknown")
+
+    def test_running_without_any_contact_is_waiting(self):
+        self.assertEqual(phone_rules.phone_link_state(True, False, None), "waiting")
+
+    def test_recent_visit_stays_connected_until_two_minutes(self):
+        self.assertEqual(phone_rules.phone_link_state(True, True, 0), "connected")
+        self.assertEqual(phone_rules.phone_link_state(True, True, 119), "connected")
+
+    def test_two_idle_minutes_disconnect(self):
+        self.assertEqual(phone_rules.phone_link_state(True, True, 120), "disconnected")
+        self.assertEqual(phone_rules.phone_link_state(True, True, 121), "disconnected")
+
+    def test_contacted_but_no_live_visit_reads_disconnected(self):
+        # 配对过但会话已过期：来访时间拿不到，是「已断开」，不是「还没来」
+        self.assertEqual(phone_rules.phone_link_state(True, True, None), "disconnected")
+
+    def test_idle_threshold_is_two_minutes(self):
+        self.assertEqual(phone_rules.PHONE_IDLE_DISCONNECT_S, 120)
 
 
 if __name__ == "__main__":

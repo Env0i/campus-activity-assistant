@@ -3799,10 +3799,10 @@ class Api:
                 # B1：本次开启后成功兑换配对码的次数，停止手机访问时清零；
                 # 「手机已连接」靠它判断，不靠 pair_code_status 的瞬时 reason
                 "paired_count": service.paired_count(),
-                # fe-phone（审核决定 A4）：重启后手机靠设备信任 cookie 恢复会话时 paired_count 为 0，
-                # 「手机已连接」= paired_count > 0 或 live_session。只给布尔，绝不回传 token 或 cookie；
-                # stop() 本就清会话，这里仍与 is_running 取与，停着时一定为假
+                # fe-phone（审核决定 A4）：设备信任恢复会话时 paired_count 为 0，「手机已连接」
+                # = paired_count > 0 或 live_session；只给布尔，stop() 本就清会话，停着时一定为假
                 "live_session": bool(service.is_running() and service.has_live_session()),
+                **service.link_status(),
                 "supported": bool(feature.get("ready")),
                 # 通道选择的单一真源：界面只显示，不自己推断该恢复哪一个
                 "preferred_channel": prefs_info["preferred_channel"],

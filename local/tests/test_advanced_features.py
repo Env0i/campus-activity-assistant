@@ -370,5 +370,143 @@ class FeatureStateLockBusyTests(unittest.TestCase):
             self.assertTrue(row["installable"])
 
 
+class FeatureStateWaitFieldsTests(unittest.TestCase):
+    """等锁要给出「等了多久、是否超时」，读错要退回缓存或检查中——界面据此画「检查超时」。
+
+    时钟用可推进的假单调钟；每个用例独立 root，进程内缓存互不串。
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(dir=tempfile.gettempdir())
+        self.addCleanup(self._tmp.cleanup)
+        self.root = self._tmp.name
+        self.t = [1000.0]
+
+    def _clock(self):
+        return self.t[0]
+
+    def _installed(self):
+        return {"available": True, "source": "imported", "error": "", "version": "1.2.3"}
+
+    def test_first_lock_timeout_reports_zero_wait_and_not_timed_out(self):
+        prefs = {"advanced_features": {af.PHONE_CONTROL: True}}
+        with mock.patch.object(af.component_packages, "feature_status",
+                               side_effect=PrefsLockTimeout("busy")):
+            row = af.feature_state(prefs, root=self.root, frozen=True,
+                                   clock=self._clock)[af.PHONE_CONTROL]
+        self.assertEqual(row["lock_wait_s"], 0)
+        self.assertFalse(row["check_timed_out"])
+
+    def test_wait_accumulates_across_calls_and_times_out_at_thirty(self):
+        prefs = {"advanced_features": {af.PHONE_CONTROL: True}}
+        with mock.patch.object(af.component_packages, "feature_status",
+                               side_effect=PrefsLockTimeout("busy")):
+            af.feature_state(prefs, root=self.root, frozen=True, clock=self._clock)
+            self.t[0] += 29
+            row = af.feature_state(prefs, root=self.root, frozen=True,
+                                   clock=self._clock)[af.PHONE_CONTROL]
+            self.assertEqual(row["lock_wait_s"], 29)
+            self.assertFalse(row["check_timed_out"])
+            self.t[0] += 1
+            row = af.feature_state(prefs, root=self.root, frozen=True,
+                                   clock=self._clock)[af.PHONE_CONTROL]
+            self.assertEqual(row["lock_wait_s"], 30)
+            self.assertTrue(row["check_timed_out"], "连续等锁满 30 秒要给「检查超时」")
+
+    def test_cached_busy_row_also_carries_the_wait_fields(self):
+        prefs = {"advanced_features": {af.PHONE_CONTROL: True}}
+        with mock.patch.object(af.component_packages, "feature_status",
+                               return_value=self._installed()):
+            first = af.feature_state(prefs, root=self.root, frozen=True, clock=self._clock)
+        self.assertFalse(first[af.PHONE_CONTROL].get("busy"))
+        with mock.patch.object(af.component_packages, "feature_status",
+                               side_effect=PrefsLockTimeout("busy")):
+            # 第一拍记等锁起点（读成功那一拍不算在等），推 10 秒后的下一拍带出时长
+            af.feature_state(prefs, root=self.root, frozen=True, clock=self._clock)
+            self.t[0] += 10
+            row = af.feature_state(prefs, root=self.root, frozen=True,
+                                   clock=self._clock)[af.PHONE_CONTROL]
+        self.assertEqual(row["lock_wait_s"], 10)
+        self.assertFalse(row["check_timed_out"])
+        self.assertTrue(row["busy"])
+        self.assertTrue(row["available"])
+        self.assertEqual(row["status"], "ready")
+        self.assertEqual(row["package_version"], "1.2.3")
+
+    def test_successful_read_resets_the_wait_clock(self):
+        prefs = {"advanced_features": {af.PHONE_CONTROL: True}}
+        with mock.patch.object(af.component_packages, "feature_status",
+                               side_effect=PrefsLockTimeout("busy")):
+            af.feature_state(prefs, root=self.root, frozen=True, clock=self._clock)
+            self.t[0] += 30
+        with mock.patch.object(af.component_packages, "feature_status",
+                               return_value=self._installed()):
+            ok = af.feature_state(prefs, root=self.root, frozen=True, clock=self._clock)
+        self.assertNotIn("lock_wait_s", ok[af.PHONE_CONTROL])
+        self.t[0] += 5
+        with mock.patch.object(af.component_packages, "feature_status",
+                               side_effect=PrefsLockTimeout("busy")):
+            row = af.feature_state(prefs, root=self.root, frozen=True,
+                                   clock=self._clock)[af.PHONE_CONTROL]
+        self.assertEqual(row["lock_wait_s"], 0)
+        self.assertFalse(row["check_timed_out"])
+
+    def test_wait_fields_absent_when_not_waiting(self):
+        prefs = {"advanced_features": {af.PHONE_CONTROL: True}}
+        with mock.patch.object(af.component_packages, "feature_status",
+                               return_value=self._installed()):
+            row = af.feature_state(prefs, root=self.root, frozen=True,
+                                   clock=self._clock)[af.PHONE_CONTROL]
+        self.assertNotIn("lock_wait_s", row)
+        self.assertNotIn("check_timed_out", row)
+        self.assertNotIn("read_error", row)
+
+    def test_read_error_with_cache_returns_cache_and_read_error(self):
+        prefs = {"advanced_features": {af.PHONE_CONTROL: True}}
+        with mock.patch.object(af.component_packages, "feature_status",
+                               return_value=self._installed()):
+            af.feature_state(prefs, root=self.root, frozen=True, clock=self._clock)
+        errors = (OSError("disk gone"),
+                  af.component_packages.PackageError("artifact_invalid"),
+                  ValueError("junk"))
+        for exc in errors:
+            with self.subTest(exc=type(exc).__name__):
+                with mock.patch.object(af.component_packages, "feature_status",
+                                       side_effect=exc):
+                    row = af.feature_state(prefs, root=self.root, frozen=True,
+                                           clock=self._clock)[af.PHONE_CONTROL]
+                self.assertTrue(row["read_error"])
+                self.assertTrue(row["available"], "读错时退回上一次成功的结果")
+                self.assertEqual(row["status"], "ready")
+                self.assertEqual(row["package_version"], "1.2.3")
+
+    def test_read_error_without_cache_reports_checking_and_read_error(self):
+        prefs = {"advanced_features": {af.RELOGIN_OCR: True}}
+        errors = (OSError("disk gone"),
+                  af.component_packages.PackageError("artifact_invalid"),
+                  ValueError("junk"))
+        for exc in errors:
+            with self.subTest(exc=type(exc).__name__):
+                with mock.patch.object(af.component_packages, "feature_status",
+                                       side_effect=exc):
+                    row = af.feature_state(prefs, root=self.root, frozen=True,
+                                           clock=self._clock)[af.RELOGIN_OCR]
+                self.assertTrue(row["read_error"])
+                self.assertEqual(row["status"], "checking", "不知道状态时说检查中，不说没装")
+                self.assertFalse(row["available"])
+                self.assertTrue(row["busy"])
+
+    def test_read_error_clears_and_success_drops_read_error(self):
+        prefs = {"advanced_features": {af.PHONE_CONTROL: True}}
+        with mock.patch.object(af.component_packages, "feature_status",
+                               side_effect=OSError("disk gone")):
+            af.feature_state(prefs, root=self.root, frozen=True, clock=self._clock)
+        with mock.patch.object(af.component_packages, "feature_status",
+                               return_value=self._installed()):
+            row = af.feature_state(prefs, root=self.root, frozen=True,
+                                   clock=self._clock)[af.PHONE_CONTROL]
+        self.assertNotIn("read_error", row)
+
+
 if __name__ == "__main__":
     unittest.main()

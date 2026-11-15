@@ -19,8 +19,8 @@ from domain.phone_rules import (
     EVENT_BUFFER_LIMIT, GLOBAL_FAIL_LIMIT, IP_FAIL_LIMIT, IP_LOCK_S, HTTP_PORT,
     PAIR_CODE_LEN, PAIR_TTL_S, SESSION_TTL_S, cookie_header_value,
     csrf_cookie_header_value, device_cookie_header_value, is_allowed_bind,
-    lock_active, normalize_action, pair_code_fresh, project_state,
-    select_events, session_alive, valid_pair_code,
+    lock_active, normalize_action, pair_code_fresh, phone_link_state,
+    project_state, select_events, session_alive, valid_pair_code,
 )
 
 
@@ -269,7 +269,7 @@ class PhoneAccessService:
             self._global_fails = 0
             token = secrets.token_hex(32)      # 256 位
             csrf = secrets.token_hex(32)
-            self._sessions[token] = {"csrf": csrf, "created_at": now}
+            self._sessions[token] = {"csrf": csrf, "created_at": now, "seen_at": now}
             # 设备信任只在固定地址通道签发：换域名就是换 origin，恢复了也没用
             device_token = (secrets.token_hex(32)
                             if self._persistent_device and self._device_store is not None
@@ -303,6 +303,8 @@ class PhoneAccessService:
             session = self._sessions.get(token)
             if session is None or not session_alive(session, now):
                 return None
+            # 校验通过算一次来访：只刷新 seen_at，created_at 不动（寿命不延长）
+            session["seen_at"] = now
             return {"token": token, "csrf": session.get("csrf", ""),
                     "created_at": session.get("created_at")}
 
@@ -320,6 +322,29 @@ class PhoneAccessService:
         with self._lock:
             return any(session_alive(session, now)
                        for session in self._sessions.values())
+
+    def link_status(self) -> dict:
+        """桌面面板的连接状态：off / waiting / connected / disconnected / unknown。
+
+        「最近一次来访」记在会话字典的 seen_at 里（不新开实例属性）：配对、
+        设备信任恢复、校验通过都算来访。规则在 domain.phone_rules.phone_link_state，
+        这里只取事实：跑没跑、来没来过、最近一次来访距今多少秒。
+        """
+        if not self.is_running():
+            return {"link": "off", "last_contact_ago_s": None}
+        try:
+            now = float(self._now())
+        except Exception:  # noqa: BLE001 - 时钟不可用按「暂时不知道」降级，面板不能整轮失败
+            return {"link": "unknown", "last_contact_ago_s": None}
+        with self._lock:
+            live = [session for session in self._sessions.values()
+                    if session_alive(session, now)]
+            has_contacted = bool(self._paired_count) or bool(live)
+            seen = max((session.get("seen_at") for session in live
+                        if session.get("seen_at") is not None), default=None)
+            ago = int(now - seen) if seen is not None else None
+        return {"link": phone_link_state(True, has_contacted, ago),
+                "last_contact_ago_s": ago}
 
     def authenticate_or_restore(self, cookie_header,
                                 device_cookie_header="") -> "tuple":
@@ -350,7 +375,7 @@ class PhoneAccessService:
             self._log("信任恢复：设备 cookie 通过，重建会话")
             token = secrets.token_hex(32)
             csrf = secrets.token_hex(32)
-            self._sessions[token] = {"csrf": csrf, "created_at": now}
+            self._sessions[token] = {"csrf": csrf, "created_at": now, "seen_at": now}
         headers = [("Set-Cookie", cookie_header_value(token)),
                    ("Set-Cookie", csrf_cookie_header_value(csrf)),
                    ("Set-Cookie", device_cookie_header_value(device_token))]
