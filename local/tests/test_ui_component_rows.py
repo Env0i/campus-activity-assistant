@@ -293,5 +293,35 @@ out.push({ btnText: btn.textContent, dlgOpen: $("#dlg-components").open,
         self.assertEqual(data["installCalls"], 0, "入口只开弹窗，不能直接装")
 
 
+class ComponentRowLeftoverTests(unittest.TestCase):
+    """审计补的两处老缺口：手机开着时残留的下载事务、识别行有错误没备注时的取消句。"""
+
+    def test_running_phone_hides_component_progress_even_with_a_stale_download(self):
+        """手机访问开着：快照里组件还留着下载中的事务，组件那一行也不能亮进度块和「取消下载」。"""
+        res = run_js(PRELUDE + r"""
+window.PhonePanel.state.running = true;
+window.PhonePanel.state.advanced = { features: { phone_control: { ready: true, available: true, download: { state: "downloading", downloaded: 3145728, total_bytes: 9437184 } } } };
+window.PhonePanel.paint();
+out.push({ loadingHidden: $("#phone-loading").hidden, cancelHidden: $("#btn-phone-component-cancel").hidden });
+""")
+        data = res[0]
+        self.assertTrue(data["loadingHidden"], "手机开着时进度块要收起")
+        self.assertTrue(data["cancelHidden"], "手机开着时取消下载按钮要收起")
+
+    def test_ocr_error_without_note_suppresses_the_cancel_sentence(self):
+        """验证码识别·取消后回到没装：面板留着错误、没有备注时，红条说错误，不再说「下载已取消」那句。"""
+        res = run_js(PRELUDE + r"""
+window.PhonePanel.state.advanced = { features: { relogin_ocr: { download: { state: "cancelled" } } } };
+OcrPanel.note = "";
+OcrPanel.error = "面板错误";
+window.PhonePanel.paint();
+out.push({ errorText: $("#ocr-download-error").textContent, noteText: $("#ocr-note").textContent, noteHidden: $("#ocr-note").hidden });
+""")
+        data = res[0]
+        self.assertEqual(data["errorText"], "面板错误", "红条要说面板上的错误")
+        self.assertEqual(data["noteText"], "", "没有备注时不能再说取消句")
+        self.assertTrue(data["noteHidden"], "没有备注时备注行要收起")
+
+
 if __name__ == "__main__":
     unittest.main()

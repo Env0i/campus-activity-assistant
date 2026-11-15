@@ -3,6 +3,8 @@
  * actions-panel.js 用 Object.assign 从各方法包装回来。 */
 
 
+import { componentState } from "../components/state-machine.js";
+
 "use strict";
 
 
@@ -15,22 +17,18 @@
 
 
 
-/* 手机访问状态机（settings-gap PH07，原型 phView，Main.dc.html 1244–1308）：
- * missing 没装 / downloading 下载中 / verifying 校验中 / checking 检查中（组件事务锁被占、还没结论，不是没装）/
- * off 装好未开启（含开启中）/ on 已开启。
- * 原型没画、代码里真有的两档保留现状（kept_not_in_prototype）：broken 已装但加载失败（PH14b）、
- * disabled 组件在本机但启用位没开（换机迁移、手动改过设置）。 */
+/* 手机访问状态机：missing 没装 / downloading 下载中 / verifying 校验中 /
+ * checking 检查中（组件事务锁被占、还没结论，不是没装）/ off 装好未开启（含开启中）/
+ * on 已开启；broken 已装但加载失败、disabled 组件在本机但启用位没开（原型没画，
+ * 保留现状）。组件那一半的判断与验证码识别共用一台状态机
+ * （features/components/state-machine.js 的 componentState）：手机访问开着就是 on，
+ * 否则把组件的状态按 enabled→off、disabled→disabled、其余同名映射回来。
+ * 名字、参数、返回值与搬进模块前一致。 */
 export function phonePhase(st, row) {
-  const dl = String(((row && row.download) || {}).state || "");
   if (st && st.running) return "on";
-  if (dl === "downloading") return "downloading";
-  if (dl === "verifying") return "verifying";
-  if (row && row.status === "checking") return "checking";
-  if (row && row.status === "outdated") return "outdated";
-  if (row && row.status === "failed") return "broken";
-  if (row && row.ready) return "off";
-  if (row && row.available) return "disabled";
-  return "missing";
+  const facts = componentState(row, {});
+  if (facts.state === "enabled") return "off";
+  return facts.state;
 }
 
 

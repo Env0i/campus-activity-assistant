@@ -215,11 +215,7 @@
         "reason": "不在本轮重构范围"
       },
       "local/ui/features/phone-access/view.js::paintPhoneAccess": {
-        "value": 262,
-        "reason": "步骤 1A 组件"
-      },
-      "local/ui/features/components/view-ocr.js::paintOcrDownload": {
-        "value": 119,
+        "value": 224,
         "reason": "步骤 1A 组件"
       }
     },
@@ -481,6 +477,9 @@
       },
       "local/ui/features/phone-access/actions-panel.js::wire": {
         "value": 65
+      },
+      "local/ui/features/components/view-ocr.js::paintOcrDownload": {
+        "value": 74
       }
     }
   },

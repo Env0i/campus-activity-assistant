@@ -3,8 +3,32 @@
 
 
 import { PhonePanel, channelCards, pairLeftText, phoneLinkedNow, phonePhase } from "./state.js";
+import { componentState } from "../components/state-machine.js";
+import { paintComponentRow } from "../components/view-row.js";
 import { downloadFailText } from "../components/state.js";
 import { paintOcrDownload } from "../components/view-ocr.js";
+
+
+
+/* 手机控制这一行的元素 id 与固定文字：共有部分由 features/components/view-row.js
+ * 的 paintComponentRow 画，行与行的差别（下载文案等）由这里的 spec 常量与调用方
+ * 算好的 texts 保留。 */
+const PHONE_ROW_SPEC = {
+  installId: "#btn-phone-component-install",
+  cancelId: "#btn-phone-component-cancel",
+  missingId: "#phone-missing",
+  importLineId: "#phone-import-line",
+  loadingId: "#phone-loading",
+  progTextId: "#phone-prog-text",
+  progNumId: "#phone-prog-num",
+  progressBarId: "#phone-component-progress",
+  progFillId: "#phone-prog-fill",
+  errorId: "#phone-component-error",
+  cancelledNoteId: "#phone-component-state",
+  locIds: ["#phone-loc-before", "#phone-loc-after"],
+  openLocId: "#btn-phone-open-loc",
+  downloadText: "正在下载手机控制组件",
+};
 
 
 
@@ -87,20 +111,25 @@ export const phonePaintPack = {
       notes.onErr = "";
     }
 
-    // PH03 标题行：右侧二选一——没装或下载中放按钮，装好后放状态 chip
-    const install = $("#btn-phone-component-install");
-    if (install) {
-      install.hidden = phase !== "missing" && phase !== "outdated";
-      install.disabled = busy || installing;
-      install.textContent = phase === "outdated" ? "更新组件"
-        : (failed ? "重新下载" : "下载并安装");
+    // 组件那一行（标题行两个按钮、没装块、导入兜底、进度块、位置两行、红条、取消句）
+    // 由两行共有的 paintComponentRow 画；手机访问开着时这一行整体是 on，共有绘制按
+    // on 处理（这些块全部收起），与改前逐项相同。
+    const facts = componentState(phoneRow,
+      { busy: busy, installing: installing, location: PhonePanel.location });
+    if (phase !== facts.state) {
+      facts.state = phase;
+      facts.downloading = phase === "downloading" || phase === "verifying";
+      facts.loading = facts.downloading || phase === "checking" || installing;
     }
-    const cancel = $("#btn-phone-component-cancel");
-    if (cancel) {
-      cancel.hidden = !downloading;
-      cancel.disabled = busy || phase === "verifying";
-      cancel.textContent = phase === "verifying" ? "校验中…" : "取消下载";
-    }
+    // 手机行的红条：没装或需要更新才显示，先说面板留的备注，再说下载失败那句
+    const componentErr = (phase === "missing" || phase === "outdated") && !installing
+      ? (notes.missing || (failed ? downloadFailText(download) : "")) : "";
+    paintComponentRow(PHONE_ROW_SPEC, facts, {
+      componentError: componentErr,
+      // 取消后回到没装态：红条有字时不重复说；已装过组件再取消落在 off 那块说现有组件没动
+      cancelledNote: phase === "missing" && !componentErr && dl === "cancelled"
+        ? "下载已取消，没有装任何东西。" : "",
+    });
     // 原型没画的三种（保留现状）：加载失败要重新导入、启用位没开要启用（走 B2）、缺 cloudflared 要补装
     const featureBtn = $("#btn-phone-feature-install");
     const featureAction = phase === "broken" ? "重新导入组件包"
@@ -142,53 +171,10 @@ export const phonePaintPack = {
     }
     phoneText("#phone-feature-error", (phase === "broken" || phase === "disabled") ? notes.feature : "");
 
-    phoneShow("#phone-missing", phase === "missing" && !installing);
-    phoneShow("#phone-loading", loading);
     phoneShow("#phone-access-detail", phase === "off" || phase === "on");
     phoneShow("#phone-off", phase === "off");
     phoneShow("#phone-on", phase === "on");
-
-    // ---- 没装（PH08–PH12）----
-    // 更新失败后状态回到「需要更新」，原因同样要看得见；红条在「没装」块外，块收着也显示
-    const missingErr = ((phase === "missing" || phase === "outdated") && !installing)
-      ? (notes.missing || (failed ? downloadFailText(download) : "")) : "";
-    phoneText("#phone-component-error", missingErr);
-    // PH12：取消后回到没装态；已装过组件再取消的场景原型没有，落在 off 那块说现有组件没动
-    phoneText("#phone-component-state", phase === "missing" && !missingErr && dl === "cancelled"
-      ? "下载已取消，没有装任何东西。" : "");
-    // PH10：导入链接只在下载失败后出现；更新失败停在 outdated 时也要留着这条兜底
-    phoneShow("#phone-import-line", (phase === "missing" || phase === "outdated") && failed && !installing);
-    const loc = PhonePanel.location;
-    phoneShow("#phone-loc-before", phase === "missing" && !!loc);
-    const after = phoneShow("#phone-loc-after", phase !== "missing" && !loading && !!loc);
-    ["#phone-loc-before", "#phone-loc-after"].forEach((sel) => {
-      const box = $(sel);
-      const code = $(sel + "-path");
-      if (box && loc) box.title = loc.path || loc.short;
-      if (code) code.textContent = loc ? loc.short : "";
-    });
-    if (after) {
-      const open = $("#btn-phone-open-loc");
-      if (open) open.disabled = busy;
-    }
-
-    // ---- 下载中 / 校验中（PH13–PH15），进度条墨色（styles.css .ph-bar）----
-    const total = Number(download.total_bytes || 0);
-    const done = Number(download.downloaded || 0);
-    const pct = phase === "verifying" ? 100
-      : (total > 0 ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : 0);
-    phoneText("#phone-prog-text", installing ? "正在安装组件…"
-      : (phase === "checking" ? "正在检查组件…"
-      : (phase === "verifying" ? "下载完成，正在校验组件…" : "正在下载手机控制组件")));
-    const num = $("#phone-prog-num");
-    if (num) {
-      num.textContent = phase === "downloading" && total > 0
-        ? (done / 1048576).toFixed(1) + " / " + (total / 1048576).toFixed(1) + " MB" : "";
-    }
-    const bar = $("#phone-component-progress");
-    if (bar) bar.setAttribute("aria-valuenow", String(pct));
-    const fill = $("#phone-prog-fill");
-    if (fill && fill.style) fill.style.width = pct + "%";
+    // 进度块里的加载错误行只有手机行有；进度块本体与文字由共有绘制画
     phoneText("#phone-loading-error", loading ? notes.loading : "");
 
     // ---- 装好未开启（PH16–PH21、PH31、PH32）----
