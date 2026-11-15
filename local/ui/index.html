@@ -263,7 +263,8 @@
            状态机 没装 / 下载中 / 校验中 / 装好未开启 / 开启中 / 已开启，各块显隐由 features/phone-access/view.js paintPhoneAccess 决定。
            二维码和配对码保留真实图和文本码，不做点阵（决策 014 b-amendment-009，桌面抽屉同样不做）。 -->
       <section class="help-tools help-advanced ph-sec" aria-label="手机访问">
-        <div class="set-h"><b>手机访问</b><span class="ph-slot"><span class="ph-st" id="phone-feature-status" hidden>未开启</span><button class="btn btn-line" id="btn-phone-feature-install" type="button" hidden>启用手机控制</button><button class="btn btn-solid" id="btn-phone-component-install" type="button">下载并安装</button><button class="btn btn-line" id="btn-phone-component-cancel" type="button" hidden>取消下载</button></span></div>
+        <div class="set-h"><b>手机访问</b><span class="ph-slot"><span class="ph-st" id="phone-feature-status" hidden>未开启</span><button class="btn btn-line" id="btn-phone-feature-install" type="button" hidden>启用手机控制</button><button class="btn btn-solid" id="btn-phone-component-install" type="button">下载并安装</button><button class="btn btn-line" id="btn-phone-component-cancel" type="button" hidden>取消下载</button><button class="btn btn-line" id="btn-phone-component-retry" type="button" hidden>重试</button></span></div>
+        <p class="ph-note" id="phone-probe" role="status" hidden></p>
         <p id="phone-feature-note">从手机查看活动、开始和停止计划。手机只是遥控器，真正报名的还是这台电脑，所以电脑要开着、不能睡眠。</p>
         <p class="ph-err" id="phone-feature-error" role="alert" hidden></p>
         <!-- 红条放在「没装」块外：更新失败后状态回到「需要更新」，那块整块收着，原因仍要看得见 -->
@@ -271,7 +272,6 @@
         <!-- 导入兜底同样放在块外：更新失败后停在「需要更新」，手动下载导入是唯一的出路 -->
         <p class="ph-note" id="phone-import-line" hidden>一直下载不了的话，可以到发布页手动下载组件包，再<button class="ph-link" id="btn-phone-import" type="button">导入已下载的组件包</button>。</p>
         <div class="ph-block" id="phone-missing">
-          <p class="ph-note" id="phone-component-state" aria-live="polite" role="status" hidden></p>
           <p class="ph-note" id="phone-size-note">可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。</p>
           <div class="loc" id="phone-loc-before" hidden><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg><span class="loc-t"><small>会装到</small><code id="phone-loc-before-path"></code></span></div>
         </div>
@@ -314,7 +314,8 @@
       <!-- 验证码识别照原型 ocrView（settings-gap 二、OC01–OC15）：标题行右侧二选一，没装放「下载并安装」、已装没启用放「启用」、
            下载中放「取消下载 / 校验中…」、已启用放 chip；状态机由 features/components/view-ocr.js paintOcrDownload 决定。 -->
       <section class="help-tools set-ocr ph-sec" id="set-ocr" aria-label="验证码识别">
-        <div class="set-h"><b id="set-ocr-title">验证码识别<span class="ph-st set-chip" id="ocr-title-chip" hidden>未启用</span></b><span class="ph-slot"><span class="ph-st" id="ocr-feature-status" hidden>已启用</span><button class="btn btn-solid" id="btn-ocr-download" type="button">下载并安装</button><button class="btn btn-solid" id="btn-ocr-enable" type="button" hidden>启用</button><button class="btn btn-line" id="btn-ocr-feature-install" type="button" hidden>重新导入组件包</button><button class="btn btn-line" id="btn-ocr-cancel" type="button" hidden>取消下载</button></span></div>
+        <div class="set-h"><b id="set-ocr-title">验证码识别<span class="ph-st set-chip" id="ocr-title-chip" hidden>未启用</span></b><span class="ph-slot"><span class="ph-st" id="ocr-feature-status" hidden>已启用</span><button class="btn btn-solid" id="btn-ocr-download" type="button">下载并安装</button><button class="btn btn-solid" id="btn-ocr-enable" type="button" hidden>启用</button><button class="btn btn-line" id="btn-ocr-cancel" type="button" hidden>取消下载</button><button class="btn btn-line" id="btn-ocr-retry" type="button" hidden>重试</button></span></div>
+        <p class="ph-note" id="ocr-probe" role="status" hidden></p>
         <p id="ocr-download-state">登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。没装或认不出来时，由你在手机上手动输入。</p>
         <p class="ph-err" id="ocr-download-error" role="alert" hidden></p>
         <!-- 导入兜底放在「没装」块外：更新失败后停在「需要更新」，整块收着，入口仍要看得见 -->

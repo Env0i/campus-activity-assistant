@@ -77,6 +77,55 @@ out.push([verifying.state, verifying.loading, verifying.installing]);
         self.assertEqual(res[2], ["verifying", True, True])
 
 
+
+class ProbeTests(unittest.TestCase):
+    """读状态那一层：等锁、超时、读不到三种说法，以及手机行「开着」对状态的改写。"""
+
+    def test_probe_has_four_values_and_download_wins(self):
+        """四种取值：空、waiting、timeout、unreadable；在下载或校验时一律为空。"""
+        res = run_js("""
+out.push(componentState({ ready: true }, {}).probe);
+out.push(componentState({ ready: true, busy: true }, {}).probe);
+out.push(componentState({ status: "checking" }, {}).probe);
+out.push(componentState({ ready: true, check_timed_out: true }, {}).probe);
+out.push(componentState({ ready: true, read_error: true }, {}).probe);
+out.push(componentState({ download: { state: "downloading" }, read_error: true }, {}).probe);
+out.push(componentState({ download: { state: "verifying" }, busy: true }, {}).probe);
+""")
+        self.assertEqual(res, ["", "waiting", "waiting", "timeout", "unreadable", "", ""])
+
+    def test_probe_timeout_counts_from_the_retry_start(self):
+        """超时按「点过重试」那一刻重新算：差不到 30 秒是等锁，差满 30 秒才是超时。"""
+        res = run_js("""
+const row = (wait, timed) => ({ ready: true, busy: true, lock_wait_s: wait,
+                               check_timed_out: timed });
+out.push(componentState(row(55, true), { retryWaitBase: 40 }).probe);
+out.push(componentState(row(70, true), { retryWaitBase: 40 }).probe);
+out.push(componentState(row(90, true), { retryWaitBase: 40 }).probe);
+out.push(componentState(row(90, false), { retryWaitBase: 40 }).probe);
+out.push(componentState(row(40, true), { retryWaitBase: 40 }).probe);
+""")
+        self.assertEqual(res, ["waiting", "timeout", "timeout", "waiting", "waiting"])
+
+    def test_running_forces_enabled_and_loading_only_counts_installing(self):
+        """手机行开着时状态取 enabled、不算在下载；loading 只看安装中，检查中不再是加载。"""
+        res = run_js("""
+const on = componentState({ status: "checking", busy: true },
+                          { running: true, installing: false });
+out.push([on.state, on.downloading, on.loading, on.probe]);
+const onInstalling = componentState({ status: "checking" }, { running: true, installing: true });
+out.push([onInstalling.state, onInstalling.loading, onInstalling.probe]);
+const idleChecking = componentState({ status: "checking", available: true }, {});
+out.push([idleChecking.state, idleChecking.downloading, idleChecking.loading]);
+const downloading = componentState({ download: { state: "downloading" } }, {});
+out.push([downloading.state, downloading.downloading, downloading.loading]);
+""")
+        self.assertEqual(res[0], ["enabled", False, False, "waiting"])
+        self.assertEqual(res[1], ["enabled", True, "waiting"])
+        self.assertEqual(res[2], ["checking", False, False])
+        self.assertEqual(res[3], ["downloading", True, True])
+
+
 class PhaseAdapterTests(unittest.TestCase):
     """phonePhase 与 ocrPhase：名字、参数、返回值不变，判断交给共用状态机。"""
 

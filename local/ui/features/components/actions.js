@@ -2,7 +2,7 @@
  * 安装、打开所在文件夹、下载、取消下载）；发桥接请求的方法都放在这一层。 */
 
 
-import { PhonePanel, phonePhase } from "../phone-access/state.js";
+import { PhonePanel, phonePhase, setRetryWaitBase } from "../phone-access/state.js";
 import { importCheckText } from "./view.js";
 import { OcrPanel } from "./state-ocr.js";
 
@@ -197,18 +197,44 @@ export const componentsActionsPack = {
       result = { ok: false, text: "取消没有生效，请稍后重试。" };
     }
     if (feature === "relogin_ocr") {
-      // OC13：成功后回到没装态，取消的那句话由快照的 cancelled 派生（写在 features/components/view-ocr.js）；失败才在本节红条里说
+      // OC13：成功后回到没装态，不留「已取消」那些字（由 features/components/view-ocr.js 决定）；失败才在本节红条里说
       if (typeof OcrPanel !== "undefined") {
         OcrPanel.note = "";
         OcrPanel.error = result && result.ok === false
           ? String((result && result.text) || "取消没有生效，请稍后重试。") : "";
       }
     } else {
-      // 手机控制：成功后回到没装态，那句话由快照的 cancelled 派生（PH12）；失败就在进度下面说
+      // 手机控制：成功后回到没装态，不留「已取消」那些字；失败就在进度下面说
       PhonePanel.notes.loading = result && result.ok === false
         ? String((result && result.text) || "取消没有生效，请稍后重试。") : "";
     }
     await PhonePanel.refresh();
   },
 
+
+
 };
+
+
+/* 读状态那句旁边的「重试」：先记下这一行此刻等了多久当起点，再要一次快照。
+ * 起点之后又等满 30 秒才算再次超时（判定在 features/components/state-machine.js），
+ * 否则点一次还是「超时」，用户点了等于没点。 */
+export function retryComponent(key) {
+  const feature = key === "relogin_ocr" ? "relogin_ocr" : "phone_control";
+  setRetryWaitBase(feature, PhonePanel.feature(feature).lock_wait_s);
+  void PhonePanel.refresh();
+}
+
+
+/* 两个「重试」按钮的绑定：由 features/phone-access/actions-panel.js 的 startPhonePanel
+ * 在挂完全部面板绑定之后调一次（wire 里的绑定清单不动）。 */
+export function wireComponentRetries() {
+  const phoneRetry = $("#btn-phone-component-retry");
+  if (phoneRetry) {
+    phoneRetry.addEventListener("click", () => retryComponent("phone_control"));
+  }
+  const ocrRetry = $("#btn-ocr-retry");
+  if (ocrRetry) {
+    ocrRetry.addEventListener("click", () => retryComponent("relogin_ocr"));
+  }
+}

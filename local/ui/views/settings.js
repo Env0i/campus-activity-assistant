@@ -220,12 +220,10 @@ function wireSettings() {
   }
   const ocrEnable = $("#btn-ocr-enable");
   if (ocrEnable) ocrEnable.addEventListener("click", () => void enableOcr());
-  /* OC12：导入入口只有失败后的句内链接（和加载失败时标题行的「重新导入组件包」），都打开导入弹窗 */
-  ["#btn-ocr-import", "#btn-ocr-feature-install"].forEach((sel) => {
-    const btn = $(sel);
-    if (btn) btn.addEventListener("click", () => {
-      if (window.PhonePanel) window.PhonePanel.openComponents("relogin_ocr");
-    });
+  /* OC12：导入入口只剩下载失败后的句内链接，点了打开导入弹窗 */
+  const ocrImport = $("#btn-ocr-import");
+  if (ocrImport) ocrImport.addEventListener("click", () => {
+    if (window.PhonePanel) window.PhonePanel.openComponents("relogin_ocr");
   });
   const ocrOpenLoc = $("#btn-ocr-open-loc");
   if (ocrOpenLoc) ocrOpenLoc.addEventListener("click", () => void openOcrDir());

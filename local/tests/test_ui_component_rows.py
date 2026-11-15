@@ -229,7 +229,7 @@ out.push({ phoneMissingHidden: $("#phone-missing").hidden,
 
     def test_checking_state_is_not_missing_on_both_rows(self):
         """后端给「检查中」（组件事务锁被占）时，两行都不显示成「没装」，
-        进度区都说「正在检查组件…」且进度块要显示——检查中不是空闲，块不能收起。"""
+        也不假装在下载：进度块收起，改由读状态说明说「正在确认组件状态…」。"""
         res = run_js(PRELUDE + r"""
 window.PhonePanel.state.advanced = { features: {
   phone_control: { status: "checking", available: true },
@@ -239,16 +239,28 @@ out.push({ phoneMissingHidden: $("#phone-missing").hidden,
            ocrMissingHidden: $("#ocr-missing").hidden,
            phoneLoadingHidden: $("#phone-loading").hidden,
            ocrLoadingHidden: $("#ocr-loading").hidden,
-           phoneProg: $("#phone-prog-text").textContent,
-           ocrProg: $("#ocr-prog-text").textContent });
+           phoneProbe: $("#phone-probe").textContent,
+           phoneProbeHidden: $("#phone-probe").hidden,
+           phoneProbeKind: $("#phone-probe").dataset.probe,
+           ocrProbe: $("#ocr-probe").textContent,
+           ocrProbeHidden: $("#ocr-probe").hidden,
+           ocrProbeKind: $("#ocr-probe").dataset.probe,
+           phoneRetryHidden: $("#btn-phone-component-retry").hidden,
+           ocrRetryHidden: $("#btn-ocr-retry").hidden });
 """)
         data = res[0]
         self.assertTrue(data["phoneMissingHidden"], "检查中的手机控制不能显示成没装")
         self.assertTrue(data["ocrMissingHidden"], "检查中的验证码识别不能显示成没装")
-        self.assertFalse(data["phoneLoadingHidden"], "检查中的手机控制进度块要显示")
-        self.assertFalse(data["ocrLoadingHidden"], "检查中的验证码识别进度块要显示")
-        self.assertEqual(data["phoneProg"], "正在检查组件…", "手机控制行要说正在检查")
-        self.assertEqual(data["ocrProg"], "正在检查组件…", "验证码识别行要说正在检查")
+        self.assertTrue(data["phoneLoadingHidden"], "检查中不是在下载，进度块要收起")
+        self.assertTrue(data["ocrLoadingHidden"], "检查中不是在下载，进度块要收起")
+        self.assertFalse(data["phoneProbeHidden"], "手机控制行要说清正在确认状态")
+        self.assertEqual(data["phoneProbe"], "正在确认组件状态…")
+        self.assertEqual(data["phoneProbeKind"], "waiting")
+        self.assertFalse(data["ocrProbeHidden"], "验证码识别行要说清正在确认状态")
+        self.assertEqual(data["ocrProbe"], "正在确认组件状态…")
+        self.assertEqual(data["ocrProbeKind"], "waiting")
+        self.assertTrue(data["phoneRetryHidden"], "还在等锁，没到 30 秒不给「重试」")
+        self.assertTrue(data["ocrRetryHidden"], "还在等锁，没到 30 秒不给「重试」")
 
 
 class DialogContractBehaviorTests(unittest.TestCase):

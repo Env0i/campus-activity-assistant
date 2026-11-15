@@ -88,6 +88,42 @@ export function agoText(seconds) {
 }
 
 
+/* 两行各自的重试起点（点「重试」那一刻这一行已经等了多少秒）；null 表示还没点过。
+ * 起点之后又等满 30 秒才算再次超时，否则点一次还是「超时」，用户点了等于没点。
+ * 放在模块里而不挂到 PhonePanel 上：PhonePanel 的成员清单由 local/tests/test_ui_modules.py
+ * 的快照守着，这一批不动那份清单。 */
+const retryBase = { phone_control: null, relogin_ocr: null };
+
+
+export function retryWaitBase(key) {
+  return retryBase[key] === undefined ? null : retryBase[key];
+}
+
+
+export function setRetryWaitBase(key, waitSeconds) {
+  retryBase[key] = Number(waitSeconds) || 0;
+}
+
+
+/* 起点用完就清：拿到新快照后已经读到结论的那一行不必再记着起点 */
+export function clearSettledRetryBase() {
+  ["phone_control", "relogin_ocr"].forEach((key) => {
+    if (retryBase[key] === null) return;
+    const probe = componentState(PhonePanel.feature(key),
+      { retryWaitBase: retryBase[key] }).probe;
+    if (!probe) retryBase[key] = null;
+  });
+}
+
+
+/* 两行里有没有一行还在等锁：等锁过一会就有结论，值得继续轮询。
+ * 超时与读不到不算——那两种等下去也不会有结论，等用户点「重试」。 */
+function probing() {
+  return ["phone_control", "relogin_ocr"].some((key) => componentState(
+    PhonePanel.feature(key), { retryWaitBase: retryBase[key] }).probe === "waiting");
+}
+
+
 
 export const PhonePanel = {
 
@@ -147,7 +183,7 @@ export const PhonePanel = {
 
 
   needsPolling() {
-    return !!PhonePanel.state.running || PhonePanel.downloadActive();
+    return !!PhonePanel.state.running || PhonePanel.downloadActive() || probing();
   },
 
 

@@ -446,15 +446,19 @@ out.push({ open: $("#dlg-components").open,
         self.assertTrue(res[0]["open"], "点击导入链接要打开导入弹窗")
         self.assertEqual(res[0]["title"], "导入验证码识别组件", "弹窗要说清在导入哪个组件")
 
-    def test_wire_ocr_reimport_opens_the_ocr_dialog(self):
-        """识别一节标题行「重新导入组件包」：点击打开验证码识别的导入弹窗。"""
+    def test_wire_ocr_reinstall_sends_the_ocr_download(self):
+        """识别一节坏了点「重新安装」：走在线下载那条路再装一份，不再开导入弹窗。"""
         res = run_js(PRELUDE + r"""
-$("#btn-ocr-feature-install").click();
+window.PhonePanel.state.advanced = { features: { relogin_ocr: { status: "failed" } } };
+PhonePanel.paint();
+$("#btn-ocr-download").click();
+await __flush();
 out.push({ open: $("#dlg-components").open,
-           title: $("#dlg-components-title").textContent });
+           call: window.__calls.filter((c) => c[0] === "download_advanced_feature") });
 """)
-        self.assertTrue(res[0]["open"], "点击重新导入入口要打开导入弹窗")
-        self.assertEqual(res[0]["title"], "导入验证码识别组件", "弹窗要说清在导入哪个组件")
+        self.assertEqual(res[0]["call"], [["download_advanced_feature", "relogin_ocr"]],
+                         "点了重新安装要发出组件下载请求并带组件名")
+        self.assertFalse(res[0]["open"], "重新安装不再走导入弹窗")
 
     def test_wire_ocr_open_loc_sends_the_open_dir_request(self):
         """识别一节「打开所在文件夹」：点击发出打开目录请求。"""

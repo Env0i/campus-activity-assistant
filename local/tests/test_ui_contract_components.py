@@ -25,15 +25,19 @@ class ChannelInstallContractTests(unittest.TestCase):
         self.view = module_group_raw_src(PANEL_ENTRY)
 
     def test_component_download_elements_exist(self):
-        for marker in ('id="phone-component-state"',
+        for marker in ('id="phone-probe"',
                        'id="phone-component-progress"',
                        'id="phone-component-error"',
                        'id="btn-phone-component-install"',
-                       'id="btn-phone-component-cancel"'):
+                       'id="btn-phone-component-cancel"',
+                       'id="btn-phone-component-retry"'):
             self.assertIn(marker, self.html, marker)
+        self.assertNotIn('id="phone-component-state"', self.html,
+                         "取消后不留痕，这一条常驻说明位按画板删掉")
 
     def test_component_state_is_announced(self):
-        self.assertIn('id="phone-component-state" aria-live="polite"', self.html)
+        self.assertIn('id="phone-probe" role="status"', self.html,
+                      "读组件状态的那句话要能被读屏念出来")
         self.assertIn('id="phone-status" role="status"', self.html,
                       "结果提示同样要能被读屏念出来")
 

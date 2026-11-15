@@ -3,7 +3,7 @@
  * 方法都放在这一层。 */
 
 
-import { PhonePanel } from "./state.js";
+import { PhonePanel, clearSettledRetryBase } from "./state.js";
 
 
 
@@ -17,6 +17,8 @@ export const phoneActionsPack = {
       /* 帮助弹窗打不开状态时不影响其他帮助工具。 */
     }
     await PhonePanel.loadLocation();
+    // 新快照到手后，已经读到结论的那一行不用再记着「重试」的起点
+    clearSettledRetryBase();
     PhonePanel.paint();
     PhonePanel.paintComponents();
     // 开着手机访问（配对码会过期或被用掉后换新）或组件在后台下载时才轮询

@@ -2,9 +2,9 @@
  * 不发桥接请求，不调编排层的方法。 */
 
 
-import { PhonePanel, channelCards, pairLeftText, phoneLinkedNow, phonePhase } from "./state.js";
+import { PhonePanel, channelCards, pairLeftText, phoneLinkedNow, phonePhase, retryWaitBase } from "./state.js";
 import { componentState } from "../components/state-machine.js";
-import { paintComponentRow } from "../components/view-row.js";
+import { BROKEN_NOTE, paintComponentRow } from "../components/view-row.js";
 import { downloadFailText } from "../components/state.js";
 import { paintOcrDownload } from "../components/view-ocr.js";
 
@@ -24,7 +24,8 @@ const PHONE_ROW_SPEC = {
   progressBarId: "#phone-component-progress",
   progFillId: "#phone-prog-fill",
   errorId: "#phone-component-error",
-  cancelledNoteId: "#phone-component-state",
+  probeId: "#phone-probe",
+  retryId: "#btn-phone-component-retry",
   locIds: ["#phone-loc-before", "#phone-loc-after"],
   openLocId: "#btn-phone-open-loc",
   downloadText: "正在下载手机控制组件",
@@ -111,32 +112,27 @@ export const phonePaintPack = {
       notes.onErr = "";
     }
 
-    // 组件那一行（标题行两个按钮、没装块、导入兜底、进度块、位置两行、红条、取消句）
-    // 由两行共有的 paintComponentRow 画；手机访问开着时这一行整体是 on，共有绘制按
-    // on 处理（这些块全部收起），与改前逐项相同。
-    const facts = componentState(phoneRow,
-      { busy: busy, installing: installing, location: PhonePanel.location });
-    if (phase !== facts.state) {
-      facts.state = phase;
-      facts.downloading = phase === "downloading" || phase === "verifying";
-      facts.loading = facts.downloading || phase === "checking" || installing;
-    }
-    // 手机行的红条：没装或需要更新才显示，先说面板留的备注，再说下载失败那句
-    const componentErr = (phase === "missing" || phase === "outdated") && !installing
-      ? (notes.missing || (failed ? downloadFailText(download) : "")) : "";
-    paintComponentRow(PHONE_ROW_SPEC, facts, {
-      componentError: componentErr,
-      // 取消后回到没装态：红条有字时不重复说；已装过组件再取消落在 off 那块说现有组件没动
-      cancelledNote: phase === "missing" && !componentErr && dl === "cancelled"
-        ? "下载已取消，没有装任何东西。" : "",
+    // 组件那一行（标题行两个按钮、没装块、导入兜底、进度块、位置两行、红条、读状态说明）
+    // 由两行共有的 paintComponentRow 画；手机访问开着时状态机按 running 直接给装好，
+    // 这里不再改写 facts。
+    const facts = componentState(phoneRow, {
+      busy: busy, installing: installing, location: PhonePanel.location,
+      running: !!st.running, retryWaitBase: retryWaitBase("phone_control"),
     });
-    // 原型没画的三种（保留现状）：加载失败要重新导入、启用位没开要启用（走 B2）、缺 cloudflared 要补装
+    // 手机行的红条：没装、需要更新或坏了才显示；先说面板留的备注，其次下载失败那句，
+    // 坏了又没失败过就说明文件本身不完整
+    const componentErr = (phase === "missing" || phase === "outdated" || phase === "broken")
+      && !installing
+      ? (notes.missing || (failed ? downloadFailText(download)
+        : (phase === "broken" ? BROKEN_NOTE : ""))) : "";
+    paintComponentRow(PHONE_ROW_SPEC, facts, { componentError: componentErr });
+    // 原型没画的两种（保留现状）：启用位没开要启用（走 B2）、缺 cloudflared 要补装；
+    // 读不到组件状态时两个都不给——那时连装没装都还没有结论
     const featureBtn = $("#btn-phone-feature-install");
-    const featureAction = phase === "broken" ? "重新导入组件包"
-      : (phase === "disabled" ? "启用手机控制"
-        : (phase === "off" && componentMissing ? "安装/更换组件包" : ""));
+    const featureAction = phase === "disabled" ? "启用手机控制"
+      : (phase === "off" && componentMissing ? "安装/更换组件包" : "");
     if (featureBtn) {
-      featureBtn.hidden = !featureAction;
+      featureBtn.hidden = !featureAction || !!facts.probe;
       featureBtn.disabled = busy;
       featureBtn.textContent = featureAction;
       featureBtn.dataset.action = phase === "disabled" ? "enable" : "import";

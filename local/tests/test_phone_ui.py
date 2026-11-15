@@ -604,19 +604,19 @@ PhonePanel.paint();
 out.push($("#btn-phone-feature-install").textContent);
 out.push($("#phone-feature-status").textContent);
 out.push($("#ocr-feature-status").textContent);
-out.push($("#btn-ocr-feature-install").textContent);
+out.push($("#btn-ocr-download").textContent);
 out.push($("#phone-access-detail").hidden);
 ''', files=[PANEL_ENTRY, "views/settings.js"])
         # fe-ocr-login 同步：验证码识别一节的状态、按钮绘制从 phone.js 搬到 settings.js（paintOcrDownload），
         # 所以这里把 settings.js 一起加载；断言本身（加载失败 chip、重新导入按钮）一字未改
-        self.assertEqual(values, ["启用手机控制", "已停用", "加载失败", "重新导入组件包", True])
+        self.assertEqual(values, ["启用手机控制", "已停用", "加载失败", "重新安装", True])
 
     def test_busy_disables_all_mutations_and_a_canceled_pick_is_quiet(self):
         """忙的时候按钮一起禁用；用户在选择框里按取消不算错误，什么都不提示。"""
         values = run_phone_js('''
 PhonePanel.busy = true;
 PhonePanel.paint();
-out.push(["#btn-phone-start", "#btn-ocr-feature-install", "#btn-credentials-save",
+out.push(["#btn-phone-start", "#btn-ocr-retry", "#btn-credentials-save",
           "#btn-phone-feature-remove"].every((id) => $(id).disabled));
 PhonePanel.busy = false;
 globalThis.__api = async (name) => name === "pick_advanced_component"
@@ -645,6 +645,7 @@ class HelpAdvancedOutdatedTests(unittest.TestCase):
     """主程序升级后：组件只是版本旧，界面给「更新组件」，不是加载失败也不是没装。"""
 
     def test_outdated_shows_update_button_instead_of_broken(self):
+        html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
         values = run_phone_js('''
 PhonePanel.state.advanced = {features: {
   phone_control: {available:false, enabled:true, ready:false, install_mode:"import",
@@ -664,13 +665,12 @@ out.push($("#btn-ocr-download").hidden);
 out.push($("#ocr-feature-status").textContent);
 out.push($("#ocr-feature-status").hidden);
 out.push($("#ocr-download-state").textContent);
-out.push($("#btn-ocr-feature-install").hidden);
 out.push($("#phone-import-line").hidden);
 out.push($("#ocr-import-line").hidden);
 ''', files=[PANEL_ENTRY, "views/settings.js"])
         (install_text, install_hidden, phone_chip, phone_note, reimport_hidden,
          error_hidden, ocr_btn, ocr_hidden, ocr_chip, ocr_chip_hidden, ocr_lead,
-         ocr_reimport_hidden, phone_import_hidden, ocr_import_hidden) = values
+         phone_import_hidden, ocr_import_hidden) = values
         self.assertEqual(install_text, "更新组件")
         self.assertFalse(install_hidden)
         self.assertEqual(phone_chip, "需要更新")
@@ -681,7 +681,8 @@ out.push($("#ocr-import-line").hidden);
         self.assertFalse(ocr_hidden)
         self.assertEqual(ocr_chip, "需要更新")
         self.assertIn("主程序已升级", ocr_lead)
-        self.assertTrue(ocr_reimport_hidden)
+        self.assertNotIn('id="btn-ocr-feature-install"', html,
+                         "识别行的重新导入入口按本批删掉")
         self.assertTrue(phone_import_hidden, "没失败不引导去手动导入")
         self.assertTrue(ocr_import_hidden, "没失败不引导去手动导入")
 
@@ -1175,24 +1176,29 @@ out.push({featureHidden:$("#btn-phone-feature-install").hidden,
         self.assertEqual(ready["featureText"], "安装/更换组件包")
         self.assertEqual(ready["cf"], "不可用")
 
-    def test_cancelled_state_says_nothing_was_changed(self):
-        # fe-phone 同步：取消后回到没装态，文案照原型改成「下载已取消，没有装任何东西。」（PH12）
+    def test_cancel_leaves_no_trace_on_the_phone_row(self):
+        # fe-phone 同步：取消下载后直接回到「没装」，不留「已取消」那一行（PH12）
         snippet = self._features(state="cancelled") + '''
 PhonePanel.paint();
-out.push({text:$("#phone-component-state").textContent,
-          textHidden:$("#phone-component-state").hidden,
-          installHidden:$("#btn-phone-component-install").hidden,
+out.push({installHidden:$("#btn-phone-component-install").hidden,
           installText:$("#btn-phone-component-install").textContent,
           cancelHidden:$("#btn-phone-component-cancel").hidden,
+          missingHidden:$("#phone-missing").hidden,
+          probeHidden:$("#phone-probe").hidden,
+          retryHidden:$("#btn-phone-component-retry").hidden,
           importHidden:$("#phone-import-line").hidden});
 '''
         row = run_phone_js(snippet, files=[PANEL_ENTRY])[0]
-        self.assertEqual(row["text"], "下载已取消，没有装任何东西。")
-        self.assertFalse(row["textHidden"])
-        self.assertFalse(row["installHidden"])
+        self.assertFalse(row["installHidden"], "取消后回到可以再下载的状态")
         self.assertEqual(row["installText"], "下载并安装")
         self.assertTrue(row["cancelHidden"])
+        self.assertFalse(row["missingHidden"], "取消后就是没装，没装块要显示")
+        self.assertTrue(row["probeHidden"], "取消不是读状态，不写那句说明")
+        self.assertTrue(row["retryHidden"])
         self.assertTrue(row["importHidden"], "取消不是失败，不露导入链接")
+        page = module_group_raw_src(PANEL_ENTRY)
+        self.assertEqual(page.count("下载已取消，没有装任何东西。"), 0,
+                         "这句取消句两行都不再有")
 
     def test_install_button_calls_the_download_action(self):
         snippet = self._features(state="missing") + '''
@@ -1409,7 +1415,7 @@ out.push({calls:calls.filter((c) => c[0] === "cancel_advanced_feature_download")
         self.assertEqual(before, {"loading": True, "cancel": True})
         self.assertEqual(after, {"calls": [["cancel_advanced_feature_download", "phone_control"]],
                                  "missing": True, "loading": False, "install": "下载并安装",
-                                 "note": "下载已取消，没有装任何东西。"})
+                                 "note": ""})
 
     def test_no_pairing_and_no_live_session_is_not_connected(self):
         """PH23（审核决定 A4）：paired_count 为 0 且没有活动会话就不是「已连接」；抽屉和顶栏同一条规则。"""
@@ -1585,12 +1591,14 @@ out.push({phase: phonePhase(PhonePanel.state, PhonePanel.feature("phone_control"
           cancel: $("#btn-phone-component-cancel").hidden,
           missing: $("#phone-missing").hidden,
           loading: $("#phone-loading").hidden,
-          text: $("#phone-prog-text").textContent,
+          probe: [$("#phone-probe").hidden, $("#phone-probe").textContent, $("#phone-probe").dataset.probe],
+          retry: $("#btn-phone-component-retry").hidden,
           start: $("#btn-phone-start").disabled});
 """, files=[PANEL_ENTRY])
         self.assertEqual(values[0], {"phase": "checking", "install": True, "featureBtn": True,
-                                     "cancel": True, "missing": True, "loading": False,
-                                     "text": "正在检查组件…", "start": True})
+                                     "cancel": True, "missing": True, "loading": True,
+                                     "probe": [False, "正在确认组件状态…", "waiting"],
+                                     "retry": True, "start": True})
 
     def test_static_copy_follows_the_prototype(self):
         """PH04、PH08、IM02：多出的二级行删掉；体积只做「现在读不到」形态；导入弹窗不再说本程序不联网下载。"""
@@ -1601,7 +1609,8 @@ out.push({phase: phonePhase(PhonePanel.state, PhonePanel.feature("phone_control"
         self.assertNotIn("只提供 Tailscale 与 Cloudflare 两种远程通道", html)
         self.assertNotIn("安装手机控制", html)
         self.assertEqual(html.count("本程序不联网下载组件"), 0)
-        self.assertEqual(view.count("下载已取消，没有装任何东西。"), 1)
+        self.assertEqual(view.count("下载已取消，没有装任何东西。"), 0,
+                         "取消句从两行都删掉，取消后直接回到没装")
         self.assertIn("一直下载不了的话，可以到发布页手动下载组件包，再", html)
 
 
@@ -1679,12 +1688,14 @@ out.push({phase: ocrPhase(PhonePanel.feature("relogin_ocr")),
           btn: $("#btn-ocr-download").hidden,
           missing: $("#ocr-missing").hidden,
           loading: $("#ocr-loading").hidden,
-          text: $("#ocr-prog-text").textContent,
+          probe: [$("#ocr-probe").hidden, $("#ocr-probe").textContent, $("#ocr-probe").dataset.probe],
+          retry: $("#btn-ocr-retry").hidden,
           cancel: $("#btn-ocr-cancel").hidden,
           auto: $("#relogin-auto-path").textContent});
 """)
-        self.assertEqual(values[0], {"phase": "checking", "btn": True, "missing": True, "loading": False,
-                                     "text": "正在检查组件…", "cancel": True,
+        self.assertEqual(values[0], {"phase": "checking", "btn": True, "missing": True, "loading": True,
+                                     "probe": [False, "正在确认组件状态…", "waiting"],
+                                     "retry": True, "cancel": True,
                                      "auto": "失效后自动登录：正在检查验证码识别组件。"})
 
     def test_missing_is_one_click_and_the_import_link_only_follows_a_failure(self):
@@ -1737,7 +1748,7 @@ out.push({opened: opened});
         self.assertEqual(failed["btn"], "重新下载")
         self.assertEqual(failed["err"], "下载没有完成：连不上发布页，可以重试。")
         self.assertFalse(failed["importLine"])
-        self.assertEqual(cancelled["note"], "下载已取消，没有装任何东西。")
+        self.assertEqual(cancelled["note"], "", "取消后不再写那句取消句，直接回到没装")
         self.assertEqual(cancelled["btn"], [False, "下载并安装"])
         self.assertTrue(cancelled["err"])
         self.assertEqual(link["opened"], ["relogin_ocr"], "导入链接打开的是验证码识别的导入")
@@ -1956,7 +1967,8 @@ out.push({calls: calls.filter((c) => c === "clear_relogin_credentials"), note: $
         self.assertNotIn('id="relogin-overall-status"', html, "CR03：总状态 chip 删除")
         self.assertNotIn('id="relogin-ocr-status"', html, "CR08：验证码识别状态行并入结论行")
         self.assertNotIn("清除后，电脑不会再自动恢复登录", html)
-        self.assertEqual(view.count("下载已取消，没有装任何东西。"), 1)
+        self.assertEqual(view.count("下载已取消，没有装任何东西。"), 0,
+                         "取消句从两行都删掉，取消后直接回到没装")
         # DT04：抽屉里按钮名、组件名用中文双引号，不用「」
         self.assertNotIn("点「重新检测」", view)
         self.assertNotIn("重新安装「手机控制」", view)
@@ -4823,7 +4835,11 @@ class LayoutStaticTests(unittest.TestCase):
         self.assertNotIn('id="phone-panel"', html)
         self.assertIn('id="phone-access-detail"', html)
         self.assertIn('id="btn-phone-feature-install"', html)
-        self.assertIn('id="btn-ocr-feature-install"', html)
+        self.assertNotIn('id="btn-ocr-feature-install"', html,
+                         "坏了改走主按钮重新安装，标题行不再另给导入入口")
+        for marker in ('id="phone-probe"', 'id="ocr-probe"',
+                       'id="btn-phone-component-retry"', 'id="btn-ocr-retry"'):
+            self.assertIn(marker, html, marker)
         self.assertIn("features/phone-access/actions-panel.js",
                       [item["rel"] for item in page_scripts()])
         self.assertNotIn("onclick=", html, "桌面仍不内联脚本")

@@ -4,8 +4,9 @@
 
 import { OcrPanel, ocrFeature, ocrPhase } from "./state-ocr.js";
 import { componentState } from "./state-machine.js";
-import { paintComponentRow } from "./view-row.js";
 import { downloadFailText } from "./state.js";
+import { retryWaitBase } from "../phone-access/state.js";
+import { BROKEN_NOTE, paintComponentRow } from "./view-row.js";
 
 
 
@@ -42,7 +43,8 @@ const OCR_ROW_SPEC = {
   progressBarId: "#ocr-component-progress",
   progFillId: "#ocr-prog-fill",
   errorId: "#ocr-download-error",
-  cancelledNoteId: "#ocr-note",
+  probeId: "#ocr-probe",
+  retryId: "#btn-ocr-retry",
   locIds: ["#ocr-loc-before", "#ocr-loc-after"],
   openLocId: "#btn-ocr-open-loc",
   downloadText: "正在下载验证码识别组件",
@@ -51,9 +53,9 @@ const OCR_ROW_SPEC = {
 
 
 /* 识别行特有的部分：chip 只有两处——已启用（ok 色）、已装没启用（中性，贴标题）；
- * 加载失败原型没有，保留现状。「启用」直接调启用接口，不再打开导入弹窗。
- * 共有的组件线（主按钮、取消、没装块、导入兜底、进度块、位置两行、红条、取消句）
- * 由 paintComponentRow 画；红条与取消句两行规则不同，由这里算好传入。 */
+ * 加载失败原型没有，保留现状。「启用」直接调启用接口，不打开导入弹窗。
+ * 共有的组件线（主按钮、取消、没装块、导入兜底、进度块、位置两行、红条、
+ * 读状态说明与重试）由 paintComponentRow 画；红条两行规则不同，由这里算好传入。 */
 export function paintOcrDownload() {
   const feature = ocrFeature();
   const download = feature.download || {};
@@ -66,6 +68,10 @@ export function paintOcrDownload() {
   const failed = dlState === "failed";
   const busy = !!OcrPanel.busy || !!(window.PhonePanel && window.PhonePanel.busy);
   const version = String(feature.package_version || "");
+  const facts = componentState(feature, {
+    busy: busy, installing: installing, location: OcrPanel.location,
+    retryWaitBase: retryWaitBase("relogin_ocr"),
+  });
 
   /* 亲眼看着下载 → 校验 → 装好，才说一句「已安装并启用」；刷新到旧的 installed 不重复说 */
   const prev = OcrPanel.lastDownload;
@@ -86,14 +92,9 @@ export function paintOcrDownload() {
   ocrShow("#ocr-title-chip", phase === "off");
   const enable = $("#btn-ocr-enable");
   if (enable) {
-    enable.hidden = phase !== "off";
+    /* 读不到组件状态时不给「启用」：那时装没装、装得完不完整都还没有结论 */
+    enable.hidden = phase !== "off" || !!facts.probe;
     enable.disabled = busy;
-  }
-  const reimport = $("#btn-ocr-feature-install");
-  if (reimport) {
-    reimport.hidden = phase !== "broken";
-    reimport.disabled = busy;
-    reimport.textContent = "重新导入组件包";
   }
 
   /* lead 随状态变，版本号用 package_version（读不到就不写版本，不编） */
@@ -109,22 +110,19 @@ export function paintOcrDownload() {
           : "登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。没装或认不出来时，由你在手机上手动输入。"));
   }
 
-  const facts = componentState(feature,
-    { busy: busy, installing: installing, location: OcrPanel.location });
   /* 红条拼「下载没有完成：原因，可以重试。」，拼法同手机访问（./state.js downloadFailText）；
    * 更新失败后状态回到「需要更新」，原因同样要看得见，不能只剩一个「更新组件」按钮。
-   * 与手机行不同：这条红条在任何阶段都会先显示面板留下的 error。 */
-  const failText = failed && !installing && (phase === "missing" || phase === "outdated")
+   * 与手机行不同：这条红条在任何阶段都会先显示面板留下的 error。
+   * 文件本身不完整时没有下载失败可讲，就说明文件不完整、重装不会动账号与设置。 */
+  const failText = failed && !installing && (phase === "missing" || phase === "outdated"
+    || phase === "broken")
     ? (typeof downloadFailText === "function" ? downloadFailText(download)
       : String(download.text || "下载没有完成，可以重试。")) : "";
+  const brokenText = phase === "broken" && !installing ? BROKEN_NOTE : "";
   paintComponentRow(OCR_ROW_SPEC, facts, {
-    componentError: installing ? "" : (OcrPanel.error || failText),
-    /* 取消后回到没装态，一句「下载已取消，没有装任何东西。」由快照的 cancelled 派生；
-     * 面板的「刚装好」备注优先于取消句 */
-    cancelledNote: OcrPanel.note
-      || (phase === "missing" && facts.cancelled && !OcrPanel.error && !failText
-        ? "下载已取消，没有装任何东西。" : ""),
+    componentError: installing ? "" : (OcrPanel.error || failText || brokenText),
   });
-  /* 识别行特有：装好未启用时的说明块 */
+  /* 识别行特有：装好未启用时的说明块，与面板留下的备注（刚装好那句） */
   ocrShow("#ocr-off-note", phase === "off");
+  ocrText("#ocr-note", OcrPanel.note);
 }

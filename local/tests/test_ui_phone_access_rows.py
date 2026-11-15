@@ -34,19 +34,36 @@ const __flush = async (n = 8) => { for (let i = 0; i < n; i += 1) await Promise.
 class PhonePhaseRowTests(unittest.TestCase):
     """认阶段：手机访问一行的每个阶段，用户看到的按钮和状态字。"""
 
-    def test_phone_phase_broken_offers_reimport(self):
-        """手机控制·加载失败：标题行按钮显示「重新导入组件包」，旁边状态字「加载失败」。"""
+    def test_phone_phase_broken_offers_reinstall(self):
+        """手机控制·加载失败：主按钮变「重新安装」，点它沿在线下载那条路再装一份；
+        标题行那个「重新导入组件包」不再有，坏了的说明写在红条里。"""
         res = run_js(PRELUDE + r"""
+globalThis.__calls = [];
+window.pywebview.api.download_advanced_feature = (name) => {
+  __calls.push(name); return Promise.resolve({ ok: true });
+};
 window.PhonePanel.state.advanced = { features: { phone_control: { status: "failed" } } };
 window.PhonePanel.paint();
-out.push({ btnText: $("#btn-phone-feature-install").textContent,
-           btnHidden: $("#btn-phone-feature-install").hidden,
-           chip: $("#phone-feature-status").textContent });
+out.push({ btnText: $("#btn-phone-component-install").textContent,
+           btnHidden: $("#btn-phone-component-install").hidden,
+           btnDisabled: $("#btn-phone-component-install").disabled,
+           featureBtnHidden: $("#btn-phone-feature-install").hidden,
+           chip: $("#phone-feature-status").textContent,
+           errorHidden: $("#phone-component-error").hidden,
+           errorText: $("#phone-component-error").textContent });
+$("#btn-phone-component-install").click();
+await __flush();
+out.push({ calls: __calls.slice() });
 """)
-        data = res[0]
-        self.assertEqual(data["btnText"], "重新导入组件包", "加载失败要给重新导入的入口")
-        self.assertFalse(data["btnHidden"], "加载失败时标题行按钮要看得见")
+        data, after = res[0], res[1]
+        self.assertEqual(data["btnText"], "重新安装", "加载失败要给重新安装的入口")
+        self.assertFalse(data["btnHidden"], "加载失败时主按钮要看得见")
+        self.assertFalse(data["btnDisabled"], "不忙的时候主按钮要能点")
+        self.assertTrue(data["featureBtnHidden"], "标题行不再另给一个重新导入的按钮")
         self.assertEqual(data["chip"], "加载失败", "状态字要说是加载失败")
+        self.assertFalse(data["errorHidden"], "坏了要有一条说明")
+        self.assertEqual(data["errorText"], "组件文件不完整。重新安装不会动你的账号和设置。")
+        self.assertEqual(after["calls"], ["phone_control"], "点重新安装要走在线下载这条路")
 
 
 class PaintBusyReadTests(unittest.TestCase):
