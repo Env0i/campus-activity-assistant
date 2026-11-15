@@ -119,7 +119,7 @@
 
 **「需要更新」一档（2026-11-12）**：主程序升级后，装好的旧单体组件包会变成 `status=outdated`（与文件损坏的 `failed` 分开）。两处都显示状态 chip「需要更新」，标题行的按钮改叫「更新组件」，说明写「主程序已升级，组件需要随新版本更新」，并说明重装后配对与已存账号密码都不用重来。这一档不显示「加载失败」，也不引导去「重新导入组件包」；导入旧版本 ZIP 仍会拒绝。启用过的组件会在程序启动后自动更新一次，没启用的停在「需要更新」等用户点。
 
-设置抽屉接口（2026-11-07 落地）：组件状态来自 `advanced_features_state`，动作为 `download_advanced_feature(key)`、`cancel_advanced_feature_download(key)`、`enable_advanced_feature(key)`（装好未启用时的「启用」，不打开导入弹窗）、导入弹窗用的 `inspect_advanced_component` 与 `install_advanced_feature`；组件位置与打开文件夹只走电脑端专用接口 `advanced_component_location(key)` 与 `open_advanced_component_dir(key)`，不进快照。手机访问的「手机已连接」= `phone_access_state.paired_count > 0` 或布尔 `live_session`。连接状态另有 `phone_access_state.link`（五种取值：没开启为 `off`，开启后还没有人来过为 `waiting`，最近一次来访距今小于 2 分钟为 `connected`，达到 2 分钟为 `disconnected`，时钟不可用为 `unknown`；阈值在 `domain/phone_rules.py` 的 `PHONE_IDLE_DISCONNECT_S = 120`）与 `last_contact_ago_s`（最近一次来访距今的秒数，还没有来访时为 `null`）；这两个字段是后端先备好供前端后续接线的，前端改用之前「手机已连接」的现行口径不变。登录恢复读 `credential.saved`、`credential.staged`、`credential.staged_hint`（只用这一次的账号提示，不含密码）与 `credential.paused`（学校拒绝已保存的密码）；「只用这一次」经 `prepare_phone_relogin` 只进内存，「保存到本机」经 `save_relogin_credentials`。
+设置抽屉接口（2026-11-07 落地）：组件状态来自 `advanced_features_state`，动作为 `download_advanced_feature(key)`、`cancel_advanced_feature_download(key)`、`enable_advanced_feature(key)`（装好未启用时的「启用」，不打开导入弹窗）、导入弹窗用的 `inspect_advanced_component` 与 `install_advanced_feature`；组件位置与打开文件夹只走电脑端专用接口 `advanced_component_location(key)` 与 `open_advanced_component_dir(key)`，不进快照。手机访问的「配过对没有」= `phone_access_state.paired_count > 0` 或布尔 `live_session`（配对码、二维码、「手机已连接。配对码已换成新的…」那条绿条、「再配一台」与详情卡的配对行照旧看这一个）。「现在连着没有」读 `phone_access_state.link`（五种取值：没开启为 `off`，开启后还没有人来过为 `waiting`，最近一次来访距今小于 2 分钟为 `connected`，达到 2 分钟为 `disconnected`，时钟不可用为 `unknown`；阈值在 `domain/phone_rules.py` 的 `PHONE_IDLE_DISCONNECT_S = 120`）与 `last_contact_ago_s`（最近一次来访距今的秒数，还没有来访时为 `null`）；`link` 没给或为 `unknown` 时退回「配过对 / 有活动会话」的两档旧规则，老快照下界面一字不变。设置抽屉的手机 chip、顶栏的手机标识与手机详情卡共用 `features/phone-access/state-link.js` 的 `phoneLinkView`，规则见「手机连接状态」小节。登录恢复读 `credential.saved`、`credential.staged`、`credential.staged_hint`（只用这一次的账号提示，不含密码）与 `credential.paused`（学校拒绝已保存的密码）；「只用这一次」经 `prepare_phone_relogin` 只进内存，「保存到本机」经 `save_relogin_credentials`。
 
 **组件状态机**（2026-11-15 落地）：两个组件行（手机控制、验证码识别）在界面上走同一台状态机，代码共用一台纯函数状态机与一个行绘制函数——`features/components/state-machine.js` 的 `componentState`（纯函数，不碰 DOM、不发请求、不读时钟）与 `features/components/view-row.js` 的 `paintComponentRow`（画两行共有的主按钮、取消按钮、没装块、导入兜底、进度块、位置两行、红条、读状态说明与「重试」）；两行的认阶段 `phonePhase` / `ocrPhase` 是薄适配，名字、参数、返回值不变，行与行的差别由各自的 spec 常量与调用方算好的文案保留。
 
@@ -141,6 +141,21 @@
 「重试」记下点下去那一刻这一行的 `lock_wait_s` 作为起点，再取一次快照；下一次快照里这一行读到结论（`probe` 为空）就把起点清掉。自动再取快照只在有行处于 `waiting` 时进行，`timeout` 与 `unreadable` 不自动轮询，交给用户点。
 
 坏了不再走本机重新导入：标题行不再有「重新导入组件包」，两个组件的坏档都收成一个「重新安装」走同一条在线下载；导入弹窗的入口只剩下载失败后那句里内联的链接（上面「需要更新」一档里提到的那个按钮按此理解）。
+
+**手机连接状态**（2026-11-15 落地）：设置抽屉的手机 chip、顶栏的手机标识与手机详情卡共用同一份推导——`features/phone-access/state-link.js` 的 `phoneLinkView`（纯函数，不碰 DOM、不发请求、不用定时器、不读时钟）。它只管「现在连着没有」；「配过对没有」仍由 `features/phone-access/state.js` 的 `phoneLinkedNow` 判断，配对码、二维码、绿条、「再配一台」与详情卡的配对行一处没换。
+
+| 状态 | 触发 | 去向 | 屏上显示 |
+|---|---|---|---|
+| off 没开 | 手机访问没在跑 | 打开 → waiting | 顶栏标识收起；抽屉 chip「未开启」；详情卡小 chip「未开启」、大字「手机访问未开启」 |
+| waiting 等手机连接 | 开着，手机还没来过 | 手机一来 → connected | 抽屉 chip 与顶栏标识「等手机连接」（提醒语气）；详情卡小 chip 同字、大字「等手机连接」 |
+| connected 已连接 | 最近一次来访距今不到 2 分钟 | 手机 2 分钟没来 → disconnected | 抽屉 chip 与顶栏标识「手机已连接」（成功语气，标识带 `is-ok`）；详情卡小 chip「已连接」、大字「手机已连接」 |
+| disconnected 已断开 | 最近一次来访距今满 2 分钟 | 手机又来了 → connected | 抽屉 chip 与顶栏标识「已断开 · N 分钟前」（中性）；详情卡小 chip「已断开」、大字「已断开 · N 分钟前」 |
+
+两条新转移就是上表里的两行：已连接 → 手机 2 分钟没来 → 已断开；已断开 → 手机又来了 → 已连接。秒数是空的（服务端还没记到过来访）时只写「已断开」，不留一个空的「· 」。颜色、闪烁与圆点随视觉那一批落地，现在只在元素上写 `data-link` 给以后用。
+
+后端没给 `link`、给 `unknown`，或开着却给了 `off` 时退回旧的两档规则（配过对或有活动会话就是「手机已连接」，否则「等手机连接」），老快照下界面一字不变。
+
+两台状态机各在自己的文件里导出一份冻结的状态清单：`componentState` 这台导 `COMPONENT_STATES` 与 `COMPONENT_PROBES`，手机连接这台导 `PHONE_LINK_STATES`；测试拿一份输入网格断言推导只会返回清单里的值，看一处就知道这台机有哪些状态。
 
 **已知未落地**（UI-B b-amendment）：
 - 手机页第 10 节整页视觉重排（顶栏菜单、点阵屏卡、页签、弹层化、结果分类计数）
