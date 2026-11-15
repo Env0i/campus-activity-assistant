@@ -121,7 +121,26 @@
 
 设置抽屉接口（2026-11-07 落地）：组件状态来自 `advanced_features_state`，动作为 `download_advanced_feature(key)`、`cancel_advanced_feature_download(key)`、`enable_advanced_feature(key)`（装好未启用时的「启用」，不打开导入弹窗）、导入弹窗用的 `inspect_advanced_component` 与 `install_advanced_feature`；组件位置与打开文件夹只走电脑端专用接口 `advanced_component_location(key)` 与 `open_advanced_component_dir(key)`，不进快照。手机访问的「手机已连接」= `phone_access_state.paired_count > 0` 或布尔 `live_session`。连接状态另有 `phone_access_state.link`（五种取值：没开启为 `off`，开启后还没有人来过为 `waiting`，最近一次来访距今小于 2 分钟为 `connected`，达到 2 分钟为 `disconnected`，时钟不可用为 `unknown`；阈值在 `domain/phone_rules.py` 的 `PHONE_IDLE_DISCONNECT_S = 120`）与 `last_contact_ago_s`（最近一次来访距今的秒数，还没有来访时为 `null`）；这两个字段是后端先备好供前端后续接线的，前端改用之前「手机已连接」的现行口径不变。登录恢复读 `credential.saved`、`credential.staged`、`credential.staged_hint`（只用这一次的账号提示，不含密码）与 `credential.paused`（学校拒绝已保存的密码）；「只用这一次」经 `prepare_phone_relogin` 只进内存，「保存到本机」经 `save_relogin_credentials`。
 
-**组件状态机**（2026-11-15 落地，行为不变）：两个组件行（手机控制、验证码识别）在画板上走同一台状态机，代码共用一台纯函数状态机与一个行绘制函数——`features/components/state-machine.js` 的 `componentState`（纯函数，不碰 DOM、不发请求、不读时钟）与 `features/components/view-row.js` 的 `paintComponentRow`（画两行共有的主按钮、取消按钮、没装块、导入兜底、进度块、位置两行与红条）；两行的认阶段 `phonePhase` / `ocrPhase` 改成薄适配，名字、参数、返回值不变，行与行的差别由各自的 spec 常量与调用方算好的文案保留。八个状态对应的界面样子：missing 没装——标题行放「下载并安装」，出现「没装」块；downloading 下载中——标题行放「取消下载」，进度块说正在下载；verifying 校验中——按钮变「校验中…」并禁用，进度条打满；checking 检查中——组件事务锁被别的进程占着、还没结论，进度块说「正在检查组件…」，不说没装；outdated 需要更新——主按钮变「更新组件」，说明与导入兜底保留；broken 已装但加载失败——放「重新导入组件包」；enabled 组件可用且启用位开着——手机行画成「装好未开启」、识别行画成「已启用」；disabled 组件在本机但启用位没开——手机行放「启用手机控制」、识别行画成「未启用」。画板上还有几条转移——检查超时、读不到、重新安装、安装失败回原态、取消不留痕——在后面一批加，这一批一行判断都没多。
+**组件状态机**（2026-11-15 落地）：两个组件行（手机控制、验证码识别）在界面上走同一台状态机，代码共用一台纯函数状态机与一个行绘制函数——`features/components/state-machine.js` 的 `componentState`（纯函数，不碰 DOM、不发请求、不读时钟）与 `features/components/view-row.js` 的 `paintComponentRow`（画两行共有的主按钮、取消按钮、没装块、导入兜底、进度块、位置两行、红条、读状态说明与「重试」）；两行的认阶段 `phonePhase` / `ocrPhase` 是薄适配，名字、参数、返回值不变，行与行的差别由各自的 spec 常量与调用方算好的文案保留。
+
+| 状态 | 触发 | 去向 | 屏上显示 |
+|---|---|---|---|
+| missing 没装 | 快照里没有这个组件，也没在下载 | 点主按钮 → downloading | 主按钮「下载并安装」（下载失败过改「重新下载」）；出现「没装」块 |
+| downloading 下载中 | `download.state = downloading` | 下载完 → verifying | 主按钮「取消下载」可点；进度块报 MB 与百分比 |
+| verifying 校验中 | `download.state = verifying` | 通过 → enabled / disabled；失败 → 安装前的状态 + 红条 | 主按钮变「校验中…」并禁用；进度条打满 |
+| checking 检查中 | 组件事务锁被别的进程占着，还没有结论 | 有结论 → 上面某一条；满 30 秒 → timeout | 读状态说明「正在确认组件状态…」（有缓存结论的行只留原来的字）；所有动作按钮收起 |
+| outdated 需要更新 | `status = outdated`（主程序升级后旧组件包） | 点「更新组件」→ downloading | 主按钮「更新组件」；chip「需要更新」 |
+| broken 加载失败 | `status = failed`（文件不完整） | 点「重新安装」→ downloading | 主按钮「重新安装」；红条「组件文件不完整。重新安装不会动你的账号和设置。」 |
+| enabled 可用且启用位开着 | ready 且启用位开，或手机行正在跑 | 关掉 → disabled | 手机行画成「装好未开启」；识别行画成「已启用」 |
+| disabled 在本机但没启用 | available 且启用位关 | 点「启用」→ enabled | 手机行放「启用手机控制」；识别行画成「未启用」 |
+
+三条已定的规则：检查中不假装在下载（进度块收起，也不显示成没装）；取消下载直接回到没装，界面上不留「已取消」这句话；安装失败回到安装前的状态，多一条红条说明。各状态的圆点颜色随视觉那一批落地，现在只靠文字与按钮区分。
+
+读状态是一份派生事实（`probe`），只有四种取值，界面据此决定收起按钮还是给「重试」：`waiting` 等锁、还没有结论——写「正在确认组件状态…」，有缓存结论的行保留原来的字；`timeout` 等锁满 30 秒——写「另一个窗口正在安装或更新组件，已等 30 秒」；`unreadable` 暂时读不到组件状态——写「暂时读不到组件状态」；空表示读到了结论。`waiting`、`timeout`、`unreadable` 期间不给主按钮与「启用」（那几下点下去也装不上），`timeout` 与 `unreadable` 另给「重试」，面板忙时「重试」禁用。说明元素带 `data-probe`，样式与测试按它认档。30 秒这个数与 `local/domain/component_rules.py` 的 `COMPONENT_CHECK_TIMEOUT_S` 同口径，但两边算法不同（那边按等待起点算，这边按这一次点「重试」的起点算），改一处要一起改。
+
+「重试」记下点下去那一刻这一行的 `lock_wait_s` 作为起点，再取一次快照；下一次快照里这一行读到结论（`probe` 为空）就把起点清掉。自动再取快照只在有行处于 `waiting` 时进行，`timeout` 与 `unreadable` 不自动轮询，交给用户点。
+
+坏了不再走本机重新导入：标题行不再有「重新导入组件包」，两个组件的坏档都收成一个「重新安装」走同一条在线下载；导入弹窗的入口只剩下载失败后那句里内联的链接（上面「需要更新」一档里提到的那个按钮按此理解）。
 
 **已知未落地**（UI-B b-amendment）：
 - 手机页第 10 节整页视觉重排（顶栏菜单、点阵屏卡、页签、弹层化、结果分类计数）
