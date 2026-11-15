@@ -121,6 +121,8 @@
 
 设置抽屉接口（2026-11-07 落地）：组件状态来自 `advanced_features_state`，动作为 `download_advanced_feature(key)`、`cancel_advanced_feature_download(key)`、`enable_advanced_feature(key)`（装好未启用时的「启用」，不打开导入弹窗）、导入弹窗用的 `inspect_advanced_component` 与 `install_advanced_feature`；组件位置与打开文件夹只走电脑端专用接口 `advanced_component_location(key)` 与 `open_advanced_component_dir(key)`，不进快照。手机访问的「手机已连接」= `phone_access_state.paired_count > 0` 或布尔 `live_session`。连接状态另有 `phone_access_state.link`（五种取值：没开启为 `off`，开启后还没有人来过为 `waiting`，最近一次来访距今小于 2 分钟为 `connected`，达到 2 分钟为 `disconnected`，时钟不可用为 `unknown`；阈值在 `domain/phone_rules.py` 的 `PHONE_IDLE_DISCONNECT_S = 120`）与 `last_contact_ago_s`（最近一次来访距今的秒数，还没有来访时为 `null`）；这两个字段是后端先备好供前端后续接线的，前端改用之前「手机已连接」的现行口径不变。登录恢复读 `credential.saved`、`credential.staged`、`credential.staged_hint`（只用这一次的账号提示，不含密码）与 `credential.paused`（学校拒绝已保存的密码）；「只用这一次」经 `prepare_phone_relogin` 只进内存，「保存到本机」经 `save_relogin_credentials`。
 
+**组件状态机**（2026-11-15 落地，行为不变）：两个组件行（手机控制、验证码识别）在画板上走同一台状态机，代码共用一台纯函数状态机与一个行绘制函数——`features/components/state-machine.js` 的 `componentState`（纯函数，不碰 DOM、不发请求、不读时钟）与 `features/components/view-row.js` 的 `paintComponentRow`（画两行共有的主按钮、取消按钮、没装块、导入兜底、进度块、位置两行与红条）；两行的认阶段 `phonePhase` / `ocrPhase` 改成薄适配，名字、参数、返回值不变，行与行的差别由各自的 spec 常量与调用方算好的文案保留。八个状态对应的界面样子：missing 没装——标题行放「下载并安装」，出现「没装」块；downloading 下载中——标题行放「取消下载」，进度块说正在下载；verifying 校验中——按钮变「校验中…」并禁用，进度条打满；checking 检查中——组件事务锁被别的进程占着、还没结论，进度块说「正在检查组件…」，不说没装；outdated 需要更新——主按钮变「更新组件」，说明与导入兜底保留；broken 已装但加载失败——放「重新导入组件包」；enabled 组件可用且启用位开着——手机行画成「装好未开启」、识别行画成「已启用」；disabled 组件在本机但启用位没开——手机行放「启用手机控制」、识别行画成「未启用」。画板上还有几条转移——检查超时、读不到、重新安装、安装失败回原态、取消不留痕——在后面一批加，这一批一行判断都没多。
+
 **已知未落地**（UI-B b-amendment）：
 - 手机页第 10 节整页视觉重排（顶栏菜单、点阵屏卡、页签、弹层化、结果分类计数）
 - 待核对卡片"打开活动页"按钮（后端无接口）
