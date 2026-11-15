@@ -4,7 +4,7 @@
 relogin_cancel 与 login 两个桥接调用并发时，后端仍可能以忙碌拒绝：中继 worker 占着 Api._proc，
 _is_busy_locked 看它；relogin_cancel 里 terminate 最多等 1 秒再按需强杀；pywebview 每次 js_api
 调用各起一个线程，两次调用没有先后保证。前端已改为先等取消返回再登录
-（local/ui/views/relogin.js 的 closeRelogin().then(doLogin)），绕开了这个窗口。
+（local/ui/features/login/actions-relogin.js 的 closeRelogin().then(doLogin)），绕开了这个窗口。
 
 后端 relogin_cancel 与 login 的并发竞态记为已知残留，留给重构步骤 2 的登录恢复一块；
 并发顺序的修前失败原文见 .claude/results/20261113-prerefactor-fixes-red-output.txt。

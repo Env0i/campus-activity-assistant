@@ -1,3 +1,4 @@
+/* 重新登录对话框的编排：开与关、发请求、轮询浏览器登录、把每一处控件接到动作上。 */
 /* 重新登录对话框（设计文档 9.3，电脑和手机同一套规则）：按「有没有保存账号 × 有没有验证码识别」分三种情况。
  * - 有账号（识别装没装都一样）：直接进验证码步，电脑填账号密码，用户只输验证码；
  *   登录过又失效时后台本来就在自动恢复，不让用户再确认一次「自动登录一次？」；
@@ -5,250 +6,40 @@
  * - 保存的密码学校不认：自动登录已暂停，要输新密码。
  * 计划来不及（有场次在提交或离开放不到 100 秒）时后端回 plan_late，这里只说明原因。
  * 验证码图与进度来自后端 phone_relogin 事件（与手机同一场流程），界面不自己编状态。 */
-const RELOGIN_PRIVACY_NOTE = "登录时，工具会替你勾选学校登录页上的《隐私协议》。";
+
+import { reloginRefusal, reloginWay } from "./state-relogin.js";
+import { reloginCase, reloginCodeReady, reloginDialog, reloginError, reloginNextReady, reloginPaintWay, reloginResetForm, reloginShowChallenge, reloginStep, reloginTogglePass } from "./view-relogin.js";
+import { paintLogin } from "./view.js";
+import { termsLocked } from "../terms/state.js";
 
 /* 已经因「登录成功」触发过刷新的 flow_id：中继会重放快照，同一场不能刷新两次，
  * 否则列表会被反复打回加载态。空 flow_id 视为同一事件，也只放行一次（初始 null
  * 与哨兵空串区分「还没刷新过」）。 */
-let reloginRefreshedFlow = null;
+export let reloginRefreshedFlow = null;
 
 /* 后端最近推来的这一场进度：对话框没开时也要记着，点「重新登录」才能接上同一场，
  * 不新开一场把电脑正在跑的那场顶掉。 */
-let reloginRelay = null;
+export let reloginRelay = null;
+
 /* 转人工只提醒一次：中继会重放快照，同一个 handoff 不能每来一条就刷一条运行记录 */
-let reloginHandoffSeen = false;
+export let reloginHandoffSeen = false;
 
 /* 中继里这一场是不是「电脑自己发起、还在进行、没转人工」。flowId 给定时还要是同一场。
  * 关对话框不取消它，顶栏「自动登录中…」也只认它。 */
-function reloginAutoLive(flowId) {
+export function reloginAutoLive(flowId) {
   const relay = reloginRelay;
   if (!relay || !relay.live || relay.handoff || String(relay.origin || "") !== "auto") return false;
   return flowId === undefined || String(relay.flow_id || "") === String(flowId || "");
 }
 
-function reloginDialog() {
-  return $("#dlg-relogin");
-}
-
-function reloginCase() {
-  const cred = typeof autoLoginCredential === "function" ? autoLoginCredential() : {};
-  if (cred.saved && cred.paused) return "bad";
-  /* 保存过账号就直接进验证码步：装了识别也一样，后台已经在自动认，不再先问一次 */
-  if (cred.saved) return "captcha";
-  return "login";
-}
-
-/* 打码账号：后端的 credential 里有 username 才给（手机页同一条规则），没有就只说登录方式。 */
-function reloginMask() {
-  const cred = typeof autoLoginCredential === "function" ? autoLoginCredential() : {};
-  return String(cred.mask || "");
-}
-
-function reloginCapSub(mask) {
-  return mask ? "账号 " + mask + " 和密码由电脑自动填写" : "账号和密码由电脑自动填写";
-}
-
-/* 打码背后的明文账号：只有「在这里输入」这条路要把它填回输入框。 */
-function reloginUser() {
-  const cred = typeof autoLoginCredential === "function" ? autoLoginCredential() : {};
-  return String(cred.username || "");
-}
-
-/* 从登录表单点进验证码的：副句要说密码已填好，底栏第一个按钮变「上一步」（原型 1694-1697） */
-function reloginFromLogin() {
-  return !!(S.relogin && S.relogin.fromLogin);
-}
-
-/* 标题与副句照原型 rlView（Main.dc.html:1666-1698）：确认是「自动登录一次？」，
-   验证码是「输入验证码」，登录表单是「登录学校账号」，自动登录中是「正在自动登录」。 */
-function reloginHead(step, text) {
-  const mask = reloginMask();
-  const busy = String(text || "");
-  let title = "重新登录";
-  let sub = "";
-  if (step === "confirm") {
-    title = "自动登录一次？";
-    sub = mask ? "用保存的账号 " + mask + "，验证码由电脑识别" : "验证码由电脑识别";
-    const body = $("#rl-confirm-text");
-    if (body) {
-      body.textContent = "会向学校发送一次账号密码。登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。"
-        + (S.busy ? "成功后报名计划照常继续。" : "成功后会刷新活动列表，计划不会自动开始。");
-    }
-  } else if (step === "login") {
-    title = "登录学校账号";
-    sub = "两种方式都可以，选你放心的那种";
-  } else if (step === "bad") {
-    title = "保存的密码不对";
-    sub = "自动登录已暂停";
-    const badText = $("#rl-bad-text");
-    if (badText) badText.textContent = "学校说账号或密码不对。为了避免账号被锁，工具没有重试。请更新账号密码，之后自动登录会恢复。";
-  } else if (step === "lgwait") {
-    title = "在学校登录页登录";
-    sub = "已经用浏览器打开学校登录页";
-  } else if (step === "cap") {
-    title = "输入验证码";
-    sub = reloginFromLogin() && mask ? "账号 " + mask + "，密码已填好" : reloginCapSub(mask);
-  } else if (step === "wait") {
-    /* 从验证码页点下去还是「输入验证码」，只是正文换成忙碌行（原型 verifying 就是这么留标题的） */
-    if (/核对验证码/.test(busy)) {
-      title = "输入验证码";
-      sub = reloginFromLogin() && mask ? "账号 " + mask + "，密码已填好" : reloginCapSub(mask);
-    } else if (/自动/.test(busy)) { title = "正在自动登录"; sub = mask ? "用保存的账号 " + mask : ""; }
-  }
-  const titleBox = $("#dlg-relogin-title");
-  if (titleBox) titleBox.textContent = title;
-  const subBox = $("#rl-sub");
-  if (subBox) { subBox.textContent = sub; subBox.hidden = !sub; }
-}
-
-/* 底部按钮跟着步骤走，位置固定在右下一行（原型 .dlg-f）：
-   确认 = 取消 + 自动登录（原型这一步不摆浏览器入口）；
-   登录 = 在这里输入时「取消 / 下一步」，用学校登录页时「取消 / 打开学校登录页」；
-   验证码 = 浏览器 + 取消 + 登录；密码不对 = 在浏览器里登录 + 更新账号密码；
-   在学校登录页等 = 取消；结果 = 知道了；忙碌时整条底栏收起 */
-const RELOGIN_LOGIN_ACTS = {
-  here: ["btn-rl-cancel", "btn-lg-next"],
-  browser: ["btn-rl-cancel", "btn-lg-webopen"],
-};
-const RELOGIN_ACTS = {
-  confirm: ["btn-rl-cancel", "btn-rl-auto"],
-  cap: ["btn-rl-browser", "btn-rl-cancel", "btn-rl-code"],
-  bad: ["btn-bad-browser", "btn-bad-update"],
-  lgwait: ["btn-rl-cancel"],
-  msg: ["btn-rl-done"],
-  wait: [],
-};
-const RELOGIN_ALL_ACTS = ["btn-rl-browser", "btn-rl-cancel", "btn-rl-auto", "btn-bad-browser",
-  "btn-bad-update", "btn-lg-back", "btn-lg-next", "btn-lg-webopen", "btn-rl-code", "btn-rl-done"];
-
-function reloginWay() {
-  return S.relogin && S.relogin.way === "browser" ? "browser" : "here";
-}
-
-function reloginActs(step) {
-  if (step === "login") return RELOGIN_LOGIN_ACTS[reloginWay()] || RELOGIN_LOGIN_ACTS.here;
-  /* 从登录表单点进来的验证码页：左边那个「改用浏览器登录」换成「上一步」（原型 1694-1697） */
-  if (step === "cap" && reloginFromLogin()) return ["btn-lg-back", "btn-rl-cancel", "btn-rl-code"];
-  return RELOGIN_ACTS[step] || [];
-}
-
-/* 登录那一屏：选中卡、表单、两组说明和警示语都跟着方式切（原型 lgWay） */
-function reloginPaintWay() {
-  const web = reloginWay() === "browser";
-  const here = $("#lg-here");
-  const browser = $("#lg-web");
-  if (here) { here.classList.toggle("on", !web); here.setAttribute("aria-checked", String(!web)); }
-  if (browser) { browser.classList.toggle("on", web); browser.setAttribute("aria-checked", String(web)); }
-  const form = $("#lg-form");
-  if (form) form.hidden = web;
-  const trade = $("#lg-trade");
-  if (trade) trade.hidden = !web;
-  const hereFacts = $("#lg-facts-here");
-  if (hereFacts) hereFacts.hidden = web;
-  const webFacts = $("#lg-facts-web");
-  if (webFacts) webFacts.hidden = !web;
-  const saveFact = $("#lg-fact-save");
-  const save = $("#rl-save");
-  if (saveFact) {
-    saveFact.textContent = save && save.checked
-      ? "勾了保存：用 Windows 当前用户加密，只有这台电脑能解开，设置里随时能清除"
-      : "没勾保存：密码只用这一次，不写进电脑";
-  }
-  reloginNextReady();
-}
-
-/* 「下一步」只有账号和密码都填了才亮（原型 acts 里的禁用条件） */
-function reloginNextReady() {
-  const user = String(($("#rl-user") || {}).value || "").trim();
-  const pass = String(($("#rl-pass") || {}).value || "");
-  const btn = $("#btn-lg-next");
-  if (btn) btn.disabled = !user || !pass;
-}
-
-/* 密码框右侧的眼睛：点一下在明文和圆点之间切（原型 lgShow） */
-function reloginTogglePass() {
-  const pass = $("#rl-pass");
-  const eye = $("#lg-eye");
-  if (!pass) return;
-  const show = pass.type === "password";
-  pass.type = show ? "text" : "password";
-  if (eye) {
-    eye.classList.toggle("on", show);
-    eye.setAttribute("aria-label", show ? "隐藏密码" : "显示密码");
-    eye.setAttribute("title", show ? "隐藏密码" : "显示密码");
-  }
-  if (typeof pass.focus === "function") pass.focus();
-}
-
-function reloginCodeReady() {
-  const code = String(($("#rl-code") || {}).value || "").trim();
-  const btn = $("#btn-rl-code");
-  if (btn) btn.disabled = !/^[0-9A-Za-z]{4}$/.test(code);
-}
-
-/* 错误条只有一条，固定在正文最上面（原型 10-外框）：传空串即收起 */
-function reloginError(text) {
-  const err = $("#rl-err");
-  if (!err) return;
-  err.textContent = String(text || "");
-  err.hidden = !text;
-}
-
-function reloginStep(step, text) {
-  S.relogin.step = step;
-  ["confirm", "login", "bad", "cap", "wait", "lgwait", "msg"].forEach((name) => {
-    const box = $("#rl-" + name);
-    if (box) box.hidden = name !== step;
-  });
-  /* 登录那一屏比其它步骤宽一档（原型 .wide = 32rem），进出时跟着切 */
-  const dlg = reloginDialog();
-  if (dlg) dlg.classList.toggle("wide", step === "login");
-  reloginHead(step, text);
-  if (step === "login") reloginPaintWay();
-  const acts = reloginActs(step);
-  RELOGIN_ALL_ACTS.forEach((id) => {
-    const el = $("#" + id);
-    if (el) el.hidden = acts.indexOf(id) < 0;
-  });
-  /* 忙碌时原型整条底栏都不出现（hasActs=false），这里也不留一条空边 */
-  const foot = $("#rl-foot");
-  if (foot) foot.hidden = acts.length === 0;
-  reloginError("");
-  reloginCodeReady();
-  const msgBox = $("#rl-msg-text");
-  if (step === "msg" && msgBox) msgBox.textContent = String(text || "");
-  const waitBox = $("#rl-wait-text");
-  if (step === "wait" && waitBox) waitBox.textContent = String(text || "正在登录…");
-}
-
-/* 打开对话框并把表单清干净：两种入口（登录按钮 / 登录失效后再登录）都先过这里 */
-function reloginResetForm() {
-  const user = $("#rl-user");
-  if (user) user.value = reloginUser();
-  const pass = $("#rl-pass");
-  if (pass) { pass.value = ""; pass.type = "password"; }
-  const eye = $("#lg-eye");
-  if (eye) {
-    eye.classList.remove("on");
-    eye.setAttribute("aria-label", "显示密码");
-    eye.setAttribute("title", "显示密码");
-  }
-  const code = $("#rl-code");
-  if (code) code.value = "";
-  const save = $("#rl-save");
-  if (save) save.checked = false;
-  S.relogin.way = "here";
-  S.relogin.fromLogin = false;
-}
-
 /* 拖出一条轻轮询：浏览器登录那条路登完后，对话框自己收起（原型 lgwait 说「这里会自己更新」） */
-let reloginBrowserWatch = 0;
+export let reloginBrowserWatch = 0;
 
-function stopBrowserWatch() {
+export function stopBrowserWatch() {
   if (reloginBrowserWatch) { clearInterval(reloginBrowserWatch); reloginBrowserWatch = 0; }
 }
 
-function watchBrowserLogin() {
+export function watchBrowserLogin() {
   stopBrowserWatch();
   reloginBrowserWatch = setInterval(() => {
     if (!S.relogin || !S.relogin.open) { stopBrowserWatch(); return; }
@@ -261,34 +52,16 @@ function watchBrowserLogin() {
   }, 1000);
 }
 
-/* 验证码那一屏：图、已试次数、转人工提示都在这里画，打开对话框和收事件共用一份 */
-function reloginShowChallenge(data) {
-  const payload = data || {};
-  S.relogin.challengeId = String(payload.challenge_id || "");
-  const img = $("#rl-cap-img");
-  if (img) img.src = String(payload.image || "");
-  const tries = $("#rl-cap-tries");
-  if (tries) tries.textContent = Number(payload.attempts) > 0 ? "已经试过 " + Number(payload.attempts) + " 次，换了一张新图。" : "";
-  reloginStep("cap");
-  /* 电脑自动发起的一场认不出来就交给用户：不另开一场，直接让用户输这一张的验证码 */
-  if (payload.handoff) {
-    const times = Number(payload.attempts) || 0;
-    reloginError(times >= 3 ? "自动识别 3 次没认对，请输入验证码。" : "电脑没认出这张验证码，请输入验证码。");
-  }
-  const code = $("#rl-code");
-  if (code) { code.value = ""; reloginCodeReady(); if (typeof code.focus === "function") code.focus(); }
-}
-
 /* 所有「登录 / 重新登录」入口走这里：登录过又失效（含已转人工）走重新登录，
  * 从没登录过的走登录表单。 */
-function loginEntry() {
+export function loginEntry() {
   const login = S.login || {};
   if (login.result === "expired" || login.handoff) { openRelogin(); return; }
   openLogin();
 }
 
 /* 打开对话框：按当前情况落到对应的第一步。计划来不及时直接说明，不开表单 */
-function openRelogin() {
+export function openRelogin() {
   const dlg = reloginDialog();
   /* 条款没同意：登录是学校动作，交给 doLogin 的条款门（弹条款或安静返回），不开对话框 */
   if (!dlg || (typeof termsLocked === "function" && termsLocked())) { doLogin(); return; }
@@ -314,7 +87,7 @@ function openRelogin() {
 }
 
 /* 顶栏「登录」/「去登录」/过期横幅走这条：不管有没有保存账号，都从登录表单开始 */
-function openLogin() {
+export function openLogin() {
   const dlg = reloginDialog();
   if (!dlg || (typeof termsLocked === "function" && termsLocked())) { doLogin(); return; }
   if (typeof closeStatusCards === "function") closeStatusCards(false);
@@ -326,20 +99,20 @@ function openLogin() {
 }
 
 /* 登录方式切到「用学校登录页」：说明换成 web 那三条，表单收起（原型 lgWay 的行为） */
-function reloginPickWay(way) {
+export function reloginPickWay(way) {
   if (!S.relogin || !S.relogin.open) return;
   S.relogin.way = way === "browser" ? "browser" : "here";
   reloginStep("login");
 }
 
 /* 「打开学校登录页」：交给浏览器登录那条老路，对话框停在 lgwait 等它回来 */
-function reloginOpenSchoolPage() {
+export function reloginOpenSchoolPage() {
   reloginStep("lgwait");
   watchBrowserLogin();
   doLogin();
 }
 
-function closeRelogin() {
+export function closeRelogin() {
   const dlg = reloginDialog();
   const flowId = S.relogin && S.relogin.flowId;
   const live = S.relogin && S.relogin.step && ["wait", "cap"].indexOf(S.relogin.step) >= 0;
@@ -357,16 +130,6 @@ function closeRelogin() {
    * 没有取消可等时返回已完成的 Promise；取消调用失败也算完成，不卡住后面的动作。 */
   if (live && flowId && !reloginAutoLive(flowId)) return api("relogin_cancel", flowId).catch(() => {});
   return Promise.resolve();
-}
-
-/* 后端的拒绝统一说人话；plan_late 单独一句「现在来不及」 */
-function reloginRefusal(result) {
-  const data = result || {};
-  if (data.error === "plan_late") {
-    return "现在来不及重新登录：" + String(data.text || "有场次正在提交，或者离开放不到 100 秒。")
-      + " 电脑能自动登录就会自动登录。";
-  }
-  return String(data.text || "这次没能开始登录，稍后再试。");
 }
 
 async function beginRelogin(username, password, save) {
@@ -395,7 +158,7 @@ async function autoReloginOnce() {
   S.relogin.flowId = String(result.flow_id || "");
 }
 
-function submitReloginForm() {
+export function submitReloginForm() {
   const user = String(($("#rl-user") || {}).value || "").trim();
   const pass = String(($("#rl-pass") || {}).value || "");
   if (!user || !pass) { reloginError("账号和密码都要填。"); return; }
@@ -423,7 +186,7 @@ async function submitReloginCode() {
   }
 }
 
-const RELOGIN_FAIL_TEXT = {
+export const RELOGIN_FAIL_TEXT = {
   bad_password: "学校说账号或密码不对。保存的密码已暂停使用；到「设置 → 登录」换成新密码，或在这里重新输入。",
   timeout: "这次登录超时了，可以再试一次。",
   canceled: "这次登录已取消。",
@@ -432,7 +195,7 @@ const RELOGIN_FAIL_TEXT = {
 /* 登录成功的收尾：与浏览器登录成功走同一条路（controllers/plan.js handleDone 的
  * doCheck + refresh），让活动列表立刻加载，用户不必再手点一次「刷新」（N1）。
  * 计划运行中不刷新：后端照常继续计划，界面只说明这一句。 */
-function reloginSucceeded(flowId) {
+export function reloginSucceeded(flowId) {
   if (S.busy) return;
   const flow = String(flowId || "");
   /* 空 flow_id 视为同一事件：首次放行后记下哨兵空串，重放一律去重。 */
@@ -446,7 +209,7 @@ function reloginSucceeded(flowId) {
 }
 
 /* 后端推来的这一场进度（与手机同一份 public_state）：只在对话框开着时接管画面 */
-function receiveReloginState(payload) {
+export function receiveReloginState(payload) {
   const data = payload || {};
   reloginRelay = data;
   const handoff = !!data.handoff;
@@ -510,7 +273,7 @@ function receiveReloginState(payload) {
   }
 }
 
-function wireRelogin() {
+export function wireRelogin() {
   const on = (id, fn) => {
     const el = $("#" + id);
     if (el && el.addEventListener) el.addEventListener("click", fn);
@@ -553,3 +316,6 @@ function wireRelogin() {
     dlg.addEventListener("cancel", (event) => { event.preventDefault(); closeRelogin(); });
   }
 }
+
+/* 三个异步动作只在本文件里被接线调用，导出用列表写法：沙箱只认 export 声明与 export { 列表 }。 */
+export { autoReloginOnce, beginRelogin, submitReloginCode };

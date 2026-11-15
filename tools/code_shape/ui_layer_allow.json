@@ -11,16 +11,6 @@
       "render",
       "setResult"
     ],
-    "state/login.js": [
-      "paintBoardActions",
-      "paintClockStatus",
-      "paintLogin",
-      "paintRail",
-      "paintSelected",
-      "refreshLoginEmptyState",
-      "reloginAutoLive",
-      "render"
-    ],
     "state/plan.js": [
       "noteSignedTasks",
       "noteStartedFromPhone",
@@ -50,12 +40,6 @@
     "views/plan-panel.js": [
       "refresh",
       "runtimeErrorCopy"
-    ],
-    "views/relogin.js": [
-      "api",
-      "doCheck",
-      "doLogin",
-      "refresh"
     ],
     "views/selection.js": [
       "savePrefs"

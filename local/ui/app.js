@@ -247,9 +247,6 @@ cxTip.addEventListener("keydown", (event) => {
 });
 $("#list").addEventListener("scroll", () => { if (S.tip.id) placeTip(); });
 $("#btn-refresh").addEventListener("click", () => refresh(false));
-/* 「登录 / 重新登录」先走重新登录对话框（三种情况）；对话框里保留「改用浏览器登录」 */
-$("#btn-login").addEventListener("click", loginEntry);
-wireRelogin();
 $("#btn-help").addEventListener("click", showHelp);
 /* 条款弹窗：同意 / 暂不使用 / 只读关闭 / 重新确认。TM01（decisions 014 修订）：
  * Esc 与右上角 X 只等于「关闭」（close 监听统一收口），拒绝只走「暂不使用」钮；

@@ -1,5 +1,10 @@
+/* 顶栏登录胶囊与详情卡的呈现。 */
+
+import { loginEstimateShort } from "./state.js";
+import { termsLocked } from "../terms/state.js";
+
 /* 顶栏登录胶囊、结果条与运行日志呈现。 */
-function paintLogin() {
+export function paintLogin() {
   const pill = $("#pill");
   const detail = $("#status-detail");
   /* 登录胶囊旁只写上次校验时刻；详情卡写「预计有效」（锚点 + 10 小时估，
@@ -102,72 +107,3 @@ function paintLogin() {
   loginBtn.classList.toggle("btn-line", !solid);
   if (typeof paintStatusCards === "function") paintStatusCards();
 }
-
-function setBusy(busy) {
-  S.busy = !!busy;
-  /* 计划开跑先暂停引导（运行状态优先），收尾后从原步骤继续 */
-  if (S.busy && S.tour.open && !S.tour.paused) tourPauseNow();
-  if (!S.busy && S.tour.paused) tourResumeNow();
-  paintLogin();
-  updateControls();
-}
-
-let resultTimer = null;
-
-function setResult(result) {
-  const el = $("#result");
-  clearTimeout(resultTimer);
-  resultTimer = null;
-  if (!result) {
-    el.hidden = true;
-    el.textContent = "";
-    el.className = "result";
-    return;
-  }
-  el.hidden = false;
-  const cls = result.ok === true ? "is-ok" : (result.ok === "partial" ? "is-partial"
-    : (result.ok === "neutral" ? "is-neutral" : "is-bad"));
-  el.className = "result " + cls;
-  el.innerHTML = "<strong>" + esc(result.title || "") + "</strong><span>" + esc(result.text || "") + "</span>" +
-    (result.action ? "<button class=\"result-action\" type=\"button\" id=\"result-action\">" + esc(result.action.label) + "</button>" : "");
-  if (result.action) {
-    const btn = el.querySelector("#result-action");
-    btn.addEventListener("click", result.action.run);
-  }
-  /* 登录成功的结论 6 秒后自动收起；其他结论留到用户确认 */
-  if (result.autoClose) resultTimer = setTimeout(() => { if (!S.busy) setResult(null); }, Math.max(0, result.autoClose - Date.now()));
-}
-
-function addLog(line) {
-  const box = $("#log");
-  const text = String(line == null ? "" : line);
-  /* 同一句话（含 worker 已打印的成功结论）只留一条：coordinator 的重复终态
-   * 与 UI 摘要不能给用户两个成功结论（RC-06）。 */
-  if (S.recentLogs.indexOf(text) >= 0) return;
-  S.recentLogs.push(text);
-  if (S.recentLogs.length > 40) S.recentLogs.shift();
-  const nowMs = businessNowMs();
-  const stamp = nowMs === null ? "待校准" : clockParts(nowMs).time;
-  /* worker 已记录事件发生的业务时刻，不能再叠加当前接收时间。 */
-  const sourceTime = text.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s/);
-  const hasSourceTime = sourceTime && toTs(sourceTime[1]) !== null;
-  /* 每行一层小条：按脚本前缀着色（[X] 红 / [!] 橙 / [OK] 绿），原话不改 */
-  const row = document.createElement("div");
-  row.className = "lg";
-  const kind = text.indexOf("[X]") === 0 ? "bad"
-    : text.indexOf("[!]") === 0 ? "warn"
-    : (text.indexOf("[OK]") === 0 || text.indexOf("▶") === 0) ? "ok" : "";
-  if (kind) row.dataset.k = kind;
-  row.textContent = hasSourceTime ? text : stamp + "  " + text;
-  box.appendChild(row);
-  while (box.childElementCount > 500) box.removeChild(box.firstChild);
-  box.scrollTop = box.scrollHeight;
-  /* 收起时顶栏显示最新一句 */
-  const last = $("#log-last");
-  if (last && text.trim()) last.textContent = stamp + "  " + text.trim();
-  requestAnimationFrame(() => { box.scrollTop = box.scrollHeight; });
-}
-
-/* 每轮 check 的唯一时钟入口：结构化载荷整份替换旧状态（R08）。
- * 没有结构化结论（旧载荷/本轮没采样）就明确落 unknown——不能凭失败文本
- * 推断「本机慢 N 秒」，也不能把上一轮的 warn 无限保留。 */

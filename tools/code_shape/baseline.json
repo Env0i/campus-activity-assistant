@@ -71,9 +71,6 @@
       "local/ui/controllers/refresh.js": {
         "value": 614
       },
-      "local/ui/views/relogin.js": {
-        "value": 555
-      },
       "local/ui/views/terms.js": {
         "value": 507
       },
@@ -150,6 +147,14 @@
         "value": 108,
         "reason": "存量，未排期"
       },
+      "local/ui/features/login/view.js::paintLogin": {
+        "value": 103,
+        "reason": "步骤 1B 登录"
+      },
+      "local/ui/features/phone-access/view.js::paintPhoneAccess": {
+        "value": 219,
+        "reason": "步骤 1A 组件"
+      },
       "local/ui/led.js::#anon1": {
         "value": 108,
         "reason": "存量，未排期"
@@ -165,10 +170,6 @@
       "local/ui/m/app.js::wire": {
         "value": 163,
         "reason": "步骤 1 手机页"
-      },
-      "local/ui/views/login.js::paintLogin": {
-        "value": 103,
-        "reason": "步骤 1B 登录"
       },
       "local/ui/views/plan-panel.js::paintLed": {
         "value": 116,
@@ -213,10 +214,6 @@
       "tools/release.py::verify_release_assets": {
         "value": 125,
         "reason": "不在本轮重构范围"
-      },
-      "local/ui/features/phone-access/view.js::paintPhoneAccess": {
-        "value": 219,
-        "reason": "步骤 1A 组件"
       }
     },
     "over60": {
@@ -352,6 +349,18 @@
       "local/ui/controllers/tick.js::tick": {
         "value": 88
       },
+      "local/ui/features/components/view-ocr.js::paintOcrDownload": {
+        "value": 70
+      },
+      "local/ui/features/login/actions-relogin.js::receiveReloginState": {
+        "value": 63
+      },
+      "local/ui/features/login/view-recovery.js::paintRelogin": {
+        "value": 88
+      },
+      "local/ui/features/phone-access/actions-panel.js::wire": {
+        "value": 65
+      },
       "local/ui/m/app.js::buildWhy": {
         "value": 85
       },
@@ -387,9 +396,6 @@
       },
       "local/ui/views/plan-panel.js::updateControls": {
         "value": 70
-      },
-      "local/ui/views/relogin.js::receiveReloginState": {
-        "value": 63
       },
       "local/ui/views/terms.js::applyTermsFooter": {
         "value": 77
@@ -471,15 +477,6 @@
       },
       "tools/verify_autologin_loop.py::main": {
         "value": 87
-      },
-      "local/ui/features/login/view-recovery.js::paintRelogin": {
-        "value": 88
-      },
-      "local/ui/features/phone-access/actions-panel.js::wire": {
-        "value": 65
-      },
-      "local/ui/features/components/view-ocr.js::paintOcrDownload": {
-        "value": 70
       }
     }
   },
