@@ -92,10 +92,8 @@ Object.assign(PhonePanel, phonePaintPack, phoneActionsPack,
 
 
 export function startPhonePanel() {
-
-if (typeof document !== "undefined") {
-  if (document.readyState !== "loading") PhonePanel.wire();
-  else document.addEventListener("DOMContentLoaded", PhonePanel.wire);
-}
-
+  if (typeof document !== "undefined") {
+    if (document.readyState !== "loading") PhonePanel.wire();
+    else document.addEventListener("DOMContentLoaded", PhonePanel.wire);
+  }
 }

@@ -138,7 +138,7 @@ function ocrFeature() {
 
 /* 验证码识别（settings-gap 二、OC01–OC15，原型 ocrView，Main.dc.html 1399–1411）。
  * 反馈就地写在这一节里（OC15），不走抽屉底部那一行；组件位置只走电脑端专用接口（B3），取不到就不显示。
- * note / error 由本文件的动作和 phone.js 里 relogin_ocr 的下载、取消、导入三处写入。 */
+ * note / error 由本文件的动作和 features/components/actions.js 里 relogin_ocr 的下载、取消、导入三处写入。 */
 const OcrPanel = {
   busy: false,
   note: "",
@@ -260,7 +260,7 @@ function paintOcrDownload() {
           ? "主程序已升级，验证码识别组件需要随新版本更新。点「更新组件」重新装一份，登录恢复里的账号密码不用重填。"
           : "登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。没装或认不出来时，由你在手机上手动输入。"));
   }
-  /* OC11：红条拼「下载没有完成：原因，可以重试。」，拼法同手机访问（phone.js downloadFailText）；
+  /* OC11：红条拼「下载没有完成：原因，可以重试。」，拼法同手机访问（features/components/state.js downloadFailText）；
    * 更新失败后状态回到「需要更新」，原因同样要看得见，不能只剩一个「更新组件」按钮 */
   const failText = failed && !installing && (phase === "missing" || phase === "outdated")
     ? (typeof downloadFailText === "function" ? downloadFailText(download)

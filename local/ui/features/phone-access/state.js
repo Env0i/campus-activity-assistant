@@ -80,8 +80,7 @@ export function pairLeftText(seconds) {
   return Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
 }
 
-
-
+/* 「多久以前」的人话：秒/分/小时/天四档，超过一天不再精确到分钟。 */
 export function agoText(seconds) {
   const s = Math.max(0, Math.floor(Number(seconds) || 0));
   if (s < 60) return s + " 秒前";

@@ -10,9 +10,9 @@ import { downloadFailText } from "./features/components/state.js";
 export function installLegacyGlobals() {
   window.termsAccepted = termsAccepted;
   window.termsLocked = termsLocked;
-/* app.js 的 check 事件要顺手刷新这张卡片（重新登录成功会走 check）。跨文件只能靠
- * 一个显式挂载点：顶层 const 不会自动变成 window 属性。 */
-if (typeof window !== "undefined") window.PhonePanel = PhonePanel;
+  /* app.js 的 check 事件要顺手刷新这张卡片（重新登录成功会走 check）。跨文件只能靠
+   * 一个显式挂载点：顶层 const 不会自动变成 window 属性。 */
+  if (typeof window !== "undefined") window.PhonePanel = PhonePanel;
   window.maskAccount = maskAccount;
   window.downloadFailText = downloadFailText;
 }
