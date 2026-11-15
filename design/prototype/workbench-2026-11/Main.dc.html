@@ -523,6 +523,20 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
 .t-foot{display:flex;align-items:center;gap:.375rem;padding:.625rem .875rem .75rem}
 .t-foot .grow{flex:1}
 @keyframes pulse{50%{opacity:.35}}
+.set.adv-sec{margin:0 1rem .5rem;padding:0;border:0;border-radius:12px;box-shadow:0 0 0 1px var(--line);overflow:hidden}
+.adv-h{display:flex;align-items:center;gap:.75rem;padding:.875rem 1rem}
+.adv-ic{width:2.25rem;height:2.25rem;flex:none;border-radius:9px;background:var(--paper-2);display:inline-flex;align-items:center;justify-content:center;color:#3d4852}.adv-ic svg{width:1.125rem;height:1.125rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.adv-t{flex:1;min-width:0}.adv-t b{display:block;font-size:.875rem}
+.adv-s{display:flex;align-items:center;gap:.375rem;color:var(--ink-2);font-size:.75rem}.adv-s i{width:7px;height:7px;flex:none;border-radius:50%;background:#9aa3ab}
+.adv-s.blue i{background:var(--blue)}.adv-s.green{color:var(--ok)}.adv-s.green i{background:#1f9d5c}.adv-s.amber{color:var(--warn)}.adv-s.amber i{background:#e0a100}.adv-s.red{color:var(--bad)}.adv-s.red i{background:#c0392b}.adv-s.blink i{animation:pulse 1.4s ease-in-out infinite}.adv-s.dotamber i{background:#e0a100}
+.adv-x{width:1.75rem;height:1.75rem;flex:none;border:0;border-radius:6px;background:transparent;color:var(--ink-2);display:inline-flex;align-items:center;justify-content:center}.adv-x svg{width:.875rem;height:.875rem;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.adv-x:hover{background:var(--paper-2)}
+.adv-bar{height:6px;margin:-.25rem 1rem .875rem 4.25rem;border-radius:3px;background:#edf1f4;overflow:hidden}.adv-bar i{display:block;height:100%;border-radius:3px;background:var(--blue)}
+.set p.adv-n{margin:-.375rem 1rem .875rem 4.25rem;color:var(--ink-2)}.set p.adv-n.red{color:#8a2a20}.set p.adv-n.green{color:var(--ok)}.set p.adv-n.amber{color:var(--warn)}
+.set p.adv-e{margin:-.25rem 1rem .875rem 4.25rem}
+.adv-d{padding:0 1rem 1rem 4.25rem}.adv-d>p:first-child{margin-top:0}
+.pill.blink svg{animation:pulse 1.4s ease-in-out infinite}
+.pill .pill-spin{width:.75rem;height:.75rem;flex:none;border-radius:50%;background:transparent;border:2px solid var(--line-2);border-top-color:var(--ink-2);animation:advspin .9s linear infinite}
+@keyframes advspin{to{transform:rotate(360deg)}}
 @keyframes shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
 @media (prefers-reduced-motion:reduce){.app *,.app *::before{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
@@ -546,7 +560,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
         <p class="sc-note">{{lg.note}}</p>
         <div class="sc-f"><span class="sc-hint">{{popHint}}</span><sc-for list="{{lg.acts}}" as="a" hint-placeholder-count="2"><button class="btn {{a.cls}}" type="button" onClick="{{a.fn}}">{{a.label}}</button></sc-for></div>
       </div></sc-if></span>
-    <sc-if value="{{phTop.show}}" hint-placeholder-val="{{false}}"><span class="st-item" onMouseEnter="{{phoneEnter}}" onMouseLeave="{{popLeave}}"><button class="pill {{phTop.tone}}" type="button" onClick="{{togglePhone}}" onKeyDown="{{popKey}}" aria-expanded="{{popPhone}}" aria-label="{{phTop.aria}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg><sc-if value="{{labels}}" hint-placeholder-val="{{true}}"><b>{{phTop.text}}</b></sc-if></button>
+    <sc-if value="{{phTop.show}}" hint-placeholder-val="{{false}}"><span class="st-item" onMouseEnter="{{phoneEnter}}" onMouseLeave="{{popLeave}}"><button class="pill {{phTop.tone}}" type="button" onClick="{{togglePhone}}" onKeyDown="{{popKey}}" aria-expanded="{{popPhone}}" aria-label="{{phTop.aria}}"><sc-if value="{{phTop.spin}}" hint-placeholder-val="{{false}}"><span class="pill-spin" aria-hidden="true"></span></sc-if><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg><sc-if value="{{labels}}" hint-placeholder-val="{{true}}"><b>{{phTop.text}}</b></sc-if></button>
       <sc-if value="{{popPhone}}" hint-placeholder-val="{{false}}"><i class="sc-caret r" aria-hidden="true"></i><div class="sc r" role="dialog" aria-label="手机访问详情" onKeyDown="{{popKey}}">
         <div class="sc-h"><div class="sc-top"><span class="sc-chip {{pc.tone}}"><i></i>{{pc.chip}}</span><span class="sc-cap">{{pc.cap}}</span></div><div class="sc-big">{{pc.big}}</div><p class="sc-sub">{{pc.sub}}</p></div>
         <dl class="sc-rows"><sc-for list="{{pc.rows}}" as="r" hint-placeholder-count="4"><dt>{{r.k}}</dt><dd>{{r.v}}</dd></sc-for></dl>
@@ -697,25 +711,26 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
       <div class="draw-h"><h2>设置</h2><button class="draw-x" type="button" onClick="{{closeSettings}}" aria-label="关闭设置"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
       <div class="draw-b"><nav class="set-nav" aria-label="设置分组"><button type="button" onClick="{{goAdv}}">高级功能</button><button type="button" onClick="{{goLogin}}">登录</button><button type="button" onClick="{{goProg}}">程序</button></nav>
         <div class="set-g" data-sec="adv">高级功能<small>可选，用到时点一下就装</small></div>
-        <section class="set">
-          <div class="set-h"><b>手机访问</b><sc-if value="{{phV.hasSlot}}" hint-placeholder-val="{{false}}"><button class="btn {{phV.slotCls}}" type="button" disabled="{{phV.slotOff}}" onClick="{{phV.slotFn}}">{{phV.slotLabel}}</button></sc-if><sc-if value="{{phV.hasChip}}" hint-placeholder-val="{{true}}"><span class="ph-st {{phV.tone}}">{{phV.status}}</span></sc-if></div>
+        <section class="set adv-sec" aria-label="手机访问">
+          <div class="adv-h"><span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"></rect><path d="M11 18h2"></path></svg></span><div class="adv-t"><b>手机访问</b><span class="adv-s {{phH.tone}}" role="status"><i></i>{{phH.text}}</span></div><sc-if value="{{phH.hasBtn}}" hint-placeholder-val="{{true}}"><button class="btn {{phH.btnCls}}" type="button" disabled="{{phH.btnOff}}" onClick="{{phH.btnFn}}">{{phH.btnLabel}}</button></sc-if><button class="adv-x" type="button" aria-expanded="{{phH.open}}" aria-label="{{phH.xAria}}" onClick="{{phToggle}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="{{phH.xPath}}"></path></svg></button></div>
+          <sc-if value="{{phH.hasBar}}" hint-placeholder-val="{{false}}"><div class="adv-bar" role="progressbar" aria-label="手机控制组件安装进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{phH.pct}}"><i style="width: {{phH.pct}}%"></i></div></sc-if>
+          <sc-if value="{{phH.hasNote}}" hint-placeholder-val="{{false}}"><p class="adv-n {{phH.noteCls}}">{{phH.note}}</p></sc-if>
+          <sc-if value="{{phH.hasErr}}" hint-placeholder-val="{{false}}"><p class="ph-err adv-e" role="alert">{{phH.err}}</p></sc-if>
+          <sc-if value="{{phH.open}}" hint-placeholder-val="{{true}}"><div class="adv-d">
           <p>{{phV.lead}}</p>
           <sc-if value="{{phV.isMissing}}" hint-placeholder-val="{{false}}">
-            <sc-if value="{{phV.hasErr}}" hint-placeholder-val="{{false}}"><p class="ph-err" role="alert">{{phV.err}}</p></sc-if>
             <sc-if value="{{phV.hasNote}}" hint-placeholder-val="{{false}}"><p class="ph-note" role="status">{{phV.note}}</p></sc-if>
             <p class="ph-note">{{phV.sizeNote}}</p><div class="loc" title="{{phV.loc}}"><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"></path></svg><span class="loc-t"><small>会装到</small><code>{{phV.locShort}}</code></span></div>
-            <sc-if value="{{phV.canImport}}" hint-placeholder-val="{{false}}"><p class="ph-note">一直下载不了的话，可以到发布页手动下载组件包，再<button class="ph-link" type="button" onClick="{{phImport}}">导入已下载的组件包</button>。</p></sc-if>
           </sc-if>
+          <sc-if value="{{phV.canImport}}" hint-placeholder-val="{{false}}"><p class="ph-note">一直下载不了的话，可以到发布页手动下载组件包，再<button class="ph-link" type="button" onClick="{{phImport}}">导入已下载的组件包</button>。</p></sc-if>
           <sc-if value="{{phV.isLoading}}" hint-placeholder-val="{{false}}">
-            <div class="ph-prog"><div class="ph-prog-t"><span>{{phV.loadText}}</span><b>{{phV.loadNum}}</b></div><div class="ph-bar" role="progressbar" aria-label="手机控制组件安装进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{phV.pct}}"><i style="width: {{phV.pct}}%"></i></div></div>
             <p class="ph-note">下载和报名计划互不影响，可以关掉设置继续用。</p>
             <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{phDemoFail}}">演示：下载失败</button></sc-if>
           </sc-if>
           <sc-if value="{{phV.isOff}}" hint-placeholder-val="{{true}}">
-            <sc-if value="{{phV.hasErr}}" hint-placeholder-val="{{false}}"><p class="ph-err" role="alert">{{phV.err}}</p></sc-if>
             <sc-if value="{{phV.hasNote}}" hint-placeholder-val="{{false}}"><p class="ph-note" role="status">{{phV.note}}</p></sc-if>
             <div class="chans" role="radiogroup" aria-label="远程通道"><sc-for list="{{phV.channels}}" as="c" hint-placeholder-count="2"><label class="chan {{c.cls}}"><input type="radio" name="ph-chan" checked="{{c.on}}" disabled="{{phV.starting}}" onChange="{{c.pick}}"><span class="chan-t"><b>{{c.name}}</b><span class="chan-s {{c.tone}}">{{c.status}}</span></span><span class="chan-d">{{c.text}}</span></label></sc-for></div>
-            <div class="ph-acts"><button class="btn btn-solid" type="button" disabled="{{phV.cantStart}}" onClick="{{phStart}}">{{phV.startLabel}}</button><sc-if value="{{phV.canRecheck}}" hint-placeholder-val="{{false}}"><button class="btn btn-line" type="button" onClick="{{phRecheck}}">重新检测</button></sc-if></div>
+            <sc-if value="{{phV.canRecheck}}" hint-placeholder-val="{{false}}"><div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{phRecheck}}">重新检测</button></div></sc-if>
             <sc-if value="{{phV.hasHint}}" hint-placeholder-val="{{false}}"><p class="ph-note">{{phV.hint}}</p></sc-if>
             <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{phDemoTs}}">演示：切换 Tailscale 状态</button></sc-if>
           </sc-if>
@@ -729,21 +744,25 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
             <dl class="ph-addr"><dt>地址</dt><dd>{{phV.addr}}</dd><button class="btn btn-line" type="button" onClick="{{phCopy}}">{{phV.copyLabel}}</button><sc-if value="{{phV.hasAlt}}" hint-placeholder-val="{{false}}"><dt>备用</dt><dd>{{phV.alt}}</dd><span></span></sc-if></dl>
             <p class="{{phV.chanCls}}">{{phV.chanNote}}</p>
             <sc-if value="{{phV.stopAsk}}" hint-placeholder-val="{{false}}"><div class="ph-confirm" role="alert">关闭后手机立刻失去权限，下次连接要重新扫码配对。<div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{phStopNo}}">先不关闭</button><button class="btn btn-stop" type="button" onClick="{{phStopYes}}">确认关闭</button></div></div></sc-if>
-            <sc-if value="{{phV.showStop}}" hint-placeholder-val="{{true}}"><div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{phStopAskFn}}">关闭手机访问</button><sc-if value="{{phV.canAddPair}}" hint-placeholder-val="{{false}}"><button class="btn btn-line" type="button" onClick="{{phAddPair}}">再配对一台手机</button></sc-if></div></sc-if>
-            <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><sc-if value="{{phV.canDemoPair}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{phDemoPair}}">演示：手机配对成功</button></sc-if><sc-if value="{{phV.canDemoGone}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{phDemoGone}}">演示：Cloudflare 隧道断开</button></sc-if></sc-if>
+            <sc-if value="{{phV.canAddPair}}" hint-placeholder-val="{{false}}"><div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{phAddPair}}">再配对一台手机</button></div></sc-if>
+            <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><sc-if value="{{phV.canDemoPair}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{phDemoPair}}">演示：手机配对成功</button></sc-if><sc-if value="{{phV.canDemoLeave}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{phDemoLeave}}">演示：手机 2 分钟没来 / 又来了</button></sc-if><sc-if value="{{phV.canDemoGone}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{phDemoGone}}">演示：Cloudflare 隧道断开</button></sc-if></sc-if>
           </sc-if>
           <sc-if value="{{phV.hasLoc}}" hint-placeholder-val="{{false}}"><div class="loc" title="{{phV.loc}}"><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"></path></svg><span class="loc-t"><small>装在</small><code>{{phV.locShort}}</code></span><button class="ph-link" type="button" onClick="{{phOpenLoc}}">打开所在文件夹</button></div></sc-if>
+          </div></sc-if>
         </section>
-        <section class="set" data-sec="ocr">
-          <div class="set-h"><b>验证码识别<sc-if value="{{ocV.isOff}}" hint-placeholder-val="{{false}}"><span class="ph-st set-chip">未启用</span></sc-if></b><sc-if value="{{ocV.hasSlot}}" hint-placeholder-val="{{true}}"><button class="btn {{ocV.slotCls}}" type="button" disabled="{{ocV.slotOff}}" onClick="{{ocV.slotFn}}">{{ocV.slotLabel}}</button></sc-if><sc-if value="{{ocV.hasChip}}" hint-placeholder-val="{{false}}"><span class="ph-st ok">已启用</span></sc-if></div>
+        <section class="set adv-sec" data-sec="ocr" aria-label="验证码识别">
+          <div class="adv-h"><span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M7 14l2-4 2 4M14 10h3M14 14h3"></path></svg></span><div class="adv-t"><b>验证码识别</b><span class="adv-s {{ocH.tone}}" role="status"><i></i>{{ocH.text}}</span></div><sc-if value="{{ocH.hasBtn}}" hint-placeholder-val="{{true}}"><button class="btn {{ocH.btnCls}}" type="button" disabled="{{ocH.btnOff}}" onClick="{{ocH.btnFn}}">{{ocH.btnLabel}}</button></sc-if><button class="adv-x" type="button" aria-expanded="{{ocH.open}}" aria-label="{{ocH.xAria}}" onClick="{{ocToggle}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="{{ocH.xPath}}"></path></svg></button></div>
+          <sc-if value="{{ocH.hasBar}}" hint-placeholder-val="{{false}}"><div class="adv-bar" role="progressbar" aria-label="验证码识别组件安装进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ocH.pct}}"><i style="width: {{ocH.pct}}%"></i></div></sc-if>
+          <sc-if value="{{ocH.hasNote}}" hint-placeholder-val="{{false}}"><p class="adv-n {{ocH.noteCls}}">{{ocH.note}}</p></sc-if>
+          <sc-if value="{{ocH.hasErr}}" hint-placeholder-val="{{false}}"><p class="ph-err adv-e" role="alert">{{ocH.err}}</p></sc-if>
+          <sc-if value="{{ocH.open}}" hint-placeholder-val="{{false}}"><div class="adv-d">
           <p>{{ocV.lead}}</p>
-          <sc-if value="{{ocV.hasErr}}" hint-placeholder-val="{{false}}"><p class="ph-err" role="alert">{{ocV.err}}</p></sc-if>
           <sc-if value="{{ocV.isMissing}}" hint-placeholder-val="{{true}}"><p class="ph-note">{{ocV.sizeNote}}</p><div class="loc" title="{{ocV.loc}}"><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"></path></svg><span class="loc-t"><small>会装到</small><code>{{ocV.locShort}}</code></span></div></sc-if>
           <sc-if value="{{ocV.isOff}}" hint-placeholder-val="{{false}}"><p class="ph-note">这一项关系到自动登录，所以装好了也不会自己打开。</p></sc-if>
-          <sc-if value="{{ocV.isLoading}}" hint-placeholder-val="{{false}}"><div class="ph-prog"><div class="ph-prog-t"><span>{{ocV.loadText}}</span><b>{{ocV.loadNum}}</b></div><div class="ph-bar" role="progressbar" aria-label="验证码识别组件安装进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ocV.pct}}"><i style="width: {{ocV.pct}}%"></i></div></div><sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><sc-if value="{{ocV.canDemoFail}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{ocDemoFail}}">演示：下载失败</button></sc-if></sc-if></sc-if>
+          <sc-if value="{{ocV.isLoading}}" hint-placeholder-val="{{false}}"><sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><sc-if value="{{ocV.canDemoFail}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{ocDemoFail}}">演示：下载失败</button></sc-if></sc-if></sc-if>
           <sc-if value="{{ocV.canImport}}" hint-placeholder-val="{{false}}"><p class="ph-note">一直下载不了的话，可以到发布页手动下载组件包，再<button class="ph-link" type="button" onClick="{{ocImport}}">导入已下载的组件包</button>。</p></sc-if>
-          <sc-if value="{{ocV.hasNote}}" hint-placeholder-val="{{false}}"><p class="ph-note" role="status">{{ocV.note}}</p></sc-if>
           <sc-if value="{{ocV.hasLoc}}" hint-placeholder-val="{{false}}"><div class="loc" title="{{ocV.loc}}"><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"></path></svg><span class="loc-t"><small>装在</small><code>{{ocV.locShort}}</code></span><button class="ph-link" type="button" onClick="{{ocOpenLoc}}">打开所在文件夹</button></div></sc-if>
+          </div></sc-if>
         </section>
         <div class="set-g">登录</div>
         <section class="set" data-sec="login">
@@ -914,7 +933,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"draft","options":["draft","normal","waiting","editing","running","result","unknown","expired","clock","listerr","first","settings","tour","tour2","tour4","phonesetup","phonets","phonewait","phonelinked","closerun","closeask","closeexit","closeidle","closehidden","update","upavail","updown","upready","upfail","comp","compwrong","compok","compfail","credform","credsaved","relogin","rlcap","rlconfirm","rlbad","loginshort","termsupdate","termsdoc","termsprivacy","termsoff","termswithdraw","popclock","poplogin","popdown","popphone","prewarn","netoff","slept","broken","helpkeys","longname","zeroact","clockhold","runexpired","runauto","runclick","toastmin","runphone","stopask","stopped","compafter","compnosize","credocroff","filters","noresult","conflict","conflicttip","conflictnocancel","conflictpast","conflictunknown","crossday","cancelask","cancelbusy","canceldone","cancelrefused","cancelunknown","cancelprecheck","policy","logopen","phstopask","phaddpair","credclear","phfail","rlcapbad","termsunknown","secondrun","migrated","migratefail","login","loginbrowser","loginwait","loginbad","logincap"]},"tier":{"editor":"enum","default":"auto","options":["auto","wide","medium","narrow"]},"frozen":{"editor":null},"short":{"editor":null},"height":{"editor":null},"$preview":{"width":1280,"height":800}}'>
+<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"draft","options":["draft","normal","waiting","editing","running","result","unknown","expired","clock","listerr","first","settings","tour","tour2","tour4","phonesetup","phonets","phonewait","phonelinked","closerun","closeask","closeexit","closeidle","closehidden","update","upavail","updown","upready","upfail","comp","compwrong","compok","compfail","credform","credsaved","relogin","rlcap","rlconfirm","rlbad","loginshort","termsupdate","termsdoc","termsprivacy","termsoff","termswithdraw","popclock","poplogin","popdown","popphone","prewarn","netoff","slept","broken","helpkeys","longname","zeroact","clockhold","runexpired","runauto","runclick","toastmin","runphone","stopask","stopped","compafter","compnosize","credocroff","filters","noresult","conflict","conflicttip","conflictnocancel","conflictpast","conflictunknown","crossday","cancelask","cancelbusy","canceldone","cancelrefused","cancelunknown","cancelprecheck","policy","logopen","phstopask","phaddpair","credclear","phfail","advcheck","advtimeout","advbroken","advrefail","phgone","phstarting","phstopping","phgonetop","phstartingtop","advverify","advupdfail","phstartfail","phdownload","rlcapbad","termsunknown","secondrun","migrated","migratefail","login","loginbrowser","loginwait","loginbad","logincap"]},"tier":{"editor":"enum","default":"auto","options":["auto","wide","medium","narrow"]},"frozen":{"editor":null},"short":{"editor":null},"height":{"editor":null},"$preview":{"width":1280,"height":800}}'>
 class Component extends DCLogic {
   state = this.init((this.props || {}).scene || 'draft');
 
@@ -1055,7 +1074,7 @@ class Component extends DCLogic {
   isEnd(st) { return ['success', 'full', 'failed', 'unconfirmed', 'canceled', 'missed'].indexOf(st) >= 0; }
 
   init(scene) {
-    var s = { scene: scene, q: '', seg: 'all', fOpen: false, fTime: 'all', fSort: 'open', fIn: 'all', fOut: 'all', selected: [], notice: '', phase: 'draft', tasks: [], now: 51605, login: 'valid', clock: 'ready', list: 'ready', terms: true, retry: 120, maxA: 0, headed: false, editPolicy: false, pop: '', settings: false, help: false, termsOpen: false, agree: false, logOpen: false, stopAsk: false, planOpen: false, ph: 'off', phCh: 'tailscale', phTs: 'ok', phPct: 0, phErr: '', phNote: '', phStarting: false, phPaired: false, phAddPair: false, phCode: 0, phLeft: 300, phStopAsk: false, phCopied: false, chrome: false, win: 'open', closeAsk: false, closeStep: '', closeRemember: false, closePref: 'ask', closeWhy: '', tray: true, exitNote: '', up: 'idle', upNext: 'available', upPct: 0, upAt: '', upErr: '', upNote: '', upFocus: false, cred: 'none', credMask: '', credForm: false, credOnce: false, credUser: '', credPass: '', credClearAsk: false, credNote: '', ocr: 'missing', ocrNote: '', ocrPct: 0, ocrErr: '', credBad: false, rl: '', rlCode: '', rlIdx: 0, rlErr: '', loginAt: 51603, popPin: false, clockJust: false, net: 'ok', broken: false, slept: 0, sleepMissed: [], zero: false, sizeKnown: true, termsUnknown: false, info: '', toast: false, planSource: '', listAtS: 51604, termsAgreed: '2026-11-03-r4', termsAt: '11-03 09:12', lgWay: 'here', lgUser: '', lgPass: '', lgSave: false, lgShow: false, rlFrom: '', termsPrev: '', termsWithdrawn: false, termsWAsk: false, td: null, tuOpen: false, imp: null, loginFocus: false, advFocus: false, signedLocal: [], stopped: false, editing: null, tourOpen: false, tourStep: 0, tourRect: null, tourRowId: '', tourDone: true, cx: '', tip: '', tipPos: null, flash: '', cxAsk: '', cxBusy: '', cxRes: null, w: 1280, h: 800, lines: ['14:20:03  [OK] 已复用本机登录，学校校验通过', '14:20:04  活动列表已更新，共 11 场'] };
+    var s = { scene: scene, q: '', seg: 'all', fOpen: false, fTime: 'all', fSort: 'open', fIn: 'all', fOut: 'all', selected: [], notice: '', phase: 'draft', tasks: [], now: 51605, login: 'valid', clock: 'ready', list: 'ready', terms: true, retry: 120, maxA: 0, headed: false, editPolicy: false, pop: '', settings: false, help: false, termsOpen: false, agree: false, logOpen: false, stopAsk: false, planOpen: false, ph: 'off', phCh: 'tailscale', phTs: 'ok', phPct: 0, phErr: '', phNote: '', phStarting: false, phPaired: false, phAddPair: false, phCode: 0, phLeft: 300, phStopAsk: false, phCopied: false, chrome: false, win: 'open', closeAsk: false, closeStep: '', closeRemember: false, closePref: 'ask', closeWhy: '', tray: true, exitNote: '', up: 'idle', upNext: 'available', upPct: 0, upAt: '', upErr: '', upNote: '', upFocus: false, cred: 'none', credMask: '', credForm: false, credOnce: false, credUser: '', credPass: '', credClearAsk: false, credNote: '', ocr: 'missing', ocrNote: '', ocrPct: 0, ocrErr: '', advOpen: { ph: true, ocr: false }, phWait: false, phUnread: false, phGone: false, phStopping: false, phBase: '', ocrWait: false, ocrUnread: false, ocrBase: '', credBad: false, rl: '', rlCode: '', rlIdx: 0, rlErr: '', loginAt: 51603, popPin: false, clockJust: false, net: 'ok', broken: false, slept: 0, sleepMissed: [], zero: false, sizeKnown: true, termsUnknown: false, info: '', toast: false, planSource: '', listAtS: 51604, termsAgreed: '2026-11-03-r4', termsAt: '11-03 09:12', lgWay: 'here', lgUser: '', lgPass: '', lgSave: false, lgShow: false, rlFrom: '', termsPrev: '', termsWithdrawn: false, termsWAsk: false, td: null, tuOpen: false, imp: null, loginFocus: false, advFocus: false, signedLocal: [], stopped: false, editing: null, tourOpen: false, tourStep: 0, tourRect: null, tourRowId: '', tourDone: true, cx: '', tip: '', tipPos: null, flash: '', cxAsk: '', cxBusy: '', cxRes: null, w: 1280, h: 800, lines: ['14:20:03  [OK] 已复用本机登录，学校校验通过', '14:20:04  活动列表已更新，共 11 场'] };
     var pick = ['o1', 't1', 't2'];
     if (scene === 'draft') { s.selected = pick; s.ph = 'on'; s.phPaired = true; s.phCode = 1; }
     if (scene === 'unknown') { s.login = 'unknown'; s.selected = ['t1']; }
@@ -1154,6 +1173,20 @@ class Component extends DCLogic {
     if (scene === 'stopask') { s.selected = pick; s = this.startState(s); s = this.advance(s); s = this.advance(s); s.stopAsk = true; }
     if (scene === 'stopped') { s.selected = pick; s = this.startState(s); s = this.advance(s); s = this.advance(s); s = this.finishState(s, true); }
     if (scene === 'compafter') { s.ph = 'off'; s.ocr = 'off'; }
+    // 2026-11-15 高级功能一项一行：读状态、坏了、需要更新、手机已断开、顶栏开启与停止中
+    if (scene === 'advcheck') { s.settings = true; s.advFocus = true; s.ph = 'checking'; s.phBase = 'off'; s.ocr = 'on'; s.ocrWait = true; s.ocrBase = 'on'; }
+    if (scene === 'advtimeout') { s.settings = true; s.advFocus = true; s.ph = 'timeout'; s.phBase = 'off'; s.ocr = 'off'; s.ocrUnread = true; s.ocrBase = 'off'; }
+    if (scene === 'advbroken') { s.settings = true; s.advFocus = true; s.ph = 'outdated'; s.ocr = 'broken'; s.advOpen = { ph: false, ocr: true }; }
+    if (scene === 'advrefail') { s.settings = true; s.advFocus = true; s.ph = 'disabled'; s.ocr = 'broken'; s.ocrErr = '下载没有完成：连不上发布页，可以重试。'; s.advOpen = { ph: false, ocr: true }; }
+    if (scene === 'phgone') { s.settings = true; s.ph = 'on'; s.phPaired = true; s.phGone = true; s.phCode = 1; s.ocr = 'on'; }
+    if (scene === 'phstarting') { s.settings = true; s.ph = 'off'; s.phStarting = true; s.ocr = 'on'; }
+    if (scene === 'phstopping') { s.ph = 'on'; s.phPaired = true; s.phStopping = true; s.ocr = 'on'; }
+    if (scene === 'advverify') { s.settings = true; s.advFocus = true; s.ph = 'verifying'; s.phPct = 100; s.ocr = 'installing'; s.advOpen = { ph: false, ocr: false }; }
+    if (scene === 'advupdfail') { s.settings = true; s.advFocus = true; s.ph = 'outdated'; s.phErr = '下载没有完成：连不上发布页，可以重试。'; s.ocr = 'checking'; s.ocrUnread = true; s.ocrBase = 'on'; s.advOpen = { ph: true, ocr: false }; }
+    if (scene === 'phstartfail') { s.settings = true; s.ph = 'off'; s.phCh = 'cloudflare'; s.phErr = 'Cloudflare 隧道断了，旧地址和二维码已失效。重新开启后要重新扫码配对。'; s.ocr = 'on'; }
+    if (scene === 'phdownload') { s.settings = true; s.ph = 'downloading'; s.phPct = 38; s.ocr = 'on'; }
+    if (scene === 'phgonetop') { s.ph = 'on'; s.phPaired = true; s.phGone = true; s.phCode = 1; s.ocr = 'on'; s.pop = 'phone'; s.popPin = true; }
+    if (scene === 'phstartingtop') { s.ph = 'off'; s.phStarting = true; s.ocr = 'on'; }
     if (scene === 'compnosize') s.sizeKnown = false;
     if (scene === 'credocroff') { s.cred = 'saved'; s.credMask = 'st****01'; s.ocr = 'off'; }
     // 2026-11-06 第二轮补画板：能点出来但没画的子状态、条款状态没能确认、多开与搬旧数据提示
@@ -1347,6 +1380,53 @@ class Component extends DCLogic {
     if (s.phLeft > 1) return Object.assign({}, s, { phLeft: s.phLeft - 1 });
     return Object.assign({}, s, { phLeft: 300, phCode: (s.phCode + 1) % this.phCodes().length, phNote: '配对码已过期，已经换成新的。' });
   }
+  // 一项一行的标题行：圆点颜色、一句状态、一个主按钮；颜色含义固定——灰没装或没开、蓝正在做、绿能用、琥珀要留意、红坏了
+  advHead(kind, s) {
+    var ph = kind === 'ph', st = ph ? s.ph : s.ocr, err = ph ? s.phErr : s.ocrErr, pct = ph ? s.phPct : s.ocrPct, size = ph ? 18.4 : 31.6;
+    var h = { tone: '', text: '', hasBtn: false, btnLabel: '', btnCls: 'btn-line', btnOff: false, btnFn: function () {}, hasBar: false, pct: 0, hasNote: false, note: '', noteCls: '', hasErr: !!err, err: err };
+    var btn = function (label, cls, fn, off) { h.hasBtn = true; h.btnLabel = label; h.btnCls = cls; h.btnFn = fn; h.btnOff = !!off; };
+    var note = function (text, cls) { h.hasNote = true; h.note = text; h.noteCls = cls || ''; };
+    var install = ph ? this.phInstall : this.ocInstall, retry = ph ? this.phRetry : this.ocRetry;
+    if (st === 'missing') { h.text = s.sizeKnown ? '没装 · 约 ' + size + ' MB' : '没装'; btn(err ? '重新下载' : '下载并安装', 'btn-solid', install); }
+    else if (st === 'downloading') { h.tone = 'blue'; h.text = '下载中 ' + (pct * size / 100).toFixed(1) + ' / ' + size + ' MB'; btn('取消', 'btn-line', ph ? this.phCancel : this.ocCancel); h.hasBar = true; h.pct = pct; }
+    else if (st === 'verifying') { h.tone = 'blue'; h.text = '下载完了，正在校验…'; btn('校验中…', 'btn-line', function () {}, true); h.hasBar = true; h.pct = 100; }
+    else if (st === 'installing') { h.tone = 'blue'; h.text = '正在安装组件…'; }
+    else if (st === 'checking') { h.tone = 'blue'; h.text = '正在确认组件状态…'; }
+    else if (st === 'timeout') { h.tone = 'amber'; h.text = '另一个窗口正在安装或更新组件，已等 30 秒'; btn('重试', 'btn-line', retry); }
+    else if (st === 'outdated') { h.tone = 'amber'; h.text = '需要更新'; btn('更新组件', 'btn-solid', install); note(ph ? '主程序升级了，组件要跟着换；手机不用重新配对。' : '主程序升级了，组件要跟着换；账号密码不用重填。'); }
+    else if (st === 'broken') { h.tone = 'red'; h.text = '加载失败'; btn('重新安装', 'btn-solid', install); note('组件文件不完整。重新安装不会动你的账号和设置。', 'red'); }
+    else if (ph && st === 'disabled') { h.text = '已停用'; btn('启用手机控制', 'btn-line', this.phEnable); }
+    else if (ph && st === 'off') {
+      if (s.phStarting) { h.tone = 'blue'; h.text = '正在开启…'; }
+      else { h.text = '未开启 · 通道用 ' + (s.phCh === 'cloudflare' ? 'Cloudflare' : 'Tailscale'); btn(err ? '重新开启' : '开启', 'btn-solid', this.phStart, this.phView(s).cantStart); }
+    }
+    else if (ph && st === 'on') {
+      if (s.phStopping) { h.tone = 'blue'; h.text = '正在停止…'; }
+      else {
+        if (s.phGone) h.text = '已断开 · 2 分钟前';
+        else if (s.phPaired) { h.tone = 'green'; h.text = '手机已连接'; }
+        else { h.tone = 'amber blink'; h.text = '等手机连接'; }
+        btn('关闭手机访问', 'btn-line', this.phStopAskFn, s.phStopAsk);
+      }
+    }
+    else if (!ph && st === 'off') { h.text = '已装好还没启用'; btn('启用', 'btn-solid', this.ocEnable); }
+    else if (!ph && st === 'on') { h.tone = 'green'; h.text = '已启用 · 版本 1.2.0'; if (s.ocrNote) note(s.ocrNote, 'green'); }
+    // 有上次结论时等锁：字不换，只把圆点变蓝、收起按钮（少闪一次）
+    if (ph ? s.phWait : s.ocrWait) { h.tone = 'blue'; h.hasBtn = false; }
+    // 读不到：保留原来的字，下面一句说明，按钮换成「重试」
+    if (ph ? s.phUnread : s.ocrUnread) { h.tone = 'dotamber'; h.hasBtn = false; btn('重试', 'btn-line', retry); note('暂时读不到组件状态', 'amber'); }
+    var open = !!(s.advOpen || {})[kind];
+    h.open = open; h.xAria = (open ? '收起' : '展开') + (ph ? '手机访问' : '验证码识别') + '详情'; h.xPath = open ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6';
+    return h;
+  }
+  advToggle(kind) { var o = Object.assign({}, this.state.advOpen); o[kind] = !o[kind]; this.setState({ advOpen: o }); }
+  // 顶栏手机标识：没开不显示；开启中、停止中灰色转圈；等手机连接琥珀慢闪；已连接绿；已断开灰色，不算错误
+  phTopView(s) {
+    var busy = (s.ph === 'off' && s.phStarting) || (s.ph === 'on' && s.phStopping);
+    var text = s.phStarting ? '正在开启…' : (s.phStopping ? '正在停止…' : (s.phGone ? '已断开 · 2 分钟前' : (s.phPaired ? '手机已连接' : '等手机连接')));
+    var tone = busy || s.phGone ? '' : (s.phPaired ? 'ok' : 'warn blink');
+    return { show: s.ph === 'on' || busy, tone: tone, spin: busy, text: text, aria: (s.phPaired || busy || s.phGone ? text : '手机访问已开启，等手机连接') + '，查看详情' };
+  }
   phView(s) {
     var self = this, loading = s.ph === 'downloading' || s.ph === 'verifying';
     var mb = (s.phPct * 0.184).toFixed(1);
@@ -1368,7 +1448,8 @@ class Component extends DCLogic {
     v.slotCls = s.ph === 'missing' ? 'btn-solid' : 'btn-line';
     v.slotOff = s.ph === 'verifying';
     v.slotFn = s.ph === 'missing' ? this.phInstall : (s.ph === 'downloading' ? this.phCancel : function () {});
-    v.canImport = s.ph === 'missing' && !!s.phErr;
+    v.canImport = (s.ph === 'missing' || s.ph === 'outdated' || s.ph === 'broken') && !!s.phErr;
+    if (['checking', 'timeout', 'outdated', 'broken', 'disabled'].indexOf(s.ph) >= 0) v.lead = '从手机查看活动、开始和停止计划。手机只是遥控器，真正报名的还是这台电脑，所以电脑要开着、不能睡眠。';
     if (s.ph === 'missing') { v.status = '未安装'; v.lead = '从手机查看活动、开始和停止计划。手机只是遥控器，真正报名的还是这台电脑，所以电脑要开着、不能睡眠。'; }
     if (loading) { v.status = s.ph === 'verifying' ? '校验中' : '下载中'; v.lead = '可以关掉设置继续用，下载和报名计划互不影响。'; }
     if (s.ph === 'off') {
@@ -1396,6 +1477,7 @@ class Component extends DCLogic {
       v.canAddPair = s.phPaired && !s.phAddPair;
       v.canDemoPair = v.showPair;
       v.canDemoGone = cf;
+      v.canDemoLeave = s.phPaired && !v.showPair;
       if (v.showPair) {
         v.qr = this.phQr();
         v.led = this.ledOf(this.phCodes()[s.phCode], 'amber', '', '');
@@ -1493,7 +1575,7 @@ class Component extends DCLogic {
   }
   credView(s) {
     var self = this, has = s.cred === 'saved' || s.cred === 'once', ocrOn = s.ocr === 'on';
-    var auto = !has ? ['失效后自动登录：未启用，还没有账号密码。登录失效后要手动重新登录；报名计划开放前 100 秒内失效的场次会直接结束。', ''] : (ocrOn ? ['失效后自动登录：已启用。登录失效时电脑自己重新登录，报名计划等开放或提交时也一样，不用你动手。', 'up-ok'] : s.ocr === 'off' ? ['失效后自动登录：验证码识别本机已装，还没启用（在上面“高级功能”里点“启用”）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。', 'up-warn'] : ['失效后自动登录：还缺验证码识别组件（在上面的“高级功能”里一键安装）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。', 'up-warn']);
+    var auto = !has ? ['失效后自动登录：未启用，还没有账号密码。登录失效后要手动重新登录；报名计划开放前 100 秒内失效的场次会直接结束。', ''] : (ocrOn ? ['失效后自动登录：已启用。登录失效时电脑自己重新登录，报名计划等开放或提交时也一样，不用你动手。', 'up-ok'] : s.ocr === 'off' ? ['失效后自动登录：验证码识别本机已装，还没启用（在上面“高级功能”里点“启用”）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。', 'up-warn'] : s.ocr === 'checking' || s.ocr === 'timeout' ? ['失效后自动登录：正在检查验证码识别组件。', ''] : s.ocr === 'outdated' ? ['失效后自动登录：验证码识别组件需要随新版本更新（在上面“高级功能”里点“更新组件”）。更新前登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。', 'up-warn'] : ['失效后自动登录：还缺验证码识别组件（在上面的“高级功能”里一键安装）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。', 'up-warn']);
     return {
       hasSlot: !s.credForm && !s.credClearAsk, slotLabel: has ? '更换' : '填写账号密码', slotFn: function () { self.setState({ credForm: true, credNote: '', credUser: '', credPass: '', credOnce: false }); },
       lead: '登录失效时用账号密码自动登录。账号密码只用 Windows 当前用户加密保存在本机，手机页看不到。',
@@ -1510,7 +1592,7 @@ class Component extends DCLogic {
       lead: on ? '版本 1.2.0。电脑会自己认验证码，连续认错 3 次再转给手机手动输入。' : s.ocr === 'off' ? '已装好（版本 1.2.0），还没启用。启用后，登录失效时电脑会自己认验证码；配合“登录恢复”里的账号密码，就能无人值守自动登录。' : '登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。没装或认不出来时，由你在手机上手动输入。',
       isMissing: s.ocr === 'missing', isOff: s.ocr === 'off', hasLoc: on || s.ocr === 'off', loc: 'C:\\Users\\同学\\AppData\\Local\\TianSoftActivityPreRegistration\\data\\advanced\\relogin_ocr', locShort: 'C:\\Users\\同学\\AppData\\Local\\…\\advanced\\relogin_ocr',
       sizeNote: s.sizeKnown ? '可选组件，约 31.6 MB。下载后自动校验并启用，不会自动升级。' : '可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。',
-      hasErr: s.ocr === 'missing' && !!s.ocrErr, err: s.ocrErr, canImport: s.ocr === 'missing' && !!s.ocrErr,
+      hasErr: s.ocr === 'missing' && !!s.ocrErr, err: s.ocrErr, canImport: (s.ocr === 'missing' || s.ocr === 'outdated' || s.ocr === 'broken') && !!s.ocrErr,
       isLoading: loading, pct: s.ocrPct, loadText: s.ocr === 'verifying' ? '下载完成，正在校验组件…' : '正在下载验证码识别组件', loadNum: s.ocr === 'verifying' ? '' : (s.ocrPct * 0.316).toFixed(1) + ' / 31.6 MB', canDemoFail: s.ocr === 'downloading',
       hasNote: !!s.ocrNote, note: s.ocrNote
     };
@@ -1613,11 +1695,11 @@ class Component extends DCLogic {
     var cf = s.phCh === 'cloudflare', paired = s.phPaired;
     var left = Math.floor(s.phLeft / 60) + ':' + (s.phLeft % 60 < 10 ? '0' : '') + (s.phLeft % 60);
     var rows = [{ k: '通道', v: cf ? 'Cloudflare，临时地址' : 'Tailscale，地址固定' }, { k: '地址', v: cf ? 'quiet-river-demo.trycloudflare.com' : 'my-pc.tailnet.ts.net:8765' }];
-    if (paired) rows.push({ k: '已配对', v: '1 台手机' }, { k: '手机最近访问', v: '2 分钟前' });
+    if (paired) rows.push({ k: '已配对', v: '1 台手机' }, { k: '手机最近访问', v: s.phGone ? '2 分钟前' : '刚刚' });
     else rows.push({ k: '配对码', v: left + ' 后换新' });
     return {
-      chip: paired ? '已连接' : '等连接', tone: paired ? 'ok' : 'warn', cap: cf ? '临时地址' : '长期地址',
-      big: paired ? '手机已连接' : '等手机连接', sub: paired ? '在手机上能看活动、开始和停止计划' : '用手机扫码打开页面，再输入配对码',
+      chip: s.phGone ? '已断开' : (paired ? '已连接' : '等连接'), tone: s.phGone ? '' : (paired ? 'ok' : 'warn'), cap: cf ? '临时地址' : '长期地址',
+      big: s.phGone ? '已断开 · 2 分钟前' : (paired ? '手机已连接' : '等手机连接'), sub: s.phGone ? '手机一段时间没来访问，不算出错；手机回来会自动变成已连接' : (paired ? '在手机上能看活动、开始和停止计划' : '用手机扫码打开页面，再输入配对码'),
       rows: rows,
       note: cf ? '这是临时地址，关闭访问或重启程序后就会变，手机要重新扫码配对。' : '程序退出后手机就打不开了。想在外面随时用，关窗口时选最小化或隐藏到后台。'
     };
@@ -1978,7 +2060,7 @@ class Component extends DCLogic {
   // 原型里只回一句提示；产品直接用资源管理器打开组件所在的文件夹
   ocOpenLoc = () => { this.setState({ ocrNote: '已用资源管理器打开组件所在的文件夹。' }); };
   phOpenLoc = () => { this.setState({ phNote: '已用资源管理器打开组件所在的文件夹。' }); };
-  ocCancel = () => { clearInterval(this._oc); this.setState({ ocr: 'missing', ocrPct: 0, ocrErr: '', ocrNote: '下载已取消，没有装任何东西。' }); };
+  ocCancel = () => { clearInterval(this._oc); this.setState({ ocr: 'missing', ocrPct: 0, ocrErr: '', ocrNote: '' }); };
   ocDemoFail = () => { clearInterval(this._oc); this.setState({ ocr: 'missing', ocrPct: 0, ocrNote: '', ocrErr: '下载没有完成：连不上发布页，可以重试。' }); };
   impOpen(key) { this.setState({ imp: { key: key, file: '', check: null, picking: false, installing: false } }); }
   impInstall = () => {
@@ -1999,7 +2081,7 @@ class Component extends DCLogic {
     var mask = u.length > 4 ? u.slice(0, 2) + '****' + u.slice(-2) : u.slice(0, 1) + '***';
     this.setState({ credBad: false, cred: s.credOnce ? 'once' : 'saved', credMask: mask, credForm: false, credUser: '', credPass: '', credNote: s.credOnce ? '已准备好，只在这次运行中使用。' : '已加密保存到本机。', lines: this.log(s, s.credOnce ? '已准备本次重新登录用的账号（不记录账号内容）' : '账号已加密保存到本机（不记录账号内容）') });
   };
-  phCancel = () => { clearInterval(this._ph); this.setState({ ph: 'missing', phPct: 0, phErr: '', phNote: '下载已取消，没有装任何东西。' }); };
+  phCancel = () => { clearInterval(this._ph); this.setState({ ph: 'missing', phPct: 0, phErr: '', phNote: '' }); };
   phDemoFail = () => { clearInterval(this._ph); this.setState({ ph: 'missing', phPct: 0, phNote: '', phErr: '下载没有完成：网络中断，可以重试。' }); };
   phStart = () => {
     var cf = this.state.phCh === 'cloudflare';
@@ -2008,6 +2090,11 @@ class Component extends DCLogic {
   };
   phRecheck = () => { this.setState({ phTs: 'ok', phNote: '已重新检测：Tailscale 已连接。' }); };
   phDemoTs = () => { this.setState({ phTs: { ok: 'nologin', nologin: 'missing', missing: 'ok' }[this.state.phTs], phCh: 'tailscale', phNote: '' }); };
+  // 重试：回到检查中，原型里 1.6 秒后读到结论（真实程序按快照）
+  phRetry = () => { var base = this.state.phBase || 'off'; this.setState({ ph: 'checking', phUnread: false, phWait: false }); clearTimeout(this._pr); this._pr = setTimeout(() => this.setState({ ph: base }), 1600); };
+  ocRetry = () => { var base = this.state.ocrBase || 'on'; this.setState({ ocr: 'checking', ocrUnread: false, ocrWait: false }); clearTimeout(this._orr); this._orr = setTimeout(() => this.setState({ ocr: base }), 1600); };
+  phEnable = () => { this.setState({ ph: 'off', phNote: '手机控制已启用，选一条通道就能开启。' }); };
+  phDemoLeave = () => { this.setState({ phGone: !this.state.phGone }); };
   phStopAskFn = () => { this.setState({ phStopAsk: true }); };
   phStopNo = () => { this.setState({ phStopAsk: false }); };
   phStopYes = () => { this.setState({ ph: 'off', phPaired: false, phAddPair: false, phStopAsk: false, phNote: '手机访问已关闭，手机需要重新配对才能再进。', lines: this.log(this.state, '手机访问已关闭') }); };
@@ -2433,7 +2520,7 @@ class Component extends DCLogic {
       toggleClock: function () { clearTimeout(self._pt); var st = self.state; self.setState(st.pop === 'clock' && st.popPin ? { pop: '', popPin: false } : { pop: 'clock', popPin: true }); }, toggleLogin: function () { clearTimeout(self._pt); var st = self.state; self.setState(st.pop === 'login' && st.popPin ? { pop: '', popPin: false } : { pop: 'login', popPin: true }); },
       clockEnter: function () { self.popOpen('clock'); }, phoneEnter: function () { self.popOpen('phone'); },
       togglePhone: function () { clearTimeout(self._pt); var st = self.state; self.setState(st.pop === 'phone' && st.popPin ? { pop: '', popPin: false } : { pop: 'phone', popPin: true }); },
-      popPhone: s.pop === 'phone' && s.ph === 'on', pc: this.phoneCard(s),
+      popPhone: s.pop === 'phone' && s.ph === 'on' && !s.phStopping, pc: this.phoneCard(s),
       phoneManage: function () { self.setState({ settings: true, pop: '', popPin: false }); setTimeout(function () { var el = document.querySelector('[data-sec="adv"]'); if (el) el.scrollIntoView({ block: 'start' }); }, 150); }, loginEnter: function () { self.popOpen('login'); }, popLeave: this.popLeave,
       popKey: function (e) { if (e.key === 'Escape' && self.state.pop) { e.preventDefault(); clearTimeout(self._pt); self.setState({ pop: '', popPin: false }); } },
       rw: this.runWarnV(s),
@@ -2452,7 +2539,7 @@ class Component extends DCLogic {
       credUser: s.credUser, credPass: s.credPass, credOnce: s.credOnce, onCredUser: function (e) { self.setState({ credUser: e.target.value }); }, onCredPass: function (e) { self.setState({ credPass: e.target.value }); }, onCredOnce: function (e) { self.setState({ credOnce: e.target.checked }); },
       credSave: this.credSave, credCancel: function () { self.setState({ credForm: false, credUser: '', credPass: '' }); }, credClearAskFn: function () { self.setState({ credClearAsk: true, credNote: '' }); }, credClearNo: function () { self.setState({ credClearAsk: false }); }, credClearYes: function () { self.setState({ cred: 'none', credMask: '', credClearAsk: false, credNote: '已清除本机保存的账号密码。', lines: self.log(self.state, '已清除本机保存的账号密码') }); },
       ocOpenLoc: this.ocOpenLoc, phOpenLoc: this.phOpenLoc, ocImport: function () { self.impOpen('relogin_ocr'); }, ocDemoFail: this.ocDemoFail, impPickToggle: function () { var m = self.state.imp; if (m && !m.installing) self.setState({ imp: Object.assign({}, m, { picking: !m.picking }) }); }, impCancel: function () { self.setState({ imp: null }); }, impInstall: this.impInstall,
-      impKey: function (e) { if (e.key !== 'Escape') return; e.preventDefault(); var m = self.state.imp; if (!m || m.installing) return; if (m.picking) self.setState({ imp: Object.assign({}, m, { picking: false }) }); else self.setState({ imp: null }); }, upNext: s.upNext, onUpNext: function (e) { self.setState({ upNext: e.target.value }); }, upCheck: this.upCheck, upInstall: this.upInstall, upBack: this.upBack, upConfirm: this.upConfirm, upCancel: this.upCancel, upDemoFail: this.upDemoFail, upLaunch: this.upLaunch, upExit: this.upExit, upRelease: this.upRelease, closePref: s.closePref, onClosePref: function (e) { self.setState({ closePref: e.target.value }); }, phV: this.phView(s), canDemo: !p.frozen, phTop: { show: s.ph === 'on', tone: s.phPaired ? 'ok' : 'warn', text: s.phPaired ? '手机已连接' : '等手机连接', aria: (s.phPaired ? '手机已连接' : '手机访问已开启，等手机连接') + '，查看详情' }, phInstall: this.phInstall, phImport: this.phImport, phCancel: this.phCancel, phDemoFail: this.phDemoFail, phStart: this.phStart, phRecheck: this.phRecheck, phDemoTs: this.phDemoTs, phStopAskFn: this.phStopAskFn, phStopNo: this.phStopNo, phStopYes: this.phStopYes, phAddPair: this.phAddPair, phCopy: this.phCopy, phDemoPair: this.phDemoPair, phDemoGone: this.phDemoGone, openTermsView: function () { self.setState({ td: { tab: 'agreement', mode: self.state.terms ? 'view' : 'consent' }, settings: false }); },
+      impKey: function (e) { if (e.key !== 'Escape') return; e.preventDefault(); var m = self.state.imp; if (!m || m.installing) return; if (m.picking) self.setState({ imp: Object.assign({}, m, { picking: false }) }); else self.setState({ imp: null }); }, upNext: s.upNext, onUpNext: function (e) { self.setState({ upNext: e.target.value }); }, upCheck: this.upCheck, upInstall: this.upInstall, upBack: this.upBack, upConfirm: this.upConfirm, upCancel: this.upCancel, upDemoFail: this.upDemoFail, upLaunch: this.upLaunch, upExit: this.upExit, upRelease: this.upRelease, closePref: s.closePref, onClosePref: function (e) { self.setState({ closePref: e.target.value }); }, phV: this.phView(s), canDemo: !p.frozen, phTop: this.phTopView(s), phH: this.advHead('ph', s), ocH: this.advHead('ocr', s), phToggle: function () { self.advToggle('ph'); }, ocToggle: function () { self.advToggle('ocr'); }, phDemoLeave: this.phDemoLeave, phInstall: this.phInstall, phImport: this.phImport, phCancel: this.phCancel, phDemoFail: this.phDemoFail, phStart: this.phStart, phRecheck: this.phRecheck, phDemoTs: this.phDemoTs, phStopAskFn: this.phStopAskFn, phStopNo: this.phStopNo, phStopYes: this.phStopYes, phAddPair: this.phAddPair, phCopy: this.phCopy, phDemoPair: this.phDemoPair, phDemoGone: this.phDemoGone, openTermsView: function () { self.setState({ td: { tab: 'agreement', mode: self.state.terms ? 'view' : 'consent' }, settings: false }); },
       hasAttn: !!attn, attn: attn || { tone: '', title: '', detail: '', action: '', fn: function () {} },
       showList: two || !s.planOpen, showPanel: two || s.planOpen, showDock: !two && !s.planOpen, showBack: !two && s.planOpen, panelFlex: two ? '0 0 25rem' : '1 1 auto', boardCls: boardCls, head: head, draft: draft, led: led, openPlan: function () { self.setState({ planOpen: true }); }, closePlan: function () { self.setState({ planOpen: false }); }, dock: dock,
       q: s.q, onQ: function (e) { self.setState({ q: e.target.value }); },

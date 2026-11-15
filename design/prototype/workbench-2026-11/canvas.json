@@ -939,6 +939,97 @@
       "w": 1280,
       "h": 800,
       "title": "时间重叠：还不知道能不能取消"
+    },
+    "AdvCheck.dc.html": {
+      "x": 0,
+      "y": 25540,
+      "w": 1280,
+      "h": 800,
+      "title": "高级功能：检查中（手机没结论、识别保留原字）"
+    },
+    "AdvTimeout.dc.html": {
+      "x": 1360,
+      "y": 25540,
+      "w": 1280,
+      "h": 800,
+      "title": "高级功能：检查超时与读不到"
+    },
+    "AdvBroken.dc.html": {
+      "x": 2720,
+      "y": 25540,
+      "w": 1280,
+      "h": 800,
+      "title": "高级功能：需要更新与坏了"
+    },
+    "AdvReFail.dc.html": {
+      "x": 4080,
+      "y": 25540,
+      "w": 1280,
+      "h": 800,
+      "title": "高级功能：重新安装失败回到坏了"
+    },
+    "PhGone.dc.html": {
+      "x": 0,
+      "y": 26500,
+      "w": 1280,
+      "h": 800,
+      "title": "手机访问：已断开 · 2 分钟前"
+    },
+    "PhStarting.dc.html": {
+      "x": 1360,
+      "y": 26500,
+      "w": 1280,
+      "h": 800,
+      "title": "手机访问：正在开启（顶栏转圈）"
+    },
+    "PhStopping.dc.html": {
+      "x": 2720,
+      "y": 26500,
+      "w": 1280,
+      "h": 800,
+      "title": "手机访问：正在停止（顶栏转圈）"
+    },
+    "PhGoneTop.dc.html": {
+      "x": 4080,
+      "y": 26500,
+      "w": 1280,
+      "h": 800,
+      "title": "顶栏手机：已断开 · 2 分钟前（详情卡）"
+    },
+    "PhStartingTop.dc.html": {
+      "x": 0,
+      "y": 27460,
+      "w": 1280,
+      "h": 800,
+      "title": "顶栏手机：正在开启（转圈）"
+    },
+    "AdvVerify.dc.html": {
+      "x": 0,
+      "y": 28420,
+      "w": 1280,
+      "h": 800,
+      "title": "高级功能：校验中与安装中"
+    },
+    "AdvUpdFail.dc.html": {
+      "x": 1360,
+      "y": 28420,
+      "w": 1280,
+      "h": 800,
+      "title": "高级功能：更新失败回到需要更新、没有缓存时读不到"
+    },
+    "PhStartFail.dc.html": {
+      "x": 2720,
+      "y": 28420,
+      "w": 1280,
+      "h": 800,
+      "title": "手机访问：上次没开成（重新开启）"
+    },
+    "PhDownload.dc.html": {
+      "x": 4080,
+      "y": 28420,
+      "w": 1280,
+      "h": 800,
+      "title": "手机访问：组件下载中"
     }
   },
   "order": [
@@ -1072,7 +1163,20 @@
     "CancelDone.dc.html",
     "CancelRefused.dc.html",
     "CancelUnknown.dc.html",
-    "PhoneConflict.dc.html"
+    "PhoneConflict.dc.html",
+    "AdvCheck.dc.html",
+    "AdvTimeout.dc.html",
+    "AdvBroken.dc.html",
+    "AdvReFail.dc.html",
+    "PhGone.dc.html",
+    "PhStarting.dc.html",
+    "PhStopping.dc.html",
+    "PhGoneTop.dc.html",
+    "PhStartingTop.dc.html",
+    "AdvVerify.dc.html",
+    "AdvUpdFail.dc.html",
+    "PhStartFail.dc.html",
+    "PhDownload.dc.html"
   ],
   "notes": {},
   "designSystems": []
