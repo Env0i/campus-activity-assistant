@@ -1,9 +1,9 @@
 /* 任务展示纯模型：状态归类、阶段/文案/细节投影（无 DOM）。 */
-const RUNNING_STATUSES = ["queued", "waiting", "submitting"];
+export const RUNNING_STATUSES = ["queued", "waiting", "submitting"];
 
 /* 任务 → 可显示项：列表项在就用真列表项；不在（被筛掉、刷新掉了、快照
  * 先到）就用任务自带字段现构。缺字段显示未知，绝不回退到另一场活动。 */
-function taskDisplayItem(task) {
+export function taskDisplayItem(task) {
   const found = findItem(task && task.activity_id);
   if (found) return found;
   if (!task) return null;
@@ -29,7 +29,7 @@ function taskDisplayItem(task) {
  *   retrying  有真实提交且仍非终态（attempts 是唯一「已提交」证据）
  *   terminal  终态，不参与运行目标
  * 只影响展示，不写回 task.status、不改协调器与取消条件。 */
-function taskDisplayPhase(task, now) {
+export function taskDisplayPhase(task, now) {
   if (!task) return "terminal";
   const status = String(task.status || "");
   if (RUNNING_STATUSES.indexOf(status) < 0) return "terminal";
@@ -47,7 +47,7 @@ function taskDisplayPhase(task, now) {
 }
 
 /* 任务卡的阶段标签：raw「等待开放」在已开放时是假话，按显示阶段改写 */
-function taskDisplayLabel(task) {
+export function taskDisplayLabel(task) {
   const phase = taskDisplayPhase(task);
   if (phase === "preopen") return "等待开放";
   if (phase === "preparing") return "准备报名";
@@ -68,7 +68,7 @@ function taskDisplayLabel(task) {
 }
 
 /* 任务卡的模式前缀（混合计划每场标自己的模式）：taskHtml 与 tick 共用一份 */
-function taskModePrefix(task) {
+export function taskModePrefix(task) {
   const state = String(task && task.status || "queued");
   const mode = String(task && (task.signup_mode || modeOf(task)));
   return RUNNING_STATUSES.indexOf(state) >= 0 && modeText(mode) ? modeText(mode) + " · " : "";
@@ -77,7 +77,7 @@ function taskModePrefix(task) {
 /* 预报名场次是否已准备好提交：和路线图「准备好提交」同一个信号（改用页面点击时看活动页打开）。
  * 照原型 card 的 prepped = t.prep && s.now >= t.prep：记下的时刻还没到（时钟对不上）就不算准备好；
  * 读不到可信的现在时只看有没有这个 checkpoint。 */
-function taskPrepared(task, now) {
+export function taskPrepared(task, now) {
   const clickPath = String(task && task.path || "") === "click";
   const page = Number(task && task.page_opened_at) || 0;
   const watch = Number(task && task.watch_started_at) || 0;
@@ -88,7 +88,7 @@ function taskPrepared(task, now) {
 }
 
 /* 任务卡的说明行（原型 card 的 waiting / submitting 支）：与标题/LED 同一解释，tick 每秒复用同一份 */
-function taskDisplayDetail(task, now) {
+export function taskDisplayDetail(task, now) {
   const phase = taskDisplayPhase(task, now);
   if (phase !== "terminal" && String(task && task.login_wait || "") === "waiting") {
     /* 代码独有：报名进程确认登录失效、在等电脑自动登录（架构方案 4.3），换上新登录态后接着提交 */
@@ -111,7 +111,7 @@ function taskDisplayDetail(task, now) {
  *        / submitting（已有真实提交）/ settling（全终态、plan_done 未到）。
  * 目标优先级：真实重试 > 已开放准备 > 未来预热；同阶段取更早的开放时刻，
  * 并列时保持快照顺序。未运行时返回 idle，调用方回落到用户选择的预览态。 */
-function executionView() {
+export function executionView() {
   const empty = { phase: "idle", display: "idle", task: null, item: null,
                   count: 0, openAt: null, retryUntil: null };
   if (!S.busy || !S.plan.id) return empty;
@@ -169,17 +169,15 @@ function executionView() {
            openAt: best.at, retryUntil: null };
 }
 
-/* 从 views/plan-panel.js 搬来：任务卡用的纯投影，只读 S、不写 S、不碰 DOM。 */
-
 /* 刷新核对确认过的待核对场次：结束时没拿到结论，事后学校列表显示已报名 */
-function verifiedSigned(task) {
+export function verifiedSigned(task) {
   if (!task || String(task.stop_reason || "") !== "unconfirmed") return false;
   const item = findItem(task.activity_id);
   return !!(item && item.signed);
 }
 
 /* telemetry 的 retry_deadline 是 epoch 秒（后端结构化行）；空串/0 表示没有 */
-function telemetryDeadline(task) {
+export function telemetryDeadline(task) {
   const epoch = Number(task && task.retry_deadline);
   return Number.isFinite(epoch) && epoch > 0 ? epoch : null;
 }
@@ -187,7 +185,7 @@ function telemetryDeadline(task) {
 /* 提交中任务卡的说明（原型 card 的 submitting 支）：「已提交 N 次（上限 M 次）。最近：<原因>，重试到 HH:MM:SS」。
  * taskHtml 与每秒走字共用这一份；0 表示不限，必须明说。截止优先 telemetry，其次统一推导；
  * 截止未知（已开放又没有任何启动参考点）时最后一段写「等待提交结果」，不编 0 秒。 */
-function submittingDetail(task) {
+export function submittingDetail(task) {
   const attempts = Math.max(0, Math.floor(Number(task && task.attempts) || 0));
   const cap = Number(task && task.max_attempts);
   const limited = Number.isFinite(cap) && cap > 0;
@@ -216,7 +214,7 @@ function submittingDetail(task) {
  * 返回 null = 既没有绝对截止、也没有任何时间参考：调用方显示未知/预计，
  * 不拿当前时刻冒充 0 秒。缺 sign_end 的 0 时长回退 120 秒、sign_end 硬截断都保留。
  * 这里只算界面参考点，worker 的实际停止时机仍由后端决定。 */
-function effectiveRetryDeadline(task, fallbackNow) {
+export function effectiveRetryDeadline(task, fallbackNow) {
   const telemetry = telemetryDeadline(task);
   /* 倒计时优先后端已接纳的 deadline：合法扩窗后的权威截止也从这里接管 */
   if (telemetry !== null) return telemetry;

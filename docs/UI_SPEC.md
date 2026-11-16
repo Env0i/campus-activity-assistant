@@ -708,7 +708,7 @@
 
 ### 5.19 计划栏：草稿、运行、结果与停止确认（现行验收契约，决策 014，2026-11-06）
 
-> 本节按实现写，文案逐字取自 `local/ui/views/plan-panel.js`、`state/task-display.js`、`features/login/view.js`、`controllers/plan.js`、`index.html`，
+> 本节按实现写，文案逐字取自 `local/ui/views/plan-panel.js`（留下的部分）、`features/plan/view.js`、`features/plan/state-board.js`、`features/plan/state-task.js`、`features/login/view.js`、`controllers/plan.js`、`index.html`，
 > 并与 `design/specs/copywriting.md` §6.1 / §7.1 / §9.1 同步；与旧小节冲突时以本节为准：
 > §5.13 第 2 条里「停止确认」是原生 dialog 且以「继续等待」收口的写法已过时（现为下面的计划栏内遮罩，按钮「继续计划」），
 > §5.14 第 4 条 `data-plan-state` 在 `idle/running/completed/failed/partial/stopped` 之外还有 `attention`（含待核对的警示终态）。

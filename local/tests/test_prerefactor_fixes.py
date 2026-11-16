@@ -488,7 +488,7 @@ out.push({ armedAfterOne, sentOnce, armedAfterTwo, fired, none, blocked });
 
 
 class SignedRefreshTests(unittest.TestCase):
-    """AA3-03：报名成功后的有界刷新（state/plan.js 的调用 → refresh.js scheduleSignedRefresh）。"""
+    """AA3-03：报名成功后的有界刷新（features/plan/actions.js 的调用 → refresh.js scheduleSignedRefresh）。"""
 
     @staticmethod
     def assert_aa3(case, data):
@@ -505,12 +505,12 @@ class SignedRefreshTests(unittest.TestCase):
         self.assert_aa3(self, run_ui(AA3_SNIPPET)[0])
 
     def test_removing_the_call_in_state_layer_is_caught(self):
-        """变异：在 mkdtemp 副本里删掉 state/plan.js 的调用，上面的断言必须红。
+        """变异：在 mkdtemp 副本里删掉 features/plan/actions.js 的调用，上面的断言必须红。
         仓库里的文件不动；这条用例让「用例能抓到删调用」一直有据可查。"""
         with tempfile.TemporaryDirectory() as name:
             copy = Path(name) / "ui"
             shutil.copytree(UI_DIR, copy)
-            target = copy / "state" / "plan.js"
+            target = copy / "features" / "plan" / "actions.js"
             text = target.read_text(encoding="utf-8")
             old = "if (noteSignedTasks([task])) scheduleSignedRefresh();"
             self.assertEqual(text.count(old), 1, "变异点必须唯一存在")

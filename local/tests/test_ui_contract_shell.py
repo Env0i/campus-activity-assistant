@@ -432,7 +432,7 @@ out.push({ edge, at100, submitting, stopping, far, lateCalls, calls, editing: S.
     def test_late_window_is_the_same_100_seconds_front_and_back(self):
         """运行中重新登录的「来不及」窗口：前端 planLate 与后端 login_rules 同一个 100 秒。"""
         backend = (LOCAL / "domain" / "login_rules.py").read_text(encoding="utf-8")
-        front = read("ui/views/plan-panel.js")
+        front = read("ui/app.js")
         import re
         back_value = re.search(r"^LATE_WINDOW_S = (\d+)$", backend, re.M)
         front_value = re.search(r"^const LATE_WINDOW_S = (\d+);$", front, re.M)

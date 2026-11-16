@@ -2,6 +2,7 @@
 
 import { paintLogin } from "./view.js";
 import { AUTO_STATES } from "./state-machine.js";
+import { paintBoardActions, paintSelected } from "../plan/view.js";
 
 /* 自动登录态只认后端给的 auto_state：电脑那边在不在登、转没转人工、多久后重试只有后端知道，
  * 前端从中继快照或结论去猜会和后端对不上。S.autoLogin 只是 state === "running" 的镜像，

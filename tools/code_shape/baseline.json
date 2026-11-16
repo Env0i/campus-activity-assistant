@@ -21,10 +21,6 @@
         "value": 3365,
         "reason": "步骤 1 手机页"
       },
-      "local/ui/views/plan-panel.js": {
-        "value": 1358,
-        "reason": "步骤 1C 计划栏"
-      },
       "server/bot/bot.js": {
         "value": 977,
         "reason": "不在本轮重构范围"
@@ -70,6 +66,9 @@
       },
       "local/ui/controllers/refresh.js": {
         "value": 614
+      },
+      "local/ui/views/plan-panel.js": {
+        "value": 748
       },
       "local/ui/views/terms.js": {
         "value": 507
@@ -151,6 +150,10 @@
         "value": 219,
         "reason": "步骤 1A 组件"
       },
+      "local/ui/features/plan/view.js::paintSelected": {
+        "value": 124,
+        "reason": "步骤 1C 计划栏"
+      },
       "local/ui/led.js::#anon1": {
         "value": 108,
         "reason": "存量，未排期"
@@ -169,10 +172,6 @@
       },
       "local/ui/views/plan-panel.js::paintLed": {
         "value": 116,
-        "reason": "步骤 1C 计划栏"
-      },
-      "local/ui/views/plan-panel.js::paintSelected": {
-        "value": 124,
         "reason": "步骤 1C 计划栏"
       },
       "local/ui/views/update.js::paintUpdate": {
@@ -354,6 +353,9 @@
       "local/ui/features/phone-access/actions-panel.js::wire": {
         "value": 65
       },
+      "local/ui/features/plan/view.js::paintRunPanel": {
+        "value": 71
+      },
       "local/ui/m/app.js::buildWhy": {
         "value": 85
       },
@@ -383,9 +385,6 @@
       },
       "local/ui/views/plan-panel.js::paintBanners": {
         "value": 86
-      },
-      "local/ui/views/plan-panel.js::paintRunPanel": {
-        "value": 71
       },
       "local/ui/views/plan-panel.js::updateControls": {
         "value": 70

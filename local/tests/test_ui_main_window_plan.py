@@ -170,7 +170,7 @@ const before = dock();
 startPlan();
 /* startPlan 里的 Promise.then 是微任务，flush 一下再看 */
 await Promise.resolve();
-/* state/plan.js 正常事件没跑（没 emit），所以 S.plan.id 还是 "ph1"，
+/* features/plan/actions.js 正常事件没跑（没 emit），所以 S.plan.id 还是 "ph1"，
    但 editing 必须在 startPlan 的 then 分支里被立刻清掉 */
 const cleared = S.editing;
 render();

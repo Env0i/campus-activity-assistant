@@ -12,6 +12,55 @@ import { loginEstimateText, loginSnapshotState, restoreLoginSnapshotState } from
 import { loginBannerHtml, paintLogin } from "./features/login/view.js";
 import { receiveAutoState, setLogin, syncLoginDependentView } from "./features/login/actions.js";
 import { loginEntry, receiveReloginState } from "./features/login/actions-relogin.js";
+import { PLAN_TERMINAL, TASK_TERMINAL, admitPlanEvent, closeResultPage, mergeTask, openResultPage, planEventOwns, planOutcome, selectionSignature, syncResultSelection, unknownLabel } from "./features/plan/state.js";
+import { handlePlan, handleTask, verifyTask } from "./features/plan/actions.js";
+import { RUNNING_STATUSES, effectiveRetryDeadline, executionView, taskDisplayDetail, taskDisplayItem, taskDisplayLabel, taskModePrefix, verifiedSigned } from "./features/plan/state-task.js";
+import { planLate, reselectableIds, resultMode, resultView, runHeadKey, selectionSummary, stopReasonText } from "./features/plan/state-board.js";
+import { paintBoardActions, paintBoardState, paintEditNote, paintPlan, paintRunPanel, paintSelected } from "./features/plan/view.js";
+
+/* 计划栏（features/plan）挂回：普通脚本里还有 app.js、controllers/plan.js、
+ * controllers/plan-events.js、controllers/refresh.js、controllers/tick.js、views/list.js、
+ * views/plan-panel.js、state/filters.js、state/labels.js、state/store.js 在用这些名字。 */
+function attachPlanGlobals() {
+  /* 计划栏（features/plan）：普通脚本里还有 app.js、controllers/plan.js、controllers/plan-events.js、
+   * controllers/refresh.js、controllers/tick.js、views/list.js、views/plan-panel.js、state/filters.js、
+   * state/labels.js、state/store.js 在用这些名字。 */
+  window.mergeTask = mergeTask;
+  window.planEventOwns = planEventOwns;
+  window.admitPlanEvent = admitPlanEvent;
+  window.handlePlan = handlePlan;
+  window.handleTask = handleTask;
+  window.openResultPage = openResultPage;
+  window.closeResultPage = closeResultPage;
+  window.syncResultSelection = syncResultSelection;
+  window.selectionSignature = selectionSignature;
+  window.planOutcome = planOutcome;
+  window.unknownLabel = unknownLabel;
+  window.PLAN_TERMINAL = PLAN_TERMINAL;
+  window.TASK_TERMINAL = TASK_TERMINAL;
+  window.RUNNING_STATUSES = RUNNING_STATUSES;
+  window.executionView = executionView;
+  window.taskDisplayItem = taskDisplayItem;
+  window.taskDisplayLabel = taskDisplayLabel;
+  window.taskDisplayDetail = taskDisplayDetail;
+  window.taskModePrefix = taskModePrefix;
+  window.effectiveRetryDeadline = effectiveRetryDeadline;
+  window.verifiedSigned = verifiedSigned;
+  window.selectionSummary = selectionSummary;
+  window.runHeadKey = runHeadKey;
+  window.resultMode = resultMode;
+  window.resultView = resultView;
+  window.reselectableIds = reselectableIds;
+  window.planLate = planLate;
+  window.stopReasonText = stopReasonText;
+  window.verifyTask = verifyTask;
+  window.paintSelected = paintSelected;
+  window.paintBoardState = paintBoardState;
+  window.paintBoardActions = paintBoardActions;
+  window.paintEditNote = paintEditNote;
+  window.paintRunPanel = paintRunPanel;
+  window.paintPlan = paintPlan;
+}
 
 export function installLegacyGlobals() {
   window.termsAccepted = termsAccepted;
@@ -38,4 +87,5 @@ export function installLegacyGlobals() {
   window.paintLogin = paintLogin;
   window.loginEntry = loginEntry;
   window.receiveReloginState = receiveReloginState;
+  attachPlanGlobals();
 }

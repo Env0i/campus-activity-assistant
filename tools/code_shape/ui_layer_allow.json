@@ -10,14 +10,6 @@
     "state/filters.js": [
       "render",
       "setResult"
-    ],
-    "state/plan.js": [
-      "noteSignedTasks",
-      "noteStartedFromPhone",
-      "render",
-      "scheduleSignedRefresh",
-      "setBusy",
-      "showTaskResult"
     ]
   },
   "views": {
@@ -38,7 +30,6 @@
       "savePrefs"
     ],
     "views/plan-panel.js": [
-      "refresh",
       "runtimeErrorCopy"
     ],
     "views/selection.js": [

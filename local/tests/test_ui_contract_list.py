@@ -242,9 +242,9 @@ class DualModeUiContractTests(unittest.TestCase):
 
     def test_task_card_shows_signup_mode(self):
         """混合计划每个任务卡显示自己的模式。"""
-        js = read("ui/app.js")
+        js = read("ui/features/plan/view.js")
         start = js.index("function taskHtml(")
-        body = js[start:js.index("function updateControls(", start)]
+        body = js[start:]
         self.assertIn("signup_mode", body, "任务卡必须读取任务的 signup_mode")
         self.assertIn("taskModePrefix(task)", body, "任务卡必须使用统一的模式文案")
         cards = run_js(r"""
@@ -462,7 +462,7 @@ out.push({ title: document.querySelector("#empty-title").textContent,
         旧口径是两处一字不差；现在的原型两处本来就不同：计划栏 draft 段写「学校当前没有活动」/「稍后刷新再看。」，
         列表 empty 写「学校当前没有返回活动」（计划 20261106-plan-panel 的 draft-panel A，见 plan_amendments）。
         """
-        panel = read("ui/views/plan-panel.js")
+        panel = read("ui/features/plan/view.js")
         self.assertIn('"学校当前没有活动"', panel)
         self.assertIn('"稍后刷新再看。"', panel)
         self.assertNotIn("学校当前没有返回活动", panel, "计划栏照原型 draft 段，不用列表那一句")
