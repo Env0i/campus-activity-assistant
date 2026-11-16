@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import threading
 
+from domain.login_rules import auto_login_state
+
 
 class AutoReloginMonitor:
     def __init__(self, *, now, check, start, eligible, state, period=60, paused=None,
-                 log=None):
+                 log=None, ready=None, on_change=None):
         self._now = now
         self._log = log
         # 保存的密码被学校拒绝过就暂停：不再拿同一份密码去撞，等用户写入新密码
@@ -19,6 +21,8 @@ class AutoReloginMonitor:
         self._start_relogin = start
         self._eligible = eligible
         self._state = state
+        self._ready = ready
+        self._on_change = on_change
         self._period = period
         self._next_check = now() + period
         self._retry_at = 0
@@ -37,6 +41,7 @@ class AutoReloginMonitor:
         # 最近一次「自动发起重登」的事实，只记时间与方法，不记账号/验证码
         self._last_used_at = None      # 从未用过就是 None，0 表示「刚刚」
         self._last_used_method = ""
+        self._last_view_signature = None
 
     def _log_event(self, event, **fields):
         if self._log is None:
@@ -63,6 +68,45 @@ class AutoReloginMonitor:
     def _run(self):
         while not self._stop.wait(1):
             self.tick()
+            self.notify_if_changed()
+
+    def view(self, expired=None):
+        with self._lock:
+            state_expired = self._expired
+            inflight = self._inflight
+            handoff = self._handoff
+            failures = self._failures
+            retry_in_s = max(0, int(self._retry_at - self._now()))
+        relay = {}
+        try:
+            relay = self._state() or {}
+        except Exception:
+            relay = {}
+        expired = state_expired if expired is None else bool(expired)
+        ready = (True, "")
+        if expired and self._ready is not None:
+            try:
+                ready = self._ready()
+            except Exception:
+                ready = (False, "unknown")
+        block = ready[1] if isinstance(ready, (tuple, list)) and len(ready) > 1 else ""
+        return auto_login_state(expired=expired, ready=ready, block=block, relay=relay,
+                                inflight=inflight, handoff=handoff, failures=failures,
+                                retry_in_s=retry_in_s)
+
+    def notify_if_changed(self):
+        view = self.view()
+        with self._lock:
+            retry_at = self._retry_at if view["auto_state"] == "backoff" else None
+            signature = (view["auto_state"], view["auto_block"], retry_at)
+            if signature == self._last_view_signature:
+                return
+            self._last_view_signature = signature
+        if self._on_change is not None:
+            try:
+                self._on_change(view)
+            except Exception:
+                pass
 
     def observe_check(self, result):
         with self._lock:

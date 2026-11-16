@@ -975,7 +975,7 @@ class Api:
         self._auto_relogin = AutoReloginMonitor(
             now=time.monotonic, check=self.check, start=self._begin_auto_relogin,
             eligible=self._auto_relogin_eligible, state=self._relay.state,
-            paused=self._auto_relogin_paused, log=self._log_event)
+            paused=self._auto_relogin_paused, log=self._log_event, ready=self._silent_relogin_ready, on_change=lambda view: self._emit("login_auto", view))
         if not DEMO:
             self._auto_relogin.start()
 
@@ -1162,12 +1162,12 @@ class Api:
             with self._lock:
                 last_check = dict(self._last_check)
             login_info.update(_last_check_fields(last_check))
+            login_info.update(self._auto_relogin.view(expired=last_check.get("result") == "expired"))
             lifecycle_info = get_lifecycle().snapshot()
         payload = {
             "version": APP_VERSION,
             "prefs": prefs,
-            # 条款同意快照：界面据此决定是否弹条款、是否放行学校网络动作；
-            # 同意状态本身只存 ui.json（terms_version / terms_accepted_at）
+            # 条款同意快照：界面据此决定是否弹条款、是否放行学校网络动作；同意状态本身只存 ui.json（terms_version / terms_accepted_at）
             "terms": terms_state(prefs),
             "business_clock": self._clock_payload(),
             "help": self.help(),
@@ -2453,11 +2453,11 @@ class Api:
         # 上次校验时刻随 check 事件一起给界面（与 bootstrap.login 同一口径），胶囊和登录卡据此显示
         payload = dict(payload, **_last_check_fields(self._last_check))
         if result == "expired":
-            # 静默自动登录（计划 20261111）：电脑能自己把登录补回来时，界面不弹
-            # 「登录已失效」，胶囊改显示「自动登录中」；补不回来时给出原因照旧提醒。
+            # 静默自动登录：电脑能自己把登录补回来时胶囊显示「自动登录中」、不弹失效；补不回来时照旧提醒并给原因。
             silent, block = self._silent_relogin_state()
             payload["recovering"] = silent
             payload["recover_block"] = block
+        payload.update(self._auto_relogin.view(expired=result == "expired"))
         self._emit("check", payload)
 
     def _pc_clock_text(self) -> str:

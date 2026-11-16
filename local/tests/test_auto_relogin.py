@@ -198,6 +198,151 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(self.starts + self.checks, [])
 
 
+class AutoLoginViewTests(unittest.TestCase):
+    def setUp(self):
+        self.now = 0
+        self.flow = {"state": "idle"}
+        self.ready_calls = []
+        self.changes = []
+        self.monitor = AutoReloginMonitor(
+            now=lambda: self.now, check=lambda: None,
+            start=self._start, eligible=lambda: True, state=self._state,
+            ready=self._ready, on_change=self.changes.append)
+        self.addCleanup(self.monitor.stop)
+
+    def _state(self):
+        with self.monitor._lock:
+            return dict(self.flow)
+
+    def _ready(self):
+        with self.monitor._lock:
+            self.ready_calls.append(self.now)
+        return True, ""
+
+    def _start(self):
+        self.flow = {"state": "starting", "flow_id": "f"}
+        return {"ok": True, "flow_id": "f"}
+
+    def test_view_reports_backoff_and_decrements_remaining_seconds(self):
+        self.monitor.observe_check("expired")
+        self.monitor.tick()
+        self.flow = {"state": "failed", "flow_id": "f"}
+        self.monitor.tick()
+        self.assertEqual(self.monitor.view()["auto_state"], "backoff")
+        self.assertEqual(self.monitor.view()["auto_retry_in_s"], 60)
+        self.now = 10
+        self.assertEqual(self.monitor.view()["auto_retry_in_s"], 50)
+
+    def test_due_backoff_is_running(self):
+        self.monitor.observe_check("expired")
+        self.monitor.tick()
+        self.flow = {"state": "failed", "flow_id": "f"}
+        self.monitor.tick()
+        self.now = 60
+        self.assertEqual(self.monitor.view()["auto_state"], "running")
+
+    def test_handoff_is_reported(self):
+        self.monitor.observe_check("expired")
+        self.monitor.tick()
+        self.flow = {"state": "waiting_code", "flow_id": "f", "live": True,
+                     "mode": "manual", "origin": "auto"}
+        self.monitor.tick()
+        self.assertEqual(self.monitor.view()["auto_state"], "handoff")
+
+    def test_handoff_turns_into_backoff_once_the_relay_flow_ended(self):
+        self.monitor.observe_check("expired")
+        self.monitor.tick()
+        self.flow = {"state": "waiting_code", "flow_id": "f", "live": True,
+                     "mode": "manual", "origin": "auto"}
+        self.monitor.tick()
+        self.assertEqual(self.monitor.view()["auto_state"], "handoff")
+        self.flow = {"state": "failed", "flow_id": "f", "live": False}
+        self.monitor.tick()
+        view = self.monitor.view()
+        self.assertEqual(view["auto_state"], "backoff")
+        self.assertGreater(view["auto_retry_in_s"], 0)
+
+    def test_ready_is_only_called_for_expired_view(self):
+        self.assertEqual(self.monitor.view(expired=False)["auto_state"], "idle")
+        self.assertEqual(self.ready_calls, [])
+        self.monitor.view(expired=True)
+        self.assertEqual(self.ready_calls, [0])
+
+    def test_ready_error_becomes_blocked_unknown(self):
+        self.monitor._ready = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
+        self.assertEqual(self.monitor.view(expired=True),
+                         {"auto_state": "blocked", "auto_block": "unknown",
+                          "auto_retry_in_s": None})
+
+    def test_expired_argument_overrides_internal_flag(self):
+        self.monitor.observe_check("expired")
+        self.assertEqual(self.monitor.view(expired=False)["auto_state"], "idle")
+
+    def test_notify_changes_once_per_state_not_per_countdown(self):
+        self.monitor.observe_check("expired")
+        self.monitor.notify_if_changed()
+        self.monitor.notify_if_changed()
+        self.assertEqual([item["auto_state"] for item in self.changes], ["running"])
+        self.monitor.tick()
+        self.flow = {"state": "failed", "flow_id": "f"}
+        self.monitor.tick()
+        self.monitor.notify_if_changed()
+        self.now = 1
+        self.monitor.notify_if_changed()
+        self.now = 60
+        self.monitor.notify_if_changed()
+        self.assertEqual([item["auto_state"] for item in self.changes],
+                         ["running", "backoff", "running"])
+
+    def test_second_backoff_deadline_is_a_new_change(self):
+        self.monitor.observe_check("expired")
+        self.monitor.notify_if_changed()
+        self.monitor.tick()
+        self.flow = {"state": "failed", "flow_id": "f"}
+        self.monitor.tick()
+        self.monitor.notify_if_changed()
+        self.monitor._retry_at = 120
+        self.monitor.notify_if_changed()
+        self.assertEqual([item["auto_state"] for item in self.changes], ["running", "backoff", "backoff"])
+
+    def test_change_callback_errors_are_swallowed(self):
+        self.monitor._on_change = lambda _view: (_ for _ in ()).throw(RuntimeError("boom"))
+        self.monitor.observe_check("expired")
+        self.monitor.notify_if_changed()
+
+    def test_view_callbacks_can_take_monitor_lock_without_deadlock(self):
+        result = []
+
+        def run():
+            result.append(self.monitor.view(expired=True))
+
+        thread = threading.Thread(target=run)
+        thread.start()
+        thread.join(1)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(result[0]["auto_state"], "running")
+
+    def test_run_notifies_after_each_tick(self):
+        calls = []
+
+        class StopAfterOneWait:
+            def __init__(self):
+                self.count = 0
+
+            def wait(self, _seconds):
+                self.count += 1
+                return self.count > 1
+
+            def set(self):
+                pass
+
+        self.monitor._stop = StopAfterOneWait()
+        self.monitor.tick = lambda: calls.append("tick")
+        self.monitor.notify_if_changed = lambda: calls.append("notify")
+        self.monitor._run()
+        self.assertEqual(calls, ["tick", "notify"])
+
+
 class RelayRaceTests(unittest.TestCase):
     def test_spawn_reservation_and_old_finish_cannot_replace_new_flow(self):
         from application.login_relay_service import LoginRelayService

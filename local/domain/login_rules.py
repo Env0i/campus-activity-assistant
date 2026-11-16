@@ -23,6 +23,37 @@ LATE_WINDOW_S = 100
 # 绝不参与放行、拦截、过期判定或清理会话。
 LOGIN_ESTIMATE_H = 10.0
 
+AUTO_LOGIN_STATES = ("idle", "running", "handoff", "backoff", "blocked", "manual")
+
+
+def auto_login_state(*, expired, ready, block, relay, inflight, handoff, failures,
+                     retry_in_s):
+    """根据登录事实归一化自动登录状态，不读取时钟或外部数据。"""
+    relay = relay if isinstance(relay, dict) else {}
+    ready_ok, ready_reason = ready if isinstance(ready, (tuple, list)) else (bool(ready), "")
+    if relay.get("live") and relay.get("origin") != "auto":
+        state = "manual"
+    # 转人工只在电脑发起的那一场还在进行时成立；那一场结束后调度器的 handoff 标记可能还没清，不能单凭它。
+    elif (relay.get("live") and relay.get("origin") == "auto"
+          and (relay.get("mode") == "manual" or relay.get("handoff") or handoff)):
+        state = "handoff"
+    elif (relay.get("live") and relay.get("origin") == "auto") or inflight:
+        state = "running"
+    elif not expired:
+        state = "idle"
+    elif not ready_ok:
+        state = "blocked"
+        block = block or ready_reason or "unknown"
+    elif failures > 0 and retry_in_s > 0:
+        state = "backoff"
+    else:
+        state = "running"
+    return {
+        "auto_state": state,
+        "auto_block": block if state == "blocked" else "",
+        "auto_retry_in_s": int(retry_in_s) if state == "backoff" else None,
+    }
+
 
 def relogin_too_late(tasks, now, open_epoch) -> bool:
     """计划里还有没有时间让用户重新登录（架构方案 4.3）。

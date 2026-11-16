@@ -169,6 +169,46 @@ class SilentCheckTests(_ApiCase):
         self.assertIn("auto_relogin_failed", self._log_text())
 
 
+class AutoLoginFieldsTests(_ApiCase):
+    def test_check_exposes_running_fields_and_keeps_legacy_recovering(self):
+        self.api._auto_relogin._ready = lambda: (True, "")
+        payload = self._expired_check()
+        self.assertEqual(payload["auto_state"], "running")
+        self.assertTrue(payload["recovering"])
+
+    def test_check_exposes_block_reason(self):
+        self.ocr = False
+        payload = self._expired_check()
+        self.assertEqual(payload["auto_state"], "blocked")
+        self.assertEqual(payload["auto_block"], "ocr_missing")
+
+    def test_valid_check_is_idle(self):
+        state = {"session_present": True, "session_expired": False, "hours_left": 1.0,
+                 "saved_at": "2026-11-11 09:00:00", "estimated_expires_at": None,
+                 "estimate_reason": "ok"}
+        with mock.patch.object(self.local_app, "login_state", lambda clock: state), \
+                mock.patch.object(self.api, "_run", lambda *a, **k: {"code": 0, "out": ""}):
+            self.api._do_check()
+        self.assertEqual(self._payload("check")["auto_state"], "idle")
+
+    def test_bootstrap_login_exposes_auto_fields(self):
+        with mock.patch.object(self.local_app, "login_state", lambda clock: {
+                "session_present": True, "session_expired": False, "hours_left": 1.0,
+                "saved_at": None, "estimated_expires_at": None, "estimate_reason": "ok"}), \
+                mock.patch.object(self.api, "_last_check", {"result": "valid"}):
+            payload = self.api.bootstrap()
+        self.assertEqual(payload["login"]["auto_state"], "idle")
+        self.assertIn("auto_block", payload["login"])
+        self.assertIn("auto_retry_in_s", payload["login"])
+
+    def test_monitor_constructor_receives_callbacks_and_event_is_emitted(self):
+        self.assertIsNotNone(self.api._auto_relogin._ready)
+        self.assertIsNotNone(self.api._auto_relogin._on_change)
+        self.api._auto_relogin.observe_check("expired")
+        self.api._auto_relogin.notify_if_changed()
+        self.assertEqual(self._payload("login_auto")["auto_state"], "running")
+
+
 class BusyStartTests(_ApiCase):
     """R3：拉列表这类瞬时忙碌不算一次失败。"""
 

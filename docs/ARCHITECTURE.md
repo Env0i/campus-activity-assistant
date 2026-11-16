@@ -316,6 +316,7 @@ controller/view DOM 分离不在本轮范围。
 - **失败一次就把提醒还回来**：`_silent_relogin_state()` 在「已经失败过」或「这一场已转人工」时给
   `recovering=false`（`recover_block` 为 `retry_pending` / `handoff`），界面恢复「登录已失效」；
   后台仍按 60/120/300/900 秒退避重试。
+- **自动登录统一状态**：后端用 `auto_state` 表达 `idle`、`running`、`handoff`、`backoff`、`blocked`、`manual` 六态，判定顺序先看用户自己正在进行的中继，再看电脑发起的转人工或进行中，随后区分有效、不可自动登录、退避与可继续发起；`auto_block` 只在 `blocked` 时给出原因，`auto_retry_in_s` 只在 `backoff` 时给出剩余秒数。`check` 与 `bootstrap.login` 都带这三个字段，`login_auto` 事件只在三字段状态变化时推送。调度器锁内只复制自身字段，中继快照和能力判据在锁外读取，避免外部回调重入造成死锁。转人工只在电脑发起的那一场还在进行时成立，那一场结束后按退避或进行中判定。
 - **瞬时忙碌不算失败**：调度线程在资格判据处就跳过；若资格判过之后才撞上忙碌（并发窗口），
   `_begin_auto_relogin` 回 `error=busy`，监视器记 `deferred`，不累加失败次数、不进 60 秒退避，下一拍重试。
 - **转人工**：中继在 `_MANUAL_RELOGIN_AFTER`（3 次）或识别结果不合规时把 `mode` 切成 `manual` 并置
