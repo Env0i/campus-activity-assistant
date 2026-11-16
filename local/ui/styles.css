@@ -77,6 +77,8 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .pill .pill-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line-2); border-top-color: var(--ink-2); animation: advspin .9s linear infinite; flex: none; }
 .pill.is-busy { color: var(--blue); }
 .pill.is-busy i { background: var(--blue); animation: pulse 1.4s ease-in-out infinite; }
+/* 转圈只换圆点，不新增元素；沿用 advspin 动画让减少动画规则仍可停住。 */
+.pill.is-spin i { background: transparent; border: 2px solid currentColor; border-right-color: transparent; box-sizing: border-box; animation: advspin .9s linear infinite; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; font-weight: 600; white-space: nowrap; }
 .btn:hover:not(:disabled) { background: rgba(26,31,36,.07); }
 .btn-line { background: var(--paper); box-shadow: inset 0 0 0 1px var(--line-2); }

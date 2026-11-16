@@ -51,7 +51,7 @@ out.push({ text: $("#pill-text").textContent, sub: $("#pill-sub").textContent,
         self.assertEqual(data["sub"], "正在确认")
         self.assertEqual(data["state"], "checking")
         self.assertEqual(data["phase"], "rechecking")
-        self.assertEqual(data["className"], "pill is-ok")
+        self.assertEqual(data["className"], "pill is-ok is-spin")
         self.assertTrue(data["disabled"])
 
     def test_rechecking_outcomes_keep_the_right_capsule(self):

@@ -38,7 +38,7 @@ const LOGIN_APPEARANCES = {
   },
   auto: {
     /* 电脑正在用保存的账号自动登录（中继进度事件 origin=auto）：只说明在做什么，不出横幅 */
-    className: "is-busy",
+    className: "is-busy is-spin",
     text: () => "自动登录中…",
     sub: () => "",
     note: () => "学校说登录失效了，电脑正在用保存的账号自动登录",
@@ -58,7 +58,7 @@ const LOGIN_APPEARANCES = {
     note: () => "正在检查登录状态，马上就好",
   },
   rechecking: {
-    className: "is-ok",
+    className: "is-ok is-spin",
     text: () => "已登录",
     sub: () => "正在确认",
     note: () => "正在向学校确认登录状态；确认之前先不开始新的报名",
@@ -88,7 +88,7 @@ const LOGIN_APPEARANCES = {
   },
   unknown: {
     /* 学校接口没应答/网络异常：不能误报成「重新登录」，会话原样保留 */
-    className: "is-none",
+    className: "is-warn",
     text: () => "登录待确认",
     sub: () => "",
     note: () => "暂时无法确认登录状态；检查网络后点「刷新」，先不用重新登录",
@@ -138,7 +138,8 @@ export function loginBannerHtml(view, busy) {
   }
   if (data.phase === "needs_code") {
     return '<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>要你输验证码。</b>'
-      + "电脑需要你输入验证码才能继续登录。</span>"
+      + (busy ? "报名计划还在等，开放前 100 秒以前输完就照常继续。"
+        : "电脑需要你输入验证码才能继续登录。") + "</span>"
       + '<button class="btn btn-ghost" type="button" data-act="login">输入验证码</button></div>';
   }
   if (data.state === "bad") {

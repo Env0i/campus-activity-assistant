@@ -90,14 +90,22 @@ const LOGIN_CARD_BIG = {
   ok: "登录有效", bad: "登录已失效", none: "还没登录", unknown: "暂时无法确认",
   checking: "正在检查", pending: "正在登录", demo: "演示模式", terms: "等同意条款",
 };
+/* 阶段覆盖只换与胶囊同步的标签和大字，详情卡其余信息沿用结论状态。 */
+const LOGIN_CARD_PHASES = {
+  rechecking: { tone: "ok", big: "登录有效" },
+  needs_code: { tone: "warn", big: "要你输验证码" },
+};
 
 function renderLoginCard() {
   const view = S.login.view || { state: "none", text: "未登录", note: "" };
-  const tone = { ok: "ok", bad: "bad", none: "warn", unknown: "warn", terms: "warn" }[view.state] || "";
+  const phaseLook = LOGIN_CARD_PHASES[view.phase];
+  const tone = phaseLook ? phaseLook.tone
+    : ({ ok: "ok", bad: "bad", none: "warn", unknown: "warn", terms: "warn" }[view.state] || "");
   const chip = $("#login-pop-chip");
   if (chip) chip.dataset.tone = tone;
   $("#login-pop-chip-text").textContent = view.text;
-  $("#login-pop-big").textContent = LOGIN_CARD_BIG[view.state] || view.text;
+  $("#login-pop-big").textContent = phaseLook ? phaseLook.big
+    : (LOGIN_CARD_BIG[view.state] || view.text);
   const at = String(S.login.lastCheckAt || "");
   $("#login-pop-sub").textContent = at
     ? "上次校验 " + at + (S.login.lastCheckState === "valid" ? "，学校确认有效" : "")
