@@ -1,17 +1,30 @@
 /* 登录状态的统一写入与重画：改完状态后按顺序把受影响的视图刷一遍。 */
 
-import { receiveReloginState, reloginAutoLive } from "./actions-relogin.js";
 import { paintLogin } from "./view.js";
+import { AUTO_STATES } from "./state-machine.js";
 
-/* 「自动登录中」只在两种情况下成立：学校判失效且后端说电脑正在恢复（setLogin 置位），
- * 或中继里确有一场电脑自己发起、还在进行、没转人工的登录（receiveReloginState 置位）。
- * 这里只负责收回，不置位：结论为 valid、已转人工、结论不是 expired 又没有这样一场中继时，
- * S.autoLogin 都不该还亮着，否则顶栏胶囊会一直停在「自动登录中…」。 */
-export function reconcileAutoLogin() {
-  if (!S.autoLogin) return;
-  if (S.login.handoff || S.login.result === "valid") { S.autoLogin = false; return; }
-  if (S.login.result === "expired") return;   /* 由 recovering 和中继事件决定 */
-  if (typeof reloginAutoLive !== "function" || !reloginAutoLive()) S.autoLogin = false;
+/* 自动登录态只认后端给的 auto_state：电脑那边在不在登、转没转人工、多久后重试只有后端知道，
+ * 前端从中继快照或结论去猜会和后端对不上。S.autoLogin 只是 state === "running" 的镜像，
+ * 只在这里写。载荷没带 auto_state 时返回 false 并保持上一次：前端自己判出的暂时无法确认
+ * 没有后端字段，后端状态一变会在一秒内推 login_auto，下一次校验也会带新值。 */
+export function applyAutoState(fields) {
+  if (!fields || typeof fields.auto_state !== "string") return false;
+  const state = AUTO_STATES.indexOf(fields.auto_state) >= 0 ? fields.auto_state : "idle";
+  const block = typeof fields.auto_block === "string" ? fields.auto_block : "";
+  const retryInS = state === "backoff" && Number.isInteger(fields.auto_retry_in_s)
+    ? fields.auto_retry_in_s : null;
+  S.login.auto = { state: state, block: block, retryInS: retryInS, at: performance.now() };
+  S.autoLogin = state === "running";
+  return true;
+}
+
+/* 后端主动推来的 login_auto（中继结束、转人工、退避）：写进状态后和校验结论走同一个收口重画，
+ * 横幅也当场跟着换；没带 auto_state 的载荷不动状态也不重画。 */
+export function receiveAutoState(payload) {
+  if (!applyAutoState(payload)) return false;
+  syncLoginDependentView();
+  paintBanners();
+  return true;
 }
 
 export function setLogin(hours, ok, present, anchor) {
@@ -20,19 +33,12 @@ export function setLogin(hours, ok, present, anchor) {
   /* present 是后端 session_present 的回声：false=从没登录过，true=登录过。
    * 不传（undefined）表示这次事件没说，保留上一次的判断。 */
   if (present !== undefined) S.login.present = !!present;
-  /* 静默自动登录（计划 20261111）：登录已失效、但电脑能自己补回来时，胶囊显示
-   * 「自动登录中」，失效横幅也不出现（paintLogin 读 S.autoLogin）。
-   * recovering 只由后端在本次 check 结论为 expired 时给出：第一次静默失败或已转人工
-   * 输验证码时是 false，提醒照旧回来。转人工后（S.login.handoff）不再画回自动登录中。 */
-  if (anchor && typeof anchor === "object" && "recovering" in anchor) {
-    S.login.recovering = !!anchor.recovering;
-    S.login.recoverBlock = anchor.recover_block ? String(anchor.recover_block) : "";
-    if (S.login.result === "expired" && !S.login.handoff) S.autoLogin = !!anchor.recovering;
-  }
   if (S.login.result === "valid") S.login.handoff = false;
-  /* 不在「自动登录中」该在的状态里就收回（check 结论为 valid / 暂时无法确认 / 已转人工，
-   * 或后端说不再恢复），不等中继的收尾事件：事件可能先到、晚到或没到。 */
-  reconcileAutoLogin();
+  if (anchor && typeof anchor === "object" && typeof anchor.auto_state === "string") {
+    applyAutoState(anchor);
+  } else if (S.login.result === "valid" || S.demo) {
+    applyAutoState({ auto_state: "idle" });
+  }
   /* 估算锚点（绝对时刻）：bootstrap.login / check 事件 / 登录完成后都带同一来源的
    * estimated_expires_at（epoch 秒）。收到就整份替换（重新登录=新锚点），
    * 显式 null 且本机无会话时清掉旧锚点；事件没带（undefined）保持现状。
@@ -67,8 +73,6 @@ export function setLogin(hours, ok, present, anchor) {
  * 只重画、不改结论；调用点都已在请求代次校验之后，旧轮迟到事件不得用它
  * 覆盖新轮。 */
 export function syncLoginDependentView() {
-  /* 校验超时、请求失败等路径直接改 S.login.result 再走这里：先收回过期的自动登录态 */
-  reconcileAutoLogin();
   paintLogin();
   paintClockStatus();
   refreshLoginEmptyState();

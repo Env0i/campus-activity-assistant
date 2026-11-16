@@ -22,7 +22,7 @@
         "reason": "步骤 1 手机页"
       },
       "local/ui/views/plan-panel.js": {
-        "value": 1367,
+        "value": 1358,
         "reason": "步骤 1C 计划栏"
       },
       "server/bot/bot.js": {
@@ -348,9 +348,6 @@
       "local/ui/features/components/view-ocr.js::paintOcrDownload": {
         "value": 70
       },
-      "local/ui/features/login/actions-relogin.js::receiveReloginState": {
-        "value": 63
-      },
       "local/ui/features/login/view-recovery.js::paintRelogin": {
         "value": 88
       },
@@ -385,7 +382,7 @@
         "value": 68
       },
       "local/ui/views/plan-panel.js::paintBanners": {
-        "value": 95
+        "value": 86
       },
       "local/ui/views/plan-panel.js::paintRunPanel": {
         "value": 71

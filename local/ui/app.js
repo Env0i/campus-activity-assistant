@@ -162,6 +162,7 @@ window.onBackend = {
   update: (payload) => receiveUpdate(payload),
   /* 重新登录这一场的进度（电脑和手机共用的中继流程）：对话框开着时接管画面 */
   phone_relogin: (payload) => receiveReloginState(payload),
+  login_auto: (payload) => receiveAutoState(payload),
 };
 
 bindPlaceToggle();

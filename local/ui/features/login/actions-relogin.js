@@ -228,17 +228,6 @@ export function receiveReloginState(payload) {
     if (data.state === "success" || data.live === false) S.login.handoff = false;
     else if (handoff) S.login.handoff = true;
   }
-  /* 顶栏「自动登录中…」：这一场是电脑自动发起的、还在进行就亮，结束或转人工就收
-   * （架构方案 4.3；转人工以后要让「登录已失效」和重新登录入口回来） */
-  const auto = String(data.origin || "") === "auto" && !!data.live && !handoff
-    && !(S.login && S.login.result === "valid");   /* 学校已确认有效，旧快照重放不再亮 */
-  if (auto !== !!S.autoLogin) {
-    S.autoLogin = auto;
-    paintLogin();
-    /* 横幅读 S.login.view（paintLogin 刚按 autoLogin 重算过）：转人工、静默失败时
-     * 失效横幅要当场回来，不能等下一次 check。 */
-    paintBanners();
-  }
   if (!S.relogin || !S.relogin.open) {
     if (data.state === "success") {
       if (S.busy) addLog("重新登录成功，报名计划照常继续");
@@ -273,6 +262,25 @@ export function receiveReloginState(payload) {
   }
 }
 
+async function reloginSwitchToBrowser() {
+  const flowId = S.relogin && S.relogin.flowId;
+  const live = S.relogin && S.relogin.step && ["wait", "cap"].indexOf(S.relogin.step) >= 0;
+  if (!live || !flowId || reloginAutoLive(flowId)) {
+    await closeRelogin();
+    doLogin();
+    return;
+  }
+  reloginStep("wait", "正在切换…");
+  try {
+    await api("relogin_cancel", flowId);
+  } catch (error) {
+    /* 取消失败也要收口，浏览器登录仍由用户重新发起。 */
+  }
+  if (S.relogin) S.relogin.flowId = "";
+  await closeRelogin();
+  doLogin();
+}
+
 export function wireRelogin() {
   const on = (id, fn) => {
     const el = $("#" + id);
@@ -281,8 +289,8 @@ export function wireRelogin() {
   on("btn-rl-auto", () => { void autoReloginOnce(); });
   on("btn-lg-next", submitReloginForm);
   on("btn-rl-code", () => { void submitReloginCode(); });
-  on("btn-rl-browser", () => { closeRelogin().then(() => doLogin()); });
-  on("btn-bad-browser", () => { closeRelogin().then(() => doLogin()); });
+  on("btn-rl-browser", () => { void reloginSwitchToBrowser(); });
+  on("btn-bad-browser", () => { void reloginSwitchToBrowser(); });
   on("btn-bad-update", () => { if (S.relogin) S.relogin.fromLogin = false; reloginPickWay("here"); });
   on("btn-lg-back", () => { if (S.relogin) S.relogin.fromLogin = false; reloginStep("login"); });
   on("btn-lg-webopen", reloginOpenSchoolPage);
@@ -318,4 +326,4 @@ export function wireRelogin() {
 }
 
 /* 三个异步动作只在本文件里被接线调用，导出用列表写法：沙箱只认 export 声明与 export { 列表 }。 */
-export { autoReloginOnce, beginRelogin, submitReloginCode };
+export { autoReloginOnce, beginRelogin, reloginSwitchToBrowser, submitReloginCode };

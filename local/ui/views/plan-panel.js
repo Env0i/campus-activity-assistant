@@ -1316,16 +1316,7 @@ function paintBanners() {
       " 分钟。</b>" + detail + "</span>" +
       '<button class="btn btn-ghost" type="button" data-act="sleep-ok">知道了</button></div>');
   }
-  const loginView = S.login.view || {};
-  if (loginView.state === "unknown") {
-    parts.push('<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>暂时无法确认登录状态。</b>' +
-      "检查网络后点“刷新”，先不用重新登录。</span>" +
-      '<button class="btn btn-ghost" type="button" data-act="runtime-refresh">刷新</button></div>');
-  } else if (loginView.state === "bad") {
-    parts.push('<div class="banner" data-tone="bad" role="alert"><span class="grow"><b>登录已失效。</b>' +
-      (S.busy ? "报名计划还在等，开放前 100 秒以前重新登录就照常继续。" : "重新登录后可以继续。") +
-      "</span>" + '<button class="btn btn-ghost" type="button" data-act="login">重新登录</button></div>');
-  }
+  parts.push(...[loginBannerHtml(S.login.view || {}, S.busy)].filter(Boolean));
   if (!S.demo && typeof clockUiState === "function" && clockUiState() === "unavailable") {
     parts.push('<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>北京时间还没校准。</b>' +
       "校准后才能开始报名计划；已保存的登录不受影响。</span>" +

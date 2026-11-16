@@ -215,7 +215,7 @@ S.login.result = "expired";
 S.login.present = true;
 window.onBackend.check({ ok: true, result: "valid" });
 const afterValid = { handoff: S.login.handoff, pill: pill() };
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
 await __flush();
 out.push({ afterValid, again: { handoff: S.login.handoff, autoLogin: S.autoLogin,
                                 pill: pill() } });
@@ -235,7 +235,7 @@ S.login.result = "expired";
 S.login.present = true;
 window.onBackend.phone_relogin({ state: "idle", live: false, origin: "auto", flow_id: "f1" });
 const afterRelay = { handoff: S.login.handoff };
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
 await __flush();
 out.push({ afterRelay, again: { handoff: S.login.handoff, autoLogin: S.autoLogin,
                                 pill: pill() } });

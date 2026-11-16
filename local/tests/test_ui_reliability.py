@@ -340,7 +340,7 @@ class SilentReloginUiTests(unittest.TestCase):
         res = run_js(r"""
 S.login.present = true;
 window.onBackend.check({ ok: true, result: "valid" });
-window.onBackend.check({ ok: false, result: "expired", reason: "4001", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", reason: "4001", auto_state: "running" });
 const silent = { text: document.querySelector("#pill-text").textContent,
                  state: document.querySelector("#pill").dataset.state,
                  banners: document.querySelector("#banners").innerHTML };
@@ -367,10 +367,9 @@ out.push({ silent, running, done });
     def test_first_silent_failure_puts_the_reminder_back(self):
         res = run_js(r"""
 S.login.present = true;
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
 const silent = document.querySelector("#pill-text").textContent;
-window.onBackend.check({ ok: false, result: "expired", recovering: false,
-  recover_block: "retry_pending" });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "backoff", auto_retry_in_s: 60 });
 out.push({ silent,
   text: document.querySelector("#pill-text").textContent,
   state: document.querySelector("#pill").dataset.state,
@@ -394,7 +393,8 @@ if (window.PhonePanel && window.PhonePanel.state) {
 let beginCalls = 0;
 window.pywebview = { api: { relogin_begin: () => { beginCalls += 1;
   return Promise.resolve({ ok: true, flow_id: "f2" }); } } };
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
+window.onBackend.login_auto({ auto_state: "handoff", auto_block: "", auto_retry_in_s: null });
 window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
   origin: "auto", flow_id: "f1", challenge_id: "c1", attempts: 3, handoff: true,
   image: "data:image/png;base64,AAA" });
@@ -408,9 +408,9 @@ out.push({ handoff, beginCalls, step: S.relogin.step, flow: S.relogin.flowId,
   img: document.querySelector("#rl-cap-img").src });
 """)
         data = res[0]
-        self.assertEqual(data["handoff"]["text"], "登录已失效")
+        self.assertEqual(data["handoff"]["text"], "要你输验证码")
         self.assertEqual(data["handoff"]["state"], "bad")
-        self.assertIn("登录已失效", data["handoff"]["banners"])
+        self.assertIn("输入验证码", data["handoff"]["banners"])
         self.assertFalse(data["handoff"]["auto"], "转人工后不能还显示自动登录中")
         self.assertTrue(data["handoff"]["mark"])
         self.assertEqual(data["beginCalls"], 0, "已有进行中的一场，不能另开一场")
@@ -2216,7 +2216,7 @@ class SilentReloginResidualTests(unittest.TestCase):
 const cancels = [];
 window.pywebview = { api: { relogin_cancel: (id) => { cancels.push(id); return Promise.resolve({ ok: true }); } } };
 S.login.present = true;
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
 window.onBackend.phone_relogin(""" + self.AUTO_LIVE + r""");
 openRelogin();
 const opened = { open: S.relogin.open, step: S.relogin.step, flow: S.relogin.flowId };
@@ -2257,7 +2257,7 @@ out.push({ step, cancels });
 const cancels = [];
 window.pywebview = { api: { relogin_cancel: (id) => { cancels.push(id); return Promise.resolve({ ok: true }); } } };
 S.login.present = true;
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
 window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
   origin: "auto", flow_id: "f1", challenge_id: "c1", attempts: 3, handoff: true,
   image: "data:image/png;base64,AAA" });
@@ -2274,7 +2274,7 @@ out.push({ step, cancels });
         """R2：没等到中继的收尾事件，学校校验已经确认有效，胶囊要变「已登录」。"""
         res = run_js(r"""
 S.login.present = true;
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
 const during = document.querySelector("#pill-text").textContent;
 window.onBackend.check({ ok: true, result: "valid", hours_left: 9, session_present: true });
 out.push({ during, auto: !!S.autoLogin,
@@ -2291,8 +2291,8 @@ out.push({ during, auto: !!S.autoLogin,
         """R2：自动登录中来了一次「暂时无法确认」，没有自动中继在跑就不能还写自动登录中。"""
         res = run_js(r"""
 S.login.present = true;
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
-window.onBackend.check({ ok: false, result: "unknown", session_present: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
+window.onBackend.check({ ok: false, result: "unknown", session_present: true, auto_state: "idle" });
 out.push({ auto: !!S.autoLogin,
   text: document.querySelector("#pill-text").textContent });
 """)
@@ -2304,9 +2304,9 @@ out.push({ auto: !!S.autoLogin,
         """R2 守卫：电脑确实还在自动登录时，一次「暂时无法确认」不能把胶囊提前改掉。"""
         res = run_js(r"""
 S.login.present = true;
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
 window.onBackend.phone_relogin(""" + self.AUTO_LIVE + r""");
-window.onBackend.check({ ok: false, result: "unknown", session_present: true });
+window.onBackend.check({ ok: false, result: "unknown", session_present: true, auto_state: "running" });
 out.push({ auto: !!S.autoLogin });
 """)
         self.assertTrue(res[0]["auto"])
@@ -2325,11 +2325,11 @@ out.push({ auto: !!S.autoLogin,
         self.assertEqual(data["text"], "已登录")
 
     def test_pill_leaves_auto_login_when_the_refresh_check_fails_outright(self):
-        """R2：手动刷新里 check 请求本身失败（桥接异常、没能开始），结论落 unknown，
-        没有自动中继在跑就不能还停在自动登录中。"""
+        """手动刷新里 check 请求本身失败（桥接异常、没能开始），结论落 unknown：
+        前端自己判的暂时无法确认不改后端给的自动登录态；后端推来 idle 就收回。"""
         res = run_js(r"""
 S.login.present = true;
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
 const before = document.querySelector("#pill-text").textContent;
 window.pywebview = { api: {
   check: () => Promise.reject(new Error("bridge down")),
@@ -2349,22 +2349,27 @@ refresh(false);
 for (let i = 0; i < 12; i += 1) await Promise.resolve();
 const refused = { auto: !!S.autoLogin, text: document.querySelector("#pill-text").textContent,
                   result: S.login.result };
-out.push({ before, thrown, refused });
+window.onBackend.login_auto({ auto_state: "idle", auto_block: "", auto_retry_in_s: null });
+const retracted = { auto: !!S.autoLogin, text: document.querySelector("#pill-text").textContent };
+out.push({ before, thrown, refused, retracted });
 """)
         data = res[0]
         self.assertEqual(data["before"], "自动登录中…")
         self.assertEqual(data["thrown"]["result"], "unknown")
-        self.assertFalse(data["thrown"]["auto"])
-        self.assertNotEqual(data["thrown"]["text"], "自动登录中…")
+        self.assertTrue(data["thrown"]["auto"])
+        self.assertEqual(data["thrown"]["text"], "自动登录中…")
         self.assertEqual(data["refused"]["result"], "unknown")
-        self.assertFalse(data["refused"]["auto"])
-        self.assertNotEqual(data["refused"]["text"], "自动登录中…")
+        self.assertTrue(data["refused"]["auto"])
+        self.assertEqual(data["refused"]["text"], "自动登录中…")
+        self.assertFalse(data["retracted"]["auto"])
+        self.assertNotEqual(data["retracted"]["text"], "自动登录中…")
 
     def test_pill_leaves_auto_login_when_the_check_times_out(self):
-        """R2：check 超过 100 秒没回应，落 unknown，不能一直停在自动登录中。"""
+        """check 超过 100 秒没回应，落 unknown：前端自己判的暂时无法确认不改后端给的
+        自动登录态；后端推来 idle 就收回。"""
         res = run_js(r"""
 S.login.present = true;
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
 const timers = [];
 const realSetTimeout = setTimeout;
 setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
@@ -2376,30 +2381,38 @@ refresh(false);
 setTimeout = realSetTimeout;
 const hit = timers.filter((t) => t.ms === 100000);
 hit.forEach((t) => t.fn());
-out.push({ timers: hit.length, auto: !!S.autoLogin, result: S.login.result,
-  text: document.querySelector("#pill-text").textContent });
+const timedOut = { auto: !!S.autoLogin, text: document.querySelector("#pill-text").textContent };
+window.onBackend.login_auto({ auto_state: "idle", auto_block: "", auto_retry_in_s: null });
+out.push({ timers: hit.length, auto: timedOut.auto, result: S.login.result,
+  text: timedOut.text, retracted: { auto: !!S.autoLogin,
+  text: document.querySelector("#pill-text").textContent } });
 """)
         data = res[0]
         self.assertEqual(data["timers"], 1)
         self.assertEqual(data["result"], "unknown")
-        self.assertFalse(data["auto"])
-        self.assertNotEqual(data["text"], "自动登录中…")
+        self.assertTrue(data["auto"])
+        self.assertEqual(data["text"], "自动登录中…")
+        self.assertFalse(data["retracted"]["auto"])
+        self.assertNotEqual(data["retracted"]["text"], "自动登录中…")
 
     def test_pill_leaves_auto_login_when_the_relay_finishes_or_hands_off(self):
         """R2 守卫：原有的收回路径（中继结束、转人工、静默失败）继续有效。"""
         res = run_js(r"""
 const text = () => document.querySelector("#pill-text").textContent;
 S.login.present = true;
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
 window.onBackend.phone_relogin(""" + self.AUTO_LIVE + r""");
 const live = text();
 window.onBackend.phone_relogin({ state: "failed", mode: "auto", live: false, origin: "auto",
   flow_id: "f1", safe_error: "timeout" });
-const failed = { auto: !!S.autoLogin, text: text() };
-window.onBackend.check({ ok: false, result: "expired", recovering: true });
+window.onBackend.login_auto({ auto_state: "backoff", auto_block: "", auto_retry_in_s: 60 });
+const failed = { auto: !!S.autoLogin, text: text(),
+  sub: document.querySelector("#pill-sub").textContent };
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
 window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
   origin: "auto", flow_id: "f3", challenge_id: "c1", attempts: 3, handoff: true,
   image: "data:image/png;base64,AAA" });
+window.onBackend.login_auto({ auto_state: "handoff", auto_block: "", auto_retry_in_s: null });
 const handoff = { auto: !!S.autoLogin, text: text() };
 out.push({ live, failed, handoff });
 """)
@@ -2407,8 +2420,9 @@ out.push({ live, failed, handoff });
         self.assertEqual(data["live"], "自动登录中…")
         self.assertFalse(data["failed"]["auto"])
         self.assertEqual(data["failed"]["text"], "登录已失效")
+        self.assertEqual(data["failed"]["sub"], "1 分钟后再试")
         self.assertFalse(data["handoff"]["auto"])
-        self.assertEqual(data["handoff"]["text"], "登录已失效")
+        self.assertEqual(data["handoff"]["text"], "要你输验证码")
 
 
 if __name__ == "__main__":

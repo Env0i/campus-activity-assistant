@@ -35,6 +35,7 @@
   "legacy_globals_attached": [
     "OcrPanel",
     "PhonePanel",
+    "loginBannerHtml",
     "loginEntry",
     "loginEstimateText",
     "loginSnapshotState",
@@ -43,6 +44,7 @@
     "paintOcrDownload",
     "phoneLinkView",
     "phoneLinkedNow",
+    "receiveAutoState",
     "receiveReloginState",
     "restoreLoginSnapshotState",
     "setLogin",

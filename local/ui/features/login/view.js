@@ -4,6 +4,16 @@ import { loginEstimateShort } from "./state.js";
 import { loginPhase, loginViewState } from "./state-machine.js";
 import { termsLocked } from "../terms/state.js";
 
+function retryLeftS(auto) {
+  if (!auto || auto.state !== "backoff" || !Number.isInteger(auto.retryInS)) return null;
+  const elapsed = Math.max(0, Math.floor((performance.now() - Number(auto.at || 0)) / 1000));
+  return Math.max(0, auto.retryInS - elapsed);
+}
+
+function retryMinutes(auto) {
+  return Math.max(1, Math.ceil(Number(auto.retryLeftS || 0) / 60));
+}
+
 /* 顶栏登录胶囊、结果条与运行日志呈现。 */
 const LOGIN_APPEARANCES = {
   plan_running: {
@@ -46,6 +56,27 @@ const LOGIN_APPEARANCES = {
     text: () => "检查登录…",
     sub: () => "",
     note: () => "正在检查登录状态，马上就好",
+  },
+  rechecking: {
+    className: "is-ok",
+    text: () => "已登录",
+    sub: () => "正在确认",
+    note: () => "正在向学校确认登录状态；确认之前先不开始新的报名",
+  },
+  needs_code: {
+    className: "is-warn",
+    text: () => "要你输验证码",
+    sub: () => "",
+    note: (facts) => facts.auto.block === "ocr_missing"
+      ? "电脑这边认不了验证码，输入验证码就能重新登录"
+      : "电脑没认出验证码，输入验证码就能接着登录",
+  },
+  retry_later: {
+    className: "is-bad",
+    text: () => "登录已失效",
+    sub: (facts) => retryMinutes(facts.auto) + " 分钟后再试",
+    note: (facts) => "电脑自动登录这次没成功，" + retryMinutes(facts.auto)
+      + " 分钟后会再试；也可以现在重新登录",
   },
   never: {
     /* 从没登录过（session.json 缺失/解析不了/没有 token）：引导首次登录，
@@ -98,6 +129,26 @@ const LOGIN_APPEARANCES = {
   },
 };
 
+export function loginBannerHtml(view, busy) {
+  const data = view || {};
+  if (data.state === "unknown") {
+    return '<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>暂时无法确认登录状态。</b>'
+      + "检查网络后点“刷新”，先不用重新登录。</span>"
+      + '<button class="btn btn-ghost" type="button" data-act="runtime-refresh">刷新</button></div>';
+  }
+  if (data.phase === "needs_code") {
+    return '<div class="banner" data-tone="warn" role="alert"><span class="grow"><b>要你输验证码。</b>'
+      + "电脑需要你输入验证码才能继续登录。</span>"
+      + '<button class="btn btn-ghost" type="button" data-act="login">输入验证码</button></div>';
+  }
+  if (data.state === "bad") {
+    return '<div class="banner" data-tone="bad" role="alert"><span class="grow"><b>登录已失效。</b>'
+      + (busy ? "报名计划还在等，开放前 100 秒以前重新登录就照常继续。" : "重新登录后可以继续。")
+      + "</span>" + '<button class="btn btn-ghost" type="button" data-act="login">重新登录</button></div>';
+  }
+  return "";
+}
+
 /* 顶栏登录胶囊、结果条与运行日志呈现。 */
 export function paintLogin() {
   const pill = $("#pill");
@@ -109,6 +160,8 @@ export function paintLogin() {
     loginPending: S.login.loginPending, checking: S.login.checking, ok: S.login.ok,
     present: S.login.present, result: S.login.result, termsLocked: termsLocked(),
   };
+  const auto = S.login.auto || { state: "idle", block: "", retryInS: null, at: 0 };
+  facts.auto = { state: auto.state, block: auto.block, retryLeftS: retryLeftS(auto) };
   const phase = loginPhase(facts);
   const appearance = LOGIN_APPEARANCES[phase] || LOGIN_APPEARANCES.unset;
   const state = loginViewState(phase, facts.present);
@@ -116,7 +169,7 @@ export function paintLogin() {
   let text = appearance.text(facts);
   let sub = appearance.sub(facts);
   let note = appearance.note(facts);
-  S.login.view = { state: state, text: text, sub: sub, note: note };
+  S.login.view = { state: state, text: text, sub: sub, note: note, phase: phase };
   pill.className = cls;
   pill.dataset.state = state;
   pill.setAttribute("aria-label", text + (sub ? "，" + sub : ""));

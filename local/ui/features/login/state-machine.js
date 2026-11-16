@@ -2,26 +2,38 @@
  * 不碰 DOM、不读 window、不读时钟；阶段先后与 features/login/view.js 原分支一致。 */
 
 export const LOGIN_PHASES = Object.freeze([
-  "plan_running", "demo", "auto", "logging_in", "checking", "never",
-  "unknown", "expired", "valid", "unset", "terms",
+  "plan_running", "demo", "auto", "logging_in", "checking", "rechecking", "never",
+  "unknown", "expired", "needs_code", "retry_later", "valid", "unset", "terms",
 ]);
 
 export const LOGIN_VIEW_STATES = Object.freeze([
   "ok", "none", "demo", "pending", "checking", "unknown", "bad", "terms",
 ]);
 
+export const AUTO_STATES = Object.freeze(["idle", "running", "handoff", "backoff", "blocked", "manual"]);
+
 export function loginPhase(facts) {
   const data = facts || {};
+  const auto = data.auto || { state: "idle", block: "", retryLeftS: null };
   const busyExpired = data.result === "expired" && data.present !== false;
   let phase;
   if (data.busy && !data.loginPending && !busyExpired && !data.autoLogin) phase = "plan_running";
   else if (data.demo) phase = "demo";
   else if (data.autoLogin) phase = "auto";
   else if (data.loginPending) phase = "logging_in";
+  else if (data.checking && data.ok === true && data.present === true && data.result === "valid") phase = "rechecking";
   else if (data.checking || (data.ok === null && data.present === true)) phase = "checking";
   else if (data.present === false) phase = "never";
   else if (data.result === "unknown" && data.ok === false) phase = "unknown";
-  else if (data.ok === false && data.present !== false) phase = "expired";
+  else if (data.ok === false && data.present !== false) {
+    if (auto.state === "handoff" || (auto.state === "blocked" && auto.block === "ocr_missing")) {
+      phase = "needs_code";
+    } else if (auto.state === "backoff" && auto.retryLeftS > 0) {
+      phase = "retry_later";
+    } else {
+      phase = "expired";
+    }
+  }
   else if (data.ok === true) phase = "valid";
   else phase = "unset";
   if (data.termsLocked && phase !== "demo" && phase !== "auto" && phase !== "logging_in") {
@@ -34,6 +46,7 @@ export function loginViewState(phase, present) {
   if (phase === "plan_running") return present === false ? "none" : "ok";
   const states = {
     demo: "demo", auto: "pending", logging_in: "pending", checking: "checking",
+    rechecking: "checking", needs_code: "bad", retry_later: "bad",
     never: "none", unknown: "unknown", expired: "bad", valid: "ok", unset: "none",
     terms: "terms",
   };

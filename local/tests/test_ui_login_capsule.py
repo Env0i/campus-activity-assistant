@@ -256,7 +256,7 @@ out.push({ hidden: $("#result").hidden, text: $("#result").textContent });
 resetLogin();
 S.autoLogin = true;
 S.login.handoff = true; S.login.result = "expired";
-reconcileAutoLogin();
+window.onBackend.login_auto({ auto_state: "handoff", auto_block: "", auto_retry_in_s: null });
 paintLogin();
 out.push({ auto: S.autoLogin, text: read() });
 """)[0]

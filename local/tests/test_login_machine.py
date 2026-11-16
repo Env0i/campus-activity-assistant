@@ -26,8 +26,9 @@ out.push({ phases: LOGIN_PHASES, states: LOGIN_VIEW_STATES,
   frozen: [Object.isFrozen(LOGIN_PHASES), Object.isFrozen(LOGIN_VIEW_STATES)] });
 """)[0]
         self.assertEqual(data["phases"], ["plan_running", "demo", "auto", "logging_in",
-                                           "checking", "never", "unknown", "expired",
-                                           "valid", "unset", "terms"])
+                                           "checking", "rechecking", "never", "unknown",
+                                           "expired", "needs_code", "retry_later", "valid",
+                                           "unset", "terms"])
         self.assertEqual(data["states"], ["ok", "none", "demo", "pending", "checking",
                                            "unknown", "bad", "terms"])
         self.assertEqual(data["frozen"], [True, True])
@@ -63,23 +64,27 @@ out.push([
 const facts = [
   { busy: true, present: true, result: "valid" },
   { demo: true }, { autoLogin: true }, { loginPending: true }, { checking: true },
+  { checking: true, ok: true, present: true, result: "valid" },
   { present: false }, { result: "unknown", ok: false, present: true },
   { result: "expired", ok: false, present: true }, { result: "valid", ok: true, present: true },
+  { result: "expired", ok: false, present: true, auto: { state: "handoff" } },
+  { result: "expired", ok: false, present: true, auto: { state: "backoff", retryLeftS: 5 } },
   { result: "none", ok: null, present: null }, { ok: true, result: "valid", termsLocked: true }
 ];
 const phases = facts.map((item) => loginPhase(item));
 out.push({ phases: phases, states: phases.map((phase) => loginViewState(phase, true)) });
 """)[0]
         self.assertEqual(sorted(set(data["phases"])), sorted([
-            "plan_running", "demo", "auto", "logging_in", "checking", "never", "unknown",
-            "expired", "valid", "unset", "terms"
+            "plan_running", "demo", "auto", "logging_in", "checking", "rechecking", "never", "unknown",
+            "expired", "needs_code", "retry_later", "valid", "unset", "terms"
         ]))
         self.assertTrue(set(data["states"]).issubset({"ok", "none", "demo", "pending",
                                                         "checking", "unknown", "bad", "terms"}))
         self.assertEqual(dict(zip(data["phases"], data["states"])), {
             "plan_running": "ok", "demo": "demo", "auto": "pending",
             "logging_in": "pending", "checking": "checking", "never": "none",
-            "unknown": "unknown", "expired": "bad", "valid": "ok", "terms": "terms",
+            "rechecking": "checking", "unknown": "unknown", "expired": "bad", "needs_code": "bad",
+            "retry_later": "bad", "valid": "ok", "terms": "terms",
             "unset": "none",
         })
 
