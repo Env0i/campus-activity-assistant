@@ -147,10 +147,6 @@
         "value": 108,
         "reason": "存量，未排期"
       },
-      "local/ui/features/login/view.js::paintLogin": {
-        "value": 103,
-        "reason": "步骤 1B 登录"
-      },
       "local/ui/features/phone-access/view.js::paintPhoneAccess": {
         "value": 219,
         "reason": "步骤 1A 组件"

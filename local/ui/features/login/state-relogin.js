@@ -2,6 +2,9 @@
 
 export const RELOGIN_PRIVACY_NOTE = "登录时，工具会替你勾选学校登录页上的《隐私协议》。";
 
+export const RELOGIN_STEPS = Object.freeze(["confirm", "login", "bad", "lgwait", "cap", "wait", "msg"]);
+export const RELOGIN_CASES = Object.freeze(["bad", "captcha", "login"]);
+
 export function reloginCapSub(mask) {
   return mask ? "账号 " + mask + " 和密码由电脑自动填写" : "账号和密码由电脑自动填写";
 }
