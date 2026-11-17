@@ -92,6 +92,8 @@
 
 推送到远端后，持续集成会自动跑下面全部测试与检查（.github/workflows/ci.yml）。
 
+**提交钩子**：clone 或换机器后先跑一次 `git config core.hooksPath .githooks`，否则 `.githooks/` 里的检查不会触发，而且不报错。用 `git config core.hooksPath` 确认是否已设。
+
 ```bash
 # 本机版全量；仓库在共享盘上，要跑几分钟
 python -m unittest discover -s local/tests -p "test_*.py" -v
