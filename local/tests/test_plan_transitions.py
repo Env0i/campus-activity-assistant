@@ -191,5 +191,80 @@ out.push({ stopping: S.stopping, stop: $("#btn-stop").textContent });
         self.assertNotIn("正在停止", data["stop"])
 
 
+class FrameAndStopLogTests(unittest.TestCase):
+    """收尾小修：外框随登录、停止记录按快照写。先断言用户看得到的，再断言内部值。"""
+
+    def test_login_pending_draws_idle_frame_but_keeps_login_heading(self):
+        data = run_js(PRELUDE + r'''
+window.pywebview = { api: { login: () => new Promise(() => {}) } };
+doLogin(); render();
+out.push({ frame: $("#board").dataset.planState, tag: $("#board-tag-text").textContent,
+  title: $("#selected").textContent, pending: S.login.loginPending, busy: S.busy });
+''')[0]
+        self.assertEqual(data["frame"], "idle", "浏览器登录窗口开着时外框按没在跑画")
+        self.assertEqual(data["tag"], "登录中")
+        self.assertEqual(data["title"], "正在打开登录窗口")
+        self.assertTrue(data["pending"])
+        self.assertTrue(data["busy"])
+
+    def test_waiting_plan_keeps_running_frame(self):
+        data = run_js(PRELUDE + r'''
+window.pywebview = { api: {} };
+running("2026-11-06 16:00:00"); render();
+out.push({ frame: $("#board").dataset.planState, pending: S.login.loginPending });
+''')[0]
+        self.assertEqual(data["frame"], "running", "计划等开放时外框仍是运行色")
+        self.assertFalse(data["pending"])
+
+    def test_snapshot_not_busy_writes_plan_already_ended(self):
+        data = run_js(PRELUDE + r'''
+window.pywebview = { api: {
+  stop_plan: () => Promise.resolve({ ok: false, text: "当前没有这个计划" }),
+  bootstrap: () => Promise.resolve({ busy: false }) } };
+running("2026-11-06 16:00:00"); S.editing = { ids: [], doneN: 0 };
+doStopPlan(); await flush(); render(); out.push({ logs: S.recentLogs.join("|"), busy: S.busy });
+''')[0]
+        self.assertIn("计划已经结束，修改作废", data["logs"])
+        self.assertNotIn("计划继续运行", data["logs"])
+        self.assertFalse(data["busy"])
+
+    def test_snapshot_busy_writes_stop_failed_as_before(self):
+        data = run_js(PRELUDE + r'''
+window.pywebview = { api: {
+  stop_plan: () => Promise.resolve({ ok: false, text: "当前没有这个计划" }),
+  bootstrap: () => Promise.resolve({ busy: true }) } };
+running("2026-11-06 16:00:00"); S.editing = { ids: [], doneN: 0 };
+doStopPlan(); await flush(); render(); out.push({ logs: S.recentLogs.join("|"), busy: S.busy });
+''')[0]
+        self.assertIn("停止没成功，计划继续运行", data["logs"])
+        self.assertNotIn("计划已经结束，修改作废", data["logs"])
+        self.assertTrue(data["busy"])
+
+    def test_bootstrap_failure_writes_stop_failed_conservatively(self):
+        data = run_js(PRELUDE + r'''
+window.pywebview = { api: {
+  stop_plan: () => Promise.resolve({ ok: false, text: "当前没有这个计划" }),
+  bootstrap: () => Promise.reject(new Error("快照拿不到")) } };
+running("2026-11-06 16:00:00"); S.editing = { ids: [], doneN: 0 };
+doStopPlan(); await flush(); render(); out.push({ logs: S.recentLogs.join("|"), busy: S.busy });
+''')[0]
+        self.assertIn("停止没成功，计划继续运行", data["logs"])
+        self.assertNotIn("计划已经结束，修改作废", data["logs"])
+        self.assertTrue(data["busy"])
+
+    def test_plain_refusal_writes_neither_editing_sentence(self):
+        data = run_js(PRELUDE + r'''
+window.pywebview = { api: {
+  stop_plan: () => Promise.resolve({ ok: false, text: "当前没有这个计划" }),
+  bootstrap: () => Promise.resolve({ busy: false }) } };
+running("2026-11-06 16:00:00");
+doStopPlan(); await flush(); render(); out.push({ logs: S.recentLogs.join("|"), busy: S.busy });
+''')[0]
+        self.assertNotIn("停止没成功，计划继续运行", data["logs"])
+        self.assertNotIn("计划已经结束，修改作废", data["logs"])
+        self.assertIn("当前没有这个计划", data["logs"])
+        self.assertFalse(data["busy"])
+
+
 if __name__ == "__main__":
     unittest.main()

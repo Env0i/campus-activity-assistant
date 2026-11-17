@@ -119,15 +119,20 @@ export function finishResult() {
 }
 
 /* 后端说「没有这个计划」时不能再说「照常进行」：计划其实已经不在了。
- * 按窗口恢复同一套快照对账；桥接异常时不追加动作，原有失败记录已经说明过了。 */
-function resyncPlanFromBootstrap() {
+ * 按窗口恢复同一套快照对账，运行记录那句按快照写——快照说还在跑才是停止没成功，
+ * 说计划已不在就写修改作废，拿不到快照时保守写停止没成功，不替后端下结论。
+ * wasEditing 由停止分支在进入 stopFailed 前记下带过来；桥接异常那一支不写这两句。 */
+function resyncPlanFromBootstrap(wasEditing) {
   api("bootstrap").then((info) => {
-    if (!info) return;
+    if (!info) { if (wasEditing) addLog("停止没成功，计划继续运行"); return; }
     ingestBootstrapPlan(info);
     if (!info.busy) S.stopping = false;
     if (!!info.busy !== S.busy) setBusy(!!info.busy);
+    if (wasEditing) addLog(info.busy ? "停止没成功，计划继续运行" : "计划已经结束，修改作废");
     render();
-  }).catch(() => {});
+  }).catch(() => {
+    if (wasEditing) addLog("停止没成功，计划继续运行");
+  });
 }
 
 export function doStopPlan() {
@@ -150,13 +155,16 @@ export function doStopPlan() {
     paintLogin();
     updateControls();
     addLog(line);
-    if (wasEditing) addLog("停止没成功，计划继续运行");
+    /* 后端拒答那一支不属于能确认的失败：那句挪到快照对账后按 info.busy 写。
+     * 这里只保留桥接异常那一支（带停止说明）照旧写，并把 wasEditing 交给对账分支。 */
+    if (noteText && wasEditing) addLog("停止没成功，计划继续运行");
     render();
+    return wasEditing;
   };
   api("stop_plan", planId).then((res) => {
     if (res && res.ok === false) {
-      stopFailed(res.text || "当前没有这个计划");
-      resyncPlanFromBootstrap();
+      const wasEditing = stopFailed(res.text || "当前没有这个计划");
+      resyncPlanFromBootstrap(wasEditing);
     }
   }).catch((err) => {
     /* 桥接异常才写「照常进行」：这是我们能确认的失败；后端说没有计划要走快照对账 */

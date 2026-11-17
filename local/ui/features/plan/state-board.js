@@ -44,9 +44,10 @@ export function runCaption(view) {
 }
 
 /* 整屏外框（原型 .board.st-ok / st-warn / st-bad）：只在结果页按结论上色，运行中保持运行色。
- * 含「待核对」的计划不画成确定失败的红框，展示语义不能替用户宣布失败（FR06）。 */
+ * 含「待核对」的计划不画成确定失败的红框，展示语义不能替用户宣布失败（FR06）。
+ * 浏览器登录窗口开着时 busy 也为真，但那时没有计划在跑：外框按没在跑画，和标题区的登录中一致。 */
 export function boardPlanState() {
-  if (S.busy) return "running";
+  if (S.busy && !S.login.loginPending) return "running";
   if (!resultMode()) return "idle";
   const frame = resultView().frame;
   if (frame === "ok") return "completed";
