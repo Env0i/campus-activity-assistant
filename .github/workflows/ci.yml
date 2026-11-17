@@ -13,6 +13,7 @@ jobs:
   # 本机版：装依赖 → 语法检查 → 代码形状 → ruff → 本机版全量 → Node 离线测试，一步失败整个 job 失败
   local-windows:
     runs-on: windows-latest
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
@@ -30,7 +31,7 @@ jobs:
       - run: python -m pip install -r local/requirements-advanced-phone.txt
       - run: python -m pip install -r requirements-dev.txt
       - run: python -m compileall local server
-      - run: ls local/ui/*.js local/ui/*/*.js local/ui/*/*/*.js | xargs -n 1 node --check
+      - run: find local/ui -name "*.js" -print0 | xargs -0 -n 1 node --check
       - run: python tools/code_shape/check.py
       - run: ruff check local server tools
       - run: python -m unittest discover -s local/tests -p "test_*.py" -v
@@ -41,6 +42,7 @@ jobs:
   # 服务器版：pytest server/tests；不装浏览器、不联学校
   server-linux:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
