@@ -1,0 +1,149 @@
+仓库：campus-activity-assistant（工作副本根，下面路径都相对它）
+app.py SHA-256（改前）：f0f8f7510bbe0b7f797a7a28486e051f5035aa826208ed9bef7885567bb63d1d
+
+更新相关补丁 → 新代码里的调用点
+==============================================================================
+
+app.check_latest_release
+  测试里怎么打：patch.object(local_app, "check_latest_release")
+  用来验的用例：test_update_check.UpdateBridgeTests.test_check_stores_installer_and_clears_old_download
+  调用点：local/app.py:2071  Api._do_check_update  →  fetch=check_latest_release
+
+app.threading.Thread
+  测试里怎么打：patch.object(local_app.threading, "Thread")
+  用来验的用例：test_update_check.UpdateBridgeTests.test_immediate_ack_single_flight
+  调用点：local/app.py:2065  Api.check_update  →  thread_factory=threading.Thread
+  调用点：local/app.py:2079  Api.update_download  →  thread_factory=threading.Thread
+
+app.updater.cleanup_staging
+  测试里怎么打：patch.object(local_app.updater, "cleanup_staging")
+  用来验的用例：test_update_check.UpdateBridgeTests.test_new_check_reclaims_stale_version_staging
+  调用点：local/app.py:2066  Api.check_update  →  cleanup_staging=updater.cleanup_staging
+
+app.version_switch_available
+  测试里怎么打：patch.object(local_app, "version_switch_available", new=...)
+  用来验的用例：test_update_check.UpdateBridgeTests.test_version_payload_cleans_archive_after_staging
+  调用点：local/app.py:2085  Api._do_update_download  →  version_switch_available=version_switch_available
+  调用点：local/app.py:2106  Api.update_launch  →  version_switch_available=version_switch_available
+
+app.update_version_paths
+  测试里怎么打：patch.object(local_app, "update_version_paths", return_value=paths)
+  用来验的用例：test_application_services.VersionSwitchLaunchTests.test_launcher_started_publishes_started_text_and_schedules_exit
+  调用点：local/app.py:2067  Api.check_update  →  update_version_paths=update_version_paths
+  调用点：local/app.py:2086  Api._do_update_download  →  update_version_paths=update_version_paths
+  调用点：local/app.py:2107  Api.update_launch  →  update_version_paths=update_version_paths
+
+app.updater.stage_update
+  测试里怎么打：patch.object(local_app.updater, "stage_update", return_value=...)
+  用来验的用例：test_update_check.UpdateBridgeTests.test_version_payload_cleans_archive_after_staging
+  调用点：local/app.py:2086  Api._do_update_download  →  stage_update=updater.stage_update
+
+app.updater.download_payload
+  测试里怎么打：patch.object(local_app.updater, "download_payload", return_value=...)
+  用来验的用例：test_update_check.UpdateBridgeTests.test_version_payload_cleans_archive_after_staging
+  调用点：local/app.py:2087  Api._do_update_download  →  download_payload=updater.download_payload
+
+app.updater.download_installer
+  测试里怎么打：patch.object(local_app.updater, "download_installer", ...)
+  用来验的用例：test_update_check.UpdateBridgeTests.test_download_progress_and_ready_state
+  调用点：local/app.py:2088  Api._do_update_download  →  download_installer=updater.download_installer
+
+app.updater.cleanup_download
+  测试里怎么打：patch.object(local_app.updater, "cleanup_download")
+  用来验的用例：test_update_check.UpdateBridgeTests.test_version_payload_cleans_archive_after_staging
+  调用点：local/app.py:2089  Api._do_update_download  →  cleanup_download=updater.cleanup_download
+
+app.updater.launch_installer
+  测试里怎么打：patch.object(local_app.updater, "launch_installer", return_value=...)
+  用来验的用例：test_update_check.UpdateBridgeTests.test_launch_publishes_launching_then_success
+  调用点：local/app.py:2116  Api.update_launch  →  launch_installer=updater.launch_installer
+
+app.subprocess.Popen
+  测试里怎么打：patch.object(local_app.subprocess, "Popen", popen)
+  用来验的用例：test_application_services.VersionSwitchLaunchTests.test_launcher_started_publishes_started_text_and_schedules_exit
+  调用点：local/app.py:2109  Api.update_launch  →  spawn=subprocess.Popen
+
+app.defer_close_action
+  测试里怎么打：patch.object(local_app, "defer_close_action", lambda ...)
+  用来验的用例：test_application_services.VersionSwitchLaunchTests.test_launcher_started_publishes_started_text_and_schedules_exit
+  调用点：local/app.py:2114  Api.update_launch  →  defer_close=defer_close_action
+
+两条变异（A 调用点换抛错替身 / B 构造时绑死）；每条都必须让用例变红
+==============================================================================
+
+app.check_latest_release  ← patch.object(local_app, "check_latest_release")
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    TypeError: 'NoneType' object is not subscriptable
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    TypeError: 'NoneType' object is not subscriptable
+
+app.threading.Thread  ← patch.object(local_app.threading, "Thread")
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    AssertionError: False is not true
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    AssertionError: False is not true
+
+app.updater.cleanup_staging  ← patch.object(local_app.updater, "cleanup_staging")
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.updater.cleanup_staging
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.updater.cleanup_staging
+
+app.version_switch_available  ← patch.object(local_app, "version_switch_available", new=...)
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.version_switch_available
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.version_switch_available
+
+app.update_version_paths  ← patch.object(local_app, "update_version_paths", return_value=paths)
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.update_version_paths
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.update_version_paths
+
+app.updater.stage_update  ← patch.object(local_app.updater, "stage_update", return_value=...)
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.updater.stage_update
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.updater.stage_update
+
+app.updater.download_payload  ← patch.object(local_app.updater, "download_payload", return_value=...)
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    AssertionError: 'failed' != 'ready_to_restart'
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    AssertionError: 'failed' != 'ready_to_restart'
+
+app.updater.download_installer  ← patch.object(local_app.updater, "download_installer", ...)
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    AssertionError: 'failed' != 'ready_to_install'
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    AssertionError: 'failed' != 'ready_to_install'
+
+app.updater.cleanup_download  ← patch.object(local_app.updater, "cleanup_download")
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    AssertionError: Expected 'mock' to be called once. Called 0 times.
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    AssertionError: Expected 'mock' to be called once. Called 0 times.
+
+app.updater.launch_installer  ← patch.object(local_app.updater, "launch_installer", return_value=...)
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.updater.launch_installer
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.updater.launch_installer
+
+app.subprocess.Popen  ← patch.object(local_app.subprocess, "Popen", popen)
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.subprocess.Popen
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.subprocess.Popen
+
+app.defer_close_action  ← patch.object(local_app, "defer_close_action", lambda ...)
+  变异 A（调用点换抛错替身）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.defer_close_action
+  变异 B（构造时绑死）：退出码 1  变红 ✓
+    RuntimeError: mutant port app.defer_close_action
+
+app.py SHA-256（改后）：f0f8f7510bbe0b7f797a7a28486e051f5035aa826208ed9bef7885567bb63d1d
+工作区复原：一致 ✓
+
+全部 12 个补丁 × 2 条变异都让对应用例变红（共 24 条）。

@@ -1,0 +1,2 @@
+$ update_trace.py --repo . --out a.json ; --out b.json ; --compare a.json b.json   # 开工 HEAD 对自身
+比了 1292 项，相同 1292 项，不同 0 项

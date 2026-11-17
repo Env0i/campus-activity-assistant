@@ -1,0 +1,15 @@
+# 全量里唯一一条失败在开工 HEAD 上同样失败，属环境（代理回 502），不是本轮改动引入
+
+$ python -B -m unittest discover -s local/tests -p 'test_*.py'   # 当前工作区
+Ran 3055 tests in 364.563s
+FAILED (failures=1, skipped=5)
+FAIL: test_phone_http.RejectionTests.test_cookies_after_stop_are_rejected
+AssertionError: 502 not found in (0, 401, 403)
+
+$ cd <开工 HEAD 副本>/local/tests && python -B -m unittest -q test_phone_http.RejectionTests.test_cookies_after_stop_are_rejected
+AssertionError: 502 not found in (0, 401, 403)
+
+----------------------------------------------------------------------
+Ran 1 test in 2.580s
+
+FAILED (failures=1)

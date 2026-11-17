@@ -1,0 +1,14 @@
+$ python -B -m unittest discover -s local/tests -p test_api_patch_targets.py -v   # 开工 HEAD
+test_app_module_patches_hit_real_names (test_api_patch_targets.PatchTargetTests.test_app_module_patches_hit_real_names)
+打在 app 模块上的补丁，名字必须是 app.py 模块级真有的属性。 ... ok
+test_no_unrecognized_forms (test_api_patch_targets.PatchTargetTests.test_no_unrecognized_forms)
+认不出的写法必须为零：出现了先补清点，不许当没看见。 ... ok
+test_scanner_flags_a_synthetic_violation (test_api_patch_targets.PatchTargetTests.test_scanner_flags_a_synthetic_violation)
+守卫自己也要被守住：合成一段写得出的违规，必须被抓到。 ... ok
+test_violations_equal_the_frozen_legacy_list (test_api_patch_targets.PatchTargetTests.test_violations_equal_the_frozen_legacy_list)
+写到 Api 实例上的字段必须有人读；实际违规恰好等于冻结的存量清单。 ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 2.609s
+
+OK

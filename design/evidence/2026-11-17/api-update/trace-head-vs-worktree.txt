@@ -1,0 +1,5 @@
+$ update_trace.py --repo <开工 HEAD 副本> --out head.json
+$ update_trace.py --repo . --out worktree.json
+$ update_trace.py --compare head.json worktree.json
+# 开工 HEAD = c92127a（local/ 与 VERSION 经 git archive 取出，不含工作区改动）
+比了 1292 项，相同 1292 项，不同 0 项
