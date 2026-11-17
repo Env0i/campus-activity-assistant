@@ -315,7 +315,7 @@ class RetryPolicyUiContractTests(unittest.TestCase):
 
     def test_plan_failure_keeps_silent_recheck(self):
         """失败终态路径必须保留 400ms 去重的静默复查：掉了登录要翻到胶囊上。"""
-        js = read("ui/controllers/plan-events.js")
+        js = read("ui/features/plan/actions-events.js")
         self.assertIn("S.recheckPending = true", js,
                       "静默复查必须有去重标志（S.recheckPending）")
         recheck = js.index("S.recheckPending = true")

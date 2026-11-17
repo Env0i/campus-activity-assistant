@@ -7,6 +7,8 @@
 import { installLegacyGlobals } from "./legacy-globals.js";
 import { loginEntry, wireRelogin } from "./features/login/actions-relogin.js";
 import { startPhonePanel } from "./features/phone-access/actions-panel.js";
+import { restoreEditedPlan, startPlan } from "./features/plan/actions-start.js";
+import { confirmStopPlan, finishResult, modifyPlan, reselectFailed, stopPlan } from "./features/plan/actions-run.js";
 
 installLegacyGlobals();
 
@@ -15,6 +17,16 @@ installLegacyGlobals();
  * 只能放到 installLegacyGlobals() 之后再接。 */
 $("#btn-login").addEventListener("click", loginEntry);
 wireRelogin();
+/* 计划栏的八个按钮：原来在 app.js 顶层直接传函数名，搬进模块后普通脚本阶段还找不到这些名字，
+ * 原样挪到这里——先挂回名字再接线。同一元素上各只有一个监听器，先后不变。 */
+$("#btn-dock-start").addEventListener("click", startPlan);
+$("#btn-modify").addEventListener("click", modifyPlan);
+$("#btn-edit-restore").addEventListener("click", restoreEditedPlan);
+$("#btn-reselect").addEventListener("click", reselectFailed);
+$("#btn-finish").addEventListener("click", finishResult);
+$("#btn-plan").addEventListener("click", startPlan);
+$("#btn-stop").addEventListener("click", stopPlan);
+$("#btn-stop-yes").addEventListener("click", confirmStopPlan);
 /* 按窗口宽度分档的首次绘制（原来在 app.js 顶层，与其它顶层绑定同一批执行）。
  * 它会一路走到 paintDock -> startBlocker -> termsLocked()，而那个名字要等上面
  * installLegacyGlobals() 才挂回 window：中、窄档下计划栏可见，普通脚本阶段就调

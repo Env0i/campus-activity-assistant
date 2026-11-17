@@ -1,5 +1,11 @@
-/* 计划控制器：开始/对账/接纳/停止、登录触发与 done 结果收口。 */
-function startPlan() {
+/* 计划栏的编排层（开始这一段）：发 start_plan、只查不重发地对账、按快照恢复。 */
+
+import { PLAN_TERMINAL, TASK_TERMINAL, mergeTask, selectionSignature } from "./state.js";
+import { paintPlan } from "./view.js";
+import { presentPlanDone } from "./actions-events.js";
+import { termsLocked } from "../terms/state.js";
+
+export function startPlan() {
   if (S.busy || S.starting || S.cancel.busyId) return;
   /* 条款未同意：报名计划是学校网络动作，拒绝后按钮已禁用，这里只兜底不强弹 */
   if (termsLocked()) {
@@ -120,14 +126,14 @@ function startPlan() {
 /* 开始请求的对账：只问后端「这次到底启没启」，绝不重发 start_plan（R11）。
  * accepted → 恢复任务与停止按钮；rejected → 如实报错；pending → 继续等；
  * unknown/超时 → 明说「结果未确认，请勿重复启动」，保留重新确认入口。 */
-const START_QUERY_TIMEOUT_MS = 5000;
+export const START_QUERY_TIMEOUT_MS = 5000;
 
 /* 开始请求的对账：只问后端「这次到底启没启」，绝不重发 start_plan（R11）。
  * accepted → 恢复任务与停止按钮；rejected → 如实报错；pending → 继续等；
  * unknown/超时 → 明说「结果未确认，请勿重复启动」，保留重新确认入口。
  * 每次查询有 5 秒本机响应期限与独立代次：Promise 永不 settle 也会退出查询态，
  * 迟到的旧回复不能落到后来的计划上。 */
-function reconcileStart(requestId, hint) {
+export function reconcileStart(requestId, hint) {
   if (!S.startRequest || S.startRequest.id !== requestId) return;
   S.starting = true;
   S.startRequest.state = "reconciling";
@@ -207,7 +213,7 @@ function reconcileStart(requestId, hint) {
  * 15 秒内就结束的计划不能复活成「空任务运行中」——那会给出一个永远不结束的
  * 运行态和一个点不动的停止按钮（C05）。
  * generation 是后端接纳代次：ack 承认的归属与事件路由同一基准（P1）。 */
-function adoptPlan(requestId, planId, snapshot, finished, generation) {
+export function adoptPlan(requestId, planId, snapshot, finished, generation) {
   S.starting = false;
   if (S.startRequest && S.startRequest.id === requestId) {
     S.startRequest.state = "accepted";
@@ -268,104 +274,10 @@ function adoptPlan(requestId, planId, snapshot, finished, generation) {
   }).catch(() => {});
 }
 
-function cancelTask(taskId) {
-  if (!S.plan.id || !taskId) return;
-  api("cancel_task", S.plan.id, taskId).then((res) => {
-    if (res && res.ok === false) addLog(res.text || "这一场已经结束");
-  }).catch((err) => addLog("[X] 取消这一场失败：" + msg(err)));
-}
-
-/* 停止确认是计划栏里的遮罩弹层（原型 P19 stopAsk），不是原生 dialog：
- * 打开时焦点落「继续计划」；Esc / 继续计划关闭并把焦点还给 #btn-stop；Tab 只在两个按钮间循环 */
-function stopAskOpen() {
-  const ask = $("#plan-stop-ask");
-  return !!ask && !ask.hidden;
-}
-
-function openStopAsk() {
-  const ask = $("#plan-stop-ask");
-  if (!ask || !ask.hidden) return;
-  ask.hidden = false;
-  $("#btn-stop-keep").focus();
-}
-
-function closeStopAsk(restoreFocus) {
-  const ask = $("#plan-stop-ask");
-  if (!ask || ask.hidden) return;
-  ask.hidden = true;
-  const opener = $("#btn-stop");
-  if (restoreFocus !== false && opener && !opener.disabled) opener.focus();
-}
-
-/* 弹层打开时的键盘：Esc 只关弹层（不停止、不穿透到清空选择）；Tab 在两个按钮间循环；
- * Ctrl+F、/ 不抢焦点；Enter 交给当前按钮原生激活 */
-function stopAskKey(event) {
-  const key = event.key;
-  if (key === "Escape") { event.preventDefault(); closeStopAsk(true); return; }
-  if (key === "Tab") {
-    const keep = $("#btn-stop-keep");
-    const yes = $("#btn-stop-yes");
-    const order = [keep, yes];
-    const at = order.indexOf(document.activeElement);
-    const next = at < 0 ? (event.shiftKey ? yes : keep)
-      : order[(at + (event.shiftKey ? order.length - 1 : 1)) % order.length];
-    event.preventDefault();
-    next.focus();
-    return;
-  }
-  if ((event.ctrlKey && (key === "f" || key === "F")) || key === "/") event.preventDefault();
-}
-
-function stopPlan() {
-  if (!S.plan.id) return;
-  /* 先确认再停：等待任务会取消、已提交任务可能已生效；Esc/继续计划都不触发停止 */
-  openStopAsk();
-}
-
-/* 弹层里的「停止计划」：关弹层（不抢焦点，按钮随即变成「正在停止」）后走现有停止流程。
- * 弹层开着时计划恰好结束或已在停止，就只关弹层，不再向后端重复发停止请求 */
-function confirmStopPlan() {
-  closeStopAsk(false);
-  if (!S.busy || S.stopping) return;
-  doStopPlan();
-}
-
-/* PB11 原型 RunPhone 的开始记录：「从手机开始了报名计划：2 场预报名等开放」。
- * 电脑自己开始的计划写「已安排 …」（startPlan 的 ack），这一句只给计划来源是手机的那一次。
- * 场次数按后端写进计划快照的 signup_mode 分，拿不到场次就只写前半句，不猜。 */
-function noteStartedFromPhone(tasks) {
-  const list = Array.isArray(tasks) ? tasks : [];
-  const instant = list.filter((task) => String(task && task.signup_mode || "") === "instant_signup").length;
-  const pre = list.filter((task) => String(task && task.signup_mode || "") === "pre_register").length;
-  const summary = [instant ? instant + " 场立即报名" : "", pre ? pre + " 场预报名等开放" : ""].filter(Boolean).join("，");
-  addLogFresh("从手机开始了报名计划" + (summary ? "：" + summary : ""));
-}
-
-/* 等开放时「修改计划」（决策 014 第 6 条）：复用停止和重选，不改报名调度。
- * 提交中或开放前 100 秒内不可用；停下以后把还没提交的场次放回选择，提示「改完要重新开始」。 */
-function modifyPlan() {
-  if (!S.busy || !S.plan.id || S.stopping || planLate()) return;
-  const keep = [];
-  S.plan.tasks.forEach((task) => {
-    if (["queued", "waiting"].indexOf(String(task.status || "")) >= 0) keep.push(String(task.activity_id));
-  });
-  /* doneN：进入修改时已经结束的场次数，修改说明写「已结束的 N 场不受影响」（原型 modifyS） */
-  S.editing = { ids: keep, doneN: S.plan.tasks.size - keep.length };
-  /* U9：「计划已暂停」那一句不在这里写——停止还没成功，现在写就是对运行记录说了假话。
-   * 等计划真的以 stopped 结束、按 S.editing 放回勾选时，由 plan-events.js 用 editPausedLine 写。 */
-  doStopPlan();
-}
-
-/* PB03 原型 modifyS 的运行记录句。同样的句子可以再来一次（改了又停了又改），
- * 写的时候走 addLogFresh，不被 addLog 的整句去重吞掉。 */
-function editPausedLine(count) {
-  return "计划已暂停：" + count + " 场放回草稿修改";
-}
-
 /* 「放弃修改，按原计划继续」（U1）：原来直接绑 startPlan，用的是当前勾选，
  * 用户改过勾选再放弃，开始的就不是原计划。这里先把勾选恢复成修改前的场次
  * （只放回现在仍能报的），再走和「重新开始」同一条开始流程。 */
-function restoreEditedPlan() {
+export function restoreEditedPlan() {
   if (S.editing && Array.isArray(S.editing.ids)) {
     S.selected.clear();
     S.editing.ids.forEach((id) => {
@@ -376,157 +288,3 @@ function restoreEditedPlan() {
   }
   startPlan();
 }
-
-/* 结果页「重新选择未成功的场次」：只放回能重报的（不含名额已满、已截止、已报名冲突） */
-function reselectFailed() {
-  if (S.busy) return;
-  const ids = reselectableIds();
-  S.selected.clear();
-  ids.forEach((id) => S.selected.add(id));
-  S.plan = { id: null, status: "idle", tasks: new Map() };
-  closeResultPage();
-  S.selectionNotice = "";
-  setResult(null);
-  render();
-}
-
-/* 结果页「完成，回到活动列表」：收起结果，回到空草稿；中、窄档顺便回到时刻表 */
-function finishResult() {
-  closeResultPage();
-  clearSelection();
-  if (typeof setPlanOpen === "function") setPlanOpen(false);
-}
-
-function doStopPlan() {
-  if (!S.plan.id) return;
-  /* 立刻给「正在停止」的反馈：后端在按进程树终止 worker，
-   * busy 要等 plan_done 才解锁，中间不能看起来像卡死 */
-  S.stopping = true;
-  paintLogin();
-  updateControls();
-  addLog("正在停止计划：结束还在重试的场次…");
-  /* 停止没成功（后端拒绝，或桥接异常）：计划仍在运行。若这次停止是「修改计划」发起的，
-   * 一并退出修改中（U1）——否则计划栏标签、说明和「放弃修改」会挂在一个还在跑的计划上。 */
-  const stopFailed = (line) => {
-    const wasEditing = !!S.editing;
-    S.stopping = false;
-    S.editing = null;
-    paintLogin();
-    updateControls();
-    addLog(line);
-    if (wasEditing) {
-      addLog("停止没成功，计划继续运行");
-      render();
-    }
-  };
-  api("stop_plan", S.plan.id).then((res) => {
-    if (res && res.ok === false) stopFailed(res.text || "当前没有这个计划");
-  }).catch((err) => {
-    stopFailed("[X] 停止计划失败：" + msg(err));
-  });
-}
-
-function doLogin() {
-  if (S.busy) return;
-  /* 条款未同意：登录是学校网络动作，拒绝后按钮已禁用，这里只兜底不强弹 */
-  if (termsLocked()) {
-    if (!S.terms.declined && !S.terms.unknown) openTerms();
-    return;
-  }
-  /* 登录是异步尝试：先把当前登录结论整份存下来。取消/超时/窗口关闭/失败
-   * 都整份回滚，只显示这次尝试的错误；只有真实成功才作废快照并等新锚点
-   * （见 handleDone），不能把仍有效的旧凭证画成「登录已失效」。 */
-  S.login.preLoginSnapshot = loginSnapshotState();
-  S.login.loginPending = true;
-  setResult(null);
-  setBusy(true);
-  /* setBusy 会把 S.busy 置真；大屏据此会误判「报名计划在跑」，
-   * 立刻重画一次，让登录尝试显示成「登录中」而不是「正在准备报名」。 */
-  paintSelected();
-  addLog("正在打开登录窗口，在弹出的浏览器里登完再回来…");
-  api("login").then((res) => {
-    if (res && res.demo) {
-      /* 演示模式不打开学校登录页：如实说明，不当成登录失败（R20） */
-      S.login.loginPending = false;
-      S.login.preLoginSnapshot = null;
-      setBusy(false);
-      setResult({ ok: "partial", title: "演示模式不登录", text: res.text || "演示模式不联网。" });
-      return;
-    }
-    if (!res || res.ok === false) {
-      S.login.loginPending = false;
-      /* 登录窗口没起来 / 被忙碌或条款拦下：回滚到尝试前的结论，只留错误提示 */
-      restoreLoginSnapshotState(S.login.preLoginSnapshot);
-      S.login.preLoginSnapshot = null;
-      if (res && res.error && RUNTIME_ERRORS[res.error]) {
-        /* FB4：登录的同步组件失败只挂横幅与唯一恢复入口，
-         * 不再生成「登录没能开始」同义结果框；同时计入本轮刷新故障累计——
-         * 刷新尚有分支未返回时，迟到的成功 check/list 不得撤掉这个新横幅 */
-        noteRoundError(res.error);
-        setBusy(false);
-        syncLoginDependentView();
-        return;
-      }
-      setBusy(false);
-      syncLoginDependentView();
-      setResult({ ok: false, title: "登录没能开始", text: (res && res.text) || "再点一次「登录」试试。" });
-    }
-  }).catch((err) => {
-    S.login.loginPending = false;
-    restoreLoginSnapshotState(S.login.preLoginSnapshot);
-    S.login.preLoginSnapshot = null;
-    setBusy(false);
-    syncLoginDependentView();
-    setResult({ ok: false, title: "登录没能开始", text: msg(err) });
-  });
-}
-
-/* ---------------------------------------------------------------- 事件 */
-function handleDone(payload) {
-  const data = payload || {};
-  if (data.kind === "login") {
-    S.login.loginPending = false;
-    setBusy(false);
-    if (data.ok) {
-      /* 登录成功=新会话已保存：作废尝试前快照，旧锚点立即清掉；紧接着的校验
-       * 事件会带新锚点回来，这两秒里宁可显示未知，也不能拿旧凭证的剩余时间充数。 */
-      S.login.preLoginSnapshot = null;
-      setLogin(null, true, true, { estimated_expires_at: null, saved_at: null });
-      syncLoginDependentView();
-      setResult({ ok: true, title: "登录成功", text: "正在加载活动列表。", autoClose: Date.now() + 6000 });
-      doCheck();
-      /* 登录成功后的刷新是程序自己发起的（U2/U3）：列表已有内容就走后台轮，失败不清列表和勾选；
-       * 列表空着（常常正是因为没登录才空）走前台轮，才有骨架和错误空态可看 */
-      refresh(true, S.items.length ? { background: true } : undefined);
-    } else {
-      /* 取消 / 超时 / 窗口关闭 / 登录失败：整份回滚到尝试前——旧会话仍然有效，
-       * 不能因为这次没登成把胶囊画成「登录已失效」或丢掉剩余时间；
-       * 只显示这次尝试的失败说明（present 也随快照回滚，不再单独保留）。 */
-      restoreLoginSnapshotState(S.login.preLoginSnapshot);
-      S.login.preLoginSnapshot = null;
-      syncLoginDependentView();
-      const copy = loginFailCopy(data.reason);
-      setResult({ ok: false, title: copy.title, text: copy.text, action: { label: "再试一次", run: doLogin } });
-    }
-    return;
-  }
-  if (data.kind === "grab") {
-    setBusy(false);
-    if (data.ok) setResult({ ok: true, title: "报名成功：" + stripLabel(data.label), text: "建议去活动页确认一眼。" });
-    else setResult({ ok: false, title: "报名未成功：" + cleanReason(data.reason), text: grabHint(data.reason) });
-  }
-}
-
-/* 登录失败：按 grab.py login 真会打印的句子归类，回答发生了什么+现在能做什么 */
-function loginFailCopy(reason) {
-  const raw = String(reason || "");
-  if (/窗口被关掉/.test(raw)) return { title: "登录窗口被关掉了", text: "登录还没完成，窗口就关了。点「再试一次」重新打开。" };
-  if (/仍未检测到登录成功/.test(raw)) return { title: "等了 10 分钟还没登录成功", text: "浏览器窗口里一直没完成登录，超时了。点「再试一次」。" };
-  if (/打不开登录页/.test(raw)) return { title: "打不开学校的登录页", text: "检查网络、校园网或代理，然后再试一次。" };
-  if (/接口校验失败/.test(raw)) return { title: "登录后学校那边没校验通过", text: "登录状态存下来了，但学校那边没校验通过。再登录一次试试。" };
-  if (/没找到可用的浏览器/.test(raw)) return { title: "没找到能用的浏览器", text: "这台电脑上要有 Chrome 或 Edge，装好以后再试。" };
-  return { title: "登录没完成", text: cleanReason(raw) || "原因不明。可以再试一次，或者看看运行记录。" };
-}
-
-/* 运行时 checkpoint 字段：晚到的 plan 快照或恢复载荷缺这些字段时，
- * 不得用空值抹掉已经收到的真实事件（页面重载恢复与晚到 plan 事件共用）。 */

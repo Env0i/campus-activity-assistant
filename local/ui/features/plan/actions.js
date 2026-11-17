@@ -1,6 +1,8 @@
 /* 计划栏的编排层：写完状态统一重画、发起刷新。 */
 
 import { PLAN_TERMINAL, TASK_TERMINAL, admitPlanEvent, closeResultPage, mergeTask, planEventOwns } from "./state.js";
+import { noteStartedFromPhone } from "./actions-run.js";
+import { showTaskResult } from "./actions-events.js";
 
 /* 同计划状态推进：已定终态不回退，运行态照常更新（P1） */
 export function advancePlanStatus(incoming) {

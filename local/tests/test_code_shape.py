@@ -19,6 +19,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
@@ -89,6 +90,36 @@ class ShapeGuardTests(unittest.TestCase):
     def test_class_attributes_stay_within_limit(self):
         """在三个以上方法里赋值的实例属性不超过 5 个。"""
         self._assert_kind("class_attrs")
+
+
+class DeletedTrackedFileTests(unittest.TestCase):
+    """索引里还在、磁盘上已经删掉的文件不列进源码清单。
+
+    搬家时先删代码文件、暂存区留到人工复核，list_sources 若照着索引读就会去读一个
+    不存在的路径然后崩；这条用例守「删文件不必先记索引」。
+    """
+
+    def test_deleted_tracked_file_is_not_listed(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            git = ["git", "-c", "user.name=shape", "-c", "user.email=shape@example.invalid"]
+            subprocess.run(["git", "init", "-q"], cwd=str(root), check=True,
+                           capture_output=True)
+            keep = root / "local" / "keep.py"
+            keep.parent.mkdir(parents=True)
+            keep.write_text("X = 1\n", encoding="utf-8")
+            gone = root / "local" / "gone.py"
+            gone.write_text("Y = 2\n", encoding="utf-8")
+            subprocess.run(git + ["add", "local"], cwd=str(root), check=True, capture_output=True)
+            subprocess.run(git + ["commit", "-qm", "seed"], cwd=str(root), check=True,
+                           capture_output=True)
+            gone.unlink()
+            module = load_check_module()
+            with mock.patch.object(module, "ROOT", root), \
+                    mock.patch.object(module, "ROOTS", ("local",)):
+                listed = module.list_sources()
+        self.assertEqual(["local/keep.py"], listed,
+                         "磁盘上已删的文件不得出现在源码清单里")
 
 
 class ClassAttrMeasurementTests(unittest.TestCase):

@@ -460,7 +460,7 @@ out.push({ lines: bare(appended.slice(before)) });
         self.assertEqual(out["lines"], [], "页面重载后恢复的计划，开始记录早写过了")
 
     def test_old_log_sentences_are_gone_from_the_sources(self):
-        controller = read("controllers/plan.js")
+        controller = read("features/plan/actions-run.js") + read("features/plan/actions-start.js")
         self.assertNotIn("修改计划：先停下，改完要重新开始", controller)
         self.assertIn("计划已暂停：", controller)
         self.assertIn("从手机开始了报名计划", controller)

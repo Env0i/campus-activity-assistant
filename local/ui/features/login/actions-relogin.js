@@ -11,6 +11,7 @@ import { reloginRefusal, reloginWay } from "./state-relogin.js";
 import { reloginCase, reloginCodeReady, reloginDialog, reloginError, reloginNextReady, reloginPaintWay, reloginResetForm, reloginShowChallenge, reloginStep, reloginTogglePass } from "./view-relogin.js";
 import { paintLogin } from "./view.js";
 import { termsLocked } from "../terms/state.js";
+import { doLogin } from "./actions-browser.js";
 
 /* 已经因「登录成功」触发过刷新的 flow_id：中继会重放快照，同一场不能刷新两次，
  * 否则列表会被反复打回加载态。空 flow_id 视为同一事件，也只放行一次（初始 null
@@ -192,8 +193,8 @@ export const RELOGIN_FAIL_TEXT = {
   canceled: "这次登录已取消。",
 };
 
-/* 登录成功的收尾：与浏览器登录成功走同一条路（controllers/plan.js handleDone 的
- * doCheck + refresh），让活动列表立刻加载，用户不必再手点一次「刷新」（N1）。
+/* 登录成功的收尾：与浏览器登录成功走同一条路（features/login/actions-browser.js 的
+ * handleDone：doCheck + refresh），让活动列表立刻加载，用户不必再手点一次「刷新」（N1）。
  * 计划运行中不刷新：后端照常继续计划，界面只说明这一句。 */
 export function reloginSucceeded(flowId) {
   if (S.busy) return;
@@ -204,7 +205,7 @@ export function reloginSucceeded(flowId) {
   if (typeof doCheck === "function") doCheck();
   /* 程序自己发起的刷新（U2/U3）：列表已有内容就走后台轮，失败不清列表和勾选；
    * 列表空着（常常正是因为登录失效才拉不到列表）走前台轮，才有骨架和错误空态可看。
-   * 与 controllers/plan.js 浏览器登录成功后的判定同一口径。 */
+   * 与 features/login/actions-browser.js 里浏览器登录成功后的判定同一口径。 */
   if (typeof refresh === "function") refresh(true, S.items.length ? { background: true } : undefined);
 }
 

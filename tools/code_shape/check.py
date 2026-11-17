@@ -40,12 +40,17 @@ CLASS_ATTR_METHODS = 3
 # ───────────────────────── 取文件 ─────────────────────────
 
 def list_sources() -> list[str]:
-    """git 认识的全部源码：已跟踪的加还没跟踪的（新文件也要查）。"""
+    """git 认识的全部源码：已跟踪的加还没跟踪的（新文件也要查）。
+
+    索引里还留着、磁盘上已经删掉的文件不算：搬家时先删代码文件、暂存区留到人工复核，
+    这一段不能因为读到不存在的路径就崩。
+    """
     out = subprocess.run(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", *ROOTS],
         cwd=str(ROOT), capture_output=True, check=True).stdout.decode("utf-8")
     files = [p for p in out.split("\0") if p]
-    return sorted(f for f in files if f.endswith(EXTS) and not f.startswith(".claude/"))
+    return sorted(f for f in files
+                  if f.endswith(EXTS) and not f.startswith(".claude/") and (ROOT / f).exists())
 
 
 def is_test(path: str) -> bool:

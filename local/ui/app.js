@@ -379,7 +379,6 @@ $("#btn-settings").addEventListener("click", () => {
 /* 中、窄档：计划条的「查看计划」打开计划栏，「返回列表」收起；「开始」与计划栏主按钮同一路径 */
 $("#btn-dock-open").addEventListener("click", () => setPlanOpen(true));
 $("#btn-plan-back").addEventListener("click", () => setPlanOpen(false));
-$("#btn-dock-start").addEventListener("click", startPlan);
 $("#btn-policy").addEventListener("click", () => {
   const box = $("#policy-edit");
   const open = !!box.hidden;
@@ -407,16 +406,10 @@ $("#board").addEventListener("click", (event) => {
   else if (act === "terms-open") openTerms("banner", btn);
 });
 wireSettings();
-$("#btn-modify").addEventListener("click", modifyPlan);
-$("#btn-edit-restore").addEventListener("click", restoreEditedPlan);
-$("#btn-reselect").addEventListener("click", reselectFailed);
-$("#btn-finish").addEventListener("click", finishResult);
 $("#btn-log-folder").addEventListener("click", () => api("open_data")
   .then((res) => addLog("数据目录：" + ((res && res.path) || "已打开")))
   .catch((err) => addLog("[X] 打不开数据目录：" + msg(err))));
 $("#btn-log-copy").addEventListener("click", copyLog);
-$("#btn-plan").addEventListener("click", startPlan);
-$("#btn-stop").addEventListener("click", stopPlan);
 /* 计划栏的快捷「登录」已删：没登录时由「还差一步：还没有登录」的「去登录」打开登录对话框 */
 $("#btn-board-pick").addEventListener("click", () => {
   const id = nextOpen().bestId;
@@ -429,7 +422,6 @@ $("#board-text").addEventListener("click", (event) => {
 });
 /* 停止确认弹层（计划栏内遮罩）：只有「停止计划」才真正停止；Esc/继续计划只关弹层 */
 $("#btn-stop-keep").addEventListener("click", () => closeStopAsk(true));
-$("#btn-stop-yes").addEventListener("click", confirmStopPlan);
 $("#btn-clear-plan").addEventListener("click", clearSelection);
 $("#plan-tasks").addEventListener("click", (event) => {
   const button = event.target.closest(".task-cancel");

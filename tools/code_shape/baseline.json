@@ -61,9 +61,6 @@
       "local/ui/app.js": {
         "value": 649
       },
-      "local/ui/controllers/plan.js": {
-        "value": 532
-      },
       "local/ui/controllers/refresh.js": {
         "value": 614
       },
@@ -130,10 +127,6 @@
         "value": 117,
         "reason": "步骤 2 计划"
       },
-      "local/ui/controllers/plan.js::startPlan": {
-        "value": 117,
-        "reason": "步骤 1C 计划栏"
-      },
       "local/ui/controllers/refresh.js::refresh": {
         "value": 123,
         "reason": "步骤 1C 计划栏"
@@ -149,6 +142,10 @@
       "local/ui/features/phone-access/view.js::paintPhoneAccess": {
         "value": 219,
         "reason": "步骤 1A 组件"
+      },
+      "local/ui/features/plan/actions-start.js::startPlan": {
+        "value": 117,
+        "reason": "步骤 1C 计划栏"
       },
       "local/ui/features/plan/view.js::paintSelected": {
         "value": 124,
@@ -329,12 +326,6 @@
       "local/ui/app.js::boot": {
         "value": 77
       },
-      "local/ui/controllers/plan.js::reconcileStart": {
-        "value": 75
-      },
-      "local/ui/controllers/plan.js::startPlan.#anon1": {
-        "value": 64
-      },
       "local/ui/controllers/terms.js::acceptTerms.#anon1": {
         "value": 64
       },
@@ -352,6 +343,12 @@
       },
       "local/ui/features/phone-access/actions-panel.js::wire": {
         "value": 65
+      },
+      "local/ui/features/plan/actions-start.js::reconcileStart": {
+        "value": 75
+      },
+      "local/ui/features/plan/actions-start.js::startPlan.#anon1": {
+        "value": 64
       },
       "local/ui/features/plan/view.js::paintRunPanel": {
         "value": 71

@@ -316,7 +316,7 @@ cancelSettle("a1", { ok: true, kind: "cancelled" });
 showTaskResult({ task_id: "t1", activity_id: "a1", name: "活动甲", status: "failed",
   reason: "名额已满", stop_reason: "max_attempts" });
 __fire(400);
-""", "报名失败后复查 plan-events.js:123")
+""", "报名失败后复查 actions-events.js:132")
 
     def test_signed_bounded_refresh_runs_in_the_background(self):
         self.check_background(r"""

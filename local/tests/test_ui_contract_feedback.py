@@ -559,13 +559,16 @@ class ErrorFeedbackRoundtripContractTests(unittest.TestCase):
         self.assertIn("S.runtime.roundError", handler, "check 终态必须进轮次故障累计")
 
     def test_login_and_start_plan_consume_component_codes(self):
-        js = read("ui/app.js")
-        login_body = js[js.index("function doLogin()"):
-                        js.index("/* ---------------------------------------------------------------- 事件 */")]
+        # 两个动作搬进模块后，拼接源码把模块按依赖顺序附在后面（cancelTask 先于 startPlan），
+        # 按位置切片会切反；这里直接读各自所在的文件
+        login_js = read("ui/features/login/actions-browser.js")
+        login_body = login_js[login_js.index("function doLogin()"):
+                              login_js.index("/* ---------------------------------------------------------------- 事件 */")]
         self.assertIn("RUNTIME_ERRORS[res.error]", login_body,
                       "登录同步失败必须只认可知组件码并走横幅")
-        start_body = js[js.index("function startPlan()"):
-                        js.index("function cancelTask(")]
+        start_js = read("ui/features/plan/actions-start.js")
+        start_body = start_js[start_js.index("function startPlan()"):
+                               start_js.index("const START_QUERY_TIMEOUT_MS")]
         self.assertIn("RUNTIME_ERRORS[res.error]", start_body,
                       "开始计划的同步失败必须只认可知组件码并走横幅")
         self.assertIn("S.starting = true", start_body, "提交中标志必须置位")
@@ -574,10 +577,12 @@ class ErrorFeedbackRoundtripContractTests(unittest.TestCase):
         """FB4-R1：两个动作分支必须复用 noteRoundError（写 error+roundError），
         不得只写 S.runtime.error——否则刷新未收尾时迟到成功会撤掉新横幅。"""
         js = read("ui/app.js")
-        login_body = js[js.index("function doLogin()"):
-                        js.index("/* ---------------------------------------------------------------- 事件 */")]
-        start_body = js[js.index("function startPlan()"):
-                        js.index("function cancelTask(")]
+        login_js = read("ui/features/login/actions-browser.js")
+        login_body = login_js[login_js.index("function doLogin()"):
+                              login_js.index("/* ---------------------------------------------------------------- 事件 */")]
+        start_js = read("ui/features/plan/actions-start.js")
+        start_body = start_js[start_js.index("function startPlan()"):
+                               start_js.index("const START_QUERY_TIMEOUT_MS")]
         for label, body in (("doLogin", login_body), ("startPlan", start_body)):
             self.assertIn("noteRoundError(res.error)", body,
                           "%s 的组件失败必须进入本轮故障累计" % label)

@@ -1,5 +1,10 @@
-/* 计划事件用例：plan/task/plan_done 收口、终态呈现与重启停止计划。 */
-function presentPlanDone(payload, autoRefresh) {
+/* 计划栏的编排层（事件这一段）：plan/task/plan_done 的收口与单场结论。 */
+
+import { PLAN_TERMINAL, admitPlanEvent, closeResultPage, mergeTask, openResultPage, planEventOwns, selectionSignature } from "./state.js";
+import { stopReasonText } from "./state-board.js";
+import { editPausedLine } from "./actions-run.js";
+
+export function presentPlanDone(payload, autoRefresh) {
   const data = payload || {};
   /* 终态载荷也带接纳代次：并入会话记录，旧代次事件此后不得再改写（P1） */
   const doneGen = notePlanGeneration(data.plan_generation);
@@ -39,7 +44,7 @@ function presentPlanDone(payload, autoRefresh) {
   if (signedChanged && autoRefresh !== false) scheduleSignedRefresh();
 }
 
-function handlePlanDone(payload) {
+export function handlePlanDone(payload) {
   const data = payload || {};
   if (!planEventOwns(data)) return;           // 旧计划的完成事件不得改写当前计划（P1）
   admitPlanEvent(data);
@@ -61,7 +66,7 @@ function handlePlanDone(payload) {
 }
 
 /* 停止后一键把原计划里还能报的场次重新选上 */
-function restartStoppedPlan() {
+export function restartStoppedPlan() {
   if (S.busy) return;
   S.selected.clear();
   S.plan.tasks.forEach((task) => {
@@ -77,12 +82,12 @@ function restartStoppedPlan() {
 
 /* worker 已经就同一场写过结论时，不再叠一条同义摘要（RC-06）。
  * 只认「同一场名称 + 同一结论关键词」，不同场次的成功互不影响。 */
-function loggedConclusion(name, keyword) {
+export function loggedConclusion(name, keyword) {
   const target = String(name || "");
   return S.recentLogs.some((line) => line.indexOf(target) >= 0 && line.indexOf(keyword) >= 0);
 }
 
-function showTaskResult(task) {
+export function showTaskResult(task) {
   const name = task.name || "这一场活动";
   /* 计划还在跑时，单场终态只更新任务卡与运行记录：结果框和整屏留给
    * handlePlanDone 的计划级结论（单场成功不得抢写全局成功，UX-05）。 */
