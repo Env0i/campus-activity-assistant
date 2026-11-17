@@ -4,6 +4,7 @@
 
 import { PhonePanel, channelCards, pairLeftText, phoneLinkedNow, phonePhase, retryWaitBase } from "./state.js";
 import { phoneLinkView } from "./state-link.js";
+import { paintCountdown } from "../plan/view-led.js";
 import { componentState } from "../components/state-machine.js";
 import { setRowOpen } from "../components/state-row.js";
 import { paintComponentRow } from "../components/view-row.js";

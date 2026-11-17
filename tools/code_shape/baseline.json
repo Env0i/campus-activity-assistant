@@ -62,10 +62,7 @@
         "value": 649
       },
       "local/ui/controllers/refresh.js": {
-        "value": 614
-      },
-      "local/ui/views/plan-panel.js": {
-        "value": 748
+        "value": 603
       },
       "local/ui/views/terms.js": {
         "value": 507
@@ -163,10 +160,6 @@
         "value": 163,
         "reason": "步骤 1 手机页"
       },
-      "local/ui/views/plan-panel.js::paintLed": {
-        "value": 116,
-        "reason": "步骤 1C 计划栏"
-      },
       "local/ui/views/update.js::paintUpdate": {
         "value": 146,
         "reason": "步骤 2 更新"
@@ -202,6 +195,10 @@
       "tools/release.py::verify_release_assets": {
         "value": 125,
         "reason": "不在本轮重构范围"
+      },
+      "local/ui/features/plan/view-led.js::paintLed": {
+        "value": 116,
+        "reason": "步骤 1C 计划栏"
       }
     },
     "over60": {
@@ -373,12 +370,6 @@
       "local/ui/views/list.js::rowHtml": {
         "value": 68
       },
-      "local/ui/views/plan-panel.js::paintBanners": {
-        "value": 86
-      },
-      "local/ui/views/plan-panel.js::updateControls": {
-        "value": 70
-      },
       "local/ui/views/terms.js::applyTermsFooter": {
         "value": 77
       },
@@ -459,6 +450,12 @@
       },
       "tools/verify_autologin_loop.py::main": {
         "value": 87
+      },
+      "local/ui/features/shell/view-banners.js::paintBanners": {
+        "value": 86
+      },
+      "local/ui/features/plan/view-controls.js::updateControls": {
+        "value": 70
       }
     }
   },

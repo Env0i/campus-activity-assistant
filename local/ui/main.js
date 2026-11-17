@@ -9,8 +9,14 @@ import { loginEntry, wireRelogin } from "./features/login/actions-relogin.js";
 import { startPhonePanel } from "./features/phone-access/actions-panel.js";
 import { restoreEditedPlan, startPlan } from "./features/plan/actions-start.js";
 import { confirmStopPlan, finishResult, modifyPlan, reselectFailed, stopPlan } from "./features/plan/actions-run.js";
+import { bindPlaceToggle } from "./features/plan/actions-draft.js";
+import { applyBand } from "./features/shell/view-band.js";
 
 installLegacyGlobals();
+
+/* 地点展开的点击绑定原来在 app.js 顶层，bindPlaceToggle 搬成模块后普通脚本阶段拿不到，
+ * 原样挪到这里——先挂回再绑，宽窄档一致。 */
+bindPlaceToggle();
 
 /* 「登录 / 重新登录」先走重新登录对话框（三种情况）；对话框里保留「改用浏览器登录」。
  * 这两行原来在 app.js 顶层，搬到登录块之后它们是模块里的名字，普通脚本阶段还找不到，

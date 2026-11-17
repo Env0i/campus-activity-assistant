@@ -709,7 +709,7 @@
 
 ### 5.19 计划栏：草稿、运行、结果与停止确认（现行验收契约，决策 014，2026-11-06）
 
-> 本节按实现写，文案逐字取自 `local/ui/views/plan-panel.js`（留下的部分）、`features/plan/view.js`、`features/plan/state-board.js`、`features/plan/state-task.js`、`features/login/view.js`、`features/plan/actions-start.js`、`features/plan/actions-run.js`、`features/plan/actions-events.js`、`features/login/actions-browser.js`、`index.html`，
+> 本节按实现写，文案逐字取自 `features/plan/state-draft.js`、`features/plan/view-draft.js`、`features/plan/state-led.js`、`features/plan/view-led.js`、`features/plan/view-controls.js`、`features/plan/view-dock.js`、`features/shell/view-band.js`、`features/shell/view-banners.js`、`features/plan/view.js`、`features/plan/state-board.js`、`features/plan/state-task.js`、`features/login/view.js`、`features/plan/actions-start.js`、`features/plan/actions-run.js`、`features/plan/actions-events.js`、`features/login/actions-browser.js`、`index.html`，
 > 并与 `design/specs/copywriting.md` §6.1 / §7.1 / §9.1 同步；与旧小节冲突时以本节为准：
 > §5.13 第 2 条里「停止确认」是原生 dialog 且以「继续等待」收口的写法已过时（现为下面的计划栏内遮罩，按钮「继续计划」），
 > §5.14 第 4 条 `data-plan-state` 在 `idle/running/completed/failed/partial/stopped` 之外还有 `attention`（含待核对的警示终态）。
@@ -750,7 +750,7 @@
 在跑的三支压过所有空态与草稿态；没选活动时「有下一个目标」压过四种「暂时没有」；选了活动时条款暂停 > 修改中 > 报名计划。
 
 浏览器登录窗口开着时（`S.login.loginPending` 为真）`S.busy` 也为真，但那时没有计划在跑：整屏外框按没在跑画，标题区写「登录中」，两者一致（用户 2026-11-16 定）。
-画板上的新转移（开始请求的确认中与结果未确认、停止没成功、修改中并入草稿）在下一批接。
+画板上的新转移已按现状接上：停止没成功见本节「修改计划停止没成功」；开始请求的确认中与结果未确认、修改中的几条退出按现状呈现，不再单列。
 
 #### 草稿
 

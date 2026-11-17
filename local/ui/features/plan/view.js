@@ -4,6 +4,8 @@ import { termsLocked } from "../terms/state.js";
 import { RUNNING_STATUSES, executionView, taskDisplayDetail, taskDisplayLabel, taskModePrefix, verifiedSigned } from "./state-task.js";
 import { boardPlanState, boardTargetItem, editNoteText, resultCounts, resultMode, resultView, reselectableIds, runCaption, runTagText, runWarnView, selectionSummary, stopReasonText } from "./state-board.js";
 import { boardPhase } from "./state-machine.js";
+import { paintCountdown } from "./view-led.js";
+import { paintPolicyLine, paintTickets } from "./view-draft.js";
 
 /* 计划栏标题区的样子表：一个阶段一项，键与 BOARD_PHASES 一一对应。
  * 定值直接写；要看别的事实的写成小函数，接 (view, next, items)，函数体就是原分支里的表达式。 */

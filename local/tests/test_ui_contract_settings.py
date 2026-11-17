@@ -189,7 +189,8 @@ class TourAndLifecycleContractTests(unittest.TestCase):
         paint = js[js.index("function paintLogin()"):js.index("function setBusy")]
         self.assertNotIn("loginHoursLeft", paint, "胶囊渲染不得再读剩余时间估算")
         # 估算不参与开始门禁：门禁仍只看 result === "valid"
-        gate = js[js.index("function updateControls("):js.index("function paintBanners")]
+        gate_src = read("ui/features/plan/view-controls.js")
+        gate = gate_src[gate_src.index("export function updateControls("):]   # 文件内只此一个函数，截到文件尾
         self.assertNotIn("estimated_expires_at", gate,
                          "生命周期估算不得进入开始按钮门禁")
         self.assertNotIn("lifecycle", gate, "生命周期字段不得参与门禁")
@@ -218,7 +219,8 @@ class TourAndLifecycleContractTests(unittest.TestCase):
         disabled 引用是设置功能，不是引导门禁）。
         """
         js = read("ui/app.js")
-        gate = js[js.index("function updateControls("):js.index("function paintBanners")]
+        gate_src = read("ui/features/plan/view-controls.js")
+        gate = gate_src[gate_src.index("export function updateControls("):]   # 文件内只此一个函数，截到文件尾
         self.assertNotIn("S.tour", gate,
                          "开始按钮门禁不得引用引导状态")
         # 旧断言「引导自动开始不读登录状态」被决策 009 修订取代：首次自动引导要等登录成功、

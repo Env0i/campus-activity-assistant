@@ -1,6 +1,7 @@
 /* 重新登录对话框的 DOM 呈现：只读写页面与状态，不发桥接请求、不调编排层的函数。 */
 
 import { RELOGIN_ALL_ACTS, reloginActs, reloginCapSub, reloginFromLogin, reloginWay } from "./state-relogin.js";
+import { autoLoginCredential } from "../plan/state-draft.js";
 
 export function reloginDialog() {
   return $("#dlg-relogin");

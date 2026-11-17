@@ -168,9 +168,9 @@ out.push({
 
     def test_start_button_requires_valid_or_demo(self):
         """开始按钮门禁：只有登录校验 valid 且不在检查中，或 demo 模式放行。"""
-        js = read("ui/app.js")
-        start = js.index("function updateControls(")
-        body = js[start:js.index("function paintBanners", start)]
+        js = read("ui/features/plan/view-controls.js")
+        start = js.index("export function updateControls(")
+        body = js[start:]   # 本文件 updateControls 是末一个 export 函数，截到文件尾
         self.assertIn('S.login.result === "valid"', body,
                       "开始按钮必须要求登录校验 valid（unknown/none/expired 禁用）")
         self.assertIn("!S.login.checking", body,
@@ -208,7 +208,8 @@ class StateGapsContractTests(unittest.TestCase):
         self.assertIn("function paintChecks", js, "缺少检查条 paintChecks")
         # 计划栏 1:1（draft-panel F）：检查条照原型 checks 只列未满足的登录结论，判断移进 planCheckList，
         # 读的是 paintLogin 写好的 S.login.view.state（ok 只在学校确认有效时出现）
-        checks = js[js.index("function planCheckList("):js.index("function autoLoginCredential")]
+        draft = read("ui/features/plan/view-draft.js")
+        checks = draft[draft.index("export function planCheckList("):draft.index("export function startBlocker")]
         self.assertIn('(S.login.view || {}).state', checks, "检查条只报学校的登录结论")
         self.assertIn('login !== "ok"', checks, "登录不是学校确认有效就列为未满足")
         for banned in ("预计", "expireAt", "loginHoursLeft"):
@@ -217,7 +218,8 @@ class StateGapsContractTests(unittest.TestCase):
         self.assertNotIn("预计可覆盖本次窗口", js, "不得再给登录覆盖窗口的估算结论")
         self.assertNotIn("登录撑得到这次报名窗口", js,
                          "不得再用保证式结论：登录有效性只由学校校验决定")
-        warns = js[js.index("function preStartWarnings("):js.index("function paintPrewarn")]
+        drafts = read("ui/features/plan/state-draft.js")
+        warns = drafts[drafts.index("export function preStartWarnings("):]   # 本文件末一个函数，截到文件尾
         self.assertIn("latest - now > 3600", warns, "按最晚一场要等 1 小时以上来提醒")
         # 计划栏 1:1（draft-panel G）：句子照原型 loginWarn
         self.assertIn("开放前 100 秒内失效，那场就结束。", warns, "要讲清来不及重新登录的后果")

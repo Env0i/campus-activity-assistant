@@ -4,6 +4,7 @@ import { setLogin, syncLoginDependentView } from "./actions.js";
 import { loginSnapshotState, restoreLoginSnapshotState } from "./state.js";
 import { paintSelected } from "../plan/view.js";
 import { termsLocked } from "../terms/state.js";
+import { RUNTIME_ERRORS } from "../shell/state-runtime.js";
 
 export function doLogin() {
   if (S.busy) return;

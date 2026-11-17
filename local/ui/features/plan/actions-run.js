@@ -3,6 +3,8 @@
 import { closeResultPage } from "./state.js";
 import { planLate, reselectableIds } from "./state-board.js";
 import { paintLogin } from "../login/view.js";
+import { setPlanOpen } from "../shell/view-band.js";
+import { updateControls } from "./view-controls.js";
 
 export function cancelTask(taskId) {
   if (!S.plan.id || !taskId) return;

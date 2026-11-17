@@ -4,6 +4,9 @@ import { PLAN_TERMINAL, TASK_TERMINAL, mergeTask, selectionSignature } from "./s
 import { paintPlan } from "./view.js";
 import { presentPlanDone } from "./actions-events.js";
 import { termsLocked } from "../terms/state.js";
+import { paintBanners } from "../shell/view-banners.js";
+import { updateControls } from "./view-controls.js";
+import { RUNTIME_ERRORS } from "../shell/state-runtime.js";
 
 export function startPlan() {
   if (S.busy || S.starting || S.cancel.busyId) return;

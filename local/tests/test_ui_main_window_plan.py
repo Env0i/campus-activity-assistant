@@ -232,8 +232,8 @@ out.push({ running, wideHidden: $("#plan-dock").hidden });
 
     def test_long_wait_warning_glues_the_break_inside_this_period(self):
         # 原型在窄档把「这段时间」「电脑」各拆成两行，用 U+2060 连住（时/间、电/脑）；界面同句同样处理
-        self.assertIn("这段时⁠间电⁠脑不能关机或睡眠。", read("views/plan-panel.js"))
-        self.assertNotIn("这段时间电脑不能关机或睡眠。", read("views/plan-panel.js"))
+        self.assertIn("这段时⁠间电⁠脑不能关机或睡眠。", read("features/plan/state-draft.js"))
+        self.assertNotIn("这段时间电脑不能关机或睡眠。", read("features/plan/state-draft.js"))
 
 
 class MissedResultTests(unittest.TestCase):

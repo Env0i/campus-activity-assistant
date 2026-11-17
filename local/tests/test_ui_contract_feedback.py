@@ -594,8 +594,8 @@ class ErrorFeedbackRoundtripContractTests(unittest.TestCase):
                   js.index("function settleRefreshBranch(")]
         self.assertIn("S.runtime.roundError = code", note)
         self.assertIn("S.runtime.error = code", note)
-        gate = js[js.index("function updateControls("):
-                  js.index("/* ---------------------------------------------------------------- 横幅 */")]
+        gate_js = read("ui/features/plan/view-controls.js")
+        gate = gate_js[gate_js.index("export function updateControls("):]
         self.assertIn("S.starting", gate, "提交中标志必须进入开始按钮门禁")
 
 

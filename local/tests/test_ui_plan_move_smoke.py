@@ -235,5 +235,68 @@ out.push({ step, dialogOpen, calls: calls.map((c) => c[0]), band: S.band });
                 self.assertEqual(case["step"], "login")
                 self.assertEqual(case["calls"], ["login"], "改用浏览器登录要发出 login")
 
+
+    # 宽窄两档：真加载后点草稿区地点开关，会翻转它的 aria-expanded。
+    # 桩的 click() 不冒泡、closest() 恒 null，故直接调 #selected-meta 的委托并给一个
+    # 会命中 [data-place-toggle] 的 target。这条依赖 main.js 里挪进来的 bindPlaceToggle();
+    # —— 删掉那行就没有这个委托，翻转不会发生。
+    def test_place_toggle_flips_expanded_after_native_load(self):
+        after = SMOKE_SETUP + r"""
+const handlers = $("#selected-meta").listeners.click || [];
+const attrs = { "aria-expanded": "false" };
+const placeBtn = {
+  getAttribute: (k) => attrs[k] === undefined ? null : attrs[k],
+  setAttribute: (k, v) => { attrs[k] = String(v); },
+};
+const event = { target: { closest: (sel) => sel === "[data-place-toggle]" ? placeBtn : null } };
+handlers.forEach((fn) => fn(event));
+const first = attrs["aria-expanded"];
+handlers.forEach((fn) => fn(event));
+out.push({ wired: handlers.length, first: first, second: attrs["aria-expanded"], band: S.band });
+"""
+        for size, band in BANDS:
+            with self.subTest(band=band):
+                case = run_native_smoke([], after=after, size=size)["after"][0]
+                self.assertEqual(case["band"], band)
+                self.assertGreater(case["wired"], 0, "真加载后地点开关的委托必须接上")
+                self.assertEqual(case["first"], "true", "点地点开关要展开")
+                self.assertEqual(case["second"], "false", "再点一次要收起")
+
+    # 中档真加载：点「查看计划」收起计划条、露出「返回列表」，点返回再收起计划栏、露出计划条。
+    def test_medium_dock_opens_and_returns(self):
+        after = SMOKE_SETUP + SMOKE_ITEM + r"""
+S.selected = new Set(["a1"]);
+render();
+const before = { band: S.band, dockHidden: $("#plan-dock").hidden };
+$("#btn-dock-open").click();
+const opened = { backHidden: $("#btn-plan-back").hidden, dockHidden: $("#plan-dock").hidden,
+  flag: document.querySelector("#zd").dataset.planOpen };
+$("#btn-plan-back").click();
+const closed = { backHidden: $("#btn-plan-back").hidden, dockHidden: $("#plan-dock").hidden };
+out.push({ before, opened, closed });
+"""
+        case = run_native_smoke([], after=after, size=(900, 820))["after"][0]
+        self.assertEqual(case["before"]["band"], "medium")
+        self.assertFalse(case["before"]["dockHidden"], "中档要摆计划条")
+        self.assertFalse(case["opened"]["backHidden"], "查看计划后要露出返回列表")
+        self.assertTrue(case["opened"]["dockHidden"], "查看计划后计划条收起")
+        self.assertEqual(case["opened"]["flag"], "1")
+        self.assertTrue(case["closed"]["backHidden"], "返回列表后收起返回按钮")
+        self.assertFalse(case["closed"]["dockHidden"], "返回列表后计划条回来")
+
+    # 宽窄两档：组件错误时顶部横幅写出组件错误说明与重新检查入口。
+    def test_runtime_error_shows_component_banner(self):
+        after = SMOKE_SETUP + r"""
+S.runtime.error = "worker_missing";
+render();
+out.push({ banner: $("#banners").innerHTML, band: S.band });
+"""
+        for size, band in BANDS:
+            with self.subTest(band=band):
+                case = run_native_smoke([], after=after, size=size)["after"][0]
+                self.assertEqual(case["band"], band)
+                self.assertIn("程序组件缺失", case["banner"])
+                self.assertIn("重新检查", case["banner"])
+
 if __name__ == "__main__":
     unittest.main()

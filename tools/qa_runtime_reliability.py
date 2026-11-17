@@ -2670,7 +2670,7 @@ def _(s: Session):
     s.check_last_check_pill()
     s.check("有效时按钮叫重新登录", s.text("#btn-login-text").strip() == "重新登录")
     # 已选择 × 四态矩阵：真实勾选一场可报名活动，checking/unknown/none/expired
-    # 下开始一律禁用（plan-panel.js loginReady），登录/刷新保持可用，选择不丢；
+    # 下开始一律禁用（features/plan/view-controls.js 的 loginReady），登录/刷新保持可用，选择不丢；
     # 回到 valid 恢复可用。
     s.pick("a-future")
     s.wait("!document.querySelector('#btn-plan').disabled")

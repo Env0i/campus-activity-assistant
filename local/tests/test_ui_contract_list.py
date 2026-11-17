@@ -203,9 +203,9 @@ class DualModeUiContractTests(unittest.TestCase):
 
     def test_route_uses_independent_station_checkpoints(self):
         """路线图站点独立判断：真实 checkpoint 才 done，历史开放不抢占当前节点。"""
-        js = read("ui/app.js")
-        start = js.index("function paintRoute()")
-        body = js[start:js.index("function routeDeadline", start)]
+        js = read("ui/features/plan/view-led.js")
+        start = js.index("export function paintRoute()")
+        body = js[start:js.index("export function paintCountdown(", start)]   # 只截 paintRoute 本身
         for field in ("run_started_at", "page_opened_at", "watch_started_at"):
             self.assertIn(field, body, "路线站点必须用真实 checkpoint：%s" % field)
         self.assertIn("done: runStarted !== null", body,

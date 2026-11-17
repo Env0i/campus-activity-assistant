@@ -345,9 +345,9 @@ class PreopenRouteContractTests(unittest.TestCase):
 
     def test_paint_route_has_no_fake_time_fallbacks(self):
         """paintRoute 不得用 armedAt/open-100/open-5 编造事件时间；缺失显示待发生文案。"""
-        js = read("ui/app.js")
-        start = js.index("function paintRoute()")
-        body = js[start:js.index("function routeDeadline", start)]
+        js = read("ui/features/plan/view-led.js")
+        start = js.index("export function paintRoute()")
+        body = js[start:js.index("export function paintCountdown(", start)]   # 只截 paintRoute 本身
         for banned in ("armedAt", "open - 100", "open - 5"):
             self.assertNotIn(banned, body,
                              "路线图站点不得用 %s 生成估算时间冒充事件时间" % banned)

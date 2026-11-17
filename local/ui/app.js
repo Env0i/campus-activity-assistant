@@ -165,7 +165,6 @@ window.onBackend = {
   login_auto: (payload) => receiveAutoState(payload),
 };
 
-bindPlaceToggle();
 
 $("#q").addEventListener("input", (event) => setFilter("q", event.target.value));
 $("#chips").addEventListener("click", (event) => {

@@ -29,9 +29,6 @@
     "views/log.js": [
       "savePrefs"
     ],
-    "views/plan-panel.js": [
-      "runtimeErrorCopy"
-    ],
     "views/selection.js": [
       "savePrefs"
     ],
