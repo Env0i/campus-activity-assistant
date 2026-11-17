@@ -59,6 +59,17 @@ def build_rows() -> list[dict]:
     return rows
 
 
+def restore(root: Path, base: Path) -> None:
+    """把这一批可能改过的文件从基线副本还原：一条变异只改一处，跑完必须回到原样。
+
+    还原清单取自行清单里出现过的文件——写死成旧文件名的话，搬家换了路径就漏还原。
+    基线副本里没有的文件跳过：那一批之后文件被搬走或删掉时，这些行只会记定位失败，不必还原。
+    """
+    for rel in sorted({row["path"] for row in build_rows()}):
+        if (base / rel).exists():
+            (root / rel).write_bytes((base / rel).read_bytes())
+
+
 def copy_tree(dest: Path) -> None:
     names = subprocess.run(["git", "ls-files", "-z"], cwd=str(ROOT), capture_output=True,
                            check=True).stdout.decode().split("\0")
@@ -102,6 +113,11 @@ def run_rows(index: int, rows: list[dict], base: Path, temp: Path) -> list[dict]
     copy_tree(root)
     out = []
     for row in rows:
+        if not (root / row["path"]).exists():
+            # 那一批之后文件被搬走或删掉：这一行在新树上无处可改，如实记定位失败
+            out.append({"id": row["id"], "status": "locator_error",
+                        "detail": "文件不在这次的树里：%s" % row["path"]})
+            continue
         cand = mutate.Candidate(row["path"], row["function"], row["kind"], row["needle"],
                                 row["occurrence"], row["replacement"], row["line_text"])
         try:

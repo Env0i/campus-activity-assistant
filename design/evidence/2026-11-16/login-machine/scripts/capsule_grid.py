@@ -80,14 +80,18 @@ def copy_head(dest: Path) -> None:
 
 
 def copy_current(dest: Path) -> None:
-    result = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT,
-                            check=True, capture_output=True)
-    names = [name for name in result.stdout.decode().split("\0") if name]
+    result = subprocess.run(["git", "ls-files", "-z", "--cached", "--others",
+                             "--exclude-standard"], cwd=ROOT, check=True, capture_output=True)
+    names = [name for name in dict.fromkeys(result.stdout.decode().split("\0")) if name]
     excluded = ("local/data/", "server/data/", "config.json", "local/_site_build.py", ".env")
     for name in names:
         if any(item in name for item in excluded):
             continue
         source = ROOT / name
+        # 索引里还在、磁盘上已经删掉的文件跳过：搬家时删了代码文件、暂存区留到人工复核，
+        # 照着索引复制会去读一个不存在的路径然后崩
+        if not source.exists():
+            continue
         target = dest / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
