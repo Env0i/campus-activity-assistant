@@ -185,8 +185,9 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 前端脚本按 index.html 的加载序执行（保持原 app.js 的顶层初始化依赖；views/terms.js、
 views/update.js 排在消费它们的 controller 之前），app.js 只保留 boot 初始化、
 `window.onBackend` 事件分发和 DOM 事件绑定。状态唯一持有者是 `state/store.js` 的 `S`；
-契约测试按「前端脚本联合源码」核对（`read_ui_scripts()`，led.js 除外），行为测试用
-node 沙箱按同一加载序回放。
+界面测试两种手法并存：文本断言核对「前端脚本联合源码」（`read_ui_scripts()`，
+led.js 除外），行为测试经 `run_js()` 交给 node 沙箱按同一加载序回放并断言返回值。
+同一批 `test_ui_contract_*.py` 里混用，多数分片已以行为测试为主。
 
 兼容入口边界（重构未删旧名）：`app.py` 保留旧模块级名字的兼容包装/再导出（测试按
 `app.X` 注入与 patch 的语义不变）；`views/update.js` 的 `paintUpdate` 同时是
