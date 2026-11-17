@@ -195,6 +195,35 @@ controller 已零 DOM（结构契约测试 `LayerBoundaryContractTests` 守护�
 `controllers/tick.js` 仍做每秒增量 DOM 更新、`app.js` 事件绑定直接触 DOM——全局
 controller/view DOM 分离不在本轮范围。
 
+### 锁的先后（2026-11-17）
+
+本机版的锁按固定等级获取，嵌套越深，等级只许变大。静态守卫：`local/tests/test_lock_order.py`
+（ast 只读源码，不 import 产品代码）；等级表与存量例外以该测试里的冻结表为唯一真源。
+
+| 等级 | 锁 |
+|---|---|
+| 1 | `Api._credential_lock`（凭据锁，RLock） |
+| 2 | `Api._phone_access_lock`（手机访问锁，RLock） |
+| 3 | `PlanCoordinator._emit_lock`（发布锁，不可重入） |
+| 4 | `Api._lock`（协调锁，不可重入） |
+| 5 | 各服务自己的 `_lock`：LoginRelayService、AutoReloginMonitor、PhoneAccessService、AdvancedComponentService、UpdateService、`signup_plan.PlanCoordinator` |
+| 6 | 叶子锁：`PhoneAccessService._event_lock`、模块级 `_PHONE_LOG_LOCK` 与 `_LIFECYCLE_LOCK` |
+
+发布锁排在协调锁之外：`PlanCoordinator._publish` 持它调 emit 端口，端口接到 `app.py`
+`_start_plan_inner` 里的闭包，闭包会取 `Api._lock` 并经 `Api._emit` 碰服务锁与事件锁——
+等级必须低于它们才不成环；协调器的发布（start、cancel_task、stop）与 `_set_state` 也因此
+都在状态锁外发布，守卫另有一道「发布不许进协调器锁」的断言钉住这条边界。
+
+三条规则：**①** 持等级 N 的锁只许再拿等级更高的锁——Api 与各服务类内部都适用（服务类里
+经同类方法调用的取锁同样追进去）；**②** 持协调锁（等级 4）期间不调任何服务，
+唯一例外 `self._plan.published_status()`——它只读 `PlanCoordinator` 在锁外发布的不可变状态缓存
+（`_status_cache`），不取任何锁，所以「协调锁 → 服务」这条边到它为止，不会与「服务 → 回调」的边成环；
+**③** 服务持自己的锁时不调构造注入的端口，例外只有逐条核对过「不取跨层锁」的叶子端口白名单
+与已核对取锁顺序的发布端口 emit（逐条理由见守卫测试注释）。存量同号重入恰好 3 处
+`_phone_access_lock`（组件装/删路径，改用锁内直调不取锁的 `_stop_phone_access()` 后删空）
+与 2 处服务类内部 RLock 重入（`PlanCoordinator` 停止/取消路径持 `_lock` 调
+`_set_state_locked`）。新锁必须先上等级表再用。
+
 ### 启动与单实例（GL01）
 
 图形界面启动（`local/app.py` 的 `main`）先过单实例守卫（`infrastructure/single_instance.py`）。`--demo` 与 worker 子命令不经过它。
