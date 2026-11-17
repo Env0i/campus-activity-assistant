@@ -107,7 +107,9 @@ class RenderTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.out = Path(self.tmp.name)
+        # resolve()：CI 的 runner 用户名超过 8.3 限制，tempfile 返回短名（RUNNER~1），
+        # 生成器返回长名（runneradmin），不规范化会误判路径不一致。
+        self.out = Path(self.tmp.name).resolve()
         self.exe = Path("C:/fake/src/campus-activity-watch-v9.9.9-win-x64.exe")
         self.text = bi.render_iss("9.9.9", self.exe, self.out)
 
@@ -236,7 +238,8 @@ class DocListTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
+        # 同 RenderTest：展开 8.3 短名，避免 CI 上的长短路径比较失败。
+        self.root = Path(self.tmp.name).resolve()
 
     def test_required_doc_missing_stops_build(self):
         fake = ((self.root / "nope.txt", "nope.txt", True),)

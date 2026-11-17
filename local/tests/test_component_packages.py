@@ -33,7 +33,9 @@ class PackageTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(dir=TMP_ROOT)
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        # resolve()：CI 的 runner 用户名超过 8.3 限制，tempfile 返回短名（RUNNER~1），
+        # 被测代码返回长名（runneradmin），Path 比较是字符串比较，不规范化会误判。
+        self.root = Path(self.temp.name).resolve()
         self.key = "phone_control"
         self.target = self.root / "advanced" / self.key
         patch = mock.patch.object(cp, "_helper", return_value={"ok": True})
