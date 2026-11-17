@@ -1,0 +1,44 @@
+# 数据目录审计探针记录（矩阵夹具隔离 R1）
+
+- 探针：`scripts/data_dir_probe.py`（审计钩子统计 open / os.mkdir / os.listdir /
+  os.scandir / os.remove / os.rename / os.replace 七类事件里落在真实数据根上的部分；
+  真实根取 runtime_paths.DATA_DIR 模块级真值，normcase(realpath) 字符串匹配 +
+  祖先链 (st_dev, st_ino) inode 兜底，认 Z 盘与 UNC 两种写法；只输出次数与文件名）。
+- 跑法（仓库根、装齐本仓库依赖的解释器，Python 3.12）：
+  `PYTHONIOENCODING=utf-8 python -B design/evidence/2026-11-17/api-guards/scripts/data_dir_probe.py`
+- 退出码：零事件 0、非零事件 1。
+
+## 修前（busy_states.build 未隔离数据根，矩阵 15 用例全绿，真跑）
+
+```
+open: 252 次（文件：.advanced.lock）
+os.mkdir: 252 次（文件：data）
+os.listdir: 504 次（文件：phone_control_cloudflared、phone_control_runtime、relogin_ocr_model、relogin_ocr_runtime）
+os.scandir: 1008 次（文件：advanced、assets）
+真实数据根上的事件总数：2016
+```
+
+来源：每个 Api 构造两个 AdvancedComponentService(root=DATA_DIR)，构造期
+`_refresh_idle_state` → `component_packages.feature_status`（`_transactional` →
+`_file_transaction`：`DATA_DIR.mkdir(exist_ok=True)` + 打开
+`DATA_DIR/.advanced.lock`），126 格 × 2 个组件服务 = 252 次真目录 mkdir +
+252 次锁文件 open；list/scandir 是 feature_status 沿 advanced/assets 的
+glob/iterdir。组件服务还在构造期按真实根读出了已装组件状态。
+
+## 修后（busy_states.build 用临时数据根隔离，矩阵 15 用例全绿，真跑）
+
+```
+真实数据根上的事件总数：0
+```
+
+隔离方式：构造 Api 前 `tempfile.mkdtemp()` 建临时数据根，把 app 模块上的
+DATA_DIR / CREDENTIAL_FILE / DEVICE_FILE / PHONE_LOG / PREFS / SESSION_FILE /
+LOG_FILE / LOG_LOCK_FILE / ensure_data_dir 全部 patch 过去，用例结束
+`shutil.rmtree` 删临时根；探针退出码 0。
+
+## 修后矩阵测试三次耗时（装齐依赖的解释器，仓库根，各含测试发现与导入）
+
+```
+run1: 2.3s   run2: 2.2s   run3: 2.4s（15 用例，失败 0、错误 0、跳过 0）
+```
+

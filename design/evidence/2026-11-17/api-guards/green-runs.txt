@@ -1,0 +1,58 @@
+# 三份新测试在开工 HEAD 上各连跑 3 次（装齐本仓库依赖的解释器，仓库根）
+
+--- test_phone_action_signatures 第 1 次 ---
+Ran 4 tests in 0.898s
+
+OK
+--- test_phone_action_signatures 第 2 次 ---
+Ran 4 tests in 0.879s
+
+OK
+--- test_phone_action_signatures 第 3 次 ---
+Ran 4 tests in 0.896s
+
+OK
+--- test_lock_order 第 1 次 ---
+Ran 11 tests in 0.205s
+
+OK
+--- test_lock_order 第 2 次 ---
+Ran 11 tests in 0.198s
+
+OK
+--- test_lock_order 第 3 次 ---
+Ran 11 tests in 0.201s
+
+OK
+--- test_busy_matrix 第 1 次 ---
+Ran 15 tests in 1.961s
+
+OK
+--- test_busy_matrix 第 2 次 ---
+Ran 15 tests in 2.032s
+
+OK
+--- test_busy_matrix 第 3 次 ---
+Ran 15 tests in 1.995s
+
+OK
+# 三份守卫在返修后各连跑 3 次（装齐本仓库依赖的解释器，仓库根）
+
+--- test_phone_action_signatures 第 1 次（1.7s）---
+OK
+--- test_phone_action_signatures 第 2 次（1.6s）---
+OK
+--- test_phone_action_signatures 第 3 次（1.7s）---
+OK
+--- test_lock_order 第 1 次（0.5s）---
+OK
+--- test_lock_order 第 2 次（0.5s）---
+OK
+--- test_lock_order 第 3 次（0.5s）---
+OK
+--- test_busy_matrix 第 1 次（2.6s）---
+OK
+--- test_busy_matrix 第 2 次（2.7s）---
+OK
+--- test_busy_matrix 第 3 次（3.1s）---
+OK
