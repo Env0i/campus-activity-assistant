@@ -518,53 +518,53 @@ class UpdateBridgeTests(unittest.TestCase):
         fetch.assert_not_called()
 
     def test_result_correlation_and_finished_snapshot(self):
-        self.api._updating = True
-        self.api._update_request_id = "request"
+        self.api._updates._updating = True
+        self.api._updates._update_request_id = "request"
         expected = updates.evaluate_latest_release("1.1.0", release())
         with patch.object(local_app, "check_latest_release", return_value=expected):
             self.api._do_check_update("request")
-        self.assertFalse(self.api._updating)
-        self.assertEqual(self.api._update_result["request_id"], "request")
-        self.api._emit.assert_called_once_with("update", self.api._update_result)
+        self.assertFalse(self.api._updates._updating)
+        self.assertEqual(self.api._updates._update_result["request_id"], "request")
+        self.api._emit.assert_called_once_with("update", self.api._updates._update_result)
 
     def test_check_stores_installer_and_clears_old_download(self):
-        self.api._updating = True
-        self.api._update_request_id = "request"
-        self.api._update_installer_path = str(Path(tempfile.gettempdir()) / "stale.exe")
+        self.api._updates._updating = True
+        self.api._updates._update_request_id = "request"
+        self.api._updates._update_installer_path = str(Path(tempfile.gettempdir()) / "stale.exe")
         picked = updates.evaluate_latest_release("1.0.0", stable())
         picked = dict(picked, installer={"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
                                          "bytes": 1024, "sha256": "ab" * 32})
         with patch.object(local_app, "check_latest_release", return_value=picked):
             self.api._do_check_update("request")
-        self.assertEqual(self.api._update_installer["name"], INSTALLER)
-        self.assertEqual(self.api._update_installer_path, "")
+        self.assertEqual(self.api._updates._update_installer["name"], INSTALLER)
+        self.assertEqual(self.api._updates._update_installer_path, "")
 
     def test_new_check_reclaims_stale_version_staging(self):
         stale = str(Path("D:/program/versions/.staging-old"))
-        self.api._update_staging_path = stale
+        self.api._updates._update_staging_path = stale
         with patch.object(local_app.threading, "Thread") as thread, \
                 patch.object(local_app.updater, "cleanup_staging") as cleanup:
             self.api.check_update("request")
             thread.assert_called_once()
         cleanup.assert_called_once_with(stale,
                                         version_root=local_app.update_version_paths()["root"])
-        self.assertEqual(self.api._update_staging_path, "")
+        self.assertEqual(self.api._updates._update_staging_path, "")
 
     def test_unexpected_error_or_bad_checker_return_unlocks(self):
         for options in ({"side_effect": RuntimeError()}, {"return_value": None}):
             with self.subTest(options=options):
-                self.api._updating = True
+                self.api._updates._updating = True
                 with patch.object(local_app, "check_latest_release", **options):
                     self.api._do_check_update("request")
-                self.assertFalse(self.api._updating)
-                self.assertEqual(self.api._update_result["state"], "error")
+                self.assertFalse(self.api._updates._updating)
+                self.assertEqual(self.api._updates._update_result["state"], "error")
 
     def test_thread_start_failure_unlocks(self):
         with patch.object(local_app.threading, "Thread") as thread:
             thread.return_value.start.side_effect = RuntimeError()
             result = self.api.check_update("request")
         self.assertFalse(result["ok"])
-        self.assertFalse(self.api._updating)
+        self.assertFalse(self.api._updates._updating)
 
     def test_close_and_invalid_id_reject_without_thread(self):
         with patch.object(local_app.threading, "Thread") as thread:
@@ -582,10 +582,10 @@ class UpdateBridgeTests(unittest.TestCase):
         with patch.object(local_app, "check_latest_release", return_value={"state": "current"}):
             self.api._do_check_update("request")
         self.api._emit.assert_not_called()
-        self.assertFalse(self.api._updating)
+        self.assertFalse(self.api._updates._updating)
 
     def test_download_requires_selected_installer(self):
-        self.api._update_installer = None
+        self.api._updates._update_installer = None
         result = self.api.update_download("dl-1")
         self.assertFalse(result["ok"])
         self.assertIn("下载页", result["text"])
@@ -593,26 +593,26 @@ class UpdateBridgeTests(unittest.TestCase):
     def test_download_single_flight_and_thread_failure(self):
         installer = {"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
                      "bytes": 1024, "sha256": "ab" * 32}
-        self.api._update_installer = installer
+        self.api._updates._update_installer = installer
         with patch.object(local_app.threading, "Thread") as thread:
             first = self.api.update_download("dl-1")
             self.assertTrue(first["queued"])
             skipped = self.api.update_download("dl-2")
             self.assertTrue(skipped["skipped"])
             thread.assert_called_once()
-        self.api._updating = False
+        self.api._updates._updating = False
         with patch.object(local_app.threading, "Thread") as thread:
             thread.return_value.start.side_effect = RuntimeError()
             result = self.api.update_download("dl-3")
         self.assertFalse(result["ok"])
-        self.assertFalse(self.api._updating)
+        self.assertFalse(self.api._updates._updating)
 
     def test_download_progress_and_ready_state(self):
         installer = {"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
                      "bytes": 4, "sha256": "ab" * 32}
-        self.api._update_installer = installer
-        self.api._update_request_id = "dl-1"
-        self.api._update_result = {"request_id": "check-1", "state": "available",
+        self.api._updates._update_installer = installer
+        self.api._updates._update_request_id = "dl-1"
+        self.api._updates._update_result = {"request_id": "check-1", "state": "available",
                                    "latest_version": "1.1.1", "installer": installer}
 
         def fake_download(url, **kwargs):
@@ -622,9 +622,9 @@ class UpdateBridgeTests(unittest.TestCase):
                     "bytes": 4, "sha256": "ab" * 32}
         with patch.object(local_app.updater, "download_installer", side_effect=fake_download):
             self.api._do_update_download("dl-1", installer)
-        self.assertFalse(self.api._updating)
-        self.assertEqual(self.api._update_result["state"], "ready_to_install")
-        self.assertTrue(self.api._update_installer_path.endswith(INSTALLER))
+        self.assertFalse(self.api._updates._updating)
+        self.assertEqual(self.api._updates._update_result["state"], "ready_to_install")
+        self.assertTrue(self.api._updates._update_installer_path.endswith(INSTALLER))
         states = [call.args[1]["state"] for call in self.api._emit.call_args_list]
         self.assertEqual(states, ["downloading", "downloading", "ready_to_install"])
 
@@ -639,8 +639,8 @@ class UpdateBridgeTests(unittest.TestCase):
                      "full": {"name": "payload.zip", "url": DOWNLOAD + "payload.zip",
                               "bytes": 4, "sha256": "cd" * 32,
                               "target_version": "1.1.1", "target_manifest": target}}
-        self.api._update_installer = installer
-        self.api._update_result = {"request_id": "check-1", "state": "available",
+        self.api._updates._update_installer = installer
+        self.api._updates._update_result = {"request_id": "check-1", "state": "available",
                                    "latest_version": "1.1.1", "installer": installer}
         downloaded = str(Path(tempfile.gettempdir()) / "campus-update-payload" / "payload.zip")
         cleanup = Mock()
@@ -650,7 +650,7 @@ class UpdateBridgeTests(unittest.TestCase):
                     "ok": True, "path": "D:/versions/.staging-dl-1"}), \
                 patch.object(local_app.updater, "cleanup_download", cleanup):
             self.api._do_update_download("dl-1", installer)
-        self.assertEqual(self.api._update_result["state"], "ready_to_restart")
+        self.assertEqual(self.api._updates._update_result["state"], "ready_to_restart")
         cleanup.assert_called_once_with(downloaded)
 
     @patch.object(local_app, "version_switch_available", new=lambda *args, **kwargs: True)
@@ -663,8 +663,8 @@ class UpdateBridgeTests(unittest.TestCase):
                      "full": {"name": "payload.zip", "url": DOWNLOAD + "payload.zip",
                               "bytes": 4, "sha256": "cd" * 32,
                               "target_version": "1.1.1", "target_manifest": target}}
-        self.api._update_installer = installer
-        self.api._update_result = {"request_id": "check-1", "state": "available",
+        self.api._updates._update_installer = installer
+        self.api._updates._update_result = {"request_id": "check-1", "state": "available",
                                    "latest_version": "1.1.1", "installer": installer}
         payload_path = str(Path(tempfile.gettempdir()) / "campus-update-payload" / "payload.zip")
         installer_path = str(Path(tempfile.gettempdir()) / "campus-update-installer" / INSTALLER)
@@ -676,36 +676,36 @@ class UpdateBridgeTests(unittest.TestCase):
                 patch.object(local_app.updater, "download_installer", return_value={
                     "ok": True, "path": installer_path, "bytes": 1024, "sha256": "ab" * 32}):
             self.api._do_update_download("dl-1", installer)
-        self.assertEqual(self.api._update_result["state"], "ready_to_install")
-        self.assertEqual(self.api._update_installer_path, installer_path)
+        self.assertEqual(self.api._updates._update_result["state"], "ready_to_install")
+        self.assertEqual(self.api._updates._update_installer_path, installer_path)
         cleanup.assert_called_once_with(payload_path)
 
     def test_download_hash_failure_goes_to_failed(self):
         installer = {"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
                      "bytes": 4, "sha256": "ab" * 32}
-        self.api._update_installer = installer
+        self.api._updates._update_installer = installer
         with patch.object(local_app.updater, "download_installer",
                           return_value={"ok": False, "error_code": "hash_mismatch", "text": "哈希不符"}):
             self.api._do_update_download("dl-1", installer)
-        self.assertFalse(self.api._updating)
-        self.assertEqual(self.api._update_result["state"], "failed")
-        self.assertEqual(self.api._update_result["error_code"], "hash_mismatch")
-        self.assertEqual(self.api._update_installer_path, "")
+        self.assertFalse(self.api._updates._updating)
+        self.assertEqual(self.api._updates._update_result["state"], "failed")
+        self.assertEqual(self.api._updates._update_result["error_code"], "hash_mismatch")
+        self.assertEqual(self.api._updates._update_installer_path, "")
 
     def test_download_cancel_returns_to_available(self):
         installer = {"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
                      "bytes": 4, "sha256": "ab" * 32}
-        self.api._update_installer = installer
+        self.api._updates._update_installer = installer
         with patch.object(local_app.updater, "download_installer",
                           return_value={"ok": False, "error_code": "cancelled", "text": "已取消"}):
             self.api._do_update_download("dl-1", installer)
-        self.assertEqual(self.api._update_result["state"], "available")
-        self.assertEqual(self.api._update_result["error_code"], "cancelled")
+        self.assertEqual(self.api._updates._update_result["state"], "available")
+        self.assertEqual(self.api._updates._update_result["error_code"], "cancelled")
 
     def test_update_cancel_sets_flag_only(self):
-        self.assertFalse(self.api._update_cancelled)
+        self.assertFalse(self.api._updates._update_cancelled)
         self.assertTrue(self.api.update_cancel()["ok"])
-        self.assertTrue(self.api._update_cancelled)
+        self.assertTrue(self.api._updates._update_cancelled)
 
     def test_launch_requires_verified_path(self):
         result = self.api.update_launch("launch-1")
@@ -715,12 +715,12 @@ class UpdateBridgeTests(unittest.TestCase):
     def test_launch_publishes_launching_then_success(self):
         installer = {"name": INSTALLER, "url": DOWNLOAD + INSTALLER,
                      "bytes": 4, "sha256": "ab" * 32}
-        self.api._update_installer = installer
-        self.api._update_installer_path = str(Path(tempfile.gettempdir()) / "campus-update-x" / INSTALLER)
-        self.api._update_result = {"request_id": "dl-1", "state": "ready_to_install",
+        self.api._updates._update_installer = installer
+        self.api._updates._update_installer_path = str(Path(tempfile.gettempdir()) / "campus-update-x" / INSTALLER)
+        self.api._updates._update_result = {"request_id": "dl-1", "state": "ready_to_install",
                                    "installer": installer}
         with patch.object(local_app.updater, "launch_installer",
-                          return_value={"ok": True, "path": self.api._update_installer_path}):
+                          return_value={"ok": True, "path": self.api._updates._update_installer_path}):
             result = self.api.update_launch("launch-1")
         self.assertTrue(result["ok"])
         states = [call.args[1]["state"] for call in self.api._emit.call_args_list]
@@ -728,13 +728,13 @@ class UpdateBridgeTests(unittest.TestCase):
         self.assertIn("关闭本工具", result["text"])
 
     def test_launch_failure_goes_to_failed(self):
-        self.api._update_installer_path = str(Path(tempfile.gettempdir()) / "campus-update-x" / INSTALLER)
+        self.api._updates._update_installer_path = str(Path(tempfile.gettempdir()) / "campus-update-x" / INSTALLER)
         with patch.object(local_app.updater, "launch_installer",
                           return_value={"ok": False, "error_code": "launch_failed", "text": "没能启动"}):
             result = self.api.update_launch("launch-1")
         self.assertFalse(result["ok"])
-        self.assertEqual(self.api._update_result["state"], "failed")
-        self.assertEqual(self.api._update_result["error_code"], "launch_failed")
+        self.assertEqual(self.api._updates._update_result["state"], "failed")
+        self.assertEqual(self.api._updates._update_result["error_code"], "launch_failed")
 
 
 class DirectManifestReproTests(unittest.TestCase):

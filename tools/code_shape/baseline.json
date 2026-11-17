@@ -2,7 +2,7 @@
   "files": {
     "over800": {
       "local/app.py": {
-        "value": 4873,
+        "value": 4740,
         "reason": "步骤 2 拆 Api"
       },
       "local/business_clock.py": {
@@ -81,7 +81,7 @@
   "functions": {
     "over100": {
       "local/app.py::Api.__init__": {
-        "value": 167,
+        "value": 164,
         "reason": "步骤 2 拆 Api"
       },
       "local/app.py::Api._start_plan_inner": {
@@ -228,9 +228,6 @@
       },
       "local/app.py::Api.start_plan": {
         "value": 70
-      },
-      "local/app.py::Api.update_launch": {
-        "value": 73
       },
       "local/app.py::_runtime_check_main": {
         "value": 61
@@ -520,7 +517,7 @@
   },
   "classes": {
     "local/app.py::Api": {
-      "value": 23,
+      "value": 20,
       "attrs": [
         "_advanced_busy",
         "_check_again",
@@ -540,9 +537,6 @@
         "_relay_creds_source",
         "_relay_proc_tree",
         "_tray",
-        "_update_cancelled",
-        "_update_request_id",
-        "_updating",
         "_window_hidden",
         "_window_minimized"
       ],

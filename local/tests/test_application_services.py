@@ -43,6 +43,9 @@ class FakeState:
         self._update_cancelled = False
         self.events = []
 
+    def is_closing(self):
+        return self._closing
+
     def _emit(self, kind, payload):
         self.events.append((kind, payload))
 
@@ -2577,9 +2580,9 @@ class VersionSwitchLaunchTests(unittest.TestCase):
         from fixtures.business_clock import TestWallClock
         api = stop_auto_relogin_on_cleanup(self, local_app.Api(clock=TestWallClock()))
         api._emit = mock.Mock()
-        api._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2",
+        api._updates._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2",
                               "request_id": "rid-update"}
-        api._update_staging_path = "D:/versions/.staging-rid-update"
+        api._updates._update_staging_path = "D:/versions/.staging-rid-update"
         return api
 
     def _launch(self, local_app, api, *, popen):
@@ -2729,8 +2732,8 @@ class VersionSwitchSelectionTests(unittest.TestCase):
                      "full": {"name": "payload.zip", "url": self.BASE + "payload.zip",
                               "bytes": 4, "sha256": "cd" * 32,
                               "target_version": "1.2.2", "target_manifest": target}}
-        api._update_installer = installer
-        api._update_result = {"request_id": "check-1", "state": "available",
+        api._updates._update_installer = installer
+        api._updates._update_result = {"request_id": "check-1", "state": "available",
                               "latest_version": "1.2.2", "installer": installer}
         installer_path = str(Path(tempfile.gettempdir()) / "campus-update-x" / self.NAME)
         with mock.patch.object(local_app, "version_switch_available",
@@ -2751,7 +2754,7 @@ class VersionSwitchSelectionTests(unittest.TestCase):
             local_app, switch_available=False)
         payload_download.assert_not_called()
         installer_download.assert_called_once()
-        self.assertEqual(api._update_result["state"], "ready_to_install")
+        self.assertEqual(api._updates._update_result["state"], "ready_to_install")
 
     def test_switch_environment_still_downloads_version_payload(self):
         local_app = self._app()
@@ -2949,18 +2952,18 @@ class UpdateStagingProtectionTests(unittest.TestCase):
     def test_check_update_keeps_staging_while_launcher_is_waiting(self):
         """U3：启动器正等主程序退出（state=launching）时再点检查更新，不能删它要切换的 staging。"""
         staging = str(Path(tempfile.gettempdir()) / "campus-launching" / ".staging-rid")
-        self.api._update_staging_path = staging
-        self.api._update_result = {"state": "launching", "request_id": "rid-launch",
+        self.api._updates._update_staging_path = staging
+        self.api._updates._update_result = {"state": "launching", "request_id": "rid-launch",
                                    "latest_version": "1.2.3"}
         with mock.patch.object(self.app.updater, "cleanup_staging") as cleanup, \
                 mock.patch.object(self.app.threading, "Thread") as thread:
             result = self.api.check_update("request-again")
         cleanup.assert_not_called()
         thread.assert_not_called()
-        self.assertEqual(self.api._update_staging_path, staging)
+        self.assertEqual(self.api._updates._update_staging_path, staging)
         self.assertTrue(result["ok"], result)
         self.assertTrue(result.get("skipped"), result)
-        self.assertFalse(self.api._updating)
+        self.assertFalse(self.api._updates._updating)
 
     def test_stop_with_exited_worker_tree_answers_no_running_task(self):
         """U10：受管树对应的进程早已退出，stop 不能再回「已请求停止」，并要清掉旧树。"""

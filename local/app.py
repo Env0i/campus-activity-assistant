@@ -874,16 +874,13 @@ class Api:
         # 最近一次自动登录发起时刻（单调钟）：成功/失败落盘日志时算整轮耗时
         self._auto_relogin_started_at = None
         # 更新检查独立于登录/报名，只由帮助按钮触发；页面重载复用内存中的在途请求。
-        # _updating 表示「任一更新动作在途」（检查或下载），单飞共用一个槽位；
-        # _update_installer 是检查阶段选好的安装器资产（URL/大小/哈希），
-        # 下载只信它，不收界面传来的地址；_update_installer_path 是校验通过后的本地产物。
-        self._updating = False
-        self._update_request_id = ""
-        self._update_result: dict | None = None
-        self._update_installer: dict | None = None
-        self._update_installer_path = ""
-        self._update_staging_path = ""
-        self._update_cancelled = False
+        # 状态与单飞槽位在 application.update_service.UpdateService：_updating 表示
+        # 「任一更新动作在途」（检查或下载），_update_installer 是检查阶段选好的安装器
+        # 资产（URL/大小/哈希），下载只信它、不收界面传来的地址；_update_installer_path
+        # 是校验通过后的本地产物。这里只留转发与端口注入；请求号格式只在服务里检查，Api 不再重复。
+        self._updates = _update_service.UpdateService(
+            emit=lambda kind, payload: self._emit(kind, payload),
+            is_closing=self._update_is_closing)
         # 开始请求登记（R11）：request_id → {state, plan_id, result}。
         # 只留最近有限条，活跃请求不驱逐；不存凭证、不写外部数据。
         self._start_requests: dict[str, dict] = {}
@@ -1192,11 +1189,11 @@ class Api:
         snapshot, busy = self._bootstrap_plan_snapshot()
         with self._lock:
             payload["busy"] = busy
-            payload["update_check"] = {"checking": self._updating,
-                                       "request_id": self._update_request_id,
-                                       "result": self._update_result,
-                                       "installer_path": self._update_installer_path}
             generation = self._plan_generation
+        # 更新状态读服务自己那把锁：四个键与值不变，只是不再由 Api 的锁护着。
+        # 它与 busy 本来就没有规则上的联动（busy 来自计划快照，update_check 来自更新链路），
+        # 搬家前后都不存在「两个字段必须同一瞬间」的读法。
+        payload["update_check"] = self._updates.snapshot()
         if snapshot is not None:
             # 页面重载会丢掉 plan/task 事件：把计划快照一并交给 bootstrap，
             # 界面才能恢复任务列表和「停止」按钮；计划本身不会重复提交。
@@ -2054,125 +2051,42 @@ class Api:
         self._trace("front_ready")
         return {"ok": True}
 
+    # ---------- 更新（状态与用例在 application.update_service） ----------
+    def _update_is_closing(self) -> bool:
+        """读一个布尔值在 CPython 里是原子的；这里不拿 Api 锁，是为了不让「服务锁 → Api 锁」嵌套。"""
+        return bool(self._closing)
+
     def check_update(self, request_id: str) -> dict:
         """只登记轻量后台查询，不在桥接线程等待网络，也不改变报名门禁。"""
-        if not isinstance(request_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", request_id):
-            return {"ok": False, "queued": False, "text": "更新请求无效，请重试。"}
-        with self._lock:
-            if self._closing:
-                return {"ok": False, "queued": False, "text": "程序正在关闭。"}
-            if self._updating:
-                return {"ok": True, "queued": True, "skipped": True,
-                        "request_id": self._update_request_id}
-            current = self._update_result if isinstance(self._update_result, dict) else {}
-            if current.get("state") == "launching":
-                # 更新启动器已拉起、正等本进程退出：_update_staging_path 就是它要切换的
-                # 目录，这时再检查更新不能把它当旧暂存清掉。直接回当前状态，界面按
-                # 同一 request_id 接管快照。
-                return {"ok": True, "queued": True, "skipped": True,
-                        "request_id": str(current.get("request_id") or self._update_request_id)}
-            stale_staging = self._update_staging_path
-            self._update_staging_path = ""
-            self._updating = True
-            self._update_request_id = request_id
-        if stale_staging:
-            updater.cleanup_staging(stale_staging,
-                                    version_root=update_version_paths()["root"])
-        self._publish_update({"request_id": request_id, "current_version": APP_VERSION,
-                              "state": "checking", "text": "正在检查更新…",
-                              "error_code": ""}, False)
-        try:
-            threading.Thread(target=self._do_check_update, args=(request_id,), daemon=True).start()
-        except Exception:
-            with self._lock:
-                self._updating = False
-            return {"ok": False, "queued": False, "text": "检查没能启动，请重试。"}
-        return {"ok": True, "queued": True, "request_id": request_id}
+        return self._updates.start_check(
+            request_id, thread_factory=threading.Thread, job=self._do_check_update,
+            cleanup_staging=updater.cleanup_staging,
+            update_version_paths=update_version_paths, current_version=APP_VERSION)
 
     def _do_check_update(self, request_id: str) -> None:
-        # 用例在 application.update_service；fetch 端口在此注入（测试按
-        # app.check_latest_release 替换）。状态字段留在 Api 供界面重载对账。
-        _update_service.run_check(self, request_id, fetch=check_latest_release,
+        # 线程目标：fetch 端口在这里取，测试按 app.check_latest_release 替换的补丁才生效
+        _update_service.run_check(self._updates, request_id, fetch=check_latest_release,
                                   current_version=APP_VERSION,
                                   latest_url=RELEASES_LATEST_URL)
 
-    def _publish_update(self, payload: dict, finished: bool) -> None:
-        """把更新状态推给界面并留档；finished 才释放单飞槽位。"""
-        if isinstance(payload, dict) and payload.get("state") == "ready_to_restart":
-            # ready_to_restart 只公布版本端口的受控路径；真正切换必须等主程序
-            # 退出后由独立 launcher 完成，避免运行中的 EXE 覆盖自身文件。
-            paths = update_version_paths()
-            payload = dict(payload)
-            payload.setdefault("version_root", str(paths["root"]))
-            payload.setdefault("current_file", str(paths["current_file"]))
-            payload.setdefault("target_version", str(payload.get("latest_version") or ""))
-        with self._lock:
-            self._update_result = payload
-            if finished:
-                self._updating = False
-            closing = self._closing
-        if not closing:
-            self._emit("update", payload)
-
     def update_download(self, request_id: str) -> dict:
         """用户确认后启动安装器下载：单飞后台流式下载并校验，事件回推进度与结论。"""
-        if not isinstance(request_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", request_id):
-            return {"ok": False, "queued": False, "text": "更新请求无效，请重试。"}
-        with self._lock:
-            if self._closing:
-                return {"ok": False, "queued": False, "text": "程序正在关闭。"}
-            if self._updating:
-                return {"ok": True, "queued": True, "skipped": True,
-                        "request_id": self._update_request_id}
-            installer = self._update_installer
-            if not isinstance(installer, dict) or not installer.get("url"):
-                return {"ok": False, "queued": False,
-                        "text": "当前没有可下载的安装包，请前往下载页。"}
-            self._updating = True
-            self._update_request_id = request_id
-            self._update_cancelled = False
-        try:
-            threading.Thread(target=self._do_update_download,
-                             args=(request_id, installer), daemon=True).start()
-        except Exception:
-            with self._lock:
-                self._updating = False
-            return {"ok": False, "queued": False, "text": "下载没能启动，请重试。"}
-        return {"ok": True, "queued": True, "request_id": request_id}
+        return self._updates.start_download(request_id, thread_factory=threading.Thread,
+                                            job=self._do_update_download)
 
     def _do_update_download(self, request_id: str, installer: dict) -> None:
-        # 用例在 application.update_service；download/publish 端口在此注入
-        # （updater 模块属性即替身缝）。进度/结论都经 _publish_update 推给界面。
-        version_options = {}
-        full_payload = installer.get("full")
-        # 只有真能走版本目录切换的环境才下载版本目录包；独立 EXE、源码态直接下完整
-        # 安装器，磁盘上不留 .staging-*，用户也不会在 update_launch 处被拒绝。
-        if (version_switch_available() and isinstance(full_payload, dict)
-                and isinstance(full_payload.get("target_manifest"), dict)):
-            paths = update_version_paths()
-            target_version = str(full_payload.get("target_version")
-                                 or (self._update_result or {}).get("latest_version") or "")
-            version_options = {
-                "stage_update": updater.stage_update,
-                "base_dir": paths["base_dir"],
-                "staging_dir": paths["root"] / (".staging-" + request_id),
-                "target_manifest": full_payload["target_manifest"],
-                "target_version": target_version,
-            }
-        _update_service.run_download(
-            self, request_id, installer,
-            download=(updater.download_payload if version_options
-                      else updater.download_installer), publish=self._publish_update,
-            current_version=APP_VERSION, latest_url=RELEASES_LATEST_URL,
-            cleanup_download=(updater.cleanup_download if version_options else None),
-            download_installer_fallback=(updater.download_installer if version_options else None),
-            **version_options)
+        # 线程目标：版本路径与下载/落盘端口都在这里取（updater 模块属性即替身缝）
+        self._updates.download_job(
+            request_id, installer, version_switch_available=version_switch_available,
+            update_version_paths=update_version_paths, stage_update=updater.stage_update,
+            download_payload=updater.download_payload,
+            download_installer=updater.download_installer,
+            cleanup_download=updater.cleanup_download,
+            current_version=APP_VERSION, latest_url=RELEASES_LATEST_URL)
 
     def update_cancel(self) -> dict:
         """用户取消下载：只置取消标记，下载线程在下一块之间停下并清理半成品。"""
-        with self._lock:
-            self._update_cancelled = True
-        return {"ok": True}
+        return self._updates.cancel()
 
     def update_launch(self, request_id: str) -> dict:
         """用户确认后启动已校验的安装器；启动前先回推 launching 状态。
@@ -2181,73 +2095,18 @@ class Api:
         版本目录切换路径：启动器拉起后主程序约 1 秒自己走「退出」关窗，切换才能继续。
         两条路径失败都不改会话和偏好。
         """
-        if not isinstance(request_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", request_id):
-            return {"ok": False, "text": "更新请求无效，请重试。"}
-        with self._lock:
-            if self._closing:
-                return {"ok": False, "text": "程序正在关闭。"}
-            path = self._update_installer_path
-            base = dict(self._update_result or {})
-            staging = self._update_staging_path
-        if staging and base.get("state") == "ready_to_restart":
-            if not version_switch_available():
-                # 防御分支：与 _do_update_download 用同一判据（冻结态、启动器文件在、
-                # 正从 versions/<当前版本>/ 运行），下载和启动不会各说各话。
-                # 源码态与 onefile 没有独立旁路入口，只保留 ready 状态，
-                # 避免在运行中的主程序里直接切换版本目录。
-                return {"ok": False, "state": "ready_to_restart",
-                        "request_id": request_id,
-                        "text": "更新目录已准备好，请使用完整版本重启后完成切换。"}
-            paths = update_version_paths()
-            target_version = str(base.get("target_version") or base.get("latest_version") or "")
-            if not target_version:
-                return {"ok": False, "text": "更新版本信息不完整，请重新检查。"}
-            command = update_launcher_command(
-                "apply", staging=staging, version_root=paths["root"],
-                current_file=paths["current_file"], target_version=target_version,
-                parent_pid=os.getpid())
-            self._publish_update(dict(base, request_id=request_id, state="launching",
-                                      text="正在准备重启…", staging_path=staging,
-                                      version_root=str(paths["root"]),
-                                      target_version=target_version, error_code=""), False)
-            try:
-                subprocess.Popen(command, cwd=str(HERE), close_fds=True,
-                                 env=_env(), creationflags=CREATE_NO_WINDOW)
-            except (OSError, ValueError) as exc:
-                text = "更新启动器没能启动，请重试。"
-                self._publish_update(dict(base, request_id=request_id, state="failed",
-                                          text=text, staging_path=staging,
-                                          error_code="launcher_failed"), False)
-                self._emit("log", "[X] 更新启动器启动失败：%s" % type(exc).__name__)
-                return {"ok": False, "text": text, "error_code": "launcher_failed"}
-            # 启动器已拉起并在等本进程退出（最长 120 秒）。先把第二段文案推给界面，
-            # 再约 1 秒后走现有的关窗口「退出」动作：不另写退出逻辑，也让界面来得及
-            # 收到文案。启动器没拉起（上面的 except 分支）时不会走到这里，不会误关主程序。
-            text = "更新启动器已启动，正在关闭本工具完成切换…"
-            self._publish_update(dict(base, request_id=request_id, state="launching",
-                                      text=text, staging_path=staging,
-                                      version_root=str(paths["root"]),
-                                      target_version=target_version, error_code=""), False)
-            defer_close_action(lambda: self.request_window_close("exit"), delay=1.0)
-            return {"ok": True, "path": staging, "text": text}
-        if not path:
-            return {"ok": False, "text": "还没有已校验的安装包，请先下载。"}
-        # 安装器启动前先回推状态：界面能看到「正在启动安装程序…」
-        self._publish_update(dict(base, request_id=request_id, state="launching",
-                                  text="正在启动安装程序…", installer_path=path,
-                                  error_code=""), False)
-        got = updater.launch_installer(path)
-        if got.get("ok"):
-            text = "安装程序已启动。请先关闭本工具，再按向导完成安装。"
-            self._publish_update(dict(base, request_id=request_id, state="launching",
-                                      text=text, installer_path=path, error_code=""), False)
-            return {"ok": True, "path": path, "text": text}
-        text = str(got.get("text") or "安装程序没能启动，请重试。")
-        self._publish_update(dict(base, request_id=request_id, state="failed",
-                                  text=text, installer_path=path,
-                                  error_code=str(got.get("error_code") or "launch_failed")), False)
-        return {"ok": False, "text": text}
-
+        return self._updates.launch(request_id, _update_service.LaunchPorts(
+            version_switch_available=version_switch_available,
+            update_version_paths=update_version_paths,
+            launcher_command=update_launcher_command,
+            spawn=subprocess.Popen,
+            cwd=str(HERE),
+            env_factory=_env,
+            creationflags=CREATE_NO_WINDOW,
+            parent_pid=os.getpid(),
+            defer_close=defer_close_action,
+            request_close=lambda: self.request_window_close("exit"),
+            launch_installer=updater.launch_installer))
 
     def check(self, request_id: str = "") -> dict:
         # js_api 的处理跑在 UI 线程上：一旦在这里跑 subprocess，

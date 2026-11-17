@@ -171,7 +171,7 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 | domain | `lifecycle_rules` | 跨关闭时长/质量记账（v1 文本 / v2 epoch） | infrastructure | 无 |
 | domain | `time_text` / `worker_lines` / `demo_data` / `errors` | 时间文本换算、worker 行解析、演示样例、语义类型 | 各层 | 无（换算/格式化函数由 app.py 注入；不读墙钟，此刻值由调用方传入） |
 | application | `plan_service` | 单场 worker 的启动、监督、终态收尾（端口注入） | app.Api._run_plan_task | domain + 注入端口 |
-| application | `update_service` | 更新检查/下载校验用例（fetch/download 端口注入） | app.Api 更新方法 | 注入端口 |
+| application | `update_service` | 更新的状态与用例（UpdateService），端口由 Api 在调用时注入 | app.Api 更新方法 | 注入端口 |
 | application | `login_service` | check 事件载荷与 done 结论整理 | app.Api._do_check_inner/_pump | domain |
 | infrastructure | `prefs_store` | ui.json 跨进程锁 + 原子读-合并-写 | app 外观、lifecycle_store | 无 |
 | infrastructure | `process_tree` | Windows Job Object 进程树所有权、taskkill 整树终止 | app 外观（spawn 端口） | 无 |

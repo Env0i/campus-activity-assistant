@@ -1853,9 +1853,9 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
         """ready_to_restart 启动 apply，并把 staging/版本根/目标版本/父 PID 一起传给入口。"""
         app = _app()
         api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
-        api._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2",
+        api._updates._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2",
                               "request_id": "rid-update"}
-        api._update_staging_path = "D:/versions/.staging-rid-update"
+        api._updates._update_staging_path = "D:/versions/.staging-rid-update"
         launched = []
         with tempfile.TemporaryDirectory() as name:
             launcher = Path(name) / "update-launcher.exe"
@@ -1888,22 +1888,22 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
         """开发态没有旁路启动器时不切换目录，保留 ready_to_restart。"""
         app = _app()
         api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
-        api._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2"}
-        api._update_staging_path = "D:/versions/.staging-rid-update"
+        api._updates._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2"}
+        api._updates._update_staging_path = "D:/versions/.staging-rid-update"
         with mock.patch.object(app.sys, "frozen", False, create=True), \
                 mock.patch.object(app.subprocess, "Popen") as popen:
             result = api.update_launch("rid-update")
         self.assertFalse(result["ok"])
         self.assertEqual(result["state"], "ready_to_restart")
-        self.assertEqual(api._update_result["state"], "ready_to_restart")
+        self.assertEqual(api._updates._update_result["state"], "ready_to_restart")
         popen.assert_not_called()
 
     def test_ready_to_restart_stays_ready_when_frozen_launcher_is_missing(self):
         """冻结 onefile 或残缺 onedir 没有旁路入口时不得误切换。"""
         app = _app()
         api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
-        api._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2"}
-        api._update_staging_path = "D:/versions/.staging-rid-update"
+        api._updates._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2"}
+        api._updates._update_staging_path = "D:/versions/.staging-rid-update"
         with mock.patch.object(app.sys, "frozen", True, create=True), \
                 mock.patch.object(app, "resolve_update_launcher_path",
                                   return_value=Path("D:/missing/update-launcher.exe")), \
@@ -1917,9 +1917,9 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
         """update_launch 与下载用同一判据：不在 versions/<当前版本>/ 下运行时不起启动器。"""
         app = _app()
         api = stop_auto_relogin_on_cleanup(self, app.Api(clock=TestWallClock()))
-        api._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2",
+        api._updates._update_result = {"state": "ready_to_restart", "latest_version": "1.2.2",
                               "request_id": "rid-update"}
-        api._update_staging_path = "D:/versions/.staging-rid-update"
+        api._updates._update_staging_path = "D:/versions/.staging-rid-update"
         with tempfile.TemporaryDirectory() as name:
             launcher = Path(name) / "update-launcher.exe"
             launcher.write_bytes(b"launcher")
