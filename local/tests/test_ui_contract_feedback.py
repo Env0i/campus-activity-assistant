@@ -46,10 +46,12 @@ class ErrorFeedbackContractTests(unittest.TestCase):
                      empty.index('if (S.listState === "error")')]
         self.assertNotIn("copy.hint", comp, "列表空态组件分支不得复读长说明")
         self.assertNotIn("重新检查", comp, "「重新检查」只能出现在顶部横幅")
-        board = js[js.index("function paintSelected("):js.index("function setBoardTag(")]
-        comp_board = board[board.index('S.runtime.error && S.listState !== "ready"'):
-                           board.index('if (!S.busy && S.listState === "error"')]
-        self.assertNotIn(".hint", comp_board, "大屏组件分支只留短状态")
+        # 大屏的组件分支与它的短状态分居状态机与样子表两处，切片跟着走；
+        # 断言不变：这一段里不得出现长说明
+        phase_branch = js[js.index('if (!f.busy && f.runtimeError && f.listState !== "ready")'):
+                          js.index('if (!f.busy && f.listState === "error"')]
+        style_branch = js[js.index("broken: {"):js.index("list_error: {")]
+        self.assertNotIn(".hint", phase_branch + style_branch, "大屏组件分支只留短状态")
 
     def test_list_error_copy_uses_real_failure_text(self):
         """空态归因用真实失败原话（S.listError），不再丢原话按空串猜。"""

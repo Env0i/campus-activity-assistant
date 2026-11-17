@@ -3,6 +3,137 @@
 import { termsLocked } from "../terms/state.js";
 import { RUNNING_STATUSES, executionView, taskDisplayDetail, taskDisplayLabel, taskModePrefix, verifiedSigned } from "./state-task.js";
 import { LATE_WINDOW_S, boardPlanState, boardTargetItem, editNoteText, earliestWaitingOpen, planLate, resultCounts, resultMode, resultView, reselectableIds, runCaption, runTagText, selectionSummary, stopReasonText } from "./state-board.js";
+import { boardPhase } from "./state-machine.js";
+
+/* 计划栏标题区的样子表：一个阶段一项，键与 BOARD_PHASES 一一对应。
+ * 定值直接写；要看别的事实的写成小函数，接 (view, next, items)，函数体就是原分支里的表达式。 */
+export const BOARD_STYLE = Object.freeze({
+  first_use: {
+    tag: "首次使用", tone: "off", dot: true,
+    title: "登录后开始",
+    text: "活动会在登录完成后自动加载。",
+  },
+  logging_in: {
+    /* 登录尝试期间 S.busy 也为真，但这不是报名计划：
+     * 不能把大屏说成「正在准备报名」，否则用户以为点登录触发了抢报名。 */
+    tag: "登录中", tone: "amber", dot: true,
+    title: "正在打开登录窗口",
+    text: "在浏览器里登完再回来；中途关掉窗口会保留原来的登录状态。",
+  },
+  result: {
+    /* 结果页是独立分支（原型 phase === 'result' 的 res 段，P1）：标签、结论标题、副行都来自 resultView；
+     * 不写地点时间 meta，成功场次被移出选择集合也不会退回草稿的「下一场」 */
+    tag: () => resultView().tag, tone: () => resultView().tone, dot: true,
+    title: () => resultView().title,
+    text: () => resultView().text,
+  },
+  terms_hold: {
+    /* 条款没同意（且登录过）：原型渲染函数 draft 段的 !s.terms 覆盖——标签「已暂停」，
+     * 没选活动时标题副行说停用了什么（帮助和设置照常可用）。 */
+    tag: "已暂停", tone: "off", dot: true,
+    title: () => S.terms.unknown ? "重新确认条款后才能报名" : "同意条款后才能报名",
+    text: () => S.terms.unknown ? "登录、活动列表和报名计划暂时停用。帮助和设置照常可用。"
+      : "登录、活动列表和报名计划都停用了。帮助和设置照常可用。",
+  },
+  broken: {
+    /* 组件问题只留短状态（原型 draft 段 s.list === 'broken'）：完整原因与恢复动作在顶部横幅 */
+    tag: "不可用", tone: "red", dot: true,
+    title: "暂时不能报名",
+    text: "程序组件缺失，处理办法在顶部提示里。",
+  },
+  list_error: {
+    /* 列表失败只留短状态：完整原因与「重试」在列表空态 */
+    tag: "需重试", tone: "red", dot: true,
+    title: "活动暂时没加载",
+    text: "具体原因看左边列表的提示。",
+  },
+  list_loading: {
+    /* 加载态与「有没有选中」无关（原型 Main.dc.html:2006 只看 !sel.length）：
+     * 手上有旧列表时点刷新同样要立刻显示在加载，否则界面像没反应。
+     * 列表还在拉：不得把「近期没有要开放的活动」当事实说出口 */
+    tag: "加载中", tone: "off", dot: true,
+    title: "活动列表正在加载",
+    text: "先等这一次加载结束。",
+  },
+  run_target: {
+    /* 运行中（原型渲染函数 ex 段）：标题与批次数都来自同一个执行目标，单场结束不会把这里改成结论。
+     * 标题下面只留一行说明，不再写地点时间（原型运行态没有）；三个阶段分开说：
+     * 等开放 ≠ 已开放待提交（代码独有的「准备报名」）≠ 真正在提交。 */
+    tag: (view) => runTagText(view),
+    tone: (view) => view.phase === "submitting" ? "red" : "amber", dot: true,
+    title: (view) => view.item ? view.item.name : "这一场活动",
+    text: (view) => runCaption(view),
+  },
+  run_settling: {
+    /* 没有可执行任务、plan_done 还没到：准备中 / 正在汇总，不提前报成功 */
+    tag: "汇总中", tone: "amber", dot: true,
+    title: "正在汇总结果",
+    text: "每一场都结束了，正在汇总这一轮的结果。",
+  },
+  run_preparing: {
+    tag: "准备中", tone: "amber", dot: true,
+    title: "正在准备报名",
+    text: "计划已经接管，正在核对每一场的开放时间。",
+  },
+  next_open: {
+    tag: "开放中", tone: "amber", dot: false,
+    title: (view, next) => next.name,
+    meta: (view, next) => boardMetaHtml(next),
+  },
+  next_upcoming: {
+    /* 副行只留地点与时间（原型 draft 段 nextIt），「选这一场」按钮就在票区下面 */
+    tag: "下一场", tone: "amber", dot: true,
+    title: (view, next) => next.name,
+    meta: (view, next) => boardMetaHtml(next),
+  },
+  school_empty: {
+    /* 学校成功返回 0 场（原型 draft 段）：大屏只留一句短状态，完整原因在列表空态，不在这里复读 */
+    tag: "暂时没有", tone: "off", dot: true,
+    title: "学校当前没有活动",
+    text: "稍后刷新再看。",
+  },
+  clock_pending: {
+    /* 没有可信现在：不能断言「没有可报名的场次」，也不能显示伪计数。
+     * 只给短状态和单一恢复入口（打开时间详情重新校准）。 */
+    tag: "时间待校准", tone: "amber", dot: true,
+    title: "时间待校准",
+    html: "校准北京时间后才能判断哪些场次可以报名。"
+      + '<button type="button" class="btn btn-line btn-mini" data-open-clock>查看时间详情</button>',
+  },
+  none_eligible: {
+    /* 列表里有活动，只是没有可执行目标（全已报名 / 全已截止 / 报名时间待公布）：
+     * 这不是「学校没返回」，数据仍在列表里，别替学校下结论。 */
+    tag: "暂时没有", tone: "off", dot: true,
+    title: "没有可报名的场次",
+    text: "列表里的活动已报名、已截止或还没公布报名时间。",
+  },
+  none_upcoming: {
+    tag: "暂时没有", tone: "off", dot: true,
+    title: "近期没有要开放的活动",
+    text: "可能还没公布报名时间，也可能都报过了。过一会儿点「刷新」看看。",
+  },
+  selected_paused: {
+    /* 选了活动（原型 draft 段）：标题一律「已选 N 场」，副行一句汇总；地点时间和场名都在票里，不再复读 */
+    tag: "已暂停", tone: "off", dot: true,
+    title: (view, next, items) => "已选 " + items.length + " 场",
+    text: (view, next, items) => selectionSummary(items),
+  },
+  editing: {
+    tag: "修改中", tone: "amber", dot: true,
+    title: (view, next, items) => "已选 " + items.length + " 场",
+    text: (view, next, items) => selectionSummary(items),
+  },
+  selected: {
+    tag: "报名计划", tone: "amber", dot: true,
+    title: (view, next, items) => "已选 " + items.length + " 场",
+    text: (view, next, items) => selectionSummary(items),
+  },
+});
+
+/* 表项里放定值还是小函数：小函数按 (view, next, items) 取，定值原样用 */
+function styleValue(value, view, next, items) {
+  return typeof value === "function" ? value(view, next, items) : value;
+}
 
 export function paintSelected() {
   const box = $("#selected");
@@ -16,117 +147,29 @@ export function paintSelected() {
   box.className = "b-title";
   meta.innerHTML = "";
   boardText.textContent = "";
-  if (!S.busy && S.login.present === false && !S.runtime.error) {
-    setBoardTag("首次使用", "off", true);
-    box.textContent = "登录后开始";
-    boardText.textContent = "活动会在登录完成后自动加载。";
-    return;
-  }
-  if (S.login.loginPending) {
-    /* 登录尝试期间 S.busy 也为真，但这不是报名计划：
-     * 不能把大屏说成「正在准备报名」，否则用户以为点登录触发了抢报名。 */
-    setBoardTag("登录中", "amber", true);
-    box.textContent = "正在打开登录窗口";
-    boardText.textContent = "在浏览器里登完再回来；中途关掉窗口会保留原来的登录状态。";
-    return;
-  }
-  if (resultMode()) {
-    /* 结果页是独立分支（原型 phase === 'result' 的 res 段，P1）：标签、结论标题、副行都来自 resultView；
-     * 不写地点时间 meta，成功场次被移出选择集合也不会退回草稿的「下一场」 */
-    const res = resultView();
-    setBoardTag(res.tag, res.tone, true);
-    box.textContent = res.title;
-    boardText.textContent = res.text;
-    return;
-  }
-  /* 条款没同意（且登录过）：原型渲染函数 draft 段的 !s.terms 覆盖——标签「已暂停」，
-   * 没选活动时标题副行说停用了什么（帮助和设置照常可用）。 */
-  const termsHold = !S.busy && termsLocked() && S.login.present !== false;
-  if (termsHold && !items.length) {
-    setBoardTag("已暂停", "off", true);
-    box.textContent = S.terms.unknown ? "重新确认条款后才能报名" : "同意条款后才能报名";
-    boardText.textContent = S.terms.unknown ? "登录、活动列表和报名计划暂时停用。帮助和设置照常可用。"
-      : "登录、活动列表和报名计划都停用了。帮助和设置照常可用。";
-    return;
-  }
-  if (!S.busy && S.runtime.error && S.listState !== "ready") {
-    /* 组件问题只留短状态（原型 draft 段 s.list === 'broken'）：完整原因与恢复动作在顶部横幅 */
-    setBoardTag("不可用", "red", true);
-    box.textContent = "暂时不能报名";
-    boardText.textContent = "程序组件缺失，处理办法在顶部提示里。";
-    return;
-  }
-  if (!S.busy && S.listState === "error" && !S.items.length) {
-    /* 列表失败只留短状态：完整原因与「重试」在列表空态 */
-    setBoardTag("需重试", "red", true);
-    box.textContent = "活动暂时没加载";
-    boardText.textContent = "具体原因看左边列表的提示。";
-    return;
-  }
-  /* 加载态与「有没有选中」无关（原型 Main.dc.html:2006 只看 !sel.length）：
-   * 手上有旧列表时点刷新同样要立刻显示在加载，否则界面像没反应。 */
-  if (!S.busy && S.listState === "loading" && !items.length) {
-    /* 列表还在拉：不得把「近期没有要开放的活动」当事实说出口 */
-    setBoardTag("加载中", "off", true);
-    box.textContent = "活动列表正在加载";
-    boardText.textContent = "先等这一次加载结束。";
-    return;
-  }
-  if (S.busy) {
-    /* 运行中（原型渲染函数 ex 段）：标题与批次数都来自同一个执行目标，单场结束不会把这里改成结论。
-     * 标题下面只留一行说明，不再写地点时间（原型运行态没有）；三个阶段分开说：
-     * 等开放 ≠ 已开放待提交（代码独有的「准备报名」）≠ 真正在提交。 */
-    if (view.phase === "submitting" || view.phase === "arming" || view.phase === "waiting") {
-      setBoardTag(runTagText(view), view.phase === "submitting" ? "red" : "amber", true);
-      box.textContent = view.item ? view.item.name : "这一场活动";
-      boardText.textContent = runCaption(view);
-      return;
-    }
-    /* 没有可执行任务、plan_done 还没到：准备中 / 正在汇总，不提前报成功 */
-    setBoardTag(view.phase === "settling" ? "汇总中" : "准备中", "amber", true);
-    box.textContent = view.phase === "settling" ? "正在汇总结果" : "正在准备报名";
-    boardText.textContent = view.phase === "settling"
-      ? "每一场都结束了，正在汇总这一轮的结果。"
-      : "计划已经接管，正在核对每一场的开放时间。";
-    return;
-  }
-  if (!items.length) {
-    if (next) {
-      const openNow = stateOf(next) === "open";
-      setBoardTag(openNow ? "开放中" : "下一场", "amber", !openNow);
-      box.textContent = next.name;
-      /* 副行只留地点与时间（原型 draft 段 nextIt），「选这一场」按钮就在票区下面 */
-      meta.innerHTML = boardMetaHtml(next);
-    } else if (S.listState === "ready" && !S.items.length) {
-      /* 学校成功返回 0 场（原型 draft 段）：大屏只留一句短状态，完整原因在列表空态，不在这里复读 */
-      setBoardTag("暂时没有", "off", true);
-      box.textContent = "学校当前没有活动";
-      boardText.textContent = "稍后刷新再看。";
-    } else if (S.listState === "ready" && bnowS() === null && !S.demo) {
-      /* 没有可信现在：不能断言「没有可报名的场次」，也不能显示伪计数。
-       * 只给短状态和单一恢复入口（打开时间详情重新校准）。 */
-      setBoardTag("时间待校准", "amber", true);
-      box.textContent = "时间待校准";
-      boardText.innerHTML = "校准北京时间后才能判断哪些场次可以报名。" +
-        '<button type="button" class="btn btn-line btn-mini" data-open-clock>查看时间详情</button>';
-    } else if (S.listState === "ready") {
-      /* 列表里有活动，只是没有可执行目标（全已报名 / 全已截止 / 报名时间待公布）：
-       * 这不是「学校没返回」，数据仍在列表里，别替学校下结论。 */
-      setBoardTag("暂时没有", "off", true);
-      box.textContent = "没有可报名的场次";
-      boardText.textContent = "列表里的活动已报名、已截止或还没公布报名时间。";
-    } else {
-      setBoardTag("暂时没有", "off", true);
-      box.textContent = "近期没有要开放的活动";
-      boardText.textContent = "可能还没公布报名时间，也可能都报过了。过一会儿点「刷新」看看。";
-    }
-    return;
-  }
-  /* 选了活动（原型 draft 段）：标题一律「已选 N 场」，副行一句汇总；地点时间和场名都在票里，不再复读 */
-  if (termsHold) setBoardTag("已暂停", "off", true);
-  else setBoardTag(S.editing ? "修改中" : "报名计划", "amber", true);
-  box.textContent = "已选 " + items.length + " 场";
-  boardText.textContent = selectionSummary(items);
+  const style = BOARD_STYLE[boardPhase({
+    busy: !!S.busy,
+    present: S.login.present,
+    runtimeError: !!S.runtime.error,
+    loginPending: !!S.login.loginPending,
+    resultMode: resultMode(),
+    termsLocked: termsLocked(),
+    listState: S.listState,
+    itemsCount: S.items.length,
+    selectedCount: items.length,
+    hasNext: !!next,
+    nextOpenNow: !!next && stateOf(next) === "open",
+    clockKnown: bnowS() !== null,
+    demo: !!S.demo,
+    editing: !!S.editing,
+    runPhase: view.phase,
+  })];
+  setBoardTag(styleValue(style.tag, view, next, items),
+    styleValue(style.tone, view, next, items), style.dot);
+  box.textContent = styleValue(style.title, view, next, items);
+  if (style.html) boardText.innerHTML = styleValue(style.html, view, next, items);
+  else boardText.textContent = styleValue(style.text || "", view, next, items);
+  if (style.meta) meta.innerHTML = styleValue(style.meta, view, next, items);
 }
 
 export function setBoardTag(text, tone, dot) {

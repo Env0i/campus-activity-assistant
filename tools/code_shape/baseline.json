@@ -147,10 +147,6 @@
         "value": 117,
         "reason": "步骤 1C 计划栏"
       },
-      "local/ui/features/plan/view.js::paintSelected": {
-        "value": 124,
-        "reason": "步骤 1C 计划栏"
-      },
       "local/ui/led.js::#anon1": {
         "value": 108,
         "reason": "存量，未排期"

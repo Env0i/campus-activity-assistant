@@ -88,7 +88,7 @@ export function modifyPlan() {
   /* doneN：进入修改时已经结束的场次数，修改说明写「已结束的 N 场不受影响」（原型 modifyS） */
   S.editing = { ids: keep, doneN: S.plan.tasks.size - keep.length };
   /* U9：「计划已暂停」那一句不在这里写——停止还没成功，现在写就是对运行记录说了假话。
-   * 等计划真的以 stopped 结束、按 S.editing 放回勾选时，由 plan-events.js 用 editPausedLine 写。 */
+   * 等计划真的以 stopped 结束、按 S.editing 放回勾选时，由 features/plan/actions-events.js 的计划结束处理调用本文件的 editPausedLine 写。 */
   doStopPlan();
 }
 
