@@ -1,0 +1,39 @@
+#!/bin/sh
+# pre-commit：提交前跑全部三道守卫。
+#
+# 为什么放在这里而不放在 PostToolUse：test_code_shape 要扫全仓 1600+ 文件，
+# 单跑 7 秒，每次编辑都跑会把会话拖垮。放在提交前，慢这一次可以接受，
+# 而且"文件不超 500 行、名单只增不减"本来就是提交那一刻才需要成立的。
+#
+# 只改文档或 .claude/ 时跳过，省 8 秒。
+# 单次跳过：git commit --no-verify
+
+PY="/d/Env/Python/3.12/python.exe"
+[ -x "$PY" ] || PY="python"
+
+changed=$(git diff --cached --name-only --diff-filter=ACMR)
+if [ -z "$changed" ]; then
+    exit 0
+fi
+
+code=$(printf '%s\n' "$changed" | grep -E '\.(py|js|mjs)$' || true)
+if [ -z "$code" ]; then
+    echo "[pre-commit] 本次只有文档/配置改动，跳过守卫"
+    exit 0
+fi
+
+echo "[pre-commit] 跑三道守卫（约 9 秒）"
+"$PY" -m pytest \
+    local/tests/test_layer_boundaries.py \
+    local/tests/test_ui_layers.py \
+    local/tests/test_code_shape.py \
+    -q --no-header -p no:cacheprovider
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "提交被拒绝：三道守卫没有全绿。"
+    echo "按 AGENTS.md「代码结构规则」修，不要改白名单或 baseline.json 绕过去。"
+    exit 1
+fi
+
+exit 0

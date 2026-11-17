@@ -1,0 +1,49 @@
+#!/bin/sh
+# commit-msg：按 AGENTS.md「提交规范」做机械检查。
+#
+# 检查四项：
+#   1. 首行格式 type(scope): 结果，type 在允许集合内
+#   2. 首行冒号后不超过 25 字
+#   3. 正文（不含首行、尾注、空行、# 注释）不超过 200 字
+#   4. Agent: 的下一行必须是 Co-Authored-By:（中间有空行会让 Agent 掉出 trailer 区）
+#
+# 启用（仓库级，不写 .git/hooks，不动共享配置里的其他钩子）：
+#   git config core.hooksPath .githooks
+# 停用：
+#   git config --unset core.hooksPath
+# 单次跳过：
+#   git commit --no-verify
+
+msg_file="$1"
+fail() { echo ""; echo "$1"; echo ""; exit 1; }
+
+first=$(head -n 1 "$msg_file")
+
+if ! printf '%s' "$first" | grep -qE '^(feat|fix|refactor|perf|test|docs|build|ci|chore|deploy)(\([^)]*\))?!?: .+'; then
+    fail "首行不合规：$first
+应为 type(scope): 结果，type 限于 feat/fix/refactor/perf/test/docs/build/ci/chore/deploy。"
+fi
+
+desc=$(printf '%s' "$first" | sed -E 's/^[a-z]+(\([^)]*\))?!?:[[:space:]]*//')
+len=$(printf '%s' "$desc" | wc -m | tr -d ' ')
+if [ "$len" -gt 25 ]; then
+    fail "首行冒号后 ${len} 字，超过 25 字上限：$desc"
+fi
+
+awk '
+/^Agent: /        { a = NR; next }
+/^Co-Authored-By: / { if (a && NR == a + 1) paired = 1; next }
+END {
+    if (!a) { print "缺尾注：补一行 Agent: <模型名>"; exit 1 }
+    if (!paired) { print "尾注不合规：Agent: 的下一行必须紧跟 Co-Authored-By:，中间不能有空行"; exit 1 }
+}' "$msg_file" || exit 1
+
+body=$(sed -e '/^#/d' -e '/^Agent:/d' -e '/^Co-Authored-By:/d' "$msg_file" | tail -n +2 | tr -d '\r')
+blen=$(printf '%s' "$body" | tr -d '\n' | tr -d ' ' | wc -m | tr -d ' ')
+if [ "$blen" -gt 200 ]; then
+    fail "正文 ${blen} 字，超过 200 字上限。
+AGENTS.md 的判断标准是「写不短，多半是一次提交做了几件事，应该拆开提交」。
+确实拆不开就 git commit --no-verify，并在报告里说明原因。"
+fi
+
+exit 0

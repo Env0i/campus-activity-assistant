@@ -35,9 +35,9 @@
   - 需要授权的操作有：commit、push（包括 `--force` 和 `--force-with-lease`）、rebase、amend、reset、clean、gc、filter-repo、merge、cherry-pick、大范围回滚，以及删除分支、tag、stash 或其他 refs。
 - **永远不跑**：`git reset --hard`、`git checkout --`、`git clean -xdf`、`git gc --prune=now`、`git filter-repo`。这些命令会丢掉别人还没提交的工作，或者改写共享的对象库。
 - **构建、测试和外部网络**：没有用户授权、计划里也没要求时，不跑构建和测试，也不做真实的外部网络操作。
-- **多步骤任务**：先按 Plan Protocol 2.2.1 写计划。
+- **多步骤任务**：先按 Plan Protocol 2.3.0 写计划。
   - 计划放 `.claude/plans/`，执行结果放 `.claude/results/`。`.claude/` 已被 gitignore，不入库。
-  - 计划要先过门禁，门禁是共享桥接目录里的 `plan-validate`。门禁需要 PyYAML，本机测试用的 Python 3.12 没装 PyYAML。
+  - 计划要先过门禁，开工用 `plan_run.py start`（门禁、基线、守卫一条命令），脚本在共享桥接目录的 `plan-protocol/scripts/`，说明见 `plan-protocol/README.md`。门禁需要 PyYAML，本机 Python 3.12（3.12.9）已带 6.0.3，不用另装。
 - **需求有歧义时**：只在有歧义时才问。能自己判断的，把判断写进提交正文的「放弃了什么」。
 - **收工**：
   - 提醒提交端净化 `.claude/`（对共享工作区可见）。脚本是共享桥接目录里的 `scrub-share.ps1`，写法随 PowerShell 版本不同，两种环境不通用：
@@ -61,6 +61,9 @@
 
 ## 安全与敏感信息
 
+- **硬拦截**：`.claude/settings.json` 的 `permissions.deny` 拦了 6 条 git 命令（`reset --hard`、`checkout --`、`clean -xd`、`clean -xdf`、`gc --prune=now`、`filter-repo`）和 8 条敏感路径（`local/data/`、`server/data/`、两个 `config.json`、`.env`、`_site_build.py`、`local/bin/`）。
+  - 被拒不是故障，是规则生效；**不要换写法绕过**（例如改用 Bash 读 `local/data/`）。
+  - 它只覆盖 Read 工具，挡不住所有路径，所以下面这些才是唯一准绳。
 - **不读、不建、不复制、不提交**：
   - `local/data/`、`server/data/`
   - `local/config.json`、`server/config.json`
@@ -136,7 +139,7 @@ python tools/release.py --prepare
 - **不联网**：所有测试都替换掉了学校请求。部分用例按 `local.xxx` 导入，所以要从仓库根运行。
 - **创建 `app.Api`**：新用例必须经过 `local/tests/fixtures/api_threads.py` 的 `stop_auto_relogin_on_cleanup`。原因是 `Api` 一构造就会启动自动重登线程；不收掉的话，全量会越跑越慢，计时类用例会变红。
 - **时间**：
-  - 学校时间字段按北京时间造（`time_contract.SCHOOL_TZ`）。
+  - 学校时间字段按学校时区造（`time_contract.SCHOOL_TZ`）。
   - 业务时钟用 `FakeBusinessClock` 或 `configure_time_source` 注入，不读本机墙钟。
   - 不这样做，换个时区跑就会错位。
 - **界面测试有两类**：
@@ -242,7 +245,13 @@ python tools/release.py --prepare
 
 提交本身要先授权，见「共享工作区与授权」。
 
-首行写 `type(scope): 结果`，`type` 用 feat / fix / docs / deploy / chore 之一。
+首行写 `type(scope): 结果`，`type` 用下面之一：
+
+- `feat` 新功能 · `fix` 修缺陷 · `refactor` 改结构不改行为 · `perf` 性能
+- `test` 测试 · `docs` 文档 · `build` 构建与依赖 · `ci` 流水线 · `chore` 杂项
+- `deploy` 发版（本仓库自定义）
+
+按改动性质选，不要一律用 `chore`：搬模块、抽服务、改状态机是 `refactor`；`chore` 只留给不影响源码行为的杂项，比如改 `.gitignore`、升依赖、动工具配置。
 
 正文只写 diff 里看不出的三件事，按这个顺序：
 
@@ -250,7 +259,14 @@ python tools/release.py --prepare
 2. **放弃了什么**，以及为什么放弃
 3. **什么条件下会再坏**
 
-尾注写一行：`Agent: <模型名>`。
+**破坏性变更**：改了对外接口、数据格式或调用约定时，`type` 后加 `!`（如 `refactor(api)!: …`），并在正文最后一行写 `BREAKING CHANGE: <受影响的东西>`。没有就不写。
+
+尾注固定两行，**中间不留空行**。空行会让 `Agent:` 掉出 trailer 区，`git log --format=%(trailers)` 和 GitHub 都取不到：
+
+```
+Agent: <模型名>
+Co-Authored-By: <模型名> <邮箱>
+```
 
 **要短**：
 
