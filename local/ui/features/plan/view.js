@@ -2,7 +2,7 @@
 
 import { termsLocked } from "../terms/state.js";
 import { RUNNING_STATUSES, executionView, taskDisplayDetail, taskDisplayLabel, taskModePrefix, verifiedSigned } from "./state-task.js";
-import { LATE_WINDOW_S, boardPlanState, boardTargetItem, editNoteText, earliestWaitingOpen, planLate, resultCounts, resultMode, resultView, reselectableIds, runCaption, runTagText, selectionSummary, stopReasonText } from "./state-board.js";
+import { boardPlanState, boardTargetItem, editNoteText, resultCounts, resultMode, resultView, reselectableIds, runCaption, runTagText, runWarnView, selectionSummary, stopReasonText } from "./state-board.js";
 import { boardPhase } from "./state-machine.js";
 
 /* 计划栏标题区的样子表：一个阶段一项，键与 BOARD_PHASES 一一对应。
@@ -250,41 +250,13 @@ export function paintRunPanel() {
     if (why) why.hidden = true;
     return;
   }
-  const late = planLate();
-  const tasks = Array.from(S.plan.tasks.values());
-  const waitList = tasks.filter((t) => ["queued", "waiting"].indexOf(String(t.status || "")) >= 0);
-  const submitting = tasks.some((t) => String(t.status || "") === "submitting");
-  /* 运行中登录失效（决策 014 第 8 条，原型 runWarnV）：电脑在自动登录时只写一行说明；来得及就给「重新登录」 */
-  const waitingAuto = tasks.some((t) => String(t.login_wait || "") === "waiting");
-  const login = (S.login.view || {}).state;
-  let text = "";
-  let tone = "";
-  let act = null;
-  if ((waitingAuto || login === "bad") && (waitList.length || submitting)) {
-    if (waitingAuto) {
-      tone = "info";
-      text = submitting ? "登录失效了，电脑正在自动登录（最多约 20 秒），成功后接着提交。"
-        : "登录失效了，电脑正在自动登录。计划照常等开放，不用你管。";
-    } else {
-      const now = bnowS();
-      const first = earliestWaitingOpen();
-      if (late || first === null) {
-        /* 来不及：有场次在提交，或最早一场离开放不到 100 秒（与修改计划同一个 planLate） */
-        const pivot = submitting ? now : first;
-        const later = pivot !== null && waitList.some((t) => {
-          const open = toTs(t.sign_start);
-          return open !== null && open > pivot;
-        });
-        text = "登录失效了。" + (submitting ? "正在提交" : "离开放不到 100 秒") + "，来不及重新登录，"
-          + (submitting ? "正在提交的场次" : "这一批") + "会以“登录失效”结束。"
-          + (later ? "后面的场次等它结束后重新登录就行。" : "");
-      } else {
-        text = "登录失效了，计划还在等。只要在 " + hmsDay(first - LATE_WINDOW_S) + " 前重新登录，计划照常继续；否则 "
-          + hmsDay(first) + " 开放的那批会以“登录失效”结束。";
-        act = { act: "login", label: "重新登录" };
-      }
-    }
-  }
+  const warnView = runWarnView(bnowS());
+  const late = warnView.late;
+  const waitList = warnView.waitList;
+  const submitting = warnView.submitting;
+  const text = warnView.text;
+  const tone = warnView.tone;
+  const act = warnView.act;
   warn.hidden = !text;
   warn.dataset.tone = tone;
   /* 每秒走字也调这里（tick.js，离开放 100 秒时「来得及」要改成「来不及」）：内容没变就不重写，

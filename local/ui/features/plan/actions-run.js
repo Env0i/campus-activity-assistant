@@ -118,7 +118,20 @@ export function finishResult() {
   if (typeof setPlanOpen === "function") setPlanOpen(false);
 }
 
+/* 后端说「没有这个计划」时不能再说「照常进行」：计划其实已经不在了。
+ * 按窗口恢复同一套快照对账；桥接异常时不追加动作，原有失败记录已经说明过了。 */
+function resyncPlanFromBootstrap() {
+  api("bootstrap").then((info) => {
+    if (!info) return;
+    ingestBootstrapPlan(info);
+    if (!info.busy) S.stopping = false;
+    if (!!info.busy !== S.busy) setBusy(!!info.busy);
+    render();
+  }).catch(() => {});
+}
+
 export function doStopPlan() {
+  S.stopNote = null;
   if (!S.plan.id) return;
   /* 立刻给「正在停止」的反馈：后端在按进程树终止 worker，
    * busy 要等 plan_done 才解锁，中间不能看起来像卡死 */
@@ -128,21 +141,26 @@ export function doStopPlan() {
   addLog("正在停止计划：结束还在重试的场次…");
   /* 停止没成功（后端拒绝，或桥接异常）：计划仍在运行。若这次停止是「修改计划」发起的，
    * 一并退出修改中（U1）——否则计划栏标签、说明和「放弃修改」会挂在一个还在跑的计划上。 */
-  const stopFailed = (line) => {
+  const planId = S.plan.id;
+  const stopFailed = (line, noteText) => {
     const wasEditing = !!S.editing;
     S.stopping = false;
     S.editing = null;
+    if (noteText) S.stopNote = { planId: planId, text: noteText };
     paintLogin();
     updateControls();
     addLog(line);
-    if (wasEditing) {
-      addLog("停止没成功，计划继续运行");
-      render();
-    }
+    if (wasEditing) addLog("停止没成功，计划继续运行");
+    render();
   };
-  api("stop_plan", S.plan.id).then((res) => {
-    if (res && res.ok === false) stopFailed(res.text || "当前没有这个计划");
+  api("stop_plan", planId).then((res) => {
+    if (res && res.ok === false) {
+      stopFailed(res.text || "当前没有这个计划");
+      resyncPlanFromBootstrap();
+    }
   }).catch((err) => {
-    stopFailed("[X] 停止计划失败：" + msg(err));
+    /* 桥接异常才写「照常进行」：这是我们能确认的失败；后端说没有计划要走快照对账 */
+    stopFailed("[X] 停止计划失败：" + msg(err),
+      S.editing ? "没能暂停，计划照常进行。" : "没能停止，计划照常进行。");
   });
 }

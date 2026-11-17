@@ -626,6 +626,8 @@ document.addEventListener("visibilitychange", () => {
   api("bootstrap").then((info) => {
     if (info) {
       ingestBootstrapPlan(info);
+      /* 停止成功但结束事件在窗口隐藏时错过：快照说没有计划就收掉「正在停止」 */
+      if (!info.busy) S.stopping = false;
       if (!!info.busy !== S.busy) setBusy(!!info.busy);
       if (!info.busy) refresh(true, { background: true });   /* 窗口恢复是程序自己发起的：不闪骨架，失败不清列表（U2/U3） */
     }

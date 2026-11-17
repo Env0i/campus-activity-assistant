@@ -230,3 +230,54 @@ export function stopReasonText(reason) {
 export function retryDeadline(task) {
   return effectiveRetryDeadline(task);
 }
+
+/* 运行中的提示（原型 runWarnV）：文字、色调与按钮，状态层只算不写 DOM。
+ * now 由调用方给：状态层不读时钟；离开放不到 100 秒与「正在提交」一样算来不及。 */
+export function runWarnView(now) {
+  const late = planLate();
+  const tasks = Array.from(S.plan.tasks.values());
+  const waitList = tasks.filter((t) => ["queued", "waiting"].indexOf(String(t.status || "")) >= 0);
+  const submitting = tasks.some((t) => String(t.status || "") === "submitting");
+  /* 运行中登录失效（决策 014 第 8 条，原型 runWarnV）：电脑在自动登录时只写一行说明；来得及就给登录或输验证码 */
+  const waitingAuto = tasks.some((t) => String(t.login_wait || "") === "waiting");
+  const login = (S.login.view || {}).state;
+  let text = "";
+  let tone = "";
+  let act = null;
+  if ((waitingAuto || login === "bad") && (waitList.length || submitting)) {
+    if (waitingAuto) {
+      tone = "info";
+      text = submitting ? "登录失效了，电脑正在自动登录（最多约 20 秒），成功后接着提交。"
+        : "登录失效了，电脑正在自动登录。计划照常等开放，不用你管。";
+    } else {
+      const first = earliestWaitingOpen();
+      if (late || first === null) {
+        /* 来不及：有场次在提交，或最早一场离开放不到 100 秒（与修改计划同一个 planLate） */
+        const pivot = submitting ? now : first;
+        const later = pivot !== null && waitList.some((t) => {
+          const open = toTs(t.sign_start);
+          return open !== null && open > pivot;
+        });
+        text = "登录失效了。" + (submitting ? "正在提交" : "离开放不到 100 秒") + "，来不及重新登录，"
+          + (submitting ? "正在提交的场次" : "这一批") + "会以“登录失效”结束。"
+          + (later ? "后面的场次等它结束后重新登录就行。" : "");
+      } else if ((S.login.view || {}).phase === "needs_code") {
+        /* 第 13 条定稿：电脑认不出验证码时给「输入验证码」，两个时刻的取法与重新登录那句相同 */
+        text = "登录失效了，电脑认不出验证码。只要在 " + hmsDay(first - LATE_WINDOW_S)
+          + " 前输完验证码，计划照常继续；否则 " + hmsDay(first) + " 开放的那批会以“登录失效”结束。";
+        act = { act: "login", label: "输入验证码" };
+      } else {
+        text = "登录失效了，计划还在等。只要在 " + hmsDay(first - LATE_WINDOW_S) + " 前重新登录，计划照常继续；否则 "
+          + hmsDay(first) + " 开放的那批会以“登录失效”结束。";
+        act = { act: "login", label: "重新登录" };
+      }
+    }
+  }
+  /* 停止没成功（桥接异常）：计划仍在跑，说明写在计划栏上；登录提示优先，没停下也不能盖掉能操作的入口。
+   * 后端说没有这个计划时按快照对账，不写这句「照常进行」——那时计划其实已经不在了。 */
+  if (!text && S.stopNote && S.stopNote.planId === S.plan.id) {
+    text = S.stopNote.text;
+    tone = "warn";
+  }
+  return { text: text, tone: tone, act: act, late: late, waitList: waitList, submitting: submitting };
+}

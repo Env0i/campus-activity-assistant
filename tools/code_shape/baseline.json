@@ -346,9 +346,6 @@
       "local/ui/features/plan/actions-start.js::startPlan.#anon1": {
         "value": 64
       },
-      "local/ui/features/plan/view.js::paintRunPanel": {
-        "value": 71
-      },
       "local/ui/m/app.js::buildWhy": {
         "value": 85
       },

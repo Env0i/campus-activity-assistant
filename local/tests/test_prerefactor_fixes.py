@@ -106,11 +106,12 @@ class PlanEditingExitTests(unittest.TestCase):
     """U1/U9：「修改计划」的各条退出路径，以及「放弃修改」回到原来的场次。"""
 
     def test_stop_refused_while_editing_returns_to_the_running_plan(self):
-        """后端拒绝停止：计划还在跑，不能留着「修改中」，运行记录说清停止没成功。"""
+        """后端拒绝停止：计划还在跑，不能留着「修改中」，运行记录说清停止没成功（后端拿到的是旧计划号，快照仍说在跑）。"""
         res = run_ui(PRELUDE + r"""
 load([mk("a1", "活动甲"), mk("a2", "活动乙")]);
 runningPlan();
 __stopImpl = () => Promise.resolve({ ok: false, text: "当前没有这个计划" });
+window.pywebview.api.bootstrap = () => Promise.resolve({ busy: true });
 modifyPlan();
 await __flush();
 render();
