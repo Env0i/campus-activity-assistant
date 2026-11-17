@@ -5,6 +5,10 @@ on:
   pull_request:
 permissions:
   contents: read
+# Windows runner 的 stdout 默认是 cp1252，脚本打印中文会 UnicodeEncodeError，
+# 检查逻辑本身通过也照样红在编码上。
+env:
+  PYTHONIOENCODING: utf-8
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
