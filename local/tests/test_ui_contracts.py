@@ -587,8 +587,20 @@ class ErrorFeedbackContractTests(unittest.TestCase):
         self.assertEqual(body.count("setResult("), 1,
                          "refresh 内只允许「未连接本机脚本」一处结果框")
         self.assertIn("还没有连接本机程序", body)
-        self.assertIn("S.listError = msg(err)", body,
-                      "桥接异常与 worker 失败同口径：原话归列表空态")
+        res = run_js(r"""
+setResult({ ok: true, title: "报名成功", text: "原结果" });
+window.pywebview = { api: {
+  check: () => Promise.resolve({ ok: true, queued: true }),
+  list_activities: () => Promise.reject(new Error("列表桥接失败")),
+}};
+refresh(false);
+await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+out.push({ state: S.listState, error: S.listError,
+  result: document.querySelector("#result").innerHTML });
+""")
+        self.assertEqual(res[0]["state"], "error")
+        self.assertIn("列表桥接失败", res[0]["error"])
+        self.assertIn("报名成功", res[0]["result"])
 
     def test_board_and_empty_no_longer_repeat_full_component_hint(self):
         """组件长说明与「重新检查」唯一归顶部横幅：大屏只留短状态、空态只留占位。"""

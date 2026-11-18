@@ -130,22 +130,10 @@ function armRefreshTimeout(branch, id, logCheckTimeout) {
   S.round[timer] = setTimeout(() => {
     if (!roundOpen(branch, id, gen)) return;
     if (branch === "check") {
-      if (!S.round.background) {
-        S.login.checking = false;
-        S.login.ok = false;
-        S.login.result = "unknown";
-        syncLoginDependentView();
-        if (logCheckTimeout) addLog("[X] 检查登录状态超过 " + seconds + " 秒没有回应，先按「暂时无法确认」处理；点「刷新」重试。");
-      }
-    } else if (S.round.background) {
-      noteBackgroundListFailed();
+      settleCheckWaitFailure(logCheckTimeout ? "[X] 检查登录状态超过 " + seconds + " 秒没有回应，先按「暂时无法确认」处理；点「刷新」重试。" : "");
     } else {
-      S.listState = "error";
-      S.listError = "活动列表超过 " + seconds + " 秒没有回应";
-      noteListFailed(S.listError);
-      render();
+      settleListWaitFailure("活动列表超过 " + seconds + " 秒没有回应");
     }
-    settleRefreshBranch(branch);
   }, seconds * 1000);
 }
 
@@ -207,43 +195,44 @@ function refresh(quiet, options) {
     if (!roundOpen("check", checkId, checkGen)) return;
     settleSynchronous(res, "check");
   }).catch((err) => {
-    /* 桥接/脚本异常也必须离开「检查中」：落 unknown 结论并刷新胶囊与按钮，
-     * 不能把界面永远停在「正在检查登录状态」；下一步是点「刷新」再试。
-     * ok 必须同时置 false：旧的 valid/warn 状态不清理的话，
-     * paintLogin 的 unknown 分支（要求 ok===false）接不住，顶栏会继续显示「登录有效」。 */
     if (!roundOpen("check", checkId, checkGen)) return;
     clearTimeout(S.round.checkTimer);
-    if (S.round.background) {
-      settleRefreshBranch("check");   /* 后台轮桥接异常：登录结论保持上次，静默收口 */
-      return;
-    }
-    S.login.checking = false;
-    S.login.ok = false;
-    S.login.result = "unknown";
-    /* 结论变了：胶囊、时钟、空态与所有倒计时一起收口，不能只改胶囊 */
-    syncLoginDependentView();
-    addLog("[X] 检查登录状态失败：" + msg(err) + "；点「刷新」再试一次");
-    settleRefreshBranch("check");
+    settleCheckWaitFailure("[X] 检查登录状态失败：" + msg(err) + "；点「刷新」再试一次");
   });
   api("list_activities", listId).then((res) => {
     if (!roundOpen("list", listId, listGen)) return;
     settleSynchronous(res, "list");
   }).catch((err) => {
-    /* 桥接/脚本异常同 Worker 失败一个口径：完整说明归列表空态，
-     * 不再为同一列表错误额外弹结果框 */
     if (!roundOpen("list", listId, listGen)) return;
     clearTimeout(S.round.listTimer);
-    if (S.round.background) {
-      noteBackgroundListFailed();     /* 后台轮桥接异常：保留原列表，只累计失败次数 */
-      settleRefreshBranch("list");
-      return;
-    }
-    S.listState = "error";
-    S.listError = msg(err);
-    noteListFailed(S.listError);
-    render();
-    settleRefreshBranch("list");
+    settleListWaitFailure(msg(err));
   });
+}
+
+/* 前端等待失败只收口本轮，不改后台保留的登录结论。 */
+function settleCheckWaitFailure(log) {
+  if (!S.round.background) {
+    S.login.checking = false;
+    S.login.ok = false;
+    S.login.result = "unknown";
+    syncLoginDependentView();
+    if (log) addLog(log);
+  }
+  settleRefreshBranch("check");
+}
+
+/* 条款拒绝不是列表失败，不记普通日志或后台失败次数。 */
+function settleListWaitFailure(reason, options) {
+  const countFailure = !(options && options.termsRequired);
+  if (S.round.background) {
+    if (countFailure) noteBackgroundListFailed();
+  } else {
+    S.listState = "error";
+    S.listError = reason;
+    if (countFailure) noteListFailed(S.listError);
+    render();
+  }
+  settleRefreshBranch("list");
 }
 
 /* 同步拒绝（如正在关闭 / 正在检查）没有终态事件：本轮分支必须当场收口，
@@ -280,58 +269,17 @@ function settleSynchronous(res, branch) {
     return;
   }
   if (res.ok !== false) return;
-  /* 后端条款回绝（terms_required）：按钮可能被脚本、快捷键或旧界面绕过，
-   * 这条路径必须把界面拉回条款门禁，而不是只把报错丢进结果框。 */
-  if (res.error === "terms_required") {
-    if (S.round.background) {
-      /* 后台轮被条款拦下：不改列表和登录结论，只让界面跟上后端的条款状态 */
-      clearTimeout(branch === "check" ? S.round.checkTimer : S.round.listTimer);
-      settleRefreshBranch(branch);
-      noteTermsRequired(res);
-      return;
-    }
-    if (branch === "check") {
-      clearTimeout(S.round.checkTimer);
-      S.login.checking = false;
-      S.login.result = "unknown";
-      S.login.ok = false;
-      syncLoginDependentView();
-      settleRefreshBranch("check");
-    } else {
-      clearTimeout(S.round.listTimer);
-      S.listState = "error";
-      S.listError = (res && res.text) || "活动列表没能开始加载";
-      render();
-      settleRefreshBranch("list");
-    }
-    noteTermsRequired(res);
-    return;
-  }
+  /* 先结束分支，再把条款回绝交给门禁。 */
+  const termsRequired = res.error === "terms_required";
   if (branch === "check") {
     clearTimeout(S.round.checkTimer);
-    if (S.round.background) {
-      settleRefreshBranch("check");   /* 后台轮没能开始：不改登录结论、不写日志 */
-      return;
-    }
-    S.login.checking = false;
-    S.login.result = "unknown";
-    S.login.ok = false;
-    syncLoginDependentView();
-    addLog("[X] " + ((res && res.text) || "这次检查没能开始") + "；点「刷新」重试。");
-    settleRefreshBranch("check");
-    return;
+    const log = termsRequired ? "" : "[X] " + ((res && res.text) || "这次检查没能开始") + "；点「刷新」重试。";
+    settleCheckWaitFailure(log);
+  } else {
+    clearTimeout(S.round.listTimer);
+    settleListWaitFailure((res && res.text) || "活动列表没能开始加载", { termsRequired: termsRequired });
   }
-  clearTimeout(S.round.listTimer);
-  if (S.round.background) {
-    noteBackgroundListFailed();       /* 后台轮没能开始：保留原列表，只累计失败次数 */
-    settleRefreshBranch("list");
-    return;
-  }
-  S.listState = "error";
-  S.listError = (res && res.text) || "活动列表没能开始加载";
-  noteListFailed(S.listError);
-  render();
-  settleRefreshBranch("list");
+  if (termsRequired) noteTermsRequired(res);
 }
 
 /* LS11：列表没加载成功，补一条运行记录，句式照原型 listerr 画板的日志末行
