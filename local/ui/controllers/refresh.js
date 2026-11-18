@@ -143,18 +143,18 @@ function refresh(quiet, options) {
     paintBanners();
     return;
   }
-  /* 只要真发出了一轮刷新（手动、登录成功后、取消报名后、后台自己），自动刷新的 10 分钟就从此刻重新数 */
   autoRefreshState.attemptMono = _monoMs();
-  /* 记下这一轮是不是后台轮：回包、超时、失败分支都按它决定要不要动界面 */
   S.round.background = background;
   const checkId = newRoundId("check");
   const listId = newRoundId("list");
-  /* 每轮各自一个消费代次：这一轮的 ack/catch/终态只能收口这一轮，
-   * 旧轮迟到的回调不许把新轮的 pending 提前清掉（FR04）。 */
+  /* 消费代次隔离旧轮回调（FR04）。 */
   const checkGen = bumpRoundGeneration("check");
   const listGen = bumpRoundGeneration("list");
   S.round.check = checkId;
   S.round.list = listId;
+  /* 回调须匹配代次、请求号，且分支仍在等待。 */
+  const roundOpen = (branch, id, gen) => S.round.gen[branch] === gen && S.round[branch] === id &&
+    (branch === "check" ? checkRoundOpen() : listRoundOpen());
   clearTimeout(S.round.checkTimer);
   clearTimeout(S.round.listTimer);
   if (!background) {
@@ -173,7 +173,7 @@ function refresh(quiet, options) {
   }
   /* 失联兜底：确认入队却丢终态时，不能永远停在「检查中」/骨架（R11） */
   S.round.checkTimer = setTimeout(() => {
-    if (S.round.check !== checkId || !checkRoundOpen()) return;
+    if (!roundOpen("check", checkId, checkGen)) return;
     if (S.round.background) {
       /* 后台轮没回应：登录结论保持上次，不改成「待确认」也不写日志，只把本轮收口 */
       settleRefreshBranch("check");
@@ -187,7 +187,7 @@ function refresh(quiet, options) {
     settleRefreshBranch("check");
   }, 100000);
   S.round.listTimer = setTimeout(() => {
-    if (S.round.list !== listId || !listRoundOpen()) return;
+    if (!roundOpen("list", listId, listGen)) return;
     if (S.round.background) {
       /* 后台轮没回应：按一次后台失败算，原列表原勾选不动 */
       noteBackgroundListFailed();
@@ -201,14 +201,14 @@ function refresh(quiet, options) {
     settleRefreshBranch("list");
   }, 130000);
   api("check", checkId).then((res) => {
-    if (S.round.gen.check !== checkGen) return;   // 旧轮 ack：不碰新一轮
+    if (!roundOpen("check", checkId, checkGen)) return;
     settleSynchronous(res, "check");
   }).catch((err) => {
     /* 桥接/脚本异常也必须离开「检查中」：落 unknown 结论并刷新胶囊与按钮，
      * 不能把界面永远停在「正在检查登录状态」；下一步是点「刷新」再试。
      * ok 必须同时置 false：旧的 valid/warn 状态不清理的话，
      * paintLogin 的 unknown 分支（要求 ok===false）接不住，顶栏会继续显示「登录有效」。 */
-    if (S.round.gen.check !== checkGen || S.round.check !== checkId) return;
+    if (!roundOpen("check", checkId, checkGen)) return;
     clearTimeout(S.round.checkTimer);
     if (S.round.background) {
       settleRefreshBranch("check");   /* 后台轮桥接异常：登录结论保持上次，静默收口 */
@@ -223,12 +223,12 @@ function refresh(quiet, options) {
     settleRefreshBranch("check");
   });
   api("list_activities", listId).then((res) => {
-    if (S.round.gen.list !== listGen) return;     // 旧轮 ack：不碰新一轮
+    if (!roundOpen("list", listId, listGen)) return;
     settleSynchronous(res, "list");
   }).catch((err) => {
     /* 桥接/脚本异常同 Worker 失败一个口径：完整说明归列表空态，
      * 不再为同一列表错误额外弹结果框 */
-    if (S.round.gen.list !== listGen || S.round.list !== listId) return;
+    if (!roundOpen("list", listId, listGen)) return;
     clearTimeout(S.round.listTimer);
     if (S.round.background) {
       noteBackgroundListFailed();     /* 后台轮桥接异常：保留原列表，只累计失败次数 */

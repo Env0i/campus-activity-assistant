@@ -857,6 +857,37 @@ out.push({ plan: S.plan.id, state: S.startRequest.state, pending: pending.length
 class RefreshRoundRaceTests(unittest.TestCase):
     """F05：check/list 终态先于 skipped ack 时必须暂存重放，不能干等 100/130 秒。"""
 
+    def test_late_bridge_failures_preserve_terminal_results(self):
+        for failure in ("reject", "refuse"):
+            with self.subTest(failure=failure):
+                res = run_js(TIMER_HARNESS + "const failure = " + _js(failure) + ";" + r"""
+const pending = {};
+window.pywebview = { api: {
+  check: (id) => new Promise((resolve, reject) => { pending.check = { id, resolve, reject }; }),
+  list_activities: (id) => new Promise((resolve, reject) => { pending.list = { id, resolve, reject }; }),
+  bootstrap: () => Promise.resolve({}),
+} };
+refresh(false);
+window.onBackend.check({ request_id: pending.check.id, ok: true, result: "valid", session_present: true });
+window.onBackend.activities({ request_id: pending.list.id, ok: true, items: [
+  { id: "a1", name: "活动一", sign_start: "2026-10-27 09:00:00", sign_end: "2026-10-27 23:00:00",
+    act_start: "2026-10-28 09:00:00", act_end: "2026-10-28 11:00:00", signed: false } ] });
+const snapshot = () => ({ login: S.login.result, ok: S.login.ok, state: S.listState,
+  items: JSON.parse(JSON.stringify(S.items)), logs: [...S.recentLogs] });
+const before = snapshot();
+for (const branch of [pending.check, pending.list]) {
+  if (failure === "reject") branch.reject(new Error("late"));
+  else branch.resolve({ ok: false, text: "late" });
+}
+await __flush();
+out.push({ before, after: snapshot() });
+""")
+                self.assertEqual(res[0]["before"]["login"], "valid")
+                self.assertEqual(res[0]["before"]["state"], "ready")
+                self.assertEqual(len(res[0]["before"]["items"]), 1)
+                self.assertEqual(res[0]["before"]["items"][0]["id"], "a1")
+                self.assertEqual(res[0]["after"], res[0]["before"])
+
     def test_check_terminal_before_skipped_ack_replays(self):
         res = run_js(TIMER_HARNESS + r"""
 S.round.check = "new";
