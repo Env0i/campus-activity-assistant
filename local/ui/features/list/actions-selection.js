@@ -1,3 +1,4 @@
+import { render } from "../shell/actions-render.js";
 import { termsLocked } from "../terms/state.js";
 
 export function toggleSelection(id, checked) {

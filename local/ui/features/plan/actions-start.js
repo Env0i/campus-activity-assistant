@@ -1,3 +1,4 @@
+import { render } from "../shell/actions-render.js";
 /* 计划栏的编排层（开始这一段）：发 start_plan、只查不重发地对账、按快照恢复。 */
 
 import { PLAN_TERMINAL, TASK_TERMINAL, mergeTask, selectionSignature } from "./state.js";

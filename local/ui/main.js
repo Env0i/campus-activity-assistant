@@ -1,3 +1,5 @@
+import { wireClockActions } from "./features/clock/actions.js";
+import { render } from "./features/shell/actions-render.js";
 import { clearSelection } from "./features/list/actions-selection.js";
 import { wireFilters } from "./features/list/actions-filters.js";
 /* 模块入口（ESM 地基批）：普通脚本先跑，这里最后接管。依次——挂回 window 的
@@ -22,6 +24,8 @@ import { wireTourExit } from "./features/shell/actions-tour-exit.js";
 
 installLegacyGlobals();
 wireFilters();
+wireClockActions();
+$("#btn-login-check").addEventListener("click", () => { doCheck(); });
 $("#btn-clear-plan").addEventListener("click", clearSelection);
 wireSettings();
 wireTourExit();

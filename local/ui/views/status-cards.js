@@ -266,7 +266,5 @@ function wireStatusCards() {
     const spec = STATUS_CARDS[S.statusCard.kind];
     if (!event.target.closest(spec.pop) && !event.target.closest(spec.button)) closeStatusCards(false);
   });
-  const check = $("#btn-login-check");
-  if (check && check.addEventListener) check.addEventListener("click", () => { doCheck(); });
 
 }

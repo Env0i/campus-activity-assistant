@@ -1,3 +1,4 @@
+import { render } from "./actions-render.js";
 import { paintBanners } from "./view-banners.js";
 import { OcrPanel } from "../components/state-ocr.js";
 import { paintOcrDownload } from "../components/view-ocr.js";

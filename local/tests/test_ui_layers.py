@@ -82,14 +82,9 @@ class UiLayerAllowListTests(unittest.TestCase):
         self.assertEqual([], back,
                          "这些名字已经在 state 层定义，不该再作为上层名字出现在白名单：%r" % (back,))
 
-    def test_allow_list_is_sorted_and_non_empty(self):
-        allow = _load_allow()
-        for group in ("state", "views"):
-            self.assertTrue(allow[group], "%s 组白名单不能为空（否则守卫形同虚设）" % (group,))
-            files = list(allow[group])
-            self.assertEqual(sorted(files), files, "%s 组的文件要排序" % (group,))
-            for file, names in allow[group].items():
-                self.assertEqual(sorted(names), names, "%s 的 %s 要排序" % (group, file))
+    def test_allow_list_stays_empty(self):
+        self.assertEqual(_load_allow(), {"state": {}, "views": {}})
+
 
 # ==================== 源自 test_ui_modules.py ====================
 """模块图守卫：tools/code_shape/ui_modules.mjs 的报告与期望值逐项比对。
@@ -266,6 +261,29 @@ out.push({ opened, closed: snapshot(), saves: window.__calls });
         self.assertEqual(result["after"][0]["opened"], {"hidden": False, "expanded": "true"})
         self.assertEqual(result["after"][0]["closed"], {"hidden": True, "expanded": "false"})
         self.assertEqual(result["after"][0]["saves"], [{"filter_open": True}, {"filter_open": False}])
+
+    def test_real_load_clock_sync_delegates_after_redraw(self):
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.__calls = [];
+window.pywebview = { api: { sync_clock: () => {
+  window.__calls.push("sync_clock"); return new Promise(() => {});
+} } };
+const pop = $("#clock-pop");
+const dispatch = (target) => pop.listeners.click.forEach((fn) => fn({ target }));
+const other = { closest: () => null };
+const disabled = { disabled: true };
+dispatch(other);
+dispatch({ closest: () => disabled });
+S.clockPopOpen = true;
+renderClockPop();
+renderClockPop();
+const button = { disabled: false };
+dispatch({ closest: (selector) => selector === "#clock-pop-sync" ? button : null });
+out.push({ calls: window.__calls, listeners: pop.listeners.click.length });
+""")
+        self.assertTrue(result["modulesReady"])
+        self.assertEqual(result["after"][0], {"calls": ["sync_clock"], "listeners": 1})
 
     def test_real_load_log_toggle_saves_each_choice_once(self):
         """模块真加载后展开、收起，显示状态和每次保存请求一致。"""

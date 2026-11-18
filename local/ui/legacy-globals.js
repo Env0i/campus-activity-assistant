@@ -1,3 +1,5 @@
+import { render } from "./features/shell/actions-render.js";
+import { ingestBusinessClock, markClockUnavailable } from "./features/clock/actions.js";
 import { clearSelection, tipGoSigned, toggleSelection } from "./features/list/actions-selection.js";
 import { listErrorCopy } from "./features/list/state-errors.js";
 /* 过渡期清单（ESM 地基批）：把模块里的名字挂回 window，给还没迁的普通脚本用。
@@ -16,7 +18,7 @@ import { PLAN_TERMINAL, mergeTask, planOutcome, syncResultSelection, unknownLabe
 import { handlePlan, handleTask, verifyTask } from "./features/plan/actions.js";
 import { RUNNING_STATUSES, executionView, taskDisplayDetail, taskDisplayLabel, taskModePrefix, verifiedSigned } from "./features/plan/state-task.js";
 import { runHeadKey } from "./features/plan/state-board.js";
-import { paintBoardState, paintEditNote, paintPlan, paintRunPanel, paintSelected } from "./features/plan/view.js";
+import { paintEditNote, paintRunPanel, paintSelected } from "./features/plan/view.js";
 import { startPlan } from "./features/plan/actions-start.js";
 import { cancelTask, closeStopAsk, stopAskKey, stopAskOpen } from "./features/plan/actions-run.js";
 import { handlePlanDone, presentPlanDone } from "./features/plan/actions-events.js";
@@ -54,10 +56,8 @@ function attachPlanGlobals() {
     window.runHeadKey = runHeadKey;
       window.verifyTask = verifyTask;
   window.paintSelected = paintSelected;
-  window.paintBoardState = paintBoardState;
     window.paintEditNote = paintEditNote;
   window.paintRunPanel = paintRunPanel;
-  window.paintPlan = paintPlan;
   window.startPlan = startPlan;
   window.cancelTask = cancelTask;
   window.stopAskOpen = stopAskOpen;
@@ -76,6 +76,7 @@ function attachPlanGlobals() {
 /* 横幅、分档与组件错误文案的挂回：这几组由 shell 段搬成模块，普通脚本仍按全局名用。
  * 单独成函数，免得 installLegacyGlobals 超过 60 行。 */
 function attachShellGlobals() {
+  window.render = render;
   window.paintBanners = paintBanners;
   window.applyBand = applyBand;
   window.setPlanOpen = setPlanOpen;
@@ -91,6 +92,8 @@ function attachShellGlobals() {
 }
 
 export function installLegacyGlobals() {
+  window.ingestBusinessClock = ingestBusinessClock;
+  window.markClockUnavailable = markClockUnavailable;
   window.clearSelection = clearSelection;
   window.tipGoSigned = tipGoSigned;
   window.toggleSelection = toggleSelection;

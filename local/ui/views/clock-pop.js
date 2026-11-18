@@ -131,8 +131,6 @@ function renderClockPop() {
   pop.scrollTop = scrollTop;
   const close = pop.querySelector("#clock-pop-close");
   if (close) close.addEventListener("click", () => closeClockPop(true));
-  const sync = pop.querySelector("#clock-pop-sync");
-  if (sync) sync.addEventListener("click", resyncClock);
   paintClockPopFeedback();
 }
 

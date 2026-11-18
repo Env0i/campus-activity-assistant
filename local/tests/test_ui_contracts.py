@@ -571,9 +571,9 @@ class ErrorFeedbackContractTests(unittest.TestCase):
 
     def test_apply_activities_failure_has_no_result_popup(self):
         """列表失败收尾不生成同义结果框：失败原话留给列表空态做唯一完整说明。"""
-        js = read("ui/app.js")
+        js = (LOCAL / "ui/controllers/refresh.js").read_text(encoding="utf-8")
         start = js.index("function applyActivities(")
-        body = js[start:js.index("function render(", start)]
+        body = js[start:js.index("function checkRoundOpen(", start)]
         self.assertNotIn("setResult(", body,
                          "列表失败收尾不得再弹同义结果框")
         self.assertIn("S.listError = res.text", body,
@@ -1100,8 +1100,9 @@ class ErrorFeedbackRoundtripContractTests(unittest.TestCase):
     """FB4 接线的静态契约：四入口消费、轮次协议、提交中标志。"""
 
     def test_apply_activities_consumes_runtime_error(self):
-        js = read("ui/app.js")
-        body = js[js.index("function applyActivities("):js.index("function render(")]
+        js = (LOCAL / "ui/controllers/refresh.js").read_text(encoding="utf-8")
+        start = js.index("function applyActivities(")
+        body = js[start:js.index("function checkRoundOpen(", start)]
         self.assertIn("noteRoundError(res.runtime_error)", body,
                       "列表失败必须先消费后端组件归类再渲染")
         self.assertIn('settleRefreshBranch("list")', body,

@@ -1,3 +1,4 @@
+import { render } from "../shell/actions-render.js";
 /* 展开状态与筛选值一样记进偏好；记不下来不影响本次使用 */
 export function setFilterOpen(open) {
   S.filterOpen = !!open;

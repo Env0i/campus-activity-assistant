@@ -1,22 +1,4 @@
 {
-  "state": {
-    "state/clock.js": [
-      "paintClockPopFeedback",
-      "paintClockStatus",
-      "render",
-      "renderClockPop",
-      "updateControls"
-    ]
-  },
-  "views": {
-    "views/clock-pop.js": [
-      "resyncClock"
-    ],
-    "views/list.js": [
-      "tick"
-    ],
-    "views/status-cards.js": [
-      "doCheck"
-    ]
-  }
+  "state": {},
+  "views": {}
 }

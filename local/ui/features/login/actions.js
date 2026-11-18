@@ -1,3 +1,4 @@
+import { render } from "../shell/actions-render.js";
 /* 登录状态的统一写入与重画：改完状态后按顺序把受影响的视图刷一遍。 */
 
 import { paintLogin } from "./view.js";
