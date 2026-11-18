@@ -15,7 +15,12 @@ import { wireWindowClose } from "./features/shell/actions-window-close.js";
 import { wireLogPanel } from "./features/shell/actions-log-panel.js";
 import { wireHelp } from "./features/shell/actions-help.js";
 
+import { wireSettings } from "./features/shell/actions-settings.js";
+import { wireTourExit } from "./features/shell/actions-tour-exit.js";
+
 installLegacyGlobals();
+wireSettings();
+wireTourExit();
 wireHelp();
 
 /* 关闭事件可能在启动时已排队；先接好各按钮，再放出后端事件。 */

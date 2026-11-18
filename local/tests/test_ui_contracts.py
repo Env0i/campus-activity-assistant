@@ -477,8 +477,8 @@ class AdvancedComponentDialogContractTests(unittest.TestCase):
         # （原先不带参数的 PhonePanel.openComponents() 在 phone.js 里 3 处，计数没法再用）。
         # phone.js 剩 2 处，都是手机控制：下载失败后的「导入已下载的组件包」链接（PH10），
         # 以及原型没画、保留现状的「重新导入组件包 / 安装/更换组件包」（PH14b）；
-        # 验证码识别的导入入口搬到 settings.js（OC12 的句内链接，和 OC14 保留的「重新导入组件包」按钮共用一处绑定）
-        settings = (LOCAL / "ui" / "views" / "settings.js").read_text(encoding="utf-8")
+        # 验证码识别的导入入口在设置动作中（OC12 的句内链接，和 OC14 保留的「重新导入组件包」按钮共用一处绑定）
+        settings = read("ui/app.js")
         self.assertEqual(0, self.phone.count("PhonePanel.openComponents()"))
         # 三处：点名称右侧那只（featureAction）、缺 cloudflared 时的补装入口、以及导出给别处的兜底调用
         self.assertEqual(3, self.phone.count('PhonePanel.openComponents("phone_control")'))

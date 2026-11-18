@@ -268,11 +268,5 @@ function wireStatusCards() {
   });
   const check = $("#btn-login-check");
   if (check && check.addEventListener) check.addEventListener("click", () => { doCheck(); });
-  const manage = $("#btn-phone-manage");
-  if (manage && manage.addEventListener) {
-    manage.addEventListener("click", () => {
-      closeStatusCards(false);
-      if (typeof openSettings === "function") openSettings("adv");
-    });
-  }
+
 }

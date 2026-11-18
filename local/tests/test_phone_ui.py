@@ -162,13 +162,13 @@ def _is_module(rel: str) -> bool:
                for line in src_text.splitlines())
 
 
-def _load_line(file: str) -> str:
+def _load_line(file: str, seen: set[str]) -> str:
     """清单里一个路径的加载行：普通脚本照旧从盘上读；模块按引用序补齐整组、
     剥壳后作为一个脚本执行，末尾把 PhonePanel 挂到 window（原来由文件尾那一行做）。"""
     if not _is_module(file):
         return ('vm.runInContext(fs.readFileSync(path.join(uiDir, %s), "utf8"), sandbox);'
                 % json.dumps(file))
-    group = module_group_sandbox_src(file) + '\nwindow.PhonePanel = PhonePanel;'
+    group = module_group_sandbox_src(file, seen) + '\nwindow.PhonePanel = PhonePanel;'
     return ('vm.runInContext(%s, sandbox, { filename: %s });'
             % (json.dumps(group), json.dumps(file)))
 
@@ -249,13 +249,16 @@ def run_phone_js(snippet: str, files=None):
         ui_dir = PHONE_DIR
         if files:
             ui_dir = PHONE_DIR.parent
+            seen: set[str] = set()
+            if "views/settings.js" in files:
+                files = list(files) + ["features/shell/actions-settings.js"]
             harness_source = harness_source.replace(
                 'vm.runInContext(fs.readFileSync(path.join(uiDir, "app.js"), "utf8"), sandbox, { filename: "m/app.js" });',
                 'sandbox.document.readyState = "loading";\n'
                 'sandbox.api = (...args) => sandbox.__api(...args);\n'
                 'sandbox.helpStatus = (text, tone) => out.push({text, tone});\n'
                 'sandbox.__api = async () => ({ok:true});\n'
-                + "\n".join(_load_line(file) for file in files))
+                + "\n".join(_load_line(file, seen) for file in files))
         harness.write_text(harness_source, encoding="utf-8")
         part.write_text(snippet, encoding="utf-8")
         res = subprocess.run([node, str(harness), str(ui_dir), str(part)],
@@ -1551,12 +1554,13 @@ out.push(tip({saved:false, staged:false}));
         """PH24「去保存」：打开设置的登录组并展开账号密码表单。"""
         values = run_phone_js(self._state({"ready": True, "available": True}) + """
 const opened = [];
-globalThis.openSettings = (section) => { opened.push(section); };
+globalThis.S = { settingsOpen: false, prefs: {}, terms: {}, busy: false };
+$("#set-login").focus = () => opened.push("login");
 $("#credential-editor").hidden = true;
 PhonePanel.wire();
 $("#btn-phone-cred-go").click();
 out.push([opened, $("#credential-editor").hidden]);
-""", files=[PANEL_ENTRY])
+""", files=["views/settings.js", PANEL_ENTRY])
         self.assertEqual(values, [[["login"], False]])
 
     def test_location_box_uses_the_desktop_only_interface_and_hides_without_a_path(self):

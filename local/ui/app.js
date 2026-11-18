@@ -403,7 +403,6 @@ $("#board").addEventListener("click", (event) => {
   else if (act === "clock-sync") resyncClock();
   else if (act === "terms-open") openTerms("banner", btn);
 });
-wireSettings();
 $("#btn-log-folder").addEventListener("click", () => api("open_data")
   .then((res) => addLog("数据目录：" + ((res && res.path) || "已打开")))
   .catch((err) => addLog("[X] 打不开数据目录：" + msg(err))));
@@ -492,7 +491,6 @@ $("#max-attempts").addEventListener("change", (event) => {
 });
 $("#btn-log-clear").addEventListener("click", () => { $("#log").textContent = ""; $("#log-last").textContent = "还没有记录"; });
 /* 五步引导：跳过/上一步/下一步；说明页重播入口；GitHub 最新版本外链（点击才打开） */
-$("#tour-skip").addEventListener("click", tourSkip);
 $("#tour-prev").addEventListener("click", () => {
   if (S.tour.step > 0) { S.tour.step -= 1; paintTour(); }
 });

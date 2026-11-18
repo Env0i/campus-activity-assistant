@@ -382,6 +382,38 @@ out.push({ start: window.__calls.filter((c) => c[0] === "start_phone_access") })
         self.assertEqual(result["after"][0]["start"], [["start_phone_access", "tailscale"]],
                          "真加载下点手机行「开启手机访问」要发出开启请求")
 
+    def test_real_load_tour_exit_saves_once_and_restores_focus(self):
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.__calls = [];
+window.pywebview = { api: { save_prefs: (patch) => {
+  window.__calls.push(patch); return Promise.resolve({ ok: true });
+} } };
+$("#btn-settings").focus();
+startTour(0);
+$("#tour-skip").click();
+for (let i = 0; i < 12; i += 1) await Promise.resolve();
+const skipped = { calls: window.__calls.slice(), focus: document.activeElement === $("#btn-settings"),
+  closed: !S.tour.open && $("#tour").hidden };
+window.__calls = [];
+$("#btn-settings").focus();
+startTour(TOUR_STEPS.length - 1);
+$("#tour-next").click();
+for (let i = 0; i < 12; i += 1) await Promise.resolve();
+out.push({ skipped, completed: { calls: window.__calls.slice(),
+  focus: document.activeElement === $("#btn-settings"), closed: !S.tour.open && $("#tour").hidden },
+  version: TOUR_VERSION });
+""")
+        state = result["after"][0]
+        self.assertTrue(result["modulesReady"])
+        for key, stamp in (("skipped", "tour_skipped_at"), ("completed", "tour_completed_at")):
+            exit_state = state[key]
+            self.assertTrue(exit_state["closed"])
+            self.assertTrue(exit_state["focus"])
+            self.assertEqual(len(exit_state["calls"]), 1)
+            self.assertEqual(exit_state["calls"][0]["tour_version"], state["version"])
+            self.assertTrue(exit_state["calls"][0][stamp])
+
     def test_real_load_settings_drawer_asks_the_ocr_component_location(self):
         """真加载下点设置按钮打开抽屉：发出一次验证码识别的组件位置请求。"""
         report = _run_ui_modules()
@@ -483,13 +515,13 @@ out.push({ openDir: window.__calls.filter((c) => c[0] === "open_advanced_compone
                          "真加载下点「打开所在文件夹」要发出打开目录请求")
 
     def test_real_load_ocr_failed_download_paints_the_retry_bar(self):
-        """真加载下识别行下载失败（原因是连不上发布页），调挂回的绘制后红条要看得见、
+        """真加载下识别行下载失败（原因是连不上发布页），打开设置后红条要看得见、
         文字是「下载没有完成：连不上发布页，可以重试。」。"""
         report = _run_ui_modules()
         result = run_native_smoke(report["legacy_globals_attached"], after=r"""
 window.PhonePanel.state.advanced = { features: { relogin_ocr: {
   download: { state: "failed", error_code: "network_error" } } } };
-window.paintOcrDownload();
+$("#btn-settings").click();
 const bar = $("#ocr-download-error");
 out.push({ barShown: !bar.hidden, text: bar.textContent });
 """)

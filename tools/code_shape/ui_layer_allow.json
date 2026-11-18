@@ -26,16 +26,8 @@
     "views/selection.js": [
       "savePrefs"
     ],
-    "views/settings.js": [
-      "api",
-      "ingestTerms",
-      "savePrefs"
-    ],
     "views/status-cards.js": [
       "doCheck"
-    ],
-    "views/tour.js": [
-      "savePrefsNow"
     ]
   }
 }

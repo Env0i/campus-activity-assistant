@@ -175,11 +175,14 @@ def read(rel: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def module_group_sandbox_src(entry: str) -> str:
+def module_group_sandbox_src(entry: str, seen: set[str] | None = None) -> str:
     """模块入口的整张引用图（被引用的在前），剥掉 import 与 export 后的拼接源码。
 
     与 read_ui_scripts 的模块段同一口径，只取这一个入口的那组模块。"""
-    return "\n".join(_module_sandbox_src(rel) for rel in _module_graph(entry))
+    loaded = seen if seen is not None else set()
+    paths = [rel for rel in _module_graph(entry) if rel not in loaded]
+    loaded.update(paths)
+    return "\n".join(_module_sandbox_src(rel) for rel in paths)
 
 
 def module_group_raw_src(entry: str, skip: list[str] | None = None) -> str:

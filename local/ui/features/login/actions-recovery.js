@@ -2,6 +2,7 @@
  * 收起表单、清除的询问取消确认与执行）；发桥接请求的方法都放在这一层。 */
 
 
+import { openSettings } from "../shell/actions-settings.js";
 import { PhonePanel } from "../phone-access/state.js";
 
 
