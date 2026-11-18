@@ -247,7 +247,6 @@ cxTip.addEventListener("keydown", (event) => {
 });
 $("#list").addEventListener("scroll", () => { if (S.tip.id) placeTip(); });
 $("#btn-refresh").addEventListener("click", () => refresh(false));
-$("#btn-help").addEventListener("click", showHelp);
 /* 条款弹窗：同意 / 暂不使用 / 只读关闭 / 重新确认。TM01（decisions 014 修订）：
  * Esc 与右上角 X 只等于「关闭」（close 监听统一收口），拒绝只走「暂不使用」钮；
  * 保存中 Esc 被 cancel 明确拒绝；同意成功由 acceptTerms 自己走程序性关闭。

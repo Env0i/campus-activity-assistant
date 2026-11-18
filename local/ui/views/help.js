@@ -6,15 +6,6 @@ function fillHelp(help) {
   $("#help-steps").innerHTML = (data.steps || []).map((step) => "<li><span class=\"no\">" + esc(step.no) + "</span><div><div class=\"t\">" + esc(step.title) + "</div><div class=\"d\">" + esc(step.text) + "</div></div></li>").join("");
 }
 
-function showHelp() {
-  const dialog = $("#help");
-  helpStatus("");
-  paintUpdate();
-  if (!dialog.open) dialog.showModal();
-  if (typeof PhonePanel !== "undefined") void PhonePanel.refresh();
-  savePrefs({ welcome_seen: true });
-}
-
 /* 辅助动作的局部反馈：只在帮助里说下一步，不去复读到大屏或结果框。
  * 长地址/错误原话做成可选文本，不在 WebView 里导航。 */
 function helpStatus(text, tone) {

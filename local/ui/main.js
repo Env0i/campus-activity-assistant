@@ -13,8 +13,10 @@ import { bindPlaceToggle } from "./features/plan/actions-draft.js";
 import { applyBand } from "./features/shell/view-band.js";
 import { wireWindowClose } from "./features/shell/actions-window-close.js";
 import { wireLogPanel } from "./features/shell/actions-log-panel.js";
+import { wireHelp } from "./features/shell/actions-help.js";
 
 installLegacyGlobals();
+wireHelp();
 
 /* 关闭事件可能在启动时已排队；先接好各按钮，再放出后端事件。 */
 wireWindowClose();

@@ -337,6 +337,34 @@ out.push({ download: window.__calls.filter((c) => c[0] === "download_advanced_fe
                          [["cancel_advanced_feature_download", "relogin_ocr"]],
                          "真加载下点识别行「取消下载」要发出验证码识别的取消请求")
 
+    def test_real_load_help_opens_and_saves_seen(self):
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.__calls = [];
+window.pywebview = { api: new Proxy({}, {
+  get: (target, name) => (...args) => {
+    window.__calls.push([String(name), ...args]);
+    return Promise.resolve({ ok: true });
+  },
+}) };
+$("#help-status").hidden = false;
+$("#help-status").textContent = "旧反馈";
+$("#btn-help").click();
+await flushPrefs();
+for (let i = 0; i < 12; i += 1) await Promise.resolve();
+out.push({ open: $("#help").open, hidden: $("#help-status").hidden,
+  text: $("#help-status").textContent, calls: window.__calls });
+""")
+        state = result["after"][0]
+        self.assertTrue(result["modulesReady"])
+        self.assertTrue(state["open"])
+        self.assertTrue(state["hidden"])
+        self.assertEqual(state["text"], "")
+        self.assertEqual([c for c in state["calls"] if c[0] == "save_prefs"],
+                         [["save_prefs", {"welcome_seen": True}]])
+        self.assertFalse([c for c in state["calls"] if c[0] in
+                          ("open_latest_release", "open_data", "open_advanced_component_dir")])
+
     def test_real_load_start_sends_the_start_request(self):
         """真加载下点手机行的「开启手机访问」：发出开启请求。"""
         report = _run_ui_modules()

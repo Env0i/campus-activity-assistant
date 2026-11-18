@@ -19,9 +19,6 @@
     "views/conflict-tip.js": [
       "savePrefs"
     ],
-    "views/help.js": [
-      "savePrefs"
-    ],
     "views/list.js": [
       "listErrorCopy",
       "tick"

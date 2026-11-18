@@ -29,6 +29,7 @@ import { applyBand, setPlanOpen } from "./features/shell/view-band.js";
 import { RUNTIME_ERRORS, runtimeErrorCopy } from "./features/shell/state-runtime.js";
 import { openWindowCloseDialog } from "./features/shell/actions-window-close.js";
 import { setLogOpen } from "./features/shell/actions-log-panel.js";
+import { showHelp } from "./features/shell/actions-help.js";
 
 /* 计划栏（features/plan）挂回：普通脚本里还有 app.js、controllers/refresh.js、
  * controllers/tick.js、views/list.js、state/filters.js、state/labels.js、
@@ -79,6 +80,7 @@ function attachShellGlobals() {
   window.runtimeErrorCopy = runtimeErrorCopy;
   window.openWindowCloseDialog = openWindowCloseDialog;
   window.setLogOpen = setLogOpen;
+  window.showHelp = showHelp;
 }
 
 export function installLegacyGlobals() {
