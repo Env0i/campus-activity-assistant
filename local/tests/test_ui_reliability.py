@@ -1295,6 +1295,48 @@ class PlanEventOwnershipTests(unittest.TestCase):
     载荷带后端接纳时附加的 plan_generation（生产桥接事件都有该字段）。
     """
 
+    def test_late_start_acceptance_keeps_new_plan(self):
+        for reply in ("ack", "reconcile"):
+            with self.subTest(reply=reply):
+                res = run_js(TIMER_HARNESS + r"""
+window.onBackend.activities({ ok: true, request_id: "l1", items: [
+  { id: "a1", name: "A", sign_start: "2026-10-27 09:00:00",
+    sign_end: "2099-01-01 23:00:00", act_start: "2099-01-02 09:00:00",
+    act_end: "2099-01-02 11:00:00", signed: false } ] });
+S.selected.add("a1");
+let ack, query, starts = 0;
+const stops = [];
+window.pywebview = { api: {
+  start_plan: () => { starts++; return new Promise((r) => { ack = r; }); },
+  start_request_state: () => new Promise((r) => { query = r; }),
+  stop_plan: (id) => { stops.push(id); return Promise.resolve({ ok: true }); }
+} };
+startPlan();
+await __flush();
+if (REPLY === "reconcile") { __fire(15000); await __flush(); }
+window.onBackend.plan({ plan_id: "pa", plan_generation: 1, status: "running", tasks: [] });
+window.onBackend.plan_done({ plan_id: "pa", plan_generation: 1, status: "completed", summary: {} });
+window.onBackend.plan({ plan_id: "pb", plan_generation: 2, source: "phone", status: "running", tasks: [] });
+window.onBackend.task({ plan_id: "pb", plan_generation: 2, task_id: "tb", activity_id: "b",
+  name: "B", status: "submitting", attempts: 3 });
+const logs = document.querySelector("#log").innerHTML;
+if (REPLY === "ack") ack({ ok: true, plan_id: "pa", plan_generation: 1 });
+else query({ state: "accepted", plan_id: "pa", plan_generation: 0, running: false });
+await __flush();
+const after = { id: S.plan.id, status: S.plan.status, busy: S.busy, starting: S.starting,
+  tasks: Array.from(S.plan.tasks.keys()), attempts: (S.plan.tasks.get("tb") || {}).attempts,
+  logsUnchanged: document.querySelector("#log").innerHTML === logs };
+doStopPlan();
+await __flush();
+out.push({ after, starts, stops });
+""".replace("REPLY", _js(reply)))
+                self.assertEqual(res[0]["after"], {
+                    "id": "pb", "status": "running", "busy": True, "starting": False,
+                    "tasks": ["tb"], "attempts": 3, "logsUnchanged": True,
+                })
+                self.assertEqual(res[0]["starts"], 1)
+                self.assertEqual(res[0]["stops"], ["pb"])
+
     def test_stale_plan_events_cannot_hijack_running_plan(self):
         """B 运行中注入旧 A 的 plan/task/plan_done：B 的忙态/任务/停止入口不变。"""
         res = run_js(r"""

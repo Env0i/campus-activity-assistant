@@ -3,7 +3,7 @@ import { setBusy } from "../shell/actions-render.js";
 import { render } from "../shell/actions-render.js";
 /* 计划栏的编排层（开始这一段）：发 start_plan、只查不重发地对账、按快照恢复。 */
 
-import { PLAN_TERMINAL, TASK_TERMINAL, mergeTask, selectionSignature } from "./state.js";
+import { PLAN_TERMINAL, TASK_TERMINAL, mergeTask, planEventOwns, selectionSignature } from "./state.js";
 import { paintPlan } from "./view.js";
 import { presentPlanDone } from "./actions-events.js";
 import { termsLocked } from "../terms/state.js";
@@ -87,39 +87,11 @@ export function startPlan() {
       showPlanError(res && res.text, res && res.conflicts, res && res.errors);
       return;
     }
-    /* 后端可能在 Promise 回调之前就推来 plan/task 事件（协调器另一线程emit），
-     * 这里只在计划 id 变了时才重置，避免把已收到的任务表清空。
-     * ack 的接纳代次并入会话记录：归属判定与事件路由同一基准（P1）。 */
-    const ackGen = notePlanGeneration(res.plan_generation);
-    if (!S.plan.id || S.plan.id !== String(res.plan_id || "")) {
-      S.plan = { id: String(res.plan_id || ""), gen: ackGen,
-                 status: "ready", tasks: new Map(), armedAt: Date.now() / 1000 };
-    } else if (ackGen > (Number(S.plan.gen) || 0)) {
-      S.plan.gen = ackGen;
-    }
-    /* 修改后的「重新开始」不能等 plan 事件再清 editing：plan_id 没变时
-       state/plan.js 的 handlePlan 会跳过 editing 清理，修改中的说明会一直留在屏上 */
-    S.editing = null;
-    S.stopping = false;
-    /* ack 只证明「已接纳」，不证明「此刻仍在运行」：该计划已经通过 plan_done
-     * 到达终态时（终态早于 ack），保持终态呈现与 busy=false——没有第二个
-     * plan_done 会再来解锁，置忙会让停止入口悬在一个永远不结束的计划上（P1） */
-    if (S.plan.id === String(res.plan_id || "")
-        && PLAN_TERMINAL.indexOf(S.plan.status) >= 0) {
+    if (staleAcceptance(res.plan_id, res.plan_generation)) {
       updateControls();
-      render();
       return;
     }
-    setBusy(true);
-    /* 已开放场次会立即执行，不能写成「等待各自开放时间」：
-     * 按两种正式模式分别说明（预报名等开放 / 立即报名抢名额）。 */
-    const futureCount = items.filter((item) => item.signup_mode === "pre_register").length;
-    const instantCount = items.filter((item) => item.signup_mode === "instant_signup").length;
-    const parts = [];
-    if (futureCount) parts.push(futureCount + " 场预报名等开放");
-    if (instantCount) parts.push(instantCount + " 场立即报名马上执行");
-    addLog("已安排 " + items.length + " 场活动：" + (parts.join("，") || "按各场状态执行") + "。");
-    render();
+    acceptStartReply(res, items);
   }).catch((err) => {
     if (!S.startRequest || S.startRequest.id !== requestId) return;
     clearTimeout(S.startRequest.timer);
@@ -127,6 +99,48 @@ export function startPlan() {
     S.startRequest.state = "reconciling";
     reconcileStart(requestId, msg(err));
   });
+}
+
+/* 显式代次包括 0；旧桥接缺少代次时保留原兼容行为。 */
+function staleAcceptance(id, generation) {
+  return generation != null && generation !== "" && Number.isFinite(Number(generation))
+    && !planEventOwns({ plan_id: id, plan_generation: generation });
+}
+
+function acceptStartReply(res, items) {
+  /* 后端可能在 Promise 回调之前就推来 plan/task 事件（协调器另一线程emit），
+   * 这里只在计划 id 变了时才重置，避免把已收到的任务表清空。
+   * ack 的接纳代次并入会话记录：归属判定与事件路由同一基准（P1）。 */
+  const ackGen = notePlanGeneration(res.plan_generation);
+  if (!S.plan.id || S.plan.id !== String(res.plan_id || "")) {
+    S.plan = { id: String(res.plan_id || ""), gen: ackGen,
+               status: "ready", tasks: new Map(), armedAt: Date.now() / 1000 };
+  } else if (ackGen > (Number(S.plan.gen) || 0)) {
+    S.plan.gen = ackGen;
+  }
+  /* 修改后的「重新开始」不能等 plan 事件再清 editing：plan_id 没变时
+     state/plan.js 的 handlePlan 会跳过 editing 清理，修改中的说明会一直留在屏上 */
+  S.editing = null;
+  S.stopping = false;
+  /* ack 只证明「已接纳」，不证明「此刻仍在运行」：该计划已经通过 plan_done
+   * 到达终态时（终态早于 ack），保持终态呈现与 busy=false——没有第二个
+   * plan_done 会再来解锁，置忙会让停止入口悬在一个永远不结束的计划上（P1） */
+  if (S.plan.id === String(res.plan_id || "")
+      && PLAN_TERMINAL.indexOf(S.plan.status) >= 0) {
+    updateControls();
+    render();
+    return;
+  }
+  setBusy(true);
+  /* 已开放场次会立即执行，不能写成「等待各自开放时间」：
+   * 按两种正式模式分别说明（预报名等开放 / 立即报名抢名额）。 */
+  const futureCount = items.filter((item) => item.signup_mode === "pre_register").length;
+  const instantCount = items.filter((item) => item.signup_mode === "instant_signup").length;
+  const parts = [];
+  if (futureCount) parts.push(futureCount + " 场预报名等开放");
+  if (instantCount) parts.push(instantCount + " 场立即报名马上执行");
+  addLog("已安排 " + items.length + " 场活动：" + (parts.join("，") || "按各场状态执行") + "。");
+  render();
 }
 
 /* 开始请求的对账：只问后端「这次到底启没启」，绝不重发 start_plan（R11）。
@@ -215,27 +229,7 @@ export function reconcileStart(requestId, hint) {
   });
 }
 
-/* 已确认接纳：按快照真实状态恢复。
- * 15 秒内就结束的计划不能复活成「空任务运行中」——那会给出一个永远不结束的
- * 运行态和一个点不动的停止按钮（C05）。
- * generation 是后端接纳代次：ack 承认的归属与事件路由同一基准（P1）。 */
-export function adoptPlan(requestId, planId, snapshot, finished, generation) {
-  S.starting = false;
-  if (S.startRequest && S.startRequest.id === requestId) {
-    S.startRequest.state = "accepted";
-    clearTimeout(S.startRequest.queryTimer);
-    S.startRequest.queryTimer = null;
-  }
-  const id = String(planId || "");
-  const status = String((snapshot && snapshot.status) || (finished ? "unknown" : "running"));
-  const terminal = ["completed", "partial", "failed", "stopped"].indexOf(status) >= 0;
-  const gen = notePlanGeneration(generation);
-  if (id && (!S.plan.id || S.plan.id !== id)) {
-    S.plan = { id: id, gen: gen, status: terminal ? status : "running", tasks: new Map(),
-               armedAt: Date.now() / 1000 };
-  } else if (gen > (Number(S.plan.gen) || 0)) {
-    S.plan.gen = gen;
-  }
+function mergeSnapshotTasks(snapshot) {
   if ((snapshot && snapshot.tasks || []).length) {
     (snapshot.tasks || []).forEach((task) => {
       const key = String(task.task_id);
@@ -253,6 +247,35 @@ export function adoptPlan(requestId, planId, snapshot, finished, generation) {
       S.plan.tasks.set(key, merged);
     });
   }
+}
+
+/* 已确认接纳：按快照真实状态恢复。
+ * 15 秒内就结束的计划不能复活成「空任务运行中」——那会给出一个永远不结束的
+ * 运行态和一个点不动的停止按钮（C05）。
+ * generation 是后端接纳代次：ack 承认的归属与事件路由同一基准（P1）。 */
+export function adoptPlan(requestId, planId, snapshot, finished, generation) {
+  S.starting = false;
+  if (S.startRequest && S.startRequest.id === requestId) {
+    S.startRequest.state = "accepted";
+    clearTimeout(S.startRequest.timer);
+    clearTimeout(S.startRequest.queryTimer);
+    S.startRequest.queryTimer = null;
+  }
+  const id = String(planId || "");
+  if (staleAcceptance(id, generation)) {
+    updateControls();
+    return;
+  }
+  const status = String((snapshot && snapshot.status) || (finished ? "unknown" : "running"));
+  const terminal = ["completed", "partial", "failed", "stopped"].indexOf(status) >= 0;
+  const gen = notePlanGeneration(generation);
+  if (id && (!S.plan.id || S.plan.id !== id)) {
+    S.plan = { id: id, gen: gen, status: terminal ? status : "running", tasks: new Map(),
+               armedAt: Date.now() / 1000 };
+  } else if (gen > (Number(S.plan.gen) || 0)) {
+    S.plan.gen = gen;
+  }
+  mergeSnapshotTasks(snapshot);
   S.stopping = false;
   if (terminal) {
     S.plan.status = status;

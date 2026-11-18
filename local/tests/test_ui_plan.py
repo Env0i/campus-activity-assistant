@@ -1795,7 +1795,7 @@ out.push({ calls: calls.length, items: sent, state: S.startRequest.state,
         self.assertEqual(data["button"], "正在确认是否启动…")
     # 对账确认已接纳时按快照恢复任务与停止按钮；快照已经结束就不再置忙。
     def test_reconcile_accepted_restores_tasks_or_keeps_the_terminal_state(self):
-        data = run_js(FLOW_PRELUDE + r'''
+        script = FLOW_PRELUDE + r'''
 const run = async (snapshot, finished) => {
   S.busy = false; S.starting = true;
   S.plan = { id: null, status: "idle", tasks: new Map() };
@@ -1809,13 +1809,19 @@ const run = async (snapshot, finished) => {
     resultOpen: S.resultOpen === true, result: $("#result").textContent,
     title: $("#selected").textContent };
 };
+'''
+        running = run_js(script + r'''
 const running = await run({ status: "running", tasks: [
   { task_id: "t1", activity_id: "a1", name: "活动甲", status: "waiting",
     sign_start: "2026-11-07 09:00:00" }] }, false);
+out.push(running);
+''')[0]
+        finished = run_js(script + r'''
 const finished = await run({ status: "completed", tasks: [
   { task_id: "t1", activity_id: "a1", name: "活动甲", status: "success" }] }, true);
-out.push({ running, finished });
+out.push(finished);
 ''')[0]
+        data = {"running": running, "finished": finished}
         self.assertTrue(data["running"]["busy"])
         self.assertEqual(data["running"]["planId"], "p1")
         self.assertEqual(data["running"]["tasks"], ["t1"])
