@@ -513,7 +513,7 @@
   <!-- 关窗三选（原型 closeask 画板，c3-dialogs-gap CW01–CW08、CW12、CW14）：深色点阵标题栏
        ＋琥珀左线、无右上 ×；三张选择卡「最小化→隐藏→退出」竖排，点一行就执行；
        确认步换标题与正文段，脚部勾选居左、主钮居右。右上角 X 只等于「请求关闭」，
-       真正关不关由这里决定。卡内数字由 window.js 按 BE1 载荷填写。 -->
+       真正关不关由这里决定。卡内数字由关闭流程按 BE1 载荷填写。 -->
   <dialog class="dlg dlg-close" id="dlg-close" aria-labelledby="dlg-close-title">
     <div class="dlg-head">
       <h2 id="dlg-close-title">要关闭窗口吗？</h2>
@@ -610,7 +610,6 @@
   <script src="controllers/tick.js"></script>
   <script src="state/time.js"></script>
   <script src="views/tour.js"></script>
-  <script src="controllers/window.js"></script>
   <script src="app.js"></script>
   <script src="boot-guard.js"></script>
   <script type="module" src="main.js"></script>

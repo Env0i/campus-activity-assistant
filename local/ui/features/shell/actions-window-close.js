@@ -13,11 +13,6 @@ function closeDialogEl() {
   return document.getElementById("dlg-close");
 }
 
-function closeDialogOpen() {
-  const dlg = closeDialogEl();
-  return !!(dlg && dlg.open);
-}
-
 /* 打开后把焦点放到「最小化」（CW06，原型 Main:1818-1822 聚焦第一张选择卡）：
  * 卡序改成「最小化→隐藏→退出」后它就是第一张，也是三个出口里最轻、随时能回来的那一个。
  * 取不到元素、替身没有 focus、或者旧内核不许聚焦——一律静默跳过：
@@ -166,7 +161,7 @@ function showCloseConfirm(show) {
 /* 打开三选（决策 014 设计 9.1；c3-dialogs-gap CW01–CW06、CW11、CW12）。
  * 先按状态铺利害清单与三张卡，再开弹窗并聚焦第一张选择卡（最小化）；
  * 计划运行时标「推荐」，退出要再确认一次；托盘不可用且手机没连时「隐藏到后台」禁用并写原因。 */
-function openWindowCloseDialog(payload) {
+export function openWindowCloseDialog(payload) {
   const data = payload || {};
   const dlg = closeDialogEl();
   if (!dlg) return;
@@ -208,7 +203,7 @@ function submitWindowClose(action) {
   });
 }
 
-function wireWindowClose() {
+function bindWindowClose() {
   const dlg = closeDialogEl();
   const cancel = document.getElementById("btn-close-cancel");
   if (cancel) cancel.addEventListener("click", () => hideWindowCloseDialog());
@@ -261,16 +256,12 @@ function wireWindowClose() {
   }
 }
 
-/* 测试替身里的 document 只有一部分接口：取不到元素就跳过接线，
- * 绝不让「关窗弹窗没接上」把整个界面的脚本执行拖崩。 */
-if (typeof document !== "undefined" && typeof document.getElementById === "function") {
+export function wireWindowClose() {
+  /* 模块入口统一接线；缺少 DOM 接口的测试替身保持原来的静默跳过。 */
+  if (typeof document === "undefined" || typeof document.getElementById !== "function") return;
   try {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", wireWindowClose);
-    } else {
-      wireWindowClose();
-    }
+    bindWindowClose();
   } catch (error) {
-    /* 测试替身缺 addEventListener / 元素替身不带方法：静默跳过 */
+    /* 旧内核或测试替身缺接口时，不让关窗接线中断其余启动。 */
   }
 }

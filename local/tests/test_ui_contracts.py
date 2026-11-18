@@ -5382,7 +5382,7 @@ class WindowCloseChoiceContractTests(unittest.TestCase):
     def setUp(self):
         self.html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
         self.css = (LOCAL / "ui" / "styles.css").read_text(encoding="utf-8")
-        self.controller = (LOCAL / "ui" / "controllers" / "window.js").read_text(encoding="utf-8")
+        self.controller = (LOCAL / "ui" / "features" / "shell" / "actions-window-close.js").read_text(encoding="utf-8")
 
     def test_dialog_offers_hide_minimize_exit_and_cancel(self):
         for needle in ('id="dlg-close"', 'id="dlg-close-body"', 'id="dlg-close-remember"',
@@ -5396,8 +5396,38 @@ class WindowCloseChoiceContractTests(unittest.TestCase):
         # CW14：勾选框文案照原型 Main:820（旧句「以后都这样，别再问我」已换）
         self.assertIn("以后都这样，不再询问", self.html)
         self.assertNotIn("别再问我", self.html)
-        self.assertIn('src="controllers/window.js"', self.html)
+        self.assertNotIn('src="controllers/window.js"', self.html)
+        main = (LOCAL / "ui" / "main.js").read_text(encoding="utf-8")
+        self.assertIn('from "./features/shell/actions-window-close.js"', main)
+        self.assertEqual(main.count("wireWindowClose();"), 1)
+        self.assertLess(main.index("installLegacyGlobals();"), main.index("wireWindowClose();"))
+        self.assertLess(main.index("wireWindowClose();"), main.index("window.__replayBackendQueue();"))
         self.assertIn(".dlg-check", self.css)
+
+    def test_close_choices_send_one_request_each(self):
+        """每张选择卡各接线一次，一次用户选择只发一次后端请求。"""
+        result = run_js(r"""
+document.getElementById = (id) => document.querySelector("#" + id);
+wireWindowClose();
+const sent = [];
+window.pywebview = { api: { request_window_close: (action) => {
+  sent.push(action); return Promise.resolve({ ok: true });
+} } };
+const ids = ["btn-close-minimize", "btn-close-hide", "btn-close-exit", "btn-close-exit-confirm"];
+const listeners = ids.map((id) => document.querySelector("#" + id).listeners.click.length);
+openWindowCloseDialog({ plan_running: false, tray_ok: true });
+document.querySelector("#btn-close-minimize").click();
+openWindowCloseDialog({ plan_running: false, tray_ok: true });
+document.querySelector("#btn-close-hide").click();
+openWindowCloseDialog({ plan_running: true, tray_ok: true });
+document.querySelector("#btn-close-exit").click();
+const beforeConfirm = sent.slice();
+document.querySelector("#btn-close-exit-confirm").click();
+out.push({ listeners, beforeConfirm, sent });
+""")
+        self.assertEqual(result[0]["listeners"], [1, 1, 1, 1])
+        self.assertEqual(result[0]["beforeConfirm"], ["minimize", "hide"])
+        self.assertEqual(result[0]["sent"], ["minimize", "hide", "exit"])
 
     def test_choices_are_stacked_rows_not_a_button_row(self):
         """三个出口并排看不清谁更安全：改成竖排可选行，每行带一句代价说明。"""
@@ -5788,7 +5818,7 @@ out.push({ fresh, later, checkHidden, launch: document.querySelector("#btn-updat
         退出要再确认（确认步换标题正文与脚部两钮）、Esc 回选择步且不出全局链、
         托盘不可用且手机没连时不能隐藏并写原因。"""
         res = run_js(r"""
-/* 替身没有 getElementById，window.js 加载时会跳过接线：补上垫片后手动接一次（真实 DOM 加载时自动接） */
+/* 替身没有 getElementById，模块入口跳过接线：补上垫片后手动接一次。 */
 document.getElementById = (id) => document.querySelector("#" + id);
 wireWindowClose();
 const sent = [];
