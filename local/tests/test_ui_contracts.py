@@ -549,13 +549,23 @@ class DocAndCopySyncTests(unittest.TestCase):
         self.assertNotIn("phoneInstall.hidden = phoneReady;", self.phone_view)
 
     def test_a_check_event_refreshes_the_desktop_relogin_card(self):
-        """重登成功后顶栏会变，右侧「电脑续登录」卡片也得跟着刷新。"""
-        app_js = (LOCAL / "ui" / "app.js").read_text(encoding="utf-8")
-        legacy = (LOCAL / "ui" / "legacy-globals.js").read_text(encoding="utf-8")
-        self.assertIn("window.PhonePanel", app_js)
-        self.assertIn("PhonePanel.refresh", app_js)
-        # 顶层 const 不会挂到 window 上：必须显式暴露，否则上面的调用永远是空
-        self.assertIn("window.PhonePanel = PhonePanel;", legacy)
+        """检查回包后重取手机状态，并刷新电脑续登录卡片。"""
+        res = run_js(r"""
+let calls = 0;
+window.pywebview = { api: {
+  phone_access_state: () => {
+    calls += 1;
+    return Promise.resolve({ ok: true, advanced: { credential: { last_origin: "auto_ocr" } } });
+  },
+  advanced_component_location: () => Promise.resolve({ ok: false }),
+}};
+window.onBackend.check({ ok: true, result: "valid", session_present: true });
+await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+await Promise.resolve(); await Promise.resolve();
+out.push({ calls, text: document.querySelector("#relogin-last-used").textContent });
+""")
+        self.assertEqual(res[0]["calls"], 1)
+        self.assertEqual(res[0]["text"], "最近一次登录：由电脑自动恢复完成。")
 
 # ==================== 源自 test_ui_contract_feedback.py ====================
 """界面契约：错误反馈与动作交错顺序。"""
@@ -1121,11 +1131,29 @@ class ErrorFeedbackRoundtripContractTests(unittest.TestCase):
                       "activities 事件必须收口本轮 list 分支")
 
     def test_check_event_uses_round_protocol(self):
-        js = read("ui/app.js")
-        handler = js[js.index("window.onBackend"):]
-        self.assertNotIn("S.runtime.error = data.runtime_error || null", handler,
-                         "check 事件不得无条件覆盖组件结论（会抹掉同轮另一分支故障）")
-        self.assertIn("S.runtime.roundError", handler, "check 终态必须进轮次故障累计")
+        res = run_js(r"""
+window.pywebview = { api: {
+  check: () => Promise.resolve({ ok: true, queued: true }),
+  list_activities: () => Promise.resolve({ ok: true, queued: true }),
+}};
+const bannerVisible = () => document.querySelector("#banners").innerHTML.includes("无法找到所需程序组件");
+refresh(false);
+await Promise.resolve();
+window.onBackend.check({ ok: false, result: "unknown", runtime_error: "worker_missing" });
+const failed = bannerVisible();
+window.onBackend.activities({ ok: true, items: [] });
+const afterList = bannerVisible();
+refresh(false);
+await Promise.resolve();
+window.onBackend.check({ ok: true, result: "valid", hours_left: 10, session_present: true });
+const waitingList = bannerVisible();
+window.onBackend.activities({ ok: true, items: [] });
+out.push({ failed, afterList, waitingList, recovered: !bannerVisible() });
+""")
+        self.assertTrue(res[0]["failed"])
+        self.assertTrue(res[0]["afterList"])
+        self.assertTrue(res[0]["waitingList"])
+        self.assertTrue(res[0]["recovered"])
 
     def test_login_and_start_plan_consume_component_codes(self):
         # 两个动作搬进模块后，拼接源码把模块按依赖顺序附在后面（cancelTask 先于 startPlan），

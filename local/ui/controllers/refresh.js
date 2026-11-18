@@ -102,13 +102,19 @@ function noteRoundError(code) {
 
 /* FB4：刷新轮次收口——一个分支终态后，若本轮两分支都完成，按该轮故障累计
  * 决定撤/留横幅（有故障保持，无故障恢复）。任一分支未完成绝不提前清。 */
-function settleRefreshBranch(branch) {
+function updateRefreshBranchState(branch) {
   if (branch === "check") S.runtime.checkPending = false;
   else S.runtime.listPending = false;
-  if (S.runtime.checkPending || S.runtime.listPending) return;
+  if (S.runtime.checkPending || S.runtime.listPending) return false;
   const next = S.runtime.roundError;
-  if (S.runtime.error !== next) {
-    S.runtime.error = next;
+  if (S.runtime.error === next) return false;
+  S.runtime.error = next;
+  return true;
+}
+
+/* 状态结算独立于界面重画，检查回包在原有位置统一刷新。 */
+function settleRefreshBranch(branch) {
+  if (updateRefreshBranchState(branch)) {
     paintBanners();
     updateControls();
     render();
@@ -372,6 +378,57 @@ function scheduleSignedRefresh() {
     if (S.busy || S.starting || S.demo) return;
     refresh(true, { background: true });   /* 程序自己发起的刷新走后台轮：失败不清列表和勾选（U2/U3） */
   }, 800);
+}
+
+function handleCheck(payload) {
+  const data = payload || {};
+  /* 旧轮迟到：不能覆盖新一轮的检查结论（R11）。先有界暂存，
+   * 等 skipped ack 接续回这个 owner 再重放一次。 */
+  if (data.request_id && S.round.check && data.request_id !== S.round.check) {
+    cacheRoundPayload("check", data.request_id, data);
+    return;
+  }
+  if (data.request_id && !markRoundApplied("check", data.request_id)) return;
+  if (data.request_id && data.request_id === S.round.check) {
+    clearTimeout(S.round.checkTimer);
+  }
+  /* 真实校验回来了：解除「检查中」，记下四态结论（valid/none/expired/unknown） */
+  S.login.checking = false;
+  S.login.result = data.result || null;
+  /* FB4：组件结论按刷新轮次处理——本轮 check 报组件故障立即挂横幅并计入
+   * 故障累计（另一分支成功/普通 unknown 不得撤）；本轮 check 无故障只收口
+   * 自己的分支，撤横幅必须等本轮两分支都完成（两到达顺序语义一致） */
+  const componentError = noteRoundError(data.runtime_error);
+  if (componentError || S.runtime.checkPending) updateRefreshBranchState("check");
+  if (data.demo) S.demo = true;
+  /* demo 的 session_present 是 null（没有真实会话）：不能 !! 成 false，
+   * 否则会走「首次未登录」板面，把演示样例全遮住（C07） */
+  setLogin(data.hours_left, !!data.ok, loginPresent(data, !!data.demo), data);
+  if (data.result === "valid" && firstNotice("check", data.request_id, "valid")) {
+    addLog("[OK] 已复用本机登录态，学校接口校验通过");
+  }
+  /* 时钟只认结构化载荷：没有结论就落 unknown，绝不从文本猜「慢几秒」（R08） */
+  applyClock(data.clock);
+  /* 静默恢复中（recovering）不刷失败日志：登录失效这件事已由「自动登录中」表达，
+   * 用户不需要看到一条他没法处理的错误。静默失败、转人工后照常记。 */
+  if (!data.ok && !data.recovering && firstNotice("check", data.request_id, "fail")) {
+    const reason = String(data.reason || data.text || "登录状态检查没通过");
+    addLog(reason.startsWith("[X]") ? reason : "[X] " + reason);
+  }
+  paintBanners();     /* 组件横幅随 check 结论出现/撤销 */
+  paintChecks();
+  /* 同一轮校验结论统一收口：胶囊、时钟、大屏、路线、列表空态与各倒计时
+   * 一起刷新，不留「胶囊更新了、倒计时还是旧的」混合态（上面的 request_id
+   * 代次校验已保证只有本轮结果能走到这里）。 */
+  syncLoginDependentView();
+  maybeStartTour();   /* 登录确认有效后，等着的首次引导看看能不能开始 */
+  /* 重新登录成功也会走这条 check 事件：顶栏换了，右侧「电脑续登录」卡片还是旧
+   * 记录（最近一次登录/账号状态）。顺手让手机面板重取一次自己的快照，
+   * 失败就静默——卡片陈旧不该影响登录结论本身。 */
+  if (window.PhonePanel && typeof window.PhonePanel.refresh === "function") {
+    try { window.PhonePanel.refresh(); } catch (error) { /* 面板刷新失败不干扰 check */ }
+  }
+
 }
 
 function applyActivities(payload, quiet) {
