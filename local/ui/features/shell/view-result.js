@@ -1,7 +1,7 @@
 /* 结果条与操作按钮。 */
 let resultTimer = null;
 
-function setResult(result) {
+export function setResult(result) {
   const el = $("#result");
   clearTimeout(resultTimer);
   resultTimer = null;

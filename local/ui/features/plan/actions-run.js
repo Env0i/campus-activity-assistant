@@ -1,3 +1,4 @@
+import { setResult } from "../shell/view-result.js";
 import { setBusy } from "../shell/actions-render.js";
 import { render } from "../shell/actions-render.js";
 import { clearSelection } from "../list/actions-selection.js";

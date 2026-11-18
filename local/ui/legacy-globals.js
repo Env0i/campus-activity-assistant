@@ -1,3 +1,4 @@
+import { setResult } from "./features/shell/view-result.js";
 import { tourVisible } from "./features/shell/view-tour.js";
 import { tourShouldAutoStart, requestAutoTour, maybeStartTour, tourTrapTab, tourPauseNow, tourResumeNow } from "./features/shell/actions-tour.js";
 import { restoreUpdate, receiveUpdate } from "./features/update/actions.js";
@@ -94,6 +95,7 @@ function attachShellGlobals() {
   window.openSettingsSection = openSettingsSection;
   window.closeSettings = closeSettings;
   window.setBusy = setBusy;
+  window.setResult = setResult;
   window.tourVisible = tourVisible;
   window.tourShouldAutoStart = tourShouldAutoStart;
   window.requestAutoTour = requestAutoTour;

@@ -1,3 +1,4 @@
+import { setResult } from "../shell/view-result.js";
 import { cancelAsk, cancelAskDismiss, cancelConfirm } from "./actions-cancel.js";
 import { togglePlace } from "../plan/view-draft.js";
 import { render } from "../shell/actions-render.js";

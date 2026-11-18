@@ -1,3 +1,4 @@
+import { setResult } from "../shell/view-result.js";
 import { setBusy } from "../shell/actions-render.js";
 import { render } from "../shell/actions-render.js";
 /* 计划栏的编排层（事件这一段）：plan/task/plan_done 的收口与单场结论。 */
