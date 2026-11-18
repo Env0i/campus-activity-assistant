@@ -496,15 +496,17 @@ window.__calls = [];
 window.pywebview = { api: { save_prefs: (patch) => {
   window.__calls.push(patch); return Promise.resolve({ ok: true });
 } } };
+S.demo = true; S.listState = "ready";
 $("#btn-settings").focus();
-startTour(0);
+requestAutoTour();
 $("#tour-skip").click();
 for (let i = 0; i < 12; i += 1) await Promise.resolve();
 const skipped = { calls: window.__calls.slice(), focus: document.activeElement === $("#btn-settings"),
   closed: !S.tour.open && $("#tour").hidden };
 window.__calls = [];
 $("#btn-settings").focus();
-startTour(TOUR_STEPS.length - 1);
+requestAutoTour();
+for (let i = 1; i < TOUR_STEPS.length; i += 1) $("#tour-next").click();
 $("#tour-next").click();
 for (let i = 0; i < 12; i += 1) await Promise.resolve();
 out.push({ skipped, completed: { calls: window.__calls.slice(),

@@ -409,7 +409,7 @@
     </div>
   </aside>
   <!-- 五步可重播引导：高亮框四周由 .tour-spot 的外扩阴影铺暗、目标区镂空（TR01，原型 Main:906-911）；
-       步数由 views/tour.js 填写；Esc=跳过；窄窗或目标缺失退回底部说明条 -->
+       步数由 features/shell/view-tour.js 填写；Esc=跳过；窄窗或目标缺失退回底部说明条 -->
   <div class="tour" id="tour" hidden>
     <div class="tour-spot" id="tour-spot" aria-hidden="true"></div>
     <div class="tour-card" id="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" tabindex="-1">
@@ -605,7 +605,6 @@
   <script src="state/labels.js"></script>
   <script src="controllers/tick.js"></script>
   <script src="state/time.js"></script>
-  <script src="views/tour.js"></script>
   <script src="app.js"></script>
   <script src="boot-guard.js"></script>
   <script type="module" src="main.js"></script>

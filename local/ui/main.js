@@ -1,3 +1,4 @@
+import { wireTour } from "./features/shell/actions-tour.js";
 import { checkUpdate, startDownload, confirmDownload, launchInstaller, cancelDownload } from "./features/update/actions.js";
 import { wireClockActions } from "./features/clock/actions.js";
 import { render } from "./features/shell/actions-render.js";
@@ -31,6 +32,7 @@ $("#btn-login-check").addEventListener("click", () => { doCheck(); });
 $("#btn-clear-plan").addEventListener("click", clearSelection);
 wireSettings();
 wireTourExit();
+wireTour();
 wireHelp();
 $("#btn-update-check").addEventListener("click", checkUpdate);
 $("#btn-update-install").addEventListener("click", startDownload);

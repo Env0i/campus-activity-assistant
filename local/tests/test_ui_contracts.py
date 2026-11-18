@@ -4365,20 +4365,17 @@ class TourAndLifecycleContractTests(unittest.TestCase):
 
     def test_tour_row_pick_swaps_card_copy(self):
         """TR05（原型 Main:1302）：第 2 步勾选目标行后换卡文案，取消勾选换回；文案逐字。"""
-        js = read("ui/views/tour.js")
+        js = read("ui/features/shell/view-tour.js")
         self.assertIn("加入计划了", js, "勾选后的卡片标题必须照原型")
         self.assertIn("右边的清单多了一场，报名还没有开始。想取消，再点一次这一行。", js,
                       "勾选后的卡片正文必须照原型")
-        paint = js[js.index("function paintTour()")
-                   :js.index("/* ---------------------------------------------------------------- 事件绑定 */")]
+        paint = js[js.index("function paintTour()"): ]
         self.assertIn("step.interactive", paint, "换卡只许发生在第 2 步（interactive）")
 
     def test_tour_never_triggers_backend_actions(self):
         """引导只做说明：开始/推进/跳过引导的代码不得调用任何桥接动作。"""
-        js = read("ui/app.js")
-        start = js.index("function tourShouldAutoStart()")
-        end = js.index("/* ---------------------------------------------------------------- 事件绑定 */")
-        body = js[start:end]
+        body = "\n".join(read(path) for path in ("ui/features/shell/actions-tour.js",
+            "ui/features/shell/view-tour.js", "ui/features/shell/actions-tour-exit.js"))
         for banned in ("api(\"login\"", "api(\"start_plan\"", "api(\"check\"",
                        "api(\"list_activities\"", "toggleSelection(", "startPlan()"):
             self.assertNotIn(banned, body,
@@ -4433,7 +4430,8 @@ class TourAndLifecycleContractTests(unittest.TestCase):
         self.assertNotIn("S.login", pop_body, "时间浮层不再显示登录剩余（登录看登录状态卡）")
         self.assertNotIn("登录预计剩余", js, "任何地方都不得再出现登录预计剩余")
         self.assertNotIn("clock-pop-left", js, "登录剩余的走字单元格不得残留")
-        paint = js[js.index("function paintLogin()"):js.index("function setBusy")]
+        paint_src = read("ui/features/login/view.js")
+        paint = paint_src[paint_src.index("function paintLogin()"): ]
         self.assertNotIn("loginHoursLeft", paint, "胶囊渲染不得再读剩余时间估算")
         # 估算不参与开始门禁：门禁仍只看 result === "valid"
         gate_src = read("ui/features/plan/view-controls.js")
@@ -4465,16 +4463,16 @@ class TourAndLifecycleContractTests(unittest.TestCase):
         断言锁 S.tour 引导状态（而非 "tour" 子串——#btn-help-tour 的
         disabled 引用是设置功能，不是引导门禁）。
         """
-        js = read("ui/app.js")
         gate_src = read("ui/features/plan/view-controls.js")
         gate = gate_src[gate_src.index("export function updateControls("):]   # 文件内只此一个函数，截到文件尾
         self.assertNotIn("S.tour", gate,
                          "开始按钮门禁不得引用引导状态")
         # 旧断言「引导自动开始不读登录状态」被决策 009 修订取代：首次自动引导要等登录成功、
         # 列表加载、条款已同意（maybeStartTour）；版本判定本身仍不看登录，手动重看任何时候都行。
-        version = js[js.index("function tourShouldAutoStart()"):js.index("function requestAutoTour")]
+        tour_src = read("ui/features/shell/actions-tour.js")
+        version = tour_src[tour_src.index("function tourShouldAutoStart()"):tour_src.index("function requestAutoTour")]
         self.assertNotIn("S.login", version, "内容版本判定不读登录状态")
-        auto = js[js.index("function maybeStartTour()"):js.index("function tourRowTarget")]
+        auto = tour_src[tour_src.index("function maybeStartTour()"):tour_src.index("function tourGuardClick")]
         self.assertIn('S.login.result !== "valid"', auto, "首次自动引导要等学校确认登录有效")
         self.assertIn('S.listState !== "ready"', auto, "首次自动引导要等活动列表加载")
         self.assertIn("termsLocked()", auto, "没同意条款不自动引导")
@@ -4482,7 +4480,8 @@ class TourAndLifecycleContractTests(unittest.TestCase):
         replay = replay_js[replay_js.index("function replayTourFrom("):replay_js.index("export function wireHelp")]
         self.assertNotIn("S.login", replay, "手动重看引导不受登录状态限制：未登录也能看")
         # 引导也不改变登录按钮：paintLogin 的四态分支里没有引导概念
-        paint = js[js.index("function paintLogin()"):js.index("function setBusy")]
+        paint_src = read("ui/features/login/view.js")
+        paint = paint_src[paint_src.index("function paintLogin()"): ]
         self.assertNotIn("tour", paint, "登录胶囊渲染与引导互不影响")
 
     def test_settings_dialog_shows_version(self):

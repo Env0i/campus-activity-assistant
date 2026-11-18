@@ -1,5 +1,7 @@
+import { tourVisible } from "./features/shell/view-tour.js";
+import { tourShouldAutoStart, requestAutoTour, maybeStartTour, tourTrapTab, tourPauseNow, tourResumeNow } from "./features/shell/actions-tour.js";
 import { restoreUpdate, receiveUpdate } from "./features/update/actions.js";
-import { render } from "./features/shell/actions-render.js";
+import { render, setBusy } from "./features/shell/actions-render.js";
 import { ingestBusinessClock, resyncClock, pollClockNow, startClockPolling } from "./features/clock/actions.js";
 import { clearSelection, tipGoSigned, toggleSelection } from "./features/list/actions-selection.js";
 import { listErrorCopy } from "./features/list/state-errors.js";
@@ -36,7 +38,7 @@ import { fillHelp, helpStatus, revealHelpStatus } from "./features/shell/view-he
 import { showHelp } from "./features/shell/actions-help.js";
 
 import { openSettings, openSettingsSection, closeSettings } from "./features/shell/actions-settings.js";
-import { tourClose, tourSkip } from "./features/shell/actions-tour-exit.js";
+import { tourSkip } from "./features/shell/actions-tour-exit.js";
 
 /* 计划栏（features/plan）挂回：普通脚本里还有 app.js、controllers/refresh.js、
  * controllers/tick.js、views/list.js、state/filters.js、state/labels.js、
@@ -91,7 +93,14 @@ function attachShellGlobals() {
   window.openSettings = openSettings;
   window.openSettingsSection = openSettingsSection;
   window.closeSettings = closeSettings;
-  window.tourClose = tourClose;
+  window.setBusy = setBusy;
+  window.tourVisible = tourVisible;
+  window.tourShouldAutoStart = tourShouldAutoStart;
+  window.requestAutoTour = requestAutoTour;
+  window.maybeStartTour = maybeStartTour;
+  window.tourTrapTab = tourTrapTab;
+  window.tourPauseNow = tourPauseNow;
+  window.tourResumeNow = tourResumeNow;
   window.tourSkip = tourSkip;
 }
 

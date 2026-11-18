@@ -1,13 +1,4 @@
-/* 结果条与「忙」这个开关：全程序共用的两件小事，跟登录无关，所以放在视图层普通脚本里。 */
-function setBusy(busy) {
-  S.busy = !!busy;
-  /* 计划开跑先暂停引导（运行状态优先），收尾后从原步骤继续 */
-  if (S.busy && S.tour.open && !S.tour.paused) tourPauseNow();
-  if (!S.busy && S.tour.paused) tourResumeNow();
-  paintLogin();
-  updateControls();
-}
-
+/* 结果条与操作按钮。 */
 let resultTimer = null;
 
 function setResult(result) {

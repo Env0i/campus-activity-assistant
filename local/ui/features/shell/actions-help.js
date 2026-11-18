@@ -1,3 +1,4 @@
+import { startTour } from "./actions-tour.js";
 import { helpStatus } from "./view-help.js";
 import { PhonePanel } from "../phone-access/state.js";
 

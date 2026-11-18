@@ -447,14 +447,6 @@ $("#max-attempts").addEventListener("change", (event) => {
 });
 $("#btn-log-clear").addEventListener("click", () => { $("#log").textContent = ""; $("#log-last").textContent = "还没有记录"; });
 /* 五步引导：跳过/上一步/下一步；说明页重播入口；GitHub 最新版本外链（点击才打开） */
-$("#tour-prev").addEventListener("click", () => {
-  if (S.tour.step > 0) { S.tour.step -= 1; paintTour(); }
-});
-$("#tour-next").addEventListener("click", () => {
-  if (S.tour.step >= TOUR_STEPS.length - 1) { tourClose(true); return; }
-  S.tour.step += 1;
-  paintTour();
-});
 $("#btn-help-latest").addEventListener("click", () => {
   /* 用户点击才打开外链：后端用系统默认浏览器打开固定的 releases/latest 地址；
    * 打不开时把地址摆成可选文本（局部反馈），不在 WebView 里跳转 */
@@ -481,10 +473,6 @@ $("#btn-help-data").addEventListener("click", () => {
       helpStatus("打不开数据目录：" + msg(err) + "。可以先再试一次，或在系统里手动打开本机数据目录。", "bad");
     });
 });
-/* 窗口尺寸或内部滚动变化时重新定位高亮与卡片 */
-window.addEventListener("resize", () => { if (S.tour.open && !S.tour.paused) paintTour(); });
-document.addEventListener("click", tourGuardClick, true);
-document.addEventListener("scroll", () => { if (S.tour.open && !S.tour.paused) paintTour(); }, true);
 $("#empty-action").addEventListener("click", () => {
   /* 只按 paintEmpty 写下的动作意图分派：
    * 「有缓存 + 列表失败」的空态写的是 refresh，不能被 items.length 猜成清筛选。 */

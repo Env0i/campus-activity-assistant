@@ -32,7 +32,7 @@
 - `docs/UI_SPEC.md` §5.11（五步引导与生命周期提示验收条款；由 `20261103-ui-c-finish` 的 `docs-contracts` 更新）
 - `local/tests/test_ui_contract.py` 的 TourAndLifecycleContractTests（静态契约）与
   TourBehaviorTests（node vm 行为回归：版本判定/Tab 循环/背景快捷键隔离/Esc 单次/焦点恢复/暂停放行/重定位）
-- `local/ui/state/store.js` 的 `TOUR_VERSION` / `TOUR_STEPS` / `tourShouldAutoStart` / `tourTrapTab` / `paintTour`
+- `local/ui/state/store.js` 的 `TOUR_VERSION` / `TOUR_STEPS`；`local/ui/features/shell/actions-tour.js` 的 `tourShouldAutoStart` / `tourTrapTab`；`local/ui/features/shell/view-tour.js` 的 `paintTour`
 
 ## 已知限制
 
