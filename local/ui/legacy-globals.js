@@ -1,6 +1,6 @@
 import { restoreUpdate, receiveUpdate } from "./features/update/actions.js";
 import { render } from "./features/shell/actions-render.js";
-import { ingestBusinessClock, markClockUnavailable } from "./features/clock/actions.js";
+import { ingestBusinessClock, resyncClock, pollClockNow, startClockPolling } from "./features/clock/actions.js";
 import { clearSelection, tipGoSigned, toggleSelection } from "./features/list/actions-selection.js";
 import { listErrorCopy } from "./features/list/state-errors.js";
 /* 过渡期清单（ESM 地基批）：把模块里的名字挂回 window，给还没迁的普通脚本用。
@@ -94,8 +94,10 @@ function attachShellGlobals() {
 export function installLegacyGlobals() {
   window.restoreUpdate = restoreUpdate;
   window.receiveUpdate = receiveUpdate;
+  window.resyncClock = resyncClock;
+  window.pollClockNow = pollClockNow;
+  window.startClockPolling = startClockPolling;
   window.ingestBusinessClock = ingestBusinessClock;
-  window.markClockUnavailable = markClockUnavailable;
   window.clearSelection = clearSelection;
   window.tipGoSigned = tipGoSigned;
   window.toggleSelection = toggleSelection;

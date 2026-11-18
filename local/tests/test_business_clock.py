@@ -1054,9 +1054,7 @@ class ClockDisplayTailTests(unittest.TestCase):
         """顶栏走字不能重建浮层，否则原生 details 会在一秒内自动收起。"""
         # 界面已按层拆分：契约断言读前端脚本联合源码（含 state/clock.js）
         js = read_ui_scripts()
-        start = js.index("function paintClockStatus()")
-        end = js.index("/* 重新校准", start)
-        body = js[start:end]
+        body = (Path(LOCAL) / "ui" / "views" / "clock.js").read_text(encoding="utf-8")
         self.assertNotIn("renderClockPop()", body)
         self.assertIn('details.records', js)
         self.assertIn('details.open = detailsState[index] === true', js)
