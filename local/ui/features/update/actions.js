@@ -13,7 +13,7 @@ function watchUpdate(requestId, ms) {
   }, ms || 15000);
 }
 
-function receiveUpdate(payload) {
+export function receiveUpdate(payload) {
   const data = payload || {};
   if (!data.request_id || data.request_id !== S.update.requestId) return;
   clearTimeout(S.update.timer);
@@ -32,7 +32,7 @@ function receiveUpdate(payload) {
   revealUpdateStatus();
 }
 
-function restoreUpdate(snapshot) {
+export function restoreUpdate(snapshot) {
   if (!snapshot || !snapshot.request_id) { paintUpdate(); return; }
   S.update.requestId = String(snapshot.request_id);
   /* checking 表示「任一更新动作在途」（检查或下载）；具体阶段只认 result.state。 */
@@ -47,7 +47,7 @@ function restoreUpdate(snapshot) {
   paintUpdate();
 }
 
-function checkUpdate() {
+export function checkUpdate() {
   if (["checking", "downloading", "downloading_delta", "downloading_full", "verifying",
     "applying", "launching"].indexOf(S.update.state) >= 0) return;
   const requestId = "update-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
@@ -78,7 +78,7 @@ function checkUpdate() {
 }
 
 /* 「下载并安装」先进确认态：下载必须是用户显式确认后的动作，检查从不自动下载。 */
-function startDownload() {
+export function startDownload() {
   const result = S.update.result;
   if (S.update.state !== "available" && S.update.state !== "failed") return;
   if (!result || !result.installer || !result.installer.url) return;
@@ -86,7 +86,7 @@ function startDownload() {
   paintUpdate();
 }
 
-function confirmDownload() {
+export function confirmDownload() {
   if (S.update.state !== "confirm") return;
   const result = S.update.result || {};
   const installer = result.installer;
@@ -114,7 +114,7 @@ function confirmDownload() {
 }
 
 /* 取消只停本次下载：后端清理半成品并回推可用态，不动旧程序和用户数据。 */
-function cancelDownload() {
+export function cancelDownload() {
   if (S.update.state === "confirm") {
     S.update.state = (S.update.result && S.update.result.installer && S.update.result.installer.url) ? "available" : "no_installer";
     paintUpdate();
@@ -126,7 +126,7 @@ function cancelDownload() {
 }
 
 /* 启动安装器是最后一个用户确认动作；关闭主程序由用户自己控制，不自动退出或重启。 */
-function launchInstaller() {
+export function launchInstaller() {
   if (S.update.state !== "ready_to_install" && S.update.state !== "ready_to_restart") return;
   const requestId = "launch-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
   S.update.requestId = requestId;
@@ -144,5 +144,3 @@ function launchInstaller() {
     }
   });
 }
-
-/* 偏好串行保存：重试旧请求时，合并后的新值必须优先，不能把较新设置写回旧值。 */

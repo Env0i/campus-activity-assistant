@@ -182,11 +182,11 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 | infrastructure | `webview_mime` | 把 .js 显式登记为 text/javascript（标准库 mimetypes），压过 Windows 注册表可能记下的 text/plain——模块脚本严格要求 JavaScript 类型，类型不对整张模块图都不加载 | infrastructure 包导入时调用一次（拆 Api、起窗代码搬出 app.py 后改为起窗前显式调用） | 无 |
 | interface | `app.py` | Api 的公开方法、条款门禁、事件发射、worker 命令装配、main；composition root：向 domain/application 注入 signup_plan 纯函数、time_contract 换算、business_clock 异常类型 | pywebview / 测试 | 全部下层（裸名注入缝保持 app.X 可替换） |
 | interface | `ui/state/**` | 状态仓库 S 与纯投影（clock/plan/login/filters/labels/time/task-display/terms） | controllers/views | 仍引用上层名字的存量例外记在 `tools/code_shape/ui_layer_allow.json`，只减不增（如 state/clock.js 调 views/list.js 的 `render`）；过渡期起，迁成模块的状态文件在 `ui/features/<功能>/state*.js`（首个是 features/terms/state.js），模块的层规则与检查见 `tools/code_shape/README.md` 的 ui_modules.mjs |
-| interface | `ui/controllers/**` | 用例编排与桥接（bridge/refresh/clock/terms/update/prefs/tick） | app.js 事件绑定 | state + api()；terms/update 两个 controller 零 DOM（结构契约测试守护）；计划栏与浏览器登录的编排已迁成模块，见 `ui/features/plan/actions*.js` 与 `ui/features/login/actions-browser.js`，入口 `main.js` 与过渡名单 `legacy-globals.js` 不限层；模块的层规则与检查见 `tools/code_shape/README.md` |
+| interface | `ui/controllers/**` | 用例编排与桥接（bridge/refresh/clock/terms/prefs/tick） | app.js 事件绑定 | state + api()；terms controller 与 `ui/features/update/actions.js` 零 DOM（结构契约测试守护）；计划栏与浏览器登录的编排已迁成模块，见 `ui/features/plan/actions*.js` 与 `ui/features/login/actions-browser.js`，入口 `main.js` 与过渡名单 `legacy-globals.js` 不限层；模块的层规则与检查见 `tools/code_shape/README.md` |
 | interface | `ui/views/**` | DOM 呈现（list/board/login/clock/clock-pop/log/selection/terms/help/update/tour） | render/tick 与 controller 调用 | state 投影；terms/update 的 DOM 查询与呈现全部在此；原则上只依赖 state、不发桥接请求、不调控制器，存量例外同样记在 `tools/code_shape/ui_layer_allow.json`；迁成模块的视图文件将是 `ui/features/<功能>/view*.js`（本批还没有）；过渡期普通脚本先跑、模块后跑，两边经 window 上挂的名字互调；模块的层规则与检查见 `tools/code_shape/README.md` |
 
 前端脚本按 index.html 的加载序执行（保持原 app.js 的顶层初始化依赖；views/terms.js、
-views/update.js 排在消费它们的 controller 之前），app.js 只保留 boot 初始化、
+views/update.js 排在各自的消费者之前（更新用例已迁入 `features/update/actions.js`）），app.js 只保留 boot 初始化、
 `window.onBackend` 事件分发和 DOM 事件绑定。状态唯一持有者是 `state/store.js` 的 `S`；
 界面测试两种手法并存：文本断言核对「前端脚本联合源码」（`read_ui_scripts()`，
 led.js 除外），行为测试经 `run_js()` 交给 node 沙箱按同一加载序回放并断言返回值。
@@ -195,7 +195,7 @@ led.js 除外），行为测试经 `run_js()` 交给 node 沙箱按同一加载�
 兼容入口边界（重构未删旧名）：`app.py` 保留旧模块级名字的兼容包装/再导出（测试按
 `app.X` 注入与 patch 的语义不变）；`views/update.js` 的 `paintUpdate` 同时是
 `views/help.js` 消费的更新呈现入口。DOM 分离是**局部完成**而非全局：条款/更新两个
-controller 已零 DOM（结构契约测试 `LayerBoundaryContractTests` 守护），但
+用例已零 DOM（结构契约测试 `LayerBoundaryContractTests` 守护），但
 `controllers/tick.js` 仍做每秒增量 DOM 更新、`app.js` 事件绑定直接触 DOM——全局
 controller/view DOM 分离不在本轮范围。
 

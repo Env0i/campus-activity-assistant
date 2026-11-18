@@ -16,7 +16,7 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
 
-from fixtures.ui_harness import LOCAL, run_js  # noqa: E402
+from fixtures.ui_harness import LOCAL, page_scripts, run_js  # noqa: E402
 
 
 class ClockModelReliabilityTests(unittest.TestCase):
@@ -5270,13 +5270,12 @@ class LayerBoundaryContractTests(unittest.TestCase):
 
     VIEW_BEFORE_DEPENDENT = (
         ("views/terms.js", "controllers/terms.js"),
-        ("views/update.js", "controllers/update.js"),
+        ("views/update.js", "features/update/actions.js"),
         ("views/update.js", "views/help.js"),
     )
 
     def test_script_load_order_puts_views_before_dependents(self):
-        html = read("ui/index.html")
-        scripts = re.findall(r'<script src="([^"]+)"></script>', html)
+        scripts = [item["rel"] for item in page_scripts()]
         for view, dependent in self.VIEW_BEFORE_DEPENDENT:
             self.assertIn(view, scripts, "缺少 %s" % view)
             self.assertIn(dependent, scripts, "缺少 %s" % dependent)
@@ -5291,7 +5290,7 @@ class LayerBoundaryContractTests(unittest.TestCase):
             ".dataset.", "showModal", ".hidden = ", ".disabled = ", ".focus(",
             "classList", "scrollTop", "setAttribute", ".close()", "createElement",
         )
-        for rel in ("ui/controllers/terms.js", "ui/controllers/update.js"):
+        for rel in ("ui/controllers/terms.js", "ui/features/update/actions.js"):
             js = read(rel)
             for token in banned:
                 self.assertNotIn(token, js,

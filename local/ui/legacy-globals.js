@@ -1,3 +1,4 @@
+import { restoreUpdate, receiveUpdate } from "./features/update/actions.js";
 import { render } from "./features/shell/actions-render.js";
 import { ingestBusinessClock, markClockUnavailable } from "./features/clock/actions.js";
 import { clearSelection, tipGoSigned, toggleSelection } from "./features/list/actions-selection.js";
@@ -92,6 +93,8 @@ function attachShellGlobals() {
 }
 
 export function installLegacyGlobals() {
+  window.restoreUpdate = restoreUpdate;
+  window.receiveUpdate = receiveUpdate;
   window.ingestBusinessClock = ingestBusinessClock;
   window.markClockUnavailable = markClockUnavailable;
   window.clearSelection = clearSelection;

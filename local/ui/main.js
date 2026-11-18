@@ -1,3 +1,4 @@
+import { checkUpdate, startDownload, confirmDownload, launchInstaller, cancelDownload } from "./features/update/actions.js";
 import { wireClockActions } from "./features/clock/actions.js";
 import { render } from "./features/shell/actions-render.js";
 import { clearSelection } from "./features/list/actions-selection.js";
@@ -30,6 +31,13 @@ $("#btn-clear-plan").addEventListener("click", clearSelection);
 wireSettings();
 wireTourExit();
 wireHelp();
+$("#btn-update-check").addEventListener("click", checkUpdate);
+$("#btn-update-install").addEventListener("click", startDownload);
+$("#btn-update-confirm").addEventListener("click", confirmDownload);
+$("#btn-update-launch").addEventListener("click", launchInstaller);
+$("#btn-update-cancel").addEventListener("click", cancelDownload);
+/* 启动安装程序以后：「关闭本工具…」接到关窗对话框，由用户自己决定怎么退 */
+$("#btn-update-close").addEventListener("click", () => api("ask_window_close").catch(() => {}));
 
 /* 关闭事件可能在启动时已排队；先接好各按钮，再放出后端事件。 */
 wireWindowClose();

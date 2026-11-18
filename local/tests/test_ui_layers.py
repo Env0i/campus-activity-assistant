@@ -240,6 +240,29 @@ class NativeLoadSmokeTests(unittest.TestCase):
         "confirmClearCredentials", "clearCredentials", "wire",
     ]
 
+    def test_real_load_update_single_flight_and_late_messages(self):
+        """真模块连点只请求一次，结果先于回执时旧事件也不能覆盖画面。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.__calls = [];
+let ack;
+window.pywebview = { api: { check_update: (id) => {
+  window.__calls.push(id); return new Promise((resolve) => { ack = resolve; });
+} } };
+$("#btn-update-check").click();
+$("#btn-update-check").click();
+const id = window.__calls[0];
+window.onBackend.update({ request_id: id, state: "current" });
+ack({ ok: true, queued: true });
+await Promise.resolve(); await Promise.resolve();
+window.onBackend.update({ request_id: "old-request", state: "error", text: "旧消息" });
+out.push({ calls: window.__calls.length, state: $("#update-status").dataset.state,
+  text: $("#update-status").textContent });
+""")
+        self.assertTrue(result["modulesReady"])
+        self.assertEqual(result["after"][0],
+                         {"calls": 1, "state": "current", "text": "已是最新正式版。"})
+
     def test_real_load_filter_toggle_saves_each_choice_once(self):
         """真实模块按钮控制筛选面板，每次点击只保存一次。"""
         report = _run_ui_modules()
