@@ -1,3 +1,5 @@
+import { render } from "../shell/actions-render.js";
+
 /* 取消报名控制器（计划 20261107-conflict-cancel，X1–X4）：
  * 点「取消报名」只展开确认块；只有「确认取消报名」才调 cancel_signup。
  * 成败以后端复查为准：这里只把回包 kind 画成一句话，不自己判断成功。 */
@@ -11,7 +13,7 @@ function cancelReveal(id) {
 }
 
 /* 「取消报名」按钮：条件不满足一律不动（按钮本该是禁用的） */
-function cancelAsk(id) {
+export function cancelAsk(id) {
   id = String(id);
   const item = findItem(id);
   if (!item || !canCancelNow(item) || cancelBlock(id).off) return;
@@ -24,7 +26,7 @@ function cancelAsk(id) {
 }
 
 /* 「不取消」：只收起确认块，不调任何接口 */
-function cancelAskDismiss() {
+export function cancelAskDismiss() {
   if (!S.cancel.askId) return;
   S.cancel.askId = "";
   render();
@@ -67,7 +69,7 @@ function cancelSettle(id, res) {
 }
 
 /* 「确认取消报名」：唯一调用 cancel_signup 的地方 */
-function cancelConfirm(id) {
+export function cancelConfirm(id) {
   id = String(id);
   if (S.cancel.askId !== id || S.cancel.busyId) return;
   const item = findItem(id);

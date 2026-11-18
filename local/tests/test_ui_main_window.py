@@ -25,7 +25,7 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS))
 
-from fixtures.ui_harness import LOCAL, run_js  # noqa: E402
+from fixtures.ui_harness import LOCAL, run_js, page_scripts  # noqa: E402
 
 # 业务现在 = 北京时间 2026-11-06 14:00
 SETUP = r"""
@@ -1493,7 +1493,7 @@ class CancelWiringContractTests(unittest.TestCase):
     def test_only_the_confirm_path_calls_cancel_signup(self):
         scripts = read_ui_scripts()
         self.assertEqual(scripts.count('api("cancel_signup"'), 1)
-        text = (LOCAL / "ui" / "controllers" / "cancel.js").read_text(encoding="utf-8")
+        text = scripts
         dismiss = text[text.index("function cancelAskDismiss"):text.index("function cancelSettle")]
         self.assertNotIn("cancel_signup", dismiss)
         ask = text[text.index("function cancelAsk("):text.index("function cancelAskDismiss")]
@@ -1501,8 +1501,8 @@ class CancelWiringContractTests(unittest.TestCase):
 
     def test_new_scripts_are_loaded_in_index_html(self):
         html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
-        for src in ("state/conflict.js", "views/conflict-tip.js", "controllers/cancel.js"):
-            self.assertIn('<script src="%s"></script>' % src, html)
+        for src in ("state/conflict.js", "views/conflict-tip.js", "features/list/actions-cancel.js"):
+            self.assertIn(src, [entry["rel"] for entry in page_scripts()])
         self.assertIn('id="cx-tip"', html)
 
 # ==================== 源自 test_ui_rewards.py ====================

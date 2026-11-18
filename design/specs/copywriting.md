@@ -221,7 +221,7 @@
 
 ### 6.2 已报名冲突、报后可退、取消报名与手机页（2026-11-07 按代码逐字）
 
-以下逐字取自 `local/ui/state/conflict.js`、`state/labels.js`、`views/list.js`、`views/conflict-tip.js`、`controllers/cancel.js`、`views/plan-panel.js`、`local/ui/m/app.js`。`<…>` 是运行时填入的值。句内的「（跨N天）」「这一场报不了。」「学校网站取消。」由 U+2060 连字 `glue()` 拼接（界面不可见，只防孤字换行），文字本身一字不改。决策见 [016](../decisions/016-conflict-visibility-and-cancel.md)。只写已经实现的文案。
+以下逐字取自 `local/ui/state/conflict.js`、`state/labels.js`、`views/list.js`、`views/conflict-tip.js`、`features/list/actions-cancel.js`、`views/plan-panel.js`、`local/ui/m/app.js`。`<…>` 是运行时填入的值。句内的「（跨N天）」「这一场报不了。」「学校网站取消。」由 U+2060 连字 `glue()` 拼接（界面不可见，只防孤字换行），文字本身一字不改。决策见 [016](../decisions/016-conflict-visibility-and-cancel.md)。只写已经实现的文案。
 
 **时刻表行（电脑端）**
 

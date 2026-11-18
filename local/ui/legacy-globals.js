@@ -24,7 +24,7 @@ import { startPlan } from "./features/plan/actions-start.js";
 import { cancelTask, closeStopAsk, stopAskKey, stopAskOpen } from "./features/plan/actions-run.js";
 import { handlePlanDone, presentPlanDone } from "./features/plan/actions-events.js";
 import { handleDone } from "./features/login/actions-browser.js";
-import { togglePlace, paintChecks } from "./features/plan/view-draft.js";
+import { paintChecks } from "./features/plan/view-draft.js";
 import { paintRoute, paintCountdown, paintLed } from "./features/plan/view-led.js";
 import { updateControls } from "./features/plan/view-controls.js";
 import { paintBanners } from "./features/shell/view-banners.js";
@@ -66,7 +66,6 @@ function attachPlanGlobals() {
   window.closeStopAsk = closeStopAsk;
   window.presentPlanDone = presentPlanDone;
   window.handlePlanDone = handlePlanDone;
-  window.togglePlace = togglePlace;
   window.paintChecks = paintChecks;
   window.paintRoute = paintRoute;
   window.paintCountdown = paintCountdown;

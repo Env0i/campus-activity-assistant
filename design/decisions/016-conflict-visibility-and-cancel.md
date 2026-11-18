@@ -74,7 +74,7 @@
 - 学校接口形状与映射：[contracts/school-api/README.md](../../contracts/school-api/README.md)。
 - 代码落点：`local/grab.py`（`keep_in_list`、`parse_attendance_detail`、`run_cancel`、`cmd_cancel`）、
   `local/domain/cancel_rules.py`（回包清洗与归一化）、`local/app.py`（`Api.cancel_signup`）、
-  `local/ui/state/conflict.js`、`local/ui/views/conflict-tip.js`、`local/ui/controllers/cancel.js`、`local/ui/views/list.js`、
+  `local/ui/state/conflict.js`、`local/ui/views/conflict-tip.js`、`local/ui/features/list/actions-cancel.js`、`local/ui/views/list.js`、
   `local/ui/m/app.js`。
 
 ## 已知限制
@@ -90,7 +90,7 @@
 ## 变更方式
 
 - 改 R1（补回范围）：改 `local/grab.py` 的 `keep_in_list` 与对应单元测试，同步本记录与 `docs/ARCHITECTURE.md`。
-- 改取消流程或结果类别：改 `run_cancel`、`local/domain/cancel_rules.py`、`Api.cancel_signup` 与 `controllers/cancel.js`，
+- 改取消流程或结果类别：改 `run_cancel`、`local/domain/cancel_rules.py`、`Api.cancel_signup` 与 `features/list/actions-cancel.js`，
   并同步 `docs/UI_SPEC.md` §5.1、`copywriting.md` §6.2、`contracts/school-api/README.md`。
 - 改气泡或「不可加入」的文案：同步 `copywriting.md` §6.2，并检查 `local/ui/m/app.js` 的同名文案是否一致。
 - 改手机端动作白名单：本记录的第三条硬规则要先改，且须经用户拍板。

@@ -1,3 +1,5 @@
+import { cancelAsk, cancelAskDismiss, cancelConfirm } from "./actions-cancel.js";
+import { togglePlace } from "../plan/view-draft.js";
 import { render } from "../shell/actions-render.js";
 import { termsLocked } from "../terms/state.js";
 
@@ -82,4 +84,39 @@ export function tipGoSigned() {
     const el = S.rowEls.get(id);
     if (el && el.row) el.row.classList.remove("is-flash");
   }, 2000);
+}
+
+export function wireRowActions() {
+  $("#rows").addEventListener("change", (event) => {
+    const check = event.target.closest(".row-check");
+    if (check) toggleSelection(check.dataset.id, check.checked);
+  });
+  $("#rows").addEventListener("click", (event) => {
+    /* 取消报名：按钮只展开确认块；确认块里「不取消」不调接口，只有「确认取消报名」才调（features/list/actions-cancel.js） */
+    const cancelBtn = event.target.closest("[data-cancel]");
+    if (cancelBtn) { cancelAsk(cancelBtn.dataset.cancel); return; }
+    const cancelNo = event.target.closest("[data-cancel-no]");
+    if (cancelNo) { cancelAskDismiss(); return; }
+    const cancelYes = event.target.closest("[data-cancel-yes]");
+    if (cancelYes) { cancelConfirm(cancelYes.dataset.cancelYes); return; }
+    if (event.target.closest(".rx")) return;
+    if (event.target.closest(".row-check")) return;
+    /* 地点是独立可聚焦控件：点它只展开/收起完整文本，不改变选择 */
+    const place = event.target.closest(".c-place");
+    if (place) { togglePlace(place); return; }
+    const row = event.target.closest(".row");
+    if (!row) return;
+    const check = row.querySelector(".row-check");
+    if (check && !check.disabled) { check.checked = !check.checked; toggleSelection(check.dataset.id, check.checked); }
+  });
+  /* 键盘展开地点：Enter / Space 只翻转 aria-expanded，不触发开始计划或勾选 */
+  $("#rows").addEventListener("keydown", (event) => {
+    /* 「不可加入」标签上的键盘：Esc 收气泡，Enter / 空格把焦点移进气泡里的链接 */
+    if (event.target.closest && event.target.closest(".state-clash")) { tipKey(event); return; }
+    const place = event.target.closest(".c-place");
+    if (!place) return;
+    if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar") return;
+    event.preventDefault();
+    togglePlace(place);
+  });
 }

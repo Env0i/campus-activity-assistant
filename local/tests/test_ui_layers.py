@@ -240,6 +240,36 @@ class NativeLoadSmokeTests(unittest.TestCase):
         "confirmClearCredentials", "clearCredentials", "wire",
     ]
 
+    def test_real_load_cancel_requires_confirmation_and_is_single_flight(self):
+        """真实模块行内打开和放弃不请求，连续确认只请求一次。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+ingestBusinessClock({ schema: 1, owner_id: "test", generation: 1, state: "ready",
+  epoch_s: Date.UTC(2026, 10, 6, 6, 0, 0) / 1000, tick_s: 0, sampled_tick_s: 0,
+  uncertainty_s: 0, source: "test", age_s: 0, reason: "test" });
+window.onBackend.activities({ ok: true, items: [{ id: "s1", name: "假活动", signed: true,
+  cancel_allowed: true, sign_start: "2026-11-05 08:00:00", sign_end: "2026-11-08 14:00:00",
+  act_start: "2026-11-08 22:40:00", act_end: "2026-11-10 23:20:00" }] });
+const calls = [];
+window.pywebview = { api: { cancel_signup: (id) => { calls.push(id); return new Promise(() => {}); } } };
+const click = (selector, dataset) => {
+  const target = { closest: (sel) => sel === selector ? { dataset } : null };
+  $("#rows").listeners.click.forEach((fn) => fn({ target, preventDefault() {} }));
+};
+click("[data-cancel]", { cancel: "s1" });
+const opened = S.cancel.askId;
+click("[data-cancel-no]", {});
+const dismissed = S.cancel.askId;
+const before = calls.length;
+click("[data-cancel]", { cancel: "s1" });
+click("[data-cancel-yes]", { cancelYes: "s1" });
+click("[data-cancel-yes]", { cancelYes: "s1" });
+out.push({ opened, dismissed, before, calls });
+""")
+        self.assertTrue(result["modulesReady"])
+        self.assertEqual(result["after"][0],
+                         {"opened": "s1", "dismissed": "", "before": 0, "calls": ["s1"]})
+
     def test_real_load_update_single_flight_and_late_messages(self):
         """真模块连点只请求一次，结果先于回执时旧事件也不能覆盖画面。"""
         report = _run_ui_modules()
