@@ -138,17 +138,23 @@ python tools/release.py --prepare
 
 ## 测试注意
 
+- **重构与测试体积硬约束（防止测试膨胀）**：
+  - **冻结测试文件总数**：`local/tests/` 下核心测试文件已按业务域收敛为 **39 个**。除新增顶层独立业务域外，**禁止新建任何 `test_*.py` 文件**；新用例必须写入对应业务域的既有测试文件中。
+  - **只守两头，不守中间接线**：优先编写 `local/domain/` 纯函数表驱动单测（零 Mock、零线程、零 I/O）与最外层前后端返回结构契约。**禁止编写**锁定内部方法调用链、私有属性名、monkeypatch 路径（如 `test_api_patch_targets`）或模块接线关系的过渡守卫测试。
+  - **拆分 `app.Api` 的标准动作**：先将复杂状态判断抽成 `domain/` 纯函数并单测，再将 `Api` 对应方法改为 3 行以内的薄转发壳（委托给 `application/` 服务），禁止通过重复实例化整个 `Api` 加重度 `unittest.mock` 来测三层逻辑。
+  - **发版与构建审计分离**：打包、依赖锁、安装脚本与发版产物检查统一放在 `tools/release_tests/`，仅在发版或独立审计时运行，不混入日常 `local/tests` 单测套件。
+
 - **不联网**：所有测试都替换掉了学校请求。部分用例按 `local.xxx` 导入，所以要从仓库根运行。
 - **创建 `app.Api`**：新用例必须经过 `local/tests/fixtures/api_threads.py` 的 `stop_auto_relogin_on_cleanup`。原因是 `Api` 一构造就会启动自动重登线程；不收掉的话，全量会越跑越慢，计时类用例会变红。
 - **时间**：
   - 学校时间字段按学校时区造（`time_contract.SCHOOL_TZ`）。
   - 业务时钟用 `FakeBusinessClock` 或 `configure_time_source` 注入，不读本机墙钟。
   - 不这样做，换个时区跑就会错位。
-- **界面测试有两种手法，同一批文件里混用，不是两类互斥的文件**：
-  - 文本断言：把 `index.html` 加载序的脚本拼起来（`read_ui_scripts()` / `module_group_raw_src()`，不含 led.js），在拼接结果上核对源码文本。过渡期模块与普通脚本并存（ESM 地基批）：清单是普通脚本在前、模块入口的引用图随后（被引用的在前），拼接时模块去掉 import 语句与 export 关键字后排在后面。
-  - 行为测试：`run_js()` 把片段交给 node 沙箱，按同一顺序回放（沙箱里是同一口径的另一份清单实现），断言返回值。本机没有 node 时会跳过，跳过要如实报告。
-  - 按功能分片的 `local/tests/test_ui_contract_*.py` 多数已以 `run_js` 行为测试为主（2026-11-18 实测：365 个用例里约 190 个走 `run_js`；`test_ui_contract_components.py` 仍全是文本断言）。不在这批分片里的另有两个大头：`test_ui_reliability.py`（95 个用例、84 个走 `run_js`）和 `test_phone_ui.py`（210 个用例，仍全是文本断言）。
-  - 公共的读取函数与 node 沙箱在 `local/tests/fixtures/ui_harness.py`。新测试文件先把测试目录放进 `sys.path` 再 import fixtures，文件尾带 `unittest.main()` 入口。
+- **界面测试有两类**：
+  - 契约测试：按 `index.html` 的加载顺序把脚本拼起来（`read_ui_scripts()`，不含 led.js），在拼接结果上做文本断言。过渡期模块与普通脚本并存（ESM 地基批）：清单是普通脚本在前、模块入口的引用图随后（被引用的在前），拼接时模块去掉 import 语句与 export 关键字后排在后面。
+  - 行为测试：用 node 沙箱按同一顺序回放（沙箱里是同一口径的另一份清单实现）。本机没有 node 时会跳过，跳过要如实报告。
+  - 界面契约测试按功能分在 `local/tests/test_ui_contracts.py`，公共的读取函数和 node 沙箱在 `local/tests/fixtures/ui_harness.py`。
+  - 新测试文件先把测试目录放进 `sys.path` 再 import fixtures，文件尾带 `unittest.main()` 入口。
 - **脚本式的 server 测试**：`server/tests/` 里的 `test_dedup.py`、`test_endpoints.py`、`test_notify.py` 没有 `test_` 函数，pytest 收集不到。其中 `test_dedup.py` 会临时改写 `server/data/state.json`，不要跑。
 - **临时目录**：一律放在 `tempfile.gettempdir()` 下面；server 测试也可以用环境变量 `CAMPUS_TEST_ROOT` 指定。
   - `<tmp>` 只是文档里的占位符，不是路径。夹具里出现 `<tmp>` 字面量就是缺陷，改成 `tempfile.gettempdir()` 不算「改测试路径凑绿」（用户 2026-11-06 定）。

@@ -227,7 +227,7 @@ class NoNodeRefusalTests(unittest.TestCase):
         return module
 
     def _baseline_copy(self, module):
-        tmp = Path(tempfile.mkdtemp(prefix="code-shape-"))
+        tmp = Path(tempfile.mkdtemp(prefix="code-shape-")).resolve()
         self.addCleanup(shutil.rmtree, tmp, True)
         baseline = tmp / "baseline.json"
         shutil.copy2(CHECK.parent / "baseline.json", baseline)
@@ -247,7 +247,7 @@ class NoNodeRefusalTests(unittest.TestCase):
     def test_init_refuses_without_js_data(self):
         """没有 JS 数据时 --init 会生成一份没有 JS 的名单，必须先拒绝。"""
         module = self._module()
-        tmp = Path(tempfile.mkdtemp(prefix="code-shape-"))
+        tmp = Path(tempfile.mkdtemp(prefix="code-shape-")).resolve()
         self.addCleanup(shutil.rmtree, tmp, True)
         module.BASELINE = tmp / "baseline.json"
         rc, err = _run_main(module, ["--init"])

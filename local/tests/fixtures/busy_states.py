@@ -172,7 +172,7 @@ def _isolate_data_root(testcase, local_app):
     CloudflareTunnel(root=DATA_DIR)；动作路径还会读 PREFS/CREDENTIAL_FILE/
     SESSION_FILE/LOG_FILE/LOG_LOCK_FILE 与 ensure_data_dir。
     """
-    tmp_root = Path(tempfile.mkdtemp(prefix="busy-matrix-data-"))
+    tmp_root = Path(tempfile.mkdtemp(prefix="busy-matrix-data-")).resolve()
     testcase.addCleanup(shutil.rmtree, tmp_root, ignore_errors=True)
     _patch(testcase, local_app, "DATA_DIR", tmp_root)
     _patch(testcase, local_app, "CREDENTIAL_FILE",

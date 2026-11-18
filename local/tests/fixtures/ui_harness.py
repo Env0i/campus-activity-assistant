@@ -385,7 +385,7 @@ const sandbox = {
   navigator: { onLine: true },
   /* window.addEventListener/removeEventListener：app.js 顶层注册 resize/online/offline 用 */
   addEventListener: () => {}, removeEventListener: () => {},
-  out, focused, __els: els,
+  out, focused, __els: els, __docListeners: {},
   requestAnimationFrame: () => 0,
   __dispatchKey: (ev) => {
     const e = Object.assign(
@@ -401,7 +401,7 @@ const sandbox = {
     querySelectorAll: (s) => [el2(s)],
     createElement: (tag) => el2("<" + tag + ">"),
     createTextNode: (text) => ({ nodeType: 3, textContent: String(text) }),
-    addEventListener: (t, fn) => { if (t === "keydown") keydownListeners.push(fn); },
+    addEventListener: (t, fn) => { if (t === "keydown") keydownListeners.push(fn); (sandbox.__docListeners[t] = sandbox.__docListeners[t] || []).push(fn); },
     removeEventListener: () => {},
   },
 };
@@ -515,25 +515,111 @@ vm.runInContext(
  * 返回的 promise 立即完成，输出时序不变 */
 const snippetSource = fs.readFileSync(snippetFile, "utf8");
 const snippetResult = vm.runInContext(
-  "(async () => {\n" + snippetSource + "\n})()",
+  "(async () => {\nawait Promise.resolve();\n" + snippetSource + "\n})()",
   sandbox, { filename: "snippet.js" });
 const finishHarness = () => process.stdout.write("__RESULT__" + JSON.stringify(out));
 snippetResult.then(finishHarness, (err) => { process.stderr.write(String(err)); process.exit(1); });
 """
 
 
-def run_js(snippet: str, env: dict | None = None):
-    """在受控 JS 上下文里执行片段，返回 out 数组（list）。node 缺失时 skip。
+_JS_WORKER_PROC = None
+_JS_WORKER_DIR = None
 
-    沙箱按自己那份「页面脚本清单」同口径加载，本函数只给 ui 目录与片段。
-    env 用于按用例注入 TZ（例如证明学校时间解析不随本机时区漂移）；
-    默认不改进程环境。
-    """
+
+def _build_worker_script(base_harness: str) -> str:
+    """将单次执行的 JS_HARNESS 包装为按行接收 JSON 请求的常驻 Node worker，但缓存磁盘文件读取与预编译 Script。"""
+    body = base_harness
+    # Extract the per-run body from `const out = [];` up to `const snippetSource =`
+    start = body.index("const out = [];")
+    end = body.index("const snippetSource = fs.readFileSync(snippetFile, \"utf8\");")
+    per_run = body[start:end]
+    # Replace repeated disk reads inside per_run with cached script execution
+    script_loop = """const html = fs.readFileSync(path.join(uiDir, "index.html"), "utf8");"""
+    loop_end = """for (const item of scripts) {
+  vm.runInContext(item.code, sandbox, { filename: item.rel });
+}"""
+    s_idx = per_run.index(script_loop)
+    e_idx = per_run.index(loop_end) + len(loop_end)
+    init_cache_code = per_run[s_idx:e_idx].replace(
+        "for (const item of scripts) {\n  vm.runInContext(item.code, sandbox, { filename: item.rel });\n}",
+        "const compiledScripts = scripts.map((item) => new vm.Script(item.code, { filename: item.rel }));"
+    )
+    fast_per_run = (
+        per_run[:s_idx]
+        + "for (const scr of compiledScripts) { scr.runInContext(sandbox); }\n"
+        + per_run[e_idx:]
+    )
+    return (
+        '"use strict";\n'
+        'const vm = require("vm");\n'
+        'const fs = require("fs");\n'
+        'const path = require("path");\n'
+        'const readline = require("readline");\n'
+        'const uiDir = process.argv[1];\n'
+        + init_cache_code + "\n"
+        'const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });\n'
+        'rl.on("line", async (line) => {\n'
+        '  if (!line.trim()) return;\n'
+        '  try {\n'
+        '    const req = JSON.parse(line);\n'
+        + fast_per_run +
+        '    const snippetResult = vm.runInContext("(async () => {\\nawait Promise.resolve();\\n" + req.snippet + "\\n})()", sandbox, { filename: "snippet.js" });\n'
+        '    await snippetResult;\n'
+        '    process.stdout.write("__WORK_OK__" + JSON.stringify(out) + "\\n");\n'
+        '  } catch (err) {\n'
+        '    process.stdout.write("__WORK_ERR__" + JSON.stringify(String(err && err.stack || err)) + "\\n");\n'
+        '  }\n'
+        '});\n'
+    )
+
+
+def _get_js_worker(ui_dir: Path):
+    global _JS_WORKER_PROC, _JS_WORKER_DIR
+    import atexit
+    import os
+    import shutil
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        raise unittest.SkipTest("本机没有 node，无法运行 JS 行为测试")
+    if _JS_WORKER_PROC is not None and _JS_WORKER_PROC.poll() is None and _JS_WORKER_DIR == str(ui_dir):
+        return _JS_WORKER_PROC
+    if _JS_WORKER_PROC is not None and _JS_WORKER_PROC.poll() is None:
+        _JS_WORKER_PROC.kill()
+    worker_code = _build_worker_script(JS_HARNESS)
+    _JS_WORKER_PROC = subprocess.Popen(
+        [node, "-e", worker_code, str(ui_dir)],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, encoding="utf-8", errors="replace", bufsize=1, env=dict(os.environ)
+    )
+    _JS_WORKER_DIR = str(ui_dir)
+    atexit.register(lambda p=_JS_WORKER_PROC: p.kill() if p.poll() is None else None)
+    return _JS_WORKER_PROC
+
+
+def run_js(snippet: str, env: dict | None = None, ui_dir: Path | None = None):
+    """在受控 JS 上下文里执行片段，返回 out 数组（list）。node 缺失时 skip。"""
     import json
     import os
     import shutil
     import subprocess
     import tempfile
+    target_dir = ui_dir or (LOCAL / "ui")
+    if not env and target_dir == (LOCAL / "ui"):
+        proc = _get_js_worker(target_dir)
+        proc.stdin.write(json.dumps({"snippet": snippet}) + "\n")
+        proc.stdin.flush()
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                err = proc.stderr.read() if proc.stderr else ""
+                _JS_WORKER_PROC = None
+                raise AssertionError("JS 行为测试崩溃：%s" % err[-800:])
+            if line.startswith("__WORK_OK__"):
+                return json.loads(line[len("__WORK_OK__"):].strip() or "[]")
+            if line.startswith("__WORK_ERR__"):
+                msg = json.loads(line[len("__WORK_ERR__"):].strip())
+                raise AssertionError("JS 行为测试崩溃：%s" % msg[-800:])
     node = shutil.which("node")
     if not node:
         raise unittest.SkipTest("本机没有 node，无法运行 JS 行为测试")
@@ -544,7 +630,7 @@ def run_js(snippet: str, env: dict | None = None):
         part.write_text(snippet, encoding="utf-8")
         child_env = dict(os.environ)
         child_env.update(env or {})
-        res = subprocess.run([node, str(harness), str(LOCAL / "ui"), str(part)],
+        res = subprocess.run([node, str(harness), str(target_dir), str(part)],
                              capture_output=True, text=True, encoding="utf-8",
                              errors="replace", timeout=30, env=child_env)
         if res.returncode != 0:

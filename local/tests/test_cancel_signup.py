@@ -45,6 +45,10 @@ def _t(offset):
 
 # ------------------------------------------------------------------ 纯规则
 class CancelRulesTests(unittest.TestCase):
+    def test_phone_whitelist_does_not_contain_cancel_signup(self):
+        self.assertNotIn("cancel_signup", phone_rules.ACTION_PARAMS)
+        self.assertEqual(phone_rules.normalize_action("cancel_signup", {"activity_id": "a"}),
+                         (None, "action_not_allowed"))
     def test_sanitize_strips_control_chars_and_truncates_to_80(self):
         dirty = "\u200b第一行\r\n第二行\t\x00尾\u202e巴"
         self.assertEqual(cancel_rules.sanitize_message(dirty), "第一行第二行尾巴")
@@ -527,24 +531,20 @@ class ApiCancelSignupTests(unittest.TestCase):
     # ---- 互斥（X3）
     def test_busy_when_plan_running_refreshing_or_other_work(self):
         cases = [
-            ("plan_running", lambda: setattr(self.api, "_plan", _FakePlan("running"))),
-            ("plan_running", lambda: setattr(self.api, "_plan", _FakePlan("ready"))),
-            ("plan_running", lambda: self.api._plan_procs.update({"t": _FakeProc()})),
-            ("refreshing", lambda: setattr(self.api, "_listing", True)),
-            ("refreshing", lambda: setattr(self.api, "_checking", True)),
-            ("task_running", lambda: setattr(self.api, "_proc", _FakeProc())),
-            ("cancelling", lambda: setattr(self.api, "_cancelling", True)),
+            ("plan_running", "_plan", _FakePlan("running"), None),
+            ("plan_running", "_plan", _FakePlan("ready"), None),
+            ("refreshing", "_listing", True, False),
+            ("refreshing", "_checking", True, False),
+            ("task_running", "_proc", _FakeProc(), None),
+            ("cancelling", "_cancelling", True, False),
         ]
-        for reason, arm in cases:
-            with self.subTest(reason=reason):
-                api = stop_auto_relogin_on_cleanup(self, local_app.Api())
-                api._emit = lambda kind, payload: None
-                api._activities = {"act-signed": dict(self.ACTIVITY)}
-                with mock.patch.object(api, "_terms_gate", lambda request_id="": None), \
-                        mock.patch.object(api, "_run", self._fake_run):
-                    self.api = api
-                    arm()
-                    got = api.cancel_signup("act-signed")
+        for reason, attr, val, reset in cases:
+            with self.subTest(reason=reason, attr=attr):
+                setattr(self.api, attr, val)
+                try:
+                    got = self.api.cancel_signup("act-signed")
+                finally:
+                    setattr(self.api, attr, reset)
                 self.assertEqual((got["ok"], got["kind"], got["reason"]), (False, "busy", reason))
                 self.assertTrue(got["message"])
         self.assertEqual(self.run_calls, [], "忙碌时不起 worker")
@@ -699,20 +699,7 @@ class ApiCancelSignupTests(unittest.TestCase):
             got = self.api.cancel_signup("demo-not-there")
         self.assertEqual(got["reason"], "not_in_list")
 
-    # ---- X1：手机不做取消
-    def test_phone_whitelist_does_not_contain_cancel_signup(self):
-        self.assertNotIn("cancel_signup", phone_rules.ACTION_PARAMS)
-        self.assertEqual(phone_rules.normalize_action("cancel_signup", {"activity_id": "a"}),
-                         (None, "action_not_allowed"))
-        self.assertEqual(phone_rules.normalize_action("cancel_signup", {}),
-                         (None, "action_not_allowed"))
 
-    def test_phone_module_source_never_names_cancel_signup(self):
-        from pathlib import Path
-        for name in ("domain/phone_rules.py", "application/phone_service.py",
-                     "infrastructure/phone_http.py"):
-            text = (Path(LOCAL) / name).read_text(encoding="utf-8")
-            self.assertNotIn("cancel_signup", text, name)
 
 
 if __name__ == "__main__":

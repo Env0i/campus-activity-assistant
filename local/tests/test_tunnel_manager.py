@@ -237,7 +237,7 @@ class ResolveCloudflaredTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="campus-cf-")
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.data = self.root / "data"
 
     def test_returns_the_verified_component_path(self):

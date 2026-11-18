@@ -2,7 +2,7 @@
   "files": {
     "over800": {
       "local/app.py": {
-        "value": 4740,
+        "value": 4732,
         "reason": "步骤 2 拆 Api"
       },
       "local/business_clock.py": {
@@ -59,7 +59,7 @@
         "value": 614
       },
       "local/ui/app.js": {
-        "value": 649
+        "value": 639
       },
       "local/ui/controllers/refresh.js": {
         "value": 603
@@ -137,7 +137,7 @@
         "reason": "存量，未排期"
       },
       "local/ui/features/phone-access/view.js::paintPhoneAccess": {
-        "value": 219,
+        "value": 203,
         "reason": "步骤 1A 组件"
       },
       "local/ui/features/plan/actions-start.js::startPlan": {
@@ -325,9 +325,6 @@
       "local/ui/controllers/tick.js::tick": {
         "value": 88
       },
-      "local/ui/features/components/view-ocr.js::paintOcrDownload": {
-        "value": 70
-      },
       "local/ui/features/login/view-recovery.js::paintRelogin": {
         "value": 88
       },
@@ -457,9 +454,6 @@
     }
   },
   "test_functions": {
-    "local/tests/test_lifecycle_release.py::AssetVerificationTests.test_verify_rejects_each_bad_candidate": {
-      "value": 92
-    },
     "local/tests/test_phone_ui.py::ResultTermsDomTests.test_result_board_and_stack_bar_follow_prototype": {
       "value": 71
     },
@@ -475,44 +469,47 @@
     "local/tests/test_phone_ui.py::WorkbenchPhoneTests.test_review_lists_the_plan_and_the_same_reminders": {
       "value": 67
     },
-    "local/tests/test_retry_phone_integration.py::FullChainTests.test_pair_read_start_extend_stop_relogin_chain": {
+    "local/tests/test_retry_policy.py::FullChainTests.test_pair_read_start_extend_stop_relogin_chain": {
       "value": 66
     },
-    "local/tests/test_ui_contract_list.py::TimetableGroupingBehaviorTests.test_group_timetable_places_each_activity_in_its_correct_group": {
-      "value": 106
-    },
-    "local/tests/test_ui_contract_shell.py::WorkbenchUiContractTests.test_close_dialog_three_exits": {
-      "value": 138
-    },
-    "local/tests/test_ui_contract_shell.py::WorkbenchUiContractTests.test_five_pre_start_warnings_only_remind": {
-      "value": 61
-    },
-    "local/tests/test_ui_contract_terms.py::TermsConsentBehaviorTests.test_decline_does_not_reprompt_and_keeps_help_available": {
+    "local/tests/test_ui_contracts.py::TermsConsentBehaviorTests.test_decline_does_not_reprompt_and_keeps_help_available": {
       "value": 62
     },
-    "local/tests/test_ui_contract_terms.py::TermsConsentBehaviorTests.test_unknown_terms_accept_rejects_bad_receipts": {
+    "local/tests/test_ui_contracts.py::TermsConsentBehaviorTests.test_unknown_terms_accept_rejects_bad_receipts": {
       "value": 68
     },
-    "local/tests/test_ui_contract_terms.py::TermsConsentContractTests.test_accept_terms_writes_prefs_transaction_only": {
+    "local/tests/test_ui_contracts.py::TermsConsentContractTests.test_accept_terms_writes_prefs_transaction_only": {
       "value": 77
     },
-    "local/tests/test_ui_contract_terms.py::TermsConsentContractTests.test_terms_dialog_structure_contract": {
+    "local/tests/test_ui_contracts.py::TermsConsentContractTests.test_terms_dialog_structure_contract": {
       "value": 127
     },
-    "local/tests/test_ui_contract_terms.py::TermsInteractionLoopTests.test_boot_defers_intro_until_terms_accepted": {
+    "local/tests/test_ui_contracts.py::TermsInteractionLoopTests.test_boot_defers_intro_until_terms_accepted": {
       "value": 69
     },
-    "local/tests/test_ui_contract_terms.py::TermsInteractionLoopTests.test_close_restores_banner_focus_without_stacking_dialogs": {
+    "local/tests/test_ui_contracts.py::TermsInteractionLoopTests.test_close_restores_banner_focus_without_stacking_dialogs": {
       "value": 62
     },
-    "local/tests/test_ui_contract_terms.py::TermsInteractionLoopTests.test_save_timeout_keeps_gate_reopens_close_and_drops_late_receipt": {
+    "local/tests/test_ui_contracts.py::TermsInteractionLoopTests.test_save_timeout_keeps_gate_reopens_close_and_drops_late_receipt": {
       "value": 64
     },
-    "local/tests/test_ui_contract_update.py::UpdateBoardPaintTests.test_one_primary_action_per_state": {
+    "local/tests/test_ui_contracts.py::TimetableGroupingBehaviorTests.test_group_timetable_places_each_activity_in_its_correct_group": {
+      "value": 106
+    },
+    "local/tests/test_ui_contracts.py::UpdateBoardPaintTests.test_one_primary_action_per_state": {
       "value": 75
+    },
+    "local/tests/test_ui_contracts.py::WorkbenchUiContractTests.test_close_dialog_three_exits": {
+      "value": 138
+    },
+    "local/tests/test_ui_contracts.py::WorkbenchUiContractTests.test_five_pre_start_warnings_only_remind": {
+      "value": 61
     },
     "local/tests/test_worker_boundaries.py::ListEntryTests.test_cmd_list_without_clock_keeps_full_enrich": {
       "value": 63
+    },
+    "tools/release_tests/test_lifecycle_release.py::AssetVerificationTests.test_verify_rejects_each_bad_candidate": {
+      "value": 92
     }
   },
   "classes": {

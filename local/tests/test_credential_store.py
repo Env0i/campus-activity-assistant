@@ -39,7 +39,7 @@ def fake_unseal(raw: bytes) -> bytes:
 
 class FakeDpapiBase(unittest.TestCase):
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix="campus-cred-"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="campus-cred-")).resolve()
         self.addCleanup(lambda: _rmtree(self.tmp))
         self.path = self.tmp / "relogin-credentials.dpapi.json"
         patcher = mock.patch.multiple(

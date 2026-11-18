@@ -39,7 +39,7 @@ class FakeState:
         self._updating = True
         self._update_result = {"state": "old"}
         self._update_installer = {"name": "stale.exe"}
-        self._update_installer_path = str(Path(tempfile.gettempdir()) / "stale.exe")
+        self._update_installer_path = str(Path(tempfile.gettempdir()).resolve() / "stale.exe")
         self._update_cancelled = False
         self.events = []
 
@@ -1657,7 +1657,7 @@ class AdvancedComponentServiceTests(unittest.TestCase):
         from infrastructure import component_packages as packages
         temp = tempfile.TemporaryDirectory(prefix="component-group-failure-")
         self.addCleanup(temp.cleanup)
-        root = Path(temp.name)
+        root = Path(temp.name).resolve()
         runtime_id, model_id = "relogin_ocr_runtime", "relogin_ocr_model"
         old_runtime, _ = self._split_package(root, runtime_id, "old-runtime", b"old-runtime")
         old_model, _ = self._split_package(root, model_id, "old-model", b"old-model")
@@ -1693,7 +1693,7 @@ class AdvancedComponentServiceTests(unittest.TestCase):
         from infrastructure import component_packages as packages
         temp = tempfile.TemporaryDirectory(prefix="component-group-reuse-")
         self.addCleanup(temp.cleanup)
-        root = Path(temp.name)
+        root = Path(temp.name).resolve()
         assets = []
         with mock.patch.object(packages, "_helper", return_value={"ok": True}), \
                 mock.patch.object(packages, "supported", return_value=True):
@@ -1734,7 +1734,7 @@ class AdvancedComponentServiceTests(unittest.TestCase):
         from infrastructure import component_packages as packages
         temp = tempfile.TemporaryDirectory(prefix="component-model-reuse-")
         self.addCleanup(temp.cleanup)
-        root = Path(temp.name)
+        root = Path(temp.name).resolve()
         runtime_id, model_id = "relogin_ocr_runtime", "relogin_ocr_model"
         old_runtime, _ = self._split_package(root, runtime_id, "old-runtime", b"old-runtime")
         model, model_meta = self._split_package(root, model_id, "model", b"same-model")
@@ -2735,7 +2735,7 @@ class VersionSwitchSelectionTests(unittest.TestCase):
         api._updates._update_installer = installer
         api._updates._update_result = {"request_id": "check-1", "state": "available",
                               "latest_version": "1.2.2", "installer": installer}
-        installer_path = str(Path(tempfile.gettempdir()) / "campus-update-x" / self.NAME)
+        installer_path = str(Path(tempfile.gettempdir()).resolve() / "campus-update-x" / self.NAME)
         with mock.patch.object(local_app, "version_switch_available",
                                return_value=switch_available):
             with mock.patch.object(local_app.updater, "download_installer", return_value={
@@ -2856,7 +2856,7 @@ class VersionDownloadFlowTests(unittest.TestCase):
         state = FakeState()
         state._update_staging_path = ""
         published = []
-        tmp = Path(tempfile.gettempdir()) / "campus-version-flow"
+        tmp = Path(tempfile.gettempdir()).resolve() / "campus-version-flow"
         update_service.run_version_download(
             state, "req-v", installer or self._installer(),
             download=download_full,
@@ -2872,7 +2872,7 @@ class VersionDownloadFlowTests(unittest.TestCase):
 
     def test_cancel_during_full_download_after_delta_failure_is_cancelled(self):
         """增量应用失败改下完整包，用户此时取消：回到 available/cancelled，不改走安装器兜底。"""
-        delta_path = str(Path(tempfile.gettempdir()) / "campus-version-flow" / "delta.zip")
+        delta_path = str(Path(tempfile.gettempdir()).resolve() / "campus-version-flow" / "delta.zip")
         cleaned, fallbacks = [], []
 
         def fallback(url, **kwargs):
@@ -2898,7 +2898,7 @@ class VersionDownloadFlowTests(unittest.TestCase):
         import updater
         installer = self._installer()
         installer.pop("deltas")
-        missing = Path(tempfile.gettempdir()) / "campus-secret-dir" / "full.zip"
+        missing = Path(tempfile.gettempdir()).resolve() / "campus-secret-dir" / "full.zip"
         state, published = self._run(
             stage_update=updater.stage_update,
             download_delta=None,
@@ -2951,7 +2951,7 @@ class UpdateStagingProtectionTests(unittest.TestCase):
 
     def test_check_update_keeps_staging_while_launcher_is_waiting(self):
         """U3：启动器正等主程序退出（state=launching）时再点检查更新，不能删它要切换的 staging。"""
-        staging = str(Path(tempfile.gettempdir()) / "campus-launching" / ".staging-rid")
+        staging = str(Path(tempfile.gettempdir()).resolve() / "campus-launching" / ".staging-rid")
         self.api._updates._update_staging_path = staging
         self.api._updates._update_result = {"state": "launching", "request_id": "rid-launch",
                                    "latest_version": "1.2.3"}

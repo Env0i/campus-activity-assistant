@@ -26,7 +26,7 @@ BUILD_BASE = "https://build.example.invalid"
 def _load(env_origin=None, config_base=None, build_base=None):
     """复制 site_target.py 到临时目录后导入，返回隔离模块（常量已按来源算好）。"""
     directory = tempfile.TemporaryDirectory(prefix="campus-site-target-")
-    here = Path(directory.name)
+    here = Path(directory.name).resolve()
     (here / "site_target.py").write_text(
         (LOCAL / "site_target.py").read_text(encoding="utf-8"), encoding="utf-8")
     if config_base is not None:

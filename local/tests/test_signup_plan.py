@@ -585,7 +585,7 @@ class WorkerStopLifecycleTests(unittest.TestCase):
         from unittest import mock
 
         local_app = self._app_module
-        fake = Path(tempfile.mkdtemp()) / "fake_worker.py"
+        fake = Path(tempfile.mkdtemp()).resolve() / "fake_worker.py"
         fake.write_text(source, encoding="utf-8")
         pidfile = fake.parent / "child.pid"
         pidfile.unlink(missing_ok=True)
