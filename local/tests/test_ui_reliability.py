@@ -1295,6 +1295,38 @@ class PlanEventOwnershipTests(unittest.TestCase):
     载荷带后端接纳时附加的 plan_generation（生产桥接事件都有该字段）。
     """
 
+    def test_stale_stop_reply_and_snapshot_keep_current_stop(self):
+        for scenario in ("exception", "old_snapshot", "same_plan_snapshot"):
+            with self.subTest(scenario=scenario):
+                res = run_js(TIMER_HARNESS + r"""
+let rejectStop, resolveStop, resolveBootstrap, bootstrapCalls = 0, calls = 0;
+window.pywebview = { api: {
+  stop_plan: () => { calls++; return calls === 1
+    ? new Promise((resolve, reject) => { resolveStop = resolve; rejectStop = reject; })
+    : new Promise(() => {}); },
+  bootstrap: () => { bootstrapCalls++; return new Promise((resolve) => { resolveBootstrap = resolve; }); }
+} };
+window.onBackend.plan({ plan_id: "pa", plan_generation: 1, status: "running", tasks: [] });
+doStopPlan();
+if (SCENARIO !== "exception") { resolveStop({ ok: false, text: "old rejection" }); await __flush(); }
+if (SCENARIO !== "same_plan_snapshot") {
+  window.onBackend.plan_done({ plan_id: "pa", plan_generation: 1, status: "stopped", summary: {} });
+  window.onBackend.plan({ plan_id: "pb", plan_generation: 2, status: "running", tasks: [] });
+}
+doStopPlan();
+const logs = document.querySelector("#log").innerHTML;
+if (SCENARIO === "exception") rejectStop(new Error("old exception"));
+else resolveBootstrap({ busy: false, plan: { plan_id: "pa", plan_generation: 1, status: "running", tasks: [] } });
+await __flush();
+out.push({ id: S.plan.id, busy: S.busy, stopping: S.stopping, note: S.stopNote,
+  logsUnchanged: document.querySelector("#log").innerHTML === logs, bootstrapCalls });
+""".replace("SCENARIO", _js(scenario)))
+                self.assertEqual(res[0], {
+                    "id": "pa" if scenario == "same_plan_snapshot" else "pb",
+                    "busy": True, "stopping": True, "note": None,
+                    "logsUnchanged": True, "bootstrapCalls": 0 if scenario == "exception" else 1,
+                })
+
     def test_late_start_acceptance_keeps_new_plan(self):
         for reply in ("ack", "reconcile"):
             with self.subTest(reply=reply):

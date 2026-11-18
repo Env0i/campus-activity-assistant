@@ -4,7 +4,7 @@ import { render } from "../shell/actions-render.js";
 import { clearSelection } from "../list/actions-selection.js";
 /* 计划栏的编排层（运行中这一段）：停止确认、修改计划、重新选择与收尾。 */
 
-import { closeResultPage } from "./state.js";
+import { closeResultPage, PLAN_TERMINAL } from "./state.js";
 import { planLate, reselectableIds } from "./state-board.js";
 import { paintLogin } from "../login/view.js";
 import { setPlanOpen } from "../shell/view-band.js";
@@ -128,8 +128,17 @@ export function finishResult() {
  * 按窗口恢复同一套快照对账，运行记录那句按快照写——快照说还在跑才是停止没成功，
  * 说计划已不在就写修改作废，拿不到快照时保守写停止没成功，不替后端下结论。
  * wasEditing 由停止分支在进入 stopFailed 前记下带过来；桥接异常那一支不写这两句。 */
-function resyncPlanFromBootstrap(wasEditing) {
+let stopAttempt = 0;
+
+/* 同一计划再次停止时，旧请求及其快照也不能归属于新的一次停止。 */
+function ownsStopReply(planId, attempt) {
+  return S.plan.id === planId && stopAttempt === attempt
+    && PLAN_TERMINAL.indexOf(S.plan.status) < 0;
+}
+
+function resyncPlanFromBootstrap(wasEditing, planId, attempt) {
   api("bootstrap").then((info) => {
+    if (!ownsStopReply(planId, attempt)) return;
     if (!info) { if (wasEditing) addLog("停止没成功，计划继续运行"); return; }
     ingestBootstrapPlan(info);
     if (!info.busy) S.stopping = false;
@@ -137,6 +146,7 @@ function resyncPlanFromBootstrap(wasEditing) {
     if (wasEditing) addLog(info.busy ? "停止没成功，计划继续运行" : "计划已经结束，修改作废");
     render();
   }).catch(() => {
+    if (!ownsStopReply(planId, attempt)) return;
     if (wasEditing) addLog("停止没成功，计划继续运行");
   });
 }
@@ -153,6 +163,7 @@ export function doStopPlan() {
   /* 停止没成功（后端拒绝，或桥接异常）：计划仍在运行。若这次停止是「修改计划」发起的，
    * 一并退出修改中（U1）——否则计划栏标签、说明和「放弃修改」会挂在一个还在跑的计划上。 */
   const planId = S.plan.id;
+  const attempt = ++stopAttempt;
   const stopFailed = (line, noteText) => {
     const wasEditing = !!S.editing;
     S.stopping = false;
@@ -168,11 +179,13 @@ export function doStopPlan() {
     return wasEditing;
   };
   api("stop_plan", planId).then((res) => {
+    if (!ownsStopReply(planId, attempt)) return;
     if (res && res.ok === false) {
       const wasEditing = stopFailed(res.text || "当前没有这个计划");
-      resyncPlanFromBootstrap(wasEditing);
+      resyncPlanFromBootstrap(wasEditing, planId, attempt);
     }
   }).catch((err) => {
+    if (!ownsStopReply(planId, attempt)) return;
     /* 桥接异常才写「照常进行」：这是我们能确认的失败；后端说没有计划要走快照对账 */
     stopFailed("[X] 停止计划失败：" + msg(err),
       S.editing ? "没能暂停，计划照常进行。" : "没能停止，计划照常进行。");
