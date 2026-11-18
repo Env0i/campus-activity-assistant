@@ -19,11 +19,13 @@ import sys
 import tempfile
 from pathlib import Path
 
+from infrastructure.data_directory import base_dir, default_data_dir
 from infrastructure.prefs_store import (PrefsLockTimeout, acquire_file_lock,
                                         release_file_lock)
 
-# 统一数据根的应用目录名（%LOCALAPPDATA% 下）
-APP_DIR_NAME = "TianSoftActivityPreRegistration"
+# 统一数据根的应用目录名（%LOCALAPPDATA% 下）与路径算法都在
+# infrastructure.data_directory：那份计算同时被组件包适配器复用，
+# 顶层模块这里只保留迁移、建目录与环境覆盖的语义。
 # 迁移白名单：登录态与偏好；grab.log 只在缺失时一并带走，方便排查
 MIGRATE_FILES = ("session.json", "storage_state.json", "ui.json", "grab.log")
 # 失败时归入「登录信息」一类的文件；其余归入「设置或运行记录」
@@ -49,20 +51,11 @@ def migration_record() -> dict | None:
 
 
 def _base_dir() -> Path:
-    """解析本进程的数据根（只算路径，不创建目录）。"""
-    override = os.environ.get("CAMPUS_DATA_DIR", "").strip()
-    if override:
-        # 相对路径锚定当前工作目录，避免冻结进程拿到一个随启动目录漂移的根
-        return Path(override).resolve()
-    if getattr(sys, "frozen", False):
-        local = os.environ.get("LOCALAPPDATA", "").strip()
-        # LOCALAPPDATA 缺失（精简系统/服务账户）时回退 home/AppData/Local
-        base = Path(local) if local else Path.home() / "AppData" / "Local"
-        return base / APP_DIR_NAME / "data"
-    return Path(__file__).resolve().parent / "data"
+    """兼容旧名：路径算法已下沉 infrastructure.data_directory.base_dir。"""
+    return base_dir()
 
 
-DATA_DIR = _base_dir()
+DATA_DIR = default_data_dir(initialize="DATA_DIR" in globals())
 SESSION_FILE = DATA_DIR / "session.json"
 STATE_FILE = DATA_DIR / "storage_state.json"
 UI_STATE_FILE = DATA_DIR / "ui.json"

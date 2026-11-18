@@ -36,6 +36,16 @@ from domain.phone_rules import (  # noqa: E402
 from infrastructure.phone_http import PhoneHttpServer  # noqa: E402
 
 
+def _phone_test_actions(api):
+    from domain.phone_rules import ACTION_PARAMS
+    actions = {name: (lambda _name=name, **kw: getattr(api, _name)(**kw))
+               for name in ACTION_PARAMS if hasattr(api, name)}
+    if hasattr(api, "save_prefs"):
+        actions["save_retry_policy"] = lambda retry_policy=None: api.save_prefs(
+            {"retry_policy": retry_policy or {}})
+    return actions
+
+
 class FakeApi:
     def __init__(self):
         self.calls = []
@@ -97,7 +107,7 @@ class PhoneHttpBase(unittest.TestCase):
                           "terms": {"accepted_version": "1"},
                           "retry_options": {"default": 120}}
         self.service = PhoneAccessService(
-            api=self.api, now=lambda: self.clock["now"],
+            actions=_phone_test_actions(self.api), now=lambda: self.clock["now"],
             state_of=lambda: self.raw_state,
             device_store=self.device_store,
             server_factory=lambda host, port, svc: PhoneHttpServer(
@@ -421,7 +431,7 @@ class PublicHostSwitchTests(unittest.TestCase):
             return server
 
         self.service = PhoneAccessService(
-            api=self.api, now=lambda: self.clock["now"],
+            actions=_phone_test_actions(self.api), now=lambda: self.clock["now"],
             state_of=lambda: self.raw_state, server_factory=factory)
         started = self.service.start(
             "127.0.0.1", 0, public_host=self.PUBLIC_HOST,
@@ -580,7 +590,7 @@ class BackupHostTests(unittest.TestCase):
             return server
 
         self.service = PhoneAccessService(
-            api=self.api, now=lambda: self.clock["now"],
+            actions=_phone_test_actions(self.api), now=lambda: self.clock["now"],
             state_of=lambda: self.raw_state, server_factory=factory)
         started = self.service.start("127.0.0.1", 0, public_host=self.PUBLIC_HOST)
         self.assertTrue(started["ok"], started)

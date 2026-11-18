@@ -1697,6 +1697,17 @@ def _function_node(name: str):
     return node
 
 
+def _school_action_node(name: str):
+    paths = {"check": "application/login_recovery.py",
+             "list_activities": "application/activity_list_service.py",
+             "start_plan": "application/plan_admission.py"}
+    if name not in paths:
+        return _function_node(name)
+    tree = ast.parse(_read(paths[name]))
+    return next(item for item in ast.walk(tree)
+                if isinstance(item, ast.FunctionDef) and item.name == name)
+
+
 def _module_source(*names: str) -> str:
     """把若干方法拼成一个可执行的模块源码（保持真实实现，不改写）。"""
     parts = []
@@ -1729,6 +1740,19 @@ class _FakeApi:
     # 与生产 Api.START_KEEP 同值：真实 _remember_start 会按它裁剪 start_plan
     # 登记队列，替身缺这个类属性会让每次登记都抛 AttributeError（假报错）
     START_KEEP = 32
+
+    @property
+    def closing(self): return self._closing
+    @property
+    def cancelling(self): return self._cancelling
+    @property
+    def checking(self): return self._checking
+    @checking.setter
+    def checking(self, value): self._checking = value
+    @property
+    def listing(self): return self._listing
+    @listing.setter
+    def listing(self, value): self._listing = value
 
     def __init__(self):
         self._lock = threading.RLock()
@@ -1792,6 +1816,27 @@ def build_api(prefs: dict, demo: bool = False) -> _FakeApi:
     api = _FakeApi()
     for name in HELPER_METHODS + SCHOOL_METHODS:
         setattr(api, name, types.MethodType(namespace[name], api))
+    services = ast.Module(body=[_school_action_node("check"), _school_action_node("list_activities")],
+                          type_ignores=[])
+    ast.fix_missing_locations(services)
+    exec(compile(services, "<terms-services>", "exec"), namespace)  # noqa: S102
+    login = types.SimpleNamespace(_coordination=api, _lock=api._lock,
+                                  _ports={"terms_gate": api._terms_gate, "do_check": api._do_check},
+                                  check_again=False, check_request_id="", check_last={})
+    listing = types.SimpleNamespace(_coordination=api, _lock=api._lock,
+                                    _ports={"terms_gate": api._terms_gate, "do_list": api._do_list},
+                                    request_id="", last={})
+    login.check = types.MethodType(namespace["check"], login)
+    listing.list_activities = types.MethodType(namespace["list_activities"], listing)
+    api._login_recovery, api._activity_list = login, listing
+    tree = ast.parse(_read("application/plan_admission.py"))
+    plan_class = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "PlanAdmission")
+    plan_module = ast.fix_missing_locations(ast.Module(body=[plan_class], type_ignores=[]))
+    exec(compile(plan_module, "<terms-plan>", "exec"), namespace)  # noqa: S102
+    api._plan_manager = namespace["PlanAdmission"](
+        lock=api._lock, coordination=api, activity_list=listing, login=login,
+        ports={"terms_gate": api._terms_gate, "start_inner": api._start_plan_inner})
+    api._start_requests = api._plan_manager.start_requests
     return api
 
 
@@ -1931,18 +1976,26 @@ class NonSchoolActionContractTests(unittest.TestCase):
 
     def test_school_methods_all_call_the_gate(self):
         for name in SCHOOL_METHODS:
-            source = ast.unparse(_function_node(name))
-            self.assertIn("_terms_gate", source,
+            source = ast.unparse(_school_action_node(name))
+            self.assertIn("terms_gate", source,
                           "%s 是学校网络动作，必须有后端授权兜底" % name)
+        for factory in ("_make_login_recovery", "_make_activity_list"):
+            self.assertIn("'terms_gate': lambda request_id: self._terms_gate(request_id)",
+                          ast.unparse(_function_node(factory)))
+        self.assertIn("'terms_gate': lambda: self._terms_gate()",
+                      ast.unparse(_function_node("_make_plan_manager")))
 
     def test_phone_school_actions_go_through_the_gate(self):
         for name in PHONE_SCHOOL_METHODS:
-            source = ast.unparse(_function_node(name))
-            self.assertIn("_terms_gate", source,
+            source = ast.unparse(_school_action_node(name))
+            self.assertIn("terms_gate", source,
                           "手机动作 %s 访问学校，门禁必须在后端方法里" % name)
-        state = ast.unparse(_function_node("_phone_raw_state"))
-        self.assertIn("'terms_ok': self._terms_gate() is None", state,
+        tree = ast.parse(_read("application/phone_service.py"))
+        state = ast.unparse(next(n for n in ast.walk(tree)
+                                 if isinstance(n, ast.FunctionDef) and n.name == "raw_state"))
+        self.assertIn("'terms_ok': self._ports['terms_gate']() is None", state,
                       "手机快照的 terms_ok 必须和电脑门禁同源")
+        self.assertIn("'terms_gate': lambda: self._terms_gate()", ast.unparse(_function_node("_make_phone_controller")))
 
 
 def build_accept_api(prefs: dict, *, update_ok: bool = True):

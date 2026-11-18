@@ -1038,6 +1038,20 @@ class AdvancedBackendFieldsTests(unittest.TestCase):
     def _enabled_in_prefs(self):
         return dict(self.local_app.load_prefs().get("advanced_features") or {})
 
+    def test_remove_stops_phone_under_maintenance_locks_and_clears_notice(self):
+        observed = []
+        self.api._cloudflare_exit_notice = {"state": "exited"}
+
+        def stop():
+            observed.append((self.api._credential_lock.locked(), self.api._phone_access_lock.locked()))
+            return {"ok": True}
+
+        with mock.patch.object(self.api, "_stop_phone_access", side_effect=stop):
+            result = self.api.remove_advanced_feature("phone_control")
+        self.assertTrue(result["ok"])
+        self.assertEqual(observed, [(True, True)])
+        self.assertIsNone(self.api._cloudflare_exit_notice)
+
     # ---------- B2 enable_advanced_feature ----------
     def test_enable_turns_on_both_known_components_once_installed(self):
         self._installed(True)
@@ -1568,9 +1582,19 @@ class AdvancedComponentServiceTests(unittest.TestCase):
             state["removed"] += 1
             state["installed"] = False
 
+        # 包操作、资产描述与 cloudflared 版本由组合根注入（服务层不再 import
+        # infrastructure）；用例沿用 infrastructure 的真实实现，行为与拆分前一致。
+        from infrastructure import component_packages as packages
         options = dict(root=None, asset_resolver=lambda v: {"ok": True, "asset": self.ASSET},
                        download=download, inspect=inspect, install=install,
                        status=status, remover=remover,
+                       version=packages.version,
+                       inspect_artifact=packages.inspect_artifact,
+                       find_cached_artifact=packages.find_cached_artifact,
+                       cache_artifact=packages.cache_artifact,
+                       commit_artifact_group=packages.commit_artifact_group,
+                       artifacts=packages.ARTIFACTS,
+                       cloudflared_version=packages.CLOUDFLARED_VERSION,
                        on_installed=lambda v: state["hooks"].append(v))
         options.update(overrides)
         return svc.AdvancedComponentService(**options), state
@@ -1680,7 +1704,15 @@ class AdvancedComponentServiceTests(unittest.TestCase):
                 return {"ok": True, "path": str(path)}
             service = svc.AdvancedComponentService(
                 feature="relogin_ocr", root=root, version=lambda: "1.2.2", download=download,
-                asset_resolver=lambda version: {"ok": True, "assets": [runtime_meta, model_meta]})
+                asset_resolver=lambda version: {"ok": True, "assets": [runtime_meta, model_meta]},
+                inspect=packages.inspect_archive, install=packages.install,
+                status=packages.feature_status, remover=packages.remove,
+                inspect_artifact=packages.inspect_artifact,
+                find_cached_artifact=packages.find_cached_artifact,
+                cache_artifact=packages.cache_artifact,
+                commit_artifact_group=packages.commit_artifact_group,
+                artifacts=packages.ARTIFACTS,
+                cloudflared_version=packages.CLOUDFLARED_VERSION)
             service._run()
             self.assertEqual(service._state, "failed")
             self.assertTrue(before["available"])
@@ -1704,7 +1736,15 @@ class AdvancedComponentServiceTests(unittest.TestCase):
             download = mock.Mock(side_effect=AssertionError("相同资产不应下载"))
             service = svc.AdvancedComponentService(
                 feature="relogin_ocr", root=root, version=lambda: "1.2.2", download=download,
-                asset_resolver=lambda version: {"ok": True, "assets": assets})
+                asset_resolver=lambda version: {"ok": True, "assets": assets},
+                inspect=packages.inspect_archive, install=packages.install,
+                status=packages.feature_status, remover=packages.remove,
+                inspect_artifact=packages.inspect_artifact,
+                find_cached_artifact=packages.find_cached_artifact,
+                cache_artifact=packages.cache_artifact,
+                commit_artifact_group=packages.commit_artifact_group,
+                artifacts=packages.ARTIFACTS,
+                cloudflared_version=packages.CLOUDFLARED_VERSION)
             service._run()
             download.assert_not_called()
             self.assertEqual(service._state, "installed")
@@ -1753,7 +1793,15 @@ class AdvancedComponentServiceTests(unittest.TestCase):
                 return {"ok": True, "path": str(path)}
             service = svc.AdvancedComponentService(
                 feature="relogin_ocr", root=root, version=lambda: "1.2.2", download=download,
-                asset_resolver=lambda version: {"ok": True, "assets": [runtime_meta, model_meta]})
+                asset_resolver=lambda version: {"ok": True, "assets": [runtime_meta, model_meta]},
+                inspect=packages.inspect_archive, install=packages.install,
+                status=packages.feature_status, remover=packages.remove,
+                inspect_artifact=packages.inspect_artifact,
+                find_cached_artifact=packages.find_cached_artifact,
+                cache_artifact=packages.cache_artifact,
+                commit_artifact_group=packages.commit_artifact_group,
+                artifacts=packages.ARTIFACTS,
+                cloudflared_version=packages.CLOUDFLARED_VERSION)
             service._run()
             self.assertEqual(service._state, "installed")
             self.assertEqual(downloaded, [new_runtime.name])
@@ -2069,20 +2117,16 @@ class LoginExpiredPushTests(unittest.TestCase):
     """登录失效推飞书：本次运行里有效过、之后变成失效才推，同一次失效只推一次。"""
 
     def _note(self):
-        import ast
         import types
+        from application.login_recovery import LoginRecovery
 
-        tree = ast.parse((LOCAL / "app.py").read_text(encoding="utf-8"))
-        node = next(item for item in ast.walk(tree)
-                    if isinstance(item, ast.FunctionDef) and item.name == "_note_login_conclusion")
-        module = ast.Module(body=[node], type_ignores=[])
-        ast.fix_missing_locations(module)
-        namespace: dict = {}
-        exec(compile(module, "<note-login>", "exec"), namespace)  # noqa: S102
-        api = types.SimpleNamespace(_lock=threading.RLock(), _login_seen_valid=False,
-                                    _expiry_pushed=False, pushes=[])
-        api._push_login_expired = lambda: api.pushes.append(1)
-        return types.MethodType(namespace["_note_login_conclusion"], api), api
+        api = types.SimpleNamespace(pushes=[])
+        service = LoginRecovery(coordination=None, lock=threading.Lock(), ports={
+            "push_expired": lambda: api.pushes.append(1),
+            "silent_state": lambda: (False, ""),
+            "log_event": lambda *args, **kwargs: None,
+        })
+        return service.note_conclusion, api
 
     def test_push_once_after_valid_then_expired(self):
         note, api = self._note()

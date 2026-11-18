@@ -98,8 +98,8 @@ def version():
 
 def _root(root):
     if root is None:
-        from runtime_paths import DATA_DIR
-        root = DATA_DIR
+        from infrastructure.data_directory import default_data_dir
+        root = default_data_dir()
     return Path(root).resolve() / "advanced"
 
 

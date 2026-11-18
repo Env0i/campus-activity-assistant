@@ -26,8 +26,6 @@ import uuid
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 
-from infrastructure import component_packages as _packages
-
 FEATURE = "phone_control"
 # 校验失败时说「这是别的组件的包，不是 XX」用的名字
 _TITLES = {"phone_control": "手机控制", "relogin_ocr": "验证码识别"}
@@ -65,27 +63,29 @@ _STATE_TEXT = {
 class AdvancedComponentService:
     """单个组件包的下载/校验/安装事务（单飞，可取消，可重试）。"""
 
-    def __init__(self, *, download, asset_resolver, root=None, version=None,
-                 inspect=None, install=None, status=None,
-                  remover=None, inspect_artifact=None, find_cached_artifact=None,
-                  cache_artifact=None, commit_artifact_group=None,
-                  on_installed=None, on_finished=None, log=None,
-                 feature=FEATURE):
+    def __init__(self, *, download, asset_resolver, version, inspect, install,
+                 status, remover, inspect_artifact, find_cached_artifact,
+                 cache_artifact, commit_artifact_group, artifacts,
+                 cloudflared_version="", root=None, on_installed=None,
+                 on_finished=None, log=None, feature=FEATURE):
         if feature not in _TITLES:
             raise ValueError("unknown component feature")
         self._feature = feature
         self._root = root
-        self._version = version or _packages.version
+        # 包操作、资产描述与 cloudflared 版本由组合根注入：本层不 import infrastructure。
+        self._version = version
         self._asset_resolver = asset_resolver
         self._download = download
-        self._inspect = inspect or _packages.inspect_archive
-        self._install = install or _packages.install
-        self._inspect_artifact = inspect_artifact or _packages.inspect_artifact
-        self._find_cached_artifact = find_cached_artifact or _packages.find_cached_artifact
-        self._cache_artifact = cache_artifact or _packages.cache_artifact
-        self._commit_artifact_group = commit_artifact_group or _packages.commit_artifact_group
-        self._status = status or _packages.feature_status
-        self._remover = remover or _packages.remove
+        self._inspect = inspect
+        self._install = install
+        self._inspect_artifact = inspect_artifact
+        self._find_cached_artifact = find_cached_artifact
+        self._cache_artifact = cache_artifact
+        self._commit_artifact_group = commit_artifact_group
+        self._status = status
+        self._remover = remover
+        self._artifacts = artifacts
+        self._cloudflared_version = cloudflared_version
         self._on_installed = on_installed
         self._on_finished = on_finished
         self._log = log
@@ -344,7 +344,7 @@ class AdvancedComponentService:
         返回值告诉调用方能否改下完整单体包：installed / cancelled / failed 都
         不再回退；只有 integrity（下载成功但校验、缓存或提交不通过）允许回退。
         """
-        required = {key for key, spec in _packages.ARTIFACTS.items()
+        required = {key for key, spec in self._artifacts.items()
                     if spec["feature"] == self._feature}
         if (not assets or any(not isinstance(asset, dict) for asset in assets)
                 or {asset.get("artifact_id") for asset in assets} != required
@@ -471,7 +471,7 @@ class AdvancedComponentService:
             return ("wrong_feature", "这是别的组件的包，不是%s。" % _TITLES[self._feature])
         declared = str(info.get("cloudflared") or "")
         # 只有手机控制内置 cloudflared；验证码识别包里出现这个字段同样按清单核一遍
-        if declared and declared != _packages.CLOUDFLARED_VERSION:
+        if declared and declared != self._cloudflared_version:
             return ("cloudflared_version",
                     "组件包内置的 cloudflared 版本不对（%s），请重新下载。" % declared)
         return None

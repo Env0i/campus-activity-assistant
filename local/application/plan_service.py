@@ -15,6 +15,8 @@ import subprocess
 import threading
 import time
 
+from application.plan_admission import PlanAdmission as PlanAdmission
+from application.plan_admission import PlanFields as PlanFields
 from domain.errors import ClosingError
 from domain.plan_rules import classify_task_stop
 from domain.retry_rules import ATTEMPT_RE, attempts_of, parse_retry_line, progress_event_status

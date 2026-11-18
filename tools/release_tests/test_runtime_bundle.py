@@ -646,36 +646,35 @@ class ShutdownLifecycleTests(unittest.TestCase):
 
     def test_spawn_registers_proc_inside_lock(self):
         """受管创建与 _proc 登记在同一把锁内：关闭与异步启动竞态不留孤儿（结构锁死）。"""
-        src = read("local/app.py")
-        spawn = src[src.index("\n    def _spawn(self"):
-                    src.index("\n    def _anchor_login_success")]
+        src = read("local/application/worker_service.py")
+        spawn = src[src.index("\n    def spawn(self"):
+                    src.index("\n    def spawn_relay")]
         self.assertIn("with self._lock:", spawn)
         self.assertLess(spawn.index("with self._lock:"),
-                        spawn.index("spawn_owned("),
+                        spawn.index('self._ports["spawn"]('),
                         "受管创建必须在锁内（所有权与登记原子，关闭快照才能看到它）")
-        self.assertIn("self._proc = tree.proc", spawn)
-        self.assertIn("self._proc_tree = tree", spawn)
+        self.assertIn("self._coord.proc = tree.proc", spawn)
+        self.assertIn("self._coord.proc_tree = tree", spawn)
         self.assertNotIn("subprocess.Popen", spawn, "_spawn 不得绕开受管进程树")
 
     def test_relay_worker_uses_managed_spawn_with_stdin(self):
         """relay 的 stdin/stdout 也要走受管入口，不能再用裸 Popen。"""
-        src = read("local/app.py")
-        relay = src[src.index("\n    def _spawn_relay_worker"):
-                    src.index("\n    def _relay_finished")]
-        self.assertIn("spawn_owned(", relay)
+        src = read("local/application/worker_service.py")
+        relay = src[src.index("\n    def spawn_relay"):
+                    src.index("\n    def pump")]
+        self.assertIn('self._ports["spawn"](', relay)
         self.assertIn("stdin=subprocess.PIPE", relay)
-        self.assertIn("self._proc_tree = tree", relay)
+        self.assertIn("self._coord.proc_tree = tree", relay)
         self.assertNotIn("subprocess.Popen", relay)
 
     def test_plan_stop_prefers_managed_tree(self):
         """停计划先走 Job 端口；对已退出的 Popen 调 kill_tree 只能当兜底。"""
-        src = read("local/app.py")
-        term = src[src.index("def _terminate_plan_procs"):
-                   src.index("def plan_active_for_close")]
-        self.assertIn("self._plan_trees", term)
+        src = read("local/application/worker_service.py")
+        term = src[src.index("def terminate_plan_procs"):]
+        self.assertIn("self._coord.plan_trees", term)
         self.assertIn("tree.terminate()", term)
-        self.assertIn("_kill_tree(proc)", term, "旧 Popen 只作兼容回退")
-        self.assertIn("plan_trees=self._plan_trees", src)
+        self.assertIn('self._ports["kill_tree"](proc)', term, "旧 Popen 只作兼容回退")
+        self.assertIn("plan_trees=self._plan_trees", read("local/app.py"))
 
     def test_aux_run_uses_owned_tree_and_closes_it_after_success(self):
         """check/list worker 成功收尾：受管树登记、stdio 分离、句柄关闭。"""
@@ -717,10 +716,10 @@ class ShutdownLifecycleTests(unittest.TestCase):
 
     def test_aux_run_contract_keeps_tree_registration_and_stdio_split(self):
         """_run 的关键收口顺序固定在组合根，避免回到裸 Popen。"""
-        src = read("local/app.py")
-        run = src[src.index("    def _run("):src.index("    def _spawn(")]
-        self.assertIn("spawn_owned(", run)
-        self.assertIn("self._aux_trees[proc] = tree", run)
+        src = read("local/application/worker_service.py")
+        run = src[src.index("    def run("):src.index("    def spawn(")]
+        self.assertIn('self._ports["spawn"](', run)
+        self.assertIn("self._coord.aux_trees[proc] = tree", run)
         self.assertIn("tree.terminate()", run)
         self.assertIn("tree.close()", run)
         self.assertIn("stdout=subprocess.PIPE", run)

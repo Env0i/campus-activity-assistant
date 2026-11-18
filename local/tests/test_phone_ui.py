@@ -269,6 +269,16 @@ def run_phone_js(snippet: str, files=None):
         return json.loads(res.stdout[marker + len("__RESULT__"):].strip() or "[]")
 
 
+def _phone_test_actions(api):
+    from domain.phone_rules import ACTION_PARAMS
+    actions = {name: (lambda _name=name, **kw: getattr(api, _name)(**kw))
+               for name in ACTION_PARAMS if hasattr(api, name)}
+    if hasattr(api, "save_prefs"):
+        actions["save_retry_policy"] = lambda retry_policy=None: api.save_prefs(
+            {"retry_policy": retry_policy or {}})
+    return actions
+
+
 class PhoneModelTests(unittest.TestCase):
     """PhoneModel 纯规则：node vm 执行真实函数，不搜字符串。"""
 
@@ -4695,7 +4705,7 @@ class PhoneHttpEnd2EndTests(unittest.TestCase):
                 return {"ok": True, "plan_id": "p1", "request_id": request_id}
 
         self.service = PhoneAccessService(
-            api=Api(), now=lambda: 100.0,
+            actions=_phone_test_actions(Api()), now=lambda: 100.0,
             state_of=lambda: {"activities": [], "busy": False,
                               "terms": {"accepted_version": "1"}},
             server_factory=lambda host, port, svc: PhoneHttpServer(

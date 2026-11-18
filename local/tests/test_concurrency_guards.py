@@ -328,7 +328,7 @@ def _sentinel_install(testcase, api):
 def _sentinel_remove(testcase, api):
     rec = _Recorder({"ok": True})
     # 移除过了门先停手机访问，再动文件：这里就是门后的第一步
-    api.stop_phone_access = rec
+    api._stop_phone_for_component_locked = rec
     return rec
 
 
@@ -536,13 +536,15 @@ class BusyMatrixTests(unittest.TestCase):
 app.py:2958 的闭包会拿 Api._lock 与服务/事件锁，故发布锁必须在协调锁之外；
 Api._lock 的取证见 design/evidence/2026-11-17/api-coordination/locks.md）：
 
-    1  Api._credential_lock          凭据锁 RLock
-    2  Api._phone_access_lock        手机访问锁 RLock
+    1  Api._credential_lock          凭据锁 Lock
+    2  Api._phone_access_lock        手机访问锁 Lock
     3  PlanCoordinator._emit_lock    发布锁 Lock（_publish 持它调 emit 端口，
                                     端口实际会拿 Api._lock 与服务/事件锁）
     4  Api._lock                     协调锁 Lock（证据计 96 处 with / 64 个方法；
                                     嵌套 def 的获取处在证据里被重复归属，本扫描器
-                                    按唯一获取处计 93 处）
+                                    按唯一获取处计 93 处）。第一批拆分后实体在
+                                    application/coordination.py 的 Coordinator._lock，
+                                    Api._lock 指向同一对象（属性别名）
     5  服务锁：LoginRelayService / AutoReloginMonitor / PhoneAccessService /
        AdvancedComponentService / UpdateService / PlanCoordinator 的 `_lock`
     6  叶子锁：PhoneAccessService._event_lock、模块级 _PHONE_LOG_LOCK 与
@@ -572,8 +574,18 @@ APP_FILE = LOCAL_DIR / "app.py"
 
 # 服务模块：锁等级 5/6 的持有者（相对 local/ 的路径即源码里的模块键）
 SERVICE_FILES = (
+    "application/coordination.py",
+    "application/component_actions.py",
+    "application/login_recovery.py",
+    "application/activity_list_service.py",
+    "application/plan_admission.py",
+    "application/signup_cancellation.py",
+    "application/worker_service.py",
+    "application/desktop_lifecycle.py",
+    "application/clock_service.py",
     "application/login_relay_service.py",
     "application/auto_relogin.py",
+    "application/phone_access_session.py",
     "application/phone_service.py",
     "application/advanced_component_service.py",
     "application/update_service.py",
@@ -587,6 +599,9 @@ LEVELS: dict[str, int] = {
     "Api._phone_access_lock": 2,
     "PlanCoordinator._emit_lock": 3,
     "Api._lock": 4,
+    # 第一批拆分后协调锁的实体在 Coordinator；Api._lock 是同一对象的属性别名
+    # （`self._lock = self._coord.lock`），两者同号同锁，升序判定按同一等级比较。
+    "Coordinator._lock": 4,
     "LoginRelayService._lock": 5,
     "AutoReloginMonitor._lock": 5,
     "PhoneAccessService._lock": 5,
@@ -599,20 +614,13 @@ LEVELS: dict[str, int] = {
 }
 
 SERVICE_CLASSES = (
-    "LoginRelayService", "AutoReloginMonitor", "PhoneAccessService",
-    "AdvancedComponentService", "UpdateService", "PlanCoordinator",
+    "Coordinator", "ComponentActions", "PhoneAccessController", "LoginRecovery", "ActivityListService", "LoginRelayService", "AutoReloginMonitor", "PhoneAccessService",
+    "AdvancedComponentService", "UpdateService", "PlanCoordinator", "PlanAdmission", "SignupCancellation",
+    "WorkerService", "DesktopLifecycle", "ClockService",
 )
 
-# 同号重入的冻结老账（Api 侧）：三条都是「持 _phone_access_lock 又调 stop_phone_access()」。
-# 下一批改用不取锁的 _stop_phone_access() 后，这份表应删空。
-FROZEN_REENTRY: tuple[tuple[str, str, str], ...] = (
-    # app.py install_advanced_feature:1664 —— 停手机访问前先换包，历史写法
-    ("install_advanced_feature", "Api._phone_access_lock", "Api._phone_access_lock"),
-    # app.py _install_selected_feature:1712 —— 同上，导入组件的共用通道
-    ("_install_selected_feature", "Api._phone_access_lock", "Api._phone_access_lock"),
-    # app.py remove_advanced_feature:1740 —— 移除手机控制组件前先停服务
-    ("remove_advanced_feature", "Api._phone_access_lock", "Api._phone_access_lock"),
-)
+# 三条旧重入已改为持锁调用不再取锁的停机入口；后续不得新增同号重入。
+FROZEN_REENTRY: tuple[tuple[str, str, str], ...] = ()
 
 # 服务类内部的同号重入（均为 RLock 的既有重入）：实际必须恰好等于这张表。
 # 键是「类.方法」——服务类之间方法重名（如 snapshot），裸方法名分不清归属。
@@ -625,15 +633,17 @@ FROZEN_SERVICE_REENTRY: tuple[tuple[str, str, str], ...] = (
     ("PlanCoordinator.stop", "PlanCoordinator._lock", "PlanCoordinator._lock"),
 )
 
-# 持协调锁时唯一放行的服务调用：published_status 只读锁外发布的不可变字符串。
-# 三处都是同一句 `self._plan.published_status()`（证据里的「恰好一个服务方法」
-# 指方法而不是调用处）；三个方法都注明「调用方持 self._lock」。
+# 持协调锁时唯一放行的服务调用：published_status 只读锁外发布的不可变字符串，
+# 以及协调对象自己的两个 _locked 判定（第一批拆分后的薄转发：判定体在
+# Coordinator 里，不带 `with`，调用方持锁的约定沿用原名）。
 FROZEN_COORD_CALLS: tuple[tuple[str, str], ...] = (
-    # app.py:2397 _cancel_busy_reason_locked（docstring：调用方持 self._lock）
-    ("_cancel_busy_reason_locked", "self._plan.published_status"),
-    # app.py:4295 _is_busy_locked（busy 判定只读已发布状态，P2-1）
-    ("_is_busy_locked", "self._plan.published_status"),
-    # app.py:2631 login（持 _lock 复核计划是否在跑）
+    ("_published_plan_state", "self._plan.published_status"),
+    # app.py _cancel_busy_reason_locked：旧名转发 Coordinator.cancel_busy_reason_locked
+    ("cancel", "self._coord.cancel_busy_reason_locked"),
+    ("_busy_gate_locked", "self._coord.is_busy_locked"),
+    # app.py _is_busy_locked：旧名转发 Coordinator.is_busy_locked（busy 判定只读已发布状态，P2-1）
+    ("_is_busy_locked", "self._coord.is_busy_locked"),
+    # app.py login（持 _lock 复核计划是否在跑）
     ("login", "self._plan.published_status"),
 )
 
@@ -682,9 +692,9 @@ FROZEN_PORTS: tuple[tuple[str, str, str], ...] = (
     ("application/advanced_component_service.py", "snapshot", "_status"),
     # phone_service.py pair:280 持 _lock 写设备信任，PhoneSessionStore.add_device:62
     # 取自己的 RLock（等级表外的底层锁）
-    ("application/phone_service.py", "pair", "_device_store"),
+    ("application/phone_access_session.py", "pair", "_device_store"),
     # phone_service.py authenticate_or_restore:369 同上，validate_device:82 取同一把锁
-    ("application/phone_service.py", "authenticate_or_restore", "_device_store"),
+    ("application/phone_access_session.py", "authenticate_or_restore", "_device_store"),
 )
 
 
@@ -721,6 +731,20 @@ def _lock_id(expr: ast.AST, owner: str | None, module: str) -> str | None:
     """
     if isinstance(expr, ast.Attribute) and isinstance(expr.value, ast.Name):
         base, attr = expr.value.id, expr.attr
+        if base == "self" and owner == "ComponentActions":
+            aliases = {"_credential_lock": "Api._credential_lock",
+                       "_phone_lock": "Api._phone_access_lock", "_lock": "Api._lock"}
+            if attr in aliases:
+                return aliases[attr]
+        if base == "self" and owner == "PhoneAccessController":
+            aliases = {"_lock": "Api._phone_access_lock", "_coord_lock": "Api._lock"}
+            if attr in aliases:
+                return aliases[attr]
+        if base == "self" and owner in ("LoginRecovery", "ActivityListService", "PlanAdmission", "SignupCancellation",
+                                         "WorkerService", "DesktopLifecycle", "ClockService") and attr == "_lock":
+            return "Api._lock"
+        if base == "owner" and owner == "PlanEvents" and attr == "_lock":
+            return "Api._lock"
         lock = ""
         if base == "self" and owner:
             lock = "%s.%s" % (owner, attr)
@@ -804,6 +828,24 @@ class _LockGraph:
     def _ctor(self, value: ast.AST, fn: ast.AST) -> tuple[str, str] | None:
         """构造调用 → (模块, 类名)：认服务类名，也认先把实例存局部变量再赋值的写法。"""
         if isinstance(value, ast.Call):
+            if _dotted(value.func) == "self._make_component_actions":
+                return self._known("ComponentActions")
+            if _dotted(value.func) == "self._make_phone_controller":
+                return self._known("PhoneAccessController")
+            if _dotted(value.func) == "self._make_login_recovery":
+                return self._known("LoginRecovery")
+            if _dotted(value.func) == "self._make_activity_list":
+                return self._known("ActivityListService")
+            if _dotted(value.func) == "self._make_plan_manager":
+                return self._known("PlanAdmission")
+            if _dotted(value.func) == "self._make_signup_cancellation":
+                return self._known("SignupCancellation")
+            if _dotted(value.func) == "self._make_worker_service":
+                return self._known("WorkerService")
+            if _dotted(value.func) == "self._make_desktop_lifecycle":
+                return self._known("DesktopLifecycle")
+            if _dotted(value.func) == "self._make_clock_service":
+                return self._known("ClockService")
             return self._known(_last_name(value.func))
         if isinstance(value, ast.Name):
             for node in ast.walk(fn):
@@ -835,11 +877,13 @@ class _LockGraph:
                 key = self._ctor(node.value, fn)
                 if key is not None:
                     mapping[target.attr] = key
+        if "_plan_manager" in mapping and ("application/plan_admission.py", "PlanFields") in self.classes:
+            mapping["_plan"] = self._known("PlanCoordinator")
         self._attrs = mapping
         return mapping
 
     def service_keys(self) -> list[tuple[str, str]]:
-        return [key for key in self.classes if key[1] in SERVICE_CLASSES]
+        return [key for key in self.classes if key[1] in SERVICE_CLASSES or key == ("application/plan_admission.py", "PlanEvents")]
 
     def closure_locks(self, key: tuple[str, str], method: str, depth: int = 0,
                       seen: frozenset[str] = frozenset()) -> set[str]:
@@ -852,6 +896,10 @@ class _LockGraph:
             parts = _dotted(call.func).split(".")
             if len(parts) == 2 and parts[0] == "self" and parts[1] in self.methods(key):
                 out |= self.closure_locks(key, parts[1], depth + 1, seen | {method})
+            elif key == self.api_key and len(parts) == 3 and parts[0] == "self":
+                target = self.service_attrs().get(parts[1])
+                if target is not None:
+                    out |= self.closure_locks(target, parts[2], depth + 1)
         return out
 
     def callee_locks(self, call: ast.Call) -> set[str]:
@@ -977,6 +1025,15 @@ def _rule_one_services(graph: _LockGraph) -> dict[str, list[tuple]]:
                 if len(parts) == 2 and parts[0] == base and parts[1] in graph.methods(key):
                     for lock in graph.closure_locks(key, parts[1]):
                         _judge(record, label, call.lineno, holding, lock)
+                if key == ("application/component_actions.py", "ComponentActions"):
+                    for lock in _component_port_locks(graph, call):
+                        _judge(record, label, call.lineno, holding, lock)
+                if key == ("application/phone_service.py", "PhoneAccessController"):
+                    for lock in _component_port_locks(graph, call, "_make_phone_controller", "PhoneAccessController"):
+                        _judge(record, label, call.lineno, holding, lock)
+                if key == ("application/worker_service.py", "WorkerService"):
+                    for lock in _component_port_locks(graph, call, "_make_worker_service", "WorkerService"):
+                        _judge(record, label, call.lineno, holding, lock)
 
     for key in graph.service_keys():
         for name, fn in graph.methods(key).items():
@@ -986,6 +1043,49 @@ def _rule_one_services(graph: _LockGraph) -> dict[str, list[tuple]]:
         if module == state_key[0]:
             scan(fn, state_key, name, "state")
     return {kind: sorted(set(items)) for kind, items in record.items()}
+
+
+def _component_port_locks(graph: _LockGraph, call: ast.Call,
+                          factory_name="_make_component_actions", class_name="ComponentActions") -> set[str]:
+    """沿组合根注入的组件回调追踪锁，保留调用方已持有的物理锁。"""
+    func = call.func
+    group = ""
+    if isinstance(func, ast.Subscript) and isinstance(func.slice, ast.Constant):
+        group, name = _dotted(func.value).removeprefix("self._"), func.slice.value
+    else:
+        dotted = _dotted(func)
+        if not dotted.startswith("self._"):
+            return set()
+        name = dotted.removeprefix("self._")
+    factory = graph.methods(graph.api_key).get(factory_name)
+    if factory is None:
+        return set()
+    result = set()
+    for constructor in _calls_in(factory):
+        if _last_name(constructor.func) != class_name:
+            continue
+        for keyword in constructor.keywords:
+            value = keyword.value
+            if group and keyword.arg == group and isinstance(value, ast.Call):
+                method = _dotted(value.func).removeprefix("self.")
+                helper = graph.methods(graph.api_key).get(method)
+                value = next((n.value for n in helper.body if isinstance(n, ast.Return)), None) if helper else None
+            if keyword.arg == group and isinstance(value, ast.Dict):
+                value = next((v for k, v in zip(value.keys, value.values)
+                              if isinstance(k, ast.Constant) and k.value == name), None)
+            elif group or keyword.arg != name:
+                continue
+            if not isinstance(value, ast.Lambda):
+                continue
+            for target in _calls_in(value):
+                parts = _dotted(target.func).split(".")
+                if len(parts) == 2 and parts[0] == "self":
+                    result |= graph.closure_locks(graph.api_key, parts[1])
+                elif len(parts) == 3 and parts[0] == "self":
+                    key = graph.service_attrs().get(parts[1])
+                    if key:
+                        result |= graph.closure_locks(key, parts[2])
+    return result
 
 
 def _service_calls(graph: _LockGraph, node: ast.AST, attrs, owner: str,
@@ -1023,6 +1123,45 @@ def _rule_two(graph: _LockGraph) -> list[tuple[str, str]]:
         for node, _outer, ids in _iter_withs(fn, "Api", "app.py"):
             if "Api._lock" in ids:
                 hits.extend(_service_calls(graph, node, attrs, name))
+    # 计划与取消服务持有的 _lock 就是同一协调锁；追踪其同类方法，
+    # 避免迁移后只扫描 Api 而漏掉真实临界区。
+    def service_calls(key, node, owner, seen=frozenset()):
+        found = []
+        for call in _calls_in(node):
+            dotted = _dotted(call.func)
+            if dotted.startswith("self._coord.") and len(dotted.split(".")) == 3:
+                found.append((owner, dotted))
+            parts = dotted.split(".")
+            if len(parts) == 2 and parts[0] == "self" and parts[1] not in seen:
+                target = graph.methods(key).get(parts[1])
+                if target:
+                    found.extend(service_calls(key, target, parts[1], seen | {parts[1]}))
+        return found
+
+    for class_name in ("PlanAdmission", "SignupCancellation", "WorkerService", "DesktopLifecycle", "ClockService"):
+        key = graph._known(class_name)
+        if key is None:
+            continue
+        for name, fn in graph.methods(key).items():
+            for node, _outer, ids in _iter_withs(fn, class_name, key[0]):
+                if "Api._lock" in ids:
+                    hits.extend(service_calls(key, node, name, frozenset({name})))
+    # Coordinator 的两个判定由调用者持同一把锁；追踪注入的计划状态端口。
+    key = attrs.get("_coord")
+    init = graph.methods(graph.api_key).get("__init__")
+    if key and init:
+        for call in _calls_in(init):
+            if _last_name(call.func) != "Coordinator":
+                continue
+            for keyword in call.keywords:
+                if keyword.arg == "plan_state" and _dotted(keyword.value).startswith("self."):
+                    port = _dotted(keyword.value).split(".")[-1]
+                    for method in ("is_busy_locked", "cancel_busy_reason_locked"):
+                        fn = graph.methods(key).get(method)
+                        if fn and any(_dotted(c.func) == "self._plan_state" for c in _calls_in(fn)):
+                            target = graph.methods(graph.api_key).get(port)
+                            if target:
+                                hits.extend(_service_calls(graph, target, attrs, port))
     return sorted(set(hits))
 
 
@@ -1177,12 +1316,21 @@ class LockOrderTests(unittest.TestCase):
         counts = self.report["counts"]
         self.assertGreaterEqual(counts.get("Api._lock", 0), 90,
                                 "Api._lock 获取处：%s" % (counts.get("Api._lock"),))
-        self.assertGreaterEqual(counts.get("Api._credential_lock", 0), 12,
+        # 四个下载替换入口合并为两条实现，物理获取点随之减少两处。
+        self.assertGreaterEqual(counts.get("Api._credential_lock", 0), 10,
                                 "凭据锁获取处：%s" % (counts.get("Api._credential_lock"),))
-        self.assertGreaterEqual(counts.get("Api._phone_access_lock", 0), 9,
+        self.assertGreaterEqual(counts.get("Api._phone_access_lock", 0), 8,
                                 "手机访问锁获取处：%s" % (counts.get("Api._phone_access_lock"),))
         self.assertEqual(sorted(set(self.report["service_attrs"].values())),
                          sorted(SERVICE_CLASSES), "Api 里认不全服务属性")
+        graph = _load_graph()
+        key = ("application/component_actions.py", "ComponentActions")
+        for name in ("replace_downloaded", "replace_downloaded_ocr"):
+            locks = {lock for _, _, ids in _iter_withs(graph.methods(key)[name], key[1], key[0]) for lock in ids}
+            self.assertIn("Api._credential_lock", locks)
+            self.assertIn("Api._lock", locks)
+        self.assertIn("Api._phone_access_lock", {
+            lock for _, _, ids in _iter_withs(graph.methods(key)["replace_downloaded"], key[1], key[0]) for lock in ids})
 
     def test_new_locks_must_be_leveled(self):
         """新出现的 *_lock 必须先写进等级表，不能就这么用了。"""
@@ -1195,7 +1343,7 @@ class LockOrderTests(unittest.TestCase):
                          "Api 锁序降级的获取处：%s" % (self.report["down"],))
 
     def test_reentry_equals_the_frozen_legacy_list(self):
-        """同号重入必须恰好是冻结的三条（都走 RLock）；多一条少一条都要改表。"""
+        """同号重入必须恰好等于冻结表，当前不允许重入。"""
         actual = sorted({(method, outer, inner)
                          for method, _line, outer, inner in self.report["equal"]})
         self.assertEqual(actual, sorted(set(FROZEN_REENTRY)))
@@ -1331,6 +1479,29 @@ class PhoneAccessService:
     def test_flags_a_level_down_acquisition(self):
         self.assertEqual(_rule_one(self.graph)["down"],
                          [("down", 10, "Api._lock", "Api._credential_lock")])
+
+    def test_coordinator_reentry_is_seen_from_caller(self):
+        graph = _load_graph()
+        fn = graph.methods(("application/coordination.py", "Coordinator"))["is_busy_locked"]
+        fn.body = [ast.With(items=[ast.withitem(context_expr=ast.parse("self._lock", mode="eval").body)],
+                            body=[ast.Pass(lineno=fn.lineno)], lineno=fn.lineno)]
+        self.assertTrue(any(inner == "Coordinator._lock" for _, _, _, inner in _rule_one(graph)["equal"]))
+
+    def test_plan_state_port_rejects_locked_snapshot(self):
+        graph = _load_graph()
+        fn = graph.methods(graph.api_key)["_published_plan_state"]
+        for call in _calls_in(fn):
+            if _dotted(call.func) == "self._plan.published_status":
+                call.func.attr = "snapshot"
+        self.assertIn(("_published_plan_state", "self._plan.snapshot"), _rule_two(graph))
+
+    def test_component_stop_callback_detects_phone_lock_reentry(self):
+        graph = _load_graph()
+        fn = graph.methods(graph.api_key)["_stop_phone_for_component_locked"]
+        fn.body = [ast.With(items=[ast.withitem(context_expr=ast.parse("self._phone_access_lock", mode="eval").body)],
+                            body=[ast.Pass(lineno=fn.lineno)], lineno=fn.lineno)]
+        self.assertTrue(any(outer == inner == "Api._phone_access_lock"
+                            for _, _, outer, inner in _rule_one_services(graph)["equal"]))
 
     def test_flags_an_unleveled_new_lock(self):
         self.assertEqual(_unknown_locks(self.graph),

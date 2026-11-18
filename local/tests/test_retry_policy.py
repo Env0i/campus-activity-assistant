@@ -18,6 +18,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from domain.retry_rules import parse_retry_line, progress_event_status  # noqa: E402
 
 
+def _phone_test_actions(api):
+    from domain.phone_rules import ACTION_PARAMS
+    actions = {name: (lambda _name=name, **kw: getattr(api, _name)(**kw))
+               for name in ACTION_PARAMS if hasattr(api, name)}
+    if hasattr(api, "save_prefs"):
+        actions["save_retry_policy"] = lambda retry_policy=None: api.save_prefs(
+            {"retry_policy": retry_policy or {}})
+    return actions
+
+
 class ProgressEventStatusTests(unittest.TestCase):
     def test_path_event_keeps_reason_with_spaces(self):
         # worker 把原因里的空格换成不换行空格，整行才不会被按空格切碎
@@ -1776,7 +1786,7 @@ class IntegrationBase(unittest.TestCase):
                                           {"value": 0, "label": "直到报名截止"}]},
         }
         self.service = PhoneAccessService(
-            api=self.api, now=lambda: 0.0,
+            actions=_phone_test_actions(self.api), now=lambda: 0.0,
             state_of=self._raw_state,
             server_factory=lambda host, port, svc: PhoneHttpServer(
                 host, port, svc, ui_dir=self.ui_dir))

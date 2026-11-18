@@ -32,6 +32,20 @@ from fixtures.business_clock import FakeBusinessClock  # noqa: E402
 NOW = 1793100000.0     # 假「北京时间」锚点（与真实系统日期无关）
 
 
+class ActivityListSnapshotTests(unittest.TestCase):
+    def test_snapshot_is_independent_of_cached_items(self):
+        import threading
+        from application.activity_list_service import ActivityListService
+
+        service = ActivityListService(coordination=None, lock=threading.Lock(), ports={},
+                                      sync_window=lambda: 120)
+        service.activities = {"a": {"name": "活动", "tags": ["原始"]}}
+        snapshot = service.snapshot()
+        snapshot["a"]["tags"].append("改动")
+        snapshot["a"]["name"] = "改动"
+        self.assertEqual(service.activities["a"], {"name": "活动", "tags": ["原始"]})
+
+
 def _t(offset):
     return grab.school_time_text(NOW + offset)
 

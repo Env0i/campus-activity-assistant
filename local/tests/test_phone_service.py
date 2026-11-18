@@ -30,6 +30,16 @@ from domain.phone_rules import (  # noqa: E402
 )
 
 
+def _phone_test_actions(api):
+    from domain.phone_rules import ACTION_PARAMS
+    actions = {name: (lambda _name=name, **kw: getattr(api, _name)(**kw))
+               for name in ACTION_PARAMS if hasattr(api, name)}
+    if hasattr(api, "save_prefs"):
+        actions["save_retry_policy"] = lambda retry_policy=None: api.save_prefs(
+            {"retry_policy": retry_policy or {}})
+    return actions
+
+
 class FakeApi:
     """替身 Api：只记录调用，任何学校/进程动作都不会真发生。"""
 
@@ -124,7 +134,7 @@ class PhoneServiceBase(unittest.TestCase):
             return server
 
         self.service = PhoneAccessService(
-            api=self.api, now=lambda: self.clock["now"],
+            actions=_phone_test_actions(self.api), now=lambda: self.clock["now"],
             state_of=lambda: self.raw_state, server_factory=factory)
 
     def tearDown(self):
@@ -139,7 +149,7 @@ class ClockUnavailableTests(PhoneServiceBase):
             raise RuntimeError("本轮没有可用的时间源响应")
 
         service = PhoneAccessService(
-            api=self.api, now=boom, state_of=lambda: self.raw_state,
+            actions=_phone_test_actions(self.api), now=boom, state_of=lambda: self.raw_state,
             server_factory=lambda host, port, svc: FakeServer(host, port, svc))
         self.addCleanup(service.stop)
         status = service.pair_code_status()
@@ -153,7 +163,7 @@ class ClockUnavailableTests(PhoneServiceBase):
             raise RuntimeError("本轮没有可用的时间源响应")
 
         service = PhoneAccessService(
-            api=self.api, now=boom, state_of=lambda: self.raw_state,
+            actions=_phone_test_actions(self.api), now=boom, state_of=lambda: self.raw_state,
             server_factory=lambda host, port, svc: FakeServer(host, port, svc))
         self.addCleanup(service.stop)
         self.assertIs(service.has_live_session(), False)
@@ -451,6 +461,14 @@ class LiveSessionTests(PhoneServiceBase):
 
 
 class DispatchWhitelistTests(PhoneServiceBase):
+    def test_desktop_supplies_the_exact_twelve_phone_actions(self):
+        from domain.phone_rules import ACTION_PARAMS
+        import app
+        actions = app.Api.__new__(app.Api)._phone_actions()
+        self.assertEqual(len(actions), 12)
+        self.assertEqual(set(actions), set(ACTION_PARAMS))
+        self.assertTrue(all(callable(action) for action in actions.values()))
+
     def test_forbidden_actions_are_rejected(self):
         for action in ("shutdown", "open_data", "update", "check_update",
                        "save_prefs", "accept_terms", "bootstrap", "login",
@@ -664,7 +682,7 @@ class PublicUrlTests(unittest.TestCase):
             return server
 
         self.service = PhoneAccessService(
-            api=self.api, now=lambda: self.clock["now"],
+            actions=_phone_test_actions(self.api), now=lambda: self.clock["now"],
             state_of=lambda: {"activities": [], "busy": False},
             server_factory=factory)
         self.addCleanup(self.service.stop)
@@ -748,7 +766,7 @@ class DeviceTrustBase(PhoneServiceBase):
             return server
 
         return PhoneAccessService(
-            api=self.api, now=lambda: self.clock["now"],
+            actions=_phone_test_actions(self.api), now=lambda: self.clock["now"],
             state_of=lambda: self.raw_state, server_factory=factory,
             device_store=store)
 

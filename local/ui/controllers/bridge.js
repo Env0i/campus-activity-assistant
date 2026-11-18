@@ -20,7 +20,8 @@ function waitForBridge(timeoutMs) {
     /* 15 秒承诺是经过时长：系统墙钟跳变不得提前或延后它 */
     const started = _monoMs();
     const probe = () => {
-      if (hasBridge()) {
+      /* WebView 先注入 api 容器，再注册方法。启动要等到 bootstrap 可调用。 */
+      if (hasBridge() && typeof window.pywebview.api.bootstrap === "function") {
         resolve(true);
         return;
       }

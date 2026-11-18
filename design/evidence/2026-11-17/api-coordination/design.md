@@ -45,9 +45,9 @@
 | 更新 | `_updates` | 已拆完（服务自持锁与状态），不动 |
 | 组件 | `_component_service`、`_ocr_component_service` | `_advanced_busy` 留协调对象；组件服务自己的 RLock 见第三节 |
 | 手机访问 | `_phone`、`_cloudflare`、`_cloudflare_starting`、`_cloudflare_exit_notice`、`_phone_channel` | `_phone_channel` 被 7 个方法写（fields.md），换通道的互斥并进协调对象的槽位语义 |
-| 登录恢复 | `_auto_relogin`、`_relay`、`_pending_save`、`_once_creds_rejected`、`_relay_creds_source`、`_relay_proc_tree`、`_login_expired_logged`、`_login_seen_valid`、`_login_wait_pending`、`_expiry_pushed`、`_check_again`、`_check_last`、`_check_request_id`、`_auto_relogin_started_at` | check 是登录态检查，归这里；`_checking` 槽位留协调对象 |
+| 登录恢复 | `_auto_relogin`、`_relay`、`_pending_save`、`_once_creds_rejected`、`_relay_creds_source`、`_relay_proc_tree`、`_login_expired_logged`、`_login_seen_valid`、`_login_wait_pending`、`_expiry_pushed`、`_check_again`、`_check_last`、`_check_request_id`、`_auto_relogin_started_at`、`_last_check` | check 是登录态检查，归这里；`_checking` 槽位留协调对象。`_last_check` 是「最近一次登录校验结论」，写入只发生在这里，其他调用方（计划、活动列表快照）经只读快照读取，不各存一份 |
 | 计划 | `_plan`、`_plan_generation`、`_plan_sources`、`_start_requests`、`_start_order`、`_finished_plan_ids`、`_next_plan_source`、`_last_plan`、`_latest_plan_id` | G1 要问 `_plan.published_status()`，经端口回调，不搬 `_plan` 本身 |
-| 活动列表 | `_activities`、`_pc_list_error`、`_pc_list_ok_at`、`_list_request_id`、`_list_last`、`_last_check` | `_listing` 槽位留协调对象 |
+| 活动列表 | `_activities`、`_pc_list_error`、`_pc_list_ok_at`、`_list_request_id`、`_list_last` | `_listing` 槽位留协调对象；登录结论向登录恢复服务要只读快照，不自持 `_last_check` |
 | 窗口与托盘 | `_window`、`_tray`、`_window_hidden`、`_window_minimized`、`_close_approved` | |
 | 时钟 | `_clock`、`_clock_syncing`、`_clock_monitor_started` | `_clock` 12 处锁外访问（fields.md）是拆它时最先要补测试的地方 |
 | worker | （无自有字段，进程表在协调对象） | |
@@ -120,8 +120,10 @@
 | 组件先拆 | locks.md 两把 RLock 的功能分布；reflection.md 第二节 11 个用法点 |
 | 测试预算 | tests.md 汇总表（1259 处 / 21 文件，各功能分档） |
 
-## 八、本稿没有回答、要指挥会话拍的
+## 八、指挥会话已拍的结论
 
-1. `_last_check` 归活动列表还是登录恢复——两边都读（fields.md），语义是「最近一次登录检查的结论」，本稿按「活动列表拿缓存、登录恢复写结论」暂归活动列表，需要确认。
-2. `begin(kind)/end(kind)` 的 kind 集合要不要把「更新」也算进去——UpdateService 现在完全自管（G12），并进来会让已拆好的块回卷，本稿倾向不并。
-3. 协调对象的方法名与文件名（`coordination.py` / `Coordinator` 只是本稿的建议名）。
+1. **`_last_check` 归登录恢复服务**。「最近一次登录校验结论」的写入只发生在登录恢复；计划（放行只认 `valid`）与活动列表快照经只读快照读取，不各存一份。第二节的表已按此同步。
+2. **更新不并进 `begin(kind)/end(kind)`**。`UpdateService` 继续独立管理自己的单飞锁与状态，`kind` 集合只有 checking / listing / cancelling / advanced 四个。
+3. **名字定稿**：`local/application/coordination.py` 里的 `Coordinator`。协调锁的实体在它手里，`Api._lock` 是返回同一对象的显式 property 别名（等级表里两者同号 4）；旧字段名在 `Api` 上保留 property + setter 转发，含整表替换。
+
+第一批已按这三条落地：协调对象只持「职责就是全局互斥」的那批状态，G1/G2 判定搬进 `Coordinator.is_busy_locked()` / `cancel_busy_reason_locked()`，已发布计划状态经无锁只读端口传入。

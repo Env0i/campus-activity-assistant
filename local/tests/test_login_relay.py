@@ -1657,10 +1657,16 @@ class DesktopReloginWiringTests(unittest.TestCase):
                       "只在登录真的成功后提交保存")
 
     def test_bad_password_pauses_only_saved_credentials(self):
-        source = self._source("_relay_finished")
+        import ast
+        path = Path(__file__).resolve().parents[1] / "application" / "login_recovery.py"
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        source = "\n".join(ast.unparse(node) for node in ast.walk(tree)
+                           if isinstance(node, ast.FunctionDef)
+                           and node.name in ("relay_finished", "_bad_password"))
         self.assertIn("bad_password", source)
         self.assertIn("if source == 'saved'", source, "只有用的是保存的密码才暂停自动登录")
         self.assertIn("mark_bad", source)
+        self.assertIn("_credential_store.mark_bad", self._source("_make_login_recovery"))
 
     def test_relogin_entries_share_one_late_gate(self):
         for name in ("relogin_begin", "relogin_auto_once", "phone_relogin_begin"):

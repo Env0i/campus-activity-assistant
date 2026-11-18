@@ -170,9 +170,12 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 | domain | `cancel_rules` | 取消报名回包的清洗（去控制字符、截 80 字）与 worker 输出归一化；grab 与 app 共用一份 | grab、app 外观 | 无（纯函数） |
 | domain | `lifecycle_rules` | 跨关闭时长/质量记账（v1 文本 / v2 epoch） | infrastructure | 无 |
 | domain | `time_text` / `worker_lines` / `demo_data` / `errors` | 时间文本换算、worker 行解析、演示样例、语义类型 | 各层 | 无（换算/格式化函数由 app.py 注入；不读墙钟，此刻值由调用方传入） |
-| application | `plan_service` | 单场 worker 的启动、监督、终态收尾（端口注入） | app.Api._run_plan_task | domain + 注入端口 |
+| application | `coordination` | 持有协调锁、关闭屏障、忙碌槽位和进程登记表 | app 与各用例 | 无锁的已发布计划状态端口 |
+| application | `plan_service` / `plan_admission` | 单场 worker 监督；计划接纳、请求对账、代次与终态发布 | app.Api 计划方法 | domain + 注入端口 |
+| application | `signup_cancellation` | 单场取消的占位、worker 调用与活动缓存回写 | app.Api.cancel_signup | 协调状态、活动缓存 + 注入端口 |
+| application | `worker_service` / `clock_service` / `desktop_lifecycle` | worker 受管创建及回收、业务时钟校准、关停屏障与资源收尾 | app.Api 桥接方法 | 协调状态 + 注入端口 |
 | application | `update_service` | 更新的状态与用例（UpdateService），端口由 Api 在调用时注入 | app.Api 更新方法 | 注入端口 |
-| application | `login_service` | check 事件载荷与 done 结论整理 | app.Api._do_check_inner/_pump | domain |
+| application | `login_service` | check 事件载荷与 done 结论整理 | 登录恢复与 worker 用例 | domain |
 | infrastructure | `prefs_store` | ui.json 跨进程锁 + 原子读-合并-写 | app 外观、lifecycle_store | 无 |
 | infrastructure | `process_tree` | Windows Job Object 进程树所有权、taskkill 整树终止 | app 外观（spawn 端口） | 无 |
 | infrastructure | `lifecycle_store` | 启动冻结/心跳/正常关闭的 ui.json 记账 | app.get_lifecycle | prefs_store + domain |
@@ -198,32 +201,37 @@ controller/view DOM 分离不在本轮范围。
 
 ### 锁的先后（2026-11-17）
 
-本机版的锁按固定等级获取，嵌套越深，等级只许变大。静态守卫：`local/tests/test_lock_order.py`
+本机版的锁按固定等级获取，嵌套越深，等级只许变大。静态守卫：`local/tests/test_concurrency_guards.py`
 （ast 只读源码，不 import 产品代码）；等级表与存量例外以该测试里的冻结表为唯一真源。
 
 | 等级 | 锁 |
 |---|---|
-| 1 | `Api._credential_lock`（凭据锁，RLock） |
-| 2 | `Api._phone_access_lock`（手机访问锁，RLock） |
+| 1 | `Api._credential_lock`（凭据锁，Lock） |
+| 2 | `Api._phone_access_lock`（手机访问锁，Lock） |
 | 3 | `PlanCoordinator._emit_lock`（发布锁，不可重入） |
-| 4 | `Api._lock`（协调锁，不可重入） |
+| 4 | `Coordinator._lock`（协调锁，不可重入；`Api._lock` 和计划、取消、worker、时钟、关停用例引用同一把锁） |
 | 5 | 各服务自己的 `_lock`：LoginRelayService、AutoReloginMonitor、PhoneAccessService、AdvancedComponentService、UpdateService、`signup_plan.PlanCoordinator` |
 | 6 | 叶子锁：`PhoneAccessService._event_lock`、模块级 `_PHONE_LOG_LOCK` 与 `_LIFECYCLE_LOCK` |
 
-发布锁排在协调锁之外：`PlanCoordinator._publish` 持它调 emit 端口，端口接到 `app.py`
-`_start_plan_inner` 里的闭包，闭包会取 `Api._lock` 并经 `Api._emit` 碰服务锁与事件锁——
+发布锁排在协调锁之外：`PlanCoordinator._publish` 持它调 emit 端口，端口接到
+`plan_admission.PlanEvents.emit`，它会取协调锁并经 `Api._emit` 碰服务锁与事件锁——
 等级必须低于它们才不成环；协调器的发布（start、cancel_task、stop）与 `_set_state` 也因此
 都在状态锁外发布，守卫另有一道「发布不许进协调器锁」的断言钉住这条边界。
 
 三条规则：**①** 持等级 N 的锁只许再拿等级更高的锁——Api 与各服务类内部都适用（服务类里
-经同类方法调用的取锁同样追进去）；**②** 持协调锁（等级 4）期间不调任何服务，
-唯一例外 `self._plan.published_status()`——它只读 `PlanCoordinator` 在锁外发布的不可变状态缓存
-（`_status_cache`），不取任何锁，所以「协调锁 → 服务」这条边到它为止，不会与「服务 → 回调」的边成环；
+经同类方法调用的取锁同样追进去）；**②** 持协调锁（等级 4）期间不调用可能回调协调器或等待
+其他用例的服务。忙碌判定读取 `self._plan.published_status()`：它只读 `PlanCoordinator` 在锁外
+发布的不可变状态缓存（`_status_cache`），不取任何锁。计划接纳还会经 `ClockService.ready` 读取
+`BusinessClock.state()` 与 `bounds()`；这两个内存状态查询各自短暂持有业务时钟内部状态锁，
+不执行网络校时，也不回调协调锁。网络采样、等待及快照发布不在该协调锁临界区进行；
 **③** 服务持自己的锁时不调构造注入的端口，例外只有逐条核对过「不取跨层锁」的叶子端口白名单
-与已核对取锁顺序的发布端口 emit（逐条理由见守卫测试注释）。存量同号重入恰好 3 处
-`_phone_access_lock`（组件装/删路径，改用锁内直调不取锁的 `_stop_phone_access()` 后删空）
-与 2 处服务类内部 RLock 重入（`PlanCoordinator` 停止/取消路径持 `_lock` 调
+与已核对取锁顺序的发布端口 emit（逐条理由见守卫测试注释）。组件装/删路径原有的
+`_phone_access_lock` 重入已消除；存量有 2 处服务类内部 RLock 重入（`PlanCoordinator` 停止/取消路径持 `_lock` 调
 `_set_state_locked`）。新锁必须先上等级表再用。
+
+关停先在协调锁内置关闭屏障并快照计划和进程登记，再在锁外等待、停止计划和终止进程树；
+后到的关停调用在锁外等待完成事件。计划的状态和代次由计划服务持有，活动缓存由列表服务持有；
+这些状态在协调锁保护下读取或写入，协调器的忙碌判定只读计划已发布的无锁状态。
 
 ### 启动与单实例（GL01）
 

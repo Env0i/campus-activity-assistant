@@ -200,6 +200,27 @@ try {
         self.assertGreaterEqual(row["elapsed"], 14950,
                                 "15 秒承诺必须按单调经过时长，不能被 OS 前移提前结束")
 
+    def test_wait_for_bridge_waits_for_bootstrap_registration(self):
+        res = run_js(r"""
+const originalBridge = window.pywebview;
+const originalTimeout = setTimeout;
+window.pywebview = { api: {} };
+setTimeout = (poll) => {
+  __advanceMono(50);
+  window.pywebview.api.bootstrap = () => ({ demo: true });
+  poll();
+  return 1;
+};
+try {
+  const ready = await waitForBridge();
+  out.push(ready ? await api("bootstrap").catch(() => null) : null);
+} finally {
+  window.pywebview = originalBridge;
+  setTimeout = originalTimeout;
+}
+""")
+        self.assertEqual(res, [{"demo": True}])
+
 
 class UnknownClockDisplayTests(unittest.TestCase):
     """CB05：校时失败不得冒充「学校还没公布报名时间」。"""
@@ -1315,9 +1336,13 @@ class DualModeUiContractTests(unittest.TestCase):
         self.assertIn("sign_end_passed", rules,
                       "start_plan 必须拒绝已截止活动（后端最终防线）")
         self.assertIn("报名已截止", rules, "拒绝时要返回具体说明")
-        py = read("app.py")
-        start_plan = py.index("def start_plan")
-        plan_body = py[start_plan:py.index("def cancel_task", start_plan)]
+        py = read("application/plan_admission.py")
+        start_plan = py.index("def start_plan_inner")
+        plan_body = py[start_plan:py.index("class PlanEvents", start_plan)]
+        self.assertIn("self._prepare_items(items, accepted_at)", plan_body,
+                      "start_plan 必须调用计划项检查")
+        prepare = py.index("def _prepare_items")
+        plan_body = py[prepare:py.index("def _reserve", prepare)]
         self.assertIn("closed_items_error", plan_body,
                       "start_plan 必须经 closed_items_error 过已截止门禁")
 
@@ -2344,12 +2369,17 @@ out.push({
 
     def test_backend_start_plan_rejects_unconfirmed_login(self):
         """后端最终防线：非 demo 且最近 check 结论不是 valid 时拒绝。"""
-        py = read("app.py")
-        start = py.index("def start_plan")
-        body = py[start:py.index("def cancel_task", start)]
-        self.assertIn('result == "valid"', body,
+        py = read("application/plan_admission.py")
+        start = py.index("def start_plan_inner")
+        start_body = py[start:py.index("class PlanEvents", start)]
+        self.assertIn("self._login_gate()", start_body,
+                      "start_plan 必须调用登录态门禁")
+        gate = py.index("def _login_gate")
+        body = py[gate:py.index("def _prepare_items", gate)]
+        self.assertIn('if result != "valid":\n            return {"ok": False', body,
                       "start_plan 必须以「最近 check 结论 valid」为唯一放行形态")
-        self.assertIn("DEMO", body, "demo 模式继续可运行演示计划")
+        self.assertIn('if self._ports["demo"]():\n            return None', body,
+                      "demo 模式继续可运行演示计划")
         for state in ("checking", "none", "expired"):
             self.assertIn(state, body, "start_plan 门禁必须覆盖 %s" % state)
 
@@ -5483,7 +5513,7 @@ class WindowCloseChoiceContractTests(unittest.TestCase):
         app_py = (LOCAL / "app.py").read_text(encoding="utf-8")
         self.assertIn("has_live_session", app_py)
         self.assertIn("hide_unavailable", app_py)
-        phone = (LOCAL / "application" / "phone_service.py").read_text(encoding="utf-8")
+        phone = (LOCAL / "application" / "phone_access_session.py").read_text(encoding="utf-8")
         self.assertIn("def has_live_session(self) -> bool:", phone)
         # 判断只读会话表，且「有没有」与 token/csrf 无关
         self.assertIn("session_alive(session, now)", phone)

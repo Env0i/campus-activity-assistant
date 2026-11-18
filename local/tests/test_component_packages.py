@@ -50,6 +50,39 @@ class PackageTests(unittest.TestCase):
         self.helper = patch.start()
         self.addCleanup(patch.stop)
 
+    def test_default_root_stays_anchored_after_environment_and_cwd_change(self):
+        script = """
+import os
+from pathlib import Path
+import runtime_paths
+from infrastructure import component_packages as cp
+expected = Path.cwd() / 'relative-data'
+assert runtime_paths.DATA_DIR == expected
+os.environ['CAMPUS_DATA_DIR'] = 'changed-data'
+os.chdir('other')
+assert cp._root(None) == expected / 'advanced'
+assert cp._root(Path.cwd()) == Path.cwd() / 'advanced'
+"""
+        (self.root / "other").mkdir()
+        env = dict(os.environ, CAMPUS_DATA_DIR="relative-data",
+                   PYTHONPATH=str(Path(__file__).resolve().parents[1]))
+        subprocess.run([sys.executable, "-B", "-c", script], cwd=self.root,
+                       env=env, check=True, capture_output=True)
+
+    def test_component_first_use_anchors_later_runtime_initialization(self):
+        script = """
+import os
+from infrastructure import component_packages as cp
+first = cp._root(None)
+os.environ['CAMPUS_DATA_DIR'] = 'changed-data'
+import runtime_paths
+assert runtime_paths.DATA_DIR / 'advanced' == first
+"""
+        env = dict(os.environ, CAMPUS_DATA_DIR="relative-data",
+                   PYTHONPATH=str(Path(__file__).resolve().parents[1]))
+        subprocess.run([sys.executable, "-B", "-c", script], cwd=self.root,
+                       env=env, check=True, capture_output=True)
+
     def archive(self, *, extra=None, feature=None, platform="windows-x64", data=b"MZtest",
                 names=None, cloudflare=AUTO, target="win-x64", app_version=None,
                 version=None):

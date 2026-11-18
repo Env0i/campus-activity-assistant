@@ -79,12 +79,21 @@ from infrastructure import phone_session_store as _phone_session_store
 from infrastructure import phone_qr as _phone_qr
 from infrastructure import tunnel_manager as _tunnel_manager
 from infrastructure import single_instance as _single_instance
+from application import coordination as _coordination
 from application import login_service as _login_service
+from application import login_recovery as _login_recovery
+from application import activity_list_service as _activity_list_service
 from application import login_relay_service as _login_relay_service
 from application.auto_relogin import AutoReloginMonitor
 from application import phone_service as _phone_service
 from application import advanced_component_service as _advanced_component
+from application import component_projection as _component_projection
+from application import component_actions as _component_actions
 from application import plan_service as _plan_service
+from application import signup_cancellation as _signup_cancellation
+from application import worker_service as _worker_service
+from application import desktop_lifecycle as _desktop_lifecycle
+from application import clock_service as _clock_service
 from application import update_service as _update_service
 
 HERE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
@@ -810,28 +819,302 @@ LIST_CLOCK_WAIT_S = 8.0
 LIST_CLOCK_POLL_S = 0.25
 
 
-class Api:
+class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
+          _login_recovery.LoginFields, _activity_list_service.ActivityListFields,
+          _plan_service.PlanFields, _clock_service.ClockFields):
+    def _published_plan_state(self):
+        return self._plan.published_status() if self._plan else ""
+
+    def _make_login_recovery(self):
+        return _login_recovery.LoginRecovery(
+            coordination=self._coord, lock=self._lock,
+            ports={"terms_gate": lambda request_id: self._terms_gate(request_id),
+                   "do_check": lambda: self._do_check(),
+                   "do_check_inner": lambda: self._do_check_inner(),
+                   "emit": lambda kind, payload: self._emit(kind, payload),
+                   "observe_check": lambda result: self._auto_relogin.observe_check(result),
+                   "note_conclusion": lambda result: self._note_login_conclusion(result),
+                   "silent_state": lambda: self._silent_relogin_state(),
+                   "request_recover": lambda: self._auto_relogin.request_recover(),
+                   "demo": lambda: DEMO,
+                   "run_check": lambda: self._run(worker_command("check"), timeout=90),
+                   "closing_error": _ClosingError,
+                   "component_error": lambda exc: _component_error(exc),
+                   "worker_problem": lambda code: WORKER_PROBLEM_TEXT.get(
+                       code, "程序组件启动失败，请重新下载完整版本"),
+                   "login_state": lambda: login_state(self._clock),
+                   "build_event": lambda *args: _login_service.build_check_event(*args),
+                   "last_check_fields": lambda state: _last_check_fields(state),
+                   "auto_view": lambda expired: self._auto_relogin.view(expired=expired),
+                   "log_event": lambda *args, **kwargs: self._log_event(*args, **kwargs),
+                   "push_expired": lambda: self._push_login_expired(),
+                   "relay_state": lambda: self._relay.state(),
+                   "mark_bad": lambda: _credential_store.mark_bad(CREDENTIAL_FILE),
+                   "clear_staged": lambda: self._relay.clear_staged(),
+                   "auto_snapshot": lambda: self._auto_relogin.snapshot()})
+
+    def _make_activity_list(self):
+        return _activity_list_service.ActivityListService(
+            coordination=self._coord, lock=self._lock, sync_window=lambda: self.SIGNED_SYNC_WINDOW_S,
+            ports={"terms_gate": lambda request_id: self._terms_gate(request_id),
+                   "do_list": lambda: self._do_list(),
+                   "do_list_inner": lambda: self._do_list_inner(),
+                   "clock_text": lambda: self._pc_clock_text(),
+                   "school_time_text": lambda: school_time_text(now_fn=self._clock_now),
+                   "note_error": lambda reason: self._note_pc_list_error(reason),
+                   "closing_error": _ClosingError,
+                   "component_error": lambda exc: _component_error(exc),
+                   "worker_problem": lambda code: WORKER_PROBLEM_TEXT.get(code, "活动列表没能加载"),
+                   "emit": lambda kind, payload: self._emit(kind, payload),
+                   "clock_now": lambda: self._clock_now(),
+                   "demo": lambda: DEMO, "demo_items": lambda: demo_items(),
+                   "wait_clock": lambda: self._wait_for_list_clock(),
+                   "run_list": lambda: self._run(worker_command("list", "--json"), timeout=120),
+                   "merge": lambda items: self._merge_list_activities(items),
+                   "merge_rules": lambda *args: _plan_rules.merge_list_activities(*args),
+                   "seconds_until": lambda value, now: _seconds_until(value, now)})
+
+    def _make_signup_cancellation(self):
+        return _signup_cancellation.SignupCancellation(
+            lock=self._lock, coordination=self._coord, activity_list=self._activity_list,
+            busy_text=self.CANCEL_BUSY_TEXT,
+            ports={"terms_gate": lambda: self._terms_gate(),
+                   "run": lambda aid: self._cancel_signup_run(aid),
+                   "after": lambda aid: self._after_cancelled(aid),
+                   "emit": lambda kind, payload: self._emit(kind, payload),
+                   "demo": lambda: DEMO, "worker_problem": lambda: worker_problem(),
+                   "diagnose_problem": lambda problem: self._emit(
+                       "log", "[X] 组件诊断 %s：组件路径 %s" % (problem, GRAB)),
+                   "diagnose_error": lambda exc: self._emit(
+                       "log", "[X] 组件诊断 %s：%s" % (_component_error(exc), type(exc).__name__)),
+                   "worker": lambda aid: self._run(
+                       worker_command("cancel", "--id", aid, "--json"),
+                       timeout=self.CANCEL_WORKER_TIMEOUT_S),
+                   "closing_error": _ClosingError})
+
+    def _make_plan_manager(self):
+        return _plan_service.PlanAdmission(
+            lock=self._lock, coordination=self._coord,
+            activity_list=self._activity_list, login=self._login_recovery,
+            ports={"terms_gate": lambda: self._terms_gate(),
+                   "start_inner": lambda *args: self._start_plan_inner(*args),
+                   "demo": lambda: DEMO, "clock_ready": lambda: self._clock_ready(),
+                   "clock_now": lambda: self._clock_now(),
+                   "worker_problem": lambda: worker_problem(),
+                   "worker_problem_text": lambda problem: WORKER_PROBLEM_TEXT[problem],
+                   "classify": lambda *args: classify_signup_mode(*args),
+                   "validate": lambda *args, **kwargs: validate_plan(*args, **kwargs),
+                   "task_spec": lambda *args, **kwargs: TaskSpec.from_activity(*args, **kwargs),
+                   "coordinator": lambda *args, **kwargs: PlanCoordinator(*args, **kwargs),
+                   "run_task": lambda *args: self._run_plan_task(*args),
+                   "spawn_failure": _SpawnFailure, "closing_error": _ClosingError,
+                   "confirm_signed": lambda *args: self._confirm_signed(*args),
+                   "emit": lambda kind, payload: self._emit(kind, payload),
+                   "notify_done": lambda snapshot: self._notify_plan_done(snapshot)})
+
+    def _make_worker_service(self):
+        return _worker_service.WorkerService(
+            lock=self._lock, coordination=self._coord, login=self._login_recovery,
+            ports={"spawn": lambda args, **kwargs: spawn_owned(args, cwd=str(HERE), env=_env(), **kwargs),
+                   "kill_tree": lambda proc: _kill_tree(proc),
+                   "worker_problem": lambda: worker_problem(),
+                   "problem_text": lambda problem: WORKER_PROBLEM_TEXT[problem],
+                   "busy": lambda: self._is_busy_locked(),
+                   "diagnose_problem": lambda problem: self._emit(
+                       "log", "[X] 组件诊断 %s：组件路径 %s" % (problem, GRAB)),
+                   "component_error": lambda exc: _component_error(exc),
+                   "spawn_failure": _SpawnFailure, "closing_error": _ClosingError,
+                   "relay_tree": lambda tree: _RelayTree(tree),
+                   "pump": lambda *args: self._pump(*args),
+                   "emit": lambda kind, payload: self._emit(kind, payload),
+                   "observe_relay": lambda line: self._relay.observe_line(line),
+                   "done_result": lambda *args: _login_service.done_result(*args),
+                   "anchor_login": lambda: self._anchor_login_success()})
+
+    def _make_desktop_lifecycle(self):
+        return _desktop_lifecycle.DesktopLifecycle(
+            lock=self._lock, coordination=self._coord, plan_manager=self._plan_manager,
+            ports={"stop_tray": lambda: self._stop_tray(),
+                   "components": lambda: (getattr(self, "_component_service", None),
+                                           getattr(self, "_ocr_component_service", None)),
+                   "stop_auto_relogin": lambda: self._auto_relogin.stop(),
+                   "shutdown_relay": lambda: self._relay.shutdown(),
+                   "stop_tunnel": lambda: self._stop_cloudflare_checked(),
+                   "shutdown_phone": lambda: self._phone.shutdown(preserve_devices=True),
+                   "clear_phone_channel": lambda: setattr(self, "_phone_channel", ""),
+                   "kill_tree": lambda proc: _kill_tree(proc)})
+
+    def _make_clock_service(self, clock):
+        return _clock_service.ClockService(
+            clock=clock if clock is not None else _UnavailableClock(),
+            lock=self._lock, coordination=self._coord, plan_manager=self._plan_manager,
+            ports={"demo": lambda: DEMO, "ready": lambda: self._clock_ready(),
+                   "now": lambda: self._clock_now(), "snapshot": lambda: self.clock_snapshot(),
+                   "payload": lambda: self._clock_payload(),
+                   "list_wait": lambda: LIST_CLOCK_WAIT_S, "list_poll": lambda: LIST_CLOCK_POLL_S,
+                   "emit": lambda kind, payload: self._emit(kind, payload)})
+
+    def _phone_actions(self):
+        return {
+            "list_activities": lambda **kw: self.list_activities(**kw),
+            "check": lambda **kw: self.check(**kw),
+            "start_plan": lambda **kw: self.start_plan(**kw),
+            "start_request_state": lambda **kw: self.start_request_state(**kw),
+            "cancel_start_request": lambda **kw: self.cancel_start_request(**kw),
+            "stop_plan": lambda **kw: self.stop_plan(**kw),
+            "cancel_task": lambda **kw: self.cancel_task(**kw),
+            "save_retry_policy": lambda retry_policy=None: self.save_prefs(prefs={"retry_policy": retry_policy or {}}),
+            "show_window": lambda **kw: self.show_window(**kw),
+            "phone_relogin_begin": lambda **kw: self.phone_relogin_begin(**kw),
+            "phone_relogin_submit": lambda **kw: self.phone_relogin_submit(**kw),
+            "phone_relogin_cancel": lambda **kw: self.phone_relogin_cancel(**kw),
+        }
+
+    def _make_phone_controller(self):
+        return _phone_service.PhoneAccessController(
+            lock=self._phone_access_lock, coordination=self._coord,
+            coordination_lock=self._lock, service=lambda: self._phone,
+            ports={
+                "tunnel": lambda: self._cloudflare,
+                "status_snapshot": lambda: self._cloudflare_status_snapshot(),
+                "reconcile": lambda: self._reconcile_cloudflare_lifecycle(),
+                "stop_locked": lambda: self._stop_phone_access(),
+                "start_locked": lambda channel: self._start_phone_access(channel),
+                "start": lambda channel: self.start_phone_access(channel),
+                "restore": lambda: self.restore_phone_access(),
+                "remember": lambda channel: self._remember_phone_channel(channel),
+                "forget": lambda: self._forget_phone_autostart(),
+                "log": lambda message: phone_log(message),
+                "emit": lambda kind, payload: self._emit(kind, payload),
+                "load_prefs": lambda: load_prefs(),
+                "save_phone_prefs": lambda block: update_prefs({_PHONE_PREF_NAMESPACE: block}),
+                "phone_prefs": lambda prefs: _phone_access_prefs(prefs),
+                "feature_state": lambda prefs: _advanced_features.feature_state(
+                    prefs, root=DATA_DIR, frozen=bool(getattr(sys, "frozen", False))).get(
+                        _advanced_features.PHONE_CONTROL, {}),
+                "feature_ready": lambda prefs: _advanced_features.feature_ready(
+                    prefs, _advanced_features.PHONE_CONTROL, root=DATA_DIR),
+                "advanced": lambda: self.advanced_features_state(),
+                "qr": lambda address: _phone_qr_data(address),
+                "tailscale": lambda: _tunnel_manager.tailscale_endpoint(),
+                "resolve_tunnel": lambda: _tunnel_manager.resolve_cloudflared(
+                    resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR),
+                "cancel_relogin": lambda: self._relay.cancel(origin="phone"),
+                "stop_tunnel": lambda: self._stop_cloudflare_checked(),
+                "component_auto_update": lambda window: self.schedule_component_auto_update(window),
+                "activities": lambda: self._activity_list.snapshot_locked(),
+                "plan": lambda: self._plan,
+                "last_plan": lambda: self._last_plan,
+                "busy": lambda: self._is_busy_locked(),
+                "list_error": lambda: self._pc_list_error,
+                "plan_source": lambda plan_id: self._plan_source_of(plan_id),
+                "login_state": lambda: login_state(self._clock),
+                "last_check": lambda: self._last_check,
+                "last_check_fields": lambda value: _last_check_fields(value),
+                "relogin_state": lambda: self._silent_relogin_state(),
+                "clock_payload": lambda: self._clock_payload(),
+                "retry_options": lambda: _retry_options_payload(),
+                "terms": lambda prefs: terms_state(prefs),
+                "terms_gate": lambda: self._terms_gate(),
+                "relogin_setup": lambda: self._phone_relogin_setup(),
+                "relay_view": lambda: self._phone_relay_view(),
+                "credentials_saved": lambda: _credential_store.has_credentials(CREDENTIAL_FILE),
+                "stored_username": lambda: _credential_store.stored_username(CREDENTIAL_FILE),
+                "mask_account": lambda account: _login_rules.mask_account(account),
+                "ocr_ready": lambda: self._relogin_ocr_ready(),
+                "credentials_bad": lambda: _credential_store.is_bad(CREDENTIAL_FILE),
+            })
+
+    def _stop_phone_for_component_locked(self):
+        result = self._stop_phone_access()
+        self._cloudflare_exit_notice = None
+        return result
+
+    def _component_login_ports(self):
+        return {"has_credentials": lambda: _credential_store.has_credentials(CREDENTIAL_FILE),
+                "username": lambda: _credential_store.stored_username(CREDENTIAL_FILE),
+                "available": lambda: _credential_store_available(),
+                "ocr_ready": lambda prefs: _advanced_features.feature_ready(
+                    prefs, _advanced_features.RELOGIN_OCR, root=DATA_DIR),
+                "automatic": lambda: self._auto_relogin.snapshot(),
+                "staged": lambda: self._relay.has_staged(),
+                "staged_hint": lambda: self._relay.staged_hint(),
+                "last_origin": lambda: self._last_login_origin,
+                "is_bad": lambda: _credential_store.is_bad(CREDENTIAL_FILE),
+                "cancel_auto": lambda: self._relay.cancel(origin="auto"),
+                "clear_staged": lambda: self._relay.clear_staged()}
+
+    def _make_component_actions(self):
+        return _component_actions.ComponentActions(
+            allowed=lambda key: _advanced_features.allowed_feature(key),
+            phone_key=_advanced_features.PHONE_CONTROL,
+            inspect_executable=lambda path: _component_packages.inspect_cloudflared(path),
+            inspect_archive=lambda path, key: _component_packages.inspect_archive(path, key),
+            selected_dir=lambda key: _component_packages.selected_install_dir(key, root=DATA_DIR),
+            package_error=_component_packages.PackageError,
+            open_directory=lambda path: os.startfile(path),
+            credential_lock=self._credential_lock, coordination=self._coord,
+            coordination_lock=self._lock,
+            load_prefs=lambda: load_prefs(),
+            feature_state=lambda prefs: _advanced_features.feature_state(
+                prefs, root=DATA_DIR, frozen=bool(getattr(sys, "frozen", False))),
+            save_prefs=lambda values: update_prefs(values),
+            ocr_key=_advanced_features.RELOGIN_OCR,
+            reset_login=lambda: self._auto_relogin.reset(),
+            window=lambda: self._window,
+            select_file=lambda types: self._window.create_file_dialog(
+                webview.FileDialog.OPEN, allow_multiple=False, file_types=types),
+            phone_lock=self._phone_access_lock,
+            service_for=lambda key: self._component_service_for(key),
+            frozen=lambda: bool(getattr(sys, "frozen", False)),
+            busy=lambda: self._is_busy_locked(), finished=lambda: self._component_finished(),
+            emit=lambda kind, value: self._emit(kind, value), title=_component_title,
+            phone={"status": lambda: self._cloudflare_status_snapshot(),
+                   "tailscale": lambda: _tunnel_manager.tailscale_endpoint(),
+                   "executable": lambda: self._cloudflare.executable,
+                   "refresh_executable": lambda: setattr(self._cloudflare, "executable",
+                       _tunnel_manager.resolve_cloudflared(resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)),
+                   "stop_tunnel": lambda: self._stop_cloudflare_checked(),
+                   "shutdown": lambda: self._phone.shutdown(preserve_devices=True),
+                   "clear_channel": lambda: setattr(self, "_phone_channel", ""),
+                   "running": lambda: self._phone.is_running(),
+                   "stop_locked": lambda: self._stop_phone_for_component_locked(),
+                   "preferences": lambda prefs: _phone_access_prefs(prefs)},
+            login=self._component_login_ports(),
+            component={"install": lambda *args, **kwargs: _component_packages.install(*args, **kwargs),
+                       "phone_service": lambda: self._component_service,
+                       "ocr_service": lambda: self._ocr_component_service,
+                       "commit": lambda *args, **kwargs: _component_packages.commit_artifact_group(*args, **kwargs),
+                       "inspect": lambda key, path: self.inspect_advanced_component(key, path),
+                       "install_selected": lambda key, path: self._install_selected_feature(key, path),
+                       "install_cloudflared": lambda path: _component_packages.install_cloudflared(path, root=DATA_DIR),
+                       "install_feature": lambda key, frozen, archive: _advanced_features.install_feature(
+                           key, frozen=frozen, root=DATA_DIR, archive=archive),
+                       "frozen_feature_state": lambda prefs: _advanced_features.feature_state(
+                           prefs, root=DATA_DIR, frozen=True),
+                       "remove": lambda key: _component_packages.remove(key, root=DATA_DIR)},
+            failure_reasons=_DOWNLOAD_FAIL_REASONS, log=lambda text: phone_log(text),
+            demo=lambda: DEMO, auto_update=lambda **kwargs: auto_update_outdated_components(**kwargs),
+            download=lambda key: self.download_advanced_feature(key),
+            wait_idle=lambda key: self._wait_component_settled(key))
+
     def __init__(self, clock=None) -> None:
+        # 协调对象（第一层）：唯一那把锁、关闭屏障、在途槽位与四张进程登记表
+        # 都由它持有；_lock 只是同一对象的本地别名，旧字段名见下方 property。
+        self._coord = _coordination.Coordinator(plan_state=self._published_plan_state)
+        self._lock = self._coord.lock
+        self._login_recovery = self._make_login_recovery()
+        self._activity_list = self._make_activity_list()
+        self._signup_cancellation = self._make_signup_cancellation()
+        self._plan_manager = self._make_plan_manager()
+        self._worker_service = self._make_worker_service()
+        self._desktop_lifecycle = self._make_desktop_lifecycle()
         # 独立北京时间（决策 012）：生产 main 注入 BusinessClock；
         # 未注入时显式不可用，绝不回退本机时间。测试必须显式注入 Fake。
-        self._clock = clock if clock is not None else _UnavailableClock()
-        self._clock_syncing = False
+        self._clock_service = self._make_clock_service(clock)
         self._window: webview.Window | None = None
-        self._proc = None
-        # 与 _proc 配套的受管进程树：stop/shutdown 用它一网打尽 Playwright 后代
-        self._proc_tree = None
         # 登录中继自己占的那一棵：_relay_finished 只收这一棵，不误伤别的任务
         self._relay_proc_tree = None
-        self._plan: PlanCoordinator | None = None
-        self._plan_procs: dict[str, object] = {}
-        # 计划任务的受管树句柄（task_id -> ProcessTree）：stop 优先走它
-        self._plan_trees: dict = {}
-        # 最近一个已结束计划的快照（只读展示用；_plan 只表示当前计划）
-        self._last_plan: dict | None = None
-        # check/list 这类短命 worker 的登记表：正常关闭时一并树终止，不留孤儿。
-        # key 是进程对象，value 是在它真正运行前取得的受管进程树。
-        self._aux_procs: set = set()
-        self._aux_trees: dict = {}
         self._activities: dict[str, dict] = {}
         # EX05/BE2：电脑侧最近一次拉活动列表失败（安全原因短语 + 北京 HH:MM）。
         # 只进手机快照（_phone_raw_state），不写日志；成功刷新即清空（None）。
@@ -839,29 +1122,16 @@ class Api:
         # 因为文案说的是「手机现在这份列表」的更新时刻，不是失败时刻
         self._pc_list_error: dict | None = None
         self._pc_list_ok_at: str = ""
-        self._lock = threading.Lock()
-        self._credential_lock = threading.RLock()
-        self._advanced_busy = False
-        self._phone_access_lock = threading.RLock()
-        # 关闭屏障：shutdown 在同一把 _lock 内置位 _closing，而一切 worker 创建
-        # （Popen）与登记也都在这把锁里先核它——关闭先发生则零创建；创建已开始
-        # 则 shutdown 必等登记完成才能取快照，收走的进程不会漏。
-        # _closing 表达「关闭已开始」；「收尾已完成」用 Event 表达（FB2）：后到
-        # 的 shutdown 在锁外等待同一个 Event，返回即代表收尾真正完成。
-        self._closing = False
+        self._credential_lock = threading.Lock()
+        self._phone_access_lock = threading.Lock()
+        self._component_actions = self._make_component_actions()
         # 关窗弹窗里点过「退出」才放行：closing 事件返回 False 会取消关闭
         self._close_approved = False
         # 托盘图标：只在窗口藏起来以后才建，建不起来也不影响主程序
         self._tray = None
-        self._shutdown_done_event = threading.Event()
-        # 刷新去重：连点「刷新」不该堆起多个 check/list 子进程
-        self._checking = False
         # 去重期间又被要求刷新的标记：本轮收尾时补查一次，重登成功后的刷新
         # 不能被「已在检查」静默丢掉（只补一次，不排循环）
         self._check_again = False
-        self._listing = False
-        # 取消报名在途（X3）：_is_busy_locked 读它，挡住刷新、登录和开始计划
-        self._cancelling = False
         # 在途请求 ID：去重跳过时界面才能对上账（R11）
         self._check_request_id = ""
         self._list_request_id = ""
@@ -881,28 +1151,16 @@ class Api:
         self._updates = _update_service.UpdateService(
             emit=lambda kind, payload: self._emit(kind, payload),
             is_closing=self._update_is_closing)
-        # 开始请求登记（R11）：request_id → {state, plan_id, result}。
-        # 只留最近有限条，活跃请求不驱逐；不存凭证、不写外部数据。
-        self._start_requests: dict[str, dict] = {}
-        self._start_order: list[str] = []
-        # 取消保护跨过普通 32 条历史的淘汰；进程内保留，上限满时拒绝新取消。
-        self._canceled_start_ids: set[str] = set()
-        # 计划接纳代次与最近接纳计划（P1）：plan/task/plan_done 事件与终态快照
-        # 只归属「最近接纳的计划」。槽为空（_plan=None）不代表迟到回调属于最新
-        # 计划——较新的计划可能已经结束；归属以接纳代次为准，不随 _plan 清空遗失。
-        self._plan_generation = 0
-        self._latest_plan_id = ""
-        # 已提交过终态的计划（重复 plan_done 幂等：已定结论不被重复包改写）
-        self._finished_plan_ids: dict[str, bool] = {}
         # 手机受限访问（默认关闭）：配对/会话只活在内存里，事件走有界缓冲。
         # 这里不建 socket——只有显式 start_phone_access 才监听。
         self._phone = _phone_service.PhoneAccessService(
-            api=self, now=self._clock_now, state_of=self._phone_raw_state,
+            actions=self._phone_actions(), now=self._clock_now, state_of=self._phone_raw_state,
             device_store=_phone_session_store.PhoneSessionStore(DEVICE_FILE),
             log=phone_log,
             server_factory=lambda host, port, svc, public_host="", public_scheme="http": _phone_http.PhoneHttpServer(
                 host, port, svc, public_host=public_host, public_scheme=public_scheme,
                 log=phone_log))
+        self._phone_controller = self._make_phone_controller()
         self._phone_channel = ""
         # 组件包下载：手机控制、验证码识别各一条事务。只有用户点「下载并安装」才动网络；
         # 失败不影响已有组件
@@ -914,6 +1172,14 @@ class Api:
             install=self._install_downloaded_component,
             inspect_artifact=_component_packages.inspect_artifact,
             commit_artifact_group=self._commit_downloaded_component_group,
+            version=_component_packages.version,
+            inspect=_component_packages.inspect_archive,
+            status=_component_packages.feature_status,
+            remover=_component_packages.remove,
+            find_cached_artifact=_component_packages.find_cached_artifact,
+            cache_artifact=_component_packages.cache_artifact,
+            artifacts=_component_packages.ARTIFACTS,
+            cloudflared_version=_component_packages.CLOUDFLARED_VERSION,
             on_installed=self._component_installed,
             on_finished=lambda: self._component_finished(_advanced_features.PHONE_CONTROL),
             log=phone_log)
@@ -926,6 +1192,14 @@ class Api:
             install=self._install_downloaded_ocr,
             inspect_artifact=_component_packages.inspect_artifact,
             commit_artifact_group=self._commit_downloaded_ocr_group,
+            version=_component_packages.version,
+            inspect=_component_packages.inspect_archive,
+            status=_component_packages.feature_status,
+            remover=_component_packages.remove,
+            find_cached_artifact=_component_packages.find_cached_artifact,
+            cache_artifact=_component_packages.cache_artifact,
+            artifacts=_component_packages.ARTIFACTS,
+            cloudflared_version=_component_packages.CLOUDFLARED_VERSION,
             on_installed=self._ocr_component_installed,
             on_finished=lambda: self._component_finished(_advanced_features.RELOGIN_OCR),
             log=phone_log)
@@ -939,9 +1213,6 @@ class Api:
         # 窗口不在眼前（最小化或隐藏到后台）时，计划结束要发系统通知
         self._window_hidden = False
         self._window_minimized = False
-        # 计划来源（desktop / phone）：start_plan 调用前登记，随计划事件和快照带出去
-        self._next_plan_source = "desktop"
-        self._plan_sources: dict[str, str] = {}
         self._cloudflare = _tunnel_manager.CloudflareTunnel(
             _tunnel_manager.resolve_cloudflared(resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR),
             popen=_tunnel_manager.spawn_cloudflared,
@@ -976,119 +1247,32 @@ class Api:
         if not DEMO:
             self._auto_relogin.start()
 
+    # ---------- 协调对象字段的兼容代理 ----------
+    # 忙碌状态、进程登记表与关停 Event 已归 application.coordination.Coordinator；
+    # 旧字段名的显式 property + setter 由 CoordinatorFields 继承进来（含整表替换
+    # `api._plan_procs = {...}`），动作代码与夹具一行不用改。
+
     # ---------- 独立北京时间 ----------
     def _clock_now(self) -> float:
-        if DEMO:
-            # 演示离线：与 bootstrap 的「演示时间」快照同源（OS 时刻，仅演示）
-            return time.time()
-        return self._clock.now()
+        return self._clock_service.now()
 
     def _clock_ready(self) -> bool:
-        """开始门禁只认 ready/holdover 且 bounds 可读：syncing/未知不放行。"""
-        try:
-            if self._clock.state() not in ("ready", "holdover"):
-                return False
-            lower, upper = self._clock.bounds()
-        except Exception:
-            return False
-        return bool(upper >= lower)
+        return self._clock_service.ready()
 
     def _wait_for_list_clock(self) -> float:
-        """拉列表前最多等约 8 秒北京时间，返回实际等待秒数。
-
-        只为挡掉「刚启动、校时还没好」的常见情况；等不到也照常拉列表，
-        由 worker 用学校回包的 Date 头兜底筛选（L2）。关闭中立即返回。
-        """
-        if self._clock_ready():
-            return 0.0
-        self._emit("log", "北京时间校准中，稍后加载活动")
-        started = time.monotonic()
-        deadline = started + float(LIST_CLOCK_WAIT_S)
-        while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                break
-            with self._lock:
-                if self._closing:
-                    break
-            time.sleep(min(LIST_CLOCK_POLL_S, remaining))
-            if self._clock_ready():
-                break
-        return time.monotonic() - started
+        return self._clock_service.wait_for_list()
 
     def _clock_payload(self) -> dict:
-        """bootstrap 的时钟载荷：demo 离线给显式标注的「演示时间」快照，
-        不冒充真实授时；正常模式返回当前业务时钟快照。"""
-        if DEMO:
-            return {"schema": 1, "owner_id": "demo-clock", "generation": 1,
-                    "state": "ready", "epoch_s": time.time(), "tick_s": 0,
-                    "sampled_tick_s": 0, "uncertainty_s": None,
-                    "source": "演示时间（离线，非真实授时）", "age_s": 0,
-                    "sync_status": "succeeded", "sync_round": 1,
-                    "retry_attempt": 0, "retry_in_s": 0,
-                    "last_failure_source": "", "last_failure_reason": "",
-                    "reason": "演示模式不联网：顶栏时间仅供演示"}
-        return self.clock_snapshot()
+        return self._clock_service.payload()
 
     def clock_snapshot(self) -> dict:
-        """当前业务时钟快照（无凭证）：bootstrap 与「重新校时」共用。"""
-        try:
-            return self._clock.snapshot()
-        except Exception as exc:
-            # 兜底也要带齐退避字段：界面按「有字段但为空」渲染，不靠缺键猜测
-            return {"schema": 1, "state": "unavailable", "reason": str(exc),
-                    "retry_attempt": 0, "retry_in_s": 0,
-                    "last_failure_source": "", "last_failure_reason": ""}
+        return self._clock_service.snapshot()
 
     def sync_clock(self) -> dict:
-        """界面「重新校时」：去重后台重校，完成后推 business_clock 事件。"""
-        with self._lock:
-            if self._clock_syncing:
-                return {"ok": True, "queued": True, "dedup": True}
-            self._clock_syncing = True
-
-        def run():
-            try:
-                # demo 完全离线：不发起 NTP，直接确认「演示时间」快照
-                state = "ready" if DEMO else self._clock.sync()
-            except Exception:
-                state = "unavailable"
-            with self._lock:
-                self._clock_syncing = False
-            self._emit("business_clock",
-                       self._clock_payload() if DEMO else self.clock_snapshot())
-            return state
-
-        threading.Thread(target=run, name="clock-resync", daemon=True).start()
-        return {"ok": True, "queued": True}
+        return self._clock_service.sync()
 
     def _start_clock_monitor(self) -> None:
-        """有未来任务时在最早准备点前 20 秒请求一次后台重校（尊重源冷却）。"""
-        if getattr(self, "_clock_monitor_started", False):
-            return
-        self._clock_monitor_started = True
-
-        def monitor():
-            requested_for = None
-            while True:
-                time.sleep(5)
-                try:
-                    with self._lock:
-                        plan = self._plan
-                    if plan is None:
-                        requested_for = None
-                        continue
-                    nxt = plan.next_prepare_epoch()
-                    if nxt is None:
-                        continue
-                    left = nxt - self._clock_now()
-                    if 0 < left <= 20 and requested_for != plan.plan_id:
-                        self._clock.request_resync()
-                        requested_for = plan.plan_id
-                except Exception:
-                    continue
-
-        threading.Thread(target=monitor, name="clock-monitor", daemon=True).start()
+        return self._clock_service.start_monitor()
 
     # ---------- 事件推送 ----------
     def _emit(self, kind: str, payload) -> None:
@@ -1321,448 +1505,61 @@ class Api:
         return True
 
     def _install_downloaded_component(self, archive, key, *, root=None):
-        """下载与手动导入共用通道锁，换包前先释放正在使用的组件进程。"""
-        with self._credential_lock, self._phone_access_lock:
-            with self._lock:
-                if self._closing:
-                    raise RuntimeError("application_closing")
-            if not self._stop_cloudflare_checked():
-                # 隧道进程还占着组件文件：不换包，沿用组件占用错误，由下载事务如实失败
-                raise _component_packages.PackageError("component_in_use")
-            self._phone.shutdown(preserve_devices=True)
-            self._phone_channel = ""
-            return _component_packages.install(archive, key, root=root)
+        return self._component_actions.replace_downloaded(key, archive, root=root)
 
     def _commit_downloaded_component_group(self, feature, artifacts, *, root=None):
-        """全部资产准备好后才暂停手机入口，并一次切换已校验的组。"""
-        with self._credential_lock, self._phone_access_lock:
-            with self._lock:
-                if self._closing:
-                    raise RuntimeError("application_closing")
-            if not self._stop_cloudflare_checked():
-                raise _component_packages.PackageError("component_in_use")
-            self._phone.shutdown(preserve_devices=True)
-            self._phone_channel = ""
-            return _component_packages.commit_artifact_group(feature, artifacts, root=root)
+        return self._component_actions.replace_downloaded(feature, artifacts, root=root, group=True)
 
-    def _component_finished(self, feature: str = "") -> None:
-        """组件下载事务收尾（工作线程）：放开占用，并把失败原因写进运行记录。
-
-        G2：界面红条只显示当前打开的那一条，用户事后回看运行记录时也要能看到同一句原因；
-        尚未开始就失败的路径由 download_advanced_feature 的返回值直接带到界面，不在这里重复写。
-        """
-        with self._lock:
-            self._advanced_busy = False
-        if not feature:
-            return
-        service = (self._ocr_component_service
-                   if feature == _advanced_features.RELOGIN_OCR else self._component_service)
-        try:
-            snap = service.snapshot()
-        except Exception:
-            return
-        if str(snap.get("state")) != "failed":
-            return
-        reason = _DOWNLOAD_FAIL_REASONS.get(str(snap.get("error_code") or ""))
-        text = reason or str(snap.get("text") or "")
-        if not text:
-            return
-        if text[-1] not in "。！？":
-            text += "。"
-        self._emit("log", "下载没有完成：" + text)
+    def _component_finished(self, feature: str='') -> None:
+        return self._component_actions.finished(feature)
 
     def _component_installed(self, version: str) -> None:
-        """组件装好后的收尾（在工作线程里被调用）：写启用状态、刷新 cloudflared。"""
-        enabled = dict(load_prefs().get("advanced_features") or {})
-        enabled[_advanced_features.PHONE_CONTROL] = True
-        if not update_prefs({"advanced_features": enabled}):
-            phone_log("组件已安装，但启用状态没有保存成功")
-        self._cloudflare.executable = _tunnel_manager.resolve_cloudflared(
-            resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)
-        self._emit("log", "手机控制组件已安装（%s）。" % (version or "版本未知"))
+        return self._component_actions.installed(_advanced_features.PHONE_CONTROL, version)
 
     def _install_downloaded_ocr(self, archive, key, *, root=None):
-        """验证码识别包换位前先停掉正在跑的自动登录：识别引擎可能正被它占着。"""
-        with self._credential_lock:
-            with self._lock:
-                if self._closing:
-                    raise RuntimeError("application_closing")
-            self._relay.cancel(origin="auto")
-            self._auto_relogin.reset()
-            return _component_packages.install(archive, key, root=root)
+        return self._component_actions.replace_downloaded_ocr(key, archive, root=root)
 
     def _commit_downloaded_ocr_group(self, feature, artifacts, *, root=None):
-        """模型与运行时均备好后，在维护锁内停止使用者并切换完整组。"""
-        with self._credential_lock:
-            with self._lock:
-                if self._closing:
-                    raise RuntimeError("application_closing")
-            self._relay.cancel(origin="auto")
-            self._auto_relogin.reset()
-            return _component_packages.commit_artifact_group(feature, artifacts, root=root)
+        return self._component_actions.replace_downloaded_ocr(feature, artifacts, root=root, group=True)
 
     def _ocr_component_installed(self, version: str) -> None:
-        """验证码识别装好后写启用状态（在工作线程里被调用）。"""
-        enabled = dict(load_prefs().get("advanced_features") or {})
-        enabled[_advanced_features.RELOGIN_OCR] = True
-        if not update_prefs({"advanced_features": enabled}):
-            phone_log("验证码识别组件已安装，但启用状态没有保存成功")
-        self._emit("log", "验证码识别组件已安装（%s）。" % (version or "版本未知"))
+        return self._component_actions.installed(_advanced_features.RELOGIN_OCR, version)
 
     def _component_service_for(self, key: str):
-        """功能键 → 对应的下载事务；不认识的键返回 None。"""
-        mapping = {_advanced_features.PHONE_CONTROL: "_component_service",
-                   _advanced_features.RELOGIN_OCR: "_ocr_component_service"}
-        name = mapping.get(key)
-        # 按 key 惰性取属性：字典急切求值会在查 phone_control 时也碰
-        # _ocr_component_service，属性缺失就炸（与 shutdown 收口的
-        # getattr(self, name, None) 防御风格对齐）。
-        return getattr(self, name) if name else None
+        return self._component_actions.service_for(key)
 
-    def download_advanced_feature(self, key: str = "") -> dict:
-        """用户主动下载组件包（手机控制或验证码识别）：单飞，重复点击直接回 busy。"""
-        chosen = str(key or _advanced_features.PHONE_CONTROL)
-        service = self._component_service_for(chosen)
-        if service is None:
-            return {"ok": False, "error": "bad_feature",
-                    "text": "这个功能没有可在线下载的组件包。"}
-        if not bool(getattr(sys, "frozen", False)):
-            # 源码版跑的是仓库里的 Python 依赖，组件包对它没有作用
-            return {"ok": False, "error": "source_build",
-                    "text": "源码版用的是已装好的 Python 依赖，不需要组件包。"}
-        with self._phone_access_lock:
-            with self._lock:
-                if self._closing or self._advanced_busy or self._is_busy_locked():
-                    return {"ok": False, "error": "busy", "text": "请等待当前操作结束。"}
-                self._advanced_busy = True
-            try:
-                result = service.start()
-            except Exception:
-                self._component_finished()
-                raise
-            if not result.get("ok"):
-                self._component_finished()
-        if result.get("ok"):
-            self._emit("log", "开始下载%s组件包。" % _component_title(chosen))
-        return result
+    def download_advanced_feature(self, key: str='') -> dict:
+        return self._component_actions.download(key)
 
-    def cancel_advanced_feature_download(self, key: str = "") -> dict:
-        """取消正在进行的组件下载；未在下载时如实说没有任务。"""
-        service = self._component_service_for(str(key or _advanced_features.PHONE_CONTROL))
-        if service is None:
-            return {"ok": False, "error": "bad_feature", "text": "未知高级功能"}
-        return service.cancel()
+    def cancel_advanced_feature_download(self, key: str='') -> dict:
+        return self._component_actions.cancel_download(key)
 
-    def enable_advanced_feature(self, key: str = "") -> dict:
-        """启用一个已装好但没开启的组件（settings-gap B2，OC08「启用」按钮）。
+    def enable_advanced_feature(self, key: str='') -> dict:
+        return self._component_actions.enable(key)
 
-        只认 phone_control / relogin_ocr；组件没装好（available 为假）时什么都不改。
-        与安装完成的收尾一致：验证码识别启用后要重置自动登录的暂停状态。
-        """
-        if not _advanced_features.allowed_feature(key):
-            return {"ok": False, "reason": "bad_feature", "error": "bad_feature",
-                    "text": "未知高级功能"}
-        with self._credential_lock:
-            with self._lock:
-                if self._closing:
-                    return {"ok": False, "reason": "closing", "error": "closing",
-                            "text": "程序正在关闭。"}
-            prefs = load_prefs()
-            feature = _advanced_features.feature_state(
-                prefs, root=DATA_DIR, frozen=bool(getattr(sys, "frozen", False))).get(key, {})
-            if not feature.get("available"):
-                return {"ok": False, "reason": "not_available", "error": "not_available",
-                        "text": "这个组件还没装好，不能启用。"}
-            enabled = dict(prefs.get("advanced_features") or {})
-            enabled[str(key)] = True
-            if not update_prefs({"advanced_features": enabled}):
-                return {"ok": False, "reason": "prefs_busy", "error": "prefs_busy",
-                        "text": "启用状态没有保存，请重试。"}
-            if key == _advanced_features.RELOGIN_OCR:
-                self._auto_relogin.reset()
-            return {"ok": True, "feature": str(key), "enabled": True}
+    def advanced_component_location(self, key: str='') -> dict:
+        return self._component_actions.location(key)
 
-    def advanced_component_location(self, key: str = "") -> dict:
-        """组件在本机的安装位置（settings-gap B3，只给电脑端设置抽屉用）。
-
-        路径只经这个接口给 pywebview 的 js_api；绝不放进 advanced_features_state，
-        也不进手机快照，手机动作白名单（domain.phone_rules.ACTION_PARAMS）里没有它。
-        short 是界面用的省略形式：前面用省略号，只留 advanced 与组件键两段。
-        """
-        if not _advanced_features.allowed_feature(key):
-            return {"ok": False, "error": "bad_feature", "text": "未知高级功能"}
-        try:
-            directory = _component_packages.selected_install_dir(key, root=DATA_DIR)
-        except (_component_packages.PackageError, OSError, ValueError):
-            return {"ok": False, "error": "location_unavailable", "text": "读不到组件的安装位置。"}
-        parts = directory.parts
-        short = "…\\" + "\\".join(parts[-2:]) if len(parts) > 2 else str(directory)
-        return {"ok": True, "path": str(directory), "short": short,
-                "exists": directory.is_dir()}
-
-    def open_advanced_component_dir(self, key: str = "") -> dict:
-        """用资源管理器打开组件所在文件夹（B3，只给电脑端）。
-
-        组件目录还不存在就打开它的上一级（advanced），两级都不存在则如实说明。
-        """
-        located = self.advanced_component_location(key)
-        if not located.get("ok"):
-            return located
-        directory = Path(located["path"])
-        target = directory if directory.is_dir() else directory.parent
-        if not target.is_dir():
-            return {"ok": False, "error": "not_found", "text": "组件文件夹还不存在。"}
-        try:
-            os.startfile(str(target))        # noqa: S606 - Windows 桌面工具，与 open_data 同
-        except OSError as exc:
-            return {"ok": False, "error": "open_failed",
-                    "text": "没能打开文件夹（%s）。" % type(exc).__name__}
-        return {"ok": True, "opened": "component" if target == directory else "parent"}
+    def open_advanced_component_dir(self, key: str='') -> dict:
+        return self._component_actions.open_location(key)
 
     def advanced_features_state(self) -> dict:
-        """帮助弹窗使用的高级功能快照；不返回密码、密文或安装路径。"""
-        prefs = load_prefs()
-        features = _advanced_features.feature_state(
-            prefs, root=DATA_DIR, frozen=bool(getattr(sys, "frozen", False)))
-        if self._advanced_busy:
-            for feature in features.values():
-                feature["busy"] = True
-        # 组件下载事务的快照挂在各自那一行：界面据此显示下载中、失败、可取消
-        for key in (_advanced_features.PHONE_CONTROL, _advanced_features.RELOGIN_OCR):
-            service = self._component_service_for(key)
-            try:
-                download = service.snapshot() if service is not None else {}
-            except Exception:
-                download = {}
-            if key in features:
-                features[key]["download"] = download
-        tailscale = _tunnel_manager.tailscale_endpoint()
-        cloudflare_status, cloudflare_exit = self._cloudflare_status_snapshot()
-        if cloudflare_exit:
-            # 进程已经退出：这次刷新就要报「退出」，不能因为读到的第二次状态是
-            # stopped 就把通道重新说成可用——用户会照着旧地址去扫码。
-            cf_state = "exited"
-            cf_text = str(cloudflare_exit.get("text")
-                          or "Cloudflare 隧道已退出，重新开启会得到新地址。")
-            cf_error = "tunnel_exited"
-        elif self._cloudflare.executable:
-            # 快速隧道地址每次开启都变，所以状态只有「可用/在运行」两档，
-            # 且必须把「重启后要重新扫码」写进快照，界面照抄，不再自行判断
-            cf_state = "running" if cloudflare_status.get("running") else "available"
-            cf_text = ("Cloudflare 临时地址正在提供访问。" if cf_state == "running"
-                       else "可用时由 Cloudflare 临时地址提供远程访问。")
-            cf_error = ""
-        else:
-            cf_state = "missing"
-            cf_text = "没有找到 cloudflared，Cloudflare 通道目前不可用。"
-            cf_error = "cloudflared_missing"
-        saved = _credential_store.has_credentials(CREDENTIAL_FILE)
-        username = ""
-        if saved:
-            try:
-                username = _credential_store.stored_username(CREDENTIAL_FILE)
-            except Exception:
-                saved = False
-        return {
-            "ok": True,
-            "features": features,
-            "channels": {
-                "tailscale": dict(tailscale,
-                                  temporary=False,
-                                  restart_requires_pairing=False,
-                                  restart_note="地址固定：重启程序后手机仍可直接打开。"),
-                "cloudflare": {
-                    "available": bool(self._cloudflare.executable),
-                    "error": cf_error,
-                    "state": cf_state,
-                    "text": cf_text,
-                    "temporary": True,
-                    "restart_requires_pairing": True,
-                    "restart_note": "临时地址：重启或重新开启后地址会变，手机需要重新扫码配对。",
-                },
-            },
-            "phone_access": _phone_access_prefs(prefs),
-            "credential": {
-                # 保存账号只看本机加密存储；ddddocr 是否就绪单列，界面分开显示
-                "available": _credential_store_available(),
-                "store_available": _credential_store_available(),
-                "saved": saved,
-                "username": username,
-                "ocr_ready": _advanced_features.feature_ready(
-                    prefs, _advanced_features.RELOGIN_OCR, root=DATA_DIR),
-                "automatic": self._auto_relogin.snapshot(),
-                # B4：这次运行内存里有没有「只用这一次」的账号；只给打码账号，绝无密码
-                "staged": self._relay.has_staged(),
-                "staged_hint": self._relay.staged_hint(),
-                "last_origin": self._last_login_origin,
-                # 学校说保存的密码不对：自动登录已暂停，写入新密码后解除
-                "paused": saved and _credential_store.is_bad(CREDENTIAL_FILE),
-            },
-        }
+        return self._component_actions.snapshot()
 
-    def inspect_advanced_component(self, key: str = "", path: str = "") -> dict:
-        """只读自检：用户选的这份文件到底是不是这里要装的东西。
+    def inspect_advanced_component(self, key: str='', path: str='') -> dict:
+        return self._component_actions.inspect(key, path)
 
-        对话框每选一次文件就调一次，把「这是别的组件的包」「这是 Tailscale 的 exe」
-        这类结论直接顶到界面上，而不是等他点了保存才看到一个错误码。不落盘、不安装。
-        """
-        if not _advanced_features.allowed_feature(key):
-            return {"ok": False, "kind": "unknown_feature", "text": "未知高级功能"}
-        chosen = str(path or "").strip().strip('"')
-        if not chosen:
-            return {"ok": False, "kind": "empty", "text": "还没有选择文件。"}
-        if Path(chosen).suffix.lower() == ".exe":
-            if key != _advanced_features.PHONE_CONTROL:
-                return {"ok": False, "kind": "not_zip",
-                        "text": "这里需要组件包 ZIP，不是可执行文件。"}
-            return _component_packages.inspect_cloudflared(chosen)
-        return _component_packages.inspect_archive(chosen, key)
+    def pick_advanced_component(self, key: str='') -> dict:
+        return self._component_actions.pick(key)
 
-    def pick_advanced_component(self, key: str = "") -> dict:
-        """弹系统文件选择框，把用户选中的路径交回给对话框。
+    def install_advanced_feature(self, key: str='', path: str='') -> dict:
+        return self._component_actions.install(key, path)
 
-        路径只用于这一次自检与安装，不写进偏好、不进日志。
-        """
-        if not _advanced_features.allowed_feature(key):
-            return {"ok": False, "text": "未知高级功能"}
-        if self._window is None:
-            return {"ok": False, "text": "请在电脑窗口里选择文件。"}
-        types = ("组件包 (*.zip)",)
-        try:
-            selected = self._window.create_file_dialog(
-                webview.FileDialog.OPEN, allow_multiple=False, file_types=types)
-        except Exception:  # noqa: BLE001 - 原生对话框不可用不该让整个页面崩掉
-            return {"ok": False, "error": "dialog_unavailable",
-                    "text": "打不开系统的文件选择框。请关掉设置后重新打开再试；仍不行，就到发布页下载组件包，再点「导入已下载的组件包」。"}
-        if not selected:
-            return {"ok": True, "canceled": True, "text": "已取消选择。"}
-        return {"ok": True, "path": str(selected[0])}
+    def _install_selected_feature(self, key: str, chosen: str='') -> dict:
+        return self._component_actions.install_selected(key, chosen)
 
-    def install_advanced_feature(self, key: str = "", path: str = "") -> dict:
-        """只响应帮助弹窗明确点击的固定组件，不接受任意 pip 包名。
-
-        path 非空时按「用户亲自选的文件」处理：先自检，再决定走组件包导入还是
-        收编一份单独校验过的 cloudflared；自检不过就原样把原因交回界面。
-        """
-        if not _advanced_features.allowed_feature(key):
-            return {"ok": False, "text": "未知高级功能"}
-        chosen = str(path or "").strip().strip('"')
-        if chosen:
-            inspected = self.inspect_advanced_component(key, chosen)
-            if not inspected.get("ok"):
-                return {"ok": False, "error": str(inspected.get("kind") or "inspect_failed"),
-                        "text": str(inspected.get("text") or "这个文件不能用。")}
-        with self._lock:
-            if self._closing or self._advanced_busy or self._is_busy_locked():
-                return {"ok": False, "text": "请等待当前操作结束后再安装。"}
-            self._advanced_busy = True
-        try:
-            if chosen and str(inspected.get("kind")) == "cloudflared":
-                # 单独一份 cloudflared：不进组件包体系，但同样要核版本与哈希
-                with self._credential_lock, self._phone_access_lock:
-                    if key == _advanced_features.PHONE_CONTROL and self._phone.is_running():
-                        self.stop_phone_access()
-                    try:
-                        result = _component_packages.install_cloudflared(chosen)
-                    except _component_packages.PackageError as exc:
-                        code = str(exc.args[0] if exc.args else "install_failed")
-                        return {"ok": False, "error": code,
-                                "text": "这份 cloudflared 没有通过校验：%s" % code}
-                    prefs = load_prefs()
-                    enabled = dict(prefs.get("advanced_features") or {})
-                    enabled[str(key)] = True
-                    if not update_prefs({"advanced_features": enabled}):
-                        return {"ok": False, "error": "prefs_busy",
-                                "text": "cloudflared 已收好，但启用状态暂未保存；重新打开帮助再试。"}
-                    self._cloudflare.executable = _tunnel_manager.resolve_cloudflared(
-                        resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)
-                    return result
-            return self._install_selected_feature(key, chosen)
-        finally:
-            with self._lock:
-                self._advanced_busy = False
-
-    def _install_selected_feature(self, key: str, chosen: str = "") -> dict:
-        """在已占住 _advanced_busy 的前提下真正安装。
-
-        带 path 表示用户已经在对话框里选好文件；不带 path 是旧入口（打包版现场弹框）。
-        """
-        frozen = bool(getattr(sys, "frozen", False))
-        archive = chosen or None
-        if archive is None and frozen:
-            if self._window is None:
-                return {"ok": False, "text": "请在电脑窗口中导入组件。"}
-            selected = self._window.create_file_dialog(
-                webview.FileDialog.OPEN, allow_multiple=False,
-                file_types=("组件包 (*.zip)",))
-            if not selected:
-                return {"ok": True, "canceled": True, "text": "已取消导入。"}
-            archive = str(selected[0])
-        if archive and not frozen:
-            # 源码版跑的是仓库里的 Python 代码，组件包对它没有作用：
-            # 与其「装完没变化」，不如直接说清该走哪条路
-            return {"ok": False, "error": "source_build",
-                    "text": "源码版用的是已装好的 Python 依赖，组件包对它不起作用；"
-                            "手机访问用的 cloudflared 源码版也不会从 PATH 里找，请改用发布版导入组件包。"}
-        with self._credential_lock, self._phone_access_lock:
-            with self._lock:
-                if self._closing:
-                    return {"ok": False, "text": "程序正在关闭。"}
-            if key == _advanced_features.PHONE_CONTROL and self._phone.is_running():
-                self.stop_phone_access()
-            if key == _advanced_features.RELOGIN_OCR:
-                self._relay.cancel(origin="auto")
-                self._auto_relogin.reset()
-            result = _advanced_features.install_feature(
-                key, frozen=frozen, root=DATA_DIR, archive=archive)
-            if not result.get("ok"):
-                return result
-            prefs = load_prefs()
-            enabled = dict(prefs.get("advanced_features") or {})
-            enabled[str(key)] = True
-            if not update_prefs({"advanced_features": enabled}):
-                return {"ok": False, "error": "prefs_busy",
-                        "text": "组件已安装，但启用状态暂未保存；重新打开帮助再试。"}
-            self._cloudflare.executable = _tunnel_manager.resolve_cloudflared(
-                resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)
-            return result
-
-    def remove_advanced_feature(self, key: str = "") -> dict:
-        if not _advanced_features.allowed_feature(key):
-            return {"ok": False, "text": "未知高级功能"}
-        with self._credential_lock, self._phone_access_lock:
-            with self._lock:
-                if self._closing or self._advanced_busy:
-                    return {"ok": False, "text": "请等待当前操作结束。"}
-                self._advanced_busy = True
-            try:
-                if key == _advanced_features.PHONE_CONTROL:
-                    self.stop_phone_access()
-                else:
-                    self._relay.cancel(origin="auto")
-                    self._relay.clear_staged()
-                    self._auto_relogin.reset()
-                enabled = dict(load_prefs().get("advanced_features") or {})
-                enabled[key] = False
-                if not update_prefs({"advanced_features": enabled}):
-                    return {"ok": False, "text": "停用状态未保存，请重试。"}
-                if getattr(sys, "frozen", False):
-                    if key == _advanced_features.PHONE_CONTROL:
-                        # 走下载服务移除：它同时收拾 .part 残渣与「已安装」状态位
-                        removed = self._component_service.remove()
-                        if not removed.get("ok"):
-                            return {"ok": False,
-                                    "text": str(removed.get("text") or "组件文件未能移除，请关闭后重试。")}
-                    else:
-                        _component_packages.remove(key, root=DATA_DIR)
-                self._cloudflare.executable = _tunnel_manager.resolve_cloudflared(
-                    resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)
-                return {"ok": True, "text": "功能已移除；已保存的账号可另行清除。"}
-            except (OSError, ValueError):
-                return {"ok": False, "text": "功能已停用，组件文件未能移除，请关闭后重试。"}
-            finally:
-                with self._lock:
-                    self._advanced_busy = False
+    def remove_advanced_feature(self, key: str='') -> dict:
+        return self._component_actions.remove(key)
 
     def save_relogin_credentials(self, username: str = "", password: str = "") -> dict:
         """保存续登录用的账号密码（DPAPI 加密落盘）。
@@ -2108,123 +1905,17 @@ class Api:
             request_close=lambda: self.request_window_close("exit"),
             launch_installer=updater.launch_installer))
 
-    def check(self, request_id: str = "") -> dict:
-        # js_api 的处理跑在 UI 线程上：一旦在这里跑 subprocess，
-        # 窗口会直接"未响应"。所以只负责起线程，结果用事件推回去。
-        # 条款门禁：登录态校验要访问学校接口，未获授权就不起线程（后端最终防线）
-        gate = self._terms_gate(request_id)
-        if gate is not None:
-            return dict(gate, queued=False)
-        with self._lock:
-            if self._closing:
-                # 关闭拒绝是取消语义：不给组件码，不再起线程
-                return {"ok": False, "queued": False, "request_id": request_id,
-                        "text": "程序正在关闭，已取消本次检查"}
-            if self._cancelling:
-                return {"ok": False, "queued": False, "request_id": request_id,
-                        "text": "正在取消报名，等它结束再刷新"}
-            if self._checking:
-                # 去重必须带上在途请求 ID：界面按 ID 对账，不能把旧轮当新轮
-                # 但这一轮的真实意图不能丢：记下来，等本轮收尾再补查一次
-                self._check_again = True
-                answer = {"ok": True, "queued": True, "skipped": "已在检查登录态",
-                          "request_id": self._check_request_id}
-                last = self._check_last
-                if last.get("payload") and last.get("request_id") == self._check_request_id:
-                    # 原操作刚好已经结束：把终态直接带回去，界面不用干等
-                    answer["result"] = last["payload"]
-                return answer
-            self._checking = True
-            self._check_request_id = request_id or ""
-        threading.Thread(target=self._do_check, daemon=True).start()
-        return {"ok": True, "queued": True, "request_id": request_id}
+    def check(self, request_id: str='') -> dict:
+        return self._login_recovery.check(request_id)
 
-    def list_activities(self, request_id: str = "") -> dict:
-        # 条款门禁同上：活动列表来自学校接口，未获授权不拉列表
-        gate = self._terms_gate(request_id)
-        if gate is not None:
-            return dict(gate, queued=False)
-        with self._lock:
-            if self._closing:
-                return {"ok": False, "queued": False, "request_id": request_id,
-                        "text": "程序正在关闭，已取消拉取活动列表"}
-            if self._cancelling:
-                return {"ok": False, "queued": False, "request_id": request_id,
-                        "text": "正在取消报名，等它结束再刷新"}
-            if self._listing:
-                answer = {"ok": True, "queued": True, "skipped": "已经在拉活动列表",
-                          "request_id": self._list_request_id}
-                last = self._list_last
-                if last.get("payload") and last.get("request_id") == self._list_request_id:
-                    answer["result"] = last["payload"]
-                return answer
-            self._listing = True
-            self._list_request_id = request_id or ""
-        threading.Thread(target=self._do_list, daemon=True).start()
-        return {"ok": True, "queued": True, "request_id": request_id}
+    def list_activities(self, request_id: str='') -> dict:
+        return self._activity_list.list_activities(request_id)
 
     def _do_check(self) -> None:
-        try:
-            self._do_check_inner()
-        except Exception as exc:  # noqa: BLE001 - 兜底：结论构造中的意外也必须收尾
-            # FB3：任何 check 终态必须先同步后端判定——结论构造阶段的意外不能
-            # 让旧 valid 留作 start_plan 放行依据。先在锁内写 unknown/当前时刻
-            # 并清旧组件结论，再锁外发唯一终态（状态写入先于事件）
-            with self._lock:
-                self._last_check = {"result": "unknown", "checked_at": time.time(),
-                                    "runtime_error": ""}
-            self._emit("check", {"ok": False, "result": "unknown",
-                                 "text": "检查登录态没跑完，请点「刷新」再试一次"})
-            self._emit("log", "[X] 检查收尾异常 %s: %s" % (type(exc).__name__, exc))
-        finally:
-            with self._lock:
-                self._checking = False
-                conclusion = self._last_check.get("result", "unknown")
-                # 去重期间有人要求过再查：只补这一次，且立刻重新占住去重槽位，
-                # 避免补查的线程还没起来就被第三次点击当成「空闲」再起一个
-                again = self._check_again and not self._closing
-                self._check_again = False
-                if again:
-                    self._checking = True
-            self._auto_relogin.observe_check(conclusion)
-            self._note_login_conclusion(conclusion)
-            if conclusion == "expired" and self._silent_relogin_state()[0]:
-                # 检查刚确认失效就发起，不等调度线程下一拍（最多 1 秒）才动手。
-                # request_recover 只是把等待时间清零，真正的发起仍在调度线程里。
-                self._auto_relogin.request_recover()
-            if again:
-                threading.Thread(target=self._do_check, daemon=True).start()
+        return self._login_recovery.do_check()
 
     def _note_login_conclusion(self, conclusion: str) -> None:
-        """记下登录结论的变化：本次运行里有效过、之后变成失效，推一次飞书。"""
-        push = False
-        first_expired = False
-        with self._lock:
-            if conclusion == "valid":
-                self._login_seen_valid = True
-                self._expiry_pushed = False
-                self._login_expired_logged = False
-                return
-            if conclusion != "expired":
-                return
-            push = bool(self._login_seen_valid and not self._expiry_pushed)
-            if push:
-                self._expiry_pushed = True
-            # 用 getattr 读：这个方法的既有替身只带 _login_seen_valid/_expiry_pushed
-            first_expired = not getattr(self, "_login_expired_logged", False)
-            self._login_expired_logged = True
-        if first_expired:
-            # 只记「要不要静默恢复」这个判断结果，不带账号和验证码；同一段失效只落一次。
-            # 日志是尽力而为：写不进去不能影响上面的飞书推送判定。
-            try:
-                silent, reason = self._silent_relogin_state()
-                self._log_event("login_expired_detected",
-                                silent="true" if silent else "false",
-                                reason=reason or "none")
-            except Exception:  # noqa: BLE001
-                pass
-        if push:
-            self._push_login_expired()
+        return self._login_recovery.note_conclusion(conclusion)
 
     def _push_login_expired(self) -> None:
         """配了飞书机器人才推；消息只说失效和怎么办，不带账号。在后台线程里发，不拖界面。"""
@@ -2258,120 +1949,16 @@ class Api:
         threading.Thread(target=send, name="feishu-login-expired", daemon=True).start()
 
     def _do_check_inner(self) -> None:
-        if DEMO:
-            # 演示模式完全离线：不读 session.json/storage_state、不起 worker、
-            # 不碰学校。状态明确写「演示模式」，绝不伪装成真实登录有效（R20）
-            self._last_check = {"result": "demo", "checked_at": time.time(),
-                                "runtime_error": ""}
-            self._emit("check", {
-                "ok": True, "result": "demo", "demo": True,
-                "text": "演示模式：使用内存样例，不检查真实登录",
-                "hours_left": None, "session_present": None,
-                "session_expired": False, "saved_at": None,
-                "estimated_expires_at": None, "reason": "", "hint": "",
-                "clock": {"source": "http_date", "state": "unknown",
-                          "checked_at": None, "offset_s": None,
-                          "uncertainty_s": None, "rtt_s": None,
-                          "detail": "演示模式不做校时"},
-            })
-            return
-        err_code = ""
-        try:
-            res = self._run(worker_command("check"), timeout=90)
-            code, out = res["code"], res["out"]
-        except _ClosingError:
-            # 关闭取消：仍给恰一次终态，但属取消语义——不归类组件码、
-            # 不触碰登录四态字段，技术细节没有需要落日志的内容
-            self._emit("check", {"ok": False, "result": "unknown",
-                                 "text": "程序正在关闭，本次检查已取消"})
-            return
-        except OSError as exc:
-            # 进程创建失败（缺文件/权限/其他 OS 层）才归组件码：与登录四态分离，
-            # 一律 unknown + runtime_error 附加字段——不清会话、不指导重登
-            err_code = _component_error(exc)
-            code = -1
-            out = "[X] %s" % WORKER_PROBLEM_TEXT.get(err_code, "程序组件启动失败，请重新下载完整版本")
-            # 技术细节只进运行记录（日志），主文案保持人话
-            self._emit("log", "[X] 组件诊断 %s：%s: %s" % (err_code, type(exc).__name__, exc))
-        except Exception as exc:
-            # 数据/解析等普通异常：仍是检查失败终态，但不设 runtime_error、
-            # 不诱导重新下载——数据坏了不是组件坏了
-            code = -1
-            out = "[X] 检查登录态没跑完，请点「刷新」再试一次"
-            self._emit("log", "[X] 检查登录态异常 %s: %s" % (type(exc).__name__, exc))
-        # 事件载荷整理在 application.login_service（分类纯规则在 domain）：
-        # 归因只信第一条 [X] 来源行；三态字段跟结果一起发，粗校时逐轮替换（R08）。
-        state = login_state(self._clock)
-        result, clock, payload = _login_service.build_check_event(
-            state, code, out, err_code)
-        # E2（计划 20261109）：估算来源随 check 事件下发，界面据此写「预计有效」；
-        # 载荷塑形留在 application 层，这里只补一个附加字段，旧字段不变。
-        payload["estimate_reason"] = state.get("estimate_reason")
-        self._last_check = {"result": result, "checked_at": time.time(),
-                            "runtime_error": err_code}
-        # 上次校验时刻随 check 事件一起给界面（与 bootstrap.login 同一口径），胶囊和登录卡据此显示
-        payload = dict(payload, **_last_check_fields(self._last_check))
-        if result == "expired":
-            # 静默自动登录：电脑能自己把登录补回来时胶囊显示「自动登录中」、不弹失效；补不回来时照旧提醒并给原因。
-            silent, block = self._silent_relogin_state()
-            payload["recovering"] = silent
-            payload["recover_block"] = block
-        payload.update(self._auto_relogin.view(expired=result == "expired"))
-        self._emit("check", payload)
+        return self._login_recovery.do_check_inner()
 
     def _pc_clock_text(self) -> str:
-        """EX05/BE2：业务北京的 HH:MM；钟不可用给空串（手机改写「缓存列表」）。
-
-        不退回本机时钟：决策 012 规定业务时刻不读本机墙钟，本机钟偏了会写出错误的 HH:MM。
-        """
-        try:
-            return school_time_text(now_fn=self._clock_now)[11:16]
-        except Exception:
-            return ""
+        return self._activity_list.clock_text()
 
     def _note_pc_list_error(self, reason: str) -> None:
-        """EX05/BE2：记最近一次拉活动列表失败，供手机快照透出（成功刷新即清空）。
-
-        原因只放固定短语，不透传 worker 输出或异常文本——那些串里可能有
-        路径、站点地址或账号痕迹；时刻按业务北京时间（决策 012）。
-        R-P3-4：at 优先取最后一次成功刷新的时刻——原型句「现在显示的是
-        {HH:MM} 更新的列表」说的是手机正在展示的那份列表（来自最后一次成功
-        刷新），不是失败发生的时刻；本进程从没成功过才退回失败时刻。
-        内存态，不落盘、不进日志。
-        """
-        when = self._pc_clock_text()
-        with self._lock:
-            self._pc_list_error = {"reason": str(reason),
-                                   "at": self._pc_list_ok_at or when}
+        return self._activity_list.note_error(reason)
 
     def _do_list(self) -> None:
-        try:
-            self._do_list_inner()
-        except _ClosingError:
-            # 关闭取消：恰一次失败终态收尾（骨架必能结束），但属取消语义，
-            # 不归类组件码、不诱导重下/重检
-            self._emit("activities", {"ok": False,
-                                      "text": "程序正在关闭，活动列表加载已取消",
-                                      "items": []})
-        except OSError as exc:
-            # 进程创建失败（缺文件/权限/其他 OS 层）才归组件码——此前任意
-            # Exception 都会被归成 spawn_failed，数据异常被误报成「重新下载」
-            err_code = _component_error(exc)
-            self._emit("log", "[X] 组件诊断 %s：%s: %s" % (err_code, type(exc).__name__, exc))
-            self._note_pc_list_error("列表程序启动失败")   # EX05/BE2：手机侧要知道列表没加载
-            self._emit("activities", {"ok": False,
-                                      "text": WORKER_PROBLEM_TEXT.get(err_code, "活动列表没能加载"),
-                                      "items": [], "runtime_error": err_code})
-        except Exception as exc:
-            # 数据/解析等普通异常：仍必给恰一次失败终态（此前 FileNotFoundError
-            # 从这里泄出导致骨架永远加载），但不是组件问题——不设 runtime_error、
-            # 不诱导重新下载或重新登录
-            self._emit("log", "[X] 列表请求异常 %s: %s" % (type(exc).__name__, exc))
-            self._note_pc_list_error("活动列表没能加载")   # EX05/BE2
-            self._emit("activities", {"ok": False, "text": "活动列表没能加载", "items": []})
-        finally:
-            with self._lock:
-                self._listing = False
+        return self._activity_list.do_list()
 
     # ---------- 取消报名（计划 20261107-conflict-cancel，X1–X4） ----------
     # 取消不可撤回：只收当前列表缓存里 signed 为真的单个 id；联网动作在一次性 worker 里做
@@ -2389,105 +1976,23 @@ class Api:
     }
 
     def _cancel_busy_reason_locked(self) -> str:
-        """取消能不能开始：返回占用原因，空串表示空闲。调用方持 self._lock。"""
-        if self._closing:
-            return "closing"
-        if self._cancelling:
-            return "cancelling"
-        if self._plan and self._plan.published_status() in {"ready", "running"}:
-            return "plan_running"
-        if any(proc.poll() is None for proc in self._plan_procs.values()):
-            return "plan_running"
-        if self._proc and self._proc.poll() is None:
-            return "task_running"
-        if self._checking or self._listing or self._advanced_busy:
-            return "refreshing"
-        return ""
+        """取消能不能开始：返回占用原因，空串表示空闲。调用方持 self._lock。
+
+        判定已归 application.coordination.Coordinator（G2），这里只作旧名转发。
+        """
+        return self._coord.cancel_busy_reason_locked()
 
     def _cancel_refusal(self, kind: str, reason: str) -> dict:
-        result = {"ok": False, "kind": kind, "reason": reason}
-        text = self.CANCEL_BUSY_TEXT.get(reason) if kind == "busy" else ""
-        if text:
-            result["message"] = text
-        return result
+        return self._signup_cancellation.refusal(kind, reason)
 
     def cancel_signup(self, activity_id: str = "") -> dict:
-        """取消一场已报名的活动。返回 {ok, kind, reason?, message?}：
-
-        kind 取 cancelled / refused / unknown / precheck_failed / busy（含义见
-        domain.cancel_rules）。cancelled 时缓存里这一场的 signed 置假，并发一次
-        activities 事件（与列表刷新同名同形，request_id 为空）让界面立刻更新。
-        """
-        gate = self._terms_gate()
-        if gate is not None:
-            return dict(gate, kind="precheck_failed", reason="terms_required")
-        aid = activity_id.strip() if isinstance(activity_id, str) else ""
-        with self._lock:
-            item = self._activities.get(aid) if aid else None
-            if not item or not item.get("signed"):
-                # 列表外的 id、没报名的 id：不起 worker，也不回显 id 内容
-                return self._cancel_refusal("precheck_failed", "not_in_list")
-            busy = self._cancel_busy_reason_locked()
-            if busy:
-                return self._cancel_refusal("busy", busy)
-            # 占住忙碌标记（_is_busy_locked 读它）：取消期间挡住刷新、登录和开始计划（X3）
-            self._cancelling = True
-        try:
-            result = self._cancel_signup_run(aid)
-        finally:
-            with self._lock:
-                self._cancelling = False
-        # 运行记录只记结果类别与原因，绝不记学校原话（message）
-        self._emit("log", "取消报名：%s%s" % (
-            result.get("kind"), "（%s）" % result["reason"] if result.get("reason") else ""))
-        if result.get("kind") == "cancelled":
-            self._after_cancelled(aid)
-        return result
+        return self._signup_cancellation.cancel(activity_id)
 
     def _cancel_signup_run(self, aid: str) -> dict:
-        if DEMO:
-            # 演示模式完全离线：固定演示结果，不起 worker、不碰学校
-            return {"ok": True, "kind": "cancelled", "demo": True}
-        problem = worker_problem()
-        if problem:
-            self._emit("log", "[X] 组件诊断 %s：组件路径 %s" % (problem, GRAB))
-            return self._cancel_refusal("precheck_failed", "worker_unavailable")
-        try:
-            res = self._run(worker_command("cancel", "--id", aid, "--json"),
-                            timeout=self.CANCEL_WORKER_TIMEOUT_S)
-        except _ClosingError:
-            return self._cancel_refusal("busy", "closing")
-        except OSError as exc:
-            # 进程没起来：学校那边什么都没发生，按前置失败说，不说「结果未知」
-            self._emit("log", "[X] 组件诊断 %s：%s" % (_component_error(exc), type(exc).__name__))
-            return self._cancel_refusal("precheck_failed", "worker_unavailable")
-        except Exception:  # noqa: BLE001 - 不知道 worker 走到了哪一步：按结果未知
-            return _cancel_rules.unknown_result()
-        # 只认 stdout 的最后一行 JSON；stderr 的日志不参与。超时（code -1、stdout 空）
-        # 与任何读不出的输出都是 unknown——worker 可能已经把请求发出去了
-        return _cancel_rules.normalize_worker_result(res.get("stdout", ""))
+        return self._signup_cancellation.run(aid)
 
     def _after_cancelled(self, aid: str) -> None:
-        """取消已由复查确认：缓存里这一场置未报名，并让界面立刻刷新。
-
-        发的是列表刷新同一个 activities 事件，items 是整张缓存（signed 已更新）；
-        request_id 显式留空，界面按「无 ID 的载荷放行」处理，不占用也不对账任何一轮刷新。
-        """
-        with self._lock:
-            item = self._activities.get(aid)
-            if item:
-                item = dict(item)
-                item["signed"] = False
-                item["signed_source"] = "cancelled"
-                item["sync_pending"] = False
-                self._activities[aid] = item
-            items = [dict(it) for it in self._activities.values()]
-            previous_last = self._list_last
-        self._emit("activities", {"ok": True, "items": items, "request_id": ""})
-        # _emit 会把它记成「最近一轮列表的终态」；这不是任何一轮刷新的结果，
-        # 放回去，免得之后去重跳过的刷新把它当终态交出去
-        with self._lock:
-            self._list_last = previous_last
+        return self._signup_cancellation.after_cancelled(aid)
 
     # ---------- 报名结果回写 ----------
     # 学校列表短暂滞后是常态：报名成功后立即刷新仍可能拿到 signed=false。
@@ -2523,99 +2028,10 @@ class Api:
             return True
 
     def _merge_list_activities(self, items: list[dict]) -> list[dict]:
-        """列表刷新结果与本地已确认成功合并（纯策略在 domain.plan_rules）。
-
-        学校说已报名 → 权威；本地已确认成功但学校还没同步 → 窗口内保留
-        signed=true 并标 sync_pending，让界面继续把这场留在「已报名」而不可再选。
-        """
-        try:
-            now = float(self._clock_now())
-        except Exception:
-            now = None            # 没有可信现在：保留本地确认，不按系统时间算窗口
-        return _plan_rules.merge_list_activities(
-            items, self._activities, now, self.SIGNED_SYNC_WINDOW_S)
+        return self._activity_list.merge(items)
 
     def _do_list_inner(self) -> None:
-        if DEMO:
-            items = demo_items()
-            self._activities = {str(it["id"]): it for it in items}
-            with self._lock:
-                self._pc_list_error = None   # EX05/BE2：成功刷新即清空
-                # R-P3-4：记下这份列表的更新时刻，pc_list_error.at 优先用它
-                self._pc_list_ok_at = self._pc_clock_text()
-            self._emit("activities", {"ok": True, "items": items})
-            return
-        clock_wait_s = self._wait_for_list_clock()
-        started = time.monotonic()   # 总用时含 worker 启动；联网段由 [timing] 单独给
-        res = self._run(worker_command("list", "--json"), timeout=120)
-        elapsed = time.monotonic() - started
-        if res["code"] != 0:
-            # EX05/BE2：worker 的退出输出不进快照（可能带站点/路径），只记固定短语
-            self._note_pc_list_error("活动列表没能加载")
-            self._emit("activities", {"ok": False,
-                                      "text": res["out"].strip(), "items": []})
-            return
-        try:
-            # stderr 可能混有辅助日志，列表 JSON 只认 stdout；
-            # 测试里伪造的 _run 没有 stdout 键时退回旧的 out，行为不变
-            raw = res.get("stdout", res["out"])
-            items = json.loads(raw.strip() or "[]")
-        except json.JSONDecodeError:
-            self._note_pc_list_error("活动列表解析失败")   # EX05/BE2
-            self._emit("activities", {"ok": False,
-                                      "text": "活动列表解析失败", "items": []})
-            return
-        # 用时只进运行记录，不进 activities 载荷：stderr 里只认 [timing] 那一行
-        timing_text = "活动列表用时 %.1f 秒" % elapsed
-        try:
-            for line in (res.get("stderr") or "").splitlines():
-                if not line.startswith("[timing] list "):
-                    continue
-                fields = {}
-                for part in line[len("[timing] list "):].split():
-                    if "=" in part:
-                        key, value = part.split("=", 1)
-                        fields[key] = value
-                total_s = float(fields["total_s"])
-                extra = ""
-                if clock_wait_s >= 0.05:
-                    extra += "，等北京时间约 %.1f 秒" % clock_wait_s
-                source = fields.get("filter_time_source", "clock")
-                if source == "school_date":
-                    extra += "，按学校服务器时间筛选"
-                elif source == "none":
-                    extra += "，时钟和学校时间都不可用"
-                timing_text = (
-                    "活动列表用时 %.1f 秒：程序启动约 %.1f 秒，联网约 %.1f 秒"
-                    "（列表约 %d 页，补详情 %d 场%s）"
-                    % (elapsed, max(0.0, elapsed - total_s), total_s,
-                       int(fields.get("pages", 0)),
-                       int(fields.get("details", 0)), extra))
-                break
-        except Exception:
-            timing_text = "活动列表用时 %.1f 秒" % elapsed
-        self._emit("log", timing_text)
-        now = None
-        try:
-            now = self._clock_now()      # 列表「距开放」按业务北京时间
-        except Exception:
-            now = None                   # 校时不可用：显示未知，不用系统时间补
-        # 报名成功后学校列表可能短暂滞后：合并本地已确认成功，再下发界面和缓存。
-        # 合并只读本地缓存、不联网，也不改写学校返回的其它字段。
-        items = self._merge_list_activities(items)
-        for it in items:
-            it["seconds_to_open"] = _seconds_until(it.get("sign_start"), now)
-        with self._lock:
-            self._activities = {str(it.get("id")): dict(it) for it in items if it.get("id")}
-            self._pc_list_error = None   # EX05/BE2：成功刷新即清空
-            # R-P3-4：记下这份列表的更新时刻，pc_list_error.at 优先用它
-            self._pc_list_ok_at = self._pc_clock_text()
-        # 详情补充是逐活动异步完成的：把「还在同步/已失败」如实交给界面，
-        # 不让整张列表因为某一场详情查不到而失败。
-        pending = sum(1 for it in items if it.get("attendance_state") == "pending")
-        failed = sum(1 for it in items if it.get("attendance_state") == "unknown")
-        self._emit("activities", {"ok": True, "items": items,
-                                  "attendance": {"pending": pending, "unknown": failed}})
+        return self._activity_list.do_list_inner()
 
     # ---------- 动作 ----------
     def login(self) -> dict:
@@ -2660,435 +2076,31 @@ class Api:
     FINISHED_PLAN_KEEP = 32
 
     def _prune_finished_plans_locked(self) -> None:
-        """已完成计划登记只留最近有限条（调用方持锁）。"""
-        if len(self._finished_plan_ids) <= self.FINISHED_PLAN_KEEP:
-            return
-        for plan_id in list(self._finished_plan_ids)[:-self.FINISHED_PLAN_KEEP]:
-            self._finished_plan_ids.pop(plan_id, None)
+        return self._plan_manager.prune_finished_plans_locked()
 
     def _protect_start(self, request_id: str) -> bool:
-        """留档淘汰候选的保护：待确认请求，以及仍在运行的最新已接纳请求。
-
-        运行中的计划会持续用它的 request_id 发 task/plan_done 事件；一旦记录被
-        大量拒绝请求挤出上限，对账就只剩 unknown，客户端无法确认「到底启没启」。
-        """
-        record = self._start_requests.get(request_id) or {}
-        state = record.get("state")
-        if state == "pending":
-            return True
-        if state != "accepted":
-            return False
-        plan_id = str(record.get("plan_id") or "")
-        return bool(plan_id and plan_id == self._latest_plan_id
-                    and self._plan is not None and self._plan.plan_id == plan_id)
+        return self._plan_manager.protect_start(request_id)
 
     def _remember_start(self, request_id: str, state: str, **extra) -> None:
-        """登记开始请求的结论（调用方持锁）。只保留最近 32 条，受保护记录不驱逐。"""
-        record = dict(self._start_requests.get(request_id) or {})
-        record.update({"state": state, "at": record.get("at") or time.time()})
-        record.update(extra)
-        self._start_requests[request_id] = record
-        if request_id in self._start_order:
-            self._start_order.remove(request_id)
-        self._start_order.append(request_id)
-        while len(self._start_order) > self.START_KEEP:
-            victim = next((rid for rid in self._start_order
-                           if not self._protect_start(rid)), None)
-            if victim is None:
-                break
-            self._start_order.remove(victim)
-            self._start_requests.pop(victim, None)
+        return self._plan_manager.remember_start(request_id, state, **extra)
 
     def _start_replay(self, record: dict, request_id: str) -> dict:
-        """同一 request_id 重放：返回原结论，绝不另建计划。"""
-        state = record.get("state")
-        if state in {"accepted", "rejected"}:
-            return dict(record.get("result") or {}, request_id=request_id, duplicate=True)
-        if state == "canceled":
-            return {"ok": False, "text": "这次开始已取消，可以重新发起。",
-                    "request_id": request_id, "canceled": True}
-        return {"ok": True, "queued": True, "pending": True, "request_id": request_id,
-                "text": "正在确认是否启动，请稍候"}
+        return self._plan_manager.start_replay(record, request_id)
 
     def start_request_state(self, request_id: str) -> dict:
-        """只读对账：这次开始到底是 pending / accepted / rejected / canceled。"""
-        rid = str(request_id or "")
-        with self._lock:
-            record = self._start_requests.get(rid)
-            if record is None and rid in getattr(self, "_canceled_start_ids", set()):
-                record = {"state": "canceled"}
-            plan = self._plan
-            # 代次只在该请求的计划仍是最近接纳计划时给出：对旧请求对账不得
-            # 伪造成最新接纳代次（P1）
-            generation = (self._plan_generation
-                          if str(record.get("plan_id") or "") == self._latest_plan_id
-                          else 0) if record else 0
-        if not record:
-            return {"ok": True, "state": "unknown", "request_id": rid,
-                    "text": "没有这次开始的记录，可能程序重启过"}
-        state = str(record.get("state") or "unknown")
-        plan_id = str(record.get("plan_id") or "")
-        payload = {"ok": True, "state": state, "plan_id": plan_id, "request_id": rid,
-                   "plan_generation": generation}
-        if state == "accepted":
-            if plan is not None and plan.plan_id == plan_id:
-                snapshot = plan.snapshot()
-                payload["running"] = snapshot.get("status") in {"ready", "running"}
-                payload["snapshot"] = snapshot
-            else:
-                # 计划已经收尾：返回这次请求自己的终态快照，不借别的较新计划
-                payload["running"] = False
-                payload["finished"] = True
-                payload["snapshot"] = record.get("snapshot") or {
-                    "status": record.get("final_status") or "unknown",
-                    "summary": {}, "tasks": []}
-            payload["status"] = (payload.get("snapshot") or {}).get("status")
-        else:
-            payload["text"] = str((record.get("result") or {}).get("text") or "")
-        return payload
+        return self._plan_manager.start_request_state(request_id)
 
     def cancel_start_request(self, request_id: str) -> dict:
-        """放弃待确认的开始；未知 ID 先登记取消，拦住网络中迟到的原请求。"""
-        rid = str(request_id or "")
-        if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", rid):
-            return {"ok": False, "text": "开始请求标识无效，请重试。"}
-        with self._lock:
-            record = self._start_requests.get(rid)
-            canceled_ids = self.__dict__.setdefault("_canceled_start_ids", set())
-            if rid in canceled_ids:
-                return {"ok": True, "state": "canceled", "request_id": rid}
-            if (not record or record.get("state") == "pending") and len(canceled_ids) >= 1024:
-                return {"ok": False, "error": "cancel_capacity",
-                        "text": "取消记录已满，请等待本次对账结果。"}
-            if not record:
-                canceled_ids.add(rid)
-                self._remember_start(rid, "canceled")
-                return {"ok": True, "state": "canceled", "request_id": rid}
-            if record.get("state") == "canceled":
-                return {"ok": True, "state": "canceled", "request_id": rid}
-            if record.get("state") == "pending":
-                canceled_ids.add(rid)
-                record["state"] = "canceled"
-                return {"ok": True, "state": "canceled", "request_id": rid}
-            if record.get("state") == "accepted":
-                # 已被接纳就不能再答复「取消成功」：给出真实 plan_id 让界面去停止
-                return {"ok": False, "state": "accepted",
-                        "plan_id": str(record.get("plan_id") or ""),
-                        "request_id": rid,
-                        "text": "这次开始已经被接纳，请用「停止计划」结束"}
-            return {"ok": False, "state": record.get("state"),
-                    "text": "这次开始已经有结论，不能再取消"}
+        return self._plan_manager.cancel_start_request(request_id)
 
     def start_plan(self, items: list[dict], headed: bool = False,
                    retry_policy: dict | None = None, request_id: str = "",
                    source: str = "desktop") -> dict:
-        """校验并启动计划；带 request_id 时按进程内登记实现幂等（R11）。
-
-        UI 的超时不能靠「清掉正在提交」来放行第二次开始——那可能真的重复报名。
-        这里按 request_id 记住接纳/拒绝结论：同 ID 再来返回原结论，
-        另提供只读对账与取消接纳，让界面能问清楚「到底启没启」。
-        """
-        rid = request_id if isinstance(request_id, str) else ""
-        if rid and not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", rid):
-            return {"ok": False, "text": "开始请求标识无效，请重试。"}
-        if rid:
-            # 查重与占位必须在同一临界区：分成两段锁会让两个同 ID 请求
-            # 都读到「不存在」，然后各自去建计划（C04）
-            with self._lock:
-                known = self._start_requests.get(rid)
-                if rid in getattr(self, "_canceled_start_ids", set()):
-                    known = {"state": "canceled"}
-                if known is not None:
-                    replay = self._start_replay(known, rid)
-                else:
-                    self._remember_start(rid, "pending")
-                    replay = None
-            if replay is not None:
-                return replay
-        # 条款门禁放在「幂等重放之后、真正建计划之前」：已接纳/已拒绝的
-        # 结论照旧重放，新的请求未获授权则立即把本次登记收成 rejected，
-        # 既不留下悬空 pending，也不启动计划协调器与任何 worker。
-        gate = self._terms_gate()
-        if gate is not None:
-            rejected = dict(gate)
-            if rid:
-                rejected["request_id"] = rid
-                with self._lock:
-                    record = self._start_requests.get(rid) or {}
-                    if record.get("state") == "pending":
-                        self._remember_start(rid, "rejected", result=rejected)
-            return rejected
-        # 来源只认两个值：手机端由 phone_service 在服务端补上，界面传别的一律当电脑
-        with self._lock:
-            self._next_plan_source = "phone" if source == "phone" else "desktop"
-        try:
-            result = self._start_plan_inner(items, headed, retry_policy, rid)
-        except Exception as exc:  # noqa: BLE001 - 本机异常也要留下真实结论
-            with self._lock:
-                record = self._start_requests.get(rid) or {}
-                if rid and record.get("state") not in {"accepted", "canceled"}:
-                    self._remember_start(rid, "rejected",
-                                         result={"ok": False,
-                                                 "text": "开始计划时本机异常：%s"
-                                                         % type(exc).__name__})
-            return {"ok": False, "text": "开始计划时本机异常：%s" % type(exc).__name__,
-                    "request_id": rid}
-        if rid:
-            with self._lock:
-                record = self._start_requests.get(rid) or {}
-                state = record.get("state")
-                if state == "canceled":
-                    # 取消先赢：如实返回取消，不把结论覆盖成 accepted/rejected
-                    result = {"ok": False, "text": "这次开始已取消，可以重新发起。",
-                              "canceled": True}
-                elif state == "accepted":
-                    # inner 已在线性化点写过接纳结论，外层不得覆盖
-                    result = dict(record.get("result") or result)
-                else:
-                    self._remember_start(
-                        rid, "accepted" if result.get("ok") else "rejected",
-                        plan_id=str(result.get("plan_id") or ""), result=dict(result))
-        return dict(result, request_id=rid) if rid else result
+        return self._plan_manager.start_plan(items, headed, retry_policy, request_id, source)
 
     def _start_plan_inner(self, items: list[dict], headed: bool,
                           retry_policy: dict | None, request_id: str = "") -> dict:
-        with self._lock:
-            plan_source = getattr(self, "_next_plan_source", "desktop")
-            self._next_plan_source = "desktop"
-        if not isinstance(items, list) or not items:
-            return {"ok": False, "text": "先至少选择一场活动"}
-        # 北京时间门禁（决策 012）：时钟不可用时不新启自动报名（demo 离线豁免）；
-        # 计划接纳时刻只取一次业务 now——开始后的校时/鉴权/开页不后移 instant 窗口
-        if not DEMO and not self._clock_ready():
-            return {"ok": False,
-                    "text": "北京时间还没有校准，暂不能开始自动报名；稍后点「重新校时」再试。"}
-        accepted_at = self._clock_now()
-        with self._lock:
-            if self._closing:
-                return {"ok": False, "text": "程序正在关闭，已取消开始计划"}
-            if not DEMO and not self._clock_ready():
-                return {"ok": False,
-                        "text": "北京时间在开始前失去校准，这次没有启动；稍后重试。"}
-            if self._is_busy_locked():
-                return {"ok": False, "text": "已有登录、报名或计划在运行，先停止后再开始"}
-        # 真实计划只在学校接口确认登录有效后开始（最终防线，界面按钮门禁之外）：
-        # checking / unknown / none / expired 一律拒绝并给出下一步；demo 没有真实
-        # 登录态，继续走演示流程不受此限。
-        if not DEMO:
-            problem = worker_problem()
-            if problem:
-                # 组件不齐的计划必然全场失败：这里就拒绝，不让用户等到点才发现；
-                # demo 模式不起 worker，不做此检查
-                return {"ok": False,
-                        "text": "%s；计划没法开始" % WORKER_PROBLEM_TEXT[problem],
-                        "error": problem}
-            with self._lock:
-                checking = self._checking
-                last = dict(self._last_check)
-            if checking:
-                return {"ok": False, "text": "正在检查登录态，等这次检查完成再开始"}
-            result = last.get("result") or "unknown"
-            if result == "valid":
-                pass                     # 学校接口确认有效：唯一放行形态
-            elif result == "none":
-                return {"ok": False, "text": "还没有登录：打开顶栏的登录状态，点「登录」先登录一次"}
-            elif result == "expired":
-                return {"ok": False, "text": "登录态已失效：打开顶栏的登录状态，点「重新登录」后再开始"}
-            else:
-                return {"ok": False,
-                        "text": "暂时无法确认登录态：点「刷新」重试，确认登录有效后再开始"}
-
-        policy = retry_policy if isinstance(retry_policy, dict) else {}
-        # 三种模式：正数=硬时长，0=直到截止，-1=自动延长（最多25分钟）；
-        # 其他负值/非法值回 120，不猜用户意图
-        retry_for_s = _retry_rules.policy_int(policy.get("retry_for_s"), 120,
-                                              minimum=_retry_rules.ADAPTIVE_RETRY)
-        max_attempts = _retry_rules.policy_int(policy.get("max_attempts"), 0)
-
-        # 计划项归一化/门禁的纯策略在 domain.plan_rules：前端只提交「选了哪
-        # 一场」，资格与时间一律以本进程缓存为准（R05）；不合格整单拒绝。
-        normalized, error = _plan_rules.normalize_plan_items(
-            items, self._activities, accepted_at)
-        if error is not None:
-            return error
-        # 模式分类/冲突校验的纯函数在此注入 signup_plan（domain 不直连）
-        error = _plan_rules.closed_items_error(
-            normalized, accepted_at, classify_signup_mode)
-        if error is not None:
-            return error
-        # 已报名活动占用的举办时段也是冲突基线：学校列表 signed=true 的全量活动
-        # 与本次选择按 act_start/act_end 比较。缓存读取加锁：worker 线程可能正在
-        # 回写报名结果（dict 迭代中变更会抛 RuntimeError）。
-        with self._lock:
-            signed_baseline = [dict(item) for item in self._activities.values()
-                               if item.get("signed")]
-        checked = _plan_rules.check_conflicts(
-            normalized, accepted_at, signed_baseline, validate_plan)
-        if not checked["ok"]:
-            return checked
-
-        plan_id = uuid.uuid4().hex[:12]
-        with self._lock:
-            self._plan_sources[plan_id] = plan_source
-            # 只留最近几份：页面重载、手机快照只会问到最近的计划
-            for stale in list(self._plan_sources)[:-16]:
-                self._plan_sources.pop(stale, None)
-        specs = [TaskSpec.from_activity(item, "task-%02d-%s" % (i + 1, item["id"]), headed,
-                                        retry_for_s=retry_for_s, max_attempts=max_attempts,
-                                        now=accepted_at)
-                 for i, item in enumerate(normalized)]
-
-        # 接纳代次在下方最终接纳的同一临界区赋值；emit 闭包捕获自己的代次，
-        # 事件与终态快照的归属都按代次判定，不以 _plan 槽为空推断（P1）
-        accepted_generation = [0]
-
-        def annotated(payload: dict) -> dict:
-            """内部桥接事件统一携带 plan_id/plan_generation/request_id（P1）。"""
-            data = dict(payload) if isinstance(payload, dict) else {}
-            data.setdefault("plan_id", plan_id)
-            data["plan_generation"] = accepted_generation[0]
-            data["source"] = plan_source
-            if "request_id" not in data:
-                rid = next((key for key, value in self._start_requests.items()
-                            if value.get("plan_id") == plan_id), "")
-                if rid:
-                    data["request_id"] = rid
-            return data
-
-        def emit(kind: str, payload: dict) -> None:
-            # 报名结果先回写活动缓存，再转发事件：界面收到 task/plan_done 时，
-            # 后端立场（下一次开始会不会重新接纳这场）已经同步更新。
-            if kind == "task" and isinstance(payload, dict):
-                status = str(payload.get("status") or "")
-                if status in {"success", "already_signed"}:
-                    self._confirm_signed(str(payload.get("activity_id") or ""), status)
-            if kind != "plan_done":
-                # 旧计划迟到的进度事件不得广播到当前界面：事件只属于最近
-                # 接纳的计划；历史计划的进度仍可按 request_id 只读对账（P1）
-                with self._lock:
-                    is_latest = self._latest_plan_id == plan_id
-                    forward = annotated(payload) if is_latest else None
-                if is_latest:
-                    self._emit(kind, forward)
-                return
-            # 完成状态先提交、再发布：收到 plan_done 的同步回调（测试、未完成的
-            # bootstrap、开始对账）必须当场就看到 _plan 已清空、终态快照与
-            # request_id 记录已可读；先发事件再改状态会留下可观察的中间态（FR05）。
-            # 快照在 Api 锁外取：协调器锁只在它自己内部持有，反向边不再成环（P2-1）。
-            # plan_done 发出时所有任务已终态，这里的快照就是终态快照。
-            try:
-                snapshot = coordinator.snapshot()
-            except Exception:
-                snapshot = None
-            with self._lock:
-                owns_slot = self._plan is coordinator
-                if owns_slot:
-                    self._plan = None
-                elif (self._plan is None
-                      and self._latest_plan_id == plan_id):
-                    # 关闭/停止已把当前计划清空：只有「这就是最近接纳的计划」
-                    # 时才算它的收尾。槽为空≠归属——较新计划已结束后，旧计划
-                    # 的迟到完成不得覆盖它的终态快照（P1）
-                    owns_slot = True
-                first_done = not self._finished_plan_ids.get(plan_id)
-                if owns_slot and first_done:
-                    # 终态快照只写一次：重复终态不得把已定结论改成另一状态；
-                    # 旧计划迟到的 plan_done 不得覆盖后来计划或它的终态快照
-                    self._finished_plan_ids[plan_id] = True
-                    self._prune_finished_plans_locked()
-                    self._last_plan = snapshot
-                if first_done:
-                    # 终态快照按 request_id 留档：ack 丢了也要能核实「已经结束」（C05）
-                    rid = next((key for key, value in self._start_requests.items()
-                                if value.get("plan_id") == plan_id), "")
-                    if rid:
-                        final_status = str(payload.get("status")
-                                           or (snapshot or {}).get("status") or "")
-                        self._remember_start(
-                            rid, "accepted", plan_id=plan_id, finished=True,
-                            final_status=final_status,
-                            snapshot={"status": final_status,
-                                      "summary": payload.get("summary") or {},
-                                      "tasks": (snapshot or {}).get("tasks") or []})
-                forward_done = self._latest_plan_id == plan_id
-                forward_payload = annotated(payload) if forward_done else None
-            # 先提交后发布（顺序保留，FR05）；旧计划的完成事件不广播（P1）
-            if forward_done:
-                self._emit("plan_done", forward_payload)
-                self._notify_plan_done(snapshot)
-
-        def runner(spec: TaskSpec, cancel_event: threading.Event,
-                   status: callable) -> dict:
-            if DEMO:
-                # demo 只演示任务状态，不创建 grab.py 子进程，也不访问学校站点。
-                status("submitting", {"detail": "演示：正在提交"})
-                for _ in range(4):
-                    if cancel_event.is_set():
-                        return {"status": "canceled", "reason": "你取消了这一场"}
-                    time.sleep(0.05)
-                if spec.activity_id.endswith("career"):
-                    return {"status": "failed", "code": 2, "reason": "演示：名额已满"}
-                return {"status": "success", "code": 0, "reason": "演示：报名成功"}
-            try:
-                return self._run_plan_task(spec, cancel_event, status)
-            except _SpawnFailure as exc:
-                # 没拿到进程树所有权就不会有网络或浏览器动作：这一场如实记成
-                # 「本机没能启动」，既不冒充学校拒绝，也不静默降级成无主进程。
-                return {"status": "failed", "code": None,
-                        "reason": "本场没能启动：%s" % exc,
-                        "stop_reason": "spawn_failed", "attempts": 0}
-            except _ClosingError:
-                # 关闭拒绝落到协调器里就是取消：不冒充报名失败，也不让异常
-                # 冲出 runner 污染任务状态（协调器业务不改）
-                return {"status": "canceled", "code": None,
-                        "reason": "程序正在关闭，本场次未启动"}
-
-        coordinator = PlanCoordinator(plan_id, specs, runner, emit,
-                                      now=self._clock_now)
-        with self._lock:
-            # FB1 最终接纳点：从开头的 busy 检查到这里隔着校验与构建，期间
-            # 可能已有别的请求预留计划、或关闭已开始——同一临界区内重检并
-            # 只允许一个请求预留唯一协调器，未接纳的请求不启动、不覆盖
-            if self._closing:
-                return {"ok": False, "text": "程序正在关闭，已取消开始计划"}
-            if not DEMO and not self._clock_ready():
-                return {"ok": False,
-                        "text": "北京时间在开始前失去校准，这次没有启动；稍后重试。"}
-            if self._is_busy_locked():
-                return {"ok": False, "text": "已有登录、报名或计划在运行，先停止后再开始"}
-            # 取消接纳与最终预留同一临界区：pending 期间点了取消，
-            # 这里必须拒绝，绝不能先占位再补一个「已取消」的计划
-            if request_id and self._start_requests.get(request_id, {}).get("state") == "canceled":
-                return {"ok": False, "text": "这次开始已取消，可以重新发起。",
-                        "canceled": True}
-            self._plan = coordinator
-            self._last_plan = None
-            # 接纳代次与最近接纳计划在同一临界区赋值：此后所有事件/快照的
-            # 归属判定都以这一线性化点为基准（P1）
-            self._plan_generation += 1
-            accepted_generation[0] = self._plan_generation
-            self._latest_plan_id = plan_id
-            if request_id:
-                # 接纳与预留同一线性化点：此后取消只能回报真实 plan_id（C04）
-                self._remember_start(request_id, "accepted", plan_id=plan_id,
-                                     result={"ok": True, "queued": True,
-                                             "plan_id": plan_id})
-        try:
-            # start 在 Api 锁外：协调器启动会 emit 回调（plan 事件要拿 _lock），
-            # 锁内调用会双向等死
-            coordinator.start()
-        except Exception:
-            # 启动失败只撤销本请求仍持有的预留，不碰别的计划，不残留 busy
-            with self._lock:
-                if self._plan is coordinator:
-                    self._plan = None
-                if request_id:
-                    self._remember_start(request_id, "rejected", plan_id="",
-                                         result={"ok": False,
-                                                 "text": "计划没能开始，请再试一次"})
-            return {"ok": False, "text": "计划没能开始，请再试一次"}
-        return {"ok": True, "queued": True, "plan_id": plan_id,
-                "plan_generation": accepted_generation[0]}
+        return self._plan_manager.start_plan_inner(items, headed, retry_policy, request_id)
 
     def cancel_task(self, plan_id: str, task_id: str) -> dict:
         with self._lock:
@@ -3111,21 +2123,7 @@ class Api:
         return {"ok": True, "text": "已停止计划"}
 
     def _terminate_plan_procs(self) -> None:
-        """立刻按进程树终止计划里所有活着的 worker（登记表只含本实例的句柄）。"""
-        with self._lock:
-            trees = list(self._plan_trees.values())
-            procs = list(self._plan_procs.values())
-        covered = set()
-        for tree in trees:
-            # 父进程已经退出时 kill_tree 会提前返回；Job 端口才能收走 Playwright 后代
-            try:
-                if tree.terminate():
-                    covered.add(id(tree.proc))
-            except Exception:
-                pass
-        for proc in procs:
-            if id(proc) not in covered:
-                _kill_tree(proc)
+        return self._worker_service.terminate_plan_procs()
 
     def plan_active_for_close(self) -> bool:
         """计划在跑或已就绪：关窗必须先问，不能静默最小化/退出。"""
@@ -3378,104 +2376,7 @@ class Api:
                 pass
 
     def shutdown(self) -> None:
-        """窗口正常关闭的进程收尾：先同锁置关闭屏障并取快照，再停协调器、树终止**仅本 Api 登记**的 worker。
-
-        关闭屏障：_closing 与一切 worker 创建/登记共用 _lock——快照取到时，
-        任何「已开始创建」的进程必然已登记完成（创建若还没进锁，随后会被
-        _closing 拒绝），因此快照是完备的，收走不会漏；锁外调用 plan.stop 与
-        树终止：协调器回调与任务线程的登记/清理都需要 _lock，锁内等待会互相
-        等死。重复/并发 shutdown：后到调用在锁外等待首次收尾的完成 Event，
-        返回即代表收尾真正完成——入口置位不算 done，主正常退出不会先于收尾
-        完成继续 finalize。
-        覆盖登录/单活动（_proc）、计划任务（_plan_procs）与 check/list（_aux_trees）；
-        onefile 主程序退出后运行期资源根即消失，留下还握着它的孤儿 worker 只会
-        拿着旧资源继续跑——必须先收干净再 finalize 生命周期。
-        绝不按进程名扫杀：用户可能同时开着别的实例或别的程序，只动自己登记的进程。
-        """
-        # 托盘图标先撤：窗口都收尾了还挂着一个图标，用户点它只会点出幽灵窗口
-        self._stop_tray()
-        with self._lock:
-            if self._closing:
-                # 已有收尾在进行：后到调用不重取快照、不重复 stop/kill，
-                # 在锁外等同一个完成 Event——返回即代表收尾真正完成（FB2）
-                done_event = self._shutdown_done_event
-            else:
-                done_event = None
-                self._closing = True
-                plan = self._plan
-                plan_procs = list(self._plan_procs.values())
-                plan_trees = list(self._plan_trees.values())
-                aux_procs = list(self._aux_procs)
-                aux_trees = list(self._aux_trees.items())
-                proc = self._proc
-                proc_tree = self._proc_tree
-        if done_event is not None:
-            done_event.wait()
-            return
-        try:
-            # 等组件目录替换提交/回滚完毕，再让主进程和 onefile 资源退出。
-            for name in ("_component_service", "_ocr_component_service"):
-                component_service = getattr(self, name, None)
-                if component_service is not None:
-                    component_service.shutdown()
-            self._auto_relogin.stop()
-            # 手机入口先收：有界取消中继、关 HTTP、撤销会话，再走进程收尾
-            try:
-                self._relay.shutdown()
-            except Exception:
-                pass
-            try:
-                self._stop_cloudflare_checked()
-                # 正常退出只是关程序：保留设备信任，下次恢复入口不用重新配对；
-                # 用户在界面里手动关闭才走 stop(revoke_devices=True)。
-                self._phone.shutdown(preserve_devices=True)
-                self._phone_channel = ""
-            except Exception:
-                pass
-            if plan:
-                try:
-                    plan.stop()
-                except Exception:
-                    pass   # 窗口已在关闭，收尾尽力而为，不让异常挡住生命周期写入
-            covered = set()
-            for tree in plan_trees:
-                # 受管树先走 Job 端口：父进程已退出时它仍能收走 Playwright 后代
-                try:
-                    if tree.terminate():
-                        covered.add(id(tree.proc))
-                except Exception:
-                    pass
-            for orphan in plan_procs:
-                if id(orphan) not in covered:
-                    _kill_tree(orphan)
-            aux_covered = set()
-            for proc_, tree in aux_trees:
-                try:
-                    if tree.terminate():
-                        aux_covered.add(id(proc_))
-                except Exception:
-                    pass
-            for orphan in aux_procs:
-                if id(orphan) not in aux_covered:
-                    # 兼容旧登记：只有没有可用 aux tree 时才按 PID 兜底。
-                    _kill_tree(orphan)
-            for _proc, tree in aux_trees:
-                try:
-                    tree.close()
-                except Exception:
-                    pass
-            if proc_tree is not None:
-                try:
-                    proc_tree.terminate()
-                except Exception:
-                    pass
-                finally:
-                    proc_tree.close()
-            elif proc and proc.poll() is None:
-                _kill_tree(proc)
-        finally:
-            # 完成信号在收尾 finally 发出：提前置位会让后到调用先于真正收尾返回
-            self._shutdown_done_event.set()
+        return self._desktop_lifecycle.shutdown()
 
     def stop(self) -> dict:
         with self._lock:
@@ -3510,393 +2411,52 @@ class Api:
 
     # ---------- 手机受限访问（默认关闭） ----------
     def _phone_raw_state(self) -> dict:
-        """手机状态投影的原料：只读本机缓存，绝不因此触发学校流量。"""
-        with self._lock:
-            activities = [dict(item) for item in self._activities.values()]
-            plan = self._plan
-            last_plan = self._last_plan
-            busy = self._is_busy_locked()
-            # EX05/BE2：给副本，投影层与调用方都改不到内存里的原件
-            pc_list_error = dict(self._pc_list_error) if self._pc_list_error else None
-        snapshot = None
-        if plan is not None:
-            try:
-                snapshot = plan.snapshot()
-            except Exception:
-                snapshot = None
-        if snapshot is None:
-            snapshot = last_plan
-        if isinstance(snapshot, dict):
-            snapshot = dict(snapshot)
-            snapshot.setdefault("source", self._plan_source_of(snapshot.get("plan_id")))
-        login = login_state(self._clock)
-        # 手机页也写上次校验时刻（与 bootstrap.login 同一口径，ui-amendment-002）
-        with self._lock:
-            last_check = dict(self._last_check)
-        login.update(_last_check_fields(last_check))
-        # 学校判失效但电脑正在静默自动重登：手机登录行据此写「电脑正在自动重新登录」，
-        # 不出失效横幅（与桌面胶囊同口径）。只在最近一次校验是 expired 时才算，
-        # 避免每次手机轮询都去读账号和组件状态。
-        if login.get("last_check_state") == "expired":
-            try:
-                login["recovering"] = bool(self._silent_relogin_state()[0])
-            except Exception:  # noqa: BLE001 - 判据读不到就按「没在恢复」，照旧提醒
-                login["recovering"] = False
-        prefs = load_prefs()
-        retry_pref = prefs.get("retry_policy") if isinstance(prefs, dict) else None
-        retry_pref = retry_pref if isinstance(retry_pref, dict) else {}
-        retry_policy = {
-            "retry_for_s": _retry_rules.policy_int(
-                retry_pref.get("retry_for_s"), 120,
-                minimum=_retry_rules.ADAPTIVE_RETRY),
-            "max_attempts": _retry_rules.policy_int(
-                retry_pref.get("max_attempts"), 0),
-        }
-        return {
-            "activities": activities,
-            "login": login,
-            "plan": snapshot,
-            "busy": busy,
-            "business_clock": self._clock_payload(),
-            "retry_options": _retry_options_payload(),
-            "retry_policy": retry_policy,
-            "terms": terms_state(load_prefs()),
-            # 手机端条款门和电脑同源：没同意当前版本时手机停在缓存，不能开始计划或重新登录
-            "terms_ok": self._terms_gate() is None,
-            # 手机重新登录要知道电脑有没有账号、有没有验证码识别；账号只给打码后的样子
-            "relogin_setup": self._phone_relogin_setup(),
-            # relay 公开状态只含阶段/挑战图，不含账号密码、token 或 DPAPI 密文；
-            # 电脑自己认图时投影层会把验证码抹掉，手机只看到「重试中」
-            "login_relay": self._phone_relay_view(),
-            # EX05/BE2：电脑侧最近一次拉活动列表失败（原因短语 + 北京 HH:MM）；
-            # 正常时为 None。project_state（strip_sensitive）是黑名单制投影，
-            # 这两个键不含敏感片段、值是定长短语，原样放行
-            "pc_list_error": pc_list_error,
-        }
+        return self._phone_controller.raw_state()
 
     def _phone_relogin_setup(self) -> dict:
-        """手机重新登录表单需要的四件事：有没有保存账号、账号打码、识别装没装、是否暂停。"""
-        saved = _credential_store.has_credentials(CREDENTIAL_FILE)
-        hint = ""
-        if saved:
-            try:
-                hint = _login_rules.mask_account(_credential_store.stored_username(CREDENTIAL_FILE))
-            except Exception:
-                saved = False
-        try:
-            ocr = bool(self._relogin_ocr_ready())
-        except Exception:
-            ocr = False
-        return {"saved": saved, "account_hint": hint, "ocr_ready": ocr,
-                "paused": bool(saved and _credential_store.is_bad(CREDENTIAL_FILE))}
+        return self._phone_controller.relogin_setup()
 
     def _cloudflare_status_snapshot(self) -> tuple[dict, dict]:
-        """读一次隧道状态，顺手把「异常退出」收成可复用的退出提示。
-
-        CloudflareTunnel.status() 只报一次 exited，读完就把子进程句柄与地址清掉，
-        下一次读到的只会是 stopped。一次响应里要读好几处状态，所以退出结论必须
-        在这里留住；返回 (本次状态, 仍然有效的退出提示)，提示为空 dict 表示没有。
-        """
-        status = self._cloudflare.status()
-        if status.get("state") == "exited":
-            self._cloudflare_exit_notice = dict(status)
-        return status, dict(self._cloudflare_exit_notice or {})
+        return self._phone_controller.status_snapshot()
 
     def _reconcile_cloudflare_lifecycle(self) -> dict:
-        """Cloudflare 临时通道的生命周期对账：隧道没了就把这条通道彻底收口。
-
-        进程异常退出等于这条临时通道已经失效：手机服务没有公网入口了，旧地址和
-        二维码也注定打不开，所以立刻停服务、撤销会话、清空通道与地址，让界面拿到
-        running=false、address=''、qr=''。必须幂等——状态刷新会被反复调用，手机已经
-        停下、通道已经清空时再来一次什么都不做。
-        """
-        _, notice = self._cloudflare_status_snapshot()
-        if not notice:
-            return {}
-        with self._phone_access_lock:
-            if self._phone_channel != "cloudflare":
-                return {}
-            if self._phone.is_running():
-                self._stop_phone_access()
-            self._phone_channel = ""
-            phone_log("Cloudflare 隧道已退出：手机访问随之停止，手机需要重新开启并重新配对")
-            self._emit("log", "Cloudflare 临时通道已失效，请重新开启手机访问")
-        return dict(notice)
+        return self._phone_controller.reconcile()
 
     def phone_access_state(self) -> dict:
-        """帮助弹窗：监听状态、远程通道、地址、二维码与一次性配对码。
+        return self._phone_controller.snapshot()
 
-        配对码只在这里给桌面面板显示，不进 URL、不落日志、不发给未配对手机。
-        """
-        # 先对账再读：同一次响应不得把已经失效的旧地址或旧二维码带回界面
-        self._reconcile_cloudflare_lifecycle()
-        service = self._phone
-        prefs = load_prefs()
-        feature = _advanced_features.feature_state(
-            prefs, root=DATA_DIR, frozen=bool(getattr(sys, "frozen", False))).get(
-                _advanced_features.PHONE_CONTROL, {})
-        address = service.address()
-        prefs_info = _phone_access_prefs(prefs)
-        # 一次取全：配对码、剩余有效秒数、换码序号（界面靠 seq/reason 提示码已换新）
-        code_info = service.pair_code_status()
-        # 三份状态各归各：能力（组件装没装）、通道（网络入口通不通）、当前跑的是哪条。
-        # 前端不允许用单个 ready 推导全部状态——那正是「ddddocr 没装却说手机控制
-        # 不可用」那类串台的老毛病。
-        advanced = self.advanced_features_state()
-        channels = dict(advanced.get("channels") or {})
-        return {"ok": True,
-                "feature": feature,
-                "features": {"phone_control": dict(feature)},
-                "channels": channels,
-                "active_channel": self._phone_channel,
-                "running": service.is_running(),
-                "channel": self._phone_channel,
-                "address": address,
-                "qr": _phone_qr_data(address),
-                "pair_code": code_info["code"],
-                "pair_code_status": code_info,
-                # B1：本次开启后成功兑换配对码的次数，停止手机访问时清零；
-                # 「手机已连接」靠它判断，不靠 pair_code_status 的瞬时 reason
-                "paired_count": service.paired_count(),
-                # fe-phone（审核决定 A4）：设备信任恢复会话时 paired_count 为 0，「手机已连接」
-                # = paired_count > 0 或 live_session；只给布尔，stop() 本就清会话，停着时一定为假
-                "live_session": bool(service.is_running() and service.has_live_session()),
-                **service.link_status(),
-                "supported": bool(feature.get("ready")),
-                # 通道选择的单一真源：界面只显示，不自己推断该恢复哪一个
-                "preferred_channel": prefs_info["preferred_channel"],
-                "tailscale_autostart": prefs_info["tailscale_autostart"],
-                "advanced": self.advanced_features_state()}
-
-    def start_phone_access(self, channel: str = "tailscale") -> dict:
-        with self._phone_access_lock:
-            return self._start_phone_access(channel)
+    def start_phone_access(self, channel: str='tailscale') -> dict:
+        return self._phone_controller.start(channel)
 
     def _start_phone_access(self, channel: str) -> dict:
-        """开启远程手机入口：Tailscale 或 Cloudflare，局域网不作为产品入口。"""
-        prefs = load_prefs()
-        if not _advanced_features.feature_ready(prefs, _advanced_features.PHONE_CONTROL, root=DATA_DIR):
-            return {"ok": False, "error": "feature_required",
-                    "text": "请先在帮助里的高级功能安装手机控制。"}
-        selected = str(channel or "tailscale").strip().lower()
-        # 保留旧测试/开发调用的回环入口；帮助界面只提供两个远程通道。
-        if selected in {"127.0.0.1", "localhost"}:
-            selected = "local"
-        if selected not in {"tailscale", "cloudflare", "local"}:
-            return {"ok": False, "error": "bad_channel", "text": "请选择远程通道"}
-        with self._lock:
-            if self._closing or self._advanced_busy:
-                return {"ok": False, "text": "程序正在关闭，手机访问没有开启"}
-        # 同一时间只跑一条通道：换通道必须先关掉现在这条，绝不自动切换
-        if self._phone.is_running() and self._phone_channel and selected != self._phone_channel:
-            return {"ok": False, "error": "other_channel_running",
-                    "text": "现在开着的是另一条通道，请先关闭再切换。"}
-        if selected == "cloudflare" and self._cloudflare_starting:
-            return {"ok": False, "error": "cloudflare_starting",
-                    "text": "Cloudflare 隧道正在启动，请稍等几秒。"}
-        target = "127.0.0.1"
-        public_host = "127.0.0.1"
-        if selected == "tailscale":
-            endpoint = _tunnel_manager.tailscale_endpoint()
-            if not endpoint.get("available"):
-                return {"ok": False, "error": endpoint.get("error", "tailscale_unavailable"),
-                        "text": endpoint.get("text", "请先登录 Tailscale")}
-            target = str(endpoint.get("bind_host") or "")
-            public_host = str(endpoint.get("public_host") or target)
-        if selected == "cloudflare":
-            # 组件可能在程序启动之后被替换或删除：每次真正启动前都重新解析校验，
-            # 校验不过就先清掉初始化时缓存的旧路径，绝不再拿它去执行
-            verified = _tunnel_manager.resolve_cloudflared(
-                resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR)
-            self._cloudflare.executable = verified
-            if not verified:
-                return {"ok": False, "error": "cloudflared_missing",
-                        "text": "没有找到通过校验的 cloudflared，Cloudflare 通道暂时不可用。"}
-        result = self._phone.start(target, public_host=public_host,
-                                   persistent_device=(selected == "tailscale"))
-        if result.get("ok"):
-            self._phone_channel = selected
-            if selected == "cloudflare":
-                self._cloudflare_starting = True
-                try:
-                    tunnel = self._cloudflare.start(self._phone.address())
-                finally:
-                    self._cloudflare_starting = False
-                if not tunnel.get("ok"):
-                    self._phone.stop()
-                    self._phone_channel = ""
-                    return tunnel
-                public_url = str(tunnel.get("url") or "")
-                public_host = public_url.split("//", 1)[-1].split("/", 1)[0]
-                self._phone.set_public_url(public_url)
-                # 重新开启成功：上一次的「隧道已退出」提示到此为止
-                self._cloudflare_exit_notice = None
-            phone_log("开启手机访问：通道=%s 监听=%s 公网=%s 设备信任=%s" % (
-                selected, target, public_host,
-                "开" if result.get("persistent_device") else "关"))
-            self._emit("log", "手机访问已开启：%s" % result.get("address", ""))
-            self._remember_phone_channel(selected)
-            result = dict(result, channel=selected, address=self._phone.address())
-        return result
+        return self._phone_controller.start_locked(channel)
 
     def _remember_phone_channel(self, channel: str) -> None:
-        """开启成功后记下通道；只有地址固定的 Tailscale 才允许下次自动恢复。"""
-        block = {"preferred_channel": str(channel),
-                 "tailscale_autostart": str(channel) == "tailscale"}
-        if not update_prefs({_PHONE_PREF_NAMESPACE: block}):
-            self._emit("log", "通道选择没有写进偏好；本次照常可用，下次需要重新选。")
+        return self._phone_controller.remember(channel)
 
     def _forget_phone_autostart(self) -> None:
-        """手动关闭手机访问：不再自动恢复（设备信任由服务自己撤销）。"""
-        current = _phone_access_prefs(load_prefs())
-        update_prefs({_PHONE_PREF_NAMESPACE: {
-            "preferred_channel": current["preferred_channel"],
-            "tailscale_autostart": False}})
+        return self._phone_controller.forget_autostart()
 
-    def set_phone_access_preferences(self, preferred_channel: str = "") -> dict:
-        """记住用户选的通道；只影响下次启动是否自动恢复，不动当前监听。"""
-        channel = str(preferred_channel or "").strip().lower()
-        if channel and channel not in _PHONE_CHANNELS:
-            return {"ok": False, "error": "bad_channel", "text": "请选择远程通道"}
-        current = _phone_access_prefs(load_prefs())
-        chosen = channel or current["preferred_channel"]
-        block = {"preferred_channel": chosen,
-                 # 明确选了 Tailscale 才开启下次自动恢复；换成 Cloudflare 等于放弃
-                 "tailscale_autostart": chosen == "tailscale"}
-        if not update_prefs({_PHONE_PREF_NAMESPACE: block}):
-            return {"ok": False, "error": "prefs_busy",
-                    "text": "通道选择没有保存，请重试。"}
-        return {"ok": True, "preferred_channel": chosen,
-                "tailscale_autostart": block["tailscale_autostart"]}
+    def set_phone_access_preferences(self, preferred_channel: str='') -> dict:
+        return self._phone_controller.set_preferences(preferred_channel)
 
     def restore_phone_access(self) -> dict:
-        """窗口就绪后按上次的通道恢复入口：只恢复 Tailscale，绝不自动恢复 Cloudflare。
-
-        只做「已经装好并登录」的恢复：不安装外部程序、不启动守护进程、不弹提示。
-        """
-        current = _phone_access_prefs(load_prefs())
-        if current["preferred_channel"] != "tailscale" or not current["tailscale_autostart"]:
-            return {"ok": False, "error": "not_configured",
-                    "text": "上次没有用 Tailscale 开启手机访问，本次不自动恢复。"}
-        with self._lock:
-            if self._closing:
-                return {"ok": False, "text": "程序正在关闭，手机访问没有恢复"}
-        if self._phone.is_running():
-            return {"ok": True, "running": True, "channel": self._phone_channel,
-                    "address": self._phone.address()}
-        endpoint = _tunnel_manager.tailscale_endpoint()
-        if not endpoint.get("available"):
-            return {"ok": False,
-                    "error": endpoint.get("error", "tailscale_unavailable"),
-                    "state": endpoint.get("state", ""),
-                    "text": endpoint.get("text", "Tailscale 现在不可用")}
-        result = self.start_phone_access("tailscale")
-        return dict(result, restored=True)
+        return self._phone_controller.restore()
 
     def schedule_phone_restore(self, window) -> None:
-        """窗口加载完再恢复手机入口：此时界面能收到日志，HTTP 桥也已就绪。
-
-        只恢复上次用 Tailscale 开启的固定入口；没配过就什么都不做，不弹提示——
-        「首次不装也不影响后续」靠的就是这条静默路径。
-        """
-        def run() -> None:
-            try:
-                event = getattr(getattr(window, "events", None), "loaded", None)
-                if event is not None:
-                    event.wait(15)
-            except Exception:
-                pass
-            try:
-                result = self.restore_phone_access()
-            except Exception as exc:
-                self._emit("log", "手机访问没有恢复：%s" % type(exc).__name__)
-                return
-            if result.get("ok") and result.get("address"):
-                self._emit("log", "已恢复手机访问：%s" % result["address"])
-
-        threading.Thread(target=run, name="phone-restore", daemon=True).start()
-        # 两项都是一次性启动任务，共用 window 与「等加载完」的时机；分开成两个
-        # 方法便于单测，但只在这里一起挂起，避免 main() 里出现第二个启动入口
-        self.schedule_component_auto_update(window)
+        return self._phone_controller.schedule_restore(window)
 
     def schedule_component_auto_update(self, window) -> None:
-        """窗口加载完后把「只差版本」的组件补上；每次启动只走一遍，不重试。
+        return self._component_actions.schedule_auto_update(window)
 
-        主程序升版本会把旧单体组件包判成 outdated。用户当初是主动启用的，
-        升级后就该自己恢复，而不是等他发现「高级功能不见了」再去问。
-        """
-        if DEMO or not getattr(sys, "frozen", False):
-            return
-
-        def run() -> None:
-            try:
-                event = getattr(getattr(window, "events", None), "loaded", None)
-                if event is not None:
-                    event.wait(15)
-            except Exception:
-                pass
-            try:
-                auto_update_outdated_components(
-                    frozen=bool(getattr(sys, "frozen", False)),
-                    demo=DEMO,
-                    prefs=load_prefs(),
-                    state_of=lambda prefs: _advanced_features.feature_state(
-                        prefs, root=DATA_DIR, frozen=True),
-                    download=self.download_advanced_feature,
-                    wait_idle=self._wait_component_settled,
-                    log=lambda text: self._emit("log", text))
-            except Exception as exc:
-                self._emit("log", "组件自动更新没有完成：%s" % type(exc).__name__)
-
-        threading.Thread(target=run, name="component-auto-update", daemon=True).start()
-
-    def _wait_component_settled(self, key: str, *, timeout: float = 1800.0) -> str:
-        """等一个组件的下载事务落定，返回最终状态；关闭或超时返回空串。
-
-        自动更新是按顺序补两项的，前一项没落定就开下一项会撞上单飞锁。
-        """
-        service = self._component_service_for(str(key))
-        if service is None:
-            return ""
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            with self._lock:
-                if self._closing:
-                    return ""
-            try:
-                state = str(service.snapshot().get("state") or "")
-            except Exception:
-                return ""
-            if state in ("downloading", "verifying", "removing"):
-                time.sleep(0.5)
-                continue
-            return state
-        return ""
+    def _wait_component_settled(self, key: str, *, timeout: float=1800.0) -> str:
+        return self._component_actions.wait_settled(key, timeout=timeout)
 
     def stop_phone_access(self) -> dict:
-        with self._phone_access_lock:
-            result = self._stop_phone_access()
-        # 用户自己关掉通道＝他已经知道那条隧道废了，退出提示可以收起来
-        self._cloudflare_exit_notice = None
-        return result
+        return self._phone_controller.stop()
 
     def _stop_phone_access(self) -> dict:
-        """关闭手机入口并撤销全部会话：有界收尾，不留后台监听。"""
-        self._relay.cancel(origin="phone")
-        tunnel_stopped = self._stop_cloudflare_checked()
-        # H1：隧道停没停下，手机服务与会话都照常关掉并撤销——这样即使隧道还在，
-        # 它后面也没有东西可转发；重试时 phone.stop 幂等，隧道再停一次。
-        result = self._phone.stop(revoke_devices=True)
-        phone_log("关闭手机访问：通道=%s，已撤销会话与设备信任" % (self._phone_channel or "-"))
-        self._phone_channel = ""
-        self._forget_phone_autostart()
-        if not tunnel_stopped:
-            # 隧道没停下就不能写「手机访问已关闭」：如实说入口已停、隧道还在，请用户重试
-            text = "手机入口已停止，但 Cloudflare 隧道没能关闭，请重试关闭。"
-            self._emit("log", text)
-            return {"ok": False, "error": "tunnel_stop_failed", "text": text}
-        self._emit("log", "手机访问已关闭")
-        return result
+        return self._phone_controller.stop_locked()
 
     # ---------- 手机重登中继（凭据只在进程内存） ----------
     def prepare_phone_relogin(self, username: str = "", password: str = "",
@@ -4114,80 +2674,10 @@ class Api:
         return self._relay.cancel(origin=None if state.get("mode") == "manual" else "phone")
 
     def _spawn_relay_worker(self, args: list[str]):
-        """relay worker 创建：与 _spawn 同锁关闭屏障与 busy 预留，登记后才允许输入。"""
-        problem = worker_problem()
-        if problem:
-            raise RuntimeError(problem)
-        with self._lock:
-            if self._closing:
-                raise RuntimeError("closing")
-            # 计划在跑不再一律拦：什么时候能登录由调用方先判断（手动看 100 秒窗口，
-            # 自动看 _relogin_blocked_locked）。这里只防和另一个单独进程、检查、拉列表撞车。
-            single = self._proc is not None and self._proc.poll() is None
-            if single or self._checking or self._listing or self._cancelling:
-                raise RuntimeError("busy")
-            tree = spawn_owned(args, cwd=str(HERE), env=_env(),
-                               stdin=subprocess.PIPE, bufsize=1)
-            self._proc = tree.proc       # 占住 busy 位：原有 login/计划不能同跑
-            self._proc_tree = tree
-            self._relay_proc_tree = tree
-        return _RelayTree(tree)
+        return self._worker_service.spawn_relay(args)
 
     def _relay_finished(self) -> None:
-        with self._lock:
-            relay_tree = self._relay_proc_tree
-            self._relay_proc_tree = None
-            tree = None
-            if relay_tree is not None and self._proc_tree is relay_tree:
-                # 中继流程已结束：无论进程是否已退出都收下这一场的树。中继刚 terminate、
-                # 进程还没退干净时留着它，之后点「停止」会对一棵已关的树误报「已请求停止」。
-                # 进程若还没退，_proc 照旧留着占 busy 位，直到 poll() 有结论。
-                tree = relay_tree
-                self._proc_tree = None
-                if self._proc is relay_tree.proc and self._proc.poll() is not None:
-                    self._proc = None
-            elif self._proc is not None and self._proc.poll() is not None:
-                self._proc = None
-                tree = self._proc_tree
-                self._proc_tree = None
-            began = self._auto_relogin_started_at
-        if tree is not None:
-            tree.close()
-        # 自动登录这一轮没成：落盘失败分类（中继给的安全错误码，不含账号和验证码）
-        try:
-            last = self._relay.state()
-        except Exception:
-            last = {}
-        state = str(last.get("state") or "")
-        with self._lock:
-            source = self._relay_creds_source
-            if state != "success":
-                # 没登录成功：这次手输的账号密码不保存
-                self._pending_save = None
-        if state == "failed" and last.get("safe_error") == "bad_password":
-            if source == "saved":
-                # 学校明确说保存的密码不对：暂停自动登录，直到写入新密码
-                try:
-                    _credential_store.mark_bad(CREDENTIAL_FILE)
-                except OSError:
-                    pass
-                self._emit("log", "保存的密码学校不认，自动登录已暂停；到设置里换成新密码。")
-            else:
-                # 手输的密码不对：内存里这份作废，下次要重新输；没有保存的账号时
-                # 自动登录同样暂停到用户更新密码（冲突 5），绝不拿这份再试
-                self._relay.clear_staged()
-                with self._lock:
-                    self._once_creds_rejected = True
-        if last.get("origin") == "auto" and last.get("state") in ("failed", "canceled"):
-            self._log_event("auto_relogin_failed", level="WARN",
-                            reason=str(last.get("safe_error") or last.get("state") or "unknown"),
-                            failures=int(self._auto_relogin.snapshot().get("failures") or 0),
-                            **({"elapsed_s": time.monotonic() - began}
-                               if began is not None else {}))
-        elif last.get("origin") != "auto" and state in ("success", "failed", "canceled"):
-            # 人工重登的结果也落一条，便于事后对时间线；只记状态与安全错误码
-            self._log_event("relogin_manual_result", state=state,
-                            safe_error=str(last.get("safe_error") or ""))
+        return self._login_recovery.relay_finished()
 
     def open_data(self) -> dict:
         """打开数据目录，并把**真实路径**回给界面。
@@ -4285,16 +2775,12 @@ class Api:
 
     # ---------- 内部 ----------
     def _is_busy_locked(self) -> bool:
-        if self._cancelling:
-            return True      # 取消报名占着同一把忙碌标记（X3）
-        # 只读协调器已发布的不可变状态：持 Api 锁时绝不取协调器锁（P2-1）。
-        # 反向路径（协调器 → Api）同样已改为锁外发布，两条边不再成环。
-        if self._proc and self._proc.poll() is None:
-            return True
-        if self._plan:
-            if self._plan.published_status() in {"ready", "running"}:
-                return True
-        return any(proc.poll() is None for proc in self._plan_procs.values())
+        """G1 忙碌判定；调用方持 self._lock。判定已归 Coordinator，这里只转发。
+
+        只读协调器已发布的不可变状态：持 Api 锁时绝不取协调器锁（P2-1）。
+        反向路径（协调器 → Api）同样已改为锁外发布，两条边不再成环。
+        """
+        return self._coord.is_busy_locked()
 
     def _is_busy(self) -> bool:
         with self._lock:
@@ -4332,80 +2818,10 @@ class Api:
             pass
 
     def _run(self, args: list[str], timeout: int) -> dict:
-        """同步跑一个短命 worker（check/list）：创建、登记与关闭屏障同锁。
-
-        spawn_owned 在锁内：关闭先发生则拒绝创建（_ClosingError，取消语义）；
-        创建已开始则 shutdown 必等登记完成才能取快照，不会留下未登记孤儿。
-        OSError（缺文件/权限）原样抛给调用方归类成结构化组件错误。
-        """
-        with self._lock:
-            if self._closing:
-                raise _ClosingError("程序正在关闭，已取消本次 worker 调用")
-            tree = spawn_owned(
-                args, cwd=str(HERE), env=_env(), stdin=None,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            proc = tree.proc
-            self._aux_trees[proc] = tree
-            self._aux_procs.add(proc)
-        try:
-            try:
-                out, err = proc.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                # 超时优先走受管树；只有旧登记没有 tree 或树终止失败才按 PID 兜底。
-                terminated = False
-                try:
-                    terminated = bool(tree.terminate())
-                except Exception:
-                    pass
-                if not terminated:
-                    _kill_tree(proc)
-                try:
-                    proc.communicate(timeout=5)
-                except Exception:
-                    pass
-                return {"code": -1, "out": "[X] 执行超时（%d 秒）" % timeout,
-                        "stdout": "", "stderr": ""}
-        finally:
-            with self._lock:
-                self._aux_procs.discard(proc)
-                registered_tree = self._aux_trees.pop(proc, None)
-            if registered_tree is not None:
-                registered_tree.close()
-        return {"code": proc.returncode, "out": (out or "") + (err or ""),
-                # stdout/stderr 分开交：列表 JSON 只认 stdout，stderr 混着辅助
-                # 日志，不能整段拿去 json.loads（旧键 out 保留原行为不动）
-                "stdout": out or "", "stderr": err or ""}
+        return self._worker_service.run(args, timeout)
 
     def _spawn(self, args: list[str], label: str, kind: str = "grab") -> dict:
-        problem = worker_problem()
-        if problem:
-            # 组件不齐：同步给结构化失败——不占 busy 位、不写 _proc 占位
-            self._emit("log", "[X] 组件诊断 %s：组件路径 %s" % (problem, GRAB))
-            return {"ok": False, "text": WORKER_PROBLEM_TEXT[problem], "error": problem}
-        try:
-            with self._lock:
-                if self._closing:
-                    # 关闭拒绝不带 error 码：不是组件损坏，前端不得挂横幅
-                    return {"ok": False, "text": "程序正在关闭，已取消本次「%s」" % label}
-                if self._is_busy_locked():
-                    return {"ok": False, "text": "已经有一个任务在跑，先等它结束"}
-                tree = spawn_owned(args, cwd=str(HERE), env=_env())
-                self._proc = tree.proc
-                self._proc_tree = tree
-                proc = tree.proc
-        except _SpawnFailure as exc:
-            # 取不到进程树所有权就不放行：没有所有权的 worker 收不干净
-            self._emit("log", "[X] worker 没能取得进程树所有权：%s" % exc)
-            return {"ok": False, "text": "worker 没能启动（本机不允许接管子进程），请重试"}
-        except OSError as exc:
-            # Popen 竞态失败（文件在自检后被删/被锁）：同样给结构化结论，不冒充成功
-            err_code = _component_error(exc)
-            self._emit("log", "[X] 组件诊断 %s：%s: %s" % (err_code, type(exc).__name__, exc))
-            return {"ok": False, "text": WORKER_PROBLEM_TEXT[err_code], "error": err_code}
-
-        threading.Thread(target=self._pump, args=(proc, label, kind),
-                         daemon=True).start()
-        return {"ok": True}
+        return self._worker_service.spawn(args, label, kind)
 
     def _anchor_login_success(self, origin: str = "") -> None:
         """新登录真实成功后建立 v2 锚点；没有可信时钟就不写（不拿系统时间冒充）。
@@ -4440,43 +2856,7 @@ class Api:
                                    (upper - lower) / 2.0)
 
     def _pump(self, proc, label: str, kind: str = "grab") -> None:
-        self._emit("log", "▶ " + label)
-        tail: list[str] = []
-        for line in proc.stdout or []:
-            line = line.rstrip("\r\n")
-            if not line:
-                continue
-            tail.append(line)
-            del tail[:-40]
-            if line.startswith("[login] "):
-                # [login] 结构行交专属 relay flow；原日志/桌面 done 行为保持
-                self._relay.observe_line(line)
-            self._emit("log", line)
-        proc.wait()
-        # done 结论整理在 application.login_service：login 只看退出码，
-        # grab 还要求见过「报名成功」行；失败原因取第一条 [X] 来源行。
-        ok, reason = _login_service.done_result(kind, proc.returncode, tail)
-        if kind == "login" and ok:
-            # 只有本次登录真实成功才建立 v2 锚点：check/refresh 不续期，
-            # 失败/取消路径根本不走这里，旧锚点与旧会话原样保留。
-            # 锚点写入失败（偏好锁超时/磁盘只读）不能吞掉登录结论：
-            # 否则 done 永远不来，界面就永远停在「登录中」。
-            try:
-                self._anchor_login_success()
-            except Exception as exc:  # noqa: BLE001 - 兜底上报，不中断收口
-                self._emit("log", "[!] 登录成功，但会话时间锚点没有写成：%s" % exc)
-        self._emit("done", {"ok": ok, "code": proc.returncode,
-                            "reason": reason, "label": label, "kind": kind})
-        with self._lock:
-            if self._proc is proc:
-                self._proc = None
-                tree = self._proc_tree
-                self._proc_tree = None
-            else:
-                tree = None
-        if tree is not None:
-            # 父进程已退出，Job 里可能还挂着 Playwright 后代：关句柄即整树收走
-            tree.close()
+        return self._worker_service.pump(proc, label, kind)
 
 
 # ---- 兼容包装：已下沉 domain / infrastructure 的纯规则与进程树适配器 ----

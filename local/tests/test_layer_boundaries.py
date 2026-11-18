@@ -207,12 +207,9 @@ _TOP_LEVEL = {p.stem for p in LOCAL.glob("*.py")}
 
 # 存量越界：每条都要写清去处，消掉时从这里删。函数体里的延迟 import 也算越界。
 # 键是「文件、完整模块名」：按模块锁，不按包锁，同包再加一个模块照样报。
-LEGACY_DIRECTION_VIOLATIONS = {
-    ("application/advanced_component_service.py", "infrastructure.component_packages"):
-        "步骤 2 拆组件服务时消：组件包扫描归 infrastructure，服务经端口拿清单",
-    ("infrastructure/component_packages.py", "runtime_paths"):
-        "步骤 2 拆组件服务时消：数据目录改由调用方传进来，不直接取顶层模块",
-}
+# 第二批已把两条存量全部消掉：application 的组件包默认端口改由组合根注入，
+# infrastructure.component_packages 改从 infrastructure.data_directory 取数据根。
+LEGACY_DIRECTION_VIOLATIONS = {}
 
 
 def _strip_local(module):
