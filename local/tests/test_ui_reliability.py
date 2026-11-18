@@ -857,6 +857,37 @@ out.push({ plan: S.plan.id, state: S.startRequest.state, pending: pending.length
 class RefreshRoundRaceTests(unittest.TestCase):
     """F05：check/list 终态先于 skipped ack 时必须暂存重放，不能干等 100/130 秒。"""
 
+    def test_unidentified_inflight_check_times_out_while_list_waits(self):
+        res = run_js(TIMER_HARNESS + r"""
+let running = false;
+const requests = [];
+window.pywebview = { api: {
+  check: (id) => {
+    requests.push(id || "");
+    if (running) return Promise.resolve({ ok: true, queued: true, skipped: true, request_id: "" });
+    running = true;
+    return Promise.resolve({ ok: true, queued: true });
+  },
+  list_activities: () => Promise.resolve({ ok: true, queued: true }),
+} };
+doCheck();
+await __flush();
+refresh(false);
+await __flush();
+const fired = __fire(100000);
+out.push({ requests, fired, checking: S.login.checking, result: S.login.result,
+  checkPending: S.runtime.checkPending, listPending: S.runtime.listPending, listState: S.listState });
+""")
+        data = res[0]
+        self.assertEqual(data["requests"][0], "")
+        self.assertTrue(data["requests"][1])
+        self.assertTrue(data["fired"])
+        self.assertFalse(data["checking"])
+        self.assertEqual(data["result"], "unknown")
+        self.assertFalse(data["checkPending"])
+        self.assertTrue(data["listPending"])
+        self.assertEqual(data["listState"], "loading")
+
     def test_late_bridge_failures_preserve_terminal_results(self):
         for failure in ("reject", "refuse"):
             with self.subTest(failure=failure):

@@ -115,6 +115,40 @@ function settleRefreshBranch(branch) {
   }
 }
 
+/* 回调须匹配代次、请求号，且分支仍在等待。 */
+function roundOpen(branch, id, gen) {
+  return S.round.gen[branch] === gen && S.round[branch] === id &&
+    (branch === "check" ? checkRoundOpen() : listRoundOpen());
+}
+
+/* 首次与接续共用计时及收口；捕获代次，避免旧轮影响新轮。 */
+function armRefreshTimeout(branch, id, logCheckTimeout) {
+  const gen = S.round.gen[branch];
+  const timer = branch + "Timer";
+  const seconds = branch === "check" ? 100 : 130;
+  clearTimeout(S.round[timer]);
+  S.round[timer] = setTimeout(() => {
+    if (!roundOpen(branch, id, gen)) return;
+    if (branch === "check") {
+      if (!S.round.background) {
+        S.login.checking = false;
+        S.login.ok = false;
+        S.login.result = "unknown";
+        syncLoginDependentView();
+        if (logCheckTimeout) addLog("[X] 检查登录状态超过 " + seconds + " 秒没有回应，先按「暂时无法确认」处理；点「刷新」重试。");
+      }
+    } else if (S.round.background) {
+      noteBackgroundListFailed();
+    } else {
+      S.listState = "error";
+      S.listError = "活动列表超过 " + seconds + " 秒没有回应";
+      noteListFailed(S.listError);
+      render();
+    }
+    settleRefreshBranch(branch);
+  }, seconds * 1000);
+}
+
 /* options.background 为真是「后台自动刷新」（见文件末尾的 autoRefreshTick）：
  * 它和手动刷新走同一套 check + list 双分支，但不能让画面闪——不置 loading（不出骨架）、
  * 不置 S.login.checking（不进「检查中」）、不 render、不开条款弹窗；
@@ -152,11 +186,6 @@ function refresh(quiet, options) {
   const listGen = bumpRoundGeneration("list");
   S.round.check = checkId;
   S.round.list = listId;
-  /* 回调须匹配代次、请求号，且分支仍在等待。 */
-  const roundOpen = (branch, id, gen) => S.round.gen[branch] === gen && S.round[branch] === id &&
-    (branch === "check" ? checkRoundOpen() : listRoundOpen());
-  clearTimeout(S.round.checkTimer);
-  clearTimeout(S.round.listTimer);
   if (!background) {
     S.listState = "loading";
     S.listError = "";
@@ -171,35 +200,9 @@ function refresh(quiet, options) {
     paintLogin();
     render();
   }
-  /* 失联兜底：确认入队却丢终态时，不能永远停在「检查中」/骨架（R11） */
-  S.round.checkTimer = setTimeout(() => {
-    if (!roundOpen("check", checkId, checkGen)) return;
-    if (S.round.background) {
-      /* 后台轮没回应：登录结论保持上次，不改成「待确认」也不写日志，只把本轮收口 */
-      settleRefreshBranch("check");
-      return;
-    }
-    S.login.checking = false;
-    S.login.ok = false;
-    S.login.result = "unknown";
-    syncLoginDependentView();
-    addLog("[X] 检查登录状态超过 100 秒没有回应，先按「暂时无法确认」处理；点「刷新」重试。");
-    settleRefreshBranch("check");
-  }, 100000);
-  S.round.listTimer = setTimeout(() => {
-    if (!roundOpen("list", listId, listGen)) return;
-    if (S.round.background) {
-      /* 后台轮没回应：按一次后台失败算，原列表原勾选不动 */
-      noteBackgroundListFailed();
-      settleRefreshBranch("list");
-      return;
-    }
-    S.listState = "error";
-    S.listError = "活动列表超过 130 秒没有回应";
-    noteListFailed(S.listError);
-    render();
-    settleRefreshBranch("list");
-  }, 130000);
+  /* 首次检查超时写说明；接续检查沿用静默收口。 */
+  armRefreshTimeout("check", checkId, true);
+  armRefreshTimeout("list", listId);
   api("check", checkId).then((res) => {
     if (!roundOpen("check", checkId, checkGen)) return;
     settleSynchronous(res, "check");
@@ -251,18 +254,10 @@ function settleSynchronous(res, branch) {
    * 原操作若已经结束，后端会把终态一起带回来，直接落地，不干等旧事件。 */
   if (res.skipped) {
     const id = String(res.request_id || "");
+    if (id) S.round[branch] = id;
+    /* 后端未提供编号时保留本轮编号；缓存仍按真实编号查找。 */
+    armRefreshTimeout(branch, S.round[branch]);
     if (branch === "check") {
-      if (id) S.round.check = id;
-      clearTimeout(S.round.checkTimer);
-      S.round.checkTimer = setTimeout(() => {
-        if (S.round.check !== id || !checkRoundOpen()) return;
-        if (S.round.background) { settleRefreshBranch("check"); return; }
-        S.login.checking = false;
-        S.login.ok = false;
-        S.login.result = "unknown";
-        syncLoginDependentView();
-        settleRefreshBranch("check");
-      }, 100000);
       if (res.result) {
         window.onBackend.check(res.result);
         return;
@@ -276,21 +271,6 @@ function settleSynchronous(res, branch) {
       }
       return;
     }
-    if (id) S.round.list = id;
-    clearTimeout(S.round.listTimer);
-    S.round.listTimer = setTimeout(() => {
-      if (S.round.list !== id || !listRoundOpen()) return;
-      if (S.round.background) {
-        noteBackgroundListFailed();
-        settleRefreshBranch("list");
-        return;
-      }
-      S.listState = "error";
-      S.listError = "活动列表超过 130 秒没有回应";
-      noteListFailed(S.listError);
-      render();
-      settleRefreshBranch("list");
-    }, 130000);
     if (res.result) {
       applyActivities(res.result, false);
       return;
