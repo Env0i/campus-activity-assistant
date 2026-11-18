@@ -455,9 +455,6 @@ $("#tour-next").addEventListener("click", () => {
   S.tour.step += 1;
   paintTour();
 });
-/* 单帮助入口：重播仍走 replayTourFrom 的关闭模态与焦点恢复路径；
- * 计划运行中禁用重播（不打断计划），弹窗本身任何状态都能打开。 */
-$("#btn-help-tour").addEventListener("click", () => replayTourFrom("#help", "#btn-help"));
 $("#btn-help-latest").addEventListener("click", () => {
   /* 用户点击才打开外链：后端用系统默认浏览器打开固定的 releases/latest 地址；
    * 打不开时把地址摆成可选文本（局部反馈），不在 WebView 里跳转 */

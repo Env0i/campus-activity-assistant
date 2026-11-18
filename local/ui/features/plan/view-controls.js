@@ -1,5 +1,6 @@
 /* 计划栏按钮门禁的视图。 */
 
+import { paintReplayButtons } from "../shell/view-help.js";
 import { termsLocked } from "../terms/state.js";
 import { paintDock } from "./view-dock.js";
 import { paintWhy } from "./view-draft.js";

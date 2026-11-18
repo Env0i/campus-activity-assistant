@@ -132,7 +132,7 @@
 
 - worker 打包方式调整：`local/build/build_exe.py` 的 `assemble()` 与 `local/app.py` 的
   `resolve_worker_path` 必须同改同验（资源落点与解析是同一契约）。
-- 辅助入口增删：`local/ui/views/settings.js`、`local/ui/views/help.js`、`local/ui/views/update.js`
+- 辅助入口增删：`local/ui/views/settings.js`、`local/ui/features/shell/view-help.js`、`local/ui/features/shell/actions-help.js`、`local/ui/views/update.js`
   + `docs/UI_SPEC.md` §5.13/§5.18 + `design/specs/assistance-panels.md`；未确认功能不得进入。
 - ZIP 成员调整：`tools/release.py` 的 `ZIP_MEMBERS` + `verify_release_assets` +
   `local/tests/test_lifecycle_release.py` fixture 同步。

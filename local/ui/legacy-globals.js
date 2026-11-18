@@ -32,6 +32,7 @@ import { applyBand, setPlanOpen } from "./features/shell/view-band.js";
 import { RUNTIME_ERRORS } from "./features/shell/state-runtime.js";
 import { openWindowCloseDialog } from "./features/shell/actions-window-close.js";
 import { setLogOpen } from "./features/shell/actions-log-panel.js";
+import { fillHelp, helpStatus, revealHelpStatus } from "./features/shell/view-help.js";
 import { showHelp } from "./features/shell/actions-help.js";
 
 import { openSettings, openSettingsSection, closeSettings } from "./features/shell/actions-settings.js";
@@ -84,6 +85,9 @@ function attachShellGlobals() {
   window.openWindowCloseDialog = openWindowCloseDialog;
   window.setLogOpen = setLogOpen;
   window.showHelp = showHelp;
+  window.fillHelp = fillHelp;
+  window.helpStatus = helpStatus;
+  window.revealHelpStatus = revealHelpStatus;
   window.openSettings = openSettings;
   window.openSettingsSection = openSettingsSection;
   window.closeSettings = closeSettings;

@@ -458,6 +458,20 @@ out.push({ open: $("#help").open, hidden: $("#help-status").hidden,
         self.assertFalse([c for c in state["calls"] if c[0] in
                           ("open_latest_release", "open_data", "open_advanced_component_dir")])
 
+    def test_real_load_help_replay_starts_first_step(self):
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+$("#btn-help").click();
+$("#btn-help-tour").click();
+out.push({ closed: !$("#help").open, step: S.tour.step,
+  open: S.tour.open, focus: document.activeElement === $("#tour-next") });
+""")
+        state = result["after"][0]
+        self.assertTrue(state["closed"])
+        self.assertTrue(state["open"])
+        self.assertEqual(state["step"], 0)
+        self.assertTrue(state["focus"])
+
     def test_real_load_start_sends_the_start_request(self):
         """真加载下点手机行的「开启手机访问」：发出开启请求。"""
         report = _run_ui_modules()

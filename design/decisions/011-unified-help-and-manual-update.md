@@ -60,7 +60,7 @@
 
 ## 变更方式
 
-改界面同步 `local/ui/views/settings.js`、`local/ui/views/help.js`、`local/ui/views/update.js` 与本规范；
+改界面同步 `local/ui/views/settings.js`、`local/ui/features/shell/view-help.js`、`local/ui/features/shell/actions-help.js`、`local/ui/views/update.js` 与本规范；
 改版本比较同步 `local/update_check.py` 和对应单测；改桥接同步 `local/app.py`、UI 事件与测试；
 正式发布继续走既有用户授权和发行门禁。
 

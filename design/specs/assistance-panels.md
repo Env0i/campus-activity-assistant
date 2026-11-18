@@ -4,7 +4,7 @@
 > [决策 011](../decisions/011-unified-help-and-manual-update.md) 与 [决策 014](../decisions/014-workbench-ui.md)。
 > 2026-11-03 UI-B 实现设置抽屉与帮助两个独立入口，取代旧"单一帮助面板含版本+数据+条款"。
 > 本页按实际落地重写；旧"帮助=版本+数据+条款"方案已废止。
-> 代码与契约以 `local/ui/views/settings.js`（设置）、`local/ui/views/help.js`（帮助）、
+> 代码与契约以 `local/ui/views/settings.js`（设置）、`local/ui/features/shell/view-help.js`、`local/ui/features/shell/actions-help.js`（帮助）、
 > `docs/UI_SPEC.md` §5.13/§5.15/§5.18 为准。
 
 ## 1. 两个入口的分工

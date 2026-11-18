@@ -4478,7 +4478,8 @@ class TourAndLifecycleContractTests(unittest.TestCase):
         self.assertIn('S.login.result !== "valid"', auto, "首次自动引导要等学校确认登录有效")
         self.assertIn('S.listState !== "ready"', auto, "首次自动引导要等活动列表加载")
         self.assertIn("termsLocked()", auto, "没同意条款不自动引导")
-        replay = js[js.index("function replayTourFrom("):js.index("function paintReplayButtons")]
+        replay_js = read("ui/features/shell/actions-help.js")
+        replay = replay_js[replay_js.index("function replayTourFrom("):replay_js.index("export function wireHelp")]
         self.assertNotIn("S.login", replay, "手动重看引导不受登录状态限制：未登录也能看")
         # 引导也不改变登录按钮：paintLogin 的四态分支里没有引导概念
         paint = js[js.index("function paintLogin()"):js.index("function setBusy")]
@@ -4779,14 +4780,16 @@ class SettingsEntryContractTests(unittest.TestCase):
                       "更多里的重播必须走共用处理函数")
         self.assertIn('replayTourFrom("#help", "#btn-help")', js,
                       "说明里的重播必须走同一个处理函数")
-        body = js[js.index("function replayTourFrom("):js.index("function paintReplayButtons")]
+        replay_js = read("ui/features/shell/actions-help.js")
+        body = replay_js[replay_js.index("function replayTourFrom("):replay_js.index("export function wireHelp")]
         self.assertIn("S.busy", body, "重播必须先确认非忙")
         self.assertIn("dialog.close()", body, "重播前必须关掉当前弹窗，不叠模态")
         self.assertIn("opener.focus()", body, "重播前把焦点还给对应顶栏入口")
         self.assertIn("startTour(0)", body, "重播最终从第 1 步开始")
         self.assertIn('api("open_latest_release")', js, "查看发布页仍走既有后端外链")
         self.assertIn('api("open_data")', js, "打开数据目录复用既有后端接口")
-        replay = js[js.index("function paintReplayButtons("):js.index("function savePrefs(")]
+        view_js = read("ui/features/shell/view-help.js")
+        replay = view_js[view_js.index("function paintReplayButtons("): ]
         self.assertIn("btn.disabled = !!S.busy", replay, "忙时必须禁用重播")
         self.assertIn('"计划结束后可重看引导"', replay, "禁用原因必须可见，不只靠 title")
 
@@ -5271,7 +5274,7 @@ class LayerBoundaryContractTests(unittest.TestCase):
     VIEW_BEFORE_DEPENDENT = (
         ("views/terms.js", "controllers/terms.js"),
         ("views/update.js", "features/update/actions.js"),
-        ("views/update.js", "views/help.js"),
+        ("views/update.js", "features/shell/actions-help.js"),
     )
 
     def test_script_load_order_puts_views_before_dependents(self):

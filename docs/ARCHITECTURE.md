@@ -194,7 +194,7 @@ led.js 除外），行为测试经 `run_js()` 交给 node 沙箱按同一加载�
 
 兼容入口边界（重构未删旧名）：`app.py` 保留旧模块级名字的兼容包装/再导出（测试按
 `app.X` 注入与 patch 的语义不变）；`views/update.js` 的 `paintUpdate` 同时是
-`views/help.js` 消费的更新呈现入口。DOM 分离是**局部完成**而非全局：条款/更新两个
+`features/shell/actions-help.js` 消费的更新呈现入口。DOM 分离是**局部完成**而非全局：条款/更新两个
 用例已零 DOM（结构契约测试 `LayerBoundaryContractTests` 守护），但
 `controllers/tick.js` 仍做每秒增量 DOM 更新、`app.js` 事件绑定直接触 DOM——全局
 controller/view DOM 分离不在本轮范围。
