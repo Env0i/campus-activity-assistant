@@ -1,3 +1,5 @@
+import { clearSelection, tipGoSigned, toggleSelection } from "./features/list/actions-selection.js";
+import { listErrorCopy } from "./features/list/state-errors.js";
 /* 过渡期清单（ESM 地基批）：把模块里的名字挂回 window，给还没迁的普通脚本用。
  * 模块里的名字不进全局作用域，普通脚本只能经 window 拿到；清单里的每个名字必须真的
  * 有普通脚本在用（tools/code_shape/ui_modules.mjs 守着，没人用就红），一旦没有就要从
@@ -24,7 +26,7 @@ import { paintRoute, paintCountdown, paintLed } from "./features/plan/view-led.j
 import { updateControls } from "./features/plan/view-controls.js";
 import { paintBanners } from "./features/shell/view-banners.js";
 import { applyBand, setPlanOpen } from "./features/shell/view-band.js";
-import { RUNTIME_ERRORS, runtimeErrorCopy } from "./features/shell/state-runtime.js";
+import { RUNTIME_ERRORS } from "./features/shell/state-runtime.js";
 import { openWindowCloseDialog } from "./features/shell/actions-window-close.js";
 import { setLogOpen } from "./features/shell/actions-log-panel.js";
 import { showHelp } from "./features/shell/actions-help.js";
@@ -78,7 +80,6 @@ function attachShellGlobals() {
   window.applyBand = applyBand;
   window.setPlanOpen = setPlanOpen;
   window.RUNTIME_ERRORS = RUNTIME_ERRORS;
-  window.runtimeErrorCopy = runtimeErrorCopy;
   window.openWindowCloseDialog = openWindowCloseDialog;
   window.setLogOpen = setLogOpen;
   window.showHelp = showHelp;
@@ -90,6 +91,10 @@ function attachShellGlobals() {
 }
 
 export function installLegacyGlobals() {
+  window.clearSelection = clearSelection;
+  window.tipGoSigned = tipGoSigned;
+  window.toggleSelection = toggleSelection;
+  window.listErrorCopy = listErrorCopy;
   window.termsAccepted = termsAccepted;
   window.termsLocked = termsLocked;
   /* app.js 的 check 事件要顺手刷新这张卡片（重新登录成功会走 check）。跨文件只能靠

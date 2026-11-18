@@ -1,3 +1,5 @@
+import { clearSelection } from "./features/list/actions-selection.js";
+import { wireFilters } from "./features/list/actions-filters.js";
 /* 模块入口（ESM 地基批）：普通脚本先跑，这里最后接管。依次——挂回 window 的
  * 过渡名单（legacy-globals.js），app.js 末尾原样搬来的启动调用，置就绪标记，
  * 放出排队期间到达的后端事件（boot-guard.js 存下的），再调手机面板的接线启动
@@ -19,6 +21,8 @@ import { wireSettings } from "./features/shell/actions-settings.js";
 import { wireTourExit } from "./features/shell/actions-tour-exit.js";
 
 installLegacyGlobals();
+wireFilters();
+$("#btn-clear-plan").addEventListener("click", clearSelection);
 wireSettings();
 wireTourExit();
 wireHelp();

@@ -102,33 +102,6 @@ function placeTip() {
   box.dataset.placed = up ? "up" : "down";
 }
 
-/* 「去已报名那场」：滚到那一行并短暂高亮；列表被筛选藏起来时先放开筛选（排序保持不变） */
-function tipGoSigned() {
-  const pair = tipPair();
-  if (!pair) { tipClose(); return; }
-  const id = String(pair.sg.id);
-  tipClose();
-  if (!filtered().some((it) => String(it.id) === id)) {
-    S.filter = Object.assign({}, S.filter, { q: "", status: "all", time: "all", checkin: "all", checkout: "all" });
-    $("#q").value = "";
-    $("#time").value = "all";
-    $("#checkin").value = "all";
-    $("#checkout").value = "all";
-    paintChips();
-    savePrefs({ filter: Object.assign({}, S.filter) });
-  }
-  S.flashId = id;
-  render();
-  const row = S.rowEls.get(id);
-  if (row && row.row && row.row.scrollIntoView) row.row.scrollIntoView({ block: "center", behavior: "smooth" });
-  clearTimeout(S.tip.flashTimer);
-  S.tip.flashTimer = setTimeout(() => {
-    S.flashId = "";
-    const el = S.rowEls.get(id);
-    if (el && el.row) el.row.classList.remove("is-flash");
-  }, 2000);
-}
-
 /* 标签上的键盘：Esc 收起；Enter / 空格把焦点移进气泡里的链接（气泡在 DOM 末尾，Tab 到不了） */
 function tipKey(event) {
   const key = event.key;

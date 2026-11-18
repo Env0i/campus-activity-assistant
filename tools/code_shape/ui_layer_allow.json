@@ -6,25 +6,14 @@
       "render",
       "renderClockPop",
       "updateControls"
-    ],
-    "state/filters.js": [
-      "render",
-      "setResult"
     ]
   },
   "views": {
     "views/clock-pop.js": [
       "resyncClock"
     ],
-    "views/conflict-tip.js": [
-      "savePrefs"
-    ],
     "views/list.js": [
-      "listErrorCopy",
       "tick"
-    ],
-    "views/selection.js": [
-      "savePrefs"
     ],
     "views/status-cards.js": [
       "doCheck"

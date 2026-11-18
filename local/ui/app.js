@@ -166,17 +166,6 @@ window.onBackend = {
 };
 
 
-$("#q").addEventListener("input", (event) => setFilter("q", event.target.value));
-$("#chips").addEventListener("click", (event) => {
-  const chip = event.target.closest(".chip");
-  if (chip) { setFilter("status", chip.dataset.status); paintChips(); }
-});
-/* LS06 更多筛选：折叠按钮开合下拉面板，展开状态记进偏好 */
-$("#btn-more").addEventListener("click", () => setFilterOpen(!S.filterOpen));
-$("#time").addEventListener("change", (event) => setFilter("time", event.target.value));
-$("#sort").addEventListener("change", (event) => setFilter("sort", event.target.value));
-$("#checkin").addEventListener("change", (event) => setFilter("checkin", event.target.value));
-$("#checkout").addEventListener("change", (event) => setFilter("checkout", event.target.value));
 $("#rows").addEventListener("change", (event) => {
   const check = event.target.closest(".row-check");
   if (check) toggleSelection(check.dataset.id, check.checked);
@@ -419,7 +408,6 @@ $("#board-text").addEventListener("click", (event) => {
 });
 /* 停止确认弹层（计划栏内遮罩）：只有「停止计划」才真正停止；Esc/继续计划只关弹层 */
 $("#btn-stop-keep").addEventListener("click", () => closeStopAsk(true));
-$("#btn-clear-plan").addEventListener("click", clearSelection);
 $("#plan-tasks").addEventListener("click", (event) => {
   const button = event.target.closest(".task-cancel");
   if (button) cancelTask(button.dataset.taskId);
@@ -579,13 +567,11 @@ document.addEventListener("keydown", (event) => {
   /* 停止确认弹层打开时键盘只属于它：Esc 关弹层，Tab 在两个按钮间循环，
    * 其余（Enter、Ctrl+F、/）不穿透到背景；Esc/「继续计划」=不停止 */
   if (stopAskOpen()) { stopAskKey(event); return; }
-  /* 帮助打开时：Enter/Esc 只属于弹窗——不穿透到背景开始计划、不清空选择、不误跳引导 */
-  if ((event.key === "Enter" || event.key === "Escape") &&
+  /* 帮助弹窗独占 Enter/Esc，避免误触背景。 */ if ((event.key === "Enter" || event.key === "Escape") &&
       ["#help"].some((sel) => { const d = $(sel); return !!d && d.open; })) {
     return;
   }
-  /* Ctrl+F 或 / 跳到搜索框 */
-  if ((event.ctrlKey && (event.key === "f" || event.key === "F")) || (event.key === "/" && !typing)) {
+  /* Ctrl+F 或 / 跳到搜索框。 */ if ((event.ctrlKey && (event.key === "f" || event.key === "F")) || (event.key === "/" && !typing)) {
     event.preventDefault();
     $("#q").focus();
     $("#q").select();

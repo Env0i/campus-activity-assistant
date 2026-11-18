@@ -245,6 +245,28 @@ class NativeLoadSmokeTests(unittest.TestCase):
         "confirmClearCredentials", "clearCredentials", "wire",
     ]
 
+    def test_real_load_filter_toggle_saves_each_choice_once(self):
+        """真实模块按钮控制筛选面板，每次点击只保存一次。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.__calls = [];
+window.pywebview = { api: { save_prefs: (patch) => {
+  window.__calls.push(patch); return Promise.resolve({ ok: true });
+} } };
+const snapshot = () => ({ hidden: $("#more-filters").hidden,
+  expanded: $("#btn-more").getAttribute("aria-expanded") });
+$("#btn-more").click();
+await flushPrefs();
+const opened = snapshot();
+$("#btn-more").click();
+await flushPrefs();
+out.push({ opened, closed: snapshot(), saves: window.__calls });
+""")
+        self.assertTrue(result["modulesReady"])
+        self.assertEqual(result["after"][0]["opened"], {"hidden": False, "expanded": "true"})
+        self.assertEqual(result["after"][0]["closed"], {"hidden": True, "expanded": "false"})
+        self.assertEqual(result["after"][0]["saves"], [{"filter_open": True}, {"filter_open": False}])
+
     def test_real_load_log_toggle_saves_each_choice_once(self):
         """模块真加载后展开、收起，显示状态和每次保存请求一致。"""
         report = _run_ui_modules()
