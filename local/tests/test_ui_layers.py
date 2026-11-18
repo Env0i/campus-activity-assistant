@@ -245,6 +245,50 @@ class NativeLoadSmokeTests(unittest.TestCase):
         "confirmClearCredentials", "clearCredentials", "wire",
     ]
 
+    def test_real_load_log_toggle_saves_each_choice_once(self):
+        """模块真加载后展开、收起，显示状态和每次保存请求一致。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.__calls = [];
+window.pywebview = { api: { save_prefs: (patch) => {
+  window.__calls.push(patch); return Promise.resolve({ ok: true });
+} } };
+const snapshot = () => ({ open: document.querySelector(".log-card").dataset.open,
+  label: $("#btn-log-toggle").textContent,
+  expanded: $("#btn-log-toggle").getAttribute("aria-expanded") });
+$("#btn-log-toggle").click();
+await flushPrefs();
+const opened = snapshot();
+$("#btn-log-toggle").click();
+await flushPrefs();
+out.push({ opened, closed: snapshot(), saves: window.__calls });
+""")
+        self.assertTrue(result["modulesReady"])
+        self.assertEqual(result["after"][0]["opened"],
+                         {"open": "true", "label": "收起", "expanded": "true"})
+        self.assertEqual(result["after"][0]["closed"],
+                         {"open": "false", "label": "展开", "expanded": "false"})
+        self.assertEqual(result["after"][0]["saves"], [{"log_open": True}, {"log_open": False}])
+
+    def test_real_load_restores_log_pref_without_saving(self):
+        """应用已有偏好只同步面板，不能再发一次保存请求。"""
+        report = _run_ui_modules()
+        result = run_native_smoke(report["legacy_globals_attached"], after=r"""
+window.__calls = [];
+window.pywebview = { api: { save_prefs: (patch) => {
+  window.__calls.push(patch); return Promise.resolve({ ok: true });
+} } };
+applyPrefs({ log_open: true });
+await flushPrefs();
+out.push({ open: document.querySelector(".log-card").dataset.open,
+           label: $("#btn-log-toggle").textContent,
+           expanded: $("#btn-log-toggle").getAttribute("aria-expanded"),
+           saves: window.__calls });
+""")
+        self.assertTrue(result["modulesReady"])
+        self.assertEqual(result["after"][0],
+                         {"open": "true", "label": "收起", "expanded": "true", "saves": []})
+
     def test_real_module_load_attaches_every_reported_name(self):
         """真加载后，模块图报告里挂回的每个名字在 window 上都得有定义（函数或对象
         都算，PhonePanel 是对象），缺一个点名。"""

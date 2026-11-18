@@ -491,7 +491,6 @@ $("#max-attempts").addEventListener("change", (event) => {
     event.target.value = String(S.retryPolicy.max_attempts);
   }
 });
-$("#btn-log-toggle").addEventListener("click", () => setLogOpen(!S.logOpen));
 $("#btn-log-clear").addEventListener("click", () => { $("#log").textContent = ""; $("#log-last").textContent = "还没有记录"; });
 /* 五步引导：跳过/上一步/下一步；说明页重播入口；GitHub 最新版本外链（点击才打开） */
 $("#tour-skip").addEventListener("click", tourSkip);

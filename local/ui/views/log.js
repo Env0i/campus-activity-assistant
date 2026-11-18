@@ -1,13 +1,4 @@
-/* 运行日志展开/复制。 */
-function setLogOpen(open, silent) {
-  S.logOpen = !!open;
-  const card = document.querySelector(".log-card");
-  if (card) card.dataset.open = String(S.logOpen);
-  $("#btn-log-toggle").textContent = S.logOpen ? "收起" : "展开";
-  $("#btn-log-toggle").setAttribute("aria-expanded", String(S.logOpen));
-  if (!silent) savePrefs({ log_open: S.logOpen });
-}
-
+/* 运行日志渲染与复制。 */
 function copyLog() {
   /* 日志正文是逐行小条：复制时按行拼回带换行的纯文本 */
   const lines = Array.from($("#log").children).map((row) => row.textContent);

@@ -28,6 +28,7 @@ import { paintBanners } from "./features/shell/view-banners.js";
 import { applyBand, setPlanOpen } from "./features/shell/view-band.js";
 import { RUNTIME_ERRORS, runtimeErrorCopy } from "./features/shell/state-runtime.js";
 import { openWindowCloseDialog } from "./features/shell/actions-window-close.js";
+import { setLogOpen } from "./features/shell/actions-log-panel.js";
 
 /* 计划栏（features/plan）挂回：普通脚本里还有 app.js、controllers/refresh.js、
  * controllers/tick.js、views/list.js、state/filters.js、state/labels.js、
@@ -77,6 +78,7 @@ function attachShellGlobals() {
   window.RUNTIME_ERRORS = RUNTIME_ERRORS;
   window.runtimeErrorCopy = runtimeErrorCopy;
   window.openWindowCloseDialog = openWindowCloseDialog;
+  window.setLogOpen = setLogOpen;
 }
 
 export function installLegacyGlobals() {

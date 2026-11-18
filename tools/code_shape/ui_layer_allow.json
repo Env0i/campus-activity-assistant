@@ -26,9 +26,6 @@
       "listErrorCopy",
       "tick"
     ],
-    "views/log.js": [
-      "savePrefs"
-    ],
     "views/selection.js": [
       "savePrefs"
     ],

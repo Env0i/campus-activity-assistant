@@ -12,11 +12,15 @@ import { confirmStopPlan, finishResult, modifyPlan, reselectFailed, stopPlan } f
 import { bindPlaceToggle } from "./features/plan/actions-draft.js";
 import { applyBand } from "./features/shell/view-band.js";
 import { wireWindowClose } from "./features/shell/actions-window-close.js";
+import { wireLogPanel } from "./features/shell/actions-log-panel.js";
 
 installLegacyGlobals();
 
 /* 关闭事件可能在启动时已排队；先接好各按钮，再放出后端事件。 */
 wireWindowClose();
+
+/* 日志按钮先挂回状态入口再接线；偏好恢复仍由原有启动流程静默执行。 */
+wireLogPanel();
 
 /* 地点展开的点击绑定原来在 app.js 顶层，bindPlaceToggle 搬成模块后普通脚本阶段拿不到，
  * 原样挪到这里——先挂回再绑，宽窄档一致。 */
