@@ -7,7 +7,12 @@ import { PLAN_TERMINAL, admitPlanEvent, closeResultPage, mergeTask, openResultPa
 import { stopReasonText } from "./state-board.js";
 import { editPausedLine } from "./actions-run.js";
 
-export function presentPlanDone(payload, autoRefresh) {
+/* 计划收口共用入口：options 可以是旧的布尔 autoRefresh，也可以是具名选项
+ * （restore 恢复 / autoRefresh 是否排补刷新）。恢复分支只展示快照：
+ * 确认身份已由计划恢复路径登记，这里不再以恢复时刻造窗口，也不排补刷新。 */
+export function presentPlanDone(payload, options) {
+  const opts = typeof options === "object" && options ? options : { autoRefresh: options };
+  const restore = !!opts.restore;
   const data = payload || {};
   /* 终态载荷也带接纳代次：并入会话记录，旧代次事件此后不得再改写（P1） */
   const doneGen = notePlanGeneration(data.plan_generation);
@@ -19,9 +24,10 @@ export function presentPlanDone(payload, autoRefresh) {
   /* 记下终态时的选择集合（旧口径，保留给 QA 与诊断读）；结果页进出改由结果页标记决定 */
   S.plan.doneSelection = selectionSignature();
   setBusy(false);
-  /* 已确认成功的场次立即回写列表（计数/分组/门禁/冲突基线），
-   * 再安排一次有界刷新去取学校权威列表；刷新失败不撤销成功事实。 */
-  const signedChanged = noteSignedTasks(Array.from(S.plan.tasks.values()));
+  /* 实时收尾：已确认成功的场次立即回写列表（计数/分组/门禁/冲突基线），
+   * 再安排一次有界刷新去取学校权威列表；刷新失败不撤销成功事实。
+   * 恢复回放不在这里登记，也不排刷新。 */
+  const signedChanged = restore ? false : noteSignedTasks(Array.from(S.plan.tasks.values()));
   if (S.editing && S.plan.status === "stopped") {
     /* 修改计划：停下以后把没提交的场次放回选择，等用户改完重新开始（不弹停止结论） */
     S.selected.clear();
@@ -44,7 +50,7 @@ export function presentPlanDone(payload, autoRefresh) {
   }
   setResult(null);
   render();
-  if (signedChanged && autoRefresh !== false) scheduleSignedRefresh();
+  if (signedChanged && opts.autoRefresh !== false) scheduleSignedRefresh();
 }
 
 export function handlePlanDone(payload) {

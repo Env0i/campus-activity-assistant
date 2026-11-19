@@ -2009,6 +2009,172 @@ out.push({ signed: !!item.signed, pending: !!item.sync_pending,
         self.assertIn("学校列表正在同步", data["html"])
         self.assertEqual(data["count"], 1)
 
+    def test_late_task_and_done_cannot_extend_expired_confirmation(self):
+        """首确认过期后被学校列表否掉：旧任务重放与计划收尾都不得再造窗口。"""
+        data = run_js(self.LIST + r"""
+window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running", tasks: [] });
+window.onBackend.task({ plan_id: "p1", plan_generation: 1, task_id: "t1", activity_id: "a1",
+  name: "已确认活动", status: "success", attempts: 1 });
+const first = { signed: !!findItem("a1").signed, at: S.confirmed.get("a1").atMs };
+__advanceMono(121000);
+/* 学校权威列表：这场没有报名成功 */
+window.onBackend.activities({ ok: true, items: rows.map((r) => Object.assign({}, r)) });
+const expired = { signed: !!findItem("a1").signed,
+                  count: S.items.filter((i) => i.signed).length };
+confirmedRefreshTimer = null;
+/* 同一事实的旧任务重放与计划收尾补账 */
+window.onBackend.task({ plan_id: "p1", plan_generation: 1, task_id: "t1", activity_id: "a1",
+  name: "已确认活动", status: "success", attempts: 1 });
+window.onBackend.plan_done({ plan_id: "p1", plan_generation: 1, status: "completed",
+  summary: {} });
+out.push({ first: first, expired: expired, after: {
+  signed: !!findItem("a1").signed, count: S.items.filter((i) => i.signed).length,
+  confirmed: S.confirmed.has("a1"), eligible: isEligibleForPlan(findItem("a1")),
+  timer: confirmedRefreshTimer } });
+""")[0]
+        self.assertTrue(data["first"]["signed"], "对照：实时首确认立即回写")
+        self.assertIsInstance(data["first"]["at"], (int, float))
+        self.assertFalse(data["expired"]["signed"], "超过 120 秒后学校列表是权威")
+        self.assertEqual(data["expired"]["count"], 1)
+        self.assertFalse(data["after"]["signed"], "旧任务与收尾不得重新标为已报")
+        self.assertEqual(data["after"]["count"], 1, "已报名计数不回升")
+        self.assertFalse(data["after"]["confirmed"], "过期确认不得被重建")
+        self.assertTrue(data["after"]["eligible"], "这一场保持可报名")
+        self.assertIsNone(data["after"]["timer"], "同一事实不得重新安排列表补刷新")
+
+    def test_cancelled_activity_is_not_resigned_by_old_task(self):
+        """确认取消后，同一事实的旧任务重放不得把活动重新标成已报。"""
+        data = run_js(self.LIST + r"""
+window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running", tasks: [] });
+window.onBackend.task({ plan_id: "p1", plan_generation: 1, task_id: "t1", activity_id: "a1",
+  name: "已确认活动", status: "success", attempts: 1 });
+S.cancel.busyId = "a1";
+cancelSettle("a1", { ok: true, kind: "cancelled" });
+const cancelled = { signed: !!findItem("a1").signed, confirmed: S.confirmed.has("a1"),
+                    state: stateOf(findItem("a1")) };
+window.onBackend.task({ plan_id: "p1", plan_generation: 1, task_id: "t1", activity_id: "a1",
+  name: "已确认活动", status: "success", attempts: 1 });
+out.push({ cancelled: cancelled, signed: !!findItem("a1").signed,
+           confirmed: S.confirmed.has("a1"), state: stateOf(findItem("a1")) });
+""")[0]
+        self.assertFalse(data["cancelled"]["signed"], "对照：取消成功后回到未报名")
+        self.assertFalse(data["cancelled"]["confirmed"], "取消成功撤销本地缓存")
+        self.assertFalse(data["signed"], "旧任务重放不得把已取消的活动重新标成已报")
+        self.assertFalse(data["confirmed"], "已消费身份不随缓存撤销而丢失")
+        self.assertNotEqual(data["state"], "signed")
+
+    def test_new_plan_registers_the_same_task_id_again(self):
+        """已消费身份跟随计划：同计划重放不更新时间，新计划的新确认照常登记。"""
+        data = run_js(self.LIST + r"""
+window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running", tasks: [] });
+window.onBackend.task({ plan_id: "p1", plan_generation: 1, task_id: "t1", activity_id: "a1",
+  name: "已确认活动", status: "success", attempts: 1 });
+const firstAt = S.confirmed.get("a1").atMs;
+__advanceMono(5000);
+window.onBackend.task({ plan_id: "p1", plan_generation: 1, task_id: "t1", activity_id: "a1",
+  name: "已确认活动", status: "success", attempts: 2 });
+const replayAt = S.confirmed.get("a1").atMs;
+__advanceMono(5000);
+/* 更高代次的新计划：相同 task_id 的实时确认是新事实 */
+window.onBackend.plan({ plan_id: "p2", plan_generation: 2, status: "running", tasks: [] });
+window.onBackend.task({ plan_id: "p2", plan_generation: 2, task_id: "t1", activity_id: "a1",
+  name: "已确认活动", status: "success", attempts: 1 });
+out.push({ firstAt: firstAt, replayAt: replayAt, newAt: S.confirmed.get("a1").atMs,
+           signed: !!findItem("a1").signed, plan: S.plan.id });
+""")[0]
+        self.assertEqual(data["replayAt"], data["firstAt"], "同计划重放不得刷新确认时间")
+        self.assertGreater(data["newAt"], data["firstAt"], "新计划的新确认照常登记")
+        self.assertTrue(data["signed"])
+        self.assertEqual(data["plan"], "p2")
+
+    def test_bootstrap_restore_shows_result_without_signing_the_list(self):
+        """恢复快照只回放显示：不按恢复时刻造确认，也不覆盖学校列表。"""
+        data = run_js(self.LIST + r"""
+const snap = { plan_id: "p9", plan_generation: 3, status: "completed",
+  summary: { total: 1 },
+  tasks: [{ task_id: "t1", activity_id: "a1", name: "已确认活动", status: "success",
+            stop_reason: "success", attempts: 1 }] };
+ingestBootstrapPlan({ plan: snap });
+const restored = { signed: !!findItem("a1").signed, confirmed: S.confirmed.has("a1"),
+                   title: $("#selected").textContent,
+                   taskStatus: (S.plan.tasks.get("t1") || {}).status };
+__advanceMono(121000);
+/* 回放同计划终态与收尾事件：不造新窗口、不重新覆盖名单 */
+window.onBackend.plan_done({ plan_id: "p9", plan_generation: 3, status: "completed",
+  summary: { total: 1 }, tasks: snap.tasks });
+out.push({ restored: restored, after: {
+  signed: !!findItem("a1").signed, confirmed: S.confirmed.has("a1"),
+  count: S.items.filter((i) => i.signed).length,
+  title: $("#selected").textContent } });
+""")[0]
+        self.assertFalse(data["restored"]["signed"], "恢复不得把历史成功写成新的本地确认")
+        self.assertFalse(data["restored"]["confirmed"])
+        self.assertEqual(data["restored"]["taskStatus"], "success", "恢复仍显示场次结论")
+        self.assertEqual(data["restored"]["title"], "报名计划完成", "恢复仍显示计划结果")
+        self.assertFalse(data["after"]["signed"], "收尾回放不得重建确认窗口")
+        self.assertFalse(data["after"]["confirmed"])
+        self.assertEqual(data["after"]["count"], 1)
+        self.assertEqual(data["after"]["title"], "报名计划完成")
+
+    def test_realtime_confirmation_survives_an_empty_initial_list(self):
+        """列表还没载入时的实时成功：先按事件时刻缓存，后到名单不得重置。"""
+        data = run_js(r"""
+setBusinessNow(toTs("2026-10-26 20:00:00") * 1000);
+window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running", tasks: [] });
+window.onBackend.task({ plan_id: "p1", plan_generation: 1, task_id: "t1", activity_id: "a1",
+  name: "已确认活动", status: "success", attempts: 1 });
+const cached = S.confirmed.get("a1") || null;
+__advanceMono(30000);
+window.onBackend.activities({ ok: true, items: [
+  { id: "a1", name: "已确认活动", sign_start: "2026-10-26 09:00:00",
+    sign_end: "2026-10-26 23:00:00", act_start: "2026-10-27 09:00:00",
+    act_end: "2026-10-27 11:00:00", signed: false, checkin_required: null,
+    checkout_required: null } ] });
+const item = findItem("a1");
+out.push({ cached: cached ? cached.atMs : null,
+  signed: !!item.signed, pending: !!item.sync_pending,
+  at: S.confirmed.get("a1") ? S.confirmed.get("a1").atMs : null,
+  shownAt: item.signed_confirmed_at });
+""")[0]
+        self.assertIsNotNone(data["cached"], "列表未载入时实时确认也要先缓存")
+        self.assertTrue(data["signed"], "后到列表必须投影窗口内的实时确认")
+        self.assertTrue(data["pending"], "学校名单未同步前标同步中")
+        self.assertEqual(data["at"], data["cached"], "名单不得重置首次确认时间")
+        self.assertAlmostEqual(data["shownAt"], data["cached"] / 1000.0, places=3)
+
+    def test_restore_before_list_load_blocks_late_replay(self):
+        """列表未载入时恢复历史成功：后到的同任务重放不得重建确认窗口。"""
+        data = run_js(r"""
+const snap = { plan_id: "p9", plan_generation: 3, status: "completed",
+  summary: { total: 1 },
+  tasks: [{ task_id: "t1", activity_id: "a1", name: "已确认活动", status: "success",
+            stop_reason: "success", attempts: 1 }] };
+ingestBootstrapPlan({ plan: snap });
+const restored = { title: $("#selected").textContent };
+__advanceMono(30000);
+window.onBackend.activities({ ok: true, items: [
+  { id: "a1", name: "已确认活动", sign_start: "2026-10-26 09:00:00",
+    sign_end: "2026-10-26 23:00:00", act_start: "2026-10-27 09:00:00",
+    act_end: "2026-10-27 11:00:00", signed: false, checkin_required: null,
+    checkout_required: null } ] });
+const beforeLate = { signed: !!findItem("a1").signed, confirmed: S.confirmed.has("a1") };
+window.onBackend.task({ plan_id: "p9", plan_generation: 3, task_id: "t1", activity_id: "a1",
+  name: "已确认活动", status: "success", attempts: 1 });
+out.push({ restored: restored, beforeLate: beforeLate, after: {
+  signed: !!findItem("a1").signed, confirmed: S.confirmed.has("a1"),
+  at: S.confirmed.get("a1") ? S.confirmed.get("a1").atMs : null,
+  title: $("#selected").textContent,
+  taskStatus: (S.plan.tasks.get("t1") || {}).status } });
+""")[0]
+        self.assertEqual(data["restored"]["title"], "报名计划完成", "对照：恢复仍显示计划结果")
+        self.assertFalse(data["beforeLate"]["signed"], "恢复本身不覆盖学校名单")
+        self.assertFalse(data["beforeLate"]["confirmed"])
+        self.assertFalse(data["after"]["signed"], "晚到的同任务重放不得重新标为已报")
+        self.assertFalse(data["after"]["confirmed"], "恢复时就要登记已消费身份")
+        self.assertIsNone(data["after"]["at"])
+        self.assertEqual(data["after"]["title"], "报名计划完成", "结果页结论保持")
+        self.assertEqual(data["after"]["taskStatus"], "success")
+
 
 class InstantModeCopyTests(unittest.TestCase):
     """RC-04/RC-06：立即模式不显示等待开放，成功结论只留一条。"""

@@ -302,9 +302,6 @@ function addLogFresh(line) {
   addLog(text);
 }
 
-/* 报名结果回写（真实证据 P0-1）：success/already_signed 是已确认事实，
- * 立即映射到活动列表——计数、分组、行状态、复选框与冲突基线同步更新。
- * unconfirmed/failed/canceled 不写 signed，避免把未知猜成成功。 */
 const SIGNED_SYNC_MS = 120000;
 let confirmedRefreshTimer = null;
 
@@ -313,18 +310,33 @@ function planConfirmedAt() {
   return ms == null ? Date.now() : ms;   // 仅用于界面同步窗口；门禁仍由后端裁决
 }
 
-function noteSignedTasks(tasks) {
+/* 报名结果回写（真实证据 P0-1）：success/already_signed 是已确认事实，
+ * 立即映射到活动列表——计数、分组、行状态、复选框与冲突基线同步更新。
+ * unconfirmed/failed/canceled 不写 signed，避免把未知猜成成功。
+ * 同一计划同一事实只消费一次：已消费身份记在计划对象上（新计划自然重建），
+ * 列表覆盖、缓存超时或取消成功撤销缓存都不会把它清掉。
+ * 确认事实独立于活动行载入顺序：行还没到时先缓存，后到列表按既有窗口规则归并。
+ * restore 只登记身份：页面恢复不以恢复时刻造同步窗口，也不改列表与选择。 */
+function noteSignedTasks(tasks, options) {
+  const restore = !!(options && options.restore);
+  if (!S.plan.signedSeen) S.plan.signedSeen = new Set();
   let changed = false;
   (tasks || []).forEach((task) => {
     const status = String((task && task.status) || "");
     if (status !== "success" && status !== "already_signed") return;
     const id = String((task && task.activity_id) || "");
     if (!id) return;
+    /* 后端旧载荷缺任务标识时，以同计划同活动作兼容键 */
+    const key = String((task && task.task_id) || "") || ("activity:" + id);
+    if (S.plan.signedSeen.has(key)) return;
+    S.plan.signedSeen.add(key);
+    if (restore) return;
     const atMs = planConfirmedAt();
     S.confirmed.set(id, {
       source: status === "success" ? "plan_success" : "plan_already_signed",
       atMs: atMs,
     });
+    /* 活动行可能还没载入：确认先缓存，后到列表由 applyConfirmedToItems 按窗口归并 */
     const item = findItem(id);
     if (item) {
       item.signed = true;
@@ -336,7 +348,7 @@ function noteSignedTasks(tasks) {
     changed = true;
   });
   /* 自动移出不是用户改勾选：结果页照常开着，只同步它记下的选择 */
-  syncResultSelection();
+  if (changed) syncResultSelection();
   return changed;
 }
 

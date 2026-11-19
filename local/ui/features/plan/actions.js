@@ -27,6 +27,7 @@ export function handlePlan(payload, options) {
   /* 同计划已定终态：重复终态与迟到运行快照只补任务详情，不改结论、不复活忙态、不重开结果页（P1）。
    * 只有「恢复快照 + 同一终态」放行调用方按既有请求归属同步全局忙态（后端可另有受管操作在忙）。 */
   if (samePlan && PLAN_TERMINAL.indexOf(S.plan.status) >= 0) {
+    if (restore) noteSignedTasks(data.tasks, { restore: true });
     mergePlanTasks(data.tasks);
     render();
     return restore && status === String(S.plan.status);
@@ -45,8 +46,12 @@ export function handlePlan(payload, options) {
   /* 晚到 plan 事件与恢复快照经 mergeTask 合并，不抹已收到的提交次数等 telemetry */
   mergePlanTasks(data.tasks);
   /* PB11：从手机开始的计划只记一句「开始了」。startNoted 记在计划对象上：同计划的后续 plan 事件不再写；
-   * 恢复快照跳过这一步（重载前早写过了），页面重载后由 bootstrap 快照恢复的计划也不重写。 */
-  if (restore) S.plan.startNoted = true;
+   * 恢复快照跳过这一步（重载前早写过了），页面重载后由 bootstrap 快照恢复的计划也不重写。
+   * 恢复的成功场次只登记已消费身份：不以恢复时刻造 120 秒窗口，也不改列表与选择。 */
+  if (restore) {
+    S.plan.startNoted = true;
+    noteSignedTasks(data.tasks, { restore: true });
+  }
   if (S.plan.source === "phone" && !S.plan.startNoted) {
     S.plan.startNoted = true;
     noteStartedFromPhone(data.tasks);
@@ -54,7 +59,8 @@ export function handlePlan(payload, options) {
   render();
   /* 首次恢复终态走与 plan_done 相同的呈现入口：不置忙、不重发开始、不重复写失败日志 */
   if (restore && PLAN_TERMINAL.indexOf(S.plan.status) >= 0) {
-    presentPlanDone({ plan_id: id, status: S.plan.status, summary: data.summary || {} }, false);
+    presentPlanDone({ plan_id: id, status: S.plan.status, summary: data.summary || {} },
+                    { restore: true, autoRefresh: false });
   }
   return true;
 }
