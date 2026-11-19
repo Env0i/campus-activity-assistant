@@ -69,6 +69,9 @@ from runtime_paths import LOG_FILE, LOG_LOCK_FILE, SESSION_FILE, STATE_FILE, ens
 # 登录态写入的跨进程锁：沿用 ui.json.lock 用的同一对加解锁函数（标准库实现，S5）
 from infrastructure.prefs_store import (PrefsLockTimeout, acquire_file_lock,
                                         release_file_lock)
+# 列表命令的用例编排（20261119 计划）：登录探测、列表查询、时间选择、筛选排序、
+# 详情和输出都在 application/worker_activity_list.py；下面的 cmd_list 只做转发
+from application import worker_activity_list
 # 活动读取实现（决策 005 / 016）：静态 import 也是冻结分析发现该模块的唯一入口，
 # 动态替换的请求函数与学校时间解析由下面的薄转发在调用时注入
 from infrastructure import activity_queries
@@ -784,18 +787,9 @@ _tri_state = activity_queries.tri_state
 _detail_fields = activity_queries.detail_fields
 _join_state = activity_queries.join_state
 _apply_attendance = activity_queries.apply_attendance
-
-
-def _activity_flag(raw, names):
-    """只读取明确的布尔字段别名；未命中时返回 None，等待真实接口字段确认。
-
-    与 activity_queries.activity_flag 同口径；保留在 grab.py 是因为界面契约测试
-    按本文件源码字面断言「空值跳过、不能当无需」这条规则。
-    """
-    for name in names:
-        if name in raw and raw.get(name) not in (None, ""):
-            return _tri_state(raw.get(name))
-    return None
+# 三态归一化只有一份实现：空值跳过、未知保持 None 的规则只在 activity_queries 里写，
+# 这里保留原入口名，界面契约测试改为驱动 _map_activity 的字段级行为。
+_activity_flag = activity_queries.activity_flag
 
 
 def _map_activity(raw):
@@ -847,18 +841,13 @@ def parse_ts(text):
 
 
 def still_relevant(act, now=None):
-    """报名还没截止（或没给截止时间）的活动才算「还值得看」。"""
-    now = now or default_now()
-    if not act.get("sign_end"):
-        return True
-    try:
-        return parse_ts(act["sign_end"]) >= now - 3600
-    except Exception:
-        return True
+    """报名还没截止（或没给截止时间）的活动才算「还值得看」；实现见 worker_activity_list。"""
+    return worker_activity_list.still_relevant(
+        act, now, parse_ts=parse_ts, default_now=default_now)
 
 
 def keep_in_list(act, now):
-    """列表默认保留谁（R1，计划 20261107-conflict-cancel）。
+    """列表默认保留谁（R1，计划 20261107-conflict-cancel）；实现见 worker_activity_list。
 
     still_relevant 为真照旧保留；另外「已报名、举办还没结束」的活动即使报名早已截止
     也保留——否则它在列表里消失，界面的冲突与禁选基线、后端 signed_baseline 都看不见
@@ -866,32 +855,13 @@ def keep_in_list(act, now):
     act_end 缺失或解析不了的已报名活动仍按原规则筛：补回它们会让界面「已报名活动
     时间待确认」的保守规则挡住所有勾选。举办恰在 now 结束算没结束（不早于 now）。
     """
-    if still_relevant(act, now):
-        return True
-    if not act.get("signed"):
-        return False
-    try:
-        return parse_ts(act.get("act_end")) >= now
-    except Exception:
-        return False
+    return worker_activity_list.keep_in_list(act, now, parse_ts=parse_ts)
 
 
 def sign_state(act, now=None):
-    now = now or default_now()
-    try:
-        start = parse_ts(act["sign_start"])
-    except Exception:
-        return "时间未知"
-    try:
-        end = parse_ts(act["sign_end"])
-    except Exception:
-        end = None
-    if now < start:
-        left = int(start - now)
-        return "未开放（%d 小时 %d 分后）" % (left // 3600, left % 3600 // 60)
-    if end and now > end:
-        return "报名已截止"
-    return "开放中"
+    """开放状态文案；实现见 worker_activity_list。"""
+    return worker_activity_list.sign_state(
+        act, now, parse_ts=parse_ts, default_now=default_now)
 
 
 # ---------------------------------------------------------------- 浏览器
@@ -1091,148 +1061,29 @@ def cmd_check(args):
 
 
 def cmd_list(args):
-    json_mode = bool(getattr(args, "json", False))
-    # 计时起点放函数最前：[timing] 的 total_s 要覆盖登录探测到打印 JSON 全程
-    t_start = _perf_counter() if json_mode else 0.0
-    token_s = pages_s = 0.0
+    """列表命令的薄转发：编排在 application/worker_activity_list。
 
-    def _emit_list_timing(details_n, details_s):
-        # 运行记录里的列表用时分段只作诊断：任何异常都不能影响列表输出与退出码
-        try:
-            total_s = _perf_counter() - t_start
-            pages = max(1, math.ceil(len(acts) / PAGE_SIZE))
-            _stderr_note("[timing] list token_s=%.2f pages=%d pages_s=%.2f "
-                         "details=%d details_s=%.2f total_s=%.2f "
-                         "filter_time_source=%s"
-                         % (token_s, pages, pages_s, details_n, details_s,
-                            total_s, filter_time_source))
-        except Exception:
-            pass
-
-    # 先判登录态：直接拉列表失败只会得到一句「接口异常：HTTPError」，
-    # 图形界面里的用户看不出是没登录还是网络问题。
-    with _stdout_to_stderr(json_mode):
-        t0 = _perf_counter()
-        ok, msg = check_token()
-        token_s = _perf_counter() - t0
-    if not ok:
-        print("[X] %s" % msg)
-        print("    请先运行：python grab.py login（或点界面上的「登录」）")
-        return 2
-    try:
-        # 学校列表返回的是全部历史活动（11-02 实测 313 场里 294 场已截止），
-        # 这里先只拉列表不发详情，详情等下面筛完再补（见 enrich 调用处）。
-        with _stdout_to_stderr(json_mode):
-            t0 = _perf_counter()
-            # L2：先清上一轮的 Date 记录，只认本次列表回包的 Date 头
-            clear_school_date()
-            acts = fetch_activities()
-            pages_s = _perf_counter() - t0
-    except PermissionError as exc:
-        print("[X] 登录态已失效（%s），请先运行 python grab.py login" % exc)
-        return 2
-    except Exception as exc:
-        print("[X] 拉取活动失败：%s" % exc)
-        return 2
-
-    try:
-        now = business_now()          # 列表筛选按业务北京时间
-        filter_now = now
-        filter_time_source = "clock"
-    except ClockUnavailable:
-        # 校时不可用仍可完成原始数据读取：不按系统时钟筛选/排行，
-        # 状态与距开放一律显示未知，绝不把本机日期当北京时间。
-        now = None
-        # L2：退而使用本次列表回包的 HTTP Date 头（学校服务器时刻），
-        # 只用于筛选与排序，不冒充业务时钟，也不进报名开放判定。
-        filter_now = school_date_now()
-        filter_time_source = "school_date" if filter_now is not None else "none"
-        with _stdout_to_stderr(json_mode):
-            if filter_now is None:
-                log("[!] 北京时间暂不可用，回包也没有可用的 Date 头："
-                    "本次保留全部活动，开放状态显示未知。")
-            else:
-                log("[!] 北京时间暂不可用：已按学校服务器时间筛选要显示的活动。")
-    # 默认只看报名还没截止的（历史活动几百条，混在一起没法挑）；
-    # R1：已报名且举办没结束的补回（keep_in_list）；--all 与三种时间都缺失时保留全部
-    if args.all or filter_now is None:
-        rows = list(acts)
-    else:
-        rows = [a for a in acts if keep_in_list(a, filter_now)]
-
-    def rank(a):
-        # 未开放的排最前，其次开放中，已报名的垫底；时间未知时全部同档
-        if a["signed"]:
-            return 2
-        if filter_now is None:
-            return 1
-        try:
-            return 0 if filter_now < parse_ts(a["sign_start"]) else 1
-        except Exception:
-            return 1
-
-    rows.sort(key=lambda a: (rank(a), a["sign_start"] or "9999", a["name"]))
-    if not rows:
-        if json_mode:
-            print("[]")
-            _emit_list_timing(0, 0.0)
-            return 0
-        print("[i] 近期没有可报名的活动（还没公布报名时间，或都已截止/已报名）。")
-        print("    想连历史活动一起看：python grab.py list --all")
-        return 0
-
-    if json_mode:
-        # 详情只补要显示的这些：--all 或三种时间都拿不到时 rows 就是全部活动，
-        # 仍全补——分不出谁已截止，宁可慢也不按本机时钟猜；
-        # 纯文本列表只给人看活动名与状态，照旧不为每场发详情请求。
-        t0 = _perf_counter()
-        with _stdout_to_stderr(json_mode):
-            rows = enrich_attendance_items(rows)
-        details_s = _perf_counter() - t0
-        # 给图形界面用：字段固定，界面拿 id 直接把目标钉死，不靠序号对齐
-        out = []
-        for i, act in enumerate(rows, 1):
-            out.append({
-                "index": i,
-                "id": act["id"],
-                "name": act["name"],
-                "sign_start": act["sign_start"],
-                "sign_end": act["sign_end"],
-                "act_start": act["act_start"],
-                "act_end": act["act_end"],
-                "place": act["place"],
-                "signed": bool(act["signed"]),
-                "checkin_required": act.get("checkin_required"),
-                "checkout_required": act.get("checkout_required"),
-                # 真实时间段与来源：界面据此显示「签到 19:00–19:40」或「同步中」
-                "checkin_start": act.get("checkin_start") or "",
-                "checkin_end": act.get("checkin_end") or "",
-                "checkout_start": act.get("checkout_start") or "",
-                "checkout_end": act.get("checkout_end") or "",
-                "attendance_source": act.get("attendance_source") or "none",
-                "attendance_state": act.get("attendance_state") or "unknown",
-                # R2：三态，详情失败或字段缺失为 None；can_sign 只透传不展示
-                "cancel_allowed": act.get("cancel_allowed"),
-                "can_sign": act.get("can_sign"),
-                # 奖励（决策口径见 design/prototype/workbench-2026-11 Main/Phone 的 rw）：
-                # pending 是「详情还没回来」，ready 时 points/wage 为 None 才是「未公布」
-                "points": act.get("points"),
-                "wage": act.get("wage"),
-                "reward_state": act.get("reward_state") or "pending",
-                "state": "已报名" if act["signed"]
-                         else ("待确认" if now is None else sign_state(act, now)),
-            })
-        print(json.dumps(out, ensure_ascii=False))
-        _emit_list_timing(len(rows), details_s)
-        return 0
-
-    print("%3s  %s  %s  %s" % ("#", "报名开始", "状态", "活动名"))
-    for i, act in enumerate(rows, 1):
-        flag = "已报名" if act["signed"] else (
-            "待确认" if now is None else sign_state(act, now))
-        print("%3d  %s  %s  %s" % (i, act["sign_start"] or "-", flag, act["name"]))
-    print("\n提示：双击 2-抢活动.bat 可直接选择并到点抢；也可以双击 4-图形界面.bat 用鼠标点。")
-    return 0
+    下面每个实参都在本次调用时取当前函数，测试替换 grab._post / check_token /
+    fetch_activity_detail / log 仍然生效。
+    """
+    return worker_activity_list.run_list(
+        args,
+        check_token=check_token,
+        fetch_activities=fetch_activities,
+        enrich=enrich_attendance_items,
+        business_now=business_now,
+        clear_school_date=clear_school_date,
+        school_date_now=school_date_now,
+        clock_unavailable=ClockUnavailable,
+        log=log,
+        stdout_to_stderr=_stdout_to_stderr,
+        note=_stderr_note,
+        perf_counter=_perf_counter,
+        page_size=PAGE_SIZE,
+        parse_ts=parse_ts,
+        keep_in_list=keep_in_list,
+        sign_state=sign_state,
+    )
 
 
 # ---------------------------------------------------------------- 取消报名（X2/X4）

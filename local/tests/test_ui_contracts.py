@@ -1230,17 +1230,35 @@ class TriStateContractTests(unittest.TestCase):
     """tri-state 字段名与 unknown 保留规则：null 不得降级成无需。"""
 
     def test_grab_normalizes_explicit_aliases_only(self):
-        py = read("grab.py")
-        self.assertIn("CHECKIN_FLAG_NAMES", py, "grab.py 缺少签到别名列")
-        self.assertIn("CHECKOUT_FLAG_NAMES", py, "grab.py 缺少签退别名列")
-        # 无法归一化的值必须保持 None，禁止猜成 False
-        self.assertIn("return None", py, "_tri_state 对未知值必须返回 None")
-        self.assertIn("not in (None, \"\")", py, "空值字段必须当作未知（跳过），不能当无需")
-        # list --json 输出必须带两项 tri-state 字段
-        self.assertIn('"checkin_required": act.get("checkin_required")', py,
-                      "list --json 必须原样透传 checkin_required")
-        self.assertIn('"checkout_required": act.get("checkout_required")', py,
-                      "list --json 必须原样透传 checkout_required")
+        """别名只认明确值：空值跳过、后项可补、显式 False 不被覆盖、全缺保持 None。
+
+        驱动 grab._map_activity 的字段级行为，不再按源码字面锁定实现位置；
+        list --json 的签到签退键由 test_list_signed 与 test_worker_boundaries 直接验收。
+        """
+        import sys
+        sys.path.insert(0, str(LOCAL))
+        try:
+            import grab
+        finally:
+            sys.path.pop(0)
+        raw = {"id": "a1", "hdmc": "活动", "bmkssj": "", "bmjssj": ""}
+
+        def flags(**fields):
+            row = grab._map_activity(dict(raw, **fields))
+            return row["checkin_required"], row["checkout_required"]
+
+        # 前一别名为 None 或空串时，后一项的有效值仍然生效
+        self.assertEqual(flags(checkin_required=None, need_checkin=True), (True, None))
+        self.assertEqual(flags(checkin_required="", qiandao="否"), (False, None))
+        self.assertEqual(flags(checkout_required=None, needCheckOut="是"), (None, True))
+        # 显式 False 是明确回答，不被后项的 True 覆盖
+        self.assertEqual(flags(checkin_required=False, need_checkin=True), (False, None))
+        self.assertEqual(flags(checkInRequired=0, qiandao=1), (False, None))
+        # 全部缺失：保持 None，禁止猜成无需
+        self.assertEqual(flags(), (None, None))
+        # 无法归一化的取值同样保持 None，不降级成 False
+        self.assertEqual(flags(qiandao="随便"), (None, None))
+        self.assertEqual(flags(qiantui="2"), (None, None))
 
     def test_grab_tri_state_function_semantics(self):
         """_tri_state 的三态语义直接在 Python 里验证，不依赖浏览器。"""
