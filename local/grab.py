@@ -69,6 +69,9 @@ from runtime_paths import LOG_FILE, LOG_LOCK_FILE, SESSION_FILE, STATE_FILE, ens
 # 登录态写入的跨进程锁：沿用 ui.json.lock 用的同一对加解锁函数（标准库实现，S5）
 from infrastructure.prefs_store import (PrefsLockTimeout, acquire_file_lock,
                                         release_file_lock)
+# 登录态落盘（S5）：共用写锁、单写、双文件事务、暂存清理与字节回滚都在这个模块，
+# 下面的 save_* 只保留旧签名并接线；静态 import 也是冻结分析发现该模块的入口
+from infrastructure import login_session_store
 # 列表命令的用例编排（20261119 计划）：登录探测、列表查询、时间选择、筛选排序、
 # 详情和输出都在 application/worker_activity_list.py；下面的 cmd_list 只做转发
 from application import worker_activity_list
@@ -341,97 +344,28 @@ def read_json(path, default=None):
         return default
 
 
-def write_json_atomic(path, obj):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(obj, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, path)
-    if os.name != "nt":
-        try:
-            os.chmod(path, 0o600)
-        except Exception:
-            pass
-
-
 # ---- 登录态写入（S5）---------------------------------------------------------
-# 界面进程和命令行/子进程共用 data 下的登录态文件。写入本来就是「临时文件 + 原子替换」，
-# 但临时文件名固定：两个写入者同时落盘会互相踩临时文件。所以所有写登录态的地方
-# 都经过下面这把锁（进程内线程锁 + 跨进程区域锁 session.json.lock）。
+# 界面进程和命令行/子进程共用 data 下的登录态文件。单文件写入、双文件事务、
+# 线程锁 + 跨进程区域锁（session.json.lock）、暂存清理和字节回滚都归
+# infrastructure.login_session_store 一处持有；下面只保留旧入口与旧签名，
+# 调用时把数据根解析出来的路径和 log 端口传进去（测试仍按名字替换 grab.log）。
 # 读取 token() 不加锁：读到的要么是旧文件要么是新文件，不会是半截。
-SESSION_LOCK_TIMEOUT_S = 5.0
-_SESSION_THREAD_LOCK = threading.Lock()
-
-
-@contextlib.contextmanager
-def _session_write_lock(session_path, timeout_s=SESSION_LOCK_TIMEOUT_S):
-    """登录态写锁：拿不到抛 PrefsLockTimeout，由调用方决定怎么放弃。
-
-    锁文件放在登录态文件旁（session.json.lock）；state 与 session 两个文件
-    共用这一把锁，所以成对落位时不会被另一个写入者插进来。
-    """
-    deadline = time.monotonic() + max(0.0, float(timeout_s))
-    if not _SESSION_THREAD_LOCK.acquire(timeout=max(0.0, deadline - time.monotonic())):
-        raise PrefsLockTimeout("登录态正在被本进程另一线程写入")
-    try:
-        lock_path = Path(str(session_path) + ".lock")
-        try:
-            lock_path.parent.mkdir(parents=True, exist_ok=True)
-            handle = open(lock_path, "a+b")
-        except OSError:
-            raise PrefsLockTimeout("登录态锁文件不可创建")
-        try:
-            acquire_file_lock(handle, max(0.0, deadline - time.monotonic()))
-            try:
-                yield
-            finally:
-                release_file_lock(handle)
-        finally:
-            handle.close()
-    finally:
-        _SESSION_THREAD_LOCK.release()
-
-
-def _write_login_file(target, obj, session_path, timeout_s):
-    """在登录态写锁内原子写一份 JSON；超时写日志并放弃，返回是否写成。"""
-    try:
-        with _session_write_lock(session_path, timeout_s):
-            write_json_atomic(target, obj)
-        return True
-    except PrefsLockTimeout:
-        log("[X] %s 没写成：%d 秒内没拿到登录态写锁（另一个进程正在写）"
-            % (Path(target).name, int(timeout_s)))
-        return False
+SESSION_LOCK_TIMEOUT_S = login_session_store.SESSION_LOCK_TIMEOUT_S
+_session_write_lock = login_session_store.session_write_lock
 
 
 def save_session(session, path=None, timeout_s=SESSION_LOCK_TIMEOUT_S):
     """登录态 session.json 的唯一写入口；拿不到锁最多等 timeout_s 秒，
     超时写日志并放弃这次写入（返回 False，不抛异常）。"""
     target = SESSION_FILE if path is None else Path(path)
-    return _write_login_file(target, session, target, timeout_s)
+    return login_session_store.save_session(session, target, log, timeout_s)
 
 
 def save_storage_state(state, path=None, session_path=None, timeout_s=SESSION_LOCK_TIMEOUT_S):
     """浏览器 cookie 文件（storage_state.json）：和 session.json 共用同一把写锁。"""
     target = STATE_FILE if path is None else Path(path)
     lock_for = SESSION_FILE if session_path is None else Path(session_path)
-    return _write_login_file(target, state, lock_for, timeout_s)
-
-
-def _unlink_quiet(path):
-    try:
-        Path(path).unlink(missing_ok=True)
-    except Exception:
-        pass
-
-
-def _snapshot_bytes(path):
-    """保存前存量字节；原本不存在回 None，存在但读不出则抛错（先不动盘）。"""
-    try:
-        with open(path, "rb") as f:
-            return f.read()
-    except FileNotFoundError:
-        return None
+    return login_session_store.save_storage_state(state, target, lock_for, log, timeout_s)
 
 
 def save_verified_files(state, session, state_path=None, session_path=None,
@@ -441,89 +375,12 @@ def save_verified_files(state, session, state_path=None, session_path=None,
     整笔事务在登录态写锁内进行（见 save_session）；拿不到锁抛 OSError，
     调用方（登录中继）按「持久化失败」处理，不会报告成功。
     """
+    target = STATE_FILE if state_path is None else Path(state_path)
     lock_for = SESSION_FILE if session_path is None else Path(session_path)
-    try:
-        with _session_write_lock(lock_for, timeout_s):
-            _save_verified_files_locked(state, session, state_path, session_path)
-    except PrefsLockTimeout:
-        log("[X] 登录态没写成：%d 秒内没拿到写锁（另一个进程正在写）" % int(timeout_s))
-        raise OSError("登录态写入超时")
-
-
-def _save_verified_files_locked(state, session, state_path=None, session_path=None):
-    """save_verified_files 的事务本体（调用方已持有写锁）。
-
-    两份内容先写好临时文件再依次替换；第二文件替换失败时把已落位的文件恢复
-    到保存前的原始字节或删除回不存在，未落位文件保持原状，两文件最终回到
-    保存前状态。只覆盖正常异常下的回滚，不承诺跨文件断电原子性；回滚用的
-    存量字节只在运行时读入内存，不另写备份文件。
-    """
-    targets = [(STATE_FILE if state_path is None else Path(state_path), state),
-               (SESSION_FILE if session_path is None else Path(session_path), session)]
-    prepared = []
-    try:
-        for path, obj in targets:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(path.suffix + ".tmp")
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(obj, f, ensure_ascii=False, indent=2)
-            prepared.append((path, tmp))
-    except Exception:
-        for _path, tmp in prepared:
-            _unlink_quiet(tmp)
-        raise
-    originals = {}
-    replaced = []
-    try:
-        for path, _tmp in prepared:
-            originals[path] = _snapshot_bytes(path)
-        for path, tmp in prepared:
-            os.replace(tmp, path)
-            replaced.append(path)
-    except Exception:
-        for _path, tmp in prepared:
-            _unlink_quiet(tmp)
-        # 每个已落位的文件各自尽力恢复：一个恢复失败不能让另一个也留成新内容，
-        # 更不能让回滚的异常盖掉最初那个异常（调用方要看到的是真正的失败原因）
-        for path in replaced:
-            _restore_original(path, originals.get(path))
-        raise
-
-
-def _restore_original(path, blob):
-    """把已落位的文件恢复成保存前的字节（None 表示原本不存在）；失败只写 stderr。
-
-    先走临时文件加替换；替换不成再原地覆盖写回。stdout 是 worker 协议，
-    回滚诊断不能打到那里，也不记任何登录态内容，只留文件名和异常类型。
-    """
-    if blob is None:
-        try:
-            Path(path).unlink(missing_ok=True)
-        except Exception as exc:  # noqa: BLE001
-            _rollback_note(path, exc)
-        return
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    try:
-        with open(tmp, "wb") as f:
-            f.write(blob)
-        os.replace(tmp, path)
-        return
-    except Exception:  # noqa: BLE001 - 换位不成就退到原地覆盖
-        _unlink_quiet(tmp)
-    try:
-        with open(path, "wb") as f:
-            f.write(blob)
-    except Exception as exc:  # noqa: BLE001
-        _rollback_note(path, exc)
-
-
-def _rollback_note(path, exc):
-    try:
-        sys.stderr.write("[X] 登录态回滚没成功：%s 可能还是新内容（%s）\n"
-                         % (Path(path).name, type(exc).__name__))
-        sys.stderr.flush()
-    except Exception:
-        pass
+    # opener 传当前命名空间的 open：替身测试按模块名替换 grab.open 来模拟回滚写失败，
+    # 显式把同一个原语交给事务，接缝才不会被新的模块边界切断
+    login_session_store.save_verified_files(state, session, target, lock_for,
+                                            log, timeout_s, opener=open)
 
 
 def token():
