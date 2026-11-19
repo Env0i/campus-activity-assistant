@@ -1450,18 +1450,18 @@ install.bat[OV5T]: F:引导源码便携版安装依赖、浏览器和初始配�
 遇到问题先看我.txt[SU4S]: F:说明安装版与解压版排障、数据备份和卸载边界 | R:code:local/runtime_paths.py | A:- | S:静默卸载保留数据；自定义数据根与旧迁移源须分别确认
 
 ===/<repository>/local/ui/===
-app.js[EU9L]: F:组合桌面工作台启动、后端事件分发和用户交互 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/refresh.js,code:local/ui/controllers/terms.js,code:local/ui/controllers/tick.js | A:boot,window.onBackend,setRetryPolicy | S:bootstrap失败按条款未知关闭学校动作；恢复可见性只摄入计划快照不重发报名；重试偏好仅影响后续计划
+app.js[EU9L]: F:初始化桌面工作台，分发后端事件并绑定窗口及用户操作 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/refresh.js,code:local/ui/controllers/terms.js,code:local/ui/controllers/tick.js | A:boot,window.onBackend,setRetryPolicy | S:bootstrap失败按条款未知关闭学校动作。启动和窗口恢复先记录计划上下文，有效空闲回复才立即补刷新；恢复仅回放显示。重试偏好仅影响后续计划
 boot-guard.js[RR7T]: F:暂存模块未就绪的后端事件，顺序重放并提供加载失败兜底 | R:code:local/ui/app.js,code:local/ui/main.js,code:local/ui/index.html | A:window.__replayBackendQueue | S:须在app后main前加载；重放前清队列，单条异常不阻断后续；10秒兜底不依赖模块
 index.html[EU9L]: F:定义工作台和对话框DOM契约、内嵌条款全文及脚本顺序 | R:code:local/ui/styles.css,code:local/ui/main.js,code:local/ui/boot-guard.js | A:DOM id,data-act,script清单 | S:普通脚本顺序构成依赖；boot-guard须在模块入口前；条款全文同步文档，许可懒读随包文件。
 led.js[CU5S]: F:用SVG点阵字库绘制倒计时和结果符号 | R:code:local/ui/features/plan/view-led.js | A:LED_UI.renderLed,clearLed,GLYPHS | S:未知字形为空格；同布局仅换点亮状态，不重建节点。
-legacy-globals.js[AU8S]: F:显式将ESM能力挂回普通脚本全局 | R:code:local/ui/main.js,code:local/ui/app.js | A:installLegacyGlobals | S:名单只保留普通脚本消费者；必须先安装再运行首次绘制和绑定。
+legacy-globals.js[AU8S]: F:将仍被普通脚本使用的模块入口显式挂到window | R:code:local/ui/main.js,code:local/ui/app.js | A:installLegacyGlobals | S:只为普通脚本的实际消费者保留挂回项，首次绘制和绑定前先安装。任务合并与终态呈现已由模块直接导入
 main.js[EU9T]: F:组合模块启动、功能接线并释放排队后端事件 | R:code:local/ui/legacy-globals.js,code:local/ui/boot-guard.js,code:local/ui/app.js | A:模块顶层启动 | S:关窗先接线再放事件；首次分档等termsLocked挂回；boot失败标条款未知，不能放开学校动作。
 styles.css[FU6L]: F:定义桌面时刻表、计划大屏、对话框和响应式布局 | R:code:local/ui/index.html | A:桌面工作台样式 | S:原生dialog仅在open时使用flex；计划终态描边只读计划级状态，不能由单场结果提前染整屏。
 
 ===/<repository>/local/ui/controllers/===
 bridge.js[IU6T]: F:封装pywebview调用和桥接启动等待 | R:code:local/ui/app.js | A:hasBridge,api,waitForBridge | S:api容器存在不代表bootstrap已注册；等待用单调时钟
 prefs.js[AD6T]: F:串行防抖保存偏好差量并支持立即刷新和失败回队 | R:code:local/ui/controllers/bridge.js | A:flushPrefs,savePrefs,savePrefsNow | S:失败回队新值优先；两次自动失败后停重试，下次修改恢复；立即保存不绕过在途串行
-refresh.js[AB9L]: F:编排登录与列表刷新、超时收口、报名事实合并和后台刷新 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/terms.js | A:refresh,handleCheck,applyActivities,noteSignedTasks,autoRefreshTick,ingestBootstrapPlan | S:请求号及代次隔离旧回调；后台失败保留列表选择。仅成功或已报名形成两分钟本地确认，期后学校列表权威；临近开放或时间未知的运行任务阻止自动刷新
+refresh.js[AB9L]: F:编排登录与列表刷新、报名事实合并、后台刷新及计划恢复的忙态同步 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/terms.js,code:local/ui/features/plan/actions.js | A:refresh,handleCheck,applyActivities,noteSignedTasks,autoRefreshTick,ingestBootstrapPlan | S:刷新以请求号和代次隔离旧回调，后台失败保留列表选择。计划快照先交计划模块裁决，只有请求归属有效且携带布尔busy才可同步全局忙态。本地成功确认窗口为120秒，期后学校列表权威；临近开放或时间未知的运行任务阻止后台刷新
 terms.js[AS9L]: F:编排条款门禁、版本同意事务、拒绝与只读展示 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/prefs.js,code:local/ui/views/terms.js | A:ingestTerms,openTerms,acceptTerms,recheckTerms,declineTerms,ensureLicenseText | S:同意提交绑定全文版本，成功需一致版本及同意时间；超时作废请求号并保留门禁；复查确认后仍清拒绝偏好并补加载；拒绝按版本保存
 tick.js[AW8S]: F:按业务时钟推进工作台倒计时和阶段显示并检测睡眠间隔 | R:code:local/ui/controllers/refresh.js,code:local/ui/app.js | A:tick,receiveSecondOpen,doCheck,cleanReason,grabHint,leftText | S:睡眠间隔用单调时钟；业务时间未知不以系统墙钟代替；跨行状态或取消边界才整表重绘
 
@@ -1507,9 +1507,9 @@ view.js[IU7M]: F:绘制手机通道、组件、二维码及关闭确认 | R:code
 ===/<repository>/local/ui/features/plan/===
 actions-draft.js[AU4T]: F:绑定计划标题地点的展开操作 | R:code:local/ui/features/plan/view.js | A:bindPlaceToggle | S:只改当前按钮展开属性，保留键盘焦点
 actions-events.js[AB8S]: F:收口计划完成事实、结果及停止后修改草稿恢复 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/actions-run.js | A:presentPlanDone,handlePlanDone,restartStoppedPlan,loggedConclusion,showTaskResult | S:完成须过计划归属；重复终态只补详情；修改草稿等真实stopped；待核对不写失败不自动重发
-actions-run.js[AB8S]: F:编排任务取消、停止确认与快照对账及修改重选 | R:code:local/ui/features/plan/state-board.js,code:local/ui/features/plan/view-controls.js | A:cancelTask,stopPlan,confirmStopPlan,modifyPlan,doStopPlan,reselectFailed | S:确认停止后busy等待终态；提交中或开放前100秒禁修改；停止按planId及尝试号隔离迟到回包；无此计划先bootstrap核实
+actions-run.js[AB8S]: F:编排场次取消、计划停止及快照对账，并承接修改与重选 | R:code:local/ui/features/plan/state-board.js,code:local/ui/features/plan/view-controls.js,code:local/ui/controllers/refresh.js | A:cancelTask,stopPlan,confirmStopPlan,modifyPlan,doStopPlan,reselectFailed | S:确认停止后忙态等终态，提交中或开放前100秒禁修改。停止按计划ID和尝试号隔离迟到回复；补查后仍属原计划才写结论，以已定终态或已接纳的空闲无计划快照为结束证据
 actions-start.js[AB9M]: F:提交唯一请求ID的开始请求，只读对账并恢复接纳后的计划快照 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/actions-events.js,code:local/ui/features/terms/state.js | A:startPlan,reconcileStart,adoptPlan,restoreEditedPlan | S:开始15秒未回应只查start_request_state，未知时继续锁开始。过期接纳回复不能接管当前计划，同计划已终态不因旧运行快照复活。场次快照交由mergeTask保留先到的进度和计数
-actions.js[AB8T]: F:摄入计划和场次事件，推进界面状态并把已报名事实同步到活动列表 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/actions-events.js | A:advancePlanStatus,handlePlan,handleTask,verifyTask | S:旧计划事件不能替换当前计划，plan事件不能将同计划终态改回运行。天生乱序的场次载荷交mergeTask。成功同步冲突判断，刷新核对仅拉列表，不重发报名
+actions.js[AB8T]: F:接纳实时计划事件和恢复快照，合并场次并将已报名事实写回活动列表 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/actions-events.js | A:advancePlanStatus,handlePlan,handleTask,verifyTask | S:快照与事件共用计划归属。同计划已终态只补明细，只有恢复快照的结论一致才允许调用方同步全局忙态，结果页不重开。恢复与刷新核对均不重发报名
 state-board.js[DB8M]: F:推导计划栏结果分类、运行警告和修改重选资格 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/state-task.js | A:resultMode,resultCounts,resultView,planLate,reselectableIds,runWarnView | S:满额、待核对、睡眠错过和取消分列；重选排除满额及待核对；提交或开放前100秒禁修改
 state-draft.js[DB7T]: F:推导自动登录条件与开始前非阻断提醒 | R:code:local/ui/features/login/state-recovery.js,code:local/ui/features/terms/state.js | A:autoLoginCredential,latestSelectedOpen,preStartWarnings | S:自动登录须保存凭据、OCR可用且无密码拒绝；最晚开放时刻决定提醒；直到截止缺截止回退2分钟须明示
 state-led.js[DU7T]: F:统一路线目标、截止和点阵格式并适配LED渲染 | R:code:local/ui/features/plan/state-task.js | A:routeDeadline,routeTime,routeTarget,ledSet,fmtLed | S:目标来自执行模型而非原选择；ledSet实际操作DOM适配器，缺LED_UI保留文本层
@@ -1652,5 +1652,5 @@ jslex.mjs[KQ7M]: F:无依赖扫描JS记号、模板插值及括号深度 | R:cod
 jsscan.mjs[KQ7S]: F:由JS记号识别函数体范围及嵌套限定名 | R:code:tools/code_shape/jslex.mjs | A:findFunctions,enclosingFunction | S:仅块体箭头计函数，表达式箭头不计；头至右花括号两端计行，嵌套独立且纳入外层。
 ui_layer_allow.json[FQ7T]: F:记录普通前端脚本跨层引用存量白名单 | R:code:tools/code_shape/ui_refs.mjs | A:state,views | S:当前两组为空；按文件与名字约束只减不增，不能回调注入上层来绕守卫。
 ui_modules.mjs[XQ8M]: F:只读检查模块图、分层、缺导入及全局桥名单 | R:code:tools/code_shape/ui_refs.mjs,code:tools/code_shape/ui_modules_expect.json | A:moduleLayer,命令行,--expect | S:容忍环用于列报而非建图崩溃；普通脚本引用仅模块定义却未挂window单列，拼接测试会掩盖此缺陷；入口不计普通全局使用表。
-ui_modules_expect.json[FQ7S]: F:保存模块守卫零问题约束和过渡全局清单 | R:code:tools/code_shape/ui_modules.mjs | A:五类问题表,plain_globals_used,legacy_globals_attached | S:由--expect生成不手写；五类问题须空，两全局清单逐项相等而非只比数。
+ui_modules_expect.json[FQ7S]: F:保存桌面模块图的零问题期望和过渡全局的实际名称 | R:code:tools/code_shape/ui_modules.mjs,code:local/ui/legacy-globals.js | A:五类问题表,plain_globals_used,legacy_globals_attached | S:由--expect生成。两份全局名单按名称与实际使用图核对，消费者移除时从挂回名单移除相应入口
 ui_refs.mjs[XQ8M]: F:构建混合脚本清单并按记号清点前端跨层名字引用 | R:code:tools/code_shape/jslex.mjs,code:tools/code_shape/jsscan.mjs,code:tools/code_shape/ui_modules.mjs | A:pageFiles,moduleImports,moduleGraph,analyzeFile,topDefs,scanUses | S:只接受单行不改名单具名相对导入，越ui或循环拒绝；普通脚本在前、模块后序；属性键字符串及局部遮蔽不计引用，手机页不纳入。
