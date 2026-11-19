@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-19T04:22:51Z",
+  "updated_at": "2026-11-19T09:00:41Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -89,9 +89,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "2db56b37a1bbd292202d0e00d1adac0ef5c8fcd0074ad4be4e07d4c7fbde7ce9",
-      "size": 292759,
-      "normalized_sha256": "2db56b37a1bbd292202d0e00d1adac0ef5c8fcd0074ad4be4e07d4c7fbde7ce9"
+      "sha256": "057466f8f2d1c4f76bbc02c9a4a2ae32f3b3fd7f19a51a1c64358160012f574f",
+      "size": 293571,
+      "normalized_sha256": "057466f8f2d1c4f76bbc02c9a4a2ae32f3b3fd7f19a51a1c64358160012f574f"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -8195,15 +8195,21 @@
     },
     "local/grab.py": {
       "role": "index",
-      "sha256": "81562bd21e69213ba037b1f96cc6071ec4ba446883ba3edd89df96f064e6981e",
-      "size": 202655,
-      "normalized_sha256": "81562bd21e69213ba037b1f96cc6071ec4ba446883ba3edd89df96f064e6981e"
+      "sha256": "1311b123bf547b910a0893ea8b92beb7bf191b194c094d0b1644600a887cffc1",
+      "size": 192112,
+      "normalized_sha256": "1311b123bf547b910a0893ea8b92beb7bf191b194c094d0b1644600a887cffc1"
     },
     "local/infrastructure/__init__.py": {
       "role": "index",
       "sha256": "ada69544c3fe86f14fa2419ddae3d6b98a1663c24c5141e3a0155e8340553991",
       "size": 1094,
       "normalized_sha256": "ada69544c3fe86f14fa2419ddae3d6b98a1663c24c5141e3a0155e8340553991"
+    },
+    "local/infrastructure/activity_queries.py": {
+      "role": "index",
+      "sha256": "b74cba437d24af7e8cdd3e71339fbe065473517a984c8d333b4cc808a33d4824",
+      "size": 15579,
+      "normalized_sha256": "b74cba437d24af7e8cdd3e71339fbe065473517a984c8d333b4cc808a33d4824"
     },
     "local/infrastructure/advanced_features.py": {
       "role": "index",
@@ -8609,9 +8615,9 @@
     },
     "local/tests/test_ui_reliability.py": {
       "role": "observe",
-      "sha256": "25b4a67f56ceb01d28647903c8ef4d9d2c5d1edef9943daabb93a0bbd8ffa3af",
-      "size": 137266,
-      "normalized_sha256": "25b4a67f56ceb01d28647903c8ef4d9d2c5d1edef9943daabb93a0bbd8ffa3af"
+      "sha256": "cc32f401dcb68c7a7fee883288c1fd566c45dc96196367c9dd9b3bc2f139ebb2",
+      "size": 147805,
+      "normalized_sha256": "cc32f401dcb68c7a7fee883288c1fd566c45dc96196367c9dd9b3bc2f139ebb2"
     },
     "local/tests/test_updater.py": {
       "role": "observe",
@@ -8673,9 +8679,9 @@
     },
     "local/ui/controllers/refresh.js": {
       "role": "index",
-      "sha256": "2f8769bb80dda14f805fe6acb5990beca0872ce4bedee98f494bd0d0980488df",
-      "size": 29286,
-      "normalized_sha256": "2f8769bb80dda14f805fe6acb5990beca0872ce4bedee98f494bd0d0980488df"
+      "sha256": "4f038834c1f3261ad20a71aa733ec770f90dcae57b9ca5da99aaed9e0a5245f6",
+      "size": 30201,
+      "normalized_sha256": "4f038834c1f3261ad20a71aa733ec770f90dcae57b9ca5da99aaed9e0a5245f6"
     },
     "local/ui/controllers/terms.js": {
       "role": "index",
@@ -8871,9 +8877,9 @@
     },
     "local/ui/features/plan/actions-events.js": {
       "role": "index",
-      "sha256": "dc20146ebe8d150ec94cde76b39b7b0f040ab5f86f1c33673992d6a4abf919c9",
-      "size": 8250,
-      "normalized_sha256": "dc20146ebe8d150ec94cde76b39b7b0f040ab5f86f1c33673992d6a4abf919c9"
+      "sha256": "f7672387b06bf2a8e1499fdcceaa02cc21777205715976bb60839aaa9fced722",
+      "size": 8768,
+      "normalized_sha256": "f7672387b06bf2a8e1499fdcceaa02cc21777205715976bb60839aaa9fced722"
     },
     "local/ui/features/plan/actions-run.js": {
       "role": "index",
@@ -8889,9 +8895,9 @@
     },
     "local/ui/features/plan/actions.js": {
       "role": "index",
-      "sha256": "a0dc916165b209acb113368b825c8c3a6bc2096587aece6147beccbac2a1698a",
-      "size": 4823,
-      "normalized_sha256": "a0dc916165b209acb113368b825c8c3a6bc2096587aece6147beccbac2a1698a"
+      "sha256": "af5fdc11a9632db96d86766d76e242777f223092b823e85a0fa1af8e2a0e3238",
+      "size": 5121,
+      "normalized_sha256": "af5fdc11a9632db96d86766d76e242777f223092b823e85a0fa1af8e2a0e3238"
     },
     "local/ui/features/plan/state-board.js": {
       "role": "index",
