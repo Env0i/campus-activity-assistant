@@ -57,39 +57,34 @@ function notePlanGeneration(value) {
   return gen;
 }
 
-function ingestBootstrapPlan(info) {
-  /* 页面重载会丢 plan/task 事件：用 bootstrap 快照恢复任务列表与终态呈现。
-   * 只恢复显示，不重新提交；终态走与 plan_done 相同的呈现入口（FR05）。 */
+/* 窗口请求的归属上下文：发出 bootstrap 前记下当前计划对象与关键标记；
+ * 回复到达时只有这份上下文没变，空闲快照的忙态和停止位才允许同步。 */
+function planSyncContext() {
+  return { plan: S.plan, status: String(S.plan.status || ""),
+           gen: Number(S.maxPlanGen) || 0,
+           starting: !!S.starting, stopping: !!S.stopping };
+}
+
+function planSyncContextCurrent(ctx) {
+  return !!ctx && S.plan === ctx.plan && String(S.plan.status || "") === ctx.status
+    && (Number(S.maxPlanGen) || 0) === ctx.gen
+    && !!S.starting === ctx.starting && !!S.stopping === ctx.stopping;
+}
+
+function ingestBootstrapPlan(info, syncBusy = false) {
+  /* 计划快照与实时事件共用同一条归属与合并路径（restore：只回放显示，不重发）；
+   * 空闲快照的 busy 与停止位只在请求仍未过期时同步，已定终态或旧归属一律拒绝。 */
   const plan = info && info.plan;
-  if (!plan || !plan.plan_id) return;
-  const id = String(plan.plan_id);
-  const status = String(plan.status || "running");
-  const tasks = plan.tasks || [];
-  const gen = notePlanGeneration(plan.plan_generation);   /* 权威快照定归属（P1） */
-  if (S.plan.id !== id) {
-    S.plan = { id: id, gen: gen, status: status, tasks: new Map(), armedAt: Date.now() / 1000 };
-  } else {
-    /* 同 plan_id 也要推进：状态可能已从 running 走到终态（FR05） */
-    if (gen > (Number(S.plan.gen) || 0)) S.plan.gen = gen;
-    S.plan.status = status;
+  const explicitBusy = typeof (info && info.busy) === "boolean";
+  if (plan && plan.plan_id) {
+    const accepted = handlePlan(plan, { restore: true });
+    if (!accepted || !syncBusy || !explicitBusy) return false;
+  } else if (!syncBusy || !explicitBusy) {
+    return false;   /* 缺 plan 时只接受调用方已核对归属且带显式布尔 busy 的回复 */
   }
-  tasks.forEach((task) => {
-    /* 快照携带完整运行时 detail（checkpoint/模式/策略/次数）：重载后
-     * 时间线显示真实节点，已提交次数也不归零 */
-    const key = String(task.task_id);
-    S.plan.tasks.set(key, mergeTask(S.plan.tasks.get(key) || null, task));
-  });
-  /* PB11：重载前这个计划的「开始了」记录早写过了，恢复时不补写（handlePlan 看 startNoted） */
-  S.plan.startNoted = true;
-  if (["completed", "failed", "partial", "stopped"].indexOf(status) < 0) {
-    /* 运行态：恢复进度与「停止」入口 */
-    setBusy(true);
-    render();
-    return;
-  }
-  /* 终态：同一入口恢复结果框、卡片次数/原因、LED/边框、停止后动作与选择签名。
-   * 不置 busy、不重发 start_plan、不重复写失败日志、不触发自动刷新。 */
-  presentPlanDone({ plan_id: id, status: status, summary: plan.summary || {} }, false);
+  if (!info.busy) S.stopping = false;
+  setBusy(info.busy);
+  return true;
 }
 
 /* FB4：组件码唯一接收点——只认可知三码；未知 error 字段保持既有业务失败路径 */

@@ -1538,6 +1538,97 @@ out.push({ status: task.status, attempts: task.attempts });
             self.assertEqual(data["status"], "submitting", "未终态场次照常接受新状态")
             self.assertEqual(data["attempts"], 5, "新进度（第 5 次）不得被旧值压住")
 
+    def test_stale_bootstrap_snapshot_cannot_replace_newer_plan(self):
+        """A 的晚到快照：B 的任务卡、结论与停止入口都不受影响。"""
+        res = run_js(TIMER_HARNESS + r"""
+window.onBackend.plan({ plan_id: "pb", plan_generation: 2, status: "running",
+  tasks: [{ task_id: "tb", activity_id: "b1", name: "B场一", status: "waiting",
+            attempts: 2, sign_start: "2099-01-01 09:00:00" }] });
+const calls = [];
+window.pywebview = { api: {
+  stop_plan: (pid) => { calls.push(pid); return Promise.resolve({ ok: true }); } } };
+const accepted = ingestBootstrapPlan({ busy: false, plan: {
+  plan_id: "pa", plan_generation: 1, status: "completed", summary: { total: 1 },
+  tasks: [{ task_id: "ta", activity_id: "a1", name: "A场一", status: "success" }] } }, true) === true;
+const before = { id: S.plan.id, status: S.plan.status, busy: S.busy,
+  tasks: Array.from(S.plan.tasks.keys()),
+  cards: document.querySelector("#plan-tasks").innerHTML };
+confirmStopPlan();
+await __flush();
+out.push({ accepted: accepted, before: before, calls: calls });
+""")
+        data = res[0]
+        self.assertFalse(data["accepted"], "旧计划快照不得被当作有效同步")
+        self.assertEqual(data["before"]["id"], "pb", "旧快照不得换掉当前计划")
+        self.assertEqual(data["before"]["status"], "running")
+        self.assertTrue(data["before"]["busy"], "B 仍在运行：忙态不得被旧快照清掉")
+        self.assertEqual(data["before"]["tasks"], ["tb"], "旧快照的任务不得混进 B")
+        self.assertIn("B场一", data["before"]["cards"])
+        self.assertEqual(data["calls"], ["pb"], "停止入口必须仍指向 B")
+
+    def test_running_snapshot_cannot_revive_terminal_plan(self):
+        """同计划终态后的 running 回包：不改结论、不复活忙态、不重开已关闭的结果页。"""
+        res = run_js(r"""
+window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running", tasks: [] });
+window.onBackend.task({ plan_id: "p1", plan_generation: 1, task_id: "t1", activity_id: "a1",
+  name: "场一", status: "failed", stop_reason: "unconfirmed", attempts: 3 });
+window.onBackend.plan_done({ plan_id: "p1", plan_generation: 1,
+  status: "failed", summary: { total: 1 } });
+closeResultPage();   /* 用户已经关掉结果页 */
+const closed = { open: S.resultOpen, busy: S.busy, status: S.plan.status };
+const accepted = ingestBootstrapPlan({ busy: true, plan: {
+  plan_id: "p1", plan_generation: 1, status: "running",
+  tasks: [{ task_id: "t1", activity_id: "a1", name: "场一", status: "waiting", attempts: 0 }] } }, true) === true;
+const task = S.plan.tasks.get("t1") || {};
+out.push({ accepted: accepted, closed: closed,
+  open: S.resultOpen, busy: S.busy, status: S.plan.status,
+  taskStatus: task.status, attempts: task.attempts,
+  cards: document.querySelector("#plan-tasks").innerHTML });
+""")
+        data = res[0]
+        self.assertFalse(data["accepted"], "终态后的旧运行快照不得被当作有效同步")
+        self.assertFalse(data["closed"]["open"], "对照：结果页已经关掉")
+        self.assertFalse(data["open"], "旧运行快照不得重开已关闭的结果页")
+        self.assertFalse(data["busy"], "终态后不得复活忙态")
+        self.assertEqual(data["status"], "failed", "旧运行快照不得改写已定结论")
+        self.assertEqual(data["taskStatus"], "failed", "场次终态保持先到的事实")
+        self.assertEqual(data["attempts"], 3, "旧快照不得抹掉已收到的提交次数")
+
+    def test_window_reply_cannot_revert_plan_advanced_by_events(self):
+        """窗口请求未回时事件已推进新计划：旧空快照不得清忙态或停用停止入口。"""
+        res = run_js(TIMER_HARNESS + r"""
+let resolveBoot = null;
+const starts = [];
+window.pywebview = { api: {
+  bootstrap: () => new Promise((res) => { resolveBoot = res; }),
+  start_plan: (...args) => { starts.push(args); return Promise.resolve({ ok: true }); },
+  check: () => Promise.resolve({ ok: true, result: "valid" }),
+  list_activities: () => Promise.resolve({ ok: true, items: [] }),
+} };
+S.busy = true;
+S.plan = { id: "pa", gen: 1, status: "running", tasks: new Map() };
+S.stopping = false;
+document.hidden = false;
+window.__docListeners.visibilitychange.forEach((fn) => fn());
+/* 回包未到：后端事件先把当前计划推进到新的 B */
+window.onBackend.plan({ plan_id: "pb", plan_generation: 2, status: "running",
+  tasks: [{ task_id: "tb", activity_id: "b1", name: "B场一", status: "submitting", attempts: 3 }] });
+resolveBoot({ busy: false, plan: null });
+await __flush();
+out.push({ id: S.plan.id, busy: S.busy, stopping: S.stopping,
+  tasks: Array.from(S.plan.tasks.keys()),
+  attempts: (S.plan.tasks.get("tb") || {}).attempts,
+  stopDisabled: $("#btn-stop").disabled, starts: starts.length });
+""")
+        data = res[0]
+        self.assertEqual(data["id"], "pb", "事件已推进的新计划保持")
+        self.assertTrue(data["busy"], "旧空快照不得把运行中的新计划清成空闲")
+        self.assertFalse(data["stopping"])
+        self.assertEqual(data["tasks"], ["tb"])
+        self.assertEqual(data["attempts"], 3)
+        self.assertFalse(data["stopDisabled"], "停止入口不得被旧空快照停用")
+        self.assertEqual(data["starts"], 0, "恢复不得重发 start_plan")
+
 
 class StoppingEarlyReturnTests(unittest.TestCase):
     """S.stopping：同计划终态已定时，重复终态事件通过早返回分支到达，

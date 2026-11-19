@@ -1,5 +1,4 @@
 import { setResult } from "../shell/view-result.js";
-import { setBusy } from "../shell/actions-render.js";
 import { render } from "../shell/actions-render.js";
 import { clearSelection } from "../list/actions-selection.js";
 /* 计划栏的编排层（运行中这一段）：停止确认、修改计划、重新选择与收尾。 */
@@ -140,9 +139,8 @@ function resyncPlanFromBootstrap(wasEditing, planId, attempt) {
   api("bootstrap").then((info) => {
     if (!ownsStopReply(planId, attempt)) return;
     if (!info) { if (wasEditing) addLog("停止没成功，计划继续运行"); return; }
-    ingestBootstrapPlan(info);
-    if (!info.busy) S.stopping = false;
-    if (!!info.busy !== S.busy) setBusy(!!info.busy);
+    /* 归属已由 ownsStopReply 核对：统一恢复入口同步允许的忙态与停止位 */
+    ingestBootstrapPlan(info, true);
     if (wasEditing) addLog(info.busy ? "停止没成功，计划继续运行" : "计划已经结束，修改作废");
     render();
   }).catch(() => {

@@ -1427,12 +1427,33 @@ class DualModeUiContractTests(unittest.TestCase):
         js = read("ui/app.js")
         self.assertIn("TASK_RUNTIME_FIELDS", js, "缺少运行时字段清单")
         self.assertIn("function mergeTask(", js, "缺少任务合并函数 mergeTask")
-        for anchor in ("function handlePlan(", "function handleTask(",
-                       "function ingestBootstrapPlan("):
+        for anchor, merger in (("function handlePlan(", "mergePlanTasks("),
+                               ("function handleTask(", "mergeTask(")):
             anchor_at = js.index(anchor)
             body = js[anchor_at:anchor_at + 900]
-            self.assertIn("mergeTask(", body,
+            self.assertIn(merger, body,
                           "%s 必须经 mergeTask 合并，不能整对象覆盖" % anchor.strip("function ("))
+        helper_at = js.index("function mergePlanTasks(")
+        self.assertIn("mergeTask(", js[helper_at:helper_at + 300],
+                      "计划级合并入口必须委托 mergeTask")
+        # 恢复入口已是薄转发（快照统一交给 handlePlan），源码位置断言改由行为覆盖：
+        # 同一计划的旧快照缺真实 checkpoint 和次数时，路线/任务卡保留已有事实。
+        res = run_js(r"""
+window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running", tasks: [
+  { task_id: "t1", activity_id: "a1", name: "场一", status: "submitting", attempts: 4,
+    run_started_at: 1000, page_opened_at: 1001, watch_started_at: 1002 }] });
+ingestBootstrapPlan({ plan: { plan_id: "p1", plan_generation: 1, status: "running",
+  tasks: [{ task_id: "t1", activity_id: "a1", name: "场一", status: "submitting", attempts: 0 }] } });
+const task = S.plan.tasks.get("t1") || {};
+out.push({ attempts: task.attempts, run: task.run_started_at, page: task.page_opened_at,
+           watch: task.watch_started_at, cards: document.querySelector("#plan-tasks").innerHTML });
+""")
+        data = res[0]
+        self.assertEqual(data["attempts"], 4, "旧快照不得抹掉已收到的提交次数")
+        self.assertEqual(data["run"], 1000, "已发生的启动 checkpoint 不得被空值抹掉")
+        self.assertEqual(data["page"], 1001, "已打开的活动页 checkpoint 不得被空值抹掉")
+        self.assertEqual(data["watch"], 1002, "已开始的盯按钮 checkpoint 不得被空值抹掉")
+        self.assertIn("已提交 4 次", data["cards"], "任务卡次数保留已有事实")
 
     def test_task_card_shows_signup_mode(self):
         """混合计划每个任务卡显示自己的模式。"""

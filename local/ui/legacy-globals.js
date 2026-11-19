@@ -18,14 +18,14 @@ import { loginEstimateText } from "./features/login/state.js";
 import { paintLogin } from "./features/login/view.js";
 import { receiveAutoState, setLogin, syncLoginDependentView } from "./features/login/actions.js";
 import { loginEntry, receiveReloginState } from "./features/login/actions-relogin.js";
-import { PLAN_TERMINAL, mergeTask, planOutcome, syncResultSelection, unknownLabel } from "./features/plan/state.js";
+import { PLAN_TERMINAL, planOutcome, syncResultSelection, unknownLabel } from "./features/plan/state.js";
 import { handlePlan, handleTask, verifyTask } from "./features/plan/actions.js";
 import { RUNNING_STATUSES, executionView, taskDisplayDetail, taskDisplayLabel, taskModePrefix, verifiedSigned } from "./features/plan/state-task.js";
 import { runHeadKey } from "./features/plan/state-board.js";
 import { paintEditNote, paintRunPanel, paintSelected } from "./features/plan/view.js";
 import { startPlan } from "./features/plan/actions-start.js";
 import { cancelTask, closeStopAsk, stopAskKey, stopAskOpen } from "./features/plan/actions-run.js";
-import { handlePlanDone, presentPlanDone } from "./features/plan/actions-events.js";
+import { handlePlanDone } from "./features/plan/actions-events.js";
 import { handleDone } from "./features/login/actions-browser.js";
 import { paintChecks } from "./features/plan/view-draft.js";
 import { paintRoute, paintCountdown, paintLed } from "./features/plan/view-led.js";
@@ -45,7 +45,6 @@ import { tourSkip } from "./features/shell/actions-tour-exit.js";
  * controllers/tick.js、views/list.js、state/filters.js、state/labels.js、
  * state/store.js 在用这些名字。 */
 function attachPlanGlobals() {
-  window.mergeTask = mergeTask;
   window.handlePlan = handlePlan;
   window.handleTask = handleTask;
   window.syncResultSelection = syncResultSelection;
@@ -68,7 +67,6 @@ function attachPlanGlobals() {
   window.stopAskOpen = stopAskOpen;
   window.stopAskKey = stopAskKey;
   window.closeStopAsk = closeStopAsk;
-  window.presentPlanDone = presentPlanDone;
   window.handlePlanDone = handlePlanDone;
   window.paintChecks = paintChecks;
   window.paintRoute = paintRoute;

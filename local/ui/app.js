@@ -11,6 +11,7 @@
 async function boot() {
   const bridgeReady = await waitForBridge();
   const bootStarted = _monoMs();
+  const bootSync = planSyncContext();   /* 回包可能晚于最早的计划事件：先记归属上下文 */
   const info = bridgeReady ? await api("bootstrap").catch(() => null) : null;
   const bootRtt = _monoMs() - bootStarted;
   fillHelp((info && info.help) || DEFAULT_HELP);
@@ -52,8 +53,7 @@ async function boot() {
     S.businessClock.attempted = true;
     setLogin(info.login && info.login.hours_left, null,
              loginPresent(info.login, !!info.demo), info.login);
-    setBusy(!!info.busy);
-    ingestBootstrapPlan(info);
+    ingestBootstrapPlan(info, planSyncContextCurrent(bootSync));
     /* 首次使用：五步引导代替一次性静态弹窗——但条款决定更早：未同意/未知
      * 时欢迎与引导都延后到同意后只继续一次；「暂不使用」过（declined）本
      * 会话不再自动开引导；绝不写 tour_version（看过与否只由引导自己落盘）。 */
@@ -495,13 +495,13 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) return;
   tick();
   if (!hasBridge()) return;
+  /* 回复前事件可能已推进新计划：用发出时的归属上下文决定是否同步空闲忙态 */
+  const windowSync = planSyncContext();
   api("bootstrap").then((info) => {
     if (info) {
-      ingestBootstrapPlan(info);
-      /* 停止成功但结束事件在窗口隐藏时错过：快照说没有计划就收掉「正在停止」 */
-      if (!info.busy) S.stopping = false;
-      if (!!info.busy !== S.busy) setBusy(!!info.busy);
-      if (!info.busy) refresh(true, { background: true });   /* 窗口恢复是程序自己发起的：不闪骨架，失败不清列表（U2/U3） */
+      const synced = ingestBootstrapPlan(info, planSyncContextCurrent(windowSync));
+      /* 窗口恢复是程序自己发起的：只在已接纳的空闲快照上立即补刷新，不闪骨架（U2/U3） */
+      if (synced && !info.busy) refresh(true, { background: true });
     }
     /* 窗口变为可见：计划运行中上面不会刷新，隐藏期间错过的那次自动刷新在这里立即补上；
      * 上面刚刷新过的话，autoRefreshTick 会因为「正在拉列表」自己跳过，不会连刷两次 */
