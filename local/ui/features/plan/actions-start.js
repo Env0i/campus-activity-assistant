@@ -3,7 +3,7 @@ import { setBusy } from "../shell/actions-render.js";
 import { render } from "../shell/actions-render.js";
 /* 计划栏的编排层（开始这一段）：发 start_plan、只查不重发地对账、按快照恢复。 */
 
-import { PLAN_TERMINAL, TASK_TERMINAL, mergeTask, planEventOwns, selectionSignature } from "./state.js";
+import { PLAN_TERMINAL, mergeTask, planEventOwns, selectionSignature } from "./state.js";
 import { paintPlan } from "./view.js";
 import { presentPlanDone } from "./actions-events.js";
 import { termsLocked } from "../terms/state.js";
@@ -233,18 +233,8 @@ function mergeSnapshotTasks(snapshot) {
   if ((snapshot && snapshot.tasks || []).length) {
     (snapshot.tasks || []).forEach((task) => {
       const key = String(task.task_id);
-      const prev = S.plan.tasks.get(key) || null;
-      const merged = mergeTask(prev, task);
-      /* 旧进度不得把已终态场次拖回运行态（终态早于 ack，P1） */
-      if (prev && TASK_TERMINAL.indexOf(String(prev.status)) >= 0
-          && TASK_TERMINAL.indexOf(String(merged.status)) < 0) {
-        merged.status = prev.status;
-      }
-      /* 后到 ack 不得清掉事件已收到的任务与 checkpoint：提交次数只增不减（P1） */
-      const prevTries = Math.max(0, Math.floor(Number((prev || {}).attempts) || 0));
-      const snapTries = Math.max(0, Math.floor(Number(merged.attempts) || 0));
-      if (prevTries > snapTries) merged.attempts = prevTries;
-      S.plan.tasks.set(key, merged);
+      /* 终态先到先得、次数只增不减都由 mergeTask 统一保护（P1） */
+      S.plan.tasks.set(key, mergeTask(S.plan.tasks.get(key) || null, task));
     });
   }
 }

@@ -1496,6 +1496,48 @@ out.push({ id: S.plan.id, busy: S.busy, status: S.plan.status, title: JSON.parse
         self.assertFalse(data["busy"])
         self.assertEqual(data["status"], "completed")
 
+    def test_same_plan_late_task_merges_preserve_result(self):
+        """P1：plan/task/bootstrap 共用 mergeTask，旧载荷不得回退结果与次数；
+        未终态场次的新进度（第 4 次 → 第 5 次）照常合并。"""
+        for route in ("plan", "task", "bootstrap"):
+            with self.subTest(route=route):
+                res = run_js(r"""
+window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running", tasks: [] });
+window.onBackend.task({ plan_id: "p1", plan_generation: 1, task_id: "t1", activity_id: "a1",
+  name: "场一", status: "failed", stop_reason: "unconfirmed", attempts: 4,
+  reason: "响应丢失" });
+const late = { task_id: "t1", activity_id: "a1", name: "场一", status: "waiting", attempts: 0 };
+if (ROUTE === "plan") {
+  window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running", tasks: [late] });
+} else if (ROUTE === "task") {
+  window.onBackend.task(Object.assign({ plan_id: "p1", plan_generation: 1 }, late));
+} else {
+  ingestBootstrapPlan({ plan: { plan_id: "p1", plan_generation: 1, status: "running",
+                                tasks: [late] } });
+}
+const task = S.plan.tasks.get("t1") || {};
+out.push({ status: task.status, attempts: task.attempts,
+           cards: document.querySelector("#plan-tasks").innerHTML });
+""".replace("ROUTE", _js(route)))
+                data = res[0]
+                self.assertEqual(data["status"], "failed", "旧载荷不得把已终态场次拖回等待")
+                self.assertEqual(data["attempts"], 4, "旧载荷不得抹掉已收到的提交次数")
+                self.assertIn("待核对", data["cards"], "任务卡结论保持待核对")
+                self.assertIn("已提交 4 次", data["cards"], "任务卡次数保持 4 次")
+        with self.subTest(route="progress"):
+            res = run_js(r"""
+window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running", tasks: [] });
+window.onBackend.task({ plan_id: "p1", plan_generation: 1, task_id: "t1", activity_id: "a1",
+  name: "场一", status: "submitting", attempts: 4 });
+window.onBackend.task({ plan_id: "p1", plan_generation: 1, task_id: "t1", activity_id: "a1",
+  name: "场一", status: "submitting", attempts: 5 });
+const task = S.plan.tasks.get("t1") || {};
+out.push({ status: task.status, attempts: task.attempts });
+""")
+            data = res[0]
+            self.assertEqual(data["status"], "submitting", "未终态场次照常接受新状态")
+            self.assertEqual(data["attempts"], 5, "新进度（第 5 次）不得被旧值压住")
+
 
 class StoppingEarlyReturnTests(unittest.TestCase):
     """S.stopping：同计划终态已定时，重复终态事件通过早返回分支到达，

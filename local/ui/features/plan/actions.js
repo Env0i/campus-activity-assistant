@@ -2,7 +2,7 @@ import { setBusy } from "../shell/actions-render.js";
 import { render } from "../shell/actions-render.js";
 /* 计划栏的编排层：写完状态统一重画、发起刷新。 */
 
-import { PLAN_TERMINAL, TASK_TERMINAL, admitPlanEvent, closeResultPage, mergeTask, planEventOwns } from "./state.js";
+import { PLAN_TERMINAL, admitPlanEvent, closeResultPage, mergeTask, planEventOwns } from "./state.js";
 import { noteStartedFromPhone } from "./actions-run.js";
 import { showTaskResult } from "./actions-events.js";
 
@@ -54,11 +54,6 @@ export function handleTask(payload) {
   }
   const prev = S.plan.tasks.get(String(data.task_id)) || null;
   const task = mergeTask(prev, data);
-  /* 已结束的场次不得被旧进度拖回运行态：状态保持先到的事实（P1） */
-  if (prev && TASK_TERMINAL.indexOf(String(prev.status)) >= 0
-      && TASK_TERMINAL.indexOf(String(task.status)) < 0) {
-    task.status = prev.status;
-  }
   S.plan.tasks.set(String(data.task_id), task);
   if (["success", "failed", "already_signed", "canceled"].indexOf(task.status) >= 0) {
     /* 报名成功是已确认事实：任务卡、列表、计数、选择门禁和冲突基线同一时刻更新 */

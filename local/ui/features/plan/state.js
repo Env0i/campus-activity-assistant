@@ -8,6 +8,15 @@ export function mergeTask(prev, incoming) {
       merged[key] = prev[key];
     }
   });
+  /* 同一计划与任务的终态先到先得：迟到的旧载荷不得把已结束的场次拖回运行态（P1） */
+  if (prev && TASK_TERMINAL.indexOf(String(prev.status)) >= 0
+      && TASK_TERMINAL.indexOf(String(merged.status)) < 0) {
+    merged.status = prev.status;
+  }
+  /* 提交次数只增不减：后到的旧快照/旧事件不得抹掉已收到的次数（P1） */
+  const prevTries = Math.max(0, Math.floor(Number((prev || {}).attempts) || 0));
+  const snapTries = Math.max(0, Math.floor(Number(merged.attempts) || 0));
+  if (prevTries > snapTries) merged.attempts = prevTries;
   if (String(merged.status) === "submitting" && !merged.submitSeen) merged.submitSeen = Date.now();
   return merged;
 }
