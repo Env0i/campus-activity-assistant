@@ -1,0 +1,1656 @@
+#AOCI-CODE-VOLUME: 1
+
+===/<repository>/===
+.gitattributes[FC5T]: F:统一文本行尾，保留Windows脚本和文本分发所需CRLF | R:- | A:Git文本属性 | S:-
+.gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物及本地工具资料 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查
+AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、测试与AOCI治理纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建测试与提交分别受授权边界约束
+CHANGELOG.md[SV4L]: F:按版本和日期保留发布能力、事故修复及验证边界的历史变更 | R:code:VERSION | A:变更记录 | S:-
+CLAUDE.md[SG5T]: F:导入共同规则并补充Claude原型预览、尾注与测试边界 | R:code:AGENTS.md | A:Claude宿主指引 | S:-
+LICENSE[SG4T]: F:声明MIT授权、保留版权许可条件及免责条款 | R:- | A:MIT许可 | S:-
+README.md[SG6M]: F:介绍个人活动预报名工具的下载、功能、隐私与本机及服务器入口 | R:code:local/README.md,code:server/README.md | A:使用与文档导航 | S:-
+VERSION[FV7T]: F:提供发行和运行版本号的唯一文本来源 | R:- | A:版本字符串 | S:不能只修改界面显示版本，构建和发布也从该文件取值
+requirements-dev.txt[FQ3T]: F:固定开发静态检查器版本 | R:code:ruff.toml | A:开发依赖安装 | S:开发检查依赖不进入运行包。
+ruff.toml[FQ5T]: F:配置Python静态检查范围及存量例外 | R:code:requirements-dev.txt | A:ruff check local server tools | S:仅E9及F；例外只减不增，不能新增忽略来消告警。
+
+===/<repository>/.githooks/===
+commit-msg[XQ6T]: F:提交时检查类型、结果长度、正文长度与相邻署名尾注 | R:code:AGENTS.md | A:commit-msg钩子 | S:-
+pre-commit[XQ6T]: F:仅在暂存Python或脚本代码时运行三项结构守卫并阻止失败提交 | R:code:local/tests/test_layer_boundaries.py,code:local/tests/test_ui_layers.py,code:local/tests/test_code_shape.py | A:pre-commit钩子 | S:只看暂存改动的扩展名，纯文档和配置不会触发守卫
+
+===/<repository>/.github/workflows/===
+ci.yml[FV6T]: F:为推送及拉取请求分别执行Windows本机与Linux服务器检查 | R:code:AGENTS.md | A:local-windows,server-linux | S:-
+
+===/<repository>/.workbuddy/memory/===
+2026-11-12.md[SQ3T]: F:记录重构审计复核中被证据推翻的结论与校验经验 | R:- | A:历史审计备忘 | S:-
+2026-11-16.md[SQ3T]: F:记录计划栏安全网返修、模块迁移及变异覆盖的历史结果 | R:- | A:历史执行备忘 | S:-
+2026-11-17.md[SQ3S]: F:汇集计划栏模块与状态机迁移、Api守卫返修的过程和纠正记录 | R:- | A:历史执行备忘 | S:-
+
+===/<repository>/contracts/school-api/===
+README.md[SN7T]: F:定义学校接口样例的原始与映射形态、脱敏方法和取消复查边界 | R:code:contracts/school-api/get-info.data.json,code:contracts/school-api/get-join-info.json | A:样例维护契约 | S:取消接口没有实测回包样例，成功只能靠报名状态复查确认
+get-info.data.json[TN5T]: F:以脱敏活动详情展示时间、签到签退、取消权限等字段形状 | R:code:contracts/school-api/README.md | A:getInfo数据样例 | S:-
+get-join-info.json[TN5T]: F:提供未报名空数据和已报名状态对象的查询响应样例 | R:code:contracts/school-api/README.md | A:getJoinInfo响应样例 | S:查询成功code=1本身不代表已经报名
+list-activity.items.json[TN5T]: F:提供映射后活动列表及签到签退三态与来源字段的样例 | R:code:contracts/school-api/list-activity.raw-item.json | A:归一化列表样例 | S:-
+list-activity.raw-item.json[TN5T]: F:保留学校原始活动字段及报名状态值，供字段映射核验 | R:code:contracts/school-api/list-activity.items.json | A:listActivity原始条目样例 | S:-
+signup-replies.json[TN6T]: F:列举报名成功、终态拒绝、失效及未知回包的分类样例 | R:code:contracts/school-api/README.md | A:kind,http_status,code,message,source | S:部分分类来自设计或示例，source字段明确区分其证据来源
+
+===/<repository>/design/===
+README.md[SG5S]: F:导航产品决策、交互规格、原型及工程契约并划定历史基线边界 | R:code:design/decisions/README.md,code:docs/ARCHITECTURE.md | A:设计资料导航 | S:-
+check_refs.py[XQ4T]: F:核对设计说明中代码行引用与指定历史基线是否匹配 | R:code:design/README.md | A:main,lines_of | S:-
+
+===/<repository>/design/archive/===
+README.md[SU4T]: F:解释归档原型与旧界面渲染的定位、复现方式和失效业务规则 | R:code:design/README.md | A:归档使用说明 | S:-
+
+===/<repository>/design/archive/current-ui-2026-10-25/===
+README.md[TU3T]: F:说明旧版本隔离模拟截图的生成方法及验收边界 | R:- | A:历史视觉证据说明 | S:-
+
+===/<repository>/design/archive/prototype-2026-10-22/===
+app.html[SU3S]: F:提供归档单活动界面原型的页面结构并装入模拟桥和界面脚本 | R:code:design/archive/prototype-2026-10-22/app/app.js | A:原型DOM与脚本顺序 | S:-
+components.html[SU3M]: F:展示归档原型颜色、字体、组件与大屏状态的活样张 | R:code:design/archive/prototype-2026-10-22/proto/sheet.css | A:组件展示页 | S:-
+index.html[SU3S]: F:展示归档视觉方案总览及场景截图与交互原型入口 | R:code:design/archive/prototype-2026-10-22/play.html | A:视觉原型总览 | S:-
+play.html[SU3S]: F:以模拟桌面、浏览器和场景控制台包裹归档原型iframe | R:code:design/archive/prototype-2026-10-22/proto/play.js | A:场景演示外壳 | S:-
+
+===/<repository>/design/archive/prototype-2026-10-22/app/===
+app.css[SU3L]: F:定义归档原型候车厅、点阵屏、列表、日志和窄窗视觉样式 | R:code:design/archive/prototype-2026-10-22/app.html | A:CSS变量与组件样式 | S:-
+app.js[AU4L]: F:编排归档单活动原型的登录、选择、倒计时、任务与日志交互 | R:code:design/archive/prototype-2026-10-22/proto/mock-backend.js | A:window.onBackend,window.__zd | S:历史单任务位与固定重试窗口只供原型演示，不是当前报名契约
+led.js[CU3S]: F:为归档原型挂载可增量绘制与闪烁的SVG点阵字符屏 | R:code:design/archive/prototype-2026-10-22/app/app.js | A:LED.mount,LED.GLYPHS | S:-
+
+===/<repository>/design/archive/prototype-2026-10-22/proto/===
+mock-backend.js[TU4L]: F:模拟旧后端桥、可控时钟和登录报名场景，驱动归档原型演示 | R:code:design/archive/prototype-2026-10-22/app/app.js | A:window.pywebview.api,ProtoClock,postMessage | S:-
+play.css[SU3S]: F:定义归档演示外壳的桌面、模拟浏览器、任务栏与控制台布局 | R:code:design/archive/prototype-2026-10-22/play.html | A:外壳CSS样式 | S:-
+play.js[AU3S]: F:联动外壳控制台与原型iframe，控制场景、模拟时间和窗口尺寸 | R:code:design/archive/prototype-2026-10-22/proto/mock-backend.js | A:zd-play与zd-proto消息 | S:-
+sheet.css[SU3T]: F:为原型总览和组件样张提供共享排版、卡片及响应式布局 | R:code:design/archive/prototype-2026-10-22/components.html | A:sheet样式 | S:-
+shoot.py[TU4T]: F:启动浏览器逐场景冻结旧原型时钟并截图，汇总页面错误退出 | R:code:design/archive/prototype-2026-10-22/proto/mock-backend.js | A:main,SHOTS | S:-
+
+===/<repository>/design/brand/===
+README.md[SU4T]: F:说明入场券标志的尺寸、配色、导出方式与历史接入清单 | R:code:design/brand/tools/export.js | A:品牌资产规范 | S:-
+
+===/<repository>/design/brand/tools/===
+export.js[XU5T]: F:使用无头Edge将SVG拼板栅格化，校验透明度并导出PNG及ICO | R:code:design/brand/tools/pngkit.js | A:品牌资源导出脚本 | S:-
+pngkit.js[LU4T]: F:以Node内置压缩库读写PNG、裁图并封装多尺寸ICO | R:code:design/brand/tools/export.js | A:decode,encode,crop,ico | S:-
+
+===/<repository>/design/decisions/===
+001-product-naming.md[SU6T]: F:确定正式产品名称、窄窗短标签及发行资产命名 | R:code:VERSION | A:产品命名决策 | S:历史视觉名称不可作为当前运行时产品名
+002-signup-modes.md[SB7T]: F:定义预报名、立即报名和已截止三类及直发优先的报名边界 | R:code:docs/UI_SPEC.md | A:报名模式决策 | S:报名窗口决定模式，举办时段只参与冲突判断
+003-retry-policy.md[SB7T]: F:定义重试时长、次数、终态及报名截止的硬边界 | R:code:docs/RETRY_POLICY_GUIDE.md | A:重试策略决策 | S:时长0且缺少报名截止时回退120秒，不能无限运行
+004-multi-activity-and-conflict.md[SB7T]: F:确定多活动独立调度、半开时段冲突及已报名占位基线 | R:code:local/signup_plan.py | A:计划调度与冲突决策 | S:不同开放批次也须检查举办时间冲突，已报名时段未知必须阻止计划
+005-attendance-filters.md[SU7T]: F:规定签到签退未知值、筛选语义与列表详情补全边界 | R:code:docs/UI_SPEC.md | A:签到签退决策 | S:筛选只影响可见行，不得改变计划集合与冲突计算
+006-session-persistence.md[SI8S]: F:规定登录四态、会话持久化、估算提醒、重登交接与恢复文案 | R:code:docs/LOGIN.md | A:登录态决策 | S:网络错误不得清会话或冒充过期；寿命估算只作提醒
+007-runtime-timeline.md[SO7T]: F:规定真实运行节点、原定参考与统一截止的时间线表达 | R:code:docs/UI_SPEC.md | A:运行时间线决策 | S:checkpoint首次写入后不得被迟到或重放事件改写
+008-lifecycle-version-release.md[SV6S]: F:记录运行周期元数据、版本真源及发布资产演进与验收状态 | R:code:VERSION | A:生命周期与发布决策 | S:实现、构建、发布和真机验收结论必须分列，旧证据不能替代当前验收
+009-replayable-product-tour.md[SU6T]: F:规定五步可重播引导的启动时机、独立内容版本和交互隔离 | R:code:local/ui/features/shell/actions-tour.js | A:引导决策 | S:引导只允许选择步骤操作背景，不能代用户开始报名
+010-standalone-exe-and-settings.md[SV7S]: F:规定独立EXE、四成员ZIP、内置worker及组件失败闭环 | R:code:local/build/build_exe.py | A:分发与组件决策 | S:worker必须从资源根解析，不借用EXE旁旧worker
+011-unified-help-and-manual-update.md[SU6T]: F:划分设置恢复动作与帮助解释，规定手动版本检查节奏 | R:code:local/update_check.py | A:设置帮助决策 | S:启动或打开设置不自动发起版本查询
+012-independent-beijing-clock.md[SR8S]: F:确定网络锚点加经过时长的统一业务时钟及快照门禁 | R:code:local/business_clock.py,code:local/time_contract.py | A:业务时钟决策 | S:时钟不可用只禁自动报名，不清登录态；worker不得独立选择另一时间源
+013-distribution-and-privacy.md[SS7S]: F:规定三种发行形态、稳定数据目录、卸载保护与用户同意边界 | R:code:docs/PRIVACY_POLICY.md | A:分发隐私决策 | S:静默卸载必须保留用户数据，抑制对话框的返回值不代表用户同意删除
+014-workbench-ui.md[SU7T]: F:确定新工作台布局、窗口分档、计划阶段、提醒及恢复入口 | R:code:design/prototype/workbench-2026-11/README.md | A:工作台设计决策 | S:选中不等于开始，停止计划不等于取消学校报名
+015-signup-path-and-replies.md[SB8T]: F:规定运行时密钥、直发降级、报名回包分类、终态核对和登录交接 | R:code:local/domain/signup_reply.py,code:local/grab.py | A:报名链路决策 | S:每场结束均独立核对报名状态；运行时密钥只存内存不记日志
+016-conflict-visibility-and-cancel.md[SB7T]: F:确定已报名冲突可见性、跨天显示与电脑端取消报名边界 | R:code:local/domain/cancel_rules.py | A:冲突取消决策 | S:取消回包仅作参考，getJoinInfo复查未报名才算成功；手机不开放取消动作
+README.md[SG5T]: F:索引产品决策并区分规则确认、实现和验收状态 | R:code:design/README.md | A:决策目录与记录格式 | S:-
+
+===/<repository>/design/evidence/2026-10-30/===
+README.md[SQ3T]: F:导航旧版本静态交互与视觉验收材料及基线范围 | R:- | A:历史验收导航 | S:-
+UI-ACCEPTANCE.md[TU3L]: F:按页面元素、操作流程、三态与禁止现象整理历史视觉验收判据 | R:- | A:静态视觉验收说明 | S:-
+phone-access-acceptance.md[TN3S]: F:记录手机远程访问离线测试及本机通道验证，分列真实手机边界 | R:- | A:历史通道验收记录 | S:-
+tailscale-probe.md[TN3T]: F:记录Tailscale缺失状态的探测证据与连接状态契约 | R:- | A:历史环境探测记录 | S:-
+本机版核心操作流程-交互说明.md[SU3L]: F:基于历史工作区梳理本机版门禁、主流程及异常交互 | R:- | A:历史核心操作说明 | S:-
+
+===/<repository>/design/evidence/2026-10-31/===
+ACCEPTANCE-20261031.md[TQ3S]: F:按切片记录旧源码验收结果及blocked与证据不足项 | R:- | A:历史验收账 | S:-
+UI-SPEC9-AND-D-STATUS-20261031.md[TQ3T]: F:将历史验收切片映射到UI规格清单和冲突台账 | R:- | A:历史覆盖映射 | S:-
+mobile-ui-polling-repair.md[TU3M]: F:记录手机页同步周期、过时提示及轮询恢复的修复依据和自动化结果 | R:- | A:历史手机轮询证据 | S:-
+mobile-ui-real-device-acceptance.md[TU3L]: F:汇集真实手机、桌面与学校活动验收步骤、判据和结果表 | R:- | A:真实设备验收清单 | S:-
+phone-access-channel-redesign-acceptance.md[TN3S]: F:提供手机组件安装及Tailscale和Cloudflare通道的现场验收步骤 | R:- | A:历史现场验收清单 | S:-
+phone-access-repair-acceptance.md[TN3L]: F:记录手机访问多轮返修验证、已知失败和待真机复核边界 | R:- | A:历史返修证据 | S:-
+
+===/<repository>/design/evidence/2026-11-02/===
+.gitignore[FS4T]: F:将真实界面截图、学校协议原文和签名来源摘录留在本机 | R:- | A:证据目录忽略规则 | S:-
+README.md[SQ3S]: F:导航修订前静态核对、真实接口观察与脱敏证据的来源和边界 | R:- | A:历史修订证据索引 | S:-
+doc-consistency-check.md[SQ3T]: F:核对旧文档公开方法数、决策数及共享副本工具归属的误差 | R:- | A:文档一致性复核 | S:-
+live-check.md[TN3L]: F:按观测轮次保留学校列表、报名、签名与开放边界实测发现及限制 | R:- | A:历史学校实测记录 | S:-
+patches-for-capture.md[TQ3T]: F:说明截图副本临时补丁及其与仓库行为的差异 | R:- | A:历史取证补丁说明 | S:-
+server-and-token-check.md[SI3T]: F:限定服务器副本数据与登录寿命材料能支持的历史结论 | R:- | A:历史状态材料核对 | S:-
+server-live-check.md[SO3S]: F:记录远程服务、定时任务与日志聚合的只读历史检查结果 | R:- | A:历史部署检查记录 | S:-
+signup-direct-log-audit.md[TB3S]: F:统计旧直发报名失败回包并分析未触发降级的链路 | R:- | A:历史直发回包审计 | S:-
+signup-idle-open.txt[TN3T]: F:记录开放中活动详情页静置观察未自动发送报名请求的两次结果 | R:- | A:历史静置网络观察 | S:-
+ui-screenshots.md[TU3T]: F:说明演示界面截图的场景、拍摄方法与真实业务证据边界 | R:- | A:历史界面截图说明 | S:-
+
+===/<repository>/design/evidence/2026-11-04/===
+README.md[TU3S]: F:记录用户真机发现的引导、设置、组件与刷新问题并导航讨论材料 | R:- | A:历史真机问题台账 | S:-
+a5-manual-check.md[TU3S]: F:提供自动重登、网络恢复、会话复用及通知的真机复核步骤和回填 | R:- | A:历史人工复核手册 | S:-
+decision-agenda.md[SB3S]: F:汇总功能边界、原型修复及学校契约的共同决策议题和已定口径 | R:- | A:历史讨论议程 | S:-
+prototype-gap.md[TU3S]: F:逐区域对照工作台原型与旧实现，记录差距和书面依据 | R:- | A:历史原型差距台账 | S:-
+prototype-missing-states.md[SU3S]: F:梳理原型已有场景、缺失画板与需产品决定的能力 | R:- | A:历史原型补齐材料 | S:-
+school-frontend-analysis.md[SN3L]: F:分析学校公开前端的活动接口、页面、字段和取消能力证据 | R:- | A:学校前端静态分析记录 | S:-
+
+===/<repository>/design/evidence/2026-11-05/night-audit/===
+AUDIT.md[SQ3T]: F:汇总夜间审计各层结论、修复验证、覆盖边界与待裁决项 | R:- | A:历史审计总账 | S:-
+BACKLOG.md[SQ3T]: F:记录夜间审计阻塞项与后续清零进展，保留发布证据缺口 | R:- | A:历史阻塞账 | S:-
+COVERAGE.md[TQ3L]: F:按历史受跟踪文件分母登记审计范围、方法及未审对象 | R:- | A:历史覆盖账 | S:-
+COVERAGE.tsv[TQ3L]: F:以制表数据保存逐文件审计分类、负责角色和判定证据 | R:code:design/evidence/2026-11-05/night-audit/COVERAGE.md | A:历史覆盖明细表 | S:-
+DECISION-CHECK.md[TQ3S]: F:将共同决策、交接收据与计划要求逐项对照历史实现证据 | R:- | A:历史决策落地核对 | S:-
+DEFERRED.md[SQ3T]: F:登记夜审中保留的最小可逆选择及需要人工定夺的问题 | R:- | A:历史延期决策清单 | S:-
+EVIDENCE-INDEX.md[SQ3S]: F:汇总历史夜审命令、输出摘要、修复链与验证证据索引 | R:- | A:历史审计证据 | S:-
+FINDINGS.md[SQ3S]: F:按缺陷、风险和漂移分类记录历史夜审发现、证据及处置状态 | R:- | A:历史审计证据 | S:-
+GOAL-review-20261104-v3.md[SQ3T]: F:保存夜审任务的目标、范围、五层核验要求与交付口径 | R:- | A:历史审计证据 | S:-
+HANDOFF-night-20261105.md[SQ3T]: F:交接历史夜审修复、标准化结果及后续待决边界 | R:- | A:历史审计证据 | S:-
+PROTOTYPE-GAP.md[SU3S]: F:记录夜审计对99处原型差距的历史静态复核、台账错误和待排期范围 | R:- | A:主窗口、计划栏、设置帮助、手机页 | S:-
+RECEIPT-zcode-20261105.md[SQ3T]: F:保存夜间审计与标准化的历史交接回执，列出对账步骤、遗留改动及待决事项 | R:- | A:接手自检、未提交改动、已知风险 | S:-
+RELEASE-STATE.md[SV3T]: F:记录夜审计时版本候选、正式版可追溯性及发布文档口径的历史核对结果 | R:- | A:候选状态、标签证据、文档漂移 | S:-
+RISK.md[SQ3T]: F:汇总夜审计的历史未验证项、未修问题与覆盖盲区，区分静态推断和运行证据 | R:- | A:外部验证、残余问题、覆盖盲区 | S:-
+SNAPSHOT.md[SQ3T]: F:保存夜审计副本的历史工作树基线、复制排除项及独立对象库边界 | R:- | A:基线快照、副本隔离、排除清单 | S:-
+STANDARD.md[SQ3T]: F:记录夜审计第二轮标准化使用的八类历史判据、反例及契约例外 | R:- | A:分层命名、时间错误处理、日志文件、测试文档 | S:-
+STANDARDIZATION.md[SQ3L]: F:记录历史标准化逐文件判定、补丁系列、提交映射与保留原因 | R:- | A:历史审计资料 | S:-
+addendum-coverage.txt[SQ3T]: F:保存历史审计逐文件覆盖、分母与未审说明的补充要求 | R:- | A:历史审计资料 | S:-
+addendum-l1-scan.txt[SQ3T]: F:保存历史审计增加全量静态扫描与持续覆盖账的补充要求 | R:- | A:历史审计资料 | S:-
+goal-paste.txt[SQ3T]: F:保存夜间五层审计任务、派发纪律和终止条件的历史任务书 | R:- | A:历史审计资料 | S:-
+smoke.txt[TQ1T]: F:保存历史审计工具冒烟成功标记 | R:- | A:历史审计资料 | S:-
+
+===/<repository>/design/evidence/2026-11-05/night-audit/PATCHES/===
+std-18b-rename.patch[SQ3M]: F:历史补丁：重试与报名计划测试将墙钟夹具改名为 WallClockStub，并修正文档中的时间线证据位置 | R:code:local/tests/fixtures/business_clock.py | A:- | S:-
+std-18c-rename.patch[SQ3M]: F:历史补丁：运行时组件、关闭流程与登录态持久化测试同步采用 WallClockStub 夹具名称 | R:code:local/tests/fixtures/business_clock.py | A:- | S:-
+std-19-splitbranches-redact.patch[SS3T]: F:历史补丁：分支快照工具报错命令行中的 HTTP 凭据段打码 | R:code:tools/split_branches.py | A:_redact | S:-
+std-2-application.patch[SR3T]: F:历史补丁：应用服务补充回调失败和进程清理容错说明，组件收尾失败仅记录异常类型 | R:code:local/application/plan_service.py | A:- | S:-
+std-3-infrastructure.patch[SR3T]: F:历史补丁：生命周期记账注明心跳失败可重试、收尾写入失败不阻断窗口关闭 | R:code:local/infrastructure/lifecycle_store.py | A:- | S:-
+std-4a-ui.patch[SU3S]: F:历史补丁：网络重新检测更新横幅，重新登录成功按流程去重刷新列表，并补充界面容错说明 | R:code:local/ui/app.js | A:reloginSucceeded | S:-
+std-4b-ui.patch[SU3T]: F:历史补丁：计划恢复、更新快照与下载取消的空异常处理补充轮询兜底说明 | R:- | A:- | S:-
+fix-A-tmp-fixtures.patch[TQ3M]: F:保存临时路径夹具替换及组件下载断言调整的历史补丁 | R:- | A:历史审计证据 | S:-
+fix-B-clock-single-read.patch[TQ3T]: F:保存计划进度事件只在登录等待分支读取业务时钟的历史补丁 | R:- | A:历史审计证据 | S:-
+fix-C-component-service-lazy.patch[TQ3T]: F:保存组件服务按键惰性取属性及帮助文案同步的历史补丁 | R:- | A:历史审计证据 | S:-
+fix-D-update-dynamic-text.patch[TU3L]: F:保存更新动态文案恢复及同期界面契约回归变更的历史补丁 | R:- | A:历史审计证据 | S:-
+fix-E-relogin-empty-flow.patch[TI3L]: F:保存登录成功空流程去重及同期界面回归变更的历史补丁 | R:- | A:历史审计证据 | S:-
+std-1-domain.patch[TQ3T]: F:保存登录估算领域函数限窄数值解析异常的历史补丁 | R:- | A:历史审计证据 | S:-
+std-10-infra-comments.patch[TQ3S]: F:保存进程树、托盘和隧道清理容错解释的历史注释补丁 | R:- | A:历史审计证据 | S:-
+std-11-autologin-comments.patch[TQ3T]: F:保存服务器自动登录中日志、浏览器及指纹容错解释的历史补丁 | R:- | A:历史审计证据 | S:-
+std-12-server-comments.patch[TQ3T]: F:保存服务器报名、交互登录与通知缓存容错解释的历史补丁 | R:- | A:历史审计证据 | S:-
+std-13-server-js-comments.patch[TQ3T]: F:保存机器人低价值缓存降级与浏览器存储容错解释的历史补丁 | R:- | A:历史审计证据 | S:-
+std-15a-wording.patch[TU3S]: F:保存本机帮助文案及事件、关闭等异常边界说明的历史补丁 | R:- | A:历史审计证据 | S:-
+std-15b-wording.patch[TQ3T]: F:保存组件收尾日志与时钟、生命周期容错解释的历史补丁 | R:- | A:历史审计证据 | S:-
+std-16-armedat.patch[TU3T]: F:保存移除无消费计划时间字段并阻止断网刷新的历史补丁 | R:- | A:历史审计证据 | S:-
+std-17-docs-p3.patch[SQ3T]: F:保存报名与登录手册词汇及发行形态说明对齐的历史补丁 | R:- | A:历史审计证据 | S:-
+std-18a-rename.patch[TQ3T]: F:保存业务时钟测试替身及首批引用更名的历史补丁 | R:- | A:历史审计证据 | S:-
+std-5-tests.patch[SQ2T]: F:保存历史测试说明修订补丁，将重试时间线定位到内嵌表驱动用例，并明确更新器测试使用系统临时目录 | R:code:local/tests/test_retry_policy.py,code:local/tests/test_updater.py | A:- | S:-
+std-6-server.patch[SR2T]: F:保存历史服务器脚本与测试说明补丁，以环境变量或PATH选择同步解释器，并澄清测试临时目录隔离 | R:code:server/deploy/sync_token.sh | A:CAMPUS_PY | S:-
+std-7-tools.patch[SQ2T]: F:保存历史QA工具修订补丁，改用临时目录变量示例、解释尽力清理与截图，并收窄owner探测异常捕获 | R:code:tools/verify_autologin_loop.py | A:- | S:-
+std-8a-docs.patch[SV2T]: F:保存历史发布说明补丁，区分已发布1.1.1与1.2.0候选，删除旧候选和六步引导措辞 | R:code:README.md | A:- | S:-
+std-8b-docs.patch[SU3M]: F:保存历史界面规范对账补丁，统一设置与帮助分工、五步引导、更新流程、时钟重试及计划反馈文案 | R:code:docs/UI_SPEC.md,code:design/specs/copywriting.md | A:- | S:-
+std-8c-docs.patch[SG2T]: F:保存历史设计索引与架构说明补丁，对齐发布和五步引导状态、补充条款规范索引并修订Api方法数量 | R:code:design/README.md,code:docs/ARCHITECTURE.md | A:- | S:-
+std-8d-docs.patch[SU2T]: F:保存历史条款文档补丁，补记r4正文更新并将条款延后引导与暂停恢复描述改为五步 | R:code:CHANGELOG.md,code:design/specs/terms-consent.md | A:- | S:-
+std-9a-app.patch[SQ3S]: F:保存夜审计时本机组合根异常兜底注释与三步帮助文案对齐的历史补丁 | R:code:local/app.py | A:- | S:-
+std-9b-grab.patch[SB3M]: F:保存夜审计时活动字段映射抽取、撤销报名判定及收尾异常注释的历史补丁 | R:code:local/grab.py | A:_map_activity,_join_state | S:-
+
+===/<repository>/design/evidence/2026-11-08/===
+ADVERSARIAL-L6.md[SQ3T]: F:历史文档引用审阅：复核194条路径，将本机运行配置由存在改归有意，保留迁移表旧路径 | R:code:design/evidence/2026-11-08/doc-refs.md | A:- | S:-
+ADVERSARIAL-L7.md[SQ3T]: F:历史测试卫生反证：推翻临时目录替换破坏断言等依据，修正过滤计数与生产时钟风险名单 | R:code:design/evidence/2026-11-08/test-hygiene.md | A:- | S:-
+ADVERSARIAL-L8.md[SU3T]: F:历史无障碍审阅：170控件静态名称核验通过，区分静态空标题与运行时影响 | R:code:design/evidence/2026-11-08/a11y-names.md | A:- | S:-
+ADVERSARIAL.md[SQ3T]: F:汇总历史八层对抗审阅的判定、红牌处置及分母，披露部分原作者只承担机械复核 | R:- | A:- | S:-
+DEFERRED.md[SU3M]: F:汇集历史八层审计的35个待裁决条目，保留原型与代码两侧证据、倾向和取舍理由 | R:code:design/evidence/2026-11-08/LEDGER.md | A:- | S:-
+HANDOFF.md[SQ3T]: F:历史夜班交接：记录八层审计产出、回传与未验证事项，并补充对抗审阅后的纠正 | R:code:design/evidence/2026-11-08/DEFERRED.md | A:- | S:-
+LEDGER.md[SQ3S]: F:历史八层审计台账：汇总原始分母、差异、补丁判定与未处理项，尾部补充对抗审阅结果 | R:code:design/evidence/2026-11-08/ADVERSARIAL.md | A:- | S:-
+a11y-names.md[SU3M]: F:记录历史桌面与手机页无障碍名称静态审计，列控件分母、名称来源、引导空标题风险及动态验证盲区 | R:code:local/ui/index.html,code:local/ui/m/index.html | A:- | S:-
+c2-login-gap.md[SU3M]: F:记录历史十九画板登录与详情卡对账，区分实现缺口、后端信号、待决产品规则和对抗复核修订 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:- | S:-
+c3-dialogs-gap.md[SU3M]: F:保存历史二十三画板对话框横幅差异台账及五十五项执行对账，区分关窗、更新、引导、条款与迁移的实现处置 | R:code:design/evidence/2026-11-08/c3-dialogs/README.md | A:- | S:-
+copy-audit.md[SU3L]: F:保存历史文案规格与界面逐条比对，区分实际不一致、禁语与元描述，并归并时间线、核对入口、登录估算和引导待决项 | R:code:design/specs/copywriting.md | A:- | S:-
+doc-refs.md[SQ2M]: F:记录历史文档路径引用核验，区分存在、迁移旧路径与有意缺失，并说明旧路径对照表不派生补丁 | R:code:docs/README.md | A:- | S:-
+ADVERSARIAL-L1.md[TQ3S]: F:合并登录差距报告的机械与实质反证，记录判定与纠正 | R:- | A:历史审计资料 | S:-
+ADVERSARIAL-L2.md[TQ3S]: F:合并弹窗差距报告的引用核验、反证及修订结果 | R:- | A:历史审计资料 | S:-
+ADVERSARIAL-L3.md[TQ3S]: F:合并手机页差距报告的画板核验、语义反证和纠正 | R:- | A:历史审计资料 | S:-
+ADVERSARIAL-L4.md[TQ3S]: F:合并主窗口差距报告的对抗审阅与二次勘误 | R:- | A:历史审计资料 | S:-
+ADVERSARIAL-L5.md[TQ3T]: F:复核文案审计的逐字引用、分类统计和漏项，记录独立性边界 | R:- | A:历史审计资料 | S:-
+main-window-gap.md[SU3S]: F:记录主窗口24画板与当时实现的历史对账，包含分档、列表、计划、横幅差距与对抗修订 | R:- | A:差距清单、待用户决策、未验证边界 | S:-
+phone-page-gap.md[SU3S]: F:记录手机相关28画板与当时实现的历史静态对账，区分前端缺口与待补后端信号 | R:- | A:配对列表、运行重登、结果异常 | S:-
+test-hygiene.md[SQ3M]: F:保存临时路径字面量、墙钟使用及全量单测的历史审计和对抗修订 | R:- | A:输入与夹具区分、时间风险、失败与跳过 | S:-
+
+===/<repository>/design/evidence/2026-11-08/PATCHES/===
+README.md[SQ2T]: F:保存历史夜班零补丁判定，说明路径迁移记录、非法输入测试与无障碍发现为何仅收录报告 | R:code:design/evidence/2026-11-08/doc-refs.md,code:design/evidence/2026-11-08/a11y-names.md | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-08/c3-dialogs/===
+README.md[SU3T]: F:索引历史对话框与横幅成对截图，说明宽窄档差异、重拍修复、托盘通知测试及离线复现方法 | R:code:design/evidence/2026-11-08/c3-dialogs-gap.md | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-05/night-audit/_tools/===
+count.py[XQ3T]: F:统计输入Git跟踪清单的文件数、行数及类别分母 | R:- | A:历史审计资料 | S:-
+coverage_gen.py[XQ3M]: F:结合跟踪文件、静态扫描和历史审计裁决生成逐文件覆盖账 | R:- | A:历史审计资料 | S:-
+static_scan.py[XQ3T]: F:对输入文件做危险模式启发式扫描并输出逐文件计数与命中明细 | R:- | A:历史审计资料 | S:-
+static_scan.tsv[TQ3L]: F:保存历史静态扫描的逐文件语言、行数与规则命中计数 | R:- | A:历史审计资料 | S:-
+static_scan_hits.txt[TQ3S]: F:保存历史规则扫描命中的代码片段及定位明细 | R:- | A:历史审计资料 | S:-
+std_ledger_gen.py[XQ3M]: F:结合固定历史裁决与默认分类生成标准化台账及补丁索引 | R:- | A:历史审计资料 | S:-
+
+===/<repository>/design/evidence/2026-11-06/prototype-backfill/===
+README.md[TU3S]: F:记录原型补画板范围、视觉走查、设计定案及复现方法 | R:- | A:历史审计资料 | S:-
+
+===/<repository>/design/evidence/2026-11-07/conflict-cancel/===
+README.md[TU3T]: F:说明冲突与取消报名原型及实现成对截图的场景和视觉核对 | R:- | A:历史审计资料 | S:-
+
+===/<repository>/design/evidence/2026-11-07/settings-drawer/===
+README.md[TU3T]: F:说明设置抽屉与原型成对截图的生成方法和覆盖范围 | R:- | A:历史审计资料 | S:-
+
+===/<repository>/design/evidence/2026-11-07/===
+settings-gap.md[TU3M]: F:按手机访问、识别和登录等分组登记设置抽屉差距及分批建议 | R:- | A:历史审计资料 | S:-
+
+===/<repository>/design/evidence/2026-11-08/main-window/===
+README.md[SU3T]: F:说明主窗口历史成对截图的数据差异、逐画板偏差及断行检查结果 | R:- | A:成对截图、页面错误、断行扫描 | S:-
+
+===/<repository>/design/evidence/2026-11-08/phone-page/===
+README.md[SU3T]: F:索引手机页430宽历史实现截图，记录与原型的已知偏差和真机验证缺口 | R:- | A:状态截图、已知偏差、复现范围 | S:-
+
+===/<repository>/design/evidence/2026-11-09/===
+local-acceptance.md[SV3T]: F:记录1.2.0产物离线自检、安装同源与卸载探针的历史验收及未覆盖真机项 | R:- | A:实包探针、安装器同源、静默卸载 | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-spike/===
+README.md[SU3M]: F:记录ES模块样机的加载桥接、脚本混用、安全头和测试可行性历史证据，附未执行打包清单 | R:- | A:桌面与手机样机、迁移建议、未验证项 | S:手机资产须显式白名单；混合放行建议已被否决
+
+===/<repository>/design/evidence/2026-11-12/esm-spike/phone/web/===
+legacy.js[TU2T]: F:提供历史手机ESM样机的普通脚本对照，记录先执行顺序并暴露供模块调用与反向可见性检查的全局对象 | R:code:design/evidence/2026-11-12/esm-spike/phone/web/main.mjs | A:legacyGlobal | S:-
+main.mjs[TU2T]: F:提供历史手机ESM样机入口，拉起依赖链、验证模块调用普通脚本，并等待桥接注入后回传执行与错误快照 | R:code:design/evidence/2026-11-12/esm-spike/phone/web/chain.mjs | A:apiBridgeMain.callLegacyFoo | S:-
+chain.mjs[TU3T]: F:历史手机样机中间模块，导入叶模块并记录执行顺序 | R:- | A:apiBridgeChain | S:-
+index.html[TU3T]: F:历史手机模块样机页面，在安全头验证环境中先加载普通脚本再加载模块入口 | R:- | A:- | S:-
+leaf.mjs[TU3T]: F:历史手机样机叶模块，记录最深模块的执行并暴露探针 | R:- | A:apiBridgeLeaf | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/===
+README.md[SQ3M]: F:汇总历史ESM宿主机与手机补验结论，区分样机与产品、正式证据与试跑，记录手机加载性能、迁移约束和证据缺口 | R:code:design/evidence/2026-11-12/esm-verify/RUNBOOK.md | A:- | S:-
+RUNBOOK.md[SQ3L]: F:保存历史ESM补验操作规程，覆盖环境取证、产品监听探测、样机打包、手机双通道上报与脱敏收尾 | R:code:design/evidence/2026-11-12/esm-verify/desktop/probe_app.py | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/desktop/===
+probe_app.py[TU3M]: F:运行历史桌面ESM加载样机，比较本地路径与文件地址、文件访问设置、循环依赖、加载计时及早推事件，落盘脱敏快照 | R:code:design/evidence/2026-11-12/esm-verify/tools/redact.py | A:--scenario,--out | S:采集写盘后强制退出，避免GUI关窗卡死
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/phone/===
+serve_probe.py[TU3L]: F:提供ESM验证手机样机服务，按显式清单供页并脱敏收集浏览器上报，支持通道与自驱试跑 | R:code:design/evidence/2026-11-12/esm-verify/tools/redact.py | A:ProbeState,make_handler,main,selfdrive | S:自驱完成硬退出；先关服务并记录端口释放
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/results/===
+HOST-CHECKLIST.md[SQ3T]: F:保存宿主打包样机与手机双通道ESM历史执行勾选、证据文件和未达重复次数 | R:- | A:真实加载、打包场景、真机通道、兜底提示 | S:-
+dry-run-cycle.json[TU3T]: F:保存源码循环依赖探针历史结果，动态导入与窗口错误均记录初始化前访问异常 | R:- | A:cycle_dynamic,errors | S:-
+dry-run-file-url-allow.json[TU3T]: F:保存显式允许文件URL的历史对照结果，模块能力通过且页面就绪 | R:- | A:allow_file_urls,snapshot.caps,snapshot.ready | S:-
+dry-run-file-url-noallow.json[TU3T]: F:保存禁用文件URL的历史对照结果，内联脚本执行而外部模块能力为空且未就绪 | R:- | A:allow_file_urls,snapshot.caps,snapshot.ready | S:-
+dry-run-file-url.json[TU3T]: F:保存默认允许文件URL时的历史源码探针结果，文件协议下模块能力通过且就绪 | R:- | A:snapshot.location,snapshot.caps,snapshot.ready | S:-
+dry-run-h11.json[TU3T]: F:保存缺失入口模块的历史源码探针结果，捕获元素加载错误并显示延时兜底提示 | R:- | A:missing_module,fallback,ready | S:-
+dry-run-h9-chain.json[TP3S]: F:保存链式依赖形态四十模块的历史加载顺序与耗时原始结果 | R:- | A:esm_order,esm_count,done_ms | S:-
+dry-run-h9-flat.json[TP3S]: F:保存扁平模块形态四十模块的历史加载顺序与耗时原始结果 | R:- | A:esm_order,esm_count,done_ms | S:-
+dry-run-h9-legacy.json[TP3S]: F:保存普通脚本形态四十文件的历史顺序执行与耗时对照结果 | R:- | A:esm_order,esm_count,done_ms | S:-
+dry-run-phone-tailscale-desktop-webview2-12.json[TU1T]: F:保存历史桌面WebView2回环试跑的预加载链首轮快照，四十模块报到、完成约3317毫秒，属手机样机旁证 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-13.json[TU1T]: F:保存历史桌面WebView2回环试跑的预加载链第二轮快照，四十模块报到、完成约3688毫秒，属手机样机旁证 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-14.json[TU1T]: F:保存历史桌面WebView2回环试跑的预加载链第三轮快照，四十模块报到、完成约4627毫秒，属手机样机旁证 | R:- | A:- | S:-
+host-onedir-cjk-h9-chain.json[TU3S]: F:保存中文路径onedir下链式ESM模块加载顺序与耗时的历史探针结果 | R:- | A:场景、环境与浏览器快照 | S:-
+host-onedir-cjk-h9-flat.json[TU3S]: F:保存中文路径onedir下扁平ESM模块加载顺序与耗时的历史探针结果 | R:- | A:场景、环境与浏览器快照 | S:-
+host-onedir-cjk-h9-legacy.json[TU3S]: F:保存中文路径onedir下普通脚本加载顺序与耗时的历史对照结果 | R:- | A:场景、环境与浏览器快照 | S:-
+dry-run-h9-preload.json[TU3S]: F:历史预加载模块试跑记录：40模块完成执行，保留加载时序与页面尚未ready快照 | R:- | A:- | S:-
+dry-run-host-pywebview-source.txt[SU3T]: F:历史pywebview源码摘录，解释本地路径自动启动HTTP服务及文件访问参数来源 | R:- | A:- | S:-
+dry-run-http-server.json[TU3T]: F:历史HTTP模块能力试跑记录：导入、顶层等待与JSON获取通过，缺失模块产生元素错误 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-01.json[TU3T]: F:历史桌面WebView手机页能力试跑：外部模块能力通过，内联脚本和样式触发安全策略拦截 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-02.json[TU3T]: F:历史桌面WebView缺失模块试跑：入口错误被捕获，约五秒后显示未加载完整兜底 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-03.json[TU3T]: F:历史普通脚本结构首轮试跑：40脚本按顺序执行完成，记录手机页加载耗时 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-04.json[TU3T]: F:历史普通脚本结构第二轮试跑：40脚本顺序执行，保存耗时与浏览器环境 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-05.json[TU3T]: F:历史普通脚本结构第三轮试跑：40脚本顺序执行，保存耗时与浏览器环境 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-06.json[TU3T]: F:历史扁平模块结构首轮试跑：40模块执行完成，记录DOM与窗口加载时点 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-07.json[TU3T]: F:历史扁平模块结构第二轮试跑：40模块执行完成，记录DOM与窗口加载时点 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-08.json[TU3T]: F:历史扁平模块结构第三轮试跑：40模块执行完成，记录DOM与窗口加载时点 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-09.json[TU3T]: F:历史链式模块结构首轮试跑：40模块按依赖顺序执行，保留完成与加载耗时 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-10.json[TU3T]: F:历史链式模块结构第二轮试跑：40模块按依赖顺序执行，保留完成与加载耗时 | R:- | A:- | S:-
+dry-run-phone-tailscale-desktop-webview2-11.json[TU3T]: F:历史链式模块结构第三轮试跑：40模块按依赖顺序执行，保留完成与加载耗时 | R:- | A:- | S:-
+dry-run-product.json[TU3S]: F:保存产品同款路径加载的历史源码样机结果，模块能力通过且六次后端推送均送达 | R:- | A:backend_push,snapshot.caps,backend_events | S:-
+host-onedir-cjk-cycle.json[TU3T]: F:保存中文目录onedir样机的历史循环依赖结果，记录初始化前访问的预期引用错误 | R:- | A:cycle_dynamic,errors | S:-
+host-onedir-cjk-h11.json[TU3T]: F:保存中文目录onedir样机的历史缺入口模块结果，约五秒显示加载失败兜底 | R:- | A:missing_module,fallback,ready | S:-
+host-onedir-cjk-h9-preload.json[TU3S]: F:历史中文路径目录包预加载探测：40模块执行完成，保留加载耗时与ready字段 | R:- | A:- | S:-
+host-onedir-cjk-product.json[TU3S]: F:历史中文路径目录包产品入口探测：模块能力通过，启动前后六次后端推送均被页面接收 | R:- | A:- | S:-
+host-onedir-plain-cycle.json[TU3T]: F:历史普通路径目录包循环依赖探测：静态与动态加载均记录初始化前访问引用错误 | R:- | A:- | S:-
+host-onedir-plain-h11.json[TU3T]: F:历史普通路径目录包缺失入口探测：元素错误被捕获，约五秒显示兜底且模块未就绪 | R:- | A:- | S:-
+host-onedir-plain-h9-chain.json[TU3S]: F:历史普通路径目录包链式依赖探测：40模块按依赖执行并记录完成与加载时间 | R:- | A:- | S:-
+host-onedir-plain-h9-flat.json[TU3S]: F:历史普通路径目录包扁平依赖探测：40模块执行完成，保留顺序与加载耗时 | R:- | A:- | S:-
+host-onedir-plain-h9-legacy.json[TU3S]: F:历史普通路径目录包普通脚本对照探测：40脚本依序执行并记录加载耗时 | R:- | A:- | S:-
+host-onedir-plain-h9-preload.json[TU3S]: F:历史普通路径目录包预加载探测：40模块按依赖执行并记录完成与加载时间 | R:- | A:- | S:-
+host-onedir-plain-product.json[TU3S]: F:历史普通路径目录包产品入口探测：模块能力通过，六次启动前后推送全部到达页面 | R:- | A:- | S:-
+host-onedir-space-cycle.json[TU3T]: F:历史空格路径目录包循环依赖探测：记录初始化前访问引用错误及页面环境 | R:- | A:- | S:-
+host-onedir-space-h11.json[TU3T]: F:历史空格路径目录包缺失入口探测：入口元素错误被捕获，约五秒后兜底提示显示 | R:- | A:- | S:-
+host-onedir-space-h9-chain.json[TU3S]: F:历史空格路径目录包链式依赖探测：40模块执行完成，保存执行顺序与加载时间 | R:- | A:- | S:-
+host-onedir-space-h9-flat.json[TU3S]: F:历史空格路径目录包扁平模块探测：40模块执行完成，保存执行顺序与加载时间 | R:- | A:- | S:-
+host-onedir-space-h9-legacy.json[TU3S]: F:历史空格路径目录包普通脚本对照探测：40脚本依序执行并记录加载时间 | R:- | A:- | S:-
+host-onedir-space-h9-preload.json[TU3S]: F:历史空格路径目录包预加载探测：40模块执行完成，保存执行顺序与加载时间 | R:- | A:- | S:-
+host-onedir-space-product.json[TU2S]: F:保存历史含空格目录onedir样机产品加载快照，经回环HTTP完成模块能力检查并接收六次后端推送，排队重放未触发 | R:- | A:- | S:-
+host-onefile-cjk-cycle.json[TU2T]: F:保存历史中文目录onefile样机循环引用对照，顶层与动态导入均报初始化前访问的ReferenceError | R:- | A:- | S:-
+host-onefile-cjk-file-url-noallow.json[TU2T]: F:保存历史中文目录onefile样机文件地址对照，显式关闭文件访问后入口模块加载报错、能力为空且未就绪 | R:- | A:- | S:-
+host-onefile-cjk-h11.json[TU3T]: F:保存中文目录onefile样机的历史缺入口模块结果，捕获加载错误并约五秒显示兜底 | R:- | A:missing_module,fallback,ready | S:-
+host-onefile-cjk-h9-chain.json[TP3S]: F:保存中文目录onefile样机链式四十模块的历史执行顺序和加载耗时 | R:- | A:esm_order,esm_count,done_ms | S:-
+host-onefile-cjk-h9-flat.json[TP3S]: F:保存中文目录onefile样机扁平四十模块的历史执行顺序和加载耗时 | R:- | A:esm_order,esm_count,done_ms | S:-
+host-onefile-cjk-h9-legacy.json[TP3S]: F:保存中文目录onefile样机四十普通脚本的历史顺序执行与耗时对照 | R:- | A:esm_order,esm_count,done_ms | S:-
+host-onefile-cjk-h9-preload.json[TU3S]: F:保存中文路径onefile下预加载链式40模块的顺序与耗时历史结果 | R:- | A:场景、环境与浏览器快照 | S:-
+host-onefile-cjk-product.json[TU3S]: F:保存中文路径onefile产品形态探针的ESM能力及前后端事件交付结果 | R:- | A:场景、环境与浏览器快照 | S:-
+host-onefile-plain-cycle.json[TU3T]: F:保存普通路径onefile循环模块触发初始化前访问异常的历史结果 | R:- | A:场景、环境与浏览器快照 | S:-
+host-onefile-plain-file-url-noallow.json[TU3T]: F:历史普通路径单文件包关闭文件访问对照：内联模块运行，外部模块未就绪并触发元素错误 | R:- | A:- | S:-
+host-onefile-plain-h11.json[TU3T]: F:历史普通路径单文件包缺失入口探测：捕获入口元素错误，约五秒显示加载兜底 | R:- | A:- | S:-
+host-onefile-plain-h9-chain.json[TU3S]: F:历史普通路径单文件包链式模块探测：40模块执行完成并记录顺序和加载时间 | R:- | A:- | S:-
+host-onefile-plain-h9-flat.json[TU3S]: F:历史普通路径单文件包扁平模块探测：40模块执行完成并记录顺序和加载时间 | R:- | A:- | S:-
+host-onefile-plain-h9-legacy.json[TU3S]: F:历史普通路径单文件包普通脚本对照：40脚本依序执行并记录加载耗时 | R:- | A:- | S:-
+host-onefile-plain-h9-preload.json[TU3S]: F:历史普通路径单文件包预加载探测：40模块执行完成并记录顺序和加载时间 | R:- | A:- | S:-
+host-onefile-plain-product.json[TU3S]: F:历史普通路径单文件包产品入口探测：模块能力通过，六次后端推送全部被页面接收 | R:- | A:- | S:-
+host-onefile-plain-run01.json[TU3S]: F:历史普通路径单文件包首轮启动重复探测：模块能力通过，启动前后六次推送到达页面 | R:- | A:- | S:-
+host-onefile-plain-run02.json[TU3S]: F:历史普通路径单文件包第二轮启动探测：模块能力通过，六次推送均到达页面 | R:- | A:- | S:-
+host-onefile-plain-run03.json[TU3S]: F:历史普通路径单文件包第三轮启动探测：模块能力通过，六次推送均到达页面 | R:- | A:- | S:-
+host-onefile-plain-run04.json[TU3S]: F:历史普通路径单文件包第四轮启动探测：模块能力通过，六次推送均到达页面 | R:- | A:- | S:-
+host-onefile-plain-run05.json[TU3S]: F:历史普通路径单文件包第五轮启动探测：模块能力通过，六次推送均到达页面 | R:- | A:- | S:-
+host-onefile-space-cycle.json[TU3T]: F:历史空格路径单文件包循环依赖探测：静态与动态加载记录初始化前访问引用错误 | R:- | A:- | S:-
+host-onefile-space-file-url-noallow.json[TU3T]: F:历史空格路径单文件包关闭文件访问对照：内联模块运行但外部模块能力未建立 | R:- | A:- | S:-
+host-onefile-space-h11.json[TU3T]: F:历史空格路径单文件包缺失入口探测：捕获元素错误，约五秒显示加载兜底 | R:- | A:- | S:-
+host-onefile-space-h9-chain.json[TP1S]: F:保存历史含空格目录onefile样机链式加载计时，四十模块全部报到、完成约166毫秒且未记录错误 | R:- | A:- | S:-
+host-onefile-space-h9-flat.json[TP1S]: F:保存历史含空格目录onefile样机扁平加载计时，四十模块全部报到、完成约147毫秒且未记录错误 | R:- | A:- | S:-
+host-onefile-space-h9-legacy.json[TP1S]: F:保存历史含空格目录onefile样机普通脚本加载计时，四十脚本顺序报到、完成约146毫秒且未记录错误 | R:- | A:- | S:-
+host-onefile-space-h9-preload.json[TP3S]: F:保存空格目录onefile样机预加载链四十模块的历史执行顺序与加载耗时 | R:- | A:esm_order,esm_count,done_ms | S:-
+host-onefile-space-product.json[TU3S]: F:保存空格目录onefile产品加载样机的历史模块能力和桥接结果，六次推送均收到 | R:- | A:backend_push,snapshot.caps,backend_events | S:-
+host-product-installed-1.2.2-run1.json[TU3T]: F:保存已装1.2.2首次演示启动的历史进程树与回环供页证据，版本资源为空 | R:- | A:listen_ports,rows,screenshot_captured | S:-
+host-product-installed-1.2.2-run2.json[TU3T]: F:保存安装版演示启动第二轮的进程、监听端口和页面响应历史证据 | R:- | A:启动环境与HTTP响应摘要 | S:-
+host-product-standalone-1.2.2-run1.json[TU3T]: F:保存独立EXE演示启动首轮的进程、监听端口和页面响应历史证据 | R:- | A:启动环境与HTTP响应摘要 | S:-
+host-product-standalone-1.2.2-run2.json[TU3T]: F:保存独立EXE演示启动第二轮的进程、监听端口和页面响应历史证据 | R:- | A:启动环境与HTTP响应摘要 | S:-
+host-pywebview-source.txt[SU3T]: F:历史pywebview源码摘录，解释本地路径自动HTTP服务与文件访问参数的实际来源 | R:- | A:- | S:-
+host-versions.json[TQ3T]: F:历史宿主模块补验环境版本快照，记录Python、pywebview与打包运行依赖版本 | R:- | A:- | S:-
+host-webview2-version.txt[TQ3T]: F:历史宿主WebView2版本留证，用于限定模块加载补验的浏览器环境 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-01.json[TU3T]: F:历史手机Safari隧道循环依赖探测：记录初始化前访问错误、内联拦截与兜底显示 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-02.json[TU3T]: F:历史手机Safari隧道普通脚本首轮：40脚本顺序执行完成，保存加载耗时 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-03.json[TU3T]: F:历史手机Safari隧道普通脚本第二轮：40脚本顺序执行完成，保存加载耗时 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-04.json[TU3T]: F:历史手机Safari隧道普通脚本第三轮：40脚本顺序执行完成，保存加载耗时 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-05.json[TU3T]: F:历史手机Safari隧道扁平模块首轮超时快照：模块计数为零且加载兜底已显示 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-06.json[TU3T]: F:历史手机Safari隧道扁平模块首轮汇报：预期40模块而执行计数为零，无完成时点 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-07.json[TU3T]: F:历史手机Safari隧道扁平模块第二轮超时快照：模块计数为零且兜底已显示 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-08.json[TU3T]: F:历史手机Safari隧道扁平模块第二轮汇报：模块执行计数为零，无加载完成时点 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-09.json[TU3T]: F:历史手机Safari隧道链式模块中途快照：尚无模块执行且兜底已显示 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-10.json[TU3T]: F:历史手机Safari隧道链式模块首轮最终汇报：40模块完成，耗时约9.5秒 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-11.json[TU3T]: F:历史手机Safari隧道预加载链首轮超时快照：计数为零且兜底已显示 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-12.json[TU3T]: F:历史手机Safari隧道预加载链首轮汇报：模块计数为零，无完成与加载时点 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-13.json[TP1T]: F:保存历史iOS Safari隧道预加载链第二轮上报，四十模块全量报到、完成耗时4903毫秒 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-14.json[TP1T]: F:保存历史iOS Safari隧道预加载链第三轮上报，四十模块全量报到、完成耗时3962毫秒 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-15.json[TU2T]: F:保存历史iOS Safari隧道模块能力快照，静动态导入等能力通过、内联模块被CSP拦截，缺失模块由元素错误捕获 | R:- | A:- | S:-
+phone-cloudflare-ios-safari-16.json[TU3T]: F:保存Cloudflare下Safari扁平模块第三轮历史快照，模块未执行且约六秒显示兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-ios-safari-17.json[TP3T]: F:保存Cloudflare下Safari扁平模块第三轮历史汇总，实际零模块与预期四十不符 | R:- | A:module_count,expected_count,done_ms | S:-
+phone-cloudflare-ios-safari-18.json[TU3T]: F:保存Cloudflare下Safari链式模块首轮历史快照，模块未执行且约七秒显示兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-ios-safari-19.json[TU3T]: F:保存Cloudflare通道iOS Safari链式模块首轮尚未完成的阶段采样 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-20.json[TU3T]: F:保存Cloudflare通道iOS Safari链式模块第二轮触发加载兜底的历史快照 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-21.json[TU3T]: F:保存Cloudflare通道iOS Safari链式40模块第二轮延迟完成的历史结果 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-22.json[TU3T]: F:历史链式模块第三轮阶段快照：执行计数为零、尚未就绪，约6.2秒已显示兜底 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-23.json[TU3T]: F:历史链式模块第三轮完成结果：40模块按依赖执行，完成耗时约8秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-24.json[TU3T]: F:历史预加载链首轮完成结果：40模块执行并记录依赖顺序，耗时约2.4秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-25.json[TU3T]: F:历史预加载链另一份首轮完成汇报：40模块执行，耗时约1.3秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-26.json[TU3T]: F:历史预加载链第二轮完成结果：40模块执行，保存约1.9秒完成及加载时点 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-27.json[TU3T]: F:历史预加载链另一份第二轮完成汇报：40模块执行，完成耗时约1.4秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-28.json[TU3T]: F:历史预加载链第三轮完成结果：40模块执行，完成耗时约1.7秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-29.json[TU3T]: F:历史预加载链另一份第三轮完成汇报：40模块执行，完成耗时约1.3秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-30.json[TU3T]: F:历史扁平模块未完成阶段快照：执行计数为零，约6.2秒显示兜底且无加载时点 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-31.json[TU3T]: F:历史扁平模块首轮未完成汇报：预期40模块而执行为零，完成与加载时点均为空 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-32.json[TU3T]: F:历史扁平模块第二轮未完成阶段快照：执行计数为零，约8.4秒显示兜底 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-33.json[TU3T]: F:历史扁平模块第二轮未完成汇报：预期40模块而执行为零，无完成及加载时点 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-34.json[TU3T]: F:保存历史扁平模块第三轮完成上报，四十模块全部报到，耗时5510毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-35.json[TU3T]: F:保存历史链式模块首轮中途快照，尚无模块报到或完成时间，6526毫秒已显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-36.json[TU3T]: F:保存历史链式模块首轮完成上报，四十模块全部报到，耗时8962毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-37.json[TU3T]: F:保存历史链式模块第二轮通用快照，模块报到数为零且未完成，7820毫秒已显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-38.json[TU3T]: F:保存历史链式模块第二轮运行上报，预期四十模块但实际零报到，完成与页面就绪时间均为空 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-39.json[TU3T]: F:保存历史链式模块第三轮通用快照，模块报到数为零且未完成，8069毫秒已显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-40.json[TU3T]: F:保存历史链式模块第三轮运行上报，预期四十模块但实际零报到，完成与页面就绪时间均为空 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-41.json[TU3T]: F:保存历史预加载链首轮完成上报，四十模块全部报到，耗时1443毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-42.json[TU3T]: F:保存历史预加载链第二轮完成上报，四十模块全部报到，耗时2562毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-43.json[TU3T]: F:保存历史入口模块缺失对照，元素错误被捕获、模块未执行，6168毫秒显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-44.json[TU3T]: F:保存历史入口模块缺失复测，元素错误被捕获、模块未执行，6765毫秒显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-45.json[TU3T]: F:保存历史入口模块缺失复测，元素错误被捕获、模块未执行，7194毫秒显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-46.json[TU3T]: F:保存Cloudflare下Safari模块能力历史快照，外部模块能力通过、内联脚本被CSP阻止且页面就绪 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-47.json[TU3T]: F:保存Cloudflare下Safari第二次模块能力历史快照，静态动态导入通过、页面就绪且无兜底 | R:- | A:通道与浏览器探针数据 | S:-
+phone-cloudflare-ios-safari-48.json[TU3T]: F:保存Cloudflare下Safari第三次模块能力历史快照，外部模块能力通过且内联脚本受CSP限制 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-01.json[TU3T]: F:保存Tailscale下Safari缺失入口模块的历史快照，捕获加载错误并约五秒显示兜底 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-02.json[TU3T]: F:保存Tailscale下Safari循环依赖历史快照，记录初始化前引用异常、内联脚本受限及兜底出现 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-03.json[TU3T]: F:保存Tailscale下Safari普通脚本首轮历史汇总，四十文件顺序执行完成并记录耗时 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-04.json[TU3T]: F:保存Tailscale下Safari普通脚本第二轮历史汇总，四十文件顺序执行完成、耗时628毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-05.json[TU3T]: F:保存Tailscale下Safari普通脚本第三轮历史汇总，四十文件顺序执行完成、耗时620毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-06.json[TU3T]: F:保存Tailscale下Safari扁平模块首轮历史汇总，四十模块完成且记录DOM就绪与加载时刻 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-07.json[TU3T]: F:保存Tailscale下Safari扁平模块第二轮尚未完成的历史快照，模块计数为零且约五秒已出现兜底 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-08.json[TU3T]: F:保存Tailscale下Safari扁平模块第二轮完成的历史汇总，四十模块加载耗时5625毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-09.json[TU3T]: F:历史手机Safari扁平模块第三轮完成结果：40模块执行，完成与DOM就绪耗时738毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-10.json[TU3T]: F:历史手机Safari链式模块首轮完成结果：40模块按依赖执行，完成耗时776毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-11.json[TU3T]: F:历史手机Safari链式模块第二轮完成结果：40模块按依赖执行，完成耗时852毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-12.json[TU3T]: F:历史手机Safari链式模块第三轮完成结果：40模块按依赖执行，完成耗时797毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-13.json[TU3T]: F:历史手机Safari预加载链首轮完成结果：40模块执行，完成及加载耗时665毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-14.json[TU3T]: F:历史手机Safari预加载链第二轮完成结果：40模块执行，完成及加载耗时194毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-15.json[TU3T]: F:历史手机Safari预加载链第三轮完成结果：40模块执行，完成耗时约2.9秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-16.json[TU3T]: F:历史手机Safari预加载链第三轮后续快照：40模块已完成，但ready仍为假且约5.2秒显示兜底 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-17.json[TU3T]: F:历史手机Safari链式模块另一份首轮完成汇报：40模块执行，完成耗时941毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-18.json[TU3T]: F:历史手机Safari链式模块另一份第二轮完成汇报：40模块执行，完成耗时801毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-19.json[TU3T]: F:历史手机Safari链式模块另一份第三轮完成汇报：40模块执行，完成及加载耗时783毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-20.json[TU3T]: F:历史手机Safari预加载链另一份首轮完成汇报：40模块执行，完成及加载耗时653毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-21.json[TU3T]: F:保存历史预加载链第二轮完成上报，四十模块全部报到，耗时193毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-22.json[TU3T]: F:保存历史预加载链第三轮完成上报，四十模块全部报到，耗时189毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-23.json[TU3T]: F:保存历史预加载链第三轮通用快照，四十模块已在189毫秒完成，5182毫秒仍显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-24.json[TU3T]: F:保存历史预加载链复测首轮完成上报，四十模块全部报到，耗时4020毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-25.json[TU3T]: F:保存历史预加载链复测第二轮完成上报，四十模块全部报到，耗时216毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-26.json[TU3T]: F:保存历史预加载链复测第三轮完成上报，四十模块全部报到，耗时146毫秒 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-27.json[TU3T]: F:保存历史预加载链复测第三轮通用快照，四十模块已在146毫秒完成，5142毫秒仍显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-28.json[TU3T]: F:保存历史入口模块缺失对照，元素错误被捕获、模块未执行，5178毫秒显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-29.json[TU3T]: F:保存历史入口模块缺失复测，元素错误被捕获、模块未执行，5195毫秒显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-30.json[TU3T]: F:保存历史入口模块缺失复测，元素错误被捕获、模块未执行，5177毫秒显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-31.json[TU3T]: F:保存历史入口模块缺失复测，元素错误被捕获、模块未执行，5181毫秒显示兜底提示 | R:- | A:通道与浏览器探针数据 | S:-
+phone-tailscale-ios-safari-32.json[TU3T]: F:保存历史直连模块能力上报，静动态导入等能力通过、内联模块被CSP拦截，271毫秒就绪且未显示兜底 | R:- | A:通道与浏览器探针数据 | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-spike/desktop/===
+comprehensive-result.json[TU3M]: F:历史桌面模块样机四场景原始汇总，保留执行顺序、桥接回调、错误与端口检查记录 | R:- | A:- | S:-
+result-A.json[TU3T]: F:历史本地文件加载场景记录：完整模块链执行并收到前端ping，返回值快照仍是Promise对象 | R:- | A:- | S:-
+result-B.json[TU3T]: F:历史HTTP加载场景记录：普通脚本与模块链执行完成，Python收到前端ping | R:- | A:- | S:-
+result-C.json[TU3T]: F:历史双向桥接记录：模块收到Python消息并返回pong，前端ping参数到达Python | R:- | A:- | S:-
+result-D.json[TU3T]: F:历史新旧脚本互调记录：Python调用普通脚本与模块桥均返回成功，前端互调完成 | R:- | A:- | S:-
+spike.py[TU3L]: F:历史桌面模块样机执行器，分子进程验证文件或HTTP加载、双向桥接、新旧互调并汇总证据 | R:code:design/evidence/2026-11-12/esm-spike/desktop/web/index.html | A:run_master,run_scene_child | S:-
+summary.txt[SU3T]: F:历史桌面模块样机结论，说明本地加载可行、桥接返回Promise及内置HTTP服务绕行偏差 | R:- | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-spike/desktop/web/===
+chain.mjs[TU3T]: F:历史桌面样机中间模块，加载叶模块、记录顶层顺序并暴露探针 | R:- | A:apiBridgeChain | S:-
+index.html[TU3T]: F:历史桌面模块样机页面，先载入普通脚本再加载模块入口，为四场景提供共同载体 | R:- | A:- | S:-
+leaf.mjs[TU3T]: F:历史桌面样机叶模块，记录最深依赖执行并暴露探针 | R:- | A:apiBridgeLeaf | S:-
+legacy.js[TU3T]: F:历史桌面普通脚本探针，记录同步执行顺序并借全局对象完成模块互调 | R:- | A:legacyGlobal | S:-
+main.mjs[TU3S]: F:历史桌面模块入口，等待桥注入后探测双向互调并回传快照，收集全局脚本错误 | R:- | A:apiBridgeMain,finalizeFrontend | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-spike/phone/===
+phone-result.json[TU3T]: F:历史手机页模块样机结果，记录安全响应头、模块执行序列和端口检查 | R:- | A:- | S:-
+serve.py[TU3L]: F:历史手机页模块样机执行器，在安全头与模块MIME下加载页面、收集快照及生成结论 | R:code:design/evidence/2026-11-12/esm-spike/phone/web/index.html | A:main | S:-
+summary.txt[SU3T]: F:历史手机页模块样机结论，说明同源安全策略下模块加载结果并提出静态白名单扩展候选 | R:- | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/tools/===
+redact.py[TS4S]: F:为历史ESM样机结果递归脱敏路径、通道地址与主机名，提供残留检查和内置自检 | R:- | A:redact_text,redact_obj,find_residual,check_files | S:回环地址不脱敏，保留实际供页机制证据
+summarize.py[TQ3M]: F:只读汇总历史宿主与手机探针结果，区分完成计时、空耗时、能力检查和早推送达 | R:- | A:section_h9_phone,section_h2_h6,section_h5 | S:H9仅带form记录进入计时统计
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/===
+gen_modules.py[TQ4L]: F:生成历史ESM验证样机的能力页、循环依赖、四形态计时、缺入口兜底及显式资源清单 | R:- | A:gen_probe_page,gen_cycle_page,gen_h9_chain,gen_manifest | S:公共资产按页面目录复制以适配本地服务根
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/common/===
+base.js[TU3S]: F:为历史样机采集加载位置、模块错误与CSP事件，排队后端早推并提供快照上报和五秒兜底 | R:- | A:__collect,__postReport,__finish,onBackend | S:-
+probe.css[TU3T]: F:定义历史探针页面的基础排版、结果块与默认隐藏的红色兜底提示样式 | R:- | A:页面样式与兜底提示 | S:-
+runner.js[TP3T]: F:编排历史H9四形态各三轮计时，等待完成或十秒超时后上报并切换下一轮 | R:- | A:snapshot,nextUrl,finish | S:done_ms以本次导航开始为基准
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h11/common/===
+base.js[TU3S]: F:为历史H11页面采集缺模块错误与加载状态，入口未就绪时五秒显示兜底并上报 | R:- | A:__collect,__postReport,__finish,onBackend | S:-
+probe.css[TU3T]: F:提供历史H11探针的基础排版和默认隐藏的加载失败提示样式 | R:- | A:页面样式与兜底提示 | S:-
+runner.js[TP3T]: F:保存随历史H11目录复制的H9计时编排器，支持四形态轮转和超时上报 | R:- | A:snapshot,nextUrl,finish | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h11/===
+index.html[TU3T]: F:构造历史H11负向样机页面，以故意不存在的模块入口验证加载错误与五秒兜底 | R:- | A:absent-main.mjs负向入口、fallback提示 | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h2/common/===
+base.js[TU3S]: F:为历史H2能力页预置事件采集与早推队列，提供模块状态快照、桥接上报和超时兜底 | R:- | A:__collect,__postReport,__finish,onBackend | S:-
+probe.css[TU3T]: F:提供历史H2能力探针的基础排版、结果展示和默认隐藏的兜底提示样式 | R:- | A:页面样式与兜底提示 | S:-
+runner.js[TU3T]: F:历史模块计时样机运行器：轮询完成或十秒截止，收集顺序并自动轮转四形态各三次 | R:- | A:snapshot,nextUrl,finish | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h2/===
+data.json[TD3T]: F:历史模块能力样机JSON数据，供fetch验证读取成功，避免使用JSON导入断言 | R:- | A:ok,note | S:-
+helper.mjs[TU3T]: F:历史模块能力样机辅助导出，提供命名值、版本和默认对象供静态动态导入核对 | R:- | A:named,version,default | S:-
+index.html[TU3T]: F:历史模块能力样机页面，组合预加载、内联模块与故意缺失模块以观察安全策略和错误 | R:- | A:- | S:-
+main.mjs[TU3T]: F:历史模块主探针：接管并重放后端事件，再验证导入、顶层等待、预加载与JSON获取 | R:- | A:window.onBackend.probe | S:-
+page.html[TU3T]: F:历史模块能力样机页面副本，组合预加载、内联模块与故意缺失模块以观察加载行为 | R:- | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h3/cycle/common/===
+base.js[TU3S]: F:历史循环依赖样机公共探针：排队后端推送、捕获脚本及安全策略错误并提供五秒兜底和结果回传 | R:- | A:__collect,__postReport,__finish | S:-
+probe.css[TU3T]: F:历史循环依赖探针样式，统一结果面板排版并默认隐藏加载失败提示 | R:- | A:- | S:-
+runner.js[TU3T]: F:历史循环依赖目录中的计时运行器副本，记录模块完成或十秒超时并轮转四形态三轮 | R:- | A:snapshot,nextUrl,finish | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h3/cycle/===
+cycle-a.mjs[TU3T]: F:历史循环依赖反例A模块，在导出初始化时读取B常量以触发顶层互相引用问题 | R:- | A:a | S:-
+cycle-b.mjs[TU3T]: F:历史循环依赖反例B模块，在导出初始化时反向读取A常量以形成初始化前访问 | R:- | A:b | S:-
+index.html[TU3T]: F:历史顶层循环依赖样机页面，同时发起静态和动态导入并展示预期异常后回传快照 | R:- | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/common/===
+base.js[TU3S]: F:提供历史链式样机公共探针，收集加载与错误、缓存后端早推事件、显示五秒兜底并支持桥接或HTTP上报 | R:- | A:__collect、__finish、onBackend.probe | S:-
+probe.css[TU3T]: F:定义历史链式样机探针的基础排版、结果区与默认隐藏的失败提示样式 | R:- | A:探针页面样式 | S:-
+runner.js[TU3T]: F:编排历史H9四形态各三轮计时，轮询完成或十秒到期后上报，支持自动换页与桌面单轮采集 | R:- | A:auto、run查询参数 | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/===
+index.html[TU3T]: F:承载历史四十模块八层链式加载实验，先加载普通脚本探针，再启动模块入口与计时编排 | R:- | A:链式加载探针页面 | S:-
+m01.mjs[TU3T]: F:作为历史链式探针第一号模块，记录执行与报到次数，调用第六号模块拼接层级结果 | R:- | A:layer01 | S:-
+m02.mjs[TU3T]: F:作为历史链式探针第二号模块，记录执行与报到次数，调用第七号模块拼接层级结果 | R:- | A:layer02 | S:-
+m03.mjs[TU3T]: F:作为历史链式探针第三号模块，记录执行与报到次数，调用第八号模块拼接层级结果 | R:- | A:layer03 | S:-
+m04.mjs[TU3T]: F:作为历史链式探针第四号模块，记录执行与报到次数，调用第九号模块拼接层级结果 | R:- | A:layer04 | S:-
+m05.mjs[TU3T]: F:作为历史链式探针第五号模块，记录执行与报到次数，调用第十号模块拼接层级结果 | R:- | A:layer05 | S:-
+m06.mjs[TU3T]: F:作为历史链式探针第六号模块，记录执行与报到次数，调用第十一号模块拼接层级结果 | R:- | A:layer06 | S:-
+m07.mjs[TU3T]: F:作为历史链式探针第七号模块，记录执行与报到次数，调用第十二号模块拼接层级结果 | R:- | A:layer07 | S:-
+m08.mjs[TU3T]: F:作为历史链式探针第八号模块，记录执行与报到次数，调用第十三号模块拼接层级结果 | R:- | A:layer08 | S:-
+m09.mjs[TU3T]: F:历史链式探针记录m09执行次序与计数，调用第14层拼接依赖链 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m14.mjs | A:layer09 | S:-
+m10.mjs[TU3T]: F:历史链式探针记录m10执行次序与计数，通过第15层延续调用链 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m15.mjs | A:layer10 | S:-
+m11.mjs[TU3T]: F:历史链式探针记录m11加载执行并累计计数，将第16层结果接入链字符串 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m16.mjs | A:layer11 | S:-
+m12.mjs[TU3T]: F:历史链式探针登记m12执行并累计模块数，向第17层递进调用 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m17.mjs | A:layer12 | S:-
+m13.mjs[TU3T]: F:历史链式探针登记m13执行顺序与计数，借第18层返回后续链内容 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m18.mjs | A:layer13 | S:-
+m14.mjs[TU3T]: F:历史链式探针累计m14执行并记录顺序，组合第19层调用结果 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m19.mjs | A:layer14 | S:-
+m15.mjs[TU3T]: F:历史链式探针记录m15执行轨迹与模块计数，调用第20层延展链内容 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m20.mjs | A:layer15 | S:-
+m16.mjs[TU3T]: F:历史链式探针登记m16执行与计数，通过第21层构造后续链字符串 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m21.mjs | A:layer16 | S:-
+m17.mjs[TU3T]: F:历史链式探针记录m17执行次序并累计模块数，拼接第22层调用结果 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m22.mjs | A:layer17 | S:-
+m18.mjs[TU3T]: F:历史链式探针累计m18执行并留下顺序标记，调用第23层延续链字符串 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m23.mjs | A:layer18 | S:-
+m19.mjs[TU3T]: F:历史链式探针记录m19执行轨迹与计数，将第24层接入调用链 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m24.mjs | A:layer19 | S:-
+m20.mjs[TU3T]: F:历史链式探针登记m20执行并增加模块计数，拼接第25层返回内容 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m25.mjs | A:layer20 | S:-
+m21.mjs[TU3T]: F:历史链式探针记录m21执行顺序与计数，通过第26层继续构造链结果 | R:code:design/evidence/2026-11-12/esm-verify/web/generated/h9/chain/m26.mjs | A:layer21 | S:-
+m22.mjs[TU3T]: F:历史链式模块样机第22层，依赖并调用第27层，记录执行顺序和计数 | R:- | A:layer22 | S:-
+m23.mjs[TU3T]: F:历史链式模块样机第23层，依赖并调用第28层，记录执行顺序和计数 | R:- | A:layer23 | S:-
+m24.mjs[TU3T]: F:历史链式模块样机第24层，依赖并调用第29层，记录执行顺序和计数 | R:- | A:layer24 | S:-
+m25.mjs[TU3T]: F:历史链式模块样机第25层，依赖并调用第30层，记录执行顺序和计数 | R:- | A:layer25 | S:-
+m26.mjs[TU3T]: F:历史链式模块样机第26层，依赖并调用第31层，记录执行顺序和计数 | R:- | A:layer26 | S:-
+m27.mjs[TU3T]: F:历史链式模块样机第27层，依赖并调用第32层，记录执行顺序和计数 | R:- | A:layer27 | S:-
+m28.mjs[TU3T]: F:历史链式模块样机第28层，依赖并调用第33层，记录执行顺序和计数 | R:- | A:layer28 | S:-
+m29.mjs[TU3T]: F:历史链式模块样机第29层，依赖并调用第34层，记录执行顺序和计数 | R:- | A:layer29 | S:-
+m30.mjs[TU3T]: F:历史链式模块样机第30层，依赖并调用第35层，记录执行顺序和计数 | R:- | A:layer30 | S:-
+m31.mjs[TU3T]: F:历史链式模块样机第31层，依赖并调用第36层，记录执行顺序和计数 | R:- | A:layer31 | S:-
+m32.mjs[TU3T]: F:历史链式模块样机第32层，依赖并调用第37层，记录执行顺序和计数 | R:- | A:layer32 | S:-
+m33.mjs[TU3T]: F:历史链式模块样机第33层，依赖并调用第38层，记录执行顺序和计数 | R:- | A:layer33 | S:-
+m34.mjs[TU3T]: F:历史链式模块样机第34层，依赖并调用第39层，记录执行顺序和计数 | R:- | A:layer34 | S:-
+m35.mjs[TU3T]: F:作为历史链式探针第三十五号叶模块，记录执行顺序与报到次数并返回固定层级标记 | R:- | A:layer35 | S:-
+m36.mjs[TU3T]: F:作为历史链式探针第三十六号叶模块，记录执行顺序与报到次数并返回固定层级标记 | R:- | A:layer36 | S:-
+m37.mjs[TU3T]: F:作为历史链式探针第三十七号叶模块，记录执行顺序与报到次数并返回固定层级标记 | R:- | A:layer37 | S:-
+m38.mjs[TU3T]: F:作为历史链式探针第三十八号叶模块，记录执行顺序与报到次数并返回固定层级标记 | R:- | A:layer38 | S:-
+m39.mjs[TU3T]: F:作为历史链式探针第三十九号叶模块，记录执行顺序与报到次数并返回固定层级标记 | R:- | A:layer39 | S:-
+main.mjs[TU3T]: F:启动历史八层链式模块图，导入五条分支、检查首分支调用结果并登记模块总数与完成时刻 | R:- | A:__chainCallOk、__esmDoneAt | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h9/flat/common/===
+base.js[TU3S]: F:提供历史扁平样机公共探针，收集错误与加载快照、缓存早推事件、显示五秒兜底并支持桥接或HTTP上报 | R:- | A:__collect、__finish、onBackend.probe | S:-
+probe.css[TU3T]: F:定义历史扁平样机探针的基础排版、可滚动结果区与默认隐藏的失败提示样式 | R:- | A:探针页面样式 | S:-
+runner.js[TU3T]: F:编排历史四形态各三轮加载计时，完成或十秒到期后上报，支持自动换页与桌面单轮采集 | R:- | A:auto、run查询参数 | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h9/flat/controllers/===
+c01.mjs[TU3T]: F:作为历史扁平探针第一号控制模块，记录报到并组合对应状态快照与视图结果 | R:- | A:build01、controller01 | S:-
+c02.mjs[TU3T]: F:作为历史扁平探针第二号控制模块，记录报到并组合对应状态快照与视图结果 | R:- | A:build02、controller02 | S:-
+c03.mjs[TU3T]: F:作为历史扁平探针第三号控制模块，记录报到并组合对应状态快照与视图结果 | R:- | A:build03、controller03 | S:-
+c04.mjs[TU3T]: F:历史扁平探针调用snapshot04与render04构造第4组卡片数据，并记录模块执行次序与计数 | R:- | A:build04,controller04 | S:-
+c05.mjs[TU3T]: F:历史扁平探针组合第5组状态快照与视图卡片，登记控制器模块执行 | R:- | A:build05,controller05 | S:-
+c06.mjs[TU3T]: F:历史扁平探针通过snapshot06和render06构建带编号与标签的卡片对象，累计执行计数 | R:- | A:build06,controller06 | S:-
+c07.mjs[TU3T]: F:历史扁平探针读取第7组状态快照并调用对应渲染函数，记录执行轨迹 | R:- | A:build07,controller07 | S:-
+c08.mjs[TU3T]: F:历史扁平探针组合snapshot08与render08的结果，输出第8组控制器样例数据并登记执行 | R:- | A:build08,controller08 | S:-
+c09.mjs[TU3T]: F:历史扁平探针调用第9组快照与视图构建卡片对象，记录加载后的执行次序与数量 | R:- | A:build09,controller09 | S:-
+c10.mjs[TU3T]: F:历史扁平探针连接snapshot10与render10，构造第10组卡片样例并累计模块数 | R:- | A:build10,controller10 | S:-
+c11.mjs[TU3T]: F:历史扁平探针组合第11组状态编号与渲染卡片，记录控制器模块执行 | R:- | A:build11,controller11 | S:-
+c12.mjs[TU3T]: F:历史扁平探针经snapshot12和render12返回第12组卡片数据，留下执行标记与计数 | R:- | A:build12,controller12 | S:-
+c13.mjs[TU3T]: F:历史扁平探针组合第13组快照与视图结果，构造控制器标签并登记模块执行 | R:- | A:build13,controller13 | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h9/flat/===
+index.html[TU3T]: F:承载历史H9扁平四十模块计时页面，加载公共采集脚本、模块入口及轮次编排器 | R:- | A:main.mjs模块入口、结果区、兜底提示 | S:-
+main.mjs[TU3T]: F:历史扁平探针入口导入39个分层模块，调用build01验证调用期循环引用并记录第四十模块完成时刻 | R:- | A:__cycleCallOk,__esmCount,__esmDone,__esmDoneAt | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h9/flat/state/===
+s01.mjs[TU3T]: F:提供历史扁平样机第一组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state01、snapshot01 | S:-
+s02.mjs[TU3T]: F:提供历史扁平样机第二组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state02、snapshot02 | S:-
+s03.mjs[TU3T]: F:提供历史扁平样机第三组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state03、snapshot03 | S:-
+s04.mjs[TU3T]: F:提供历史扁平样机第四组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state04、snapshot04 | S:-
+s05.mjs[TU3T]: F:提供历史扁平样机第五组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state05、snapshot05 | S:-
+s06.mjs[TU3T]: F:提供历史扁平样机第六组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state06、snapshot06 | S:-
+s07.mjs[TU3T]: F:提供历史扁平样机第七组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state07、snapshot07 | S:-
+s08.mjs[TU3T]: F:提供历史扁平样机第八组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state08、snapshot08 | S:-
+s09.mjs[TU3T]: F:提供历史扁平样机第九组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state09、snapshot09 | S:-
+s10.mjs[TU3T]: F:提供历史扁平样机第十组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state10、snapshot10 | S:-
+s11.mjs[TU3T]: F:提供历史扁平样机第十一组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state11、snapshot11 | S:-
+s12.mjs[TU3T]: F:提供历史扁平样机第十二组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state12、snapshot12 | S:-
+s13.mjs[TU3T]: F:提供历史扁平样机第十三组固定状态与含视图的快照，记录报到并构造调用期循环引用 | R:- | A:state13、snapshot13 | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h9/flat/views/===
+v01.mjs[TU3T]: F:历史扁平视图探针登记v01执行与计数，调用时读取state01编号形成卡片字符串 | R:- | A:render01,view01 | S:-
+v02.mjs[TU3T]: F:历史扁平视图探针记录v02执行轨迹，通过state02编号返回卡片字符串 | R:- | A:render02,view02 | S:-
+v03.mjs[TU3T]: F:历史扁平视图探针累计v03执行数量，渲染函数在调用期访问state03编号 | R:- | A:render03,view03 | S:-
+v04.mjs[TU3T]: F:历史扁平视图探针登记v04顺序与计数，读取state04编号构造卡片文本 | R:- | A:render04,view04 | S:-
+v05.mjs[TU3T]: F:历史扁平视图探针记录v05执行，在函数调用时将state05编号转为卡片标识 | R:- | A:render05,view05 | S:-
+v06.mjs[TU3T]: F:历史扁平视图探针累计v06模块执行，借state06编号生成卡片字符串 | R:- | A:render06,view06 | S:-
+v07.mjs[TU3T]: F:历史扁平视图探针登记v07执行次序与数量，调用时读取state07编号 | R:- | A:render07,view07 | S:-
+v08.mjs[TU3T]: F:历史扁平视图探针记录v08执行轨迹，使用state08编号返回对应卡片文本 | R:- | A:render08,view08 | S:-
+v09.mjs[TU3T]: F:历史扁平视图探针累计v09执行计数，在调用期组合state09编号与卡片前缀 | R:- | A:render09,view09 | S:-
+v10.mjs[TU3T]: F:历史扁平视图探针登记v10顺序和计数，通过state10编号构造卡片标识 | R:- | A:render10,view10 | S:-
+v11.mjs[TU3T]: F:历史扁平视图探针记录v11执行，渲染调用读取state11编号返回卡片字符串 | R:- | A:render11,view11 | S:-
+v12.mjs[TU3T]: F:历史扁平视图探针累计v12执行并留下顺序标记，调用时使用state12编号 | R:- | A:render12,view12 | S:-
+v13.mjs[TU3T]: F:历史扁平视图探针登记v13执行轨迹与模块数，将state13编号转换为卡片文本 | R:- | A:render13,view13 | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h9/legacy/common/===
+base.js[TU3S]: F:历史普通脚本对照样机公共探针，排队推送、收集错误及安全策略、提供五秒兜底和结果回传 | R:- | A:__collect,__postReport,__finish | S:-
+probe.css[TU3T]: F:历史普通脚本对照样机样式，统一结果排版并默认隐藏加载失败提示 | R:- | A:- | S:-
+runner.js[TU3T]: F:历史普通脚本对照样机计时运行器，十秒截止采集并轮转四形态各三次 | R:- | A:snapshot,nextUrl,finish | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h9/legacy/===
+index.html[TU3T]: F:历史普通脚本对照页面，顺序加载40脚本后启动计时汇报 | R:- | A:- | S:-
+l01.js[TU3T]: F:历史普通脚本样机第1片，注册状态、卡片渲染和控制器构建并累计执行计数 | R:- | A:__legacyLayers | S:-
+l02.js[TU3T]: F:历史普通脚本样机第2片，注册状态、卡片渲染和控制器构建并累计执行计数 | R:- | A:__legacyLayers | S:-
+l03.js[TU3T]: F:历史普通脚本样机第3片，注册状态、卡片渲染和控制器构建并累计执行计数 | R:- | A:__legacyLayers | S:-
+l04.js[TU3T]: F:历史普通脚本样机第4片，注册状态、卡片渲染和控制器构建并累计执行计数 | R:- | A:__legacyLayers | S:-
+l05.js[TU3T]: F:历史普通脚本样机第5片，注册状态、卡片渲染和控制器构建并累计执行计数 | R:- | A:__legacyLayers | S:-
+l06.js[TU3T]: F:历史普通脚本样机第6片，注册状态、卡片渲染和控制器构建并累计执行计数 | R:- | A:__legacyLayers | S:-
+l07.js[TU3T]: F:历史普通脚本样机第7片，注册状态、卡片渲染和控制器构建并累计执行计数 | R:- | A:__legacyLayers | S:-
+l08.js[TU3T]: F:为历史普通脚本对照登记第八组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第08组 | S:-
+l09.js[TU3T]: F:为历史普通脚本对照登记第九组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第09组 | S:-
+l10.js[TU3T]: F:为历史普通脚本对照登记第十组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第10组 | S:-
+l11.js[TU3T]: F:为历史普通脚本对照登记第十一组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第11组 | S:-
+l12.js[TU3T]: F:为历史普通脚本对照登记第十二组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第12组 | S:-
+l13.js[TU3T]: F:为历史普通脚本对照登记第十三组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第13组 | S:-
+l14.js[TU3T]: F:为历史普通脚本对照登记第十四组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第14组 | S:-
+l15.js[TU3T]: F:为历史普通脚本对照登记第十五组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第15组 | S:-
+l16.js[TU3T]: F:为历史普通脚本对照登记第十六组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第16组 | S:-
+l17.js[TU3T]: F:为历史普通脚本对照登记第十七组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第17组 | S:-
+l18.js[TU3T]: F:为历史普通脚本对照登记第十八组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第18组 | S:-
+l19.js[TU3T]: F:为历史普通脚本对照登记第十九组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第19组 | S:-
+l20.js[TU3T]: F:为历史普通脚本对照登记第二十组状态、视图与控制器，记录加载顺序并组合卡片结果 | R:- | A:__legacyLayers第20组 | S:-
+l21.js[TU3T]: F:历史普通脚本对照登记l21执行与计数，在全局命名空间连接第21组状态、渲染与卡片构建 | R:- | A:__legacyLayers.state['21'],__legacyLayers.view['21'],__legacyLayers.controller['21'] | S:-
+l22.js[TU3T]: F:历史普通脚本对照记录l22执行轨迹，创建第22组状态及依赖该状态的视图与控制器 | R:- | A:__legacyLayers.state['22'],__legacyLayers.view['22'],__legacyLayers.controller['22'] | S:-
+l23.js[TU3T]: F:历史普通脚本对照累计l23执行，挂载第23组状态和卡片渲染构建函数 | R:- | A:__legacyLayers.state['23'],__legacyLayers.view['23'],__legacyLayers.controller['23'] | S:-
+l24.js[TU3T]: F:历史普通脚本对照记录l24顺序与数量，通过全局第24组状态和视图组成卡片对象 | R:- | A:__legacyLayers.state['24'],__legacyLayers.view['24'],__legacyLayers.controller['24'] | S:-
+l25.js[TU3T]: F:历史普通脚本对照登记l25执行，初始化第25组数据并连接渲染与构建调用 | R:- | A:__legacyLayers.state['25'],__legacyLayers.view['25'],__legacyLayers.controller['25'] | S:-
+l26.js[TU3T]: F:历史普通脚本对照累计l26执行与顺序标记，提供第26组全局状态及卡片函数 | R:- | A:__legacyLayers.state['26'],__legacyLayers.view['26'],__legacyLayers.controller['26'] | S:-
+l27.js[TU3T]: F:历史普通脚本对照记录l27执行，在命名空间内组合第27组编号、卡片与控制器标签 | R:- | A:__legacyLayers.state['27'],__legacyLayers.view['27'],__legacyLayers.controller['27'] | S:-
+l28.js[TU3T]: F:历史普通脚本对照登记l28执行与计数，挂载第28组状态并由视图向控制器提供卡片 | R:- | A:__legacyLayers.state['28'],__legacyLayers.view['28'],__legacyLayers.controller['28'] | S:-
+l29.js[TU3T]: F:历史普通脚本对照记录l29执行轨迹，使用第29组全局状态和渲染函数构建卡片数据 | R:- | A:__legacyLayers.state['29'],__legacyLayers.view['29'],__legacyLayers.controller['29'] | S:-
+l30.js[TU3T]: F:历史普通脚本对照累计l30执行，初始化第30组状态及读取它的视图控制器 | R:- | A:__legacyLayers.state['30'],__legacyLayers.view['30'],__legacyLayers.controller['30'] | S:-
+l31.js[TU3T]: F:历史普通脚本对照登记l31顺序与数量，在全局对象内连接第31组状态渲染和卡片构建 | R:- | A:__legacyLayers.state['31'],__legacyLayers.view['31'],__legacyLayers.controller['31'] | S:-
+l32.js[TU3T]: F:历史普通脚本对照记录l32执行，建立第32组编号状态、卡片渲染与控制器输出 | R:- | A:__legacyLayers.state['32'],__legacyLayers.view['32'],__legacyLayers.controller['32'] | S:-
+l33.js[TU3T]: F:历史普通脚本对照累计l33执行并留下顺序标记，组合第33组状态与视图卡片数据 | R:- | A:__legacyLayers.state['33'],__legacyLayers.view['33'],__legacyLayers.controller['33'] | S:-
+l34.js[TU3T]: F:历史普通脚本样机第34片，注册状态及卡片控制器并记录执行计数 | R:- | A:__legacyLayers | S:-
+l35.js[TU3T]: F:历史普通脚本样机第35片，注册状态及卡片控制器并记录执行计数 | R:- | A:__legacyLayers | S:-
+l36.js[TU3T]: F:历史普通脚本样机第36片，注册状态及卡片控制器并记录执行计数 | R:- | A:__legacyLayers | S:-
+l37.js[TU3T]: F:历史普通脚本样机第37片，注册状态及卡片控制器并记录执行计数 | R:- | A:__legacyLayers | S:-
+l38.js[TU3T]: F:历史普通脚本样机第38片，注册状态及卡片控制器并记录执行计数 | R:- | A:__legacyLayers | S:-
+l39.js[TU3T]: F:历史普通脚本样机第39片，注册状态及卡片控制器并记录执行计数 | R:- | A:__legacyLayers | S:-
+l40.js[TU3T]: F:历史普通脚本样机末片，注册第40组状态和卡片构建并标记整体完成时间 | R:- | A:__legacyLayers | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h9/preload-chain/common/===
+base.js[TU3S]: F:历史预加载链公共探针，排队推送、捕获脚本与安全策略错误并提供五秒兜底及结果回传 | R:- | A:__collect,__postReport,__finish | S:-
+probe.css[TU3T]: F:历史预加载链样机样式，统一结果面板并默认隐藏加载兜底提示 | R:- | A:- | S:-
+runner.js[TU3T]: F:历史预加载链计时运行器，轮询完成或十秒截止并轮转四形态三轮 | R:- | A:snapshot,nextUrl,finish | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/h9/preload-chain/===
+index.html[TU3T]: F:历史预加载链样机页面，预取39依赖后加载模块入口及计时器以比较加载成本 | R:- | A:- | S:-
+m01.mjs[TU3T]: F:记录历史预加载链第一号模块报到，调用第六号层函数拼接分支结果 | R:- | A:layer01 | S:-
+m02.mjs[TU3T]: F:记录历史预加载链第二号模块报到，调用第七号层函数拼接分支结果 | R:- | A:layer02 | S:-
+m03.mjs[TU3T]: F:记录历史预加载链第三号模块报到，调用第八号层函数拼接分支结果 | R:- | A:layer03 | S:-
+m04.mjs[TU3T]: F:记录历史预加载链第四号模块报到，调用第九号层函数拼接分支结果 | R:- | A:layer04 | S:-
+m05.mjs[TU3T]: F:记录历史预加载链第五号模块报到，调用第十号层函数拼接分支结果 | R:- | A:layer05 | S:-
+m06.mjs[TU3T]: F:记录历史预加载链第六号模块报到，调用第十一号层函数拼接分支结果 | R:- | A:layer06 | S:-
+m07.mjs[TU3T]: F:记录历史预加载链第七号模块报到，调用第十二号层函数拼接分支结果 | R:- | A:layer07 | S:-
+m08.mjs[TU3T]: F:记录历史预加载链第八号模块报到，调用第十三号层函数拼接分支结果 | R:- | A:layer08 | S:-
+m09.mjs[TU3T]: F:记录历史预加载链第九号模块报到，调用第十四号层函数拼接分支结果 | R:- | A:layer09 | S:-
+m10.mjs[TU3T]: F:记录历史预加载链第十号模块报到，调用第十五号层函数拼接分支结果 | R:- | A:layer10 | S:-
+m11.mjs[TU3T]: F:记录历史预加载链第十一号模块报到，调用第十六号层函数拼接分支结果 | R:- | A:layer11 | S:-
+m12.mjs[TU3T]: F:记录历史预加载链第十二号模块报到，调用第十七号层函数拼接分支结果 | R:- | A:layer12 | S:-
+m13.mjs[TU3T]: F:历史预加载链探针登记m13执行与计数，调用layer18拼接后续链内容 | R:- | A:layer13 | S:-
+m14.mjs[TU3T]: F:历史预加载链探针记录m14执行轨迹，通过layer19延续链字符串 | R:- | A:layer14 | S:-
+m15.mjs[TU3T]: F:历史预加载链探针累计m15执行，组合layer20返回的后续链结果 | R:- | A:layer15 | S:-
+m16.mjs[TU3T]: F:历史预加载链探针登记m16次序与数量，调用layer21延伸依赖链 | R:- | A:layer16 | S:-
+m17.mjs[TU3T]: F:历史预加载链探针记录m17执行，通过layer22构造后续层级字符串 | R:- | A:layer17 | S:-
+m18.mjs[TU3T]: F:历史预加载链探针累计m18执行计数，拼接layer23调用结果 | R:- | A:layer18 | S:-
+m19.mjs[TU3T]: F:历史预加载链探针登记m19执行轨迹，调用layer24接续链内容 | R:- | A:layer19 | S:-
+m20.mjs[TU3T]: F:历史预加载链探针记录m20执行与数量，通过layer25延续调用链 | R:- | A:layer20 | S:-
+m21.mjs[TU3T]: F:历史预加载链探针累计m21执行并登记顺序，组合layer26结果 | R:- | A:layer21 | S:-
+m22.mjs[TU3T]: F:历史预加载链探针登记m22执行，调用layer27构造后续链字符串 | R:- | A:layer22 | S:-
+m23.mjs[TU3T]: F:历史预加载链探针记录m23次序与模块计数，拼接layer28返回内容 | R:- | A:layer23 | S:-
+m24.mjs[TU3T]: F:历史预加载链探针累计m24执行，通过layer29继续构造链结果 | R:- | A:layer24 | S:-
+m25.mjs[TU3T]: F:历史预加载链第25层，调用第30层构造结果并记录执行顺序与计数 | R:- | A:layer25 | S:-
+m26.mjs[TU3T]: F:历史预加载链第26层，调用第31层构造结果并记录执行顺序与计数 | R:- | A:layer26 | S:-
+m27.mjs[TU3T]: F:历史预加载链第27层，调用第32层构造结果并记录执行顺序与计数 | R:- | A:layer27 | S:-
+m28.mjs[TU3T]: F:历史预加载链第28层，调用第33层构造结果并记录执行顺序与计数 | R:- | A:layer28 | S:-
+m29.mjs[TU3T]: F:历史预加载链第29层，调用第34层构造结果并记录执行顺序与计数 | R:- | A:layer29 | S:-
+m30.mjs[TU3T]: F:历史预加载链第30层，调用第35层构造结果并记录执行顺序与计数 | R:- | A:layer30 | S:-
+m31.mjs[TU3T]: F:历史预加载链第31层，调用第36层构造结果并记录执行顺序与计数 | R:- | A:layer31 | S:-
+m32.mjs[TU3T]: F:历史预加载链第32层，调用第37层构造结果并记录执行顺序与计数 | R:- | A:layer32 | S:-
+m33.mjs[TU3T]: F:历史预加载链第33层，调用第38层构造结果并记录执行顺序与计数 | R:- | A:layer33 | S:-
+m34.mjs[TU3T]: F:历史预加载链第34层，调用第39层构造结果并记录执行顺序与计数 | R:- | A:layer34 | S:-
+m35.mjs[TU3T]: F:历史预加载链第35层末端探针，返回固定层标识并记录执行顺序与计数 | R:- | A:layer35 | S:-
+m36.mjs[TU3T]: F:历史预加载链第36层末端探针，返回固定层标识并记录执行顺序与计数 | R:- | A:layer36 | S:-
+m37.mjs[TU3T]: F:历史预加载链第37层末端探针，返回固定层标识并记录执行顺序与计数 | R:- | A:layer37 | S:-
+m38.mjs[TU3T]: F:历史预加载链第38层末端探针，返回固定层标识并记录执行顺序与计数 | R:- | A:layer38 | S:-
+m39.mjs[TU3T]: F:历史预加载链第39层末端探针，返回固定层标识并记录执行顺序与计数 | R:- | A:layer39 | S:-
+main.mjs[TU3T]: F:历史预加载链入口导入五条分支，核对首链结果并标记40模块全部完成与耗时 | R:- | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-12/esm-verify/web/generated/===
+index.html[TU3T]: F:历史模块补验导航页，提供能力、缺失模块、循环依赖与计时入口并轮询上报汇总 | R:- | A:- | S:-
+manifest.json[FU3L]: F:历史模块补验静态资源清单，为样机HTTP路由映射文件与明确MIME并登记根入口 | R:- | A:files | S:-
+sizes.json[TQ3M]: F:历史模块补验资产字节数记录，供四种脚本结构及公共探针的体积比较 | R:- | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/===
+README.md[SQ3S]: F:历史重构审计口径，定义重复规则、分层、状态追踪及脚本计量边界并区分事实与判断 | R:- | A:- | S:-
+code-issues.md[SQ3L]: F:历史重构问题报告，按重复规则、分层、体积、隐式状态及测试接缝列事实与改造候选 | R:- | A:- | S:-
+inventory.md[SQ3L]: F:历史重构审计静态清点，汇总大小、分层引用、隐式状态、再导出及前端依赖统计 | R:- | A:- | S:-
+state-trace.md[SQ3M]: F:记录历史界面与后端状态的进入退出路径及等待显示，区分亲核脚本与子模型来源并对账残留项 | R:- | A:登录组件更新列表计划手机、退出路径、残留对账 | S:-
+ui-states.md[SQ3M]: F:记录历史界面状态缺陷分级、共通成因及状态机建议，区分推测和已核问题并列出前置行为测试 | R:- | A:U1至U14、功能状态机、后端配合、行为测试 | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/redo/===
+README.md[SQ3T]: F:历史重构审计重做入口，规定基线引用条目、盲做、验证方法与阶段对账并说明另一执行方材料地位 | R:- | A:- | S:-
+desktop.cites.jsonl[SQ3L]: F:为历史桌面复核保存可校验引用账本，绑定状态写入、事件出口、组件与计划链路的基线片段和主张 | R:- | A:DSK引用条目 | S:-
+desktop.md[SU3L]: F:保存历史桌面状态追踪重做，逐行复核登录、组件、更新、刷新和计划，区分错误结论、时序待验与面板差异 | R:- | A:桌面复核与待验链路 | S:-
+grab.cites.jsonl[SQ3T]: F:为历史worker协议复核保存引用账本，绑定输出产生解析、退出码、环境边界及推测所缺证据 | R:- | A:GRB引用条目 | S:-
+grab.md[SQ3S]: F:记录历史worker输出协议与解析方、退出码和副作用，指出时间戳与行首解析不匹配并单列端到端待验表现 | R:- | A:worker协议复核 | S:-
+phone.cites.jsonl[SQ3M]: F:为历史手机状态追踪保存引用账本，绑定字段声明读写、请求出口、轮询和配对失效的基线源码片段 | R:- | A:PHN引用条目 | S:-
+phone.md[SU3M]: F:保存历史手机页五十五字段状态追踪，逐项检查等待操作的成功失败取消超时及后台和配对失效出口 | R:- | A:手机状态与等待出口审计 | S:-
+prereq.cites.jsonl[SQ3S]: F:为历史重构前置清点保存引用账本，关联公开方法、测试缺口、转义落点与字符串桥接定义 | R:- | A:PRE引用条目 | S:-
+prereq.md[SQ3M]: F:保存历史重构前置清点，盘点行为测试缺口、Api分块字段锁与补丁缝、转义风险及字符串方法名契约 | R:- | A:重构前置证据清单 | S:-
+reconcile.md[SQ3S]: F:对账历史盲做重审与补充轮及对抗意见，区分一致、被推翻、双方漏项和补做结果 | R:- | A:八十项复核对账 | S:-
+rules.cites.jsonl[SQ3T]: F:为历史三端规则比对保存引用账本，绑定登录模式冲突终态排序时间与提醒规则的源码片段和主张 | R:- | A:RUL引用条目 | S:-
+rules.md[SU3M]: F:保存历史后端桌面手机九类规则比对，区分语义文案和写法差异、规则真源与跨端测试缺口 | R:- | A:三端规则及缺陷审计 | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/redo/audit/===
+aa1-facts.md[SQ3M]: F:保存历史重做材料的事实核对审计，检查引用校验器、源码含义与计数，列十四项引用和结论修订意见 | R:- | A:AA1事实审计意见 | S:-
+aa2-omissions.md[SQ3L]: F:保存历史独立漏项审计，以手机状态、worker输出、公开方法及字符串派发清点反证重做材料并列十五项意见 | R:- | A:AA2漏项审计意见 | S:-
+response.md[SQ3T]: F:记录历史二十九项审计意见的逐条返修处置及引用校验结果，区分代码事实与仍需运行验证的表现 | R:- | A:AA1与AA2返修对账 | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/redo/scripts/===
+api_methods.py[XQ3S]: F:历史复审脚本以固定提交AST清点Api方法、实例写入与锁，并枚举测试补丁和成员改写 | R:- | A:analyse,test_patches,main | S:-
+esc_sites.mjs[XS3S]: F:历史安全复审脚本清点桌面esc调用，启发式区分文本节点、属性、URL与事件字符串落点 | R:- | A:literalsBefore,classify | S:-
+grab_outputs.py[XQ3M]: F:历史协议复审脚本从固定提交AST清点grab标准流输出、子命令可达性、返回退出码和直接副作用 | R:- | A:Walker,const_prefix,main | S:-
+phone_model_fields.mjs[XQ3M]: F:历史手机状态复审脚本遮蔽非代码文本，区分model字段读写、容器修改、内部与别名写入并标注函数作用域 | R:- | A:mask,chainName | S:-
+string_names.py[XQ3T]: F:历史复审脚本核对字符串桥接方法、后端事件与手机动作名称，并列出动态调用和全局索引访问 | R:- | A:固定基线字符串契约比对 | S:-
+verify_cites.py[XQ3M]: F:历史引用校验脚本检查固定基线摘录、行区间与唯一命中，核对顶层正文引用和重复ID | R:- | A:check_entry,run,self_test | S:仅扫描redo顶层引用与正文，不递归子目录
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/redo/zcode/===
+00-boot.md[SQ3L]: F:保存第二份独立重构复审的历史开工基线、专家清单、用量闸门解释、目录映射与收工核对 | R:- | A:基线读法、目录映射、开收工记录 | S:-
+HANDOFF-to-claude.md[SQ3T]: F:汇总独立重做与多轮对抗的历史交接状态、偏离、阻断与待裁决事项，明确三方对照跳过 | R:- | A:阶段完成表、偏离声明、待裁决事项 | S:-
+PLAN-RATIONALE.md[SQ3T]: F:解释历史复审工序安排依据，串联安全网接缝、依赖图、独立审计和引用机器校验 | R:- | A:顺序依据、分级对抗、小步提交、盲做比对 | S:-
+README.md[SQ3T]: F:索引第二份独立重构复审的历史产物、计划映射与计数，声明审计者替代和跳过三方对照 | R:- | A:偏离声明、目录结构、计划映射 | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/redo/zcode/extra/audit/===
+AA3.md[SQ3M]: F:保存历史方案可行性对抗审计，以反例检查接缝、验收判据、共享文件、测试成本和调度依赖 | R:- | A:六角度反例、严重度汇总、证据边界 | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/redo/zcode/extra/===
+defense.md[SQ3T]: F:记录历史五项强挑战与原作者回复及修正处置，覆盖依赖死锁、刷新链遗漏和审计缺项 | R:- | A:作者回复、采纳处置、攻防小结 | S:-
+mikado.md[SQ3S]: F:保存历史Api拆分与前端分层的静态依赖树和完成判据，补记死锁及并行文件冲突修正 | R:- | A:节点依赖、完成判据、T7修正补记 | S:原叶子与并行声明已由末尾修正补记作废
+plan-redteam.md[SQ3S]: F:历史提案红队按八项执行判据评估重构方案，指出步骤边界、测试接缝和回退机制尚不足以直接开工 | R:- | A:八项提案判据 | S:-
+seams.md[SQ3S]: F:历史重构接缝清单，评估Api、桥接名、事件和worker输出在不改被测源码时的替换路径与验证候选 | R:- | A:四类接缝 | S:-
+spot-audit.md[SQ3M]: F:历史独立三级抽检，复核行号、依赖死锁、有界刷新遗漏、规则覆盖和静态白名单五项争议 | R:- | A:五项独立抽检 | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/audit/===
+AA1.md[SQ3M]: F:历史事实对抗审计，随机复核五份重做材料的引用语义及计数并列十一项修订意见 | R:- | A:AA1事实核对 | S:-
+AA2.md[SQ3M]: F:历史漏项对抗审计，先独立清点八类基线事实再比对交付，记录缺失与审计者自身更正 | R:- | A:AA2独立漏项清单 | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/===
+desktop.cites.jsonl[SQ3M]: F:历史桌面复核引用账本，绑定基线状态进口出口、组件等待和迟到事件的摘录与主张 | R:- | A:d引用条目 | S:-
+desktop.md[SU3M]: F:历史桌面状态重做报告，逐行核对六功能状态、竞态与组件差异并标明待补行为验证 | R:- | A:桌面状态复核 | S:-
+fix-round.md[SQ3T]: F:历史审计返修处置表，逐项回应三道对抗意见并区分已改、最小补丁和仍需裁决事项 | R:- | A:T7返修处置 | S:-
+grab.cites.jsonl[SQ3S]: F:历史worker协议引用账本，绑定输出格式、解析方、退出码与环境及写入边界的基线事实 | R:- | A:g引用条目 | S:-
+grab.md[SQ3M]: F:历史worker输出审计，盘点协议消费者、子命令退出码、环境变量和副作用并记录计数口径修订 | R:- | A:worker协议对照草案 | S:-
+phone.cites.jsonl[SQ3S]: F:历史手机页状态引用账本，记录model字段写入与等待操作出口的基线摘录和事实主张 | R:- | A:p引用条目 | S:-
+phone.md[SU3M]: F:历史手机页状态追踪，列55字段读写与12等待操作的七种出口并披露脚本别名计数边界 | R:- | A:字段总表与等待出口 | S:-
+prereq.cites.jsonl[SQ3T]: F:保存历史重构前置清点引用库，绑定行为测试缺口、Api归块、补丁面和字符串契约的基线摘录 | R:- | A:q-001至q-094引用条目 | S:-
+prereq.md[SQ3M]: F:记录历史重构前置清点：行为测试缺口、Api方法字段归块、转义落点与字符串契约，并补记遗漏成员 | R:- | A:行为缺口、Api归块、esc落点、字符串访问 | S:-
+reconcile.md[SQ3T]: F:对账历史独立重做与第一轮补充轮审计结论，区分一致、推翻、双方漏项和范围外并解释计数粒度 | R:- | A:四类对账、44行汇总、范围声明 | S:-
+rules.cites.jsonl[SQ3S]: F:保存历史三端规则比对引用库，绑定登录、报名、冲突、结果、分组和重试截止投影的基线摘录 | R:- | A:r编号引用、事实与待测试缺口 | S:-
+rules.md[SQ3M]: F:记录历史后端桌面手机九类规则比对，区分语义与文案差异、现有测试和未验证项并补齐截止倒计时 | R:- | A:九类规则、差异汇总、抽查补记 | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/scripts/===
+api_methods.py[XQ3S]: F:历史Api清点脚本用固定提交AST列出方法分节、实例字段读写、模块函数调用及锁来源 | R:- | A:method_info,main | S:-
+esc_sites.mjs[XS3M]: F:历史转义审计脚本扫描固定基线桌面代码，分离esc定义调用与引用并粗分HTML落点及结果再加工 | R:- | A:scanText,classifyTail,main | S:-
+grab_outputs.py[XQ3L]: F:历史grab协议审计脚本按AST与argparse注册关系清点输出及返回，区分子命令退出码与嵌套辅助函数结果 | R:- | A:build_inventory,parse_subcommands,collect,main | S:-
+phone_model_fields.mjs[XQ3M]: F:历史手机状态清点脚本以词法记号与函数帧枚举model声明读写、原地修改、整体传递和计算访问 | R:- | A:lex,analyze,loadBaseline | S:局部别名写与模板插值不纳入自动计数
+spot_sample.py[XQ3T]: F:历史引用抽查助手按固定种子抽样条目，打印声明和基线原文供人工判断claim语义 | R:- | A:baseline,main | S:不自动判定语义成立
+verify_cites.py[XQ3M]: F:历史引用校验脚本检查基线全文唯一摘录与声明行段，配对正文引用并区分失败和用法退出码 | R:- | A:Baseline,check_entry,load_jsonl,main,selftest | S:ID仅同文件唯一；正文配对前一引用库
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/redo/zcode/plan/verify/===
+all-final.txt[SQ3T]: F:保存历史五份交付引用校验输出，各库与正文引用无失败，记录返修补做前规则84条与前置92条口径 | R:- | A:逐库校验输出、引用缺失计数 | S:-
+api-script.txt[SQ3M]: F:保存历史Api结构扫描输出，列基线公开私有方法、字段和锁，原始文本使用旧编码 | R:- | A:Api扫描留证 | S:-
+desktop-spot.txt[SQ3S]: F:保存历史桌面引用抽样展开，展示中继清理、手机摘要与凭据表单收口的主张和基线片段 | R:- | A:桌面抽样证据 | S:-
+desktop.txt[SQ3T]: F:保存历史桌面引用校验输出，257条引用与正文502处引用均未报告缺失或失败 | R:- | A:桌面引用校验记录 | S:-
+esc-script.txt[SQ3M]: F:保存历史桌面转义调用扫描，列115处调用的上下文与落点分类及非调用引用 | R:- | A:esc调用落点记录 | S:-
+grab-script.txt[SQ3L]: F:保存历史worker脚本结构扫描，汇总输出调用、子命令与返回和写文件线索，供协议审计核对 | R:- | A:worker扫描JSON | S:-
+grab-spot.txt[SQ3S]: F:保存历史worker引用抽样，展开重试行、取消结果、测试终态与站点选择的主张和基线片段 | R:- | A:worker抽样证据 | S:-
+grab.txt[SQ3T]: F:保存历史worker引用校验输出，118条引用与正文235处引用均未报告缺失或失败 | R:- | A:worker引用校验记录 | S:-
+phone-script.txt[SQ3L]: F:保存历史手机model字段扫描结果，列五十五字段的读写位置与函数及裸引用计数 | R:- | A:手机状态扫描JSON | S:-
+phone-spot.txt[SQ3S]: F:保存历史手机引用抽样，展开列表时钟、未决开始、同步记账及后台轮询处理的基线片段 | R:- | A:手机抽样证据 | S:-
+phone.txt[SQ3T]: F:保存历史手机引用校验输出，123条引用与正文364处引用均未报告缺失或失败 | R:- | A:手机引用校验记录 | S:-
+prereq-spot.txt[SQ3T]: F:保存历史重构前置引用抽样，展开请求编号、转义落点、测试替换缝与组件单飞约束 | R:- | A:前置抽样证据 | S:-
+prereq.txt[SQ3T]: F:保存历史重构前置引用校验输出，94条引用与正文107处引用均未报告缺失或失败 | R:- | A:前置引用校验记录 | S:-
+rules-spot.txt[SQ3S]: F:历史三端规则引用抽检留证，逐条并列事实主张、摘录与带行号基线原文 | R:- | A:规则抽检记录 | S:-
+rules.txt[TQ3T]: F:历史规则材料引用校验结果，记录106条引用零失败及正文引用完整性 | R:- | A:引用校验输出 | S:-
+selftest.txt[TQ3T]: F:历史引用校验器自检留证，正确样例通过且原文不在、越界和缺missing三类错误被拦截 | R:- | A:自检输出 | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/review/===
+README.md[SQ3T]: F:历史两轮对抗审计汇总，区分数字可复现与边界归类错误并给出阻断和返修顺序 | R:- | A:两轮审计入口 | S:-
+round1.md[SQ3M]: F:历史第一轮对抗审计，独立重算数字并核对状态覆盖、等待操作遗漏及重构文件交集 | R:- | A:A1至A6审计意见 | S:-
+supplement.md[SQ3M]: F:历史补充轮对抗审计，反证转义风险、手机策略动作死路和worker退出码等误判并列覆盖遗漏 | R:- | A:阻断与返修意见 | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/scripts/===
+app_reexports.py[XQ3M]: F:历史再导出审计脚本，按AST及模块别名清点app公开名字、测试补丁、读取和跨模块补丁路径 | R:- | A:app_module_names,main | S:-
+build_inventory.py[XQ3T]: F:历史清点报告汇编器，顺序调用五份脚本并降级标题输出统一inventory正文 | R:- | A:demote,main | S:-
+globals.mjs[XQ3L]: F:历史前端依赖审计脚本，按加载顺序和记号分析全局引用、分层越界、依赖环及可变状态 | R:- | A:scriptOrder,load,scanUses,scc | S:-
+jsfuncs.mjs[XQ3T]: F:历史JS体积计量入口，为指定文件输出物理行数、括号配平及函数范围JSON | R:- | A:命令行JSON输出 | S:-
+jslex.mjs[XQ3M]: F:历史JS词法工具，跳过注释并展开模板表达式，提供记号、括号配对与深度计算 | R:- | A:tokenize,matchBrackets,braceDepths | S:-
+jsscan.mjs[XQ3S]: F:历史函数扫描工具，从记号流识别声明、块体箭头和方法并计算嵌套名称及物理行数 | R:- | A:findFunctions,enclosingFunction | S:-
+measure.py[XQ3M]: F:历史源码体积审计脚本，分组量取受控Python和JS文件函数类并输出分位数与超限清单 | R:- | A:tracked_files,python_units,js_units,main | S:-
+py_layers.py[XQ3M]: F:历史后端分层清点脚本解析受跟踪Python的跨层与延迟导入，比较允许方向和既有测试黑名单并列出字符串导入 | R:- | A:layer_of_path,tracked_local_py,main | S:-
+py_state.py[XQ3M]: F:历史隐式状态脚本清点可变全局、Api多方法赋值及容器改写，并枚举外部服务和测试的成员改写 | R:- | A:module_globals,api_attributes,test_writes_to_api,external_writes | S:按名字匹配，不追踪容器别名
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/supplement/===
+README.md[SQ3M]: F:汇总历史补充审计及返修改动，登记撤回误判、仍未覆盖内容、对抗遗漏与计划偏离 | R:- | A:改动台账、待返修项、plan_amendments | S:-
+desktop-recheck.md[SQ3M]: F:保存历史桌面状态复核、竞态推测与组件面板差异，逐项标记核实范围和撤回结论 | R:- | A:来源复核、U6推测、组件四段比对、抽查 | S:-
+grab-protocol.md[SQ3M]: F:记录历史grab输出协议与解析消费方、退出码、环境变量及写入面，并给出对照测试草案和静态局限 | R:- | A:协议行、退出码、环境与写入、测试覆盖 | S:-
+phone.md[SQ3M]: F:保存历史手机model字段追踪、等待操作出口与跨端规则比对，登记新增问题和撤回合并编号 | R:- | A:55字段、进行中出口、规则比对、问题清单 | S:-
+refactor-prereq.md[SQ3L]: F:记录历史重构前置测试缺口、Api五块清单、esc落点与字符串契约，保留对抗更正和未决计数口径 | R:- | A:测试缺口、Api归块、转义审计、字符串访问 | S:-
+
+===/<repository>/design/evidence/2026-11-12/refactor-audit/supplement/scripts/===
+grab_outputs.py[XQ3M]: F:历史grab清点脚本对传入源码作AST分析，列出标准流日志调用、进程出口、环境读取和open写入表达式 | R:- | A:GrabCallVisitor,main | S:不导入或执行被分析的grab模块
+string_access.mjs[XQ3M]: F:历史字符串访问脚本扫描固定基线的桥接名、后端事件、手机动作与动态执行模式，输出JSON清单 | R:- | A:extractApiCalls,extractOnBackendKinds,extractPhoneActionParams,extractOtherEvals | S:-
+
+===/<repository>/design/evidence/2026-11-13/exit-path-tests/===
+README.md[SQ3T]: F:说明历史47个界面出口的变异验证方法、补测前后统计及复现命令，区分行为守卫与字面断言 | R:- | A:变异口径、D1行为认定、前后统计、复现命令 | S:-
+after.md[SQ3T]: F:保存补测后47个历史界面出口变异结果及对应变红行为用例，记录无未守卫与等价项 | R:- | A:登录计划列表组件出口、变红用例、统计 | S:-
+before.md[SQ3T]: F:保存历史出口测试补强前四十七处变异结论，区分无人守护和行为测试捕获的状态清理出口 | R:- | A:出口变异前置对照表 | S:-
+
+===/<repository>/design/evidence/2026-11-13/exit-path-tests/scripts/===
+mutate_exits.py[XQ3L]: F:历史出口变异脚本在临时副本逐条移除状态赋值并运行固定测试集，按调用链区分行为与字面断言 | R:- | A:--baseline、--phase、--shard | S:只改副本；变异前校验赋值位置
+
+===/<repository>/design/evidence/2026-11-13/refactor-endpoint/===
+ADVERSARIAL-AA1.md[SQ3S]: F:保存历史重构终点事实审计，核验七表数据归属与自校等式并区分数字验证和覆盖率引用一致性 | R:- | A:AA1事实核对报告 | S:-
+ADVERSARIAL-AA2.md[SQ3M]: F:保存历史终点漏项独立审计，确认覆盖集合并指出断言类别二十七处错并与引用行号错误 | R:- | A:AA2漏项与口径核对 | S:-
+ADVERSARIAL-AA3.md[SQ3S]: F:保存历史终点可执行性审计，核对脚本复跑、双数互引与措辞，披露需授权工具命令未复跑 | R:- | A:AA3执行与证据审计 | S:-
+DEFENSE.md[SQ3T]: F:记录历史重构终点对抗意见处置，列分类返修、行号更正、数字互引及七表覆盖情况 | R:- | A:五项审计处置 | S:-
+README.md[SQ3T]: F:索引历史重构终点取证范围与复现命令，披露计数口径、两轮差异、覆盖率限制及返修自查 | R:- | A:终点证据入口 | S:-
+SPOT-AUDIT.md[SQ3S]: F:记录历史五点现实抽检，验证数字引用链、样本原文与耦合量法，并明确跳过占位工具命令 | R:- | A:五项抽检判定 | S:-
+online.md[SQ3L]: F:保存历史类型检查静态规则与覆盖率试跑结果，披露两轮总数和分布差异及零执行清单的证据局限 | R:- | A:H1至H3历史试跑 | S:-
+tables.md[SQ3L]: F:保存历史七张离线量表及抽查记录，覆盖名单归属、前端耦合、注解测试设施与文档数字对账 | R:- | A:表A至G及E2、复跑命令 | S:-
+
+===/<repository>/design/evidence/2026-11-13/refactor-endpoint/review2/===
+00-boot.md[SQ3T]: F:记录历史第二轮复核开工基线和工作区状态，披露同会话复核及先独立重算后对账的过程边界 | R:- | A:第二轮开工记录 | S:-
+VERDICT.md[SQ3T]: F:汇总历史第二轮独立重算与首轮逐表对账，区分数字一致、口径存疑和新发现及完成判据 | R:- | A:第二轮对账裁决 | S:-
+
+===/<repository>/design/evidence/2026-11-13/refactor-endpoint/review2/scripts/===
+s_a_ownership.py[XQ3S]: F:历史第二轮归属复算脚本独立解析四份豁免名单，按固定步骤映射输出未归属项及自校汇总 | R:- | A:step_of、main | S:归属按固定映射，不读名单理由代替
+s_b_coupling.mjs[XQ3M]: F:历史端点评审前端耦合复算脚本，按加载清单量取全局名状态写入及步骤内外引用并补列未加载脚本 | R:- | A:order,load,topDefs,uses | S:-
+s_d_annotations.py[XQ3T]: F:历史类型标注复算脚本，按目录分组将函数参数及返回标注分为完整部分和全无 | R:- | A:group_of,kind,main | S:-
+s_e_assertions.py[XQ3S]: F:历史界面测试断言复算脚本，将五类断言直接字符串实参分为无障碍文案与源码形状并固定种子抽样 | R:- | A:classify,main | S:-
+s_f_facilities.py[XQ3T]: F:历史工程设施盘点脚本，检查配置钩子依赖锁定及发版测试调用并列ruff文本命中 | R:- | A:tracked,main | S:-
+s_g_doccheck.py[XQ3S]: F:历史文档数字对账脚本，提取四类数量陈述并独立量取测试函数方法篇数和源码行数 | R:- | A:m_tests,m_api,m_decisions,m_lines | S:-
+s_h_func.py[XQ3T]: F:历史函数覆盖复算脚本，把coverage已执行行映射到app与grab函数范围以识别零执行函数 | R:- | A:rows_of,main | S:-
+selfcheck2.py[XS3S]: F:历史评审材料自检脚本，检查主机路径编译产物嵌套目录和非引用列中的建议性关键词 | R:- | A:kw_hits,scan_file,main | S:默认目标是脚本所在目录而非注释所称review2根
+
+===/<repository>/design/evidence/2026-11-13/refactor-endpoint/review2/tables/===
+A.md[SQ3M]: F:历史端点表A独立复算，统计结构基线例外与忽略项的步骤归属并列未排入和已排入清单 | R:- | A:254项步骤归属 | S:-
+B_C.md[SQ3T]: F:历史端点表B与C独立复算，逐脚本列体积全局名状态写入以及步骤外脚本的双向耦合 | R:- | A:前端耦合表 | S:-
+D.md[SQ3T]: F:历史端点表D独立复算，按目录汇总1307函数的类型标注三分类与各组大文件分布 | R:- | A:类型标注统计 | S:-
+E.md[SQ3T]: F:历史端点表E独立复算，汇总界面测试3138字面断言的三分类和沙箱数量并给固定抽样 | R:- | A:断言统计与样本 | S:-
+F.md[SQ3T]: F:历史端点表F独立复算，记录工程配置钩子缺失依赖锁定及发版流程未调用测试的当时事实 | R:- | A:工程设施历史盘点 | S:-
+G.md[SQ3T]: F:历史端点表G文档数量复核，区分源码行数与位置引用并说明正则漏项及篇数范围边界 | R:- | A:文档数字口径复核 | S:-
+H.md[SQ3L]: F:保存历史第二轮类型检查规则与函数覆盖率复跑结果，记录零执行函数、两轮分布差异和跳过项 | R:- | A:第二轮H表复核 | S:-
+
+===/<repository>/design/evidence/2026-11-13/refactor-endpoint/scripts/===
+annotations.py[XQ3S]: F:历史类型标注量表脚本按AST分类参数与返回注解，按目录汇总并列函数最多文件 | R:- | A:group_of、classify、main | S:嵌套函数单计；self与cls不算参数
+coverage_by_function.py[XQ3S]: F:历史覆盖率脚本把JSON执行行与两主模块函数区间相交，输出函数体执行数和零执行清单 | R:- | A:function_rows、main | S:不含def行；子进程worker不在统计内
+facilities.py[XQ3M]: F:历史工程设施与文档数字清点脚本，输出配置存在性及测试方法版本等文档数与实测数对照 | R:- | A:table_f、table_g、measure、main | S:位置引用排除，不当作文件总行数
+jslex.mjs[XQ3M]: F:历史JS词法工具切分标识符字符串模板正则与标点，跳过注释并提供括号配平及深度 | R:- | A:tokenize、matchBrackets、braceDepths | S:不建AST或做作用域分析
+jsscan.mjs[XQ3S]: F:历史JS函数扫描器识别函数、块体箭头与方法，按括号计算物理行数并确定嵌套归属 | R:- | A:findFunctions、enclosingFunction | S:表达式体箭头不计
+ownership.py[XQ3M]: F:历史名单归属脚本按固定步骤映射四份豁免记录，输出未归属项、定义归属和自校汇总 | R:- | A:step_of、load_check_data、main | S:不按baseline理由自行归属
+selfcheck.py[XS3S]: F:历史证据自检脚本扫描主机临时路径、建议措辞和嵌套产物，仅输出位置类别及通过状态 | R:- | A:scan_file、scan_tree、main | S:措辞检查豁免引文代码围栏及原文列
+ui_assertions.py[XQ3S]: F:历史界面断言量表脚本提取五类断言直接字符串实参，分类无障碍文案源码形状并固定种子抽样 | R:- | A:classify_literal、collect、main | S:半角数学符号不按文案放行
+ui_coupling.mjs[XQ3M]: F:历史前端耦合脚本按加载顺序统计顶层定义状态写入与步骤间引用，并为归属脚本提供定义JSON | R:- | A:scriptOrder、topDefs、scanUses、--defs | S:按名字匹配，不做完整作用域分析
+ui_test_kinds.py[XQ3S]: F:历史界面测试分类脚本识别node运行函数并沿同文件调用传播，输出跑node与不跑node计数 | R:- | A:is_seed_runner、classify_file、main | S:参照数只打印核对，不参与计算
+zero_exec_in_tests.py[XQ3S]: F:历史零执行补充脚本解析报告函数清单，统计限定名前段在测试文本中的完整词出现次数 | R:- | A:parse_online、count_word、main | S:注释字符串也计入，不证明函数执行
+
+===/<repository>/design/evidence/2026-11-14/components-net/===
+README.md[SQ3S]: F:记录历史组件与手机访问迁移前安全网，说明阶段标志使用点变异、人工等价判定及补测前后差异 | R:- | A:变异范围、测试口径、迁移事实、复现命令 | S:-
+after.md[SQ3T]: F:保存补测后历史35处组件阶段与标志读取变异结果，区分行为守卫和页面不存在元素 | R:- | A:逐行变异结果、整页清单、失败断言 | S:-
+before.md[SQ3T]: F:保存补测前历史35处组件阶段与标志读取结果，指出21处行为守卫及14处无人守卫 | R:- | A:认阶段、读标志、变红用例 | S:-
+contract-tests.md[SQ3T]: F:逐项分类历史15条组件契约测试，说明行为覆盖、补测及HTML样式文档保留字面断言的边界 | R:- | A:契约分类、行为化边界、对应补测 | S:-
+move-facts.md[SQ3M]: F:保存历史组件迁移事实表，列名字及面板成员双向引用、路径加载测试与绘制阶段差异 | R:- | A:名字引用、成员归属、反向依赖、阶段对照 | S:-
+uses-after.md[SQ3S]: F:保存补测后历史组件46处使用点与检查中探针变异，记录无人守卫归零及等价和不存在元素例外 | R:- | A:使用点结果、首败断言、场景证据 | S:-
+uses-before.md[SQ3S]: F:保存补测前历史组件使用点变异及19处参照对账，记录22处无人守卫和人工例外 | R:- | A:使用点结果、等价论证、场景探针 | S:-
+
+===/<repository>/design/evidence/2026-11-14/components-net/scripts/===
+move_facts.py[XQ3L]: F:历史迁移清点脚本枚举视图顶层名字与面板成员的正反引用及测试路径加载，标记加载期访问 | R:- | A:table_one,table_members,table_reverse,collect_test_usage | S:显式window与globalThis挂载访问计入引用
+mutate_reads.py[TQ3L]: F:历史组件安全网执行器按函数与原文定位变异，在隔离副本检查语法跑测试并分类守卫与首个失败断言 | R:- | A:locate_row,conclusions_for,ModuleInfo,main | S:人工等价与不存在元素结论来自OVERRIDES
+mutate_rows.py[TQ3M]: F:声明历史组件阶段、标志读取、使用点及检查中探针变异清单，附等价和不存在元素人工判定 | R:- | A:PHASE_ROWS,READ_ROWS,USE_ROWS,PROBE_ROWS,OVERRIDES | S:-
+
+===/<repository>/design/evidence/2026-11-14/phone-panel-move/===
+README.md[SQ3T]: F:记录历史手机面板模块迁移、逐字核对与接线变异，说明设置页加载期判断修复及现有断言调整 | R:- | A:迁移范围、接线安全网、真加载、验证边界 | S:-
+move-map.md[SQ3S]: F:保存历史手机面板87段代码迁移落点和分层理由，解释装配启动及过渡全局名单 | R:- | A:原段与落点、归层差异、装配说明 | S:-
+net-after-move.md[SQ3S]: F:历史面板搬迁安全网对照，记录83行变异及9组件出口在新位置的测试守护结论与搬前一致 | R:- | A:搬前搬后逐行对照 | S:-
+real-load-output.md[TQ3T]: F:历史原生模块真加载四例输出，保留成员一致性及下载取消开启请求测试通过记录与断言放宽说明 | R:- | A:NativeLoadSmokeTests输出 | S:-
+wiring.md[SQ3S]: F:历史面板35处事件绑定搬前搬后变异结论，记录每处应有结果与第一条失败断言 | R:- | A:接线变异对照表 | S:-
+
+===/<repository>/design/evidence/2026-11-14/phone-panel-move/scripts/===
+move_check.py[XQ3M]: F:历史面板搬迁逐字核对工具，将基线声明和对象成员分段匹配新模块并分类新增非空行 | R:- | A:segment_origin,find_segment,main | S:-
+mutate_wiring.py[XQ3L]: F:历史接线变异工具，在临时副本按函数与原文置空35处事件动作并检查是否红在对应用户结果断言 | R:- | A:ROWS,locate_row,main | S:-
+revert_settings_check.py[XQ3S]: F:历史设置页接线反证工具，在副本恢复模块迁移前判断位置并要求识别下载取消两例失败其余通过 | R:- | A:copy_repo,main | S:-
+rows_after_move.py[FQ3T]: F:历史面板搬迁后变异行清单，把83旧定位映射新模块并补入9组件出口保持换法与原文 | R:- | A:ROWS,_remap | S:-
+run_after_move.py[XQ3T]: F:历史搬迁后变异执行入口，替换旧执行器行清单和导出函数定位正则并复用运行流程 | R:- | A:mutate_reads.main | S:-
+
+===/<repository>/design/evidence/2026-11-15/adv-rows/===
+README.md[SU3S]: F:历史高级功能单行布局改造证据入口，汇总不变区网格变异截图及两轮视觉返修的范围与结果 | R:- | A:验证与返修记录 | S:-
+changed-tests.md[SQ3S]: F:历史单行布局旧断言迁移清单，按元素去向逐条解释观察节点变化并保留实际失败和返修记录 | R:- | A:断言观察点迁移 | S:-
+dom-contract.md[SU3T]: F:历史高级功能单行布局DOM去向契约，规定标题进度小字红条及展开区元素保留迁移和删除范围 | R:- | A:元素去向表 | S:-
+
+===/<repository>/design/evidence/2026-11-15/adv-rows/scripts/===
+detail_grid.py[XQ3M]: F:历史高级功能展开区对照工具，以7680状态格比较共同元素七类属性并对差异格逐项复画 | R:- | A:build_grid,compare_cells,main | S:-
+mutate_rows.py[XQ3M]: F:历史高级功能行状态变异工具，在临时副本逐处改坏文字颜色按钮等推导并要求对应可见结果断言失败 | R:- | A:MUTATIONS,run_tests,main | S:-
+shots.py[XQ3L]: F:历史原型界面成对截图工具，启动回环静态服务并注入离线状态，按画板截图和核对文字颜色 | R:- | A:select_scenes、run_shots、main | S:页面错误、外部请求或无效PNG均判失败
+
+===/<repository>/design/evidence/2026-11-15/adv-rows/shots/===
+pairs.md[SU3T]: F:保存历史高级功能逐画板截图对账，核对颜色按钮与红条并披露宽度和进度换算等保留差异 | R:- | A:成对截图结论表 | S:-
+
+===/<repository>/design/evidence/2026-11-15/adv-visual/===
+README.md[SU3T]: F:说明历史高级功能一项一行原型定稿截图，列组件与手机访问状态颜色和画板覆盖 | R:- | A:原型截图与状态转移覆盖 | S:-
+
+===/<repository>/design/evidence/2026-11-15/backend-fields/===
+README.md[SQ3T]: F:记录历史组件等锁读错字段与手机连接状态后端补充，说明单调等待时钟、缓存降级和变异证据 | R:- | A:后端字段契约与十一条变异 | S:-
+
+===/<repository>/design/evidence/2026-11-15/backend-fields/scripts/===
+mutate_fields.py[XQ3M]: F:历史字段变异工具在隔离副本逐条破坏阈值缓存或连接字段来源，运行对应测试并核对预期失败用例 | R:- | A:apply_mutation、run_tests、main | S:定位非唯一或语法错误不算有效变红
+
+===/<repository>/design/evidence/2026-11-15/boot-band/===
+README.md[SQ3T]: F:记录历史窄中窗口启动缺陷根因，分档绘制早于模块全局安装导致尾部绑定中断及修复证据 | R:- | A:启动顺序与宽度回归证据 | S:-
+
+===/<repository>/design/evidence/2026-11-15/component-machine/===
+README.md[SQ3T]: F:记录历史组件纯状态机与共享行绘制提取，保留两行差异并用网格及变异证明行为不变 | R:- | A:组件重构与行为证据 | S:-
+differences.md[SU3T]: F:保存历史两个组件行十二项差异对照，明确共享状态绘制与调用方保留的优先级文案和适配映射 | R:- | A:十二项差异及保留职责 | S:-
+
+===/<repository>/design/evidence/2026-11-15/component-machine/scripts/===
+mutate_machine.py[XQ3L]: F:历史组件状态机变异工具在隔离副本破坏状态判断和绘制结果，比较基线与新实现区分旧缺口和新失守 | R:- | A:apply_mutation、run_test_files、main | S:语法或导入失败不冒充有效行为守卫
+phase_grid.mjs[XQ3S]: F:历史纯函数网格工具比较旧新手机识别阶段函数，在240组下载状态与可用性组合上输出差异 | R:- | A:loadSide、提交引用参数 | S:可用同基线自比验证工具自身
+row_dom_grid.py[XQ3M]: F:历史整页DOM网格工具在旧新界面副本绘制7680格，先比哈希再展开差异元素七类属性 | R:- | A:build_grid、compare_cells、main | S:只读产品文件；不同格重画逐属性核对
+
+===/<repository>/design/evidence/2026-11-15/component-transitions/===
+README.md[SQ3T]: F:记录历史组件等锁读错重试重装与取消转移，分离不变网格证据、变化用例和变异及计划偏差 | R:- | A:组件转移与验证记录 | S:-
+changed-tests.md[SQ3T]: F:记录历史组件转移改写旧断言的前后口径与设计依据，披露实际变红清单和未变用例 | R:- | A:旧断言处置与新行为守卫 | S:-
+
+===/<repository>/design/evidence/2026-11-15/component-transitions/scripts/===
+mutate_transitions.py[TQ3M]: F:历史组件转移变异脚本在副本破坏超时重试与按钮文案等新判断，要求对应可见结果测试变红 | R:- | A:MUTATIONS,run_tests,main | S:语法导入失败不算有效行为守卫
+unchanged_grid.py[TQ3M]: F:历史组件不变区网格工具比较旧新共同元素的七类DOM属性，排除本批有意变化状态并展开差异格 | R:- | A:build_grid,compare_cells,main | S:checking和failed状态及cancelled下载不比
+
+===/<repository>/design/evidence/2026-11-15/login-move/===
+README.md[SQ3T]: F:记录历史登录三脚本模块迁移与通用名字安置，以逐字接线和安全网对照说明搬迁行为边界 | R:- | A:迁移范围、57段核对、真加载、未做事项 | S:-
+move-map.md[SQ3S]: F:保存历史登录块各声明的模块落点与归层理由，列可变变量所有权和过渡全局消费方 | R:- | A:名字落点、归层规则、全局名单 | S:-
+net-after-move.md[SQ3T]: F:记录历史登录搬迁前后112处变异对照，解释分片多报差异并补充单进程复核和真加载反证 | R:- | A:变异对照、集合差异、真加载、复现 | S:-
+wiring.md[SQ3T]: F:保存历史登录21处接线搬前搬后变异与真加载结果，包含删除入口接线会失败的反证 | R:- | A:接线对照、原生加载、删线反证 | S:-
+
+===/<repository>/design/evidence/2026-11-15/login-move/scripts/===
+move_check.py[TQ3S]: F:历史登录迁移逐字核对脚本把三个旧文件切段匹配模块，并反向分类新文件额外行 | R:- | A:split_blocks,strip_export,classify,main | S:-
+mutate_wiring.py[TQ3M]: F:历史登录接线变异工具按迁移前后路径逐条置空事件动作，在临时副本跑指定用例并恢复字节 | R:- | A:PHASE_PATHS,BINDINGS,run_case,main | S:-
+net_after_move.py[TQ3S]: F:历史登录搬迁安全网适配器按函数映射旧清单到模块位置，复用原量具并对账分片结论与变红用例 | R:- | A:name_to_file,remapped_rows,compare,main | S:重复函数名停止，不猜落点
+
+===/<repository>/design/evidence/2026-11-15/login-net/===
+README.md[SQ3T]: F:说明历史登录行为测试安全网的量法和补测前后统计，披露等价分支及搬迁依赖事实 | R:- | A:分支标志清单、变异口径、补测、迁移事实 | S:-
+after.md[SQ3S]: F:保存补测后历史登录112条变异结果及首败用例，区分109条行为守卫和3条人工等价 | R:- | A:认结论步骤、标志读取、等价理由 | S:-
+before.md[SQ3S]: F:保存补测前历史登录分支与标志读取的变异清单，区分行为字面守卫与无人守卫 | R:- | A:甲乙两表、复用行、首败用例 | S:-
+contract-tests.md[SQ3T]: F:逐项分类历史35条登录契约测试，区分后端行为字面与Node行为，并说明补测及范围边界 | R:- | A:契约分类、行为覆盖、补测边界 | S:-
+move-facts.md[SQ3S]: F:历史登录模块搬迁事实底稿，汇总名字引用加载期读写反向调用刷新归类及通用呈现件使用方 | R:- | A:D8五表 | S:-
+
+===/<repository>/design/evidence/2026-11-15/login-net/scripts/===
+move_facts.py[XQ3M]: F:历史登录搬迁清点脚本，遮蔽字符串注释后枚举引用字段读写反向调用及刷新函数职责候选 | R:- | A:table_names,table_fields,table_reverse,table_refresh,table_generic | S:-
+mutate_login.py[XQ3L]: F:历史登录块变异工具，在临时副本按函数原文及出现次序修改结论分支或忙碌读取并收集失败断言 | R:- | A:apply_row,run_tests,main | S:-
+
+===/<repository>/design/evidence/2026-11-15/ocr-panel-move/===
+README.md[SQ3S]: F:历史验证码识别模块搬迁证据入口，说明六名字分层归属逐字保留以及留在普通脚本的编排边界 | R:- | A:搬迁与验证范围 | S:-
+move-map.md[SQ3T]: F:历史验证码识别搬迁映射，逐段列基线落点与显式import挂回关系并解释未搬部分 | R:- | A:六段搬迁映射 | S:-
+net-after-move.md[SQ3S]: F:历史验证码识别搬迁后安全网对照，记录83状态读取与9出口的92项结论及失败用例保持一致 | R:- | A:92项逐行对照 | S:-
+real-load-output.md[TQ3T]: F:历史验证码识别原生模块加载与缺import反证记录，展示新增四例成功及失败原因文案丢失的变红输出 | R:- | A:真加载与变异输出 | S:-
+wiring.md[SQ3T]: F:历史验证码识别接线与模块依赖变异结论，记录35处接线一致并说明五处连接的守卫和真加载防线 | R:- | A:接线与依赖变异表 | S:-
+
+===/<repository>/design/evidence/2026-11-15/ocr-panel-move/scripts/===
+move_check_ocr.py[XQ3M]: F:历史验证码识别逐字搬迁核对器，从两提交核六段内容剩余脚本删除范围及额外行归类 | R:- | A:load_version,find_segment,check_three_files,main | S:-
+mutate_imports.py[XQ3S]: F:历史验证码识别import与挂回变异工具，在副本逐项删除五处连接并区分守卫真加载和拼接用例的响应 | R:- | A:apply_mutation,run_one_test,main | S:-
+real_load_import_mutation.py[XQ3T]: F:历史缺import真加载反证工具，删除下载原因依赖并同时要求模块图报告缺失与对应红条用例失败 | R:- | A:main | S:-
+rows_after_ocr_move.py[FQ3T]: F:历史验证码识别迁移变异定位清单，仅将ocrPhase与paintOcrDownload行映射新模块并保留其余定位 | R:- | A:ROWS,_remap | S:-
+run_after_ocr_move.py[XQ3T]: F:历史验证码识别迁移安全网运行入口，注入92行新定位并放宽export声明匹配后复用旧变异执行器 | R:- | A:mutate_reads.main | S:-
+tidy_tokens.mjs[XQ3T]: F:历史注释缩进整理验证工具，对六文件两提交的词法记号序列逐一比较以确认代码记号不变 | R:- | A:shape,命令行入口 | S:-
+
+===/<repository>/design/evidence/2026-11-15/phone-link/===
+README.md[SU3T]: F:记录历史手机连接状态投影改造，将当下连接与长期配对事实分开并列不变网格及变异证据 | R:- | A:连接四态与配对不变区 | S:-
+
+===/<repository>/design/evidence/2026-11-15/phone-link/scripts/===
+link_grid.py[XQ3M]: F:历史手机连接网格工具分别核对配对类全格不变与连接类变化边界，比较旧新整页七类属性 | R:- | A:build_grid、invariant、main | S:新增data-link不在旧新属性比对内
+mutate_link.py[XQ3M]: F:历史手机连接变异工具在临时副本破坏判断文字投影与清单，分别用界面断言和挂回守卫检查 | R:- | A:run_tests、run_guard、main | S:模块挂回缺失由真实模块图守卫核对
+
+===/<repository>/design/evidence/2026-11-15/topbar-phone/===
+README.md[SU3T]: F:记录历史顶栏手机五种样子与详情卡改造，列样式实测、行为变异及后端秒数等原型差异 | R:- | A:顶栏与卡片验证记录 | S:-
+changed-tests.md[SQ3T]: F:保存历史顶栏手机改写旧断言清单，说明新增观察点与设计依据并核对实际变红范围 | R:- | A:旧断言处置与新增用例 | S:-
+
+===/<repository>/design/evidence/2026-11-15/topbar-phone/scripts/===
+mutate_topbar.py[XQ3S]: F:历史顶栏手机变异工具在临时副本改坏标识样子和卡片字段，核对可见断言是否捕获 | R:- | A:copy_tree、run_tests、main | S:CSS动画与颜色另由Edge截图工具核对
+shots.py[XQ3L]: F:历史顶栏手机截图工具注入离线快照并裁取顶栏卡片并集，在Edge核验动画色彩对比度与读屏状态 | R:- | A:audit_app、audit_invariants、run_shots | S:不存在的窄档画板记跳过，外部请求判失败
+
+===/<repository>/design/evidence/2026-11-15/topbar-phone/shots/===
+pairs.md[SU3T]: F:保存历史顶栏手机画板与界面逐场景截图对账，解释最近访问秒数及响应式卡片右缘差异 | R:- | A:九场景截图结论 | S:-
+
+===/<repository>/design/evidence/2026-11-16/login-fields/===
+README.md[SQ3T]: F:记录历史自动登录六态后端字段与去重事件补齐，列规则调度载荷变异和全量验证限制 | R:- | A:自动登录字段及变异证据 | S:-
+
+===/<repository>/design/evidence/2026-11-16/login-fields/scripts/===
+mutate_fields.py[XQ3M]: F:历史自动登录字段变异工具在独立临时副本改坏规则调度或载荷来源，运行对应回归断言 | R:- | A:replace_once、run_test、main | S:定位限定函数与目标行，产品工作区不动
+
+===/<repository>/design/evidence/2026-11-16/login-machine/===
+README.md[SQ3T]: F:记录历史登录阶段机与样子表结构提取，列胶囊网格等价和阶段映射样子变异覆盖 | R:- | A:登录结构重构证据 | S:-
+branches.md[SU3T]: F:保存历史登录胶囊原分支条件与阶段样子映射，标注条款覆盖及保留死分支 | R:- | A:十一阶段原分支对照 | S:-
+
+===/<repository>/design/evidence/2026-11-16/login-machine/scripts/===
+capsule_grid.py[XQ3S]: F:历史登录胶囊网格工具在HEAD副本和工作区对照阶段样子及视图字段，汇总阶段命中与差异 | R:- | A:copy_head、copy_current、run_copy、main | S:副本运行同一输入网格，不修改产品文件
+mutate_machine.py[TQ3S]: F:历史登录状态机变异工具在隔离副本破坏阶段优先级、条款例外和胶囊样子表并检测测试响应 | R:- | A:MUTATIONS,replace_after_scope,run_test,main | S:-
+
+===/<repository>/design/evidence/2026-11-16/plan-move/===
+README.md[SQ3T]: F:记录历史计划栏模块迁移范围、逐字校验与365行安全网，披露范围外全量失败和计划外索引动作 | R:- | A:迁移范围、58段核对、未改断言、验证边界 | S:-
+move-map.md[SQ3S]: F:保存历史计划栏名字到模块的分层映射、过渡全局消费方及名单调整，说明保留部分与计划外动作 | R:- | A:声明落点、归层理由、名单与测试读法 | S:-
+net-after-move.md[SQ3L]: F:保存历史计划栏迁移后365条变异结果，区分355条变红与10条等价并列复现口径 | R:- | A:逐条变异结果、等价项、复现命令 | S:-
+rows.json[FQ3L]: F:声明历史计划栏搬迁后的变异定位清单，绑定函数原文出现次序替换方式与原守卫测试文件 | R:- | A:id,verdict,path,function,needle,replacement | S:-
+smoke.md[SQ3T]: F:保存历史计划栏宽窄与结果页三条真加载冒烟前后结果，解释本批无入口接线可删的边界 | R:- | A:宽窄与结果页、搬前搬后输出 | S:-
+
+===/<repository>/design/evidence/2026-11-16/plan-move/scripts/===
+move_check.py[TQ3M]: F:历史计划栏逐字迁移校验脚本匹配58段并反查额外行，同时确认原面板只减少搬走段落 | R:- | A:decl_spans,find_block,strip_export,main | S:-
+net_after_move.py[TQ3S]: F:历史计划栏安全网适配器读取搬后行清单并补出口P14，在隔离副本并行复用原变异流程 | R:- | A:build_rows,run_rows,restore,main | S:定位或语法失败单列，不冒充行为变红
+
+===/<repository>/design/evidence/2026-11-17/api-coordination/===
+README.md[SQ3T]: F:索引历史Api拆分前协调清点的锁字段忙碌关闭与测试触点材料，区分脚本事实及提议设计 | R:- | A:清点范围、材料映射、审计口径对照 | S:-
+busy.md[SQ3T]: F:记录历史Api十四类忙碌门禁及动作互斥矩阵，指出单向阻挡与最终接纳重检的区别 | R:- | A:G1至G14、谁挡谁矩阵、非对称门禁 | S:-
+closing.md[SQ3T]: F:记录历史关闭标记读写与关停先后，解释同锁屏障快照、锁外收尾和后到调用等待的约定 | R:- | A:关闭读写、七步收尾、同名排除 | S:-
+demo.md[SQ3T]: F:记录历史模块级演示标志的功能读点与测试补丁面，区分计数口径和整模块命名空间注入 | R:- | A:DEMO读点、补丁、历史审计对照 | S:-
+design.md[SQ3S]: F:保存历史Api协调设计提议及拍板补记，讨论状态锁归属、显式动作表和分块迁移依赖 | R:- | A:协调对象、锁顺序、DEMO、动作表、拆分先后 | S:末节区分已拍三项与其余proposed设计
+fields.md[SA3L]: F:记录拆分前Api字段读写、功能分布、锁内外访问及动态访问，为服务归属提供历史证据 | R:code:local/app.py | A:- | S:静态区间未持锁不代表调用者未持锁
+locks.md[SR3L]: F:记录Api与应用服务锁声明、持有者、获取顺序和手机访问锁重入的历史静态分析 | R:code:design/evidence/2026-11-17/api-coordination/scripts/lock_graph.py | A:- | S:只覆盖静态嵌套及一层间接调用，不证明运行无死锁
+reflection.md[SA3T]: F:清点手机反射动作映射、参数改写和组件服务越层引用，给出后续依赖拆分建议 | R:code:local/application/phone_service.py | A:- | S:签名守卫缺失属于历史基线，不能推断当前仍缺
+tests.md[SQ3T]: F:汇总基线测试对Api字段方法及补丁触点，估算服务拆分测试调整规模与分布 | R:code:design/evidence/2026-11-17/api-coordination/scripts/field_map.py | A:- | S:按触点估算，不是测试结果或工作量承诺
+
+===/<repository>/design/evidence/2026-11-17/api-coordination/scripts/===
+field_map.py[XA3L]: F:以AST统计Api字段、模块全局和测试触点，生成字段归属、测试预算与演示状态分析表 | R:code:design/evidence/2026-11-17/api-coordination/scripts/lock_graph.py | A:main,--repo,--out-dir,--head | S:--head仅标注表头，不检出历史源码
+lock_graph.py[XA3L]: F:以AST识别Api和服务的锁声明别名及持锁调用，渲染直接与一层间接锁序和重入分析 | R:code:local/app.py | A:main,load_modules,walk_all,build,render | S:--head不改变读取的工作区；不导入执行产品源码
+reflect.py[XA3M]: F:解析手机动作白名单派发和组件引用，将静态结果与手工归属合成反射及越层分析 | R:code:local/domain/phone_rules.py | A:main,build | S:服务归属及部分叙述硬编码，不是当前结论自动验证
+
+===/<repository>/design/evidence/2026-11-17/api-guards/===
+README.md[SQ3S]: F:汇总手机动作签名、六级锁序及忙碌矩阵守卫的数据隔离返修、变异回归及复跑方式 | R:code:local/tests/test_busy_matrix.py | A:守卫、探针及变异复跑命令 | S:计划发布态与进程存活分列；缺依赖跳过不算通过
+data-dir-probe.txt[SQ3T]: F:保存忙碌矩阵夹具改用临时根前后真实数据目录审计事件及耗时对照 | R:code:design/evidence/2026-11-17/api-guards/scripts/data_dir_probe.py | A:探针复跑命令 | S:零事件仅是记录当次探针结果
+green-runs.txt[SQ3T]: F:保存手机签名、锁序和忙碌矩阵守卫在返修前后各三次通过输出与耗时 | R:code:local/tests/test_busy_matrix.py | A:- | S:-
+mutations-output.md[SQ3T]: F:记录十八条签名、锁序及忙碌门禁变异的预期与实际失败用例 | R:code:design/evidence/2026-11-17/api-guards/scripts/mutate.py | A:- | S:旧描述锁等级3，六级定级以守卫及README为准
+
+===/<repository>/design/evidence/2026-11-17/api-guards/scripts/===
+data_dir_probe.py[XQ3S]: F:以Python审计钩子统计忙碌矩阵测试触及真实数据根的文件事件，识别路径别名并输出计数 | R:code:local/tests/test_busy_matrix.py | A:main,_Probe.hook | S:退出码只取数据事件计数，测试失败也可能返回0
+mutate.py[XQ3L]: F:在排除数据配置的临时副本施加签名锁序忙碌矩阵变异，并发运行守卫汇总失败与存活 | R:code:local/tests/test_busy_matrix.py | A:main,run_one | S:任何非零测试码均计为杀死变异，不核对预期失败
+
+===/<repository>/design/evidence/2026-11-17/api-update/===
+README.md[SQ3S]: F:汇总更新服务拆分的状态归属、锁、动态端口及轨迹变异验证证据 | R:code:local/application/update_service.py | A:- | S:历史全量留有既有502失败，未执行mypy
+changed-tests.md[SQ3T]: F:记录更新状态迁入UpdateService后的测试字段访问调整及FakeState与事件补丁区别 | R:code:local/tests/test_update_check.py | A:- | S:-
+guard-head.txt[SQ3T]: F:保存更新服务拆分前四项补丁落点守卫通过记录 | R:code:local/tests/test_api_patch_targets.py | A:- | S:-
+local-full-preexisting.txt[SQ3T]: F:记录本机全量及开工副本均出现手机停止后cookie用例502的历史对照 | R:code:local/tests/test_phone_http.py | A:- | S:记录含一失败五跳过，不能表述为全量通过
+patch-points.txt[SQ3S]: F:保存更新链路十二补丁调用位置及二十四条变异结果与源码复原摘要 | R:code:design/evidence/2026-11-17/api-update/scripts/patch_points.py | A:- | S:摘要一致只证明记录时恢复，不证明过程隔离
+trace-head-selfcompare.txt[SQ3T]: F:记录开工HEAD更新轨迹自比1292项一致的历史结果 | R:code:design/evidence/2026-11-17/api-update/scripts/update_trace.py | A:- | S:-
+trace-head-vs-worktree.txt[SQ3T]: F:记录开工提交与当轮工作区更新链路1292项轨迹一致的历史结果 | R:code:design/evidence/2026-11-17/api-update/scripts/update_trace.py | A:- | S:仅覆盖替身场景，不含真实更新验收
+
+===/<repository>/design/evidence/2026-11-17/api-update/scripts/===
+patch_points.py[XQ3M]: F:枚举更新补丁调用位置，生成调用时抛错与构造绑定变异并运行关联测试报告存活与恢复摘要 | R:code:local/app.py | A:main,--repo,--only,--list,--out | S:直接写目标app.py再finally恢复，不是隔离副本
+update_trace.py[XQ3L]: F:以线程队列和网络下载启动替身驱动更新场景，记录事件返回与状态并支持轨迹逐项比较 | R:code:local/updater.py | A:main,--repo,--out,--compare | S:临时场景目录创建后没有显式清理
+
+===/<repository>/design/evidence/2026-11-17/login-looks/===
+README.md[SU3T]: F:记录登录胶囊圆环、详情卡色调和验证码横幅的改动、对照与变异验证 | R:code:design/evidence/2026-11-17/login-looks/scripts/looks_grid.py | A:- | S:真实窗口及Edge中的动画颜色布局尚未验收
+changed-tests.md[SU3T]: F:列出登录样式变更允许改写的两条旧断言及不变输入 | R:code:local/tests/test_login_machine.py | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-17/login-looks/scripts/===
+looks_grid.py[XU3S]: F:在隔离副本比较登录胶囊网格及四种详情卡状态，区分允许样式差异与其他回归 | R:code:design/evidence/2026-11-16/login-machine/scripts/capsule_grid.py | A:main,--self | S:确认中512组不参与不变区比较，另由special结果呈现
+mutate_looks.py[XU3S]: F:在临时副本逐项破坏圆环、详情卡和横幅，验证登录样式测试能捕获十种回归 | R:code:local/tests/test_login_looks.py | A:main | S:每个变异目标须唯一匹配，否则直接报错
+
+===/<repository>/design/evidence/2026-11-17/login-transitions/===
+README.md[SI3T]: F:记录后端自动登录态驱动的新前端阶段、不变区网格和状态转移变异证据 | R:code:local/tests/test_login_transitions.py | A:- | S:34条有效变异和2条等价变异分别统计
+changed-tests.md[SQ3T]: F:列出登录状态迁移旧测试输入与断言调整，区分补后端字段与改变阶段呈现 | R:code:local/tests/test_ui_reliability.py | A:- | S:异常超时无后端自动态字段时保持前态
+
+===/<repository>/design/evidence/2026-11-17/login-transitions/scripts/===
+mutate_transitions.py[XQ3S]: F:在临时副本变异自动态接收、阶段投影、文案横幅及浏览器切换，分辨行为与等价变异 | R:code:local/tests/test_login_transitions.py | A:main,run_one,apply_mutation | S:pattern未筛用例，每条实际跑完整转移测试文件
+unchanged_grid.py[XQ3T]: F:在固定业务时钟比较登录状态不变区的组合及呈现，支持基线自比 | R:code:design/evidence/2026-11-16/login-machine/scripts/capsule_grid.py | A:main,--self,run_copy | S:跳过有效确认阶段，零差异不覆盖新增阶段
+
+===/<repository>/design/evidence/2026-11-17/plan-actions-move/===
+README.md[SQ3T]: F:汇总计划控制器模块迁移范围、逐字核对、变异复测及动态加载证据 | R:code:local/ui/main.js | A:复跑命令 | S:只复测已有已守行，未补原有覆盖缺口
+move-map.md[SA3S]: F:逐名记录计划控制器归属、监听加载迁移、导入及过渡全局，并说明避循环依据 | R:code:local/ui/features/plan/actions-start.js | A:- | S:restoreEditedPlan移入开始模块避免顶层循环
+net-after-move.md[SQ3T]: F:记录迁移后68条已守变异及六计划出口的新位置复测和首跑测试 | R:code:design/evidence/2026-11-17/plan-actions-move/rows.json | A:- | S:未纳入原批次未守及无效变异
+rows.json[FQ3L]: F:保存74条搬迁安全网输入的目标函数、定位替换、历史裁定及优先测试 | R:code:design/evidence/2026-11-17/plan-actions-move/scripts/net_after_move.py | A:变异记录数组 | S:verdict与first_red为历史值而非当前运行结果
+smoke.md[SQ3T]: F:记录计划迁移前后七条动态模块加载冒烟与删除停止确认绑定的敏感性 | R:code:local/tests/test_ui_plan_move_smoke.py | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-17/plan-actions-move/scripts/===
+move_check.py[XQ3S]: F:比对固定历史计划控制器与迁入模块的声明注释及额外行，并列出启动迁移差异 | R:code:local/ui/features/plan/actions-start.js | A:main,decls,find_block | S:返回码未核验main新增内容，app删除只核数量八
+net_after_move.py[XQ3S]: F:读取搬迁清单，在临时副本并行变异、查语法并首红停止测试，恢复后汇总 | R:code:design/evidence/2026-11-17/plan-net/scripts/mutate_plan.py | A:main,--workers,--out | S:返回码仅拦定位语法错误，存活仍可能返回零
+
+===/<repository>/design/evidence/2026-11-17/plan-finish/===
+README.md[SQ3T]: F:总结浏览器登录计划外框、停止失败快照日志及琥珀倒计时收尾和九条变异证据 | R:code:local/ui/features/plan/actions-run.js | A:复跑命令 | S:外框属性改变当时没有对应可见颜色变化
+changed-tests.md[SQ3T]: F:记录计划登录外框及停止快照日志改动的旧测试影响与副本试改，无需改旧断言 | R:code:local/tests/test_plan_transitions.py | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-17/plan-finish/scripts/===
+mutate_finish.py[XQ3S]: F:在临时副本分组执行计划登录外框与停止日志九条变异，检查语法测试后恢复 | R:code:local/tests/test_plan_transitions.py | A:main,--workers,apply_mutation,check | S:数据根排除不匹配多段路径，定位未限scope起点
+
+===/<repository>/design/evidence/2026-11-17/plan-machine/===
+README.md[SQ3T]: F:汇总计划标题区十九阶段状态机重构的DOM等价网格、变异及环境失败与契约调整证据 | R:code:local/ui/features/plan/state-machine.js | A:- | S:历史无新增失败不等于全量通过或真实界面验收
+branches.md[SU3T]: F:按原标题渲染优先级列出十九阶段条件和标签标题地点时间，说明分支遮蔽关系 | R:code:local/ui/features/plan/view.js | A:- | S:重构前口径，登录外框与标题不一致属当时现状
+
+===/<repository>/design/evidence/2026-11-17/plan-machine/scripts/===
+board_grid.py[XQ3M]: F:分别在固定提交与当前副本运行标题DOM网格，采集八字段及阶段命中并支持基线自比 | R:code:local/tests/fixtures/ui_harness.py | A:main,--self | S:固定基线02c8760，DOM桩HTML与文本分别读取
+mutate_board.py[XQ3M]: F:枚举计划标题状态条件与十九阶段样式变异，在副本查语法并跑六类测试至首红后恢复 | R:code:local/ui/features/plan/state-machine.js | A:main,--workers | S:测试非零即红，不核对失败是否来自预期断言
+
+===/<repository>/design/evidence/2026-11-17/plan-net/===
+README.md[SQ3T]: F:说明计划栏690候选的临时副本变异、补测与等价探针范围及结果缺口 | R:code:design/evidence/2026-11-17/plan-net/scripts/mutate_plan.py | A:- | S:仍312条无人守，14条赋值误识别不算覆盖
+after.md[SQ3L]: F:保存补测后计划栏690条候选结论、首红测试、等价论证和按函数分布的未守项 | R:code:design/evidence/2026-11-17/plan-net/scripts/mutate_plan.py | A:- | S:已守等价无人守和无效必须分列
+before.md[SQ3L]: F:保存补测前计划栏变异定位替换及首红用例，记录242红434存活和14误识别 | R:code:design/evidence/2026-11-17/plan-net/scripts/mutate_plan.py | A:- | S:编号依赖当时源码生成顺序，勿套当前候选
+board-vs-now.md[SU3T]: F:对照画板与当时计划开始停止修改结果实现和具名测试，列出恢复出口及拒绝标签缺口 | R:code:local/tests/test_ui_plan_flow.py | A:- | S:一致但无人守不算验收，缺口是历史现状
+contract-tests.md[SQ3T]: F:按实际断言区分计划契约字面与行为测试并映射沙箱用例，避免重复补测 | R:code:local/tests/test_ui_contract_plan.py | A:- | S:有行为对应不代表字面测试本身运行界面
+move-facts.md[SA3M]: F:保存模块化前计划顶层名字引用、状态读写、桥接事件DOM及文件职责分段 | R:code:design/evidence/2026-11-17/plan-net/scripts/move_facts.py | A:- | S:引用为文本计数，归属与加载期含固定说明
+
+===/<repository>/design/evidence/2026-11-17/plan-net/scripts/===
+move_facts.py[XA3S]: F:扫描前端与大小名单生成计划顶层名字状态、桥接DOM及职责五表，支持报告输出 | R:code:local/ui/views/plan-panel.js | A:main,--output | S:默认覆盖move-facts.md，部分归属范围为预置文字
+mutate_plan.py[XQ3L]: F:生成五文件计划变异并按函数文字次序定位，支持清单自检单条并行，副本查语法首红测试 | R:code:local/tests/test_ui_plan_board.py | A:main,--list,--precheck,--only,--workers,--out | S:全量成功仅排除超时定位失败，不要求全红
+probe_plan.py[XQ3T]: F:在原始与单条变异副本运行相同沙箱片段并比较输出，为补测等价判断提供证据 | R:code:design/evidence/2026-11-17/plan-net/scripts/mutate_plan.py | A:main,--snippet,--json | S:单片段相同不证明全部入口等价
+rerun_plan.py[XQ3T]: F:筛选计划变异候选，在临时副本定位查语法跑指定测试并恢复，汇总状态与可选JSON | R:code:design/evidence/2026-11-17/plan-net/scripts/mutate_plan.py | A:main,--path,--function,--ids,--tests,--out | S:有匹配即返回0，存活错误须看统计
+
+===/<repository>/design/evidence/2026-11-17/plan-panel-rest-move/===
+README.md[SU3T]: F:记录计划栏剩余28段模块迁移及启动接线、逐字比对、变异与加载冒烟结果 | R:code:design/evidence/2026-11-17/plan-panel-rest-move/move-map.md | A:- | S:报告包含测试路径授权遗漏及跨模块切片假绿问题
+move-map.md[SU3S]: F:列出计划栏函数归层、模块依赖、启动调用、过渡挂回及契约测试读法迁移依据 | R:code:local/ui/legacy-globals.js | A:- | S:初表预分后有修订，最终两函数因terms依赖归视图层
+net-after-move.md[SQ3T]: F:记录迁移后56条已守和1条等价变异的复核及两处函数落点调整 | R:code:design/evidence/2026-11-17/plan-panel-rest-move/rows.json | A:- | S:33条原有无人守缺口未补，不可当作全覆盖
+rows.json[FQ3L]: F:保存计划栏迁移后安全网的变异定位、替换、历史判定和优先测试数据 | R:code:design/evidence/2026-11-17/plan-panel-rest-move/scripts/net_after_move.py | A:- | S:-
+smoke.md[SQ3T]: F:保存原生脚本与动态模块加载的宽中窄档冒烟，以及地点绑定删行敏感性记录 | R:code:local/tests/test_ui_plan_move_smoke.py | A:- | S:沙箱加载结果不代表WebView2真实窗口验收
+
+===/<repository>/design/evidence/2026-11-17/plan-panel-rest-move/scripts/===
+move_check.py[XQ3S]: F:对固定基线计划栏声明与新模块逐段去export比对，并列举新增行和启动接线差异 | R:code:local/ui/main.js | A:main | S:返回码未核验main新增行内容，输出仍需人工审阅
+net_after_move.py[XQ3S]: F:按迁移后的变异行在临时副本定位并检查语法，优先跑原失败测试再运行其余安全网 | R:code:design/evidence/2026-11-17/plan-panel-rest-move/rows.json | A:main,--workers,--out | S:已守须红、等价不得红，定位或语法错误直接失败
+
+===/<repository>/design/evidence/2026-11-17/plan-transitions/===
+README.md[SW3T]: F:记录计划运行验证码提示、停止失败说明、快照恢复及网格和变异证据 | R:code:local/ui/features/plan/state-board.js | A:- | S:sync_busy_clear判等价，不能称21条变异全红
+changed-tests.md[SQ3T]: F:记录计划转移旧测试锚点、预期不变区及按运行快照修正停止拒绝测试桩的依据 | R:code:local/tests/test_prerefactor_fixes.py | A:- | S:先列范围风险与后续输入修订同时保留
+
+===/<repository>/design/evidence/2026-11-17/plan-transitions/scripts/===
+mutate_transitions.py[XQ3S]: F:在临时副本定位21种计划转移变异并检查语法，顺序运行四类测试首红即停 | R:code:design/evidence/2026-11-17/plan-transitions/scripts/run_warn_grid.py | A:main,--workers | S:任一green均使脚本失败，未豁免文档判等价项
+run_warn_grid.py[XQ3S]: F:在固定开工提交与当前副本构造168组计划运行输入，对比提示和修改按钮可见结果 | R:code:local/tests/fixtures/ui_harness.py | A:main,--self | S:只允许needs_code且300秒未提交格有差异
+
+===/<repository>/design/flows/===
+README.md[SU4T]: F:索引首次登录、选活动、混合运行及停止结果用户流程并规定四项流程描述口径 | R:code:docs/UI_SPEC.md | A:- | S:-
+activity-selection-and-plan.md[SB5T]: F:说明活动加载筛选、勾选冲突、重试策略与后端终校验的用户动作及失败恢复流程 | R:code:design/decisions/004-multi-activity-and-conflict.md | A:- | S:筛选只改可见行，已选校验执行仍基于全量数据
+first-use-and-login.md[SI4T]: F:描述首次条款接纳、登录校验与浏览器登录，以及运行中失效恢复和人工登录时窗 | R:code:design/decisions/014-workbench-ui.md | A:首次使用与登录流程 | S:密码错误暂停仅部分落地，文内状态不等于用户验收
+mixed-plan-runtime.md[SB4T]: F:说明混合计划独立准备调度、提交重试、事件路线图及重载快照恢复 | R:code:design/decisions/007-runtime-timeline.md | A:混合计划与恢复流程 | S:路线图只用真实checkpoint；快照恢复不得重提交
+stop-and-result.md[SB4T]: F:说明计划停止确认、进程树收尾、单场取消、终态分类及用户后续动作 | R:code:design/decisions/003-retry-policy.md | A:停止取消及终态流程 | S:停止不抹已提交结果，静默复查不改已展示结论
+
+===/<repository>/design/proposals/===
+README.md[SW3T]: F:索引引导简介提醒界面与工程提案并规定确认、实现验收后迁入决策的生命周期 | R:code:design/proposals/replayable-product-tour.md | A:提案索引 | S:引导未实现的索引描述与提案accepted记录不一致
+activity-description-info-button.md[SU3T]: F:提出活动简介纯文本浮层与已有详情缓存复用，列出字段长文本和失败反馈确认条件 | R:code:contracts/school-api/README.md | A:- | S:字段语义未核对不得实施，回包与懒加载描述待协调
+auto-relogin-failure-notice.md[SU3T]: F:提出自动登录失败与验证码转人工通知需求，保留渠道合并频次及紧迫性待决 | R:code:design/proposals/workbench-ui-polish.md | A:- | S:渠道和频次未定，不可当作现有通知行为
+engineering-refactor.md[SW4M]: F:汇总重构已落地底座与续拆进度，规划Api收口、前端手机worker及长文件治理验收 | R:code:docs/ARCHITECTURE.md | A:重构状态及工程终点 | S:1200行仅参考，分支验证合入真窗口验收分列
+replayable-product-tour.md[SU3T]: F:保留可重播引导历史提案与遮罩版本跳过暂停方案，将正式规则指向决策009 | R:code:design/decisions/009-replayable-product-tour.md | A:- | S:方案确认并记实现落地，真机用户验收仍待
+workbench-ui-polish.md[SU4S]: F:记录工作台时间轴设置加载及状态过渡打磨方向，区分确认规则、前置缺陷与原型门槛 | R:code:docs/UI_SPEC.md | A:打磨方向及实施门槛 | S:方向已定不等于实现，窄档布局和通知渠道仍待定
+
+===/<repository>/design/prototype/workbench-2026-11/===
+.gitignore[FV3T]: F:排除许可未明的本地画布运行时support.js，避免其进入版本库 | R:- | A:support.js | S:画布运行依赖该本地文件，但仓库不提供
+AdvBroken.dc.html[SU3T]: F:导入高级功能需要更新或组件损坏的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:advbroken | S:-
+AdvCheck.dc.html[SU3T]: F:导入高级功能检查中手机待确认而识别保留原状态的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:advcheck | S:-
+AdvReFail.dc.html[SU3T]: F:导入高级功能重新安装失败回到损坏态的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:advrefail | S:-
+AdvTimeout.dc.html[SU3T]: F:导入高级功能检查超时与状态读取失败的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:advtimeout | S:-
+AdvUpdFail.dc.html[SU3T]: F:导入高级功能更新失败后按缓存区分需要更新与状态不可读的冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:advupdfail | S:-
+AdvVerify.dc.html[SU3T]: F:导入高级功能校验安装中的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:advverify | S:-
+Attention.dc.html[SU3T]: F:导入登录状态待确认的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:unknown | S:-
+Broken.dc.html[SU3T]: F:导入程序运行组件缺失的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:broken | S:-
+CancelAsk.dc.html[SU3T]: F:导入取消报名前确认的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:cancelask | S:-
+CancelBusy.dc.html[SU3T]: F:导入正在取消报名请求处理中的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:cancelbusy | S:-
+CancelDone.dc.html[SU3T]: F:导入取消报名成功结论的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:canceldone | S:-
+CancelRefused.dc.html[SU3T]: F:导入学校拒绝取消报名结论的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:cancelrefused | S:-
+CancelUnknown.dc.html[SU3T]: F:导入取消报名结果未确认的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:cancelunknown | S:-
+ClockDown.dc.html[SU3T]: F:导入北京时间尚未校准的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:clock | S:-
+ClockHold.dc.html[SU3T]: F:导入继续沿用上次时间校准的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:clockhold | S:-
+CloseAsk.dc.html[SU3T]: F:导入运行计划时关闭窗口询问的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:closeask | S:-
+CloseConfirm.dc.html[SU3T]: F:导入退出前再次确认的宽屏冻结画面 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:closeexit | S:-
+CloseHidden.dc.html[SU3T]: F:导入宽屏工作台隐藏后台后的关窗静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:closehidden | S:-
+CloseIdle.dc.html[SU3T]: F:导入无计划且无法从后台唤回的关窗静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:closeidle | S:-
+CloseLive.dc.html[SU3T]: F:导入宽屏可交互运行中关闭窗口原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:closerun | S:-
+CompAfter.dc.html[SU3T]: F:导入组件已安装但位置与验证码识别未启用的宽屏静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:compafter | S:-
+CompFail.dc.html[SU3T]: F:导入组件下载失败后重试或手动导入的静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:compfail | S:-
+CompLive.dc.html[SU3T]: F:导入高级功能一键下载安装的可交互宽屏原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:comp | S:-
+CompNoSize.dc.html[SU3T]: F:导入发布页不可读时组件大小提示的宽屏静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:compnosize | S:-
+CompOk.dc.html[SU3T]: F:导入高级功能组件下载中的宽屏静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:compok | S:-
+CompWrong.dc.html[SU3T]: F:导入手动导入组件选错文件时的静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:compwrong | S:-
+Conflict.dc.html[SU3T]: F:导入时间重叠时保留原选择的宽屏静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:conflict | S:-
+ConflictNoCancel.dc.html[SU3T]: F:导入时间冲突且已报名活动不允许取消的静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:conflictnocancel | S:-
+ConflictPast.dc.html[SU3T]: F:导入时间冲突且已报名活动取消期限已过的静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:conflictpast | S:-
+ConflictTip.dc.html[SU3T]: F:导入重叠活动不可加入及原因气泡的宽屏静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:conflicttip | S:-
+ConflictUnknown.dc.html[SU3T]: F:导入时间冲突而已报名活动能否取消未知的静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:conflictunknown | S:-
+CredClear.dc.html[SU3T]: F:导入清除已保存账号前确认的宽屏静态预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:credclear | S:-
+CredForm.dc.html[SU3T]: F:导入填写账号密码的宽屏静态原型预览 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:credform | S:-
+CredOcrOff.dc.html[SU3T]: F:展示验证码识别已安装但未启用的登录恢复原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=credocroff;tier=wide;frozen=true | S:-
+CredSaved.dc.html[SU3T]: F:展示账号已保存且自动登录已启用的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=credsaved;tier=wide;frozen=true | S:-
+CrossDay.dc.html[SU3T]: F:展示跨天活动时段及报名退选条件的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=crossday;tier=wide;frozen=true | S:-
+DesignSpec.dc.html[SU4S]: F:展示工作台字体、配色、按钮层级与文字对比度规范 | R:code:design/prototype/workbench-2026-11/support.js | A:独立设计规范画板 | S:浅底主按钮用墨黑，琥珀主按钮仅用于深底；蓝色保留给选中、链接和焦点；不下载字体
+Editing.dc.html[SU3T]: F:展示修改报名计划时计划已暂停的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=editing;tier=wide;frozen=true | S:-
+Expired.dc.html[SU3T]: F:展示登录已失效的工作台原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=expired;tier=wide;frozen=true | S:-
+Filters.dc.html[SU3T]: F:展示活动列表更多筛选条件展开的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=filters;tier=wide;frozen=true | S:-
+FirstUse.dc.html[SU3T]: F:提供首次使用与条款披露的原型入口 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=first;tier=wide | S:-
+HelpKeys.dc.html[SU3T]: F:展示帮助页键盘快捷键说明的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=helpkeys;tier=wide;frozen=true | S:-
+ImplNotes.dc.html[SU4S]: F:说明原型演示控件、真实数据替换与后端配合事项 | R:code:design/prototype/workbench-2026-11/support.js,code:VERSION | A:独立实现备注画板 | S:原型不联网；识别组件安装不等于启用；不得估算学校登录剩余有效期；文内待定项不是已验证事实
+ListErr.dc.html[SU3T]: F:展示活动列表加载失败的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=listerr;tier=wide;frozen=true | S:-
+LogOpen.dc.html[SU3T]: F:展示运行记录展开的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=logopen;tier=wide;frozen=true | S:-
+Login.dc.html[SU3T]: F:展示工具内账号密码登录的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=login;tier=wide;frozen=true | S:-
+LoginBad.dc.html[SU3T]: F:展示账号或密码不正确的登录原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=loginbad;tier=wide;frozen=true | S:-
+LoginBrowser.dc.html[SU3T]: F:展示学校登录页方式的宽屏登录原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=loginbrowser;tier=wide;frozen=true | S:-
+LoginCap.dc.html[SU3T]: F:展示账号密码登录后的验证码步骤原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=logincap;tier=wide;frozen=true | S:-
+LoginShort.dc.html[SU3T]: F:展示现有登录可能撑不到报名开放的提醒原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=loginshort;tier=wide;frozen=true | S:-
+LoginWait.dc.html[SU3T]: F:展示等待用户完成浏览器登录的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=loginwait;tier=wide;frozen=true | S:-
+LongName.dc.html[SU3T]: F:展示超长活动名称及地点的宽屏排版原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=longname;tier=wide;frozen=true | S:-
+Main.dc.html[SU5L]: F:实现活动筛选、报名计划、登录、条款、时间、手机访问、组件更新及退出的共享交互原型 | R:code:design/prototype/workbench-2026-11/support.js | A:DCLogic组件；scene初态；tier布局；height/short容器；frozen停止计时与全局快捷键 | S:固定演示数据不能当作真实学校请求证据；frozen不禁用全部按钮；提交结果不明不自动重发；停止不撤销已提交结果
+Medium.dc.html[SU3T]: F:展示中等窗口下报名计划草稿布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=draft;tier=medium;frozen=true | S:-
+MediumRun.dc.html[SU3T]: F:展示中等窗口下报名计划运行布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=running;tier=medium;frozen=true | S:-
+MigrateFail.dc.html[SU3T]: F:展示旧版登录迁移失败后重新登录的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=migratefail;tier=wide;frozen=true | S:-
+Migrated.dc.html[SU3T]: F:展示旧版数据迁移成功的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=migrated;tier=wide;frozen=true | S:-
+Narrow.dc.html[SU3T]: F:展示窄窗口下报名计划草稿布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=draft;tier=narrow;frozen=true | S:-
+NarrowLogin.dc.html[SU3T]: F:展示窄窗口下登录表单原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=login;tier=narrow;frozen=true | S:-
+NarrowPop.dc.html[SU3T]: F:展示窄窗口下登录状态详情卡布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=poplogin;tier=narrow;frozen=true | S:-
+NarrowResult.dc.html[SU3T]: F:展示窄窗口下计划结果布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=result;tier=narrow;frozen=true | S:-
+NarrowSettings.dc.html[SU3T]: F:展示窄窗口下设置面板布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=settings;tier=narrow;frozen=true | S:-
+NarrowWarn.dc.html[SU3T]: F:展示窄窗口下计划开始前提醒布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=prewarn;tier=narrow;frozen=true | S:-
+NetOff.dc.html[SU3T]: F:展示报名计划运行中断网的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=netoff;tier=wide;frozen=true | S:-
+NoResult.dc.html[SU3T]: F:展示活动搜索无结果的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=noresult;tier=wide;frozen=true | S:-
+Normal.dc.html[SU3T]: F:展示尚未选择活动的工作台常态原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=normal;tier=wide;frozen=true | S:-
+PhAddPair.dc.html[SU3T]: F:展示再配对一台手机的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phaddpair;tier=wide;frozen=true | S:-
+PhDownload.dc.html[SU3T]: F:展示手机访问组件下载中的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phdownload;tier=wide;frozen=true | S:-
+PhFail.dc.html[SU3T]: F:展示手机访问组件下载失败的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phfail;tier=wide;frozen=true | S:-
+PhGone.dc.html[SU3T]: F:展示手机访问已断开的设置原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phgone;tier=wide;frozen=true | S:-
+PhGoneTop.dc.html[SU3T]: F:展示顶栏手机已断开详情卡的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phgonetop;tier=wide;frozen=true | S:-
+PhStartFail.dc.html[SU3T]: F:展示手机访问开启失败后重新开启的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phstartfail;tier=wide;frozen=true | S:-
+PhStarting.dc.html[SU3T]: F:展示手机访问正在开启的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phstarting;tier=wide;frozen=true | S:-
+PhStartingTop.dc.html[SU3T]: F:展示顶栏手机访问正在开启的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phstartingtop;tier=wide;frozen=true | S:-
+PhStopAsk.dc.html[SU3T]: F:展示关闭手机访问前的确认对话框 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phstopask;宽屏冻结画板 | S:-
+PhStopping.dc.html[SU3T]: F:展示手机访问正在停止与顶栏等待状态 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phstopping;宽屏冻结画板 | S:-
+Phone.dc.html[SU5L]: F:实现配对、活动筛选、冲突解释、报名计划、离线与重新登录的手机交互原型 | R:code:design/prototype/workbench-2026-11/support.js | A:Phone组件；scene/frozen/height；配对、计划确认、停止取消与验证码交互 | S:活动时钟和结果均为演示；配对错三次锁60秒；提交中及开放前100秒禁人工重登；未知结果不重发；冲突页不撤回报名
+PhoneApp.dc.html[SU3T]: F:提供从配对页开始的可操作手机原型入口 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=pair;390×844 | S:-
+PhoneAuto.dc.html[SU3T]: F:展示电脑正在自动登录的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=auto;390×844;frozen=true | S:-
+PhoneCancel.dc.html[SU3T]: F:展示手机取消计划中单场任务的确认原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=cancelsheet;390×844;frozen=true | S:-
+PhoneCaptcha.dc.html[SU3T]: F:展示手机重新登录输入验证码的原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=captcha;390×844;frozen=true | S:-
+PhoneCheck.dc.html[SU3T]: F:展示手机开始请求未获明确回应的等待原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=pending;390×844;frozen=true | S:-
+PhoneConflict.dc.html[SU3T]: F:展示手机活动时段重叠及冲突解释原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=conflict;390×844;frozen=true | S:-
+PhoneExpired.dc.html[SU3T]: F:展示电脑登录失效的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=expired;390×844;frozen=true | S:-
+PhoneLinked.dc.html[SU3T]: F:展示电脑手机访问已连接的工作台原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phonelinked;宽屏冻结画板 | S:-
+PhoneLock.dc.html[SU3T]: F:展示手机配对尝试过多后的锁定原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=pairlock;390×844;frozen=true | S:-
+PhoneOffline.dc.html[SU3T]: F:展示计划运行时手机无法连接电脑的原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=offline;390×844;frozen=true | S:-
+PhonePairFail.dc.html[SU3T]: F:展示手机配对码错误与剩余尝试提示原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=pairfail;390×844;frozen=true | S:-
+PhonePcClock.dc.html[SU3T]: F:展示电脑北京时间未校准的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=pcclock;390×844;frozen=true | S:-
+PhonePcList.dc.html[SU3T]: F:展示电脑活动列表未加载的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=pclisterr;390×844;frozen=true | S:-
+PhonePick.dc.html[SU3T]: F:展示手机已选择活动的原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=picked;390×844;frozen=true | S:-
+PhoneRelAcct.dc.html[SU3T]: F:展示电脑未保存账号但已安装识别组件的手机重登原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=relacct;390×844;frozen=true | S:-
+PhoneRelAll.dc.html[SU3T]: F:展示电脑缺少账号与识别组件的手机重登原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=relall;390×844;frozen=true | S:-
+PhoneRelBad.dc.html[SU3T]: F:展示保存密码错误的手机重新登录原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=relbad;390×844;frozen=true | S:-
+PhoneRelConfirm.dc.html[SU3T]: F:展示手机确认执行一次自动登录的原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=relconfirm;390×844;frozen=true | S:-
+PhoneResult.dc.html[SU3T]: F:展示手机报名计划结果原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=result;390×844;frozen=true | S:-
+PhoneReview.dc.html[SU3T]: F:展示手机开始前核对报名计划的原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=review;390×844;frozen=true | S:-
+PhoneReviewWarn.dc.html[SU3T]: F:展示手机核对计划附带提醒的原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=reviewwarn;390×844;frozen=true | S:-
+PhoneRun.dc.html[SU3T]: F:展示手机报名计划运行原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=running;390×844;frozen=true | S:-
+PhoneSearch.dc.html[SU3T]: F:展示手机搜索活动的原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=search;390×844;frozen=true | S:-
+PhoneSetup.dc.html[SU3T]: F:展示电脑手机访问从安装到配对的交互原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phonesetup;tier=wide | S:-
+PhoneStop.dc.html[SU3T]: F:展示手机停止报名计划前的确认原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=stopsheet;390×844;frozen=true | S:-
+PhoneTerms.dc.html[SU3T]: F:展示电脑未同意条款的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phoneterms;390×844;frozen=true | S:-
+PhoneTs.dc.html[SU3T]: F:展示手机通道Tailscale尚未登录的电脑原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phonets;tier=wide;frozen=true | S:-
+PhoneWait.dc.html[SU3T]: F:展示电脑等待手机连接的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phonewait;tier=wide;frozen=true | S:-
+Policy.dc.html[SU3T]: F:展示修改报名尝试时长与次数的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=policy;tier=wide;frozen=true | S:-
+PopClock.dc.html[SU3T]: F:提供北京时间详情卡悬停预览与点击固定的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=popclock;tier=wide | S:-
+PopDown.dc.html[SU3T]: F:展示北京时间未校准详情卡的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=popdown;tier=wide;frozen=true | S:-
+PopLogin.dc.html[SU3T]: F:展示登录详情卡原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=poplogin;tier=wide;frozen=true | S:-
+PopPhone.dc.html[SU3T]: F:展示手机访问详情卡原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=popphone;tier=wide;frozen=true | S:-
+PreWarn.dc.html[SU3T]: F:展示开始计划前只提醒不阻止的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=prewarn;tier=wide;frozen=true | S:-
+README.md[SU4M]: F:说明工作台原型用途、启动方式、源码阅读与画板场景目录 | R:code:design/prototype/workbench-2026-11/index.html,code:design/prototype/workbench-2026-11/ImplNotes.dc.html | A:本机静态服务器与画板映射表 | S:必须通过HTTP访问；仅用假数据不连学校；许可不明的support.js仅本机保留，不入库或公开发布；演示控件不移植为功能
+Relogin.dc.html[SU3T]: F:提供已保存账号但缺少识别组件的重登交互原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=relogin;tier=wide | S:-
+Result.dc.html[SU3T]: F:展示计划部分成功与待核对的结果原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=result;tier=wide;frozen=true | S:-
+RlBad.dc.html[SU3T]: F:展示重登时保存密码错误的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=rlbad;tier=wide;frozen=true | S:-
+RlCap.dc.html[SU3T]: F:展示电脑重新登录验证码输入原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=rlcap;tier=wide;frozen=true | S:-
+RlCapBad.dc.html[SU3T]: F:展示重登验证码识别错误的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=rlcapbad;tier=wide;frozen=true | S:-
+RlConfirm.dc.html[SU3T]: F:展示电脑确认执行一次自动登录的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=rlconfirm;tier=wide;frozen=true | S:-
+RunAuto.dc.html[SU3T]: F:展示计划等待开放期间自动登录的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=runauto;tier=wide;frozen=true | S:-
+RunClick.dc.html[SU3T]: F:展示单场报名转为页面点击的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=runclick;tier=wide;frozen=true | S:-
+RunExpired.dc.html[SU3T]: F:展示计划运行中登录失效的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=runexpired;tier=wide;frozen=true | S:-
+RunPhone.dc.html[SU3T]: F:展示手机开始计划在电脑端的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=runphone;tier=wide;frozen=true | S:-
+Running.dc.html[SU3T]: F:展示报名计划运行的宽屏原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=running;tier=wide;frozen=true | S:-
+SecondRun.dc.html[SU3T]: F:展示再次打开程序只运行一份的提示原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=secondrun;tier=wide;frozen=true | S:-
+Settings.dc.html[SU3T]: F:展示设置面板宽屏原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=settings;tier=wide;frozen=true | S:-
+Short.dc.html[SU3T]: F:展示较短窗口下计划草稿布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=draft;tier=wide;short=true;frozen=true | S:-
+Slept.dc.html[SU3T]: F:展示电脑睡眠错过报名开放的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=slept;tier=wide;frozen=true | S:-
+StopAsk.dc.html[SU3T]: F:展示停止报名计划前确认的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=stopask;tier=wide;frozen=true | S:-
+Stopped.dc.html[SU3T]: F:展示计划停止后逐场结果原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=stopped;tier=wide;frozen=true | S:-
+TermsDoc.dc.html[SU3T]: F:展示阅读完整条款并同意新版的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=termsdoc;tier=wide;frozen=true | S:-
+TermsOff.dc.html[SU3T]: F:提供尚未同意条款的可操作原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=termsoff;tier=wide | S:-
+TermsPrivacy.dc.html[SU3T]: F:展示完整隐私政策的只读原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=termsprivacy;tier=wide;frozen=true | S:-
+TermsUnknown.dc.html[SU3T]: F:展示条款状态未能确认的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=termsunknown;tier=wide;frozen=true | S:-
+TermsUpdate.dc.html[SU3T]: F:提供条款更新后重新同意的交互原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=termsupdate;tier=wide | S:-
+TermsWithdraw.dc.html[SU3T]: F:展示撤回条款同意的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=termswithdraw;tier=wide;frozen=true | S:-
+ToastMin.dc.html[SU3T]: F:展示后台任务结束通知的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=toastmin;tier=wide;frozen=true | S:-
+TourPick.dc.html[SU3T]: F:展示新手引导第二步原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=tour2;tier=wide;frozen=true | S:-
+TourRun.dc.html[SU3T]: F:展示新手引导第四步原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=tour4;tier=wide;frozen=true | S:-
+TourTable.dc.html[SU3T]: F:展示新手引导第一步原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=tour;tier=wide;frozen=true | S:-
+UpdateAvail.dc.html[SU3T]: F:展示发现新版本的更新原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=upavail;tier=wide;frozen=true | S:-
+UpdateDown.dc.html[SU3T]: F:展示新版本下载中的更新原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=updown;tier=wide;frozen=true | S:-
+UpdateFail.dc.html[SU3T]: F:展示新版本校验失败的更新原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=upfail;tier=wide;frozen=true | S:-
+UpdateLive.dc.html[SU3T]: F:提供检查、下载与安装新版本的交互原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=update;tier=wide | S:-
+UpdateReady.dc.html[SU3T]: F:展示新版本校验通过但计划仍运行的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=upready;tier=wide;frozen=true | S:-
+Waiting.dc.html[SU3T]: F:展示等开放且允许修改计划的宽屏冻结画板 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:scene=waiting | S:-
+ZeroAct.dc.html[SU3T]: F:展示学校返回零活动的宽屏冻结画板 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:scene=zeroact | S:-
+canvas.json[FU5L]: F:登记工作台各状态画板的位置尺寸、交互标志及展示次序 | R:code:design/prototype/workbench-2026-11/index.html | A:boards,order | S:查看器按坐标重排；order仍决定纳入的画板集合
+index.html[EU5T]: F:按画布配置分组浏览原尺寸工作台画板，支持缩放与哈希定位 | R:code:design/prototype/workbench-2026-11/canvas.json | A:show,fit | S:需HTTP读取canvas.json，file协议打开会显示失败提示
+打开原型.bat[XU4T]: F:启动仅本机监听的静态服务并用浏览器打开工作台原型 | R:code:design/prototype/workbench-2026-11/index.html | A:- | S:缺support.js时拒绝启动；关闭服务器窗口才停止服务
+
+===/<repository>/design/specs/===
+README.md[SU6T]: F:索引交互规格并区分规则决策、组件行为和技术验收文档职责 | R:- | A:辅助面板/文案/版本发布入口 | S:规则变化先修决策，不在规格复制业务规则
+assistance-panels.md[SU7S]: F:规定设置抽屉与帮助独立入口的职责、导航、条款路由及窄窗交互 | R:code:local/ui/views/settings.js,code:local/ui/features/shell/view-help.js | A:设置承载配置；帮助承载说明、快捷键、引导 | S:运行中重看引导的前后段存在漂移，须按UI_SPEC和代码核实
+copywriting.md[SU8L]: F:维护登录、活动、计划结果、时钟、设置、更新、手机及条款用户文案 | R:code:local/ui/index.html,code:local/app.py | A:术语/未知结果/结果汇总/登录估算/条款文案 | S:文案不可改变worker机器协议；未知不等于失败，停止不等于取消报名；登录估算不参与有效性判定
+terms-consent.md[SU8M]: F:规定首次、更新与全文条款路由、版本绑定保存、未知恢复及响应式验收 | R:code:local/ui/controllers/terms.js,code:local/ui/views/terms.js,code:local/app.py | A:版本回执确认/超时只读对账/条款优先引导/正文精确比较 | S:十秒超时不取消事务；未知关闭学校动作；正文只可折叠空白，旧矩阵不代表修后通过
+versioning-and-release.md[SV8S]: F:规定版本真源、升版、tag绑定、同源正式资产和目录更新兼容要求 | R:code:VERSION,code:tools/release.py,code:local/updater.py | A:版本与引导分离/来源资产复核/失败恢复 | S:旧基线与候选并存不代表当前已发布；已发布tag不可重写，离线替身不能代替实包安装探针
+
+===/<repository>/docs/===
+ARCHITECTURE.md[SG9M]: F:描述双产品数据流、学校接口、分层、并发、组件和报名恢复契约 | R:code:local/app.py,code:local/grab.py,code:local/application/plan_service.py,code:server/scripts/common.py,code:server/bot/bot.js | A:combined分流/推送成功记账/锁等级/组件事务租约/直发点击核对 | S:网络未知不等于4001；学校Date仅补列表筛选，不放行报名。状态发布在状态锁外；协调锁内不等待服务。app再导出仍是测试注入缝，组件读取失败不可误报未安装
+CONFIG.md[SC7M]: F:汇集本机与服务器配置字段、环境变量、运行状态文件及配置故障定位 | R:code:server/scripts/common.py,code:server/bot/bot.js,code:local/site_target.py | A:watch控频/owner私聊门禁/配置与状态分离 | S:双实例角色示例已落后于combined，部署须核对ARCHITECTURE及源码
+FEISHU_BOT.md[SM8M]: F:说明Webhook推送、自建应用群查询和owner私聊的部署权限及故障排查 | R:code:server/bot/bot.js,code:server/scripts/notify.py,code:server/scripts/watchlist.py | A:combined单连接/群只读/owner私聊动作/权限事件配置 | S:同App双进程会抢事件；身份、点击人、会话须一致，转发卡不能授权；群查询仍使用部署者会话
+GRAB.md[SB7T]: F:说明owner私聊预报名从卡片、清单到分钟runner和临近开放进程的链路 | R:code:server/scripts/watchlist.py,code:server/scripts/watchlist_runner.py,code:server/deploy/grab_signup.py | A:queued/running活跃态/同id幂等/结束复查 | S:回调直接返回新卡不可额外PATCH，否则旧卡覆盖；群视角不得暴露本人结论
+LOGIN.md[SI8S]: F:说明双产品真实登录校验、会话生命周期、估算锚点及自动和人工恢复 | R:code:local/grab.py,code:server/deploy/server_refresh.js,code:server/deploy/auto_login.py | A:4001与网络未知分流/凭证绑定锚点/OCR有限重试/DPAPI存储 | S:十小时是估算下限，17.5小时仅历史单次样本，均不能判失效；刷新不续期，探针网络错不可盲试密码
+OPERATIONS.md[SI7S]: F:规定服务器布局、combined机器人、cron、日志轮转、更新回滚及故障排查 | R:code:server/bot/bot.js,code:server/deploy/server_refresh.js | A:自部署运维入口/线上待同步差异 | S:只运行一个应用长连接；部署不覆盖运行状态；分钟唤醒不等于每分钟请求学校
+PHONE_ACCESS.md[SU8M]: F:定义手机控制启用、八项动作、重登、通道安全及组件安装事务 | R:code:local/application/phone_service.py,code:local/infrastructure/phone_http.py,code:local/domain/phone_rules.py,code:local/app.py | A:手机操作与通道边界、组件事务、设备信任 | S:默认不监听；手动关闭撤销会话，Cloudflare不自恢复；未知写结果只对账不重发；公开投影不回传电脑已保存凭据，手机新输入的账号密码可经所选通道提交，默认只存内存、勾选保存且登录成功后才写盘
+PRIVACY_POLICY.md[SS7T]: F:披露本机数据处理、迁移删除、外部通信、手机配对及部署者责任 | R:code:local/ui/index.html,code:docs/PHONE_ACCESS.md | A:版本化内嵌隐私正文真源 | S:迁移只补缺不删源，自定义根与迁移副本卸载不删；Cloudflare转发手机新输入的凭据，不等于电脑已保存凭据向手机回传
+README.md[SG6T]: F:索引现行工程文档、批准设计、归档资料及路径迁移对照 | R:- | A:主契约与历史材料导航 | S:历史材料保留原貌，不替代现行文档
+RETRY_POLICY_GUIDE.md[SB8M]: F:解释报名窗口、真实提交计数、黄金风暴、回包、停止和三种预算策略 | R:code:local/grab.py,code:local/business_clock.py,code:local/time_contract.py | A:用户重试策略说明 | S:sign_end硬截止；显式时长不扩窗；无截止直到截止回退两分钟；停止不覆盖证据，服务器404语义待同步
+TIMING_AND_DEDUP_ANALYSIS.md[SB7L]: F:用历史活动分析推送时点、请求预算及独立动态监测状态机 | R:code:server/scripts/activity_watch.py,code:server/scripts/fetch.py | A:日报与动态监测推导/发现时刻语义 | S:推送成功才消耗消息；首轮只建基线，失败不清快照，空活动不等于未初始化
+UI_SPEC.md[SU9L]: F:定义本机工作台、桥接事件字段、计划、条款登录时间及运行可靠性验收 | R:code:local/app.py,code:local/grab.py,code:local/ui/index.html,code:local/business_clock.py | A:前后端主契约/请求归属/终态/更新/自动刷新 | S:迟到事件按plan和request归属合并，终态早于ack不复活；未知登录不判过期；无可信钟不报名；取消报名桌面确认且以复查为准；条款版本不匹配零写入
+USER_AGREEMENT.md[SS7S]: F:定义条款接受、个人使用边界、直发点击披露、责任及重新同意规则 | R:- | A:内嵌用户协议正文真源 | S:拒绝不退出但禁止学校动作；不承诺合规或报名成功，临时密钥仅内存
+
+===/<repository>/docs/archive/===
+ASK_CODEX_REVIEW.md[SG3S]: F:保存早期架构评审提示词及证据驱动优先级要求 | R:- | A:历史项目评审模板 | S:-
+BUILD_FROM_SCRATCH.md[SG3L]: F:保存接口取证、本机抓取、飞书推送及登录守护六阶段教程 | R:- | A:历史搭建材料与验收清单 | S:-
+README-full-20261022.md[SG3L]: F:保存2026年10月22日完整README的接口部署和运维快照 | R:- | A:文档拆分前历史资料 | S:-
+REVIEW_PROMPT.md[SG3M]: F:保存按正确性、完整性、风险和优先级组织的通用评审模板 | R:- | A:要求显式缺失上下文及反向检查 | S:-
+UI_DESIGN.md[SU3S]: F:保存全宽队列、多活动计划、并发及时间冲突的交互推导 | R:- | A:归档目标设计与虚构示例 | S:-
+WORKBUDDY_LOGIN_PROMPT.md[SG3S]: F:保存云工作空间人工浏览器登录、登录态上传及验证操作提示 | R:- | A:历史半自动恢复流程 | S:-
+
+===/<repository>/docs/archive/process/2026-10-30/discuss/===
+2026-10-30-phone-access-channel.md[SU3S]: F:记录手机固定入口讨论的三层分离和九项未决决策 | R:- | A:通道选择讨论交接 | S:-
+
+===/<repository>/docs/archive/process/2026-10-30/plans/===
+2026-10-30-phone-access-channel.md[SU3L]: F:保存探测、DPAPI设备信任、通道恢复和帮助引导的实施拆分 | R:- | A:离线验证与真实设备验收分离 | S:-
+2026-10-30-phone-ui-failure-repair.md[SU3M]: F:保存手机帮助状态、凭据失败与验证码恢复的六项返修计划 | R:code:docs/PHONE_ACCESS.md | A:- | S:历史计划不代表当前实现
+
+===/<repository>/docs/archive/process/2026-10-31/findings/===
+2026-10-31-ui-findings.md[SU3S]: F:保存移动布局与高级功能面板的问题证据、建议及验收反馈 | R:code:docs/UI_SPEC.md | A:- | S:建议与确定缺陷分列，不能视为已实施
+
+===/<repository>/docs/archive/process/2026-10-31/handoff/===
+2026-10-31-codex-handoff-group2.md[SU3S]: F:交接组件安装流程被用户拒绝后的卡点、已改行为和待设计项 | R:code:docs/PHONE_ACCESS.md | A:- | S:自动化通过不代表Cloudflare安装真机验收通过
+2026-10-31-mobile-ui-handoff.md[SU3S]: F:保存手机页多轮修复、接口结构、安全不变量与设备验收边界 | R:code:docs/UI_SPEC.md | A:- | S:记录的通过数量与WIP仅代表当时状态
+2026-10-31-phone-access-handoff.md[SU3S]: F:保存远程访问执行成果、计划外补丁及待拍板返修方案 | R:code:docs/PHONE_ACCESS.md | A:- | S:讨论提案不等于现行规则
+
+===/<repository>/docs/archive/process/2026-10-31/plans/===
+2026-10-31-phone-access-channel-redesign.md[SU3M]: F:保存组件Release分发、主动下载安装和通道生命周期的历史实施拆分 | R:code:docs/PHONE_ACCESS.md | A:- | S:-
+2026-10-31-phone-access-repair-followup.md[SR3M]: F:保存组件信任、合法PNG夹具、提交对账与后台唤回门禁返修计划 | R:code:docs/PHONE_ACCESS.md | A:- | S:不把relay总运行预算当验证码倒计时
+2026-10-31-phone-access-repair.md[SU3L]: F:保存手机控制台、校时退避、凭据解耦、关窗与网络边界的综合返修计划 | R:code:docs/UI_SPEC.md | A:- | S:历史禁止隐藏的方案已被后续决策替代
+2026-10-31-phone-control-release-publication-repair.md[SV3M]: F:保存手机控制ZIP遗漏发布指纹和上传清单的补漏计划 | R:code:tools/release.py | A:- | S:真实发布必须另经用户授权
+
+===/<repository>/docs/archive/process/===
+README.md[SG3T]: F:说明历史讨论、发现、交接和计划的归档分类与现行规则入口 | R:code:docs/README.md | A:- | S:归档材料不作为现行规则
+
+===/<repository>/docs/superpowers/specs/===
+2026-10-31-phone-access-channel-design.md[SU7S]: F:约定手机组件主动安装、长期与临时通道和设备会话独立状态及恢复流程 | R:code:docs/PHONE_ACCESS.md,code:local/infrastructure/tunnel_manager.py | A:手机能力/远程通道/手机会话三层状态 | S:入口已迁设置；Cloudflare每次开启新会话且禁止自动切换，移除组件不影响Tailscale
+2026-11-02-workbench-ui-redesign-design.md[SU8M]: F:冻结工作台双栏、尺寸分档、阶段动作、设置抽屉、手机控制与条款交互设计 | R:code:docs/UI_SPEC.md,code:design/prototype/workbench-2026-11/Main.dc.html | A:工作台阶段/窗口分档/横幅优先级/手机交互 | S:原型为假数据；修改计划只允许等开放且距开放超过100秒，待核对不可自动重发；文中部分待接后端项目不代表已实现
+2026-11-02-workbench-ui-state-map.md[SU7S]: F:把原型状态画板映射到bootstrap、后端事件、手机快照及待补接口 | R:code:local/app.py,code:docs/UI_SPEC.md | A:场景/数据来源/实现缺口对照 | S:修改中是前端停止后重选模式，并无后端暂停态；演示控件和假数据不能带入产品
+2026-11-03-architecture-revision-design.md[SG8M]: F:汇总真实接口证据并提出直发、登录恢复、终态核对和服务器冻结的架构修订 | R:code:local/grab.py,code:docs/ARCHITECTURE.md | A:运行时密钥/回包分类/4001复查/候补提案 | S:标记讨论材料而非全已落地；404和429无真实样本，候补每次检查实际会报名，须逐场主动授权
+
+===/<repository>/local/===
+README.md[SG6L]: F:说明本机版安装、命令行与图形操作、报名计划、手机访问和常见故障 | R:code:local/app.py,code:local/grab.py,code:docs/UI_SPEC.md | A:安装/活动选择/重试策略/可选组件 | S:混有旧六步引导、寿命和运行中禁重登说明，当前行为以工程契约及代码为准
+advanced_helper.py[EI7S]: F:为固定可选组件提供一次性JSON探测、二维码与验证码识别入口 | R:code:local/infrastructure/advanced_features.py,code:local/infrastructure/phone_qr.py | A:run/main/固定feature协议 | S:stdout必须单JSON；账号会话不进协议；外置模型只来自宿主注入目录，模型失败不偷偷改用库内模型
+app.py[EG9L]: F:组合本机业务服务、基础设施端口与WebView桥接，管理程序窗口及整个运行周期 | R:code:local/application/coordination.py,code:local/application/plan_service.py,code:local/application/login_recovery.py,code:local/application/phone_access_session.py,code:local/application/update_service.py,code:local/grab.py | A:Api/bootstrap/条款门禁/计划报名/登录恢复/窗口生命周期 | S:demo数据根须在导入runtime_paths前隔离；条款版本不符零写入不启worker。锁外读计划后回锁确认归属；旧模块再导出是测试注入缝。未注入时钟明确不可用；关窗后先收worker再结束生命周期，onefile资源不能留孤儿使用
+business_clock.py[RR9L]: F:用多源SNTP一致锚点和单调经过时长提供可验证业务时钟与跨进程快照 | R:code:local/time_contract.py,code:local/app.py,code:local/grab.py | A:BusinessClock/ClockClient/now/bounds/snapshot/request_resync | S:拒绝同支持数矛盾簇及旧轮迟到发布；至少两源一致且误差不超0.5秒。系统墙钟仅诊断不兜底；Windows tick含睡眠。快照校验owner和锚点年龄，重写文件不延长900秒锚点有效期；失败自动退避5/10/20/30秒
+config.example.json[FC5T]: F:给出本机学校地址与飞书Webhook的脱敏可选配置结构 | R:code:local/site_target.py,code:local/grab.py | A:site.base/feishu_webhook | S:样例空值不能当已配置站点
+grab.py[EB9L]: F:提供学校登录、检查、列表、取消和单场报名worker命令及直发点击调度 | R:code:local/business_clock.py,code:local/time_contract.py,code:local/signup_signing.py,code:local/signup_transport.py,code:local/domain/signup_reply.py,code:local/domain/worker_lines.py | A:login/check/list/cancel/grab/selftest | S:stdout的JSON及retry行是协议，不能任意打印；业务预算在鉴权开页前冻结。真实发射才计次，预检不占正式序号；终态唯一且pending保留未知，结束独立核对报名。4001先停发复查，新登录有效才恢复；学校直连，运行时密钥只在本场内存
+login_relay.py[AI8L]: F:编排手机重登worker的验证码挑战、HTTP登录及浏览器兜底 | R:code:local/site_target.py,code:local/grab.py | A:run_http_relay,run_relay,ChallengeBook | S:仅首次验证码成功契约缺字段才切浏览器；网络或密码拒绝不切换。本场新凭证校验及双文件保存成功后才报成功
+requirements-advanced-ocr.txt[FE5T]: F:声明可选验证码识别组件的构建依赖 | R:code:local/infrastructure/component_packages.py | A:- | S:-
+requirements-advanced-phone.txt[FE5T]: F:声明可选手机组件的构建依赖 | R:code:local/infrastructure/component_packages.py | A:- | S:-
+requirements.txt[FV6T]: F:声明本机版基础运行依赖及平台条件 | R:code:tools/release.py | A:- | S:pywebview与相关依赖锁版以稳定本机回环页面供给；高级组件按需安装
+runtime_paths.py[PD8S]: F:统一源码和冻结版数据路径并迁移旧版数据 | R:code:local/infrastructure/data_directory.py,code:local/infrastructure/prefs_store.py | A:ensure_data_dir,migration_record,DATA_DIR | S:冻结迁移持跨进程锁只补缺失，原子复制不删除源；等锁超时不记失败也不封死后续重试
+signup_plan.py[AB9L]: F:冻结活动与重试快照，校验时段占用并独立调度多场报名 | R:code:local/time_contract.py,code:local/business_clock.py,code:local/application/plan_service.py | A:TaskSpec,validate_plan,PlanCoordinator | S:举办时段按半开区间检查；已报名活动时段未知也阻止。每场按准备时刻独立启动，不等待前批重试；首次checkpoint不被重放覆盖，终态不退回非终态
+signup_signing.py[KS8S]: F:按学校契约生成报名AES签名并解析运行时密钥 | R:code:local/grab.py | A:parse_runtime_key,build_signup_hash,SignerUnavailable | S:运行时密钥为16位ASCII字母数字原始UTF-8，不做hex或base64解码；CNG不可用仅抛不可用，不自造替代算法
+signup_transport.py[IN8S]: F:有界并发发送已签名报名请求并产生安全结果事件 | R:code:local/grab.py | A:DirectTransport | S:物理并发上限2且无等待队列；逻辑TTL不释放物理请求。started提交点锁内重读截止；关闭不取消在途请求，不自动重试或跟随重定向
+site_target.py[FC8T]: F:解析本机学校站点来源并标识是否已配置 | R:code:tools/release.py,code:server/scripts/site_target.py | A:BASE_URL,CONFIGURED,resolve_base | S:优先级为环境、配置、构建内置；全缺时占位且未配置，学校动作应拒绝
+time_contract.py[CB9M]: F:统一学校时间解析、业务时钟注入和重试硬预算 | R:code:local/business_clock.py,code:local/signup_plan.py | A:parse_school_time,school_epoch,configure_time_source,RetryBudget | S:学校文本固定UTC+8，历史本机保存时刻不改。业务时钟未注入即报错；预算取绝对截止与独立经过时长更紧值，耗尽拒发动作，不能把0传成禁用超时
+update_check.py[IV8L]: F:检查固定仓库正式清单并解析可校验更新资产 | R:code:local/updater.py,code:local/update_delta.py | A:check_latest_release,parse_version,payload_from_manifest,resolve_component_assets | S:每次检查复用一次manifest响应；用到资产损坏即失败，无关旧条目跳过；拆分组件齐备且兼容标识一致才可用。
+update_delta.py[IV8M]: F:生成目录清单及文件差分并校验隔离应用 | R:code:local/updater.py | A:manifest_from_directory,build_delta,apply_delta,verify_directory,validate_relative_path | S:拒绝路径穿越及链接；ZIP成员须精确匹配清单，基础及目标哈希均校验；失败恢复原staging。
+update_launcher.py[EV8M]: F:等待主进程退出并切换版本目录后启动固定程序 | R:code:local/updater.py | A:main,read_current,launch_current,apply_staged,apply_and_launch,wait_parent_process | S:回退current、previous、最大有效版本但不改current；写current失败恢复目录；Windows权限或超时不当已退出，仅错误87可。
+updater.py[IV8L]: F:下载校验更新包并管理隔离staging及版本残留 | R:code:local/update_delta.py,code:local/update_check.py | A:download_payload,launch_installer,sweep_version_root,stage_update,switch_version,select_payload | S:仅HTTPS、限额、大小及SHA256通过才原子保留；清扫不跟链接且保护当前/前版/运行目录；current损坏不删版本。
+开发-启动界面.bat[EU3T]: F:切换源码目录运行桌面应用并保留失败控制台 | R:code:local/app.py | A:双击开发批处理 | S:仅源码开发，不能充当安装包根启动器。
+
+===/<repository>/local/application/===
+__init__.py[AG6T]: F:声明用例通过注入端口调用副作用与发布结构化事件的应用层边界 | R:code:local/app.py | A:标准库和domain依赖约束 | S:禁止反向import app避免组合根导入副作用与依赖环
+activity_list_service.py[AB8S]: F:编排列表单飞拉取、缓存合并、错误记录及结构化结果发布 | R:code:local/application/coordination.py,code:local/domain/plan_rules.py | A:门禁占位/重复请求对账/workerJSON/活动投影 | S:快照深复制；异常必须释放listing，失败不能把旧缓存置空；校时等候与worker、详情请求耗时分别诊断
+advanced_component_service.py[AC8L]: F:管理单组件下载校验、缓存复用、整组提交、取消和移除事务 | R:code:local/infrastructure/component_packages.py,code:local/updater.py | A:单飞下载/拆分资产/单体回退/安装回执 | S:网络错及404不回退单体，404是未发布；取消与安装共锁确定提交点，提交后拒取消；关停须等已提交安装完成或回滚
+auto_relogin.py[AI8M]: F:调度登录检查、失效恢复、人工交接及失败退避并投影统一状态 | R:code:local/domain/login_rules.py,code:local/application/login_relay_service.py | A:定期检查/request_recover/reset/view | S:外部回调锁外执行；busy和其他活跃流程接管不累失败；转人工不增失败，generation隔离reset前回调
+clock_service.py[AR8S]: F:提供业务钟快照、可用性、手动单飞重校、列表短等待和准备前监测 | R:code:local/business_clock.py,code:local/application/plan_admission.py | A:now/snapshot/手动同步/计划前监测 | S:仅demo可用系统墙钟；列表等不到仍继续列表，不因时钟阻断；重校网络在协调锁外，计划准备前20秒每计划请求一次
+component_actions.py[AC8M]: F:编排组件下载导入启停、位置与安全快照，协调登录和手机通道 | R:code:local/application/advanced_component_service.py,code:local/application/component_projection.py | A:advanced_busy/替换停服务/启用偏好/自动更新调度 | S:锁序凭据到手机到协调；隧道停不掉不可替换；安装成功与偏好保存失败分别报告；移除OCR不删持久凭据
+component_projection.py[AC7T]: F:纯投影组件下载、通道、凭据与手机访问事实为界面快照 | R:code:local/application/component_actions.py | A:features/channels/credential | S:退出notice优先后续stopped；不读盘取锁发事件，不输出密码密文及安装路径
+coordination.py[AW9S]: F:持有唯一协调锁、关闭屏障、在途槽位和受管进程登记并代理旧Api字段 | R:code:local/app.py,code:local/application/worker_service.py,code:local/application/desktop_lifecycle.py | A:忙碌/创建登记/关闭完成Event/兼容代理 | S:不可重入锁不能拆：创建登记和关闭资源快照同临界区防漏收。持锁不调用服务，只读锁外发布不可变计划态；locked调用者须持锁，兼容代理不能复制状态
+desktop_lifecycle.py[AW8T]: F:置桌面关闭屏障并按序停止组件登录手机计划及受管进程树 | R:code:local/application/coordination.py,code:local/application/worker_service.py | A:锁内资源快照/锁外关停/完成事件 | S:后到shutdown锁外等待同一完成Event，返回即真正收尾；树终止成功不重复杀PID，异常仍发布完成事件
+login_recovery.py[AI8M]: F:编排检查单飞补查、真实结论、过期通知和中继结束凭据处理 | R:code:local/application/login_service.py,code:local/application/auto_relogin.py | A:检查门禁/补查一次/恢复请求/中继收尾 | S:曾有效后才推一次失效通知；网络异常不记expired。一次性密码拒绝只清内存，不能污染持久凭据，失败清pending_save
+login_relay_service.py[AI9L]: F:单飞暂存凭据并通过worker驱动验证码、OCR转人工和安全状态 | R:code:local/application/worker_service.py,code:local/domain/phone_rules.py | A:begin/submit/cancel/public_state/OCR交接/成功回调 | S:凭据不进文件环境参数日志；锁外spawn且取消关闭后迟到spawn必须终止。同challenge不清输入或重复发事件，submit_pending防重发；手机取消只取消phone来源，历史终态live=false不能重播成功
+login_service.py[AI8T]: F:整理登录检查事件及worker结束结论并连接领域分类与界面协议 | R:code:local/domain/login_rules.py,code:local/domain/worker_lines.py | A:valid/expired/none/unknown/hint/done | S:本轮无粗测须unknown覆盖旧告警；估算不放行；检查取首个来源错误，done从尾部找末错，网络不诱导重登
+phone_access_session.py[AU9L]: F:管理受限HTTP访问、一次性配对、内存会话、设备信任及白名单动作派发 | R:code:local/domain/phone_rules.py,code:local/infrastructure/phone_http.py | A:绑定/配对限速/信任恢复/事件游标/动作派发 | S:seen不续created八小时寿命；手动关闭撤信任而进程退出保留。校验建会话与stop同锁防权限复活；事件锁独立不回调HTTP，严格动作白名单不反射Api；start_plan服务端补source=phone
+phone_service.py[AU8M]: F:编排桌面手机通道开启、状态聚合、隧道退出联动及固定入口恢复 | R:code:local/application/phone_access_session.py,code:local/application/coordination.py | A:状态聚合/启动停止/Tailscale恢复 | S:运行时不能直接切通道；隧道退出notice须保留并停旧HTTP；Cloudflare不自动恢复不签长期信任，计划快照锁外读且只读状态不连学校
+plan_admission.py[AB9L]: F:接纳计划并维护启动幂等对账、取消墓碑、代次和终态提交发布 | R:code:local/application/coordination.py,code:local/domain/plan_rules.py | A:请求ID/门禁复核/最终预留/重放/取消/PlanEvents | S:预检后最终锁内再验时钟忙碌；当前及待定请求不淘汰，取消墓碑独立32条缓存且满拒收，防迟到复活。旧计划不覆盖新代次；成功先写缓存，终态锁外取快照再锁内提交，事件锁外发布
+plan_service.py[AB9L]: F:运行单场worker并装配冻结预算、监督进程、解析进度和证据终态 | R:code:local/domain/plan_rules.py,code:local/domain/retry_window.py,code:local/application/coordination.py | A:参数组装/创建登记/watchdog/行解析/完成通知 | S:业务截止只映射一次单调上限，校时回拨不扩预算；仅自动模式接纳有界严格增长扩窗，终态后不扩。取消不等EOF，先停唤watchdog再join；证据优先杀进程方式，进度不可冒充终态
+signup_cancellation.py[AB8T]: F:编排桌面单场取消门禁、worker归一与成功后缓存回写 | R:code:local/domain/cancel_rules.py,code:local/application/coordination.py | A:cancelling互斥/结果归一/活动事件 | S:未知可能已提交，不重试；成功清signed和sync_pending；非刷新事件后恢复原列表请求终态避免污染对账，学校原话不写取消日志
+update_service.py[AV9L]: F:管理更新检查、受信下载、完整增量目录准备及安装器或启动器发起 | R:code:local/update_check.py,code:local/updater.py | A:单飞/快照接管/delta回退/full准备/launch | S:仅冻结versions布局且有launcher走目录切换，其余安装器；取消后不fallback。launching检查不能清staging；启动器成功才延迟退出，安装器不自动退，错误不得污染登录组件状态
+worker_service.py[AW9S]: F:创建登记短命worker、单任务和登录中继并转发输出与回收进程树 | R:code:local/application/coordination.py,code:local/application/login_service.py | A:run/spawn/relay/pump/超时回收 | S:创建登记与closing同锁，不能先spawn后登记；communicate超时先终树后有界补读，解除登记才关句柄；pump只清自己proc所有权，锚点失败不推翻登录成功
+
+===/<repository>/local/build/===
+build_advanced.py[OV8M]: F:构建手机与OCR单体或四类复用资产并生成摘要清单、ZIP和构建报告 | R:code:local/infrastructure/component_packages.py,code:local/advanced_helper.py | A:组件资产生产/校验探针 | S:输出必须系统临时根独立绝对子目录且拒既有运行目录；手机OCR依赖互斥；cloudflared显式固定版本，OCR运行时模型分开；清单探针过才封包
+build_exe.py[OV8S]: F:先冻结worker再嵌入主程序，支持版本化目录及兼容单EXE | R:code:local/app.py,code:local/grab.py,code:local/update_launcher.py | A:冻结EXE/onedir/更新启动器 | S:worker作为数据落资源根，不能再次分析或成同名目录；失败不降级外置worker，图标缺失立即失败
+build_installer.py[OV8L]: F:从指定冻结程序派生Inno安装包并管理白名单、版本载荷和卸载确认 | R:code:local/build/build_exe.py,code:local/update_launcher.py | A:安装器渲染/编译/产物核验 | S:AppId发布后固定；模板只替换占位键不format花括号；运行状态不得入包，静默卸载保留数据，交互删除默认否且仅默认根
+make_portable.py[OV6M]: F:组装嵌入式Python、应用依赖和启动器的历史绿色目录 | R:code:local/runtime_paths.py,code:local/requirements.txt | A:历史便携包构建 | S:复用输出按精确名单清会话偏好日志，避免运行态进包；浏览器用系统内核
+
+===/<repository>/local/domain/===
+__init__.py[DB6T]: F:声明领域纯函数职责与注入规则 | R:code:local/app.py | A:纯规则依赖边界 | S:不读文件墙钟网络进程，仅标准库及领域包
+cancel_rules.py[DB7T]: F:清洗学校文案并归一worker取消报名末行结果 | R:code:local/grab.py | A:取消返回结构/学校原话清洗 | S:只认最后非空行，坏输出归unknown，仅refused透出清洗后80字原话
+component_rules.py[DV6T]: F:按注入的连续等待时长判定组件检查三十秒超时 | R:code:local/infrastructure/component_packages.py | A:检查超时产品阈值 | S:非法时长按未超时，不自行计时
+demo_data.py[DU6T]: F:生成覆盖开放、冲突、缺失时间、取消能力及奖励三态的离线活动 | R:code:local/app.py | A:注入时刻与格式化器的演示样例 | S:缺失举办时间为空串；零奖励与未公布、未返回分开
+errors.py[DB6T]: F:定义关闭屏障拒绝新worker的语义异常 | R:code:local/app.py | A:ClosingError | S:不能归成组件错误或学校报名失败
+lifecycle_rules.py[DB7S]: F:从上一周期快照计算关闭时长和正常异常未知质量 | R:code:local/domain/time_text.py | A:旧文本与可信epoch生命周期投影 | S:异常周期不套更早关闭记录，矛盾退未知；旧墙钟文本不可反推v2锚点
+log_events.py[DS7T]: F:格式化固定事件日志并过滤敏感键、清洗截断转义字段 | R:code:local/grab.py,code:local/app.py | A:结构化日志文本 | S:固定字段不可覆盖；敏感键包含匹配宁可多挡，过滤不替代调用者避免传敏感值
+login_rules.py[DI8M]: F:归一自动登录、临近开放门禁、会话估算和check四态归因 | R:code:local/app.py,code:local/domain/worker_lines.py | A:登录快照/凭证绑定估算/人工接管 | S:十小时估算不参与放行清理；只认匹配凭证v2锚点；首条失败行归因且网络优先，末尾重登指引不能误判失效
+phone_rules.py[DS9L]: F:定义手机地址来源、动作参数、敏感投影、会话与事件回放纯安全规则 | R:code:local/application/phone_service.py,code:local/infrastructure/phone_http.py | A:绑定/Origin/JSON体/动作参数/文本图像投影/游标 | S:仅回环或TailscaleIPv4绑定；Origin精确匹配；体64KiB且拒坏UTF8非有限JSON及多余键。可输入账号密码但状态不回传凭据；PNG完整验证；八小时会话不滑续，两分钟连接态不等于会话失效
+plan_rules.py[DB9M]: F:权威归一计划项并判断截止冲突、合并短期成功和裁决监督终态 | R:code:local/app.py,code:local/signup_plan.py | A:接纳/缓存同步/停止结果裁决 | S:前端只选活动，缓存事实变化整单拒绝；已报名时段参与冲突；本地成功保留120秒同步窗。成功证据优先退出码与停止；停止不撤回已发请求，未决保留真实计数
+retry_rules.py[DB8S]: F:解析重试终态、归并真实计次并投影路径和登录等待遥测 | R:code:local/domain/retry_window.py,code:local/domain/signup_reply.py | A:worker监督字段 | S:两路真实计数取较大值防回落，last_reason尾字段可含空格；解析失败不改变退出码
+retry_window.py[DB9S]: F:统一三类重试模式绝对截止、约束来源和自动扩窗可接纳增量 | R:code:local/domain/retry_rules.py,code:local/time_contract.py | A:retry窗口公式/监督增量 | S:正数不扩窗，仅-1自动延长120至1500秒；sign_end硬截；无截止的零模式回退120秒。父监督只平移合法增长的单调截止，不因校时重算预算
+signup_reply.py[DB8T]: F:分类学校报名回包并给出终态标签和未知时钟错误阈值 | R:code:local/grab.py | A:classify_signup_reply/stop_reason_label | S:优先成功再4001再短语，失效只认4001不猜文本；未知连续三次、超时两次，分类不执行重试
+time_text.py[DB7T]: F:纯换算时间文本、参考时刻、学校差值及任务监督截止 | R:code:local/domain/retry_window.py | A:注入school_epoch时间换算 | S:缺失时钟时间返回未知，无有效重试起点不给截止
+worker_lines.py[DB8T]: F:解析worker时间前缀、真实checkpoint和HTTP粗校时结构行 | R:code:local/grab.py,code:local/domain/login_rules.py | A:strip前缀/checkpoint/http_date | S:去前缀仅识别，原行留日志；checkpoint只认三种真实事件及正epoch，坏数据不补接收时刻
+
+===/<repository>/local/infrastructure/===
+__init__.py[RI6T]: F:声明副作用适配层边界并在导入时登记WebView模块脚本MIME类型 | R:code:local/infrastructure/webview_mime.py | A:register_script_types | S:导入有MIME登记副作用；不能反向import app，否则引入组合根副作用
+advanced_features.py[IE7M]: F:管理手机与验证码识别高级功能的启用、安装和延迟识别 | R:code:local/infrastructure/component_packages.py,code:local/domain/component_rules.py | A:feature_state,feature_ready,install_feature,classify_captcha | S:启动探测不自动安装；冻结态不以自身EXE跑pip；OCR失败回人工
+component_packages.py[IE9L]: F:校验高级组件与受管通道程序，事务安装并隔离执行helper | R:code:local/infrastructure/data_directory.py,code:local/infrastructure/prefs_store.py | A:feature_status,install,remove,invoke,commit_artifact_group,cloudflared | S:摘要只证完整性不证来源；执行前重验，组按兼容ID及依赖闭合切换；拒绝穿越、链接和额外文件。使用租约阻止运行中换包，事务恢复保留原组
+credential_store.py[PS8S]: F:用Windows DPAPI原子保存秘密文档和账号密码，并管理密码拒绝标记 | R:- | A:save_document,load_document,save,load,mark_bad,is_bad | S:非Windows拒绝加密而不落明文；外层可留用户名，秘密仅在密文；保存新密码清除拒绝标记
+data_directory.py[RC6T]: F:计算源码与冻结版共享数据根并锚定进程默认目录 | R:- | A:base_dir,default_data_dir | S:只计算路径不迁移或建目录；环境覆盖优先，默认首次解析固定进程锚点
+lifecycle_store.py[PD7M]: F:保存启动、心跳及关闭事实并形成上一运行周期提示 | R:code:local/infrastructure/prefs_store.py,code:local/domain/lifecycle_rules.py | A:AppLifecycle,snapshot,finalize | S:run_id归属变更后旧实例让位；可信取时在锁外；缺可信时刻不退回墙钟推测，关闭仍记质量unknown
+phone_http.py[IN8M]: F:提供受限手机HTTP页面、配对、状态与动作路由 | R:code:local/domain/phone_rules.py,code:local/application/phone_service.py,code:local/ui/m/index.html | A:PhoneHttpServer,start,stop,set_public_host | S:公网通道切换后只认当前Host和Origin；动作须有效会话及CSRF。状态只读本机缓存，异常不回请求内容；拒绝前有界排空请求体
+phone_qr.py[IU4T]: F:为手机访问地址生成PNG二维码 | R:code:local/infrastructure/component_packages.py | A:png_data_uri | S:拒绝查询、片段和用户信息，二维码不携带配对码
+phone_session_store.py[PS8S]: F:保存手机设备信任并校验、续期和撤销设备 | R:code:local/infrastructure/credential_store.py | A:PhoneSessionStore,add_device,validate_device,revoke_all | S:DPAPI文档仅存设备令牌摘要，恒时比较；有效期按last_seen滚动365天；损坏读取视为空信任
+prefs_store.py[PD8S]: F:提供偏好原子保存和跨进程读合并写事务 | R:- | A:load_from,atomic_write,prefs_transaction,update,acquire_file_lock,release_file_lock | S:事务锁须覆盖读核验合并写，不能持锁联网或等子进程；超时放弃写，atomic_write自身不加事务锁
+process_tree.py[RR9M]: F:以Windows Job约束worker及后代归属并执行整树回收 | R:- | A:ProcessTree,spawn_owned,spawn_owned_worker,kill_tree,create_job_for,SpawnFailure | S:必须挂起创建、归属Job后恢复；归属失败拒绝降级。Job关闭收后代；终止失败可重试，wait不持Job锁
+single_instance.py[RR7M]: F:阻止重复GUI并通过本机端口唤回既有窗口 | R:code:local/app.py | A:SingleInstance,acquire,start_listener,hand_over,close | S:首份互斥量故障放行，第二份唤回失败仍不建窗；仅回环监听且口令恒时比较；只清自身匹配端口记录
+tray_icon.py[IU5M]: F:以WinForms提供托盘、通知及窗口退出入口 | R:- | A:TrayIcon,start,stop,notify | S:托盘失败不阻塞主程序；隐藏Form只作线程调用句柄，消息循环由ApplicationContext承载
+tunnel_manager.py[IN8M]: F:探测Tailscale地址并管理受管Quick Tunnel进程及公网状态 | R:code:local/infrastructure/component_packages.py,code:local/infrastructure/process_tree.py | A:tailscale_endpoint,resolve_cloudflared,spawn_cloudflared,CloudflareTunnel | S:不从PATH采信cloudflared；进程纳入Job并可持租约。退出撤旧地址，重启需重配对；停止失败保留进程与地址，不能假报关闭
+webview_mime.py[RU6T]: F:登记JavaScript MIME以确保本地服务加载ES模块 | R:- | A:register_script_types | S:Windows可能将.js登记为text/plain，普通脚本可跑但模块拒载，启动必须覆盖映射
+
+===/<repository>/local/installer/===
+ChineseSimplified.isl[FL4L]: F:提供Inno安装器简体中文消息与语言参数 | R:code:tools/release.py | A:LangOptions,Messages | S:此语言文件必须保留UTF-8 BOM，否则Inno按ANSI解码
+
+===/<repository>/local/launchers/===
+1-登录.bat[EI4T]: F:从便携目录启动交互登录 | R:code:local/launchers/_py.bat | A:login | S:-
+2-抢活动.bat[EB4T]: F:从便携目录启动命令行报名 | R:code:local/launchers/_py.bat | A:grab | S:-
+3-检查登录和活动.bat[EU4T]: F:依次检查登录并列出活动 | R:code:local/launchers/_py.bat | A:check,list | S:-
+4-图形界面.bat[EU4T]: F:启动本机图形界面 | R:code:local/launchers/_py.bat | A:gui | S:-
+_py.bat[RV5T]: F:选择Python解释器并分流命令行与无控制台界面启动 | R:code:local/app.py,code:local/grab.py | A:gui,命令透传 | S:GUI启动前额外检查webview，避免pythonw掩盖缺依赖错误
+install.bat[OV5T]: F:引导源码便携版安装依赖、浏览器和初始配置并自检 | R:code:local/requirements.txt,code:local/grab.py | A:安装入口 | S:配置只在不存在时复制；自检失败不会显示安装完成
+启动不了点我.txt[SU3T]: F:说明便携版启动、环境及登录故障的处理步骤 | R:code:local/launchers/_py.bat | A:- | S:-
+遇到问题先看我.txt[SU4S]: F:说明安装版与解压版排障、数据备份和卸载边界 | R:code:local/runtime_paths.py | A:- | S:静默卸载保留数据；自定义数据根与旧迁移源须分别确认
+
+===/<repository>/local/ui/===
+app.js[EU9L]: F:组合桌面工作台启动、后端事件分发和用户交互 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/refresh.js,code:local/ui/controllers/terms.js,code:local/ui/controllers/tick.js | A:boot,window.onBackend,setRetryPolicy | S:bootstrap失败按条款未知关闭学校动作；恢复可见性只摄入计划快照不重发报名；重试偏好仅影响后续计划
+boot-guard.js[RR7T]: F:暂存模块未就绪的后端事件，顺序重放并提供加载失败兜底 | R:code:local/ui/app.js,code:local/ui/main.js,code:local/ui/index.html | A:window.__replayBackendQueue | S:须在app后main前加载；重放前清队列，单条异常不阻断后续；10秒兜底不依赖模块
+index.html[EU9L]: F:定义工作台和对话框DOM契约、内嵌条款全文及脚本顺序 | R:code:local/ui/styles.css,code:local/ui/main.js,code:local/ui/boot-guard.js | A:DOM id,data-act,script清单 | S:普通脚本顺序构成依赖；boot-guard须在模块入口前；条款全文同步文档，许可懒读随包文件。
+led.js[CU5S]: F:用SVG点阵字库绘制倒计时和结果符号 | R:code:local/ui/features/plan/view-led.js | A:LED_UI.renderLed,clearLed,GLYPHS | S:未知字形为空格；同布局仅换点亮状态，不重建节点。
+legacy-globals.js[AU8S]: F:显式将ESM能力挂回普通脚本全局 | R:code:local/ui/main.js,code:local/ui/app.js | A:installLegacyGlobals | S:名单只保留普通脚本消费者；必须先安装再运行首次绘制和绑定。
+main.js[EU9T]: F:组合模块启动、功能接线并释放排队后端事件 | R:code:local/ui/legacy-globals.js,code:local/ui/boot-guard.js,code:local/ui/app.js | A:模块顶层启动 | S:关窗先接线再放事件；首次分档等termsLocked挂回；boot失败标条款未知，不能放开学校动作。
+styles.css[FU6L]: F:定义桌面时刻表、计划大屏、对话框和响应式布局 | R:code:local/ui/index.html | A:桌面工作台样式 | S:原生dialog仅在open时使用flex；计划终态描边只读计划级状态，不能由单场结果提前染整屏。
+
+===/<repository>/local/ui/controllers/===
+bridge.js[IU6T]: F:封装pywebview调用和桥接启动等待 | R:code:local/ui/app.js | A:hasBridge,api,waitForBridge | S:api容器存在不代表bootstrap已注册；等待用单调时钟
+prefs.js[AD6T]: F:串行防抖保存偏好差量并支持立即刷新和失败回队 | R:code:local/ui/controllers/bridge.js | A:flushPrefs,savePrefs,savePrefsNow | S:失败回队新值优先；两次自动失败后停重试，下次修改恢复；立即保存不绕过在途串行
+refresh.js[AB9L]: F:编排登录与列表刷新、超时收口、报名事实合并和后台刷新 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/terms.js | A:refresh,handleCheck,applyActivities,noteSignedTasks,autoRefreshTick,ingestBootstrapPlan | S:请求号及代次隔离旧回调；后台失败保留列表选择。仅成功或已报名形成两分钟本地确认，期后学校列表权威；临近开放或时间未知的运行任务阻止自动刷新
+terms.js[AS9L]: F:编排条款门禁、版本同意事务、拒绝与只读展示 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/prefs.js,code:local/ui/views/terms.js | A:ingestTerms,openTerms,acceptTerms,recheckTerms,declineTerms,ensureLicenseText | S:同意提交绑定全文版本，成功需一致版本及同意时间；超时作废请求号并保留门禁；复查确认后仍清拒绝偏好并补加载；拒绝按版本保存
+tick.js[AW8S]: F:按业务时钟推进工作台倒计时和阶段显示并检测睡眠间隔 | R:code:local/ui/controllers/refresh.js,code:local/ui/app.js | A:tick,receiveSecondOpen,doCheck,cleanReason,grabHint,leftText | S:睡眠间隔用单调时钟；业务时间未知不以系统墙钟代替；跨行状态或取消边界才整表重绘
+
+===/<repository>/local/ui/features/clock/===
+actions.js[AR9S]: F:摄入业务时钟锚点并编排校准、快照轮询及界面门禁 | R:code:local/ui/features/shell/actions-render.js,code:local/ui/features/plan/view-controls.js,code:local/ui/controllers/bridge.js | A:markClockUnavailable,ingestBusinessClock,resyncClock,pollClockNow,startClockPolling,wireClockActions | S:非权威快照不切owner，旧代次及旧采样不回退；同代不可用保留可读锚点；失败不增代次，按syncRound收口；轮询只读本机快照
+
+===/<repository>/local/ui/features/components/===
+actions.js[AE8M]: F:编排组件选包自检、安装、下载取消及重试 | R:code:local/ui/features/phone-access/state.js,code:local/ui/features/components/view.js,code:local/ui/features/components/state-row.js | A:componentsActionsPack,retryComponent,wireComponentRetries,wireRowToggles | S:仅验证路径可安装且拒绝exe；安装标记到快照刷新后才清；重试重置等待基点，后台下载独立轮询
+state-machine.js[DE8T]: F:纯推导手机与OCR共有组件状态和读状态 | R:code:local/domain/component_rules.py | A:COMPONENT_STATES,COMPONENT_PROBES,componentState | S:running优先为enabled；下载校验优先；超时须后端标记且本次重试基点再满30秒，阈值与后端同步
+state-ocr.js[DE6T]: F:保存OCR局部反馈并投影组件阶段 | R:code:local/ui/features/components/state-machine.js,code:local/ui/features/phone-access/state.js | A:ocrFeature,OcrPanel,ocrPhase | S:优先PhonePanel快照再回落高级功能；本层不调用桥接或DOM
+state-row.js[DU8M]: F:纯投影组件行文案、动作和进度并保存运行内开合 | R:code:local/ui/features/components/state-machine.js | A:ROW_TONES,BROKEN_NOTE,rowOpen,setRowOpen,rowHead | S:读状态最后覆盖动作；未知下载总量不编造进度，校验显示满进度；手机默认展开OCR收起且不持久化
+state.js[DU6T]: F:将组件下载错误码映射为用户说明和恢复建议 | R:code:local/ui/features/components/actions.js | A:IMPORT_TITLE,PHONE_DOWNLOAD_REASON,downloadFailText | S:限流及未发布文案不重复追加重试句；未知码保留后端说明
+view-ocr.js[IU6S]: F:绘制OCR组件状态、下载说明及导入反馈 | R:code:local/ui/features/components/view-row.js,code:local/ui/features/components/state-ocr.js | A:paintOcrDownload,ocrShow,ocrText | S:只有观察下载或校验转为installed才提示安装完成；导入刷新期间隐藏旧错误
+view-row.js[IU6S]: F:按组件行投影绘制共享按钮、进度和详情 | R:code:local/ui/features/components/state-row.js | A:paintComponentRow | S:每行最多一只主按钮；校验中禁取消，手动导入仅失败后显示
+view.js[IU5T]: F:绘制组件导入弹窗和包自检结论 | R:code:local/ui/features/phone-access/state.js,code:local/ui/features/components/state.js | A:importCheckText,componentsPaintPack | S:安装按钮依验证事实启用，exe明确说明不是组件包
+
+===/<repository>/local/ui/features/list/===
+actions-cancel.js[AB8T]: F:编排活动取消报名确认并展示后端复核结论 | R:code:local/ui/features/shell/actions-render.js | A:cancelAsk,cancelAskDismiss,cancelConfirm | S:只有确认才调取消接口，提交时重验窗口及时钟；仅cancelled清本地已报名并后台刷新，未知不冒充取消
+actions-filters.js[AU5T]: F:绑定活动筛选并保存筛选与展开偏好 | R:code:local/ui/features/shell/actions-render.js | A:setFilterOpen,setFilter,wireFilters | S:-
+actions-selection.js[AB7S]: F:管理活动选择、可见列表全选和行内交互分流 | R:code:local/ui/features/list/actions-cancel.js,code:local/ui/features/plan/view-draft.js,code:local/ui/features/terms/state.js | A:toggleSelection,clearSelection,tipGoSigned,wireRowActions | S:条款门禁同样阻止选中；地点与冲突提示交互不触发行选择或开始计划
+state-errors.js[DU6T]: F:按组件、登录及网络事实投影活动列表失败文案 | R:code:local/ui/features/shell/state-runtime.js | A:listErrorCopy | S:组件错误优先于登录解释；静默自动登录中不要求用户重登
+
+===/<repository>/local/ui/features/login/===
+actions-browser.js[AI8S]: F:编排浏览器登录尝试和终态收口 | R:code:local/ui/features/login/state.js,code:local/ui/features/terms/state.js | A:doLogin,handleDone,loginFailCopy | S:取消、超时及失败恢复尝试前登录事实；成功清旧估算锚点，已有列表补加载走后台轮
+actions-recovery.js[AI8S]: F:编排恢复账号的一次运行暂存、加密保存及确认清除 | R:code:local/ui/features/phone-access/state.js | A:recoveryActionsPack | S:加密不可用退为本次运行；请求后无论成败清空输入，异常不回显原文
+actions-relogin.js[AI9M]: F:编排桌面重登、中继验证码、自动转人工及浏览器交接 | R:code:local/ui/features/login/state-relogin.js,code:local/ui/features/login/view-relogin.js,code:local/ui/features/login/actions-browser.js | A:loginEntry,openRelogin,openLogin,closeRelogin,receiveReloginState,wireRelogin | S:已有live流程直接接续；关框取消人工而不取消未转人工的自动流程；切浏览器先等取消释放。验证码绑定flow和challenge；计划忙不刷新，明确密码错误不重试
+actions.js[AI8T]: F:摄入登录锚点和自动恢复状态并同步相关视口 | R:code:local/ui/features/login/state-machine.js,code:local/ui/features/login/view.js | A:applyAutoState,receiveAutoState,setLogin,syncLoginDependentView | S:仅认auto_state，缺字段保留；估算用后端绝对锚点不按接收时间续期，显式null清除锚点
+state-machine.js[DI8T]: F:纯推导登录阶段与兼容视图状态 | R:code:local/ui/features/login/actions.js,code:local/ui/features/login/view.js | A:LOGIN_PHASES,LOGIN_VIEW_STATES,AUTO_STATES,loginPhase,loginViewState | S:忙碌不遮蔽明确失效及自动恢复；条款覆盖普通阶段但保留演示、自动恢复与登录中
+state-recovery.js[DI5T]: F:遮罩账号以供恢复状态展示 | R:code:local/domain/login_rules.py | A:maskAccount | S:-
+state-relogin.js[DI7T]: F:推导重登步骤、操作组合和后端拒绝说明 | R:code:local/ui/features/login/actions-relogin.js,code:local/ui/features/login/view-relogin.js | A:RELOGIN_STEPS,RELOGIN_CASES,reloginWay,reloginActs,reloginCapSub,reloginRefusal | S:从账号表单进验证码保留上一步；plan_late独立表达100秒临界限制
+state.js[DI8T]: F:保存登录前快照并据绝对锚点及业务钟投影有效期估算 | R:code:local/ui/features/login/actions-browser.js,code:local/ui/features/login/view.js | A:loginSnapshotState,restoreLoginSnapshotState,loginHoursLeft,expiryText,loginEstimateShort,loginEstimateText | S:估算仅展示不参与放行或判失效；业务钟不可用则剩余未知，预计过期仍服从学校valid事实
+view-recovery.js[IU6S]: F:绘制保存和暂存账号、恢复能力及管理确认 | R:code:local/ui/features/phone-access/state.js,code:local/ui/features/login/state-recovery.js | A:recoveryPaintPack | S:saved优先staged，暂存不能冒充只用一次；存储不可用锁定本次运行
+view-relogin.js[IU7M]: F:绘制重登步骤、表单和验证码挑战 | R:code:local/ui/features/login/state-relogin.js,code:local/ui/features/plan/state-draft.js | A:reloginStep,reloginResetForm,reloginShowChallenge,reloginCase,reloginNextReady,reloginCodeReady | S:每次开框清密码验证码及保存勾选；验证码四位字母数字，图和尝试事实仅取后端
+view.js[IU7S]: F:绘制登录胶囊、横幅及自动恢复退避 | R:code:local/ui/features/login/state.js,code:local/ui/features/login/state-machine.js | A:loginBannerHtml,paintLogin | S:未知校验提示网络而非重登；估算不替学校结论；退避使用单调时钟
+
+===/<repository>/local/ui/features/phone-access/===
+actions-panel.js[AU7S]: F:装配手机面板、组件和恢复账号方法并绑定入口 | R:code:local/ui/features/phone-access/state.js,code:local/ui/features/phone-access/actions.js,code:local/ui/features/components/actions.js | A:startPhonePanel | S:所有方法装配完成后才接线，启动同时等待模块及DOM可用
+actions.js[AU8M]: F:编排手机快照轮询、配对、启停及通道偏好 | R:code:local/ui/features/phone-access/state.js,code:local/ui/features/phone-access/view.js | A:phoneActionsPack | S:只轮询本机状态，隐藏或忙跳过；关闭先确认，换通道只存偏好不改运行监听；配对倒计时自减不读墙钟
+state-link.js[DU7T]: F:纯投影手机连接和最近联系文案 | R:code:local/domain/phone_rules.py | A:PHONE_LINK_STATES,phoneLinkView | S:连接与配对分别判断；优先后端link，不重算120秒阈值；时间未知不编造间隔
+state.js[DD8M]: F:保存手机面板状态并投影组件、通道与配对事实 | R:code:local/ui/features/components/state-machine.js,code:local/ui/features/phone-access/state-link.js | A:PhonePanel,phonePhase,phoneLinkedNow,channelCards,setRetryWaitBase,clearSettledRetryBase | S:运行通道服从active_channel，不随偏好漂移；配对认设备数或live会话；两组件重试基点独立
+view.js[IU7M]: F:绘制手机通道、组件、二维码及关闭确认 | R:code:local/ui/features/phone-access/state.js,code:local/ui/features/components/view-row.js | A:phoneShow,phoneText,phonePaintPack | S:组件ready不代表通道二进制可用，保留补装入口；配对与在线分开，安装中遮住旧错误
+
+===/<repository>/local/ui/features/plan/===
+actions-draft.js[AU4T]: F:绑定计划标题地点的展开操作 | R:code:local/ui/features/plan/view.js | A:bindPlaceToggle | S:只改当前按钮展开属性，保留键盘焦点
+actions-events.js[AB8S]: F:收口计划完成事实、结果及停止后修改草稿恢复 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/actions-run.js | A:presentPlanDone,handlePlanDone,restartStoppedPlan,loggedConclusion,showTaskResult | S:完成须过计划归属；重复终态只补详情；修改草稿等真实stopped；待核对不写失败不自动重发
+actions-run.js[AB8S]: F:编排任务取消、停止确认与快照对账及修改重选 | R:code:local/ui/features/plan/state-board.js,code:local/ui/features/plan/view-controls.js | A:cancelTask,stopPlan,confirmStopPlan,modifyPlan,doStopPlan,reselectFailed | S:确认停止后busy等待终态；提交中或开放前100秒禁修改；停止按planId及尝试号隔离迟到回包；无此计划先bootstrap核实
+actions-start.js[AB9M]: F:提交唯一请求ID的开始请求，只读对账并恢复接纳后的计划快照 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/actions-events.js,code:local/ui/features/terms/state.js | A:startPlan,reconcileStart,adoptPlan,restoreEditedPlan | S:开始15秒未回应只查start_request_state，未知时继续锁开始。过期接纳回复不能接管当前计划，同计划已终态不因旧运行快照复活。场次快照交由mergeTask保留先到的进度和计数
+actions.js[AB8T]: F:摄入计划和场次事件，推进界面状态并把已报名事实同步到活动列表 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/actions-events.js | A:advancePlanStatus,handlePlan,handleTask,verifyTask | S:旧计划事件不能替换当前计划，plan事件不能将同计划终态改回运行。天生乱序的场次载荷交mergeTask。成功同步冲突判断，刷新核对仅拉列表，不重发报名
+state-board.js[DB8M]: F:推导计划栏结果分类、运行警告和修改重选资格 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/state-task.js | A:resultMode,resultCounts,resultView,planLate,reselectableIds,runWarnView | S:满额、待核对、睡眠错过和取消分列；重选排除满额及待核对；提交或开放前100秒禁修改
+state-draft.js[DB7T]: F:推导自动登录条件与开始前非阻断提醒 | R:code:local/ui/features/login/state-recovery.js,code:local/ui/features/terms/state.js | A:autoLoginCredential,latestSelectedOpen,preStartWarnings | S:自动登录须保存凭据、OCR可用且无密码拒绝；最晚开放时刻决定提醒；直到截止缺截止回退2分钟须明示
+state-led.js[DU7T]: F:统一路线目标、截止和点阵格式并适配LED渲染 | R:code:local/ui/features/plan/state-task.js | A:routeDeadline,routeTime,routeTarget,ledSet,fmtLed | S:目标来自执行模型而非原选择；ledSet实际操作DOM适配器，缺LED_UI保留文本层
+state-machine.js[DB7T]: F:按事实优先级纯推导十九种计划栏阶段 | R:- | A:BOARD_PHASES,boardPhase | S:首次、登录、结果与条款先于常规草稿；不读DOM、window或时钟
+state-task.js[DB9M]: F:统一任务阶段、执行目标、准备证据和重试截止 | R:- | A:taskDisplayPhase,executionView,taskPrepared,effectiveRetryDeadline,taskDisplayDetail,verifiedSigned | S:submitting包含预热，attempts>0才证真实提交；无列表项用任务自身快照。截止优先telemetry与冻结起点；0直到截止、-1初始120秒；plan_done前全终态仅汇总
+state.js[DB9S]: F:合并场次运行事实、判定计划消息归属并维护结果页与结果分类 | R:code:local/ui/state/clock.js,code:local/ui/state/store.js | A:mergeTask,planEventOwns,admitPlanEvent,openResultPage,resultPageOpen,planOutcome | S:同一场次的非终态载荷不能覆盖已结束状态，提交次数只增，缺值不清已有遥测。不同计划只有较新接纳代次可接管，旧格式只在空屏接纳。成功自动移出选中不关结果页，待核对与登录未知分计
+view-controls.js[IU7T]: F:投影登录条款时钟和运行互斥到工作台控件门禁 | R:code:local/ui/features/terms/state.js,code:local/ui/features/plan/view-draft.js | A:updateControls | S:真实开始须学校valid且不在checking；开始对账未知继续锁；组件缺失保留刷新恢复入口
+view-dock.js[IU6T]: F:绘制中窄档草稿、运行及结果底部计划条 | R:code:local/ui/features/plan/state-board.js,code:local/ui/features/plan/view-draft.js | A:paintDock | S:宽屏或计划栏展开时隐藏；存在开始前提醒不提供直接开始
+view-draft.js[IU7S]: F:绘制草稿检查、提醒、分组票卡和重试策略 | R:code:local/ui/features/plan/state-board.js,code:local/ui/features/plan/state-draft.js | A:paintChecks,paintPrewarn,startBlocker,paintWhy,paintTickets,paintPolicyLine | S:运行或结果页不显示旧草稿与策略编辑；地点仅改自身展开以保焦点
+view-led.js[IU7M]: F:绘制五站执行路线、倒计时和LED结论 | R:code:local/ui/features/plan/state-led.js,code:local/ui/features/plan/state-task.js | A:paintRoute,paintCountdown,paintLedLabel,paintLedBox,paintLed | S:启动准备仅认checkpoint；未知时间不编倒计时；开放截止是参考节点，不冒充真实事件
+view.js[IU7M]: F:按计划阶段绘制主栏、运行操作、结果和逐场卡 | R:code:local/ui/features/plan/state-machine.js,code:local/ui/features/plan/state-board.js,code:local/ui/features/plan/state-task.js | A:BOARD_STYLE,paintSelected,paintRunPanel,paintResultPanel,paintPlan,taskHtml | S:待核对只给刷新核对且不重发；学校已报名事实优先；警告未变不重建按钮以保焦点
+
+===/<repository>/local/ui/features/shell/===
+actions-help.js[AU5T]: F:打开帮助并编排教程重播 | R:code:local/ui/features/shell/actions-tour.js,code:local/ui/features/shell/view-help.js | A:showHelp,wireHelp | S:运行计划时不重播引导；先关帮助模态再启动教程
+actions-log-panel.js[AU4T]: F:切换运行记录面板并保存展开偏好 | R:- | A:setLogOpen,wireLogPanel | S:恢复偏好用silent避免再次排队保存
+actions-render.js[AU8T]: F:统一工作台重绘并协调忙状态与教程暂停恢复 | R:code:local/ui/features/plan/view.js,code:local/ui/features/plan/view-led.js,code:local/ui/features/shell/actions-tour.js | A:render,setBusy | S:计划运行优先暂停教程，结束从原步骤恢复；列表重绘仅重新定位现有教程高亮
+actions-settings.js[AU7S]: F:编排设置抽屉、条款撤回及OCR启用和组件位置操作 | R:code:local/ui/features/components/state-ocr.js,code:local/ui/features/components/view-ocr.js | A:openSettings,openSettingsSection,closeSettings,wireSettings | S:撤回须二次确认，以后端条款快照立即关门禁且不删账号；关抽屉清撤回确认条
+actions-tour-exit.js[AU5T]: F:关闭、完成或跳过教程并恢复焦点和保存版本记录 | R:- | A:tourClose,tourSkip,wireTourExit | S:跳过仅抑制本内容版本自动弹出；恢复焦点前确认元素仍在页面
+actions-tour.js[AU6S]: F:编排教程自动开始、步进、焦点约束及暂停恢复 | R:code:local/ui/features/terms/state.js,code:local/ui/features/shell/view-tour.js,code:local/ui/features/shell/actions-tour-exit.js | A:tourShouldAutoStart,requestAutoTour,maybeStartTour,startTour,tourPauseNow,tourResumeNow | S:自动教程须条款已同意、登录有效且列表就绪；按教程内容版本抑制，与软件版本无关；互动步只放行目标行
+actions-window-close.js[AU8M]: F:编排关窗三选、运行中退出二次确认与偏好保存 | R:code:local/ui/index.html,code:local/ui/state/store.js | A:openWindowCloseDialog,wireWindowClose | S:计划运行时退出二次确认；托盘不可用且手机未连接禁隐藏；Esc不落入全局清空选择。
+state-runtime.js[DR6T]: F:投影worker组件和启动故障的恢复文案 | R:code:local/ui/state/store.js | A:RUNTIME_ERRORS,runtimeErrorCopy | S:未知键按spawn_failed，不把组件故障说成登录失效。
+view-band.js[IU6T]: F:按视口分档切换计划与列表布局 | R:code:local/ui/styles.css | A:bandOf,applyBand,setPlanOpen | S:断点与CSS一致；宽档不保留计划展开态，中窄档计划与列表互斥。
+view-banners.js[IU7T]: F:按优先级投影顶部提示及恢复入口 | R:code:local/ui/features/shell/state-runtime.js,code:local/ui/features/terms/state.js | A:paintBanners | S:只显首条；缺睡眠窗口不声称没有错过；条款未知不自动视为同意。
+view-help.js[IU5T]: F:呈现三步帮助、局部反馈和引导重播入口 | R:code:local/ui/state/store.js | A:fillHelp,helpStatus,revealHelpStatus,paintReplayButtons | S:长地址或错误只作局部反馈，不触发WebView导航。
+view-result.js[IU5T]: F:展示有色调结果条、动作和自动收起 | R:code:local/ui/state/store.js | A:setResult | S:先清旧计时器；到期计划忙则保留；文本转义后进入HTML。
+view-tour.js[IU6T]: F:呈现五步引导进度、高亮及实际选择反馈 | R:code:local/ui/state/store.js | A:tourVisible,paintTour | S:只定位真实可勾行，不代用户勾选；目标不可见或窄窗时退为底部说明。
+
+===/<repository>/local/ui/features/terms/===
+state.js[DD8T]: F:投影条款同意状态和学校动作锁定 | R:code:local/ui/state/store.js,code:local/ui/controllers/terms.js | A:termsAccepted,termsLocked | S:演示不锁；unknown必锁；尚无版本但非unknown时后端兜底，不冒充已确认结论。
+
+===/<repository>/local/ui/features/update/===
+actions.js[AV8S]: F:编排手动版本检查、下载确认取消及安装启动 | R:code:local/ui/views/update.js,code:local/ui/state/store.js | A:receiveUpdate,restoreUpdate,checkUpdate,startDownload,confirmDownload,launchInstaller | S:仅接当前request_id事件，合并进度保留安装器；检查不下载；迟到ack不能回退完成态。
+
+===/<repository>/local/ui/m/===
+app.js[AU8L]: F:实现手机配对、活动选取、报名计划遥控与重登现场 | R:code:local/ui/m/index.html,code:local/ui/state/conflict.js | A:PhoneModel,PhoneUI | S:开始结果未知时保留原请求标识只读对账，不自动重发；业务倒计时依赖电脑时钟快照，睡眠跳变后弃用旧锚点。手机可提交新输入凭据，关闭重登面板即清输入。
+index.html[EU7M]: F:提供手机配对页、计划板与操作抽屉的语义结构 | R:code:local/ui/m/app.js,code:local/ui/m/styles.css | A:配对页,计划核对,重新登录 | S:核对及重登页脚位于滚动内容之外；手机是电脑遥控器，关闭或睡眠电脑会中断执行。
+styles.css[FU5L]: F:定义手机单栏列表、点阵板与底部抽屉布局 | R:code:local/ui/m/index.html | A:手机页面样式 | S:hidden全局优先；抽屉页脚固定在内容滚动区外并计入安全区。
+
+===/<repository>/local/ui/state/===
+clock.js[DD9M]: F:把后端时钟快照锚定到浏览器单调域并判可信时间 | R:code:local/ui/state/store.js,code:local/ui/state/time.js | A:clockReading,businessNowMs,bnowS,bnLeftSec,clockUiState | S:无效返回null不是0；锚点900秒寿命及500毫秒误差上限；桥接误差只计一次，漂移仅采样后时长。
+conflict.js[DB8S]: F:投影跨天时段、已报名冲突时间线及取消资格 | R:code:local/ui/state/time.js,code:local/ui/state/filters.js | A:actSpanAbs,cancelWindowOpen,canCancelNow,conflictTipModel,cancelBlock | S:窗口未知返回null；零点结束按前日24:00；取消须避开计划与刷新并发，气泡要求已确认重叠。
+filters.js[DB9M]: F:归一化活动详情并投影筛选、选择、冲突和下一场 | R:code:local/ui/state/store.js,code:local/ui/state/labels.js,code:local/ui/state/conflict.js | A:normalize,filtered,nextOpen,validateSelection,signedClash | S:筛选不改全局下一场与冲突集合；未知签到不写无需，奖励0不丢；冲突比举办半开区间，已报名时间缺失保守阻止。
+labels.js[DD8S]: F:按业务时间投影报名模式、活动任务状态及时间标签 | R:code:local/ui/state/clock.js,code:local/ui/state/time.js | A:modeOf,stateOf,taskLabel,taskClass,leftOf | S:时钟无效不拿OS判开放；未知开放时间与待校准分开；未确认结果警示中性色，最终门禁在后端。
+rounds.js[DD8T]: F:管理刷新标识、owner接续缓存和代次幂等落地 | R:code:local/ui/controllers/refresh.js,code:local/ui/state/store.js | A:newRoundId,cacheRoundPayload,takeRoundPayload,markRoundApplied,loginPresent | S:缓存16项130秒按单调时长；skipped接owner不增代次；状态可跨轮重放、提示跨轮去重；登录存在缺失不强转false。
+store.js[DD9S]: F:集中持有桌面状态S、帮助引导及重试选项 | R:code:local/ui/controllers/refresh.js,code:local/ui/features/terms/state.js | A:S,$,DEFAULT_HELP,TOUR_STEPS,FIRST_USE_POINTS | S:保留登录重试前完整快照和计划最大代次；组件故障同轮check/list都无故障才解除；条款交互仅内存。
+time.js[DG8S]: F:严格解析学校UTC+8时间并提供格式、跨天文本及转义 | R:code:local/ui/state/clock.js,code:local/ui/state/labels.js | A:toTs,schoolParts,fmt,durText,relDayText,dayLabel | S:非法日期回验拒绝自动滚月；相对日期取可信业务现在，未知时不猜跨日或年份，不用主机时区。
+
+===/<repository>/local/ui/views/===
+clock-pop.js[AU6S]: F:呈现业务校时详情及学校HTTP粗测诊断 | R:code:local/ui/state/clock.js,code:local/ui/views/clock.js | A:applyClock,renderClockPop,toggleClockPop | S:学校HTTP时间只用于诊断，不参与业务时间；轮询重画保留展开记录和滚动位置。
+clock.js[AU6T]: F:渲染顶栏业务时钟状态与重试提示 | R:code:local/ui/state/clock.js | A:paintClockStatus | S:退避提示仅在retrying档显示，走字不重建详情浮层。
+conflict-tip.js[AU6S]: F:呈现与已报名活动重叠的原因及时间轴气泡 | R:code:local/ui/state/conflict.js,code:local/ui/views/list.js | A:tipOpen,paintTip,tipKey | S:气泡挂在body使用fixed避免列表裁剪；仅标签悬停或聚焦打开，重算无冲突即关闭。
+list.js[AU7L]: F:渲染活动分组、行状态、列表空态及计划摘要 | R:code:local/ui/state/filters.js,code:local/ui/state/store.js | A:paintList,paintEmpty,paintRail | S:无可信时间时可报名数为待确认；成功返回零场与尚未加载分开，空态动作使用显式dataset意图。
+log.js[AO5T]: F:呈现有界运行记录并提供复制 | R:code:local/ui/state/store.js,code:local/ui/state/time.js | A:addLog,copyLog | S:worker带有效业务时间戳时不叠接收时间；最近40条去重，界面最多500条。
+selection.js[AU5T]: F:呈现报名状态筛选计数及更多筛选展开状态 | R:code:local/ui/state/filters.js | A:paintChips,paintMoreFilters | S:更多筛选计数不包含常驻关键词和状态胶囊；时钟未知时可报名计数不报伪零。
+settings.js[AU6T]: F:呈现设置抽屉、关窗偏好与条款撤回状态 | R:code:local/ui/state/store.js,code:local/ui/features/terms/state.js | A:paintClosePref,paintTermsRow | S:撤回确认开合独立记录；运行计划期间禁撤回并显示原因，关闭偏好未知值退回ask。
+status-cards.js[AU7M]: F:管理时钟登录手机三张详情卡及手机连接标识 | R:code:local/ui/views/clock-pop.js,code:local/ui/features/phone-access/state-link.js | A:openStatusCard,paintStatusCards,wireStatusCards | S:登录预计有效仅提示，不参与失效和放行；手机标识按访问快照而非配对数，固定卡不被悬停抢走。
+terms.js[AU7L]: F:呈现条款全文、首次说明、版本更新与许可阅读状态 | R:code:local/ui/features/terms/state.js,code:local/ui/views/settings.js | A:paintTerms,applyTermsFooter,switchTermsDoc | S:未知状态不宣称未同意；保存未确认时禁重复同意并提供复查；首次说明勾选门缺元素时拒绝，更新框无勾选门。
+update.js[AU7S]: F:呈现手动更新各阶段、下载进度和安装动作 | R:code:local/ui/features/update/actions.js | A:paintUpdate,updateErrorText,revealUpdateStatus | S:状态换来的推进按钮先停800毫秒防连点；launching须后端启动成功前缀才允许关工具。
+
+===/<repository>/server/===
+README.md[SG5S]: F:说明服务器能力、部署入口和权限边界 | R:code:docs/OPERATIONS.md,code:docs/FEISHU_BOT.md,code:docs/CONFIG.md | A:服务器能力表,常用命令,文档导航 | S:群无个人状态或动作；仅本人清单自动报名；旧server分支不作开发源。
+config.example.json[FC5T]: F:展示脱敏服务器通知、过滤和动态发现配置 | R:code:docs/CONFIG.md,code:server/README.md | A:site,notify,filter,watch | S:站点留空且通知字段占位；填入真实凭据后不能入库。
+requirements.txt[FC6T]: F:声明服务器Python浏览器登录报名及验证码识别依赖 | R:code:server/scripts/login.py,code:server/deploy/auto_login.py | A:playwright,ddddocr | S:常规抓取推送用标准库；Node浏览器守护依赖不由此文件提供。
+
+===/<repository>/server/bot/===
+bot.js[EM9L]: F:按群和owner私聊分流飞书消息卡片并编排查询预报名 | R:code:server/bot/handled_messages.js,code:server/scripts/query.py,code:server/scripts/watchlist.py,code:server/scripts/grab_card.py | A:BOT_ROLE=combined,im.message.receive_v1,card.action.trigger | S:角色非法拒启；群仅响应真人@且只读；私聊动作校验owner及记录会话；仅实际回复成功持久去重；缓存损坏或自身身份未知不建长连接。
+handled_messages.js[ID8S]: F:持久化消息处理记录并抑制并发重投 | R:code:server/bot/bot.js,code:server/bot/test_handled_messages.js | A:HandledMessages,load,has,mark,processOnce | S:handler严格true才mark，异常及finally释放在途供重试；坏JSON或时间戳抛错不重建；48小时2000条上限。
+package.json[FM3T]: F:声明飞书机器人包入口和SDK运行依赖 | R:code:server/bot/bot.js | A:npm start | S:-
+test_bot_runtime.js[TM7L]: F:用VM假飞书及子进程覆盖combined权限、降级和持久去重 | R:code:server/bot/bot.js,code:server/bot/handled_messages.js | A:node server/bot/test_bot_runtime.js | S:用户表隔离临时目录；假WS不联网，等异步启动达到start或exit稳定点才断言。
+test_handled_messages.js[TD6S]: F:离线检验持久去重、失败重试、并发、过期和坏文件 | R:code:server/bot/handled_messages.js | A:node server/bot/test_handled_messages.js | S:withStore等异步用例完成才finally清临时目录；不载bot、不跑子进程或网络。
+
+===/<repository>/server/deploy/===
+README.md[SO5T]: F:索引登录维护、自动报名与安装交付落点 | R:code:docs/OPERATIONS.md,code:server/deploy/auto_login.py | A:部署文件表,同步命令 | S:凭据和运行data不随仓库交付；真实依赖版本无部署证据时标blocked。
+atomic_json.js[ID8T]: F:独占同目录临时文件原子写JSON | R:code:server/deploy/server_refresh.js | A:atomicWriteJson | S:先序列化，wx及0600建临时文件，fsync关闭后rename；失败仅清本次文件，新目录0700不改已有权限。
+auto_login.py[EI9L]: F:复核会话失效并驱动验证码登录及owner告警 | R:code:server/scripts/common.py,code:server/scripts/token_probe.py | A:main,--check,--force,--trigger,--preempt,--dry-run | S:单次失败即时复核，网络未知不当失效；flock单实例，最多5次间隔30秒；凭据权限开放拒绝；登录及业务API双确认后原子保存；换新寿命取指纹首见非saved_at。
+campus-autologin.service[OI8T]: F:定义无人值守重登一次性systemd服务 | R:code:server/deploy/auto_login.py | A:campus-autologin.service | S:oneshot超时300秒；owner为部署占位须与机器人一致。
+campus-autologin.timer[OW6T]: F:每五分钟调度自动登录检查 | R:code:server/deploy/campus-autologin.service | A:campus-autologin.timer | S:Persistent补错过触发，分钟精度不能充当秒级报名时钟。
+campus-login.service[OI8T]: F:定义浏览器登录维持daemon及重启日志策略 | R:code:server/deploy/server_refresh.js | A:campus-login.service | S:失败30秒重启，可选外部EnvironmentFile覆盖站点，日志append。
+deploy.sh[OV7T]: F:通过SSH上传私有业务包与会话并调用远程安装 | R:code:server/deploy/remote_install.sh,code:server/deploy/sync_token.sh | A:deploy.sh user@host | S:先探SSH且要求已有会话；真实配置随部署包上传、会话独立0600，不可作脱敏发布打包器。
+grab_signup.py[EB9L]: F:对指定活动预加载并按开放时序执行页面报名及最终通知 | R:code:server/scripts/watchlist_runner.py,code:server/deploy/auto_login.py | A:main,BurstPolicy,run_submit_loop | S:只指定活动本人会话；sign_end硬截扩窗；计次绑定真实signUp请求并保留引用，乱序响应按请求结算；丢响应保留pending，查不到不等于失败；退出移除监听。
+make_template.sh[OV7S]: F:收集依赖并生成脱敏combined服务交付ZIP | R:code:server/bot/bot.js,code:server/bot/handled_messages.js,code:server/deploy/atomic_json.js | A:make_template.sh | S:机器人与去重、续期与原子写成对复制缺件失败；配置从占位生成；只一个combined连接，owner与机器人身份分开。
+remote_install.sh[OW8S]: F:校验环境并安装错峰cron及combined服务模板 | R:code:server/scripts/fetch.py,code:server/scripts/watchlist_runner.py,code:server/bot/bot.js | A:remote_install.sh | S:真实fetch成功才写cron；替换匹配旧任务后追加全清单；缺凭据或owner不生成服务，生成只提示启用不自动起连接。
+server_refresh.js[EI9M]: F:用一次性或常驻页面维持刷新机会并保存有效会话 | R:code:server/deploy/atomic_json.js,code:server/deploy/campus-login.service | A:server_refresh.js,--daemon | S:API验证后才写完整状态及业务会话，失败退出4；daemon检测外部状态重载但不主动登录；常驻仅给刷新机会不保证续期。
+set_credentials.py[EI8T]: F:交互收集账号密码并原子替换部署凭据 | R:code:server/deploy/auto_login.py | A:main | S:密码不回显，中断空值不写；临时及结果0600，只输出权限字节数；需保留stdin键盘输入。
+sync_token.sh[OI7T]: F:校验后经SSH同步会话并在远端复验 | R:code:server/scripts/fetch.py,code:server/scripts/login.py | A:sync_token.sh user@host | S:本机fetch失败不传，远端目录不存在拒绝；覆盖0600后真实复验；固定解释器路径须核环境。
+test_atomic_json.js[TD6S]: F:离线检验原子JSON写入保旧清理和权限 | R:code:server/deploy/atomic_json.js | A:node server/deploy/test_atomic_json.js | S:不载Playwright；finally清独立目录；Windows跳POSIX权限，不能作Linux权限已验证。
+
+===/<repository>/server/deploy/legacy/===
+README.md[SO2T]: F:标明旧nginx触发路由停用及恢复前提 | R:code:docs/OPERATIONS.md | A:历史部署说明 | S:保留旧脚本不证明当前外部触发链接可用。
+install_nginx_http_route.py[OO3T]: F:为旧vhost插入HTTP触发反向代理 | R:code:server/deploy/legacy/README.md | A:脚本顶层,TRIGGER_TOKEN | S:仅历史模板；标记防重复，校验失败恢复备份。
+install_nginx_route.py[OO3T]: F:在旧nginx锚点插入精确触发代理 | R:code:server/deploy/legacy/README.md | A:脚本顶层,TRIGGER_TOKEN | S:仅历史入口；无锚点不改，校验失败恢复。
+
+===/<repository>/server/deploy/logrotate/===
+campus[OO4T]: F:按周或大小轮转登录及业务日志 | R:code:server/deploy/server_refresh.js | A:logrotate配置 | S:copytruncate保留inode兼容追加写；delaycompress延后压缩。
+
+===/<repository>/server/scripts/===
+activity_watch.py[AB9L]: F:按昼夜排期发现公开活动变化并持久化待发送事件 | R:code:server/scripts/common.py,code:server/scripts/fetch.py,code:server/scripts/run.py | A:compute_events,merge_pending,initialize_baseline,main | S:首轮只建基线；失败不清快照或推断结束，连续缺三轮才移除；待发先落盘，发送严格True才清；非阻塞锁防堆积，dry仍联网取锁。
+card.py[DU8L]: F:构造公开日报动态及owner预报名卡片 | R:code:server/scripts/common.py,code:server/scripts/render.py | A:pending_card,digest_card,public_event_card,grab_pending_card,remind_card,status_label | S:公开卡无个人报名及写动作；预报名仅私聊；按钮value用字符串与base64url防SDK字典及名称分隔兼容问题。
+common.py[CG9M]: F:集中服务器配置、北京时间、状态会话和原子读写锁 | R:code:server/scripts/site_target.py,code:server/scripts/fetch.py | A:business_now,load_config,load_session,atomic_write_text,file_lock,update_state | S:坏状态JSON抛错不能清去重历史；写先权限后replace并fsync；OS锁外叠RLock及路径重入计数；监测、推送和私人意愿状态分开。
+fetch.py[IB9M]: F:完整分页拉取学校活动并归一化公开及本人报名投影 | R:code:server/scripts/common.py,code:server/scripts/card.py,code:server/scripts/query.py | A:fetch_all,classify,classify_public,public_item,item_status,main | S:4001短暂重试后才判失效；分页不完整抛错；公开白名单剔除signed且不因本人已报隐藏；抓取不能标推送成功。
+grab_card.py[AU8S]: F:保存私聊卡快照并按活动与清单重建刷新 | R:code:server/scripts/card.py,code:server/scripts/notify.py,code:server/scripts/watchlist.py | A:save,load,live_items,refresh,card_json | S:快照白名单0600原子写；已开放不挂预报名；点击回调直接新卡，后台变化才PATCH，成功message_id作刷新依据。
+login.py[II8S]: F:静默同步浏览器会话或等待本人可见浏览器登录 | R:code:server/scripts/common.py,code:server/scripts/fetch.py | A:build_session,try_silent_sync,interactive_login,main | S:静默只认localStorage出现token，没有额外API校验；交互最多15分钟；日志不输出敏感身份，保存走common。
+net_probe.py[IR7S]: F:区分学校不可达与整机断网并控频通知 | R:code:server/scripts/site_target.py,code:server/scripts/notify.py | A:main | S:不携token只读512字节；HTTP错误仍算可达；连续两败才告警且每周期最多三次发送，异常退出0。
+notify.py[IU9L]: F:适配多平台推送、飞书限流及owner私聊卡片更新 | R:code:server/scripts/common.py,code:server/scripts/card.py,code:server/scripts/grab_card.py | A:send,send_card,send_private,send_private_card,update_card | S:HTTP2xx不代表业务成功，拒bool当0；仅限流码退避；私聊须环境owner、用户记录及显式会话一致，收件人未知不取token；None未配置与False失败分开。
+query.py[AU7S]: F:为机器人实时生成公开或本人活动文本与卡片 | R:code:server/scripts/fetch.py,code:server/scripts/card.py,code:server/scripts/render.py | A:main,render_pending,render_open,render_mine,render_types | S:仅生成不发送；本人视图必须由调用方守私聊；当前分类用datetime.now而非业务时钟。
+regress.py[TQ7S]: F:串行运行服务器日报扫描查询及自检汇总结果 | R:code:server/scripts/run.py,code:server/scripts/scan.py,code:server/scripts/selfcheck.py | A:run,main | S:非离线：真实查询扫描且临时改生产推送时间再恢复，还调用改去重状态脚本，不可当无副作用检查。
+remind.py[AB8T]: F:筛选当天未开始的本人已报名活动发私聊提醒 | R:code:server/scripts/fetch.py,code:server/scripts/notify.py,code:server/scripts/card.py | A:main | S:个人状态不回退群；dry仍抓真实接口；成功可为message_id不能只认True；今日按datetime.now。
+render.py[DU7S]: F:统一活动日报查询提醒的纯文本排版及总条数 | R:code:server/scripts/card.py,code:server/scripts/query.py | A:pending_lines,open_lines,digest_items,digest_lines,trim | S:卡片文本共用限额；时间带日期避免历史消息相对时间失真；digest两类合计限额。
+run.py[AB9M]: F:编排抓取公共日报、成功去重及可选owner私聊卡 | R:code:server/scripts/fetch.py,code:server/scripts/common.py,code:server/scripts/notify.py | A:main,build_message,build_watch_message,send_watch_events,send_grab_card | S:锁内占推送时刻后锁外发，失败仅仍属自身占位才回滚；严格True才成功且只记实际展示条目；私聊失败不回滚公共成功，dry仍真实抓取写报告。
+scan.py[AB8S]: F:分批提醒未来十分钟开放活动并按开放时刻去重 | R:code:server/scripts/fetch.py,code:server/scripts/notify.py | A:main,send_rush_card | S:查重发送落盘同锁防cron重叠；严格True才记，失败停后续批保重试；公开不按本人signed过滤。
+selfcheck.py[TQ7M]: F:检查状态、并发扫描、飞书缓存及卡片文本一致性 | R:code:server/scripts/scan.py,code:server/scripts/notify.py,code:server/scripts/card.py | A:main,check_token_cache,check_cards,check_parity,check_limit_parity | S:非离线只读：起四个真实scan，删token缓存再向飞书申请落盘，可能发临近提醒并改业务状态。
+site_target.py[CC8T]: F:解析服务器唯一学校根地址及配置状态 | R:code:server/scripts/common.py,code:server/scripts/net_probe.py | A:resolve_base,BASE_URL,CONFIGURED,CONFIG_MESSAGE | S:环境变量先于配置site.base；无配置占位且CONFIGURED=false；本机服务器不共享运行时代码。
+token_probe.py[II8M]: F:探测学校会话有效性并记录指纹与独立告警周期 | R:code:server/scripts/common.py,code:server/scripts/token_report.py | A:main | S:不改会话或业务去重；网络异常5秒后重试一次；两次非ok告警最多三次发送，HTTP/JSON错误归网络，通常退出0。
+token_report.py[AQ6M]: F:按指纹归并探针观测寿命并生成Markdown | R:code:server/scripts/token_probe.py | A:parse_lines,group_by_token,describe,render,main | S:saved_at空格须非贪婪解析；同指纹取最早保存时间；仅写报告，首次fail按当前实现直接判失效。
+trigger_server.py[IW8S]: F:提供口令HTTP触发强制日报及健康检查 | R:code:server/scripts/run.py | A:Handler.do_GET,main | S:无TRIGGER_TOKEN拒启；精确路径锁内占60秒冷却；run --force绕防重且180秒超时；输出HTML转义，启动及默认请求日志会含口令路径。
+watchlist.py[AB9M]: F:持久化本人预报名意愿并冻结运行时序策略 | R:code:server/scripts/common.py,code:server/scripts/watchlist_runner.py | A:load,save,add,remove,mark,main | S:坏清单抛错不空覆盖；事务锁内本地改写0600；同ID再加重置queued；拒硬截止不晚于开放或已过窗口；个人意愿独立去重。
+watchlist_runner.py[AW9M]: F:对齐预报名清单并交systemd执行及收编结算 | R:code:server/scripts/watchlist.py,code:server/deploy/grab_signup.py | A:main,launch,unit_token,unit_name,status_file,read_code | S:runner锁叠清单事务；unit用完整ID哈希防串场；先running再拉起，0码才done；冻结策略原样传，dry仍可写终态并删除旧状态文件。
+
+===/<repository>/server/scripts/dev/===
+README.md[SQ5T]: F:界定一次性接口探索与手工推卡工具 | R:code:server/scripts/dev/explore.py,code:server/scripts/dev/probe_login.py,code:server/scripts/dev/push_card.py | A:开发工具索引 | S:可能真实联网；长期能力应提升正式scripts并补验证。
+explore.py[IQ5T]: F:用持久Chrome探查活动入口及接口页面摘要 | R:code:server/scripts/common.py | A:main | S:真实站点访问且写探索产物，并非离线；未配置退出，导入及产物根按dev层级计算。
+probe_login.py[II5T]: F:采样登录页输入、验证码候选、按钮及iframe | R:code:server/scripts/common.py | A:main,JS | S:只采结构不提交登录；未配置站点返回2；导入路径仅加入dev自身。
+push_card.py[IU5T]: F:向指定飞书会话发送菜单或空列表测试卡 | R:code:server/scripts/notify.py,code:server/scripts/card.py | A:build,main | S:真实发送而非预览；提供chat_id才取token；当前只看HTTP布尔未复核业务码。
+
+===/<repository>/tools/===
+build_update_delta.py[OV7T]: F:离线封装版本差分ZIP及旁路清单生成 | R:code:local/update_delta.py | A:build_outputs,main | S:复用产品归档验证；清单去下划线内部字段，.part原子替换，失败清本次半成品。
+qa_business_clock_worker.py[TQ8M]: F:从候选EXE提取worker并隔离执行过期重试探针 | R:code:local/grab.py,code:local/business_clock.py,code:tools/release.py | A:run_probe,main,--exe,--evidence-root | S:不执行主EXE；固定QA epoch非真实授时，tick同机；退出2且单个retry_duration终态及无登录产物才满足断言；零网络仍依赖生产边界验证。
+qa_runtime_reliability.py[TU8L]: F:以本地回环服务加载生产UI及测试桥驱动Edge验收 | R:code:local/ui/index.html,code:local/tests/fixtures/runtime_bridge.js | A:main,--run,--scenario,--ui-root,--evidence-root | S:桥插led.js前；外部请求全拦并记失败，页面及控制台错误也失败；仅回环且不杀占端口者，Edge缺失blocked不安装；无run也建证据目录启停服务。
+release.py[OV9L]: F:以VERSION分离只读检查、本地构建准备与正式发布 | R:code:VERSION,code:tools/release_guards.py,code:local/build/build_installer.py,code:local/update_delta.py | A:main,stage_local_assets,verify_release_assets,do_publish,zip_server,write_manifest | S:准备前后HEAD及dirty一致；站点仅环境注入并finally移除生成模块；ZIP与独立EXE同源；单资产300MiB/清单65536字节上限；发布干净main、来源指纹及人工确认后上传前重验，tag不强改。
+release_guards.py[OQ8S]: F:顺序执行发版结构分层静态及全量守卫并校验站点 | R:code:tools/release.py,code:tools/code_shape/check.py,code:requirements-dev.txt | A:run_guards,guard_steps,run_command,site_origin_for_build | S:每步有界且失败即停，超时124；当前解释器不自动装ruff；正式构建缺站点或非HTTPS拒绝，dirty预览可未注入。
+split_branches.py[OV8S]: F:从干净main生成local/server根快照及可选推送 | R:code:local/README.md,code:server/README.md,code:docs/OPERATIONS.md | A:main,build_branch,--dry-run,--only | S:临时clone无硬链接并建orphan，排敏感产物；默认真实force推送；dry仍临时建分支提交仅免推送；分发快照非开发源。
+verify_autologin_loop.py[TI9S]: F:故意破坏服务器会话并等待timer检验无人值守闭环 | R:code:server/deploy/auto_login.py,code:server/scripts/token_probe.py,code:server/deploy/campus-autologin.timer | A:main,--dry-run,--timeout | S:真实运行先0600备份再破坏、超时恢复；只认本轮offset后登录开始、复探ok及指纹相符；会真实登录告警；dry仍建备份时间线并读会话。
+
+===/<repository>/tools/code_shape/===
+README.md[SQ7S]: F:定义代码大小分层、名单收紧及模块守卫口径 | R:code:tools/code_shape/check.py,code:tools/code_shape/ui_modules.mjs | A:规则说明,检查命令 | S:名单只减不增；匿名函数按出现顺序标识，前插导致键错位需人工批准仅改键不改数值。
+baseline.json[FQ7L]: F:记录存量超限文件函数测试与多赋值属性类 | R:code:tools/code_shape/check.py | A:files,functions,test_functions,classes | S:记录值只允许收紧，甲档与类含原因；不是豁免新增或增长的许可。
+check.py[XQ8L]: F:按统一物理行与属性量法比对和收紧代码大小名单 | R:code:tools/code_shape/baseline.json,code:tools/code_shape/jsfuncs.mjs | A:collect,compare,tighten,main | S:新未跟踪源码也查；Python函数不含装饰器且嵌套单算；属性仅三方法以上赋值；缺node只读可跳JS，init/tighten拒写防删名单。
+jsfuncs.mjs[XQ6T]: F:向大小守卫输出JS函数范围与物理行JSON | R:code:tools/code_shape/jsscan.mjs,code:tools/code_shape/check.py | A:命令行文件列表 | S:末行无换行补一行；量法保留匿名函数位置供调用方归一化。
+jslex.mjs[KQ7M]: F:无依赖扫描JS记号、模板插值及括号深度 | R:code:tools/code_shape/jsscan.mjs,code:tools/code_shape/ui_refs.mjs | A:tokenize,matchBrackets,braceDepths,KEYWORDS | S:模板插值展开普通记号并计花括号深度；正则不闭合回退为除号，文本段本身不当引用。
+jsscan.mjs[KQ7S]: F:由JS记号识别函数体范围及嵌套限定名 | R:code:tools/code_shape/jslex.mjs | A:findFunctions,enclosingFunction | S:仅块体箭头计函数，表达式箭头不计；头至右花括号两端计行，嵌套独立且纳入外层。
+ui_layer_allow.json[FQ7T]: F:记录普通前端脚本跨层引用存量白名单 | R:code:tools/code_shape/ui_refs.mjs | A:state,views | S:当前两组为空；按文件与名字约束只减不增，不能回调注入上层来绕守卫。
+ui_modules.mjs[XQ8M]: F:只读检查模块图、分层、缺导入及全局桥名单 | R:code:tools/code_shape/ui_refs.mjs,code:tools/code_shape/ui_modules_expect.json | A:moduleLayer,命令行,--expect | S:容忍环用于列报而非建图崩溃；普通脚本引用仅模块定义却未挂window单列，拼接测试会掩盖此缺陷；入口不计普通全局使用表。
+ui_modules_expect.json[FQ7S]: F:保存模块守卫零问题约束和过渡全局清单 | R:code:tools/code_shape/ui_modules.mjs | A:五类问题表,plain_globals_used,legacy_globals_attached | S:由--expect生成不手写；五类问题须空，两全局清单逐项相等而非只比数。
+ui_refs.mjs[XQ8M]: F:构建混合脚本清单并按记号清点前端跨层名字引用 | R:code:tools/code_shape/jslex.mjs,code:tools/code_shape/jsscan.mjs,code:tools/code_shape/ui_modules.mjs | A:pageFiles,moduleImports,moduleGraph,analyzeFile,topDefs,scanUses | S:只接受单行不改名单具名相对导入，越ui或循环拒绝；普通脚本在前、模块后序；属性键字符串及局部遮蔽不计引用，手机页不纳入。
