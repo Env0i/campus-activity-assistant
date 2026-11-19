@@ -24,11 +24,12 @@ export function handlePlan(payload, options) {
   const id = String(data.plan_id || "");
   const status = String(data.status || (restore ? "running" : "ready"));
   const samePlan = !!S.plan.id && S.plan.id === id;
-  /* 同计划已定终态：重复终态与迟到运行快照只补任务详情，不改结论、不复活忙态、不重开结果页（P1） */
+  /* 同计划已定终态：重复终态与迟到运行快照只补任务详情，不改结论、不复活忙态、不重开结果页（P1）。
+   * 只有「恢复快照 + 同一终态」放行调用方按既有请求归属同步全局忙态（后端可另有受管操作在忙）。 */
   if (samePlan && PLAN_TERMINAL.indexOf(S.plan.status) >= 0) {
     mergePlanTasks(data.tasks);
     render();
-    return false;
+    return restore && status === String(S.plan.status);
   }
   if (!samePlan) {
     S.plan = { id: id, gen: gen, status: status, tasks: new Map(), armedAt: Date.now() / 1000 };

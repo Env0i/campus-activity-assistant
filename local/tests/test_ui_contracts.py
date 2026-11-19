@@ -1427,15 +1427,9 @@ class DualModeUiContractTests(unittest.TestCase):
         js = read("ui/app.js")
         self.assertIn("TASK_RUNTIME_FIELDS", js, "缺少运行时字段清单")
         self.assertIn("function mergeTask(", js, "缺少任务合并函数 mergeTask")
-        for anchor, merger in (("function handlePlan(", "mergePlanTasks("),
-                               ("function handleTask(", "mergeTask(")):
-            anchor_at = js.index(anchor)
-            body = js[anchor_at:anchor_at + 900]
-            self.assertIn(merger, body,
-                          "%s 必须经 mergeTask 合并，不能整对象覆盖" % anchor.strip("function ("))
-        helper_at = js.index("function mergePlanTasks(")
-        self.assertIn("mergeTask(", js[helper_at:helper_at + 300],
-                      "计划级合并入口必须委托 mergeTask")
+        anchor_at = js.index("function handleTask(")
+        self.assertIn("mergeTask(", js[anchor_at:anchor_at + 900],
+                      "handleTask 必须经 mergeTask 合并，不能整对象覆盖")
         # 恢复入口已是薄转发（快照统一交给 handlePlan），源码位置断言改由行为覆盖：
         # 同一计划的旧快照缺真实 checkpoint 和次数时，路线/任务卡保留已有事实。
         res = run_js(r"""

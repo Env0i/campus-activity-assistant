@@ -140,8 +140,14 @@ function resyncPlanFromBootstrap(wasEditing, planId, attempt) {
     if (!ownsStopReply(planId, attempt)) return;
     if (!info) { if (wasEditing) addLog("停止没成功，计划继续运行"); return; }
     /* 归属已由 ownsStopReply 核对：统一恢复入口同步允许的忙态与停止位 */
-    ingestBootstrapPlan(info, true);
-    if (wasEditing) addLog(info.busy ? "停止没成功，计划继续运行" : "计划已经结束，修改作废");
+    const synced = ingestBootstrapPlan(info, true);
+    /* 结论按恢复后的原计划事实写：已切到别的计划不补结论；同一计划的结果只认
+     * 终态，或已同步的空闲无计划快照；同步被拒时不用原始 info.busy 猜结论 */
+    if (S.plan.id === planId && wasEditing) {
+      const ended = PLAN_TERMINAL.indexOf(S.plan.status) >= 0
+        || (synced && !(info.plan && info.plan.plan_id) && !S.busy);
+      addLog(ended ? "计划已经结束，修改作废" : "停止没成功，计划继续运行");
+    }
     render();
   }).catch(() => {
     if (!ownsStopReply(planId, attempt)) return;

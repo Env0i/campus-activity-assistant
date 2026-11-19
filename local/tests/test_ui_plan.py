@@ -548,6 +548,41 @@ out.push({ stopping: S.stopping, stop: $("#btn-stop").textContent });
         self.assertFalse(data["stopping"])
         self.assertNotIn("正在停止", data["stop"])
 
+    def test_terminal_snapshot_syncs_global_busy_without_touching_result(self):
+        """同计划同终态的有效快照：全局忙态随快照禁用/恢复登录按钮，结果页与结论不动。"""
+        data = run_js(TRANSITIONS_PRELUDE + r'''
+window.onBackend.plan({ plan_id: "p1", plan_generation: 1, status: "running", tasks: [] });
+window.onBackend.plan_done({ plan_id: "p1", plan_generation: 1,
+  status: "completed", summary: { total: 0 } });
+const reply = (busy) => ({ busy: busy, plan: { plan_id: "p1", plan_generation: 1,
+  status: "completed", summary: { total: 0 }, tasks: [] } });
+let next = reply(false);
+window.pywebview = { api: {
+  bootstrap: () => Promise.resolve(next),
+  check: () => Promise.resolve({ ok: true, result: "valid" }),
+  list_activities: () => Promise.resolve({ ok: true, items: [] }),
+} };
+document.hidden = false;
+const back = async (busy) => {
+  next = reply(busy);
+  window.__docListeners.visibilitychange.forEach((fn) => fn());
+  for (let i = 0; i < 8; i += 1) await Promise.resolve();
+  return { busy: S.busy, loginDisabled: $("#btn-login").disabled,
+           open: S.resultOpen, status: S.plan.status,
+           title: $("#selected").textContent };
+};
+const on = await back(true);
+const off = await back(false);
+out.push({ on: on, off: off });
+''')[0]
+        self.assertTrue(data["on"]["busy"], "同计划同终态的有效快照要能同步全局忙态")
+        self.assertTrue(data["on"]["loginDisabled"], "全局忙态时登录按钮禁用")
+        self.assertTrue(data["on"]["open"], "结果页状态保持打开")
+        self.assertEqual(data["on"]["status"], "completed", "已定结论不被快照改写")
+        self.assertFalse(data["off"]["busy"], "忙态撤掉后恢复空闲")
+        self.assertFalse(data["off"]["loginDisabled"], "登录按钮随全局忙态恢复")
+        self.assertTrue(data["off"]["open"], "结果页不会被忙态同步关掉")
+
 
 class FrameAndStopLogTests(unittest.TestCase):
     """收尾小修：外框随登录、停止记录按快照写。先断言用户看得到的，再断言内部值。"""
@@ -622,6 +657,46 @@ doStopPlan(); await flush(); render(); out.push({ logs: S.recentLogs.join("|"), 
         self.assertNotIn("计划已经结束，修改作废", data["logs"])
         self.assertIn("当前没有这个计划", data["logs"])
         self.assertFalse(data["busy"])
+
+    def test_stale_plan_snapshot_does_not_end_the_running_plan(self):
+        """B 运行时返回旧 A 的终态：不得把 B 记成已结束。"""
+        data = run_js(TRANSITIONS_PRELUDE + r'''
+window.pywebview = { api: {
+  stop_plan: () => Promise.resolve({ ok: false, text: "当前没有这个计划" }),
+  bootstrap: () => Promise.resolve({ busy: false, plan: {
+    plan_id: "pa", plan_generation: 1, status: "completed", summary: { total: 1 },
+    tasks: [{ task_id: "ta", activity_id: "a1", name: "A场一", status: "success" }] } }) } };
+window.onBackend.plan({ plan_id: "pb", plan_generation: 2, status: "running",
+  tasks: [{ task_id: "tb", activity_id: "b1", name: "B场一", status: "waiting", attempts: 0 }] });
+S.editing = { ids: [], doneN: 0 };
+doStopPlan(); await flush(); render();
+out.push({ logs: S.recentLogs.join("|"), busy: S.busy, id: S.plan.id, status: S.plan.status });
+''')[0]
+        self.assertIn("停止没成功，计划继续运行", data["logs"])
+        self.assertNotIn("计划已经结束，修改作废", data["logs"])
+        self.assertEqual(data["id"], "pb", "旧 A 的快照不得换掉 B")
+        self.assertEqual(data["status"], "running")
+        self.assertTrue(data["busy"])
+
+    def test_valid_terminal_snapshot_ends_the_plan_even_with_global_busy(self):
+        """B 的有效终态与另一操作的 busy true 同时返回：仍记 B 已结束。"""
+        data = run_js(TRANSITIONS_PRELUDE + r'''
+window.pywebview = { api: {
+  stop_plan: () => Promise.resolve({ ok: false, text: "当前没有这个计划" }),
+  bootstrap: () => Promise.resolve({ busy: true, plan: {
+    plan_id: "pb", plan_generation: 2, status: "failed", summary: { total: 1 },
+    tasks: [{ task_id: "tb", activity_id: "b1", name: "B场一", status: "failed",
+              stop_reason: "unconfirmed", attempts: 3 }] } }) } };
+window.onBackend.plan({ plan_id: "pb", plan_generation: 2, status: "running", tasks: [] });
+S.editing = { ids: [], doneN: 0 };
+doStopPlan(); await flush(); render();
+out.push({ logs: S.recentLogs.join("|"), busy: S.busy, id: S.plan.id, status: S.plan.status });
+''')[0]
+        self.assertIn("计划已经结束，修改作废", data["logs"])
+        self.assertNotIn("停止没成功，计划继续运行", data["logs"])
+        self.assertEqual(data["id"], "pb")
+        self.assertEqual(data["status"], "failed")
+        self.assertTrue(data["busy"], "另一操作的全局忙态保持")
 
 # ==================== 源自 test_ui_plan_board.py ====================
 """计划栏认状态、认按钮和任务卡的行为测试。
