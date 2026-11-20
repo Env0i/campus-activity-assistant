@@ -22,7 +22,9 @@ from domain.lifecycle_rules import compute_lifecycle, compute_lifecycle_v2
 from domain.time_text import format_local_text
 from infrastructure.prefs_store import (
     PrefsLockTimeout,
+    PrefsReadError,
     atomic_write,
+    load_for_update,
     load_from,
     prefs_transaction,
 )
@@ -60,11 +62,20 @@ class AppLifecycle:
         self._prev_v2 = None
         try:
             with prefs_transaction(self._prefs):
-                self._load_and_claim(load_from(self._prefs))
+                self._load_and_claim(load_for_update(self._prefs))
         except PrefsLockTimeout:
             # 跨进程锁拿不到：本次启动元数据写入整体放弃。界面仍可用，下一次
             # 心跳或启动会重新读取；宁可少记一次，也不覆盖另一个实例的周期。
             self._load_and_claim(load_from(self._prefs), write=False)
+        except PrefsReadError:
+            # 读不到当前偏好（文件被占用）：同样不写，按空事实记展示用快照，
+            # 绝不拿空字典合并后写回——那会把别人的偏好整份冲掉。
+            self._load_and_claim({}, write=False)
+        except OSError:
+            # 写盘一直失败（目标正被别的句柄占着）：这次启动元数据没写成，程序
+            # 照常启动。上一周期的展示快照在抛出前已经算好，直接留着即可，不再
+            # 重试写入——下一次心跳还会再来一趟。
+            pass
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._heartbeat, daemon=True,
                                         name="lifecycle-heartbeat")
@@ -119,7 +130,7 @@ class AppLifecycle:
             with prefs_transaction(self._prefs):
                 if not force and self._stop.is_set():
                     return False
-                prefs = load_from(self._prefs)
+                prefs = load_for_update(self._prefs)
                 incoming = patch or {}
                 if "lifecycle_v2" in incoming:
                     stored = prefs.get("lifecycle_v2")
@@ -130,7 +141,9 @@ class AppLifecycle:
                 prefs.update(incoming)
                 self._atomic_write(prefs)
                 return True
-        except PrefsLockTimeout:
+        except (PrefsLockTimeout, PrefsReadError, OSError):
+            # 锁拿不到、读不到当前偏好、写不进去：都按「这次元数据没写成」处理，
+            # 心跳与启动都不该被它拖慢，更不该拿空快照覆盖别人的偏好。
             return False
 
     def _heartbeat(self) -> None:

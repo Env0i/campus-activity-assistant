@@ -2117,6 +2117,117 @@ class PlanDoneNoticeTests(unittest.TestCase):
                          "托盘没起来时返回 False，不抛异常")
 
 
+class SavePrefsWriteFailureTests(unittest.TestCase):
+    """保存偏好撞上写不进去（Windows 文件占用）：如实返回失败，绝不把异常抛给界面。"""
+
+    def test_save_prefs_turns_a_denied_write_into_a_failure_result(self):
+        try:
+            import app as local_app
+        except Exception as exc:   # pragma: no cover - 环境缺依赖时跳过
+            self.skipTest("无法导入 local/app.py：%s" % exc)
+        import types
+
+        tmp = tempfile.TemporaryDirectory(prefix="campus-save-prefs-")
+        self.addCleanup(tmp.cleanup)
+        prefs_path = Path(tmp.name) / "ui.json"
+
+        def denied(_path, _prefs):
+            raise PermissionError(5, "拒绝访问")
+
+        dummy = types.SimpleNamespace()   # save_prefs 只把 patch 交给 update_prefs
+        with mock.patch.object(local_app, "PREFS", prefs_path), \
+                mock.patch.object(local_app, "load_prefs", lambda: {"keep": 1}), \
+                mock.patch.object(local_app, "_atomic_write_prefs", denied):
+            got = local_app.Api.save_prefs(dummy, {"probe": True})
+        self.assertFalse(got["ok"], "写不进去不能让界面以为保存成功")
+        self.assertEqual(got["error"], "prefs_busy")
+        self.assertFalse(prefs_path.exists(), "失败时不得留下半个偏好文件")
+
+    def test_save_prefs_keeps_the_file_when_current_prefs_cannot_be_read(self):
+        """读不到当前偏好（文件被占着）：整次放弃，返回失败，文件一个字节都不变。
+
+        读的替身打在文件读取这一层（Path.read_text 只对这一个路径抛），不打在
+        app 的读函数名上——打名字的话，把 update_prefs 改回宽松读（读不到就返回
+        空字典再合并写回）测不出来，而那正是会冲掉整份偏好的那条路。
+        """
+        try:
+            import app as local_app
+        except Exception as exc:   # pragma: no cover - 环境缺依赖时跳过
+            self.skipTest("无法导入 local/app.py：%s" % exc)
+        import types
+
+        tmp = tempfile.TemporaryDirectory(prefix="campus-save-prefs-read-")
+        self.addCleanup(tmp.cleanup)
+        prefs_path = Path(tmp.name) / "ui.json"
+        prefs_path.write_text(json.dumps({
+            "terms_version": "2026-11-03-r4",
+            "terms_accepted_at": "2026-11-20 09:00:00",
+            "filter": {"q": "讲座", "status": "all"},
+        }, ensure_ascii=False), encoding="utf-8")
+        before = prefs_path.read_bytes()
+        real_read_text = Path.read_text
+
+        def denied(path_self, *args, **kwargs):
+            if Path(path_self) == prefs_path:
+                raise PermissionError(5, "拒绝访问")
+            return real_read_text(path_self, *args, **kwargs)
+
+        dummy = types.SimpleNamespace()   # save_prefs 只把 patch 交给 update_prefs
+        with mock.patch.object(local_app, "PREFS", prefs_path), \
+                mock.patch.object(Path, "read_text", denied):
+            got = local_app.Api.save_prefs(dummy, {"close_action": "hide"})
+        self.assertFalse(got["ok"], "读不到当前偏好不能让界面以为保存成功")
+        self.assertEqual(got["error"], "prefs_busy")
+        self.assertEqual(prefs_path.read_bytes(), before,
+                         "读不到当前偏好时绝不拿空字典合并写回，条款同意与筛选都不能丢")
+
+
+class LoginExpiredPushTransportTests(unittest.TestCase):
+    """失效推送经注入端口发送：应用层不自己联网，端口失败只记一行日志。"""
+
+    HOOK = "https://hook.invalid/opaque"
+
+    def _run(self, port_failure=None):
+        from application.login_recovery import LoginRecovery
+
+        sent, logs = [], []
+        done = threading.Event()
+
+        def post_json(url, body):
+            try:
+                sent.append((url, body))
+                if port_failure is not None:
+                    raise port_failure
+            finally:
+                done.set()
+
+        service = LoginRecovery(coordination=None, lock=threading.Lock(),
+                                ports={"post_json": post_json})
+        service.push_expired(webhook=self.HOOK,
+                             emit=lambda kind, payload: logs.append(payload))
+        self.assertTrue(done.wait(2.0), "推送没有走注入端口")
+        return sent, logs
+
+    def test_push_goes_through_the_injected_port_without_account_fields(self):
+        sent, logs = self._run()
+        self.assertEqual(len(sent), 1, "只发一次，不重试")
+        url, body = sent[0]
+        self.assertEqual(url, self.HOOK)
+        text = body.decode("utf-8")
+        payload = json.loads(text)
+        self.assertEqual(payload["msg_type"], "interactive")
+        self.assertIn("登录已失效", json.dumps(payload, ensure_ascii=False))
+        for banned in ("username", "password", "token", "student"):
+            self.assertNotIn(banned, text, "推送体不得带账号或登录信息")
+        self.assertTrue(any("已推送到飞书" in str(item) for item in logs))
+
+    def test_port_failure_only_logs_the_exception_type(self):
+        sent, logs = self._run(port_failure=TimeoutError("timeout"))
+        self.assertEqual(len(sent), 1)
+        self.assertTrue(any("飞书推送失败：TimeoutError" in str(item) for item in logs),
+                        "端口失败只记类型，不冒异常、不把内容写进日志")
+
+
 class LoginExpiredPushTests(unittest.TestCase):
     """登录失效推飞书：本次运行里有效过、之后变成失效才推，同一次失效只推一次。"""
 

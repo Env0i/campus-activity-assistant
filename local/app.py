@@ -75,6 +75,7 @@ from infrastructure import phone_http as _phone_http
 from infrastructure import advanced_features as _advanced_features
 from infrastructure import component_packages as _component_packages
 from infrastructure import credential_store as _credential_store
+from infrastructure import feishu_webhook as _feishu_webhook_post
 from infrastructure import phone_session_store as _phone_session_store
 from infrastructure import phone_qr as _phone_qr
 from infrastructure import tunnel_manager as _tunnel_manager
@@ -518,6 +519,7 @@ def version_switch_available(*, frozen=None, here=None, version=None, launcher=N
 # 偏好存储原语已下沉 infrastructure.prefs_store；旧名字保留为再导出，
 # 测试与调用方继续用 app.load_prefs_from / app._atomic_write_prefs 等注入。
 load_prefs_from = _prefs_store.load_from
+_load_prefs_for_update = _prefs_store.load_for_update
 _atomic_write_prefs = _prefs_store.atomic_write
 _PrefsLockTimeout = _prefs_store.PrefsLockTimeout
 _acquire_prefs_file_lock = _prefs_store.acquire_file_lock
@@ -627,17 +629,17 @@ _PREFS_SAVE_TIMEOUT_S = _prefs_store.SAVE_TIMEOUT_S   # 用户偏好：给正在
 def update_prefs(patch: dict) -> bool:
     """统一的原子读-合并-写（Api.save_prefs 与生命周期心跳共用同一把锁）。
 
-    拿不到跨进程锁就返回失败：绕过文件锁写入会覆盖另一个实例刚保存的周期。
-    调用方可重试用户偏好；可选登录估算落盘失败也不影响真实登录成功。
+    实现已下沉 prefs_store.update：这里把 app 模块上**当前**的读、写、事务原语
+    传进去，按 app._load_prefs_for_update / app._atomic_write_prefs /
+    app._prefs_transaction 打的补丁照样生效。读用严格读：读不到当前偏好就放弃
+    整次事务（返回 False、一个字节都不写），免得拿空字典合并再写回、把用户的
+    条款同意与筛选一次冲掉；宽松的 app.load_prefs 只给界面与 bootstrap 的无锁
+    读用。任何失败（锁拿不到、读不到当前偏好、写不进去）都返回 False，绝不把
+    异常抛给界面。调用方可重试用户偏好；可选登录估算落盘失败也不影响真实登录。
     """
-    try:
-        with _prefs_transaction(PREFS, timeout_s=_PREFS_SAVE_TIMEOUT_S):
-            prefs = load_prefs()
-            prefs.update(patch or {})
-            _atomic_write_prefs(PREFS, prefs)
-        return True
-    except _PrefsLockTimeout:
-        return False
+    return _prefs_store.update(PREFS, patch, load=lambda: _load_prefs_for_update(PREFS),
+                               write=_atomic_write_prefs,
+                               transaction=_prefs_transaction)
 
 
 CLOSE_ACTIONS = ("ask", "hide", "minimize", "exit")
@@ -862,6 +864,7 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
                    "auto_view": lambda expired: self._auto_relogin.view(expired=expired),
                    "log_event": lambda *args, **kwargs: self._log_event(*args, **kwargs),
                    "push_expired": lambda: self._push_login_expired(),
+                   "post_json": lambda url, body: _feishu_webhook_post.post_json(url, body),
                    "relay_state": lambda: self._relay.state(),
                    "mark_bad": lambda: _credential_store.mark_bad(CREDENTIAL_FILE),
                    "clear_staged": lambda: self._relay.clear_staged(),

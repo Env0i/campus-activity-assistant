@@ -786,6 +786,38 @@ class LifecycleContractTests(unittest.TestCase):
             finally:
                 life.finalize()
 
+    def test_startup_claim_write_denied_still_starts(self):
+        """启动认领写盘一直被拒：构造不抛异常，展示用快照仍可读，心跳线程照常停。
+
+        写不进偏好也不能让程序起不来：上一周期的快照在抛出前已经算好，直接留着；
+        下一次心跳再写。替换一直拒绝的等待约 0.5 秒（原子写的有界重试），可以接受。
+        """
+        app = self._app()
+        with tempfile.TemporaryDirectory() as name:
+            prefs = Path(name) / "ui.json"
+            prefs.write_text(json.dumps({"filter": {"q": "讲座"}}), encoding="utf-8")
+            before = prefs.read_bytes()
+            real_replace = os.replace
+
+            def denied(src, dst, *args, **kwargs):
+                if str(dst) == str(prefs):
+                    raise PermissionError(5, "拒绝访问")
+                return real_replace(src, dst, *args, **kwargs)
+
+            with mock.patch("os.replace", denied):
+                life = app.AppLifecycle(prefs_file=prefs)   # 不得抛 PermissionError
+            try:
+                snap = life.snapshot()
+                self.assertIn("last_started_at", snap, "展示用快照仍要读得到")
+                self.assertEqual(snap["close_quality"], "unknown",
+                                 "没读到上一周期就按未知，不编关闭时长")
+                self.assertEqual(prefs.read_bytes(), before,
+                                 "写不进去时偏好文件一个字节都不变")
+            finally:
+                life.finalize()
+                life._thread.join(2)
+            self.assertFalse(life._thread.is_alive(), "心跳线程必须能正常退出")
+
     def test_run_open_false_with_contradictory_times_unknown(self):
         """FG3：正常关闭标记下关闭早于本周期启动（如系统回拨后关机）→ 退未知，不伪造精确值。"""
         app = self._app()
@@ -1775,6 +1807,82 @@ class _Base(unittest.TestCase):
 
     def _read(self):
         return json.loads(self.session.read_text(encoding="utf-8"))
+
+
+class PrefsWriteFailureTests(unittest.TestCase):
+    """偏好写入撞上 Windows 文件占用：有界重试、失败如实返回、读失败绝不冲掉原文件。
+
+    全部在临时目录里跑；重试间隔与 os.replace 用替身，测试不真等、不碰真实数据根。
+    """
+
+    def setUp(self):
+        from infrastructure import prefs_store
+        self.store = prefs_store
+        self.tmp = tempfile.TemporaryDirectory(prefix="campus-prefs-io-")
+        self.addCleanup(self.tmp.cleanup)
+        self.path = Path(self.tmp.name) / "ui.json"
+
+    def _fast_write(self):
+        """写入口替身：重试节奏不真等（os.replace 仍是真的，被用例包住）。"""
+        return lambda path, prefs: self.store.atomic_write(path, prefs, sleep=lambda _s: None)
+
+    def _write(self, patch):
+        """只替换写入：读走 update 自己的默认严格读，防冲掉那条才验得到默认路径。"""
+        return self.store.update(self.path, patch, write=self._fast_write())
+
+    def test_replace_denied_twice_then_succeeds(self):
+        self.path.write_text(json.dumps({"keep": 1}), encoding="utf-8")
+        real = os.replace
+        calls = []
+
+        def flaky(src, dst):
+            calls.append(1)
+            if len(calls) <= 2:
+                raise PermissionError(5, "拒绝访问")
+            return real(src, dst)
+
+        with mock.patch.object(self.store.os, "replace", flaky):
+            ok = self._write({"added": 2})
+        self.assertTrue(ok, "前两次被占用、第三次成功时这次写入算成功")
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(json.loads(self.path.read_text(encoding="utf-8")),
+                         {"keep": 1, "added": 2})
+
+    def test_always_denied_returns_false_and_leaves_no_tmp(self):
+        self.path.write_text(json.dumps({"keep": 1}), encoding="utf-8")
+        before = self.path.read_bytes()
+
+        def denied(src, dst):
+            raise PermissionError(5, "拒绝访问")
+
+        with mock.patch.object(self.store.os, "replace", denied):
+            ok = self._write({"added": 2})
+        self.assertFalse(ok, "写不进去必须如实返回失败，不抛给调用方")
+        self.assertEqual(self.path.read_bytes(), before, "原文件一个字节都不变")
+        self.assertFalse(self.path.with_suffix(".tmp").exists(), "临时文件要清掉")
+
+    def test_read_failure_does_not_wipe_the_file(self):
+        self.path.write_text(json.dumps({"terms_version": "r6",
+                                         "filter": {"q": "讲座"}}), encoding="utf-8")
+        before = self.path.read_bytes()
+
+        def unreadable(_self, **_kwargs):
+            raise PermissionError(5, "拒绝访问")
+
+        with mock.patch.object(Path, "read_text", unreadable):
+            ok = self._write({"added": 2})
+        self.assertFalse(ok, "读不到当前偏好就放弃整次事务")
+        self.assertEqual(self.path.read_bytes(), before,
+                         "绝不拿空字典合并再写回，否则条款同意与筛选一次全丢")
+
+    def test_missing_file_and_bad_json_still_merge_into_empty(self):
+        self.assertTrue(self._write({"fresh": True}), "首次保存必须成功")
+        self.assertEqual(json.loads(self.path.read_text(encoding="utf-8")),
+                         {"fresh": True})
+        self.path.write_text("{坏掉的 JSON", encoding="utf-8")
+        self.assertTrue(self._write({"fresh": 2}), "坏 JSON 按空偏好合并，由这次覆盖")
+        self.assertEqual(json.loads(self.path.read_text(encoding="utf-8")),
+                         {"fresh": 2})
 
 
 class SaveSessionTests(_Base):
