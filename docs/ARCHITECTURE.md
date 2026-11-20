@@ -164,7 +164,7 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 
 | 层 | 模块 | 做什么 | 谁调用 | 依赖什么 |
 |----|------|--------|--------|----------|
-| domain | `login_rules` | 登录三态快照分类、check 四态结论、来源行归因 | app 外观、application | 无（纯函数） |
+| domain | `login_rules` | 登录三态快照分类、check 四态结论、来源行归因、重登入口的四类判断（自动重登资格、迟到窗口、手工分流、静默恢复态） | app 外观、application | 无（纯函数） |
 | domain | `retry_rules` | `[retry]` 行解析、次数归并、telemetry 载荷、策略归一 | application | 无 |
 | domain | `plan_rules` | 计划项归一化/截止门禁、列表合并、任务终态分类 | app 外观、application | 无（classify_mode/validate_fn/epoch_of 由 app.py 注入） |
 | domain | `cancel_rules` | 取消报名回包的清洗（去控制字符、截 80 字）与 worker 输出归一化；grab 与 app 共用一份 | grab、app 外观 | 无（纯函数） |
@@ -176,6 +176,9 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 | application | `worker_service` / `clock_service` / `desktop_lifecycle` | worker 受管创建及回收、业务时钟校准、关停屏障与资源收尾 | app.Api 桥接方法 | 协调状态 + 注入端口 |
 | application | `update_service` | 更新的状态与用例（UpdateService），端口由 Api 在调用时注入 | app.Api 更新方法 | 注入端口 |
 | application | `login_service` | check 事件载荷与 done 结论整理 | 登录恢复与 worker 用例 | domain |
+| application | `login_recovery` | check 的单飞与补查、最近一次校验结论、登录失效推送（同一次失效只推一次） | app.Api.check、重登入口 | 协调锁 + 注入端口 |
+| application | `relogin_entry` | 重登入口与自动重登门：四道前置门、自动发起与中继收敛、凭据的暂存与落盘时机；判断全在 `domain.login_rules` | app.Api 的重登方法（同名转发） | 协调锁、LoginRecovery 状态 + 注入端口 |
+| application | `desktop_window` | 窗口外壳：关窗三选与偏好、隐藏与唤回、托盘、二次打开、计划结束通知；`_window` 等旧字段名由 `DesktopWindowFields` 代理 | app.Api 的窗口方法（同名转发）、`main()` 的 closing/minimized/restored 接线 | 协调锁 + 注入端口 |
 | infrastructure | `prefs_store` | ui.json 跨进程锁 + 原子读-合并-写 | app 外观、lifecycle_store | 无 |
 | infrastructure | `process_tree` | Windows Job Object 进程树所有权、taskkill 整树终止 | app 外观（spawn 端口） | 无 |
 | infrastructure | `lifecycle_store` | 启动冻结/心跳/正常关闭的 ui.json 记账 | app.get_lifecycle | prefs_store + domain |
