@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-20T10:43:52Z",
+  "updated_at": "2026-11-20T11:09:28Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "92f4f7d35989226af3b0e1e628e682a15660455b608142e57f20407429168304",
-      "size": 298412,
-      "normalized_sha256": "92f4f7d35989226af3b0e1e628e682a15660455b608142e57f20407429168304"
+      "sha256": "e194768fb54ec28739a3c73e2c35aa781047dfbfb6ce7f7feb43ea19054d4dc8",
+      "size": 298445,
+      "normalized_sha256": "e194768fb54ec28739a3c73e2c35aa781047dfbfb6ce7f7feb43ea19054d4dc8"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -8273,9 +8273,9 @@
     },
     "local/infrastructure/lifecycle_store.py": {
       "role": "index",
-      "sha256": "985ad42cb5db975fc9968db8361b682a357bef7af0107c235b10acfe1a6c32d5",
-      "size": 13405,
-      "normalized_sha256": "1097fa9aee1c7845bea373da7e8b543ff1204d8574b24e1ee0a72225671eb702"
+      "sha256": "9064dd3746db01ac303e1593c82b48237838c2ddc24623781aec55545905d25a",
+      "size": 13590,
+      "normalized_sha256": "273d2f8ee3d8b42aa7e5efa3586fedfc29d12ea31f17d13605f18be3247fa2b6"
     },
     "local/infrastructure/login_session_store.py": {
       "role": "index",
@@ -8447,9 +8447,9 @@
     },
     "local/tests/test_application_services.py": {
       "role": "observe",
-      "sha256": "edd209bfd1a025f6d40f56d84791adc24347c1cd50298a58ddb74c97d333b135",
-      "size": 161970,
-      "normalized_sha256": "1f57b75e161157b6444612fcf25b085db3d02f15a9f07daa57e7553460462944"
+      "sha256": "9824b931593111c86a222209542b54655f547d507a7211502b6bbe7b7d55f216",
+      "size": 161886,
+      "normalized_sha256": "d3079c9fc440f30e19dd6aa51e7e7db83d428092e4fd7765bf9596d2bd30adb5"
     },
     "local/tests/test_business_clock.py": {
       "role": "observe",
@@ -8627,9 +8627,9 @@
     },
     "local/tests/test_ui_contracts.py": {
       "role": "observe",
-      "sha256": "7964864bf952855b01bcd0a9d46772e1f8231c904d225a3586c5cf53b1ea1231",
-      "size": 569976,
-      "normalized_sha256": "e2dc330926e0a01d22e98abea689daa9a7706a24d2d40cb058a017de88be275e"
+      "sha256": "be96f585029a13e9345e9417b8442bc6e5683badea14d8dc75d5ed67f8d5e1ad",
+      "size": 571778,
+      "normalized_sha256": "2e6e8e6d0efd747e4e4b0c07376bb4f310e8aca5d76e89969da28616034fa319"
     },
     "local/tests/test_ui_layers.py": {
       "role": "observe",
