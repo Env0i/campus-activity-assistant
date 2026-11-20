@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-19T09:00:41Z",
+  "updated_at": "2026-11-20T06:33:02Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -29,9 +29,9 @@
     },
     ".gitignore": {
       "role": "index",
-      "sha256": "c3786cf5cd334412fde93a2c449260c8b016fa77a927288b58dff6da74c25c56",
-      "size": 1698,
-      "normalized_sha256": "c3786cf5cd334412fde93a2c449260c8b016fa77a927288b58dff6da74c25c56"
+      "sha256": "37d3e8656ef6b0d64308fe972e9439c9cbf2c76f02bfa956549a0147e21a7653",
+      "size": 1815,
+      "normalized_sha256": "37d3e8656ef6b0d64308fe972e9439c9cbf2c76f02bfa956549a0147e21a7653"
     },
     ".workbuddy/memory/2026-11-12.md": {
       "role": "index",
@@ -50,6 +50,12 @@
       "sha256": "3d6fc7f2b94e39c09f6fee24fa35c26a1e20ea24a3b1c37bc341f83eabe0378a",
       "size": 24006,
       "normalized_sha256": "3d6fc7f2b94e39c09f6fee24fa35c26a1e20ea24a3b1c37bc341f83eabe0378a"
+    },
+    ".workbuddy/memory/2026-11-19.md": {
+      "role": "index",
+      "sha256": "32b45cddcf3cd2a1c59c1eab67802d5f2ae924cdcdd956e0dbe94c86a61158ba",
+      "size": 4707,
+      "normalized_sha256": "32b45cddcf3cd2a1c59c1eab67802d5f2ae924cdcdd956e0dbe94c86a61158ba"
     },
     "AGENTS.md": {
       "role": "index",
@@ -89,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "057466f8f2d1c4f76bbc02c9a4a2ae32f3b3fd7f19a51a1c64358160012f574f",
-      "size": 293571,
-      "normalized_sha256": "057466f8f2d1c4f76bbc02c9a4a2ae32f3b3fd7f19a51a1c64358160012f574f"
+      "sha256": "35ac456e2565ecec2e2dd7ce89f608140ec082a557c84eb8f511812cb400c86d",
+      "size": 295125,
+      "normalized_sha256": "35ac456e2565ecec2e2dd7ce89f608140ec082a557c84eb8f511812cb400c86d"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -8061,6 +8067,12 @@
       "size": 27055,
       "normalized_sha256": "fbe533077420b3aca545d3e3f2e03f2d50ce108c8a6f6f392c29cb4d593b2a50"
     },
+    "local/application/worker_activity_list.py": {
+      "role": "index",
+      "sha256": "a9eed25e9174f01a051413704bfbf5a2fbe014d8a8855ec0bab95db846f893d0",
+      "size": 11812,
+      "normalized_sha256": "a9eed25e9174f01a051413704bfbf5a2fbe014d8a8855ec0bab95db846f893d0"
+    },
     "local/application/worker_service.py": {
       "role": "index",
       "sha256": "4cdf469ef4d98b7ed6b686e9f958abae79f7aef324d3ff859e2906313b4ac7eb",
@@ -8195,9 +8207,9 @@
     },
     "local/grab.py": {
       "role": "index",
-      "sha256": "1311b123bf547b910a0893ea8b92beb7bf191b194c094d0b1644600a887cffc1",
-      "size": 192112,
-      "normalized_sha256": "1311b123bf547b910a0893ea8b92beb7bf191b194c094d0b1644600a887cffc1"
+      "sha256": "07757532744412aad66d99bd1cd2b4ad1265b24bec24440a412a34b12d352824",
+      "size": 180385,
+      "normalized_sha256": "07757532744412aad66d99bd1cd2b4ad1265b24bec24440a412a34b12d352824"
     },
     "local/infrastructure/__init__.py": {
       "role": "index",
@@ -8240,6 +8252,12 @@
       "sha256": "02f2d32b4583234a7f8c29a4c92c555e88f8b623dc4f31d97207a9e5b1f5c831",
       "size": 12221,
       "normalized_sha256": "02f2d32b4583234a7f8c29a4c92c555e88f8b623dc4f31d97207a9e5b1f5c831"
+    },
+    "local/infrastructure/login_session_store.py": {
+      "role": "index",
+      "sha256": "772ec1d40868256d892250981988e6616a5bb0fda5603f4a99a4118f65fedebb",
+      "size": 8789,
+      "normalized_sha256": "772ec1d40868256d892250981988e6616a5bb0fda5603f4a99a4118f65fedebb"
     },
     "local/infrastructure/phone_http.py": {
       "role": "index",
@@ -8585,9 +8603,9 @@
     },
     "local/tests/test_ui_contracts.py": {
       "role": "observe",
-      "sha256": "11ab1a374b25aea782078fd5359ee64bf0e5414804308e6dd417eae35dc3a747",
-      "size": 554732,
-      "normalized_sha256": "11ab1a374b25aea782078fd5359ee64bf0e5414804308e6dd417eae35dc3a747"
+      "sha256": "1c745e58b996f8036d975e6c477ad24474e4d8f0ed7fcf8362d550097e5d8375",
+      "size": 555485,
+      "normalized_sha256": "1c745e58b996f8036d975e6c477ad24474e4d8f0ed7fcf8362d550097e5d8375"
     },
     "local/tests/test_ui_layers.py": {
       "role": "observe",

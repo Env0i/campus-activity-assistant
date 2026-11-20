@@ -2,7 +2,7 @@
 
 ===/<repository>/===
 .gitattributes[FC5T]: F:统一文本行尾，保留Windows脚本和文本分发所需CRLF | R:- | A:Git文本属性 | S:-
-.gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物及本地工具资料 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查
+.gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物、本地工具资料及本机MCP宿主配置 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查
 AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、测试与AOCI治理纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建测试与提交分别受授权边界约束
 CHANGELOG.md[SV4L]: F:按版本和日期保留发布能力、事故修复及验证边界的历史变更 | R:code:VERSION | A:变更记录 | S:-
 CLAUDE.md[SG5T]: F:导入共同规则并补充Claude原型预览、尾注与测试边界 | R:code:AGENTS.md | A:Claude宿主指引 | S:-
@@ -23,6 +23,7 @@ ci.yml[FV6T]: F:为推送及拉取请求分别执行Windows本机与Linux服务�
 2026-11-12.md[SQ3T]: F:记录重构审计复核中被证据推翻的结论与校验经验 | R:- | A:历史审计备忘 | S:-
 2026-11-16.md[SQ3T]: F:记录计划栏安全网返修、模块迁移及变异覆盖的历史结果 | R:- | A:历史执行备忘 | S:-
 2026-11-17.md[SQ3S]: F:汇集计划栏模块与状态机迁移、Api守卫返修的过程和纠正记录 | R:- | A:历史执行备忘 | S:-
+2026-11-19.md[SQ3T]: F:记录worker列表命令与登录态保存迁移的验收和提交，以及解释器、代理、双进程锁用例带来的本机环境干扰 | R:code:local/application/worker_activity_list.py,code:local/infrastructure/login_session_store.py | A:历史执行复盘 | S:环境经验是当次记录，解释器、代理与依赖应按当前环境核验
 
 ===/<repository>/contracts/school-api/===
 README.md[SN7T]: F:定义学校接口样例的原始与映射形态、脱敏方法和取消复查边界 | R:code:contracts/school-api/get-info.data.json,code:contracts/school-api/get-join-info.json | A:样例维护契约 | S:取消接口没有实测回包样例，成功只能靠报名状态复查确认
@@ -1358,7 +1359,7 @@ advanced_helper.py[EI7S]: F:为固定可选组件提供一次性JSON探测、二
 app.py[EG9L]: F:组合本机业务服务、基础设施端口与WebView桥接，管理程序窗口及整个运行周期 | R:code:local/application/coordination.py,code:local/application/plan_service.py,code:local/application/login_recovery.py,code:local/application/phone_access_session.py,code:local/application/update_service.py,code:local/grab.py | A:Api/bootstrap/条款门禁/计划报名/登录恢复/窗口生命周期 | S:demo数据根须在导入runtime_paths前隔离；条款版本不符零写入不启worker。锁外读计划后回锁确认归属；旧模块再导出是测试注入缝。未注入时钟明确不可用；关窗后先收worker再结束生命周期，onefile资源不能留孤儿使用
 business_clock.py[RR9L]: F:用多源SNTP一致锚点和单调经过时长提供可验证业务时钟与跨进程快照 | R:code:local/time_contract.py,code:local/app.py,code:local/grab.py | A:BusinessClock/ClockClient/now/bounds/snapshot/request_resync | S:拒绝同支持数矛盾簇及旧轮迟到发布；至少两源一致且误差不超0.5秒。系统墙钟仅诊断不兜底；Windows tick含睡眠。快照校验owner和锚点年龄，重写文件不延长900秒锚点有效期；失败自动退避5/10/20/30秒
 config.example.json[FC5T]: F:给出本机学校地址与飞书Webhook的脱敏可选配置结构 | R:code:local/site_target.py,code:local/grab.py | A:site.base/feishu_webhook | S:样例空值不能当已配置站点
-grab.py[EB9L]: F:提供本机worker的登录、检查、列表、取消和单场报名命令，组装学校请求和报名时序 | R:code:local/infrastructure/activity_queries.py,code:local/business_clock.py,code:local/time_contract.py,code:local/signup_signing.py,code:local/signup_transport.py,code:local/domain/signup_reply.py,code:local/domain/worker_lines.py | A:login/check/list/cancel/grab/selftest | S:stdout的JSON及retry行是协议。活动查询经薄转发注入当前请求与时间解析，详情缓存只有一份。业务预算在鉴权开页前冻结，真实发射才计次；pending保留未知，结束独立核对。4001停发后复查，有效新登录才恢复；运行时密钥仅存当前场次进程内存
+grab.py[EB9L]: F:提供本机worker命令，组装登录、列表、取消与单场报名的依赖和执行时序 | R:code:local/application/worker_activity_list.py,code:local/infrastructure/activity_queries.py,code:local/infrastructure/login_session_store.py,code:local/business_clock.py,code:local/signup_signing.py,code:local/signup_transport.py,code:local/domain/signup_reply.py,code:local/domain/worker_lines.py | A:login/check/list/cancel/grab/selftest | S:stdout的JSON及retry行是协议。列表用例、查询与登录态写盘分别走应用模块和适配器，调用时传入当前路径与边界；双文件保存把本模块open交给事务，替身才打得到。业务预算在鉴权开页前冻结，实际发射才计次。pending保留未知，结束独立核对；4001停发后复查，有效新登录才恢复，运行时密钥仅存当前场次进程内存
 login_relay.py[AI8L]: F:编排手机重登worker的验证码挑战、HTTP登录及浏览器兜底 | R:code:local/site_target.py,code:local/grab.py | A:run_http_relay,run_relay,ChallengeBook | S:仅首次验证码成功契约缺字段才切浏览器；网络或密码拒绝不切换。本场新凭证校验及双文件保存成功后才报成功
 requirements-advanced-ocr.txt[FE5T]: F:声明可选验证码识别组件的构建依赖 | R:code:local/infrastructure/component_packages.py | A:- | S:-
 requirements-advanced-phone.txt[FE5T]: F:声明可选手机组件的构建依赖 | R:code:local/infrastructure/component_packages.py | A:- | S:-
@@ -1395,6 +1396,7 @@ plan_service.py[AB9L]: F:运行单场worker并装配冻结预算、监督进程�
 signup_cancellation.py[AB8T]: F:编排桌面单场取消门禁、worker归一与成功后缓存回写 | R:code:local/domain/cancel_rules.py,code:local/application/coordination.py | A:cancelling互斥/结果归一/活动事件 | S:未知可能已提交，不重试；成功清signed和sync_pending；非刷新事件后恢复原列表请求终态避免污染对账，学校原话不写取消日志
 update_service.py[AV9L]: F:管理更新检查、受信下载、完整增量目录准备及安装器或启动器发起 | R:code:local/update_check.py,code:local/updater.py | A:单飞/快照接管/delta回退/full准备/launch | S:仅冻结versions布局且有launcher走目录切换，其余安装器；取消后不fallback。launching检查不能清staging；启动器成功才延迟退出，安装器不自动退，错误不得污染登录组件状态
 worker_service.py[AW9S]: F:创建登记短命worker、单任务和登录中继并转发输出与回收进程树 | R:code:local/application/coordination.py,code:local/application/login_service.py | A:run/spawn/relay/pump/超时回收 | S:创建登记与closing同锁，不能先spawn后登记；communicate超时先终树后有界补读，解除登记才关句柄；pump只清自己proc所有权，锚点失败不推翻登录成功
+worker_activity_list.py[AB8M]: F:编排worker的列表登录探测、查询、时间筛选排序、详情补全及命令输出 | R:code:local/grab.py,code:local/infrastructure/activity_queries.py | A:run_list,still_relevant,keep_in_list,sign_state | S:学校Date只用于筛选和排序，开放文案仍要求业务时钟。先筛后补详情，文本模式不补。JSON输出与诊断分流，错误返回2，计时异常不影响输出
 
 ===/<repository>/local/build/===
 build_advanced.py[OV8M]: F:构建手机与OCR单体或四类复用资产并生成摘要清单、ZIP和构建报告 | R:code:local/infrastructure/component_packages.py,code:local/advanced_helper.py | A:组件资产生产/校验探针 | S:输出必须系统临时根独立绝对子目录且拒既有运行目录；手机OCR依赖互斥；cloudflared显式固定版本，OCR运行时模型分开；清单探针过才封包
@@ -1436,6 +1438,7 @@ tray_icon.py[IU5M]: F:以WinForms提供托盘、通知及窗口退出入口 | R:
 tunnel_manager.py[IN8M]: F:探测Tailscale地址并管理受管Quick Tunnel进程及公网状态 | R:code:local/infrastructure/component_packages.py,code:local/infrastructure/process_tree.py | A:tailscale_endpoint,resolve_cloudflared,spawn_cloudflared,CloudflareTunnel | S:不从PATH采信cloudflared；进程纳入Job并可持租约。退出撤旧地址，重启需重配对；停止失败保留进程与地址，不能假报关闭
 webview_mime.py[RU6T]: F:登记JavaScript MIME以确保本地服务加载ES模块 | R:- | A:register_script_types | S:Windows可能将.js登记为text/plain，普通脚本可跑但模块拒载，启动必须覆盖映射
 activity_queries.py[IN8M]: F:读取活动列表与详情，将学校字段归一化并提供报名状态核对 | R:code:contracts/school-api/list-activity.raw-item.json,code:contracts/school-api/get-info.data.json,code:contracts/school-api/get-join-info.json | A:fetch_activities,fetch_activity_detail,enrich_attendance_items,map_activity,parse_attendance_detail,is_joined | S:请求函数与学校时间解析由worker注入。详情成功才缓存，命中返回副本，默认并发4；签到签退保留未知三态。有预算的报名状态查询失败返回None，不能当确认未报名
+login_session_store.py[PI8M]: F:持有session与storage_state登录态文件的唯一写入入口，提供写锁、单文件原子写和双文件事务回滚 | R:code:local/infrastructure/prefs_store.py,code:local/grab.py | A:session_write_lock,write_json_atomic,save_session,save_storage_state,save_verified_files | S:锁序固定线程锁再跨进程区域锁，共用一个超时预算；双写第二份替换失败只回滚已落位文件，回滚失败不得盖掉原异常。诊断只写stderr；不承诺断电原子性，opener端口供调用方传自己的open
 
 ===/<repository>/local/installer/===
 ChineseSimplified.isl[FL4L]: F:提供Inno安装器简体中文消息与语言参数 | R:code:tools/release.py | A:LangOptions,Messages | S:此语言文件必须保留UTF-8 BOM，否则Inno按ANSI解码
