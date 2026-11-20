@@ -275,7 +275,10 @@ class PureFormatterTests(unittest.TestCase):
         self.assertLess(len(line), 400)
 
     def test_login_success_message_no_longer_promises_a_lifetime(self):
-        source = (LOCAL / "grab.py").read_text(encoding="utf-8")
+        source = ((LOCAL / "grab.py").read_text(encoding="utf-8")
+                  + "\n"
+                  + (LOCAL / "application" / "worker_login.py").read_text(encoding="utf-8"))
+        self.assertIn("登录成功，登录态已保存", source)
         self.assertNotIn("有效期约 17 小时", source)
 
 

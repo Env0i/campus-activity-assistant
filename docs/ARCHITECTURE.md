@@ -328,7 +328,7 @@ controller/view DOM 分离不在本轮范围。
 
 ### 报名链路（决策 015）
 
-- **模块分工与调用时端口装配**：`grab.cmd_grab` 只做 Playwright 导入与端口装配，流程分在 `local/application/` 的六个模块——`signup_run.py`（入口 `run_signup`、准备阶段与外层异常映射）、`signup_outcome.py`（唯一 `kind=done` 终态、各停止原因结论与通知、退出码与收口辅助）、`signup_ledger.py`（同一调度账本、回包分类下结论、页面与直发事件结算、在途同步与扩窗重建预算）、`signup_direct.py`（直发路径选择、单向退回点击、重取密钥、现算签名发一笔与开放前预检）、`signup_browser.py`（开页、dry-run、已报名前置核对、等待开放、监听注册与解除、主调度循环与点击兜底、关浏览器）、`signup_finalize.py`（发射闸门、短事件泵、1 秒尾窗与成功粘性的统一有界收尾、单次最终核对与异常退路）；端口在每次调用 `cmd_grab` 时从 `grab` 模块当前全局取出，因此测试替换 `grab.X` 仍生效。
+- **模块分工与调用时端口装配**：`grab.cmd_grab` 只做 Playwright 导入与端口装配，流程分在 `local/application/` 的六个模块——`signup_run.py`（入口 `run_signup`、准备阶段与外层异常映射）、`signup_outcome.py`（唯一 `kind=done` 终态、各停止原因结论与通知、退出码与收口辅助）、`signup_ledger.py`（同一调度账本、回包分类下结论、页面与直发事件结算、在途同步与扩窗重建预算）、`signup_direct.py`（直发路径选择、单向退回点击、重取密钥、现算签名发一笔与开放前预检）、`signup_browser.py`（开页、dry-run、已报名前置核对、等待开放、监听注册与解除、主调度循环与点击兜底、关浏览器）、`signup_finalize.py`（发射闸门、短事件泵、1 秒尾窗与成功粘性的统一有界收尾、单次最终核对与异常退路），以及配套的 `signup_policy.py`（提交节奏状态机 `BurstPolicy` 与 13 个节奏常量，经可覆盖钩子在调用时绑定日志与时钟异常）和 `signup_target.py`（活动候选筛选、按序号或名称选取与已开放场次时刻替换）；端口在每次调用 `cmd_grab` 时从 `grab` 模块当前全局取出，因此测试替换 `grab.X` 仍生效。
 - **直发为主、点击兜底**：开抢前调 `runtime/profile` 取运行时密钥（`fetch_runtime_key`），
   经 `parse_runtime_key` 校验形状后交给 `build_signup_hash` 现算签名；只有三种情况退回点击
   ——取不到密钥、重取后仍「版本不兼容」、同一条未识别回包连续 3 次。每场写
@@ -343,7 +343,7 @@ controller/view DOM 分离不在本轮范围。
   期间发 `kind=login_wait`，换到新 token 且复查有效后发 `kind=login_resumed`，
   重取运行时密钥继续；等待不计提交次数。
 - **登录态单一写入口**：`grab.py` 的 `save_session` 用进程内锁 + `session.json.lock`
-  跨进程锁；命令行登录、手机重登中继、`storage_state.json` 双文件事务都走它。
+  跨进程锁；命令行登录、手机重登中继、`storage_state.json` 双文件事务都走它（命令行登录与中继登录的编排在 `application` 的 `worker_login`）。
 - **日志**：`log_event` 每行带北京时间、级别、来源、活动 ID、事件名；`grab.log`
   超过 5 MB 轮转成 `grab.log.1…5`；界面进程的自动登录事件也追加到同一份日志。
 
@@ -377,7 +377,7 @@ controller/view DOM 分离不在本轮范围。
 - **列表筛选的时间来源（2026-11-09，决策 012 修订）**：业务时钟可用时仍用北京时间筛选与排序。时钟不可用时，`cmd_list` 用本次列表回包的 HTTP `Date` 头（只取最近一页、每轮列表前清空，解析要求带时区）作为筛选与排序时刻，**状态仍显示「待确认」**；`Date` 只服务列表筛选，不进报名开放判定、计划启动或倒计时。没有 `Date` 或解析失败时退回旧行为：保留全部、详情全补。判定的筛选时间来源写进 `[timing] list` 行的 `filter_time_source`（`clock` / `school_date` / `none`）。`--all` 不受影响。
 - **界面等时钟（L1，2026-11-09）**：`app.Api` 拉列表前最多等约 8 秒北京时间（`LIST_CLOCK_WAIT_S`，0.25 秒轮询，关闭中立即退出），期间向界面发一次「北京时间校准中，稍后加载活动」。等不到也照常拉列表，由上面的 `Date` 兜底；列表用时行同时给等待秒数与筛选时间来源。
 - **详情映射（R2）**：`parse_attendance_detail` 追加 `cancel_allowed`（`qxbm`：1 为真、0 为假、缺失为 null）和 `can_sign`（`sfkybm`，同样三态，只映射不展示）。`list --json` 每行输出这两个键。
-- **取消子命令（X2）**：`python local/grab.py cancel --id <id> --json`，由 `cmd_cancel` 调 `run_cancel`。stdout 恰好一行 JSON，日志走 stderr；退出码为 0 仅表示 `cancelled`，其余为 2。
+- **取消子命令（X2）**：`python local/grab.py cancel --id <id> --json`，由 `cmd_cancel` 调 `run_cancel`（编排在 `application` 的 `worker_cancel`）。stdout 恰好一行 JSON，日志走 stderr；退出码为 0 仅表示 `cancelled`，其余为 2。
   - 流程：登录（只有学校明确说失效才报 `login_expired`）→ 北京时间可用 → 是否已报名（三态，只有真才往下走）→ 详情 `qxbm` 为 1 且业务北京时间在 `[报名开始, 报名截止]` 内 → 调 `GET /dr/api/rjyHdCyr/cancel/<id>` 一次，不重试 → 用 `getJoinInfo` 复查。
   - 前置不满足或查不到时不调取消接口，结果为 `precheck_failed` 并带原因。
 - **界面进程（X1、X3、X4）**：`app.Api.cancel_signup(activity_id)`。先过条款门，id 必须在当前列表缓存里且为已报名；与计划、刷新、登录、另一场取消互斥（`_cancelling` 并入忙碌判定）。成功后发一次 `activities` 事件刷新列表。
