@@ -1672,7 +1672,7 @@ ui_refs.mjs[XQ8M]: F:构建混合脚本清单并按记号清点前端跨层名�
 README.md[SQ3M]: F:记录本机版Api收口的重登与窗口服务搬家、行数、转发名单、测试改动，以及十条真窗口验收清单与实测记录 | R:code:local/application/relogin_entry.py,code:local/application/desktop_window.py | A:真窗口验收步骤与第八节实测表 | S:未十条全过前不能宣称验收完成；演示模式只证界面编排
 
 ===/<repository>/design/evidence/2026-11-21/grab-signup-split/===
-README.md[SQ3S]: F:记录报名worker主流程拆分的范围、六模块职责、搬迁前后对照录制、定点变异与审计复核结论 | R:code:design/evidence/2026-11-21/grab-signup-split/scripts/trace_signup.py | A:对照与变异证据、复现命令 | S:六处变异在开工代码上同样不红属既有缺口；真实学校与冻结worker未验证
+README.md[SQ3S]: F:记录报名worker主流程拆分的范围、六模块职责、对照录制、定点变异、审计复核与六处既有缺口的补测结果 | R:code:design/evidence/2026-11-21/grab-signup-split/scripts/trace_signup.py,code:local/tests/test_worker_boundaries.py | A:对照与变异证据、补测对照表、复现命令 | S:六处既有缺口已补测并各由变异证实；真实学校与冻结worker未验证
 
 ===/<repository>/design/evidence/2026-11-21/grab-signup-split/scripts/===
 trace_signup.py[XQ4M]: F:在仓库副本里跑worker边界与重试测试，逐次录下cmd_grab的退出码、stdout、日志、请求与假时钟耗时并逐调用比对 | R:code:local/grab.py,code:local/tests/test_worker_boundaries.py | A:--worker-copy,--self-compare-copy,--compare,--nondet-json | S:调用前临时替换grab.log与grab._post再交回夹具替身；16位运行标识先规范化再比

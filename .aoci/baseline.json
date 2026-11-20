@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-20T13:13:30Z",
+  "updated_at": "2026-11-20T14:33:04Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "ec8a67c89356cd9eea1301932e9968dddbf1600482304f7d8286d4e61ac16a0f",
-      "size": 302703,
-      "normalized_sha256": "ec8a67c89356cd9eea1301932e9968dddbf1600482304f7d8286d4e61ac16a0f"
+      "sha256": "f8eb67a28d3a2d0ed9b8a43e17171be22f0e87a1452cfe0ae4ebeded5fbee937",
+      "size": 302773,
+      "normalized_sha256": "f8eb67a28d3a2d0ed9b8a43e17171be22f0e87a1452cfe0ae4ebeded5fbee937"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -6728,9 +6728,9 @@
     },
     "design/evidence/2026-11-21/grab-signup-split/README.md": {
       "role": "index",
-      "sha256": "d175b2fb04d306d6f762bda089add5a81b8032f9141ba6cc6f7a7139b8458d14",
-      "size": 14174,
-      "normalized_sha256": "d175b2fb04d306d6f762bda089add5a81b8032f9141ba6cc6f7a7139b8458d14"
+      "sha256": "105ca6fb3af1c8829cf442da000462a64cb90f239c1ebdf20e29d1e6a1c0b198",
+      "size": 18070,
+      "normalized_sha256": "105ca6fb3af1c8829cf442da000462a64cb90f239c1ebdf20e29d1e6a1c0b198"
     },
     "design/evidence/2026-11-21/grab-signup-split/scripts/trace_signup.py": {
       "role": "index",
@@ -8717,15 +8717,15 @@
     },
     "local/tests/test_worker_boundaries.py": {
       "role": "observe",
-      "sha256": "58436b8338b4528d325a2eb7cb099961b6aea295741744c9554fd050287403ff",
-      "size": 209147,
-      "normalized_sha256": "58436b8338b4528d325a2eb7cb099961b6aea295741744c9554fd050287403ff"
+      "sha256": "28ad8861de9224cbbda7f3e424f43d033296e47261cc441d4e87be4b988560d7",
+      "size": 217283,
+      "normalized_sha256": "28ad8861de9224cbbda7f3e424f43d033296e47261cc441d4e87be4b988560d7"
     },
     "local/tests/test_worker_logs.py": {
       "role": "observe",
-      "sha256": "4aca21db69eb1f961931257f54d9779611e6d40b8f468e8448876d82fc3363c6",
-      "size": 26382,
-      "normalized_sha256": "4aca21db69eb1f961931257f54d9779611e6d40b8f468e8448876d82fc3363c6"
+      "sha256": "97cff80a1d5a8b57199c448e860397f922f79a82c055e084e9aa5429f6b9fb30",
+      "size": 27184,
+      "normalized_sha256": "97cff80a1d5a8b57199c448e860397f922f79a82c055e084e9aa5429f6b9fb30"
     },
     "local/time_contract.py": {
       "role": "index",
