@@ -149,6 +149,88 @@ out.push({ busy: loginBannerHtml(view, true), idle: loginBannerHtml(view, false)
         self.assertIsNotNone(pill)
         self.assertEqual(pill.group(0).count("<i"), 1)
 
+
+CARD_PRELUDE = r'''
+S.terms.version = "v1"; S.terms.acceptedVersion = ""; S.terms.unknown = false;
+S.busy = false; S.demo = false; S.stopping = false; S.autoLogin = false;
+setBusinessNow(Date.UTC(2026, 10, 6, 6, 0, 0));
+const setCardLogin = (present) => {
+  S.login = { ok: true, present: present, checking: false, loginPending: false,
+    result: "valid", handoff: false, expireAt: null, estimateReason: null,
+    hours: null, lastCheckAt: "", lastCheckState: "valid", view: {},
+    auto: { state: "idle", block: "", retryInS: null, at: 0 } };
+};
+const readCard = () => ({
+  chip: $("#login-pop-chip-text").textContent,
+  big: $("#login-pop-big").textContent,
+  sub: $("#login-pop-sub").textContent,
+  rows: $("#login-pop-rows").textContent,
+  note: $("#login-pop-note").textContent,
+  check: [$("#btn-login-check").hidden, $("#btn-login-check").disabled],
+  login: [$("#btn-login").hidden, $("#btn-login").disabled],
+  terms: $("#btn-login-terms").hidden,
+});
+'''
+
+
+class LoginCardTermsHoldTests(unittest.TestCase):
+    """条款未同意时登录详情卡的样子（原型 Main.dc.html 的 loginCard hold 一路）。
+
+    条款门禁本身不动：两只学校动作按钮仍然禁用（决策 013，另有用例守着），
+    这张卡只是把它们收起来，换成一句为什么停着和唯一能走的那一步。
+    """
+
+    def test_terms_hold_card_pauses_and_points_at_the_terms(self):
+        data = run_js(CARD_PRELUDE + r"""
+setCardLogin(true);
+paintLogin(); renderLoginCard(); updateControls();
+out.push(readCard());
+""")[0]
+        self.assertEqual(data["chip"], "等同意条款")
+        self.assertEqual(data["big"], "暂停检查")
+        self.assertEqual(data["sub"], "同意条款后才会检查登录状态")
+        self.assertIn("已保存的登录", data["rows"], "登录过的人要知道登录没被删")
+        self.assertIn("还在，不会删除", data["rows"])
+        self.assertEqual(data["note"], "", "条款门下不报旧结论")
+        self.assertEqual(data["check"], [True, True], "检查登录收起来，但仍然禁用")
+        self.assertEqual(data["login"], [True, True], "登录同样收起来并保持禁用")
+        self.assertFalse(data["terms"], "查看条款是这张卡唯一能点的动作")
+
+    def test_terms_hold_card_hides_the_saved_login_line_for_first_time_users(self):
+        data = run_js(CARD_PRELUDE + r"""
+setCardLogin(false);
+paintLogin(); renderLoginCard();
+out.push(readCard());
+""")[0]
+        self.assertEqual(data["rows"], "",
+                         "从没登录过的人看到「已保存的登录还在」就是假话")
+        self.assertEqual(data["big"], "暂停检查")
+
+    def test_unknown_terms_state_says_it_is_not_confirmed_yet(self):
+        data = run_js(CARD_PRELUDE + r"""
+S.terms.version = ""; S.terms.unknown = true;
+setCardLogin(true);
+paintLogin(); renderLoginCard();
+out.push(readCard());
+""")[0]
+        self.assertEqual(data["chip"], "等确认条款",
+                         "条款状态未知时不能写成「等同意条款」——那是另一件事")
+        self.assertEqual(data["big"], "暂停检查")
+
+    def test_accepted_terms_restore_the_normal_card(self):
+        data = run_js(CARD_PRELUDE + r"""
+S.terms.acceptedVersion = "v1";
+setCardLogin(true);
+paintLogin(); renderLoginCard(); updateControls();
+out.push(readCard());
+""")[0]
+        self.assertEqual(data["big"], "登录有效")
+        self.assertTrue(data["terms"], "出了条款门，「查看条款」要收起来")
+        self.assertEqual(data["check"], [False, False], "检查登录回到可点")
+        self.assertEqual(data["login"], [False, False], "登录按钮回到可见")
+        self.assertIn("预计有效", data["rows"], "明细回到原来的两行")
+        self.assertIn("别处登录", data["rows"])
+
 # ==================== 源自 test_login_machine.py ====================
 """登录胶囊状态机与重新登录清单的结构测试。
 

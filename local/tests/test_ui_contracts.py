@@ -6068,6 +6068,82 @@ out.push({
         self.assertFalse(r["tour"], "不自动引导")
         self.assertEqual(r["calls"], [], "不发任何后端动作（后端也会拦）")
 
+    def test_card_terms_button_closes_the_card_and_opens_the_terms_box(self):
+        """条款门下详情卡的「查看条款」：收起卡片、开首次说明框、不发任何后端调用。
+
+        这只按钮是条款门下卡片唯一能点的东西，走横幅那一套统一路由（openTerms），
+        不是另开一条捷径；卡片先收起，条款框关掉后焦点回到登录胶囊。"""
+        res = run_js(WB_STAMP_JS + r"""
+const calls = [];
+window.pywebview = { api: new Proxy({}, { get: (t, name) => (...args) => { calls.push(String(name)); return new Promise(() => {}); } }) };
+seed([]);
+S.demo = false;
+S.login.present = true; S.login.result = "valid"; S.login.ok = true; S.login.checking = false;
+S.terms.version = "v1"; S.terms.acceptedVersion = ""; S.terms.unknown = false;
+paintLogin(); updateControls();
+openStatusCard("login", true);
+const openedCard = document.querySelector("#login-pop").hidden;
+document.querySelector("#btn-login-terms").click();
+out.push({
+  openedCard,
+  card: document.querySelector("#login-pop").hidden,
+  intro: document.querySelector("#dlg-terms-intro").open,
+  reader: document.querySelector("#dlg-terms").open,
+  calls,
+});
+""")
+        r = res[0]
+        self.assertFalse(r["openedCard"], "详情卡本来是开着的")
+        self.assertTrue(r["card"], "点「查看条款」先收起详情卡")
+        self.assertTrue(r["intro"], "从没同意过：路由进首次说明框")
+        self.assertFalse(r["reader"], "小框在场时不叠全文阅读器")
+        self.assertEqual(r["calls"], [], "这一步一个后端调用都不发")
+
+    def test_open_card_repaints_when_terms_become_accepted(self):
+        """卡片开着时同意条款：立刻换回正常样子，不用等下一次刷新。
+
+        列表里已经有活动（正常使用时的样子）：同意后的补加载走后台轮，不会经过
+        「进检查中」那次前台重画，所以这条守的是条款状态落地时自己的重画。"""
+        res = run_js(WB_STAMP_JS + r"""
+window.pywebview = { api: {
+  accept_terms: () => Promise.resolve({ ok: true, terms: { version: "v1",
+    accepted_version: "v1", accepted_at: "2026-11-20 10:00:00" } }),
+  save_prefs: () => Promise.resolve({ ok: true }),
+  check: () => new Promise(() => {}),
+  list_activities: () => new Promise(() => {}),
+} };
+seed([{ id: "a1", name: "甲活动", sign_start: stamp(now + 3600), sign_end: stamp(now + 7200) }]);
+S.listState = "ready";
+S.demo = false; S.prefs = {};
+S.login.present = true; S.login.result = "valid"; S.login.ok = true; S.login.checking = false;
+S.terms.version = "v1"; S.terms.acceptedVersion = ""; S.terms.unknown = false;
+paintLogin(); updateControls();
+openStatusCard("login", true);
+const before = { big: document.querySelector("#login-pop-big").textContent,
+  termsHidden: document.querySelector("#btn-login-terms").hidden };
+document.querySelector("#dlg-terms-document-version").textContent = "v1";
+document.querySelector("#chk-terms-agree").checked = true;
+acceptTerms();
+await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+out.push({ before,
+  big: document.querySelector("#login-pop-big").textContent,
+  sub: document.querySelector("#login-pop-sub").textContent,
+  rows: document.querySelector("#login-pop-rows").textContent,
+  termsHidden: document.querySelector("#btn-login-terms").hidden,
+  checkHidden: document.querySelector("#btn-login-check").hidden,
+  loginHidden: document.querySelector("#btn-login").hidden });
+""")
+        r = res[0]
+        self.assertEqual(r["before"]["big"], "暂停检查", "同意之前卡片是暂停检查")
+        self.assertFalse(r["before"]["termsHidden"], "同意之前「查看条款」在场")
+        self.assertEqual(r["big"], "登录有效", "同意后打开着的卡片要立刻换样子")
+        self.assertNotEqual(r["sub"], "同意条款后才会检查登录状态")
+        self.assertIn("预计有效", r["rows"], "明细回到原来的两行")
+        self.assertTrue(r["termsHidden"], "出了条款门就收起「查看条款」")
+        self.assertFalse(r["checkHidden"], "检查登录回到可见")
+        self.assertFalse(r["loginHidden"], "登录按钮回到可见")
+
     def test_prototype_demo_controls_are_not_shipped(self):
         """原型里只为演示存在的控件（状态对照表「实现时删除」一节）不进产品，也不变成隐藏功能。"""
         ui = LOCAL / "ui"

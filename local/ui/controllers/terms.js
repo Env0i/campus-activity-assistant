@@ -68,6 +68,9 @@ function ingestTerms(terms) {
   }
   paintBanners();
   updateControls();
+  /* 登录详情卡可能正开着：条款门一开一关，卡里的结论要重算（paintLogin 末尾
+   * 顺带重画打开着的卡），否则它还停在「等同意条款」或「暂停检查」。 */
+  if (typeof paintLogin === "function") paintLogin();
 }
 
 /* 条款入口路由（decisions 第 1 条，FU01/TM08）：三个条款面按本机同意状态分流——
@@ -238,8 +241,7 @@ function runDeferredIntro() {
  * 未知态（bootstrap 失败、缺条款字段）绝不允许本地乐观解锁，也不能用过期
  * 的条款副本把学校动作放出去（fail closed）。 */
 function acceptTerms() {
-  /* 在途保存、超时未确认、只读查看期间禁止直接再次写同意：先验状态，
-   * 零请求零写入——连续点击只会登记一次在途、发出一次请求。 */
+  /* 在途保存、超时未确认、只读查看期间禁止再写同意：先验状态，零请求零写入。 */
   if (S.terms.saving || S.terms.unconfirmed || S.terms.viewOnly) return;
   /* 方案 A 的不变量：没勾「我已阅读以上全部条款」就不写同意。
    * 按钮禁用只是呈现，这里再拦一次，键盘/脚本触发同样走这条。 */
@@ -303,8 +305,7 @@ function acceptTerms() {
         (version || "缺失") + "）；请点「重新确认状态」核对本机记录。", "warn");
       return;
     }
-    /* 用户实际读到的全文版本：取自 index.html 内嵌条款的版本字段。
-     * 空值同样按不可确认处理——没有可比对的副本就不解锁。 */
+    /* 用户实际读到的全文版本（内嵌版本字段）：空值按不可确认处理，没有副本就不解锁。 */
     const docVersion = termsDocVersion();
     if (docVersion !== version) {
       termsStatus("当前条款副本不匹配（本份 " + (docVersion || "未标明版本") +
@@ -322,9 +323,8 @@ function acceptTerms() {
     S.terms.prompted = true;
     /* 拒绝版本标记失效：立即落盘（不因关窗丢失），条款更新前不会再弹 */
     savePrefsNow({ terms_declined_version: "" });
-    /* 程序性关闭：跳过 close 监听里的回小框与焦点恢复，改走成功路径。
-     * FU01/TM08（decisions 第 1 条）：从小框进来的全文里同意＝与小框里同意
-     * 等效——先关全文阅读器，再关等在后面的小框，两框都关不回小框。 */
+    /* 程序性关闭：跳过 close 监听里的回小框与焦点恢复。FU01/TM08：从小框进来的
+     * 全文里同意＝与小框里同意等效——先关全文阅读器，再关等在后面的小框。 */
     S.terms.closeHandled = true;
     closeTermsDialog();
     closeTermsIntroBox();
@@ -334,6 +334,7 @@ function acceptTerms() {
     paintTerms();
     paintBanners();
     updateControls();
+    if (typeof paintLogin === "function") paintLogin();   /* 打开着的登录卡立刻换回正常样子 */
     /* 补加载是程序自己发起的（U2/U3）：列表已有内容走后台轮，空着才走前台轮 */
     if (hasBridge()) refresh(true, S.items.length ? { background: true } : undefined); /* 完整成功最多补加载一次 */
     focusHelpButton();

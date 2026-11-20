@@ -29,6 +29,12 @@ wireFilters();
 wireRowActions();
 wireClockActions();
 $("#btn-login-check").addEventListener("click", () => { doCheck(); });
+/* 条款门下的登录卡只留这一条路：先收起详情卡，再走统一的条款入口；
+ * 条款框关掉后焦点回到登录胶囊（closeStatusCards 不抢焦点，交给 openTerms 的焦点归还）。 */
+$("#btn-login-terms").addEventListener("click", () => {
+  closeStatusCards(false);
+  openTerms("banner", $("#pill"));
+});
 $("#btn-clear-plan").addEventListener("click", clearSelection);
 wireSettings();
 wireTourExit();

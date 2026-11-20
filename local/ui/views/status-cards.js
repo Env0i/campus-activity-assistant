@@ -96,6 +96,28 @@ const LOGIN_CARD_PHASES = {
   needs_code: { tone: "warn", big: "要你输验证码" },
 };
 
+/* 条款门下这张卡没有可做的事：两只学校动作按钮仍按决策 013 禁用，这里只是把它们收起来——
+ * 灰着又点不动的按钮比看不见更像坏了。留下的只有「为什么停着」和唯一能走的那一步。
+ * 「已保存的登录还在」只对登录过的人成立：从没登录过的人看到它就是假话。 */
+function paintLoginCardTermsHold() {
+  $("#login-pop-chip-text").textContent = S.terms.unknown ? "等确认条款" : "等同意条款";
+  $("#login-pop-big").textContent = "暂停检查";
+  $("#login-pop-sub").textContent = "同意条款后才会检查登录状态";
+  $("#login-pop-rows").innerHTML = S.login.present === true
+    ? cardRows([["已保存的登录", "还在，不会删除"]]) : "";
+  $("#login-pop-note").textContent = "";
+}
+
+/* 卡片底部的三只按钮：条款门下只留「查看条款」，出了条款门回到两只学校动作。 */
+function paintLoginCardActions(paused) {
+  const check = $("#btn-login-check");
+  const login = $("#btn-login");
+  const terms = $("#btn-login-terms");
+  if (check) check.hidden = !!paused;
+  if (login) login.hidden = !!paused;
+  if (terms) terms.hidden = !paused;
+}
+
 function renderLoginCard() {
   const view = S.login.view || { state: "none", text: "未登录", note: "" };
   const phaseLook = LOGIN_CARD_PHASES[view.phase];
@@ -103,6 +125,15 @@ function renderLoginCard() {
     : ({ ok: "ok", bad: "bad", none: "warn", unknown: "warn", terms: "warn" }[view.state] || "");
   const chip = $("#login-pop-chip");
   if (chip) chip.dataset.tone = tone;
+  /* 检查按钮的禁用照旧按原规则算：条款门下它是被收起来，不是解禁 */
+  const check = $("#btn-login-check");
+  if (check) check.disabled = S.busy || !!S.login.checking || termsLocked() || !!S.runtime.error;
+  if (termsLocked()) {
+    paintLoginCardTermsHold();
+    paintLoginCardActions(true);
+    return;
+  }
+  paintLoginCardActions(false);
   $("#login-pop-chip-text").textContent = view.text;
   $("#login-pop-big").textContent = phaseLook ? phaseLook.big
     : (LOGIN_CARD_BIG[view.state] || view.text);
@@ -115,8 +146,6 @@ function renderLoginCard() {
     ["别处登录", "可能让这里失效，比如手机上的学校页面；以实际登录状态为准"],
   ]);
   $("#login-pop-note").textContent = view.note || "";
-  const check = $("#btn-login-check");
-  if (check) check.disabled = S.busy || !!S.login.checking || termsLocked() || !!S.runtime.error;
 }
 
 /* 手机访问的快照挂在 features 里，由 legacy-globals 挂回 window 给普通脚本用；
