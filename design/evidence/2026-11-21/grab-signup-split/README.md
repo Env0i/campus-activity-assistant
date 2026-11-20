@@ -121,3 +121,28 @@ python -B -m unittest discover -s local/tests -p "test_*.py" -v
 - 定向测试：test_worker_boundaries、test_retry_policy、test_ui_contracts、test_layer_boundaries、test_signup_plan、test_worker_logs、test_cancel_signup 全部通过；test_code_shape 与 tools/code_shape/check.py 在工作区内通过（副本不是 git 仓库，test_code_shape 在副本里会因读不到 git 清单报错，开工提交的副本上同样如此，与本批无关）。
 - 对照录制：用本目录脚本重录开工提交与搬迁后各一遍，163/163 次调用逐字段相等；录制内容非空（163 次调用都有日志与 stdout，共 3080 行日志、156 次调用有请求）。
 - 另做八条定点变异，三条变红：直发预留不计入次数配额、收尾不解除页面监听、扩窗开关恒关。五条在搬迁后与开工提交的原位置上都不变红，属于既有测试缺口、不是本批引入：事件泵遇 4001 待查或学校明确拒绝时不提前返回；开抢前「是否已报名」查询异常时当成未报名；收尾时忽略 4001 待确认；直发票据序号不计入已预留的笔数；不写事件上下文里的活动 id。连同上文 V11，共六处既有缺口，留给后续补测。
+
+---
+
+## 9. 既有缺口补测
+
+针对上文 V11 与审计复核记下的六处既有缺口，只补外部可见结果的单测与带默认值的夹具开关（`page_signup_at=None`、`precheck_join_exc=None`），不改任何产品代码，并在 `tempfile.gettempdir()` 下临时副本逐一验证未改坏前全绿、单点改坏后新用例变红。
+
+| 守的行为 | 新用例名 | 变异写法 | 变异下第一条失败用例 | 结论 |
+|---|---|---|---|---|
+| 页面响应回调在直发在途未降级时丢弃页面自发 `signUp` 响应 | `test_page_signup_response_ignored_while_direct_active` | `local/application/signup_browser.py`：`on_response` 中删除 `if ctx.direct["enabled"] and not ctx.direct["downgrade"]: return` | `test_worker_boundaries.UnifiedDirectLoopTests.test_page_signup_response_ignored_while_direct_active` | 已守（页面响应不再覆盖 `done` 行 `last_reason` 或写「收到其他请求的响应」） |
+| 短事件泵等待中途遇学校明确拒绝或 4001 待复查立即返回 | `test_pump_wait_returns_early_on_terminal_reason`、`test_pump_wait_returns_early_on_4001_login_suspect` | `local/application/signup_finalize.py`：`pump_wait` 中提前返回条件去掉 `state["login_suspect"]` 与 `state["terminal_reason"]` | `test_worker_boundaries.UnifiedDirectLoopTests.test_pump_wait_returns_early_on_4001_login_suspect`（两条均变红） | 已守（收到终态拒绝或 4001 后停泵收口耗时明显小于当前退避间隔） |
+| 开抢前 `getJoinInfo` 抛出非校时异常按查询未确认继续 | `test_preflight_non_clock_join_error_records_unconfirmed_reason` | `local/application/signup_browser.py`：前置核对异常兜底 `joined = None` 改成 `joined = False` | `test_worker_boundaries.EarlyFailureTests.test_preflight_non_clock_join_error_records_unconfirmed_reason` | 已守（零提交结束时 `done` 行保留 `last_reason=已有报名查询未确认`） |
+| 提交收到 4001 但尚未复查时预算到期，终态按 `login_invalid` 收口（退出码 3） | `test_4001_before_recheck_when_budget_expires_reports_login_invalid` | `local/application/signup_finalize.py`：`finalize_once` 中 `if state["login_invalid"] or state["login_suspect"]:` 改成只判 `state["login_invalid"]` | `test_worker_boundaries.SignupReplyClassificationTests.test_4001_before_recheck_when_budget_expires_reports_login_invalid` | 已守（预算到点且未触发复查时停在 `login_invalid` 与退出码 3） |
+| 直发票据 `attempt_no` 计入已提交未 `started` 的预留笔数 | `test_direct_ticket_attempt_no_counts_reserved_inflight` | `local/application/signup_direct.py`：票据构造里的 `ctx.burst.attempts + direct["reserved"] + 1` 改成 `ctx.burst.attempts + 1` | `test_worker_boundaries.UnifiedDirectLoopTests.test_direct_ticket_attempt_no_counts_reserved_inflight` | 已守（第一笔 `started` 滞后时，第二笔票据 `attempt_no` 严格大于第一笔） |
+| 查到目标活动后，同一进程后续 `log_event` 自动带该活动 id | `test_after_cmd_grab_log_event_carries_activity_id` | `local/application/signup_run.py`：去掉设置 `ports._EVENT_CONTEXT["activity_id"]` 这一行 | `test_worker_logs.EventLineTests.test_after_cmd_grab_log_event_carries_activity_id` | 已守（`cmd_grab` 跑完后调 `log_event` 写入 `activity=act-1`） |
+
+复现命令（清除代理后在仓库根执行；副本导出解包到 `tempfile.gettempdir()` 下临时目录）：
+
+```powershell
+$env:http_proxy=$null; $env:HTTP_PROXY=$null; $env:https_proxy=$null; $env:HTTPS_PROXY=$null; $env:all_proxy=$null
+python -B -m unittest discover -s local/tests -p test_worker_boundaries.py -v
+python -B -m unittest discover -s local/tests -p test_worker_logs.py -v
+python -B -m unittest discover -s local/tests -p test_retry_policy.py -v
+python -B -m unittest discover -s local/tests -p test_code_shape.py -v
+```
