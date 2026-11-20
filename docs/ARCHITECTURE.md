@@ -328,6 +328,7 @@ controller/view DOM 分离不在本轮范围。
 
 ### 报名链路（决策 015）
 
+- **模块分工与调用时端口装配**：`grab.cmd_grab` 只做 Playwright 导入与端口装配，流程分在 `local/application/` 的六个模块——`signup_run.py`（入口 `run_signup`、准备阶段与外层异常映射）、`signup_outcome.py`（唯一 `kind=done` 终态、各停止原因结论与通知、退出码与收口辅助）、`signup_ledger.py`（同一调度账本、回包分类下结论、页面与直发事件结算、在途同步与扩窗重建预算）、`signup_direct.py`（直发路径选择、单向退回点击、重取密钥、现算签名发一笔与开放前预检）、`signup_browser.py`（开页、dry-run、已报名前置核对、等待开放、监听注册与解除、主调度循环与点击兜底、关浏览器）、`signup_finalize.py`（发射闸门、短事件泵、1 秒尾窗与成功粘性的统一有界收尾、单次最终核对与异常退路）；端口在每次调用 `cmd_grab` 时从 `grab` 模块当前全局取出，因此测试替换 `grab.X` 仍生效。
 - **直发为主、点击兜底**：开抢前调 `runtime/profile` 取运行时密钥（`fetch_runtime_key`），
   经 `parse_runtime_key` 校验形状后交给 `build_signup_hash` 现算签名；只有三种情况退回点击
   ——取不到密钥、重取后仍「版本不兼容」、同一条未识别回包连续 3 次。每场写

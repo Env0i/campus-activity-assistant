@@ -3246,33 +3246,53 @@ class StopLifecycleContractTests(unittest.TestCase):
         self.assertNotIn("def clamp_wait_ms", source, "旧的墙钟钳制 helper 必须移除")
         self.assertIn("RetryBudget(", source, "重试窗口必须用单调预算")
         tree = ast.parse(source)
-        cmd = next(node for node in tree.body
-                   if isinstance(node, ast.FunctionDef) and node.name == "cmd_grab")
+        funcs = [node for node in tree.body
+                 if isinstance(node, ast.FunctionDef) and node.name == "cmd_grab"]
+        for mod_name in ("signup_run.py", "signup_outcome.py", "signup_ledger.py",
+                         "signup_direct.py", "signup_browser.py", "signup_finalize.py"):
+            mod_tree = ast.parse(read("application/" + mod_name))
+            funcs.extend(node for node in ast.walk(mod_tree)
+                         if isinstance(node, ast.FunctionDef))
+        seen = {"reload": 0, "click": 0, "goto": 0}
         offenders = []
-        for node in ast.walk(cmd):
-            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
-                continue
-            if node.func.attr not in {"reload", "click", "expect_response", "goto"}:
-                continue
-            timeout = next((kw.value for kw in node.keywords if kw.arg == "timeout"), None)
-            text = ast.unparse(timeout) if timeout is not None else "<none>"
-            if "budget.timeout_ms" not in text:
-                offenders.append((node.func.attr, text))
+        for fn in funcs:
+            for node in ast.walk(fn):
+                if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                    continue
+                if node.func.attr not in {"reload", "click", "expect_response", "goto"}:
+                    continue
+                if node.func.attr in seen:
+                    seen[node.func.attr] += 1
+                timeout = next((kw.value for kw in node.keywords if kw.arg == "timeout"), None)
+                text = ast.unparse(timeout) if timeout is not None else "<none>"
+                if "budget.timeout_ms" not in text:
+                    offenders.append((node.func.attr, text))
         self.assertFalse(offenders, "阻塞调用必须用预算超时：%r" % offenders)
+        for attr, count in seen.items():
+            self.assertGreaterEqual(count, 1, "未扫描到 %s 调用，扫描范围可能已空转" % attr)
 
     def test_grab_finally_never_returns(self):
-        """cmd_grab 的 finally 只收尾浏览器：return 会掩盖真实退出码（成功0/登录失败3/报名失败2）。"""
+        """cmd_grab 与报名子模块的 finally 只做资源收尾：return 会掩盖真实退出码（成功0/登录失败3/报名失败2）。"""
         import ast
         tree = ast.parse(read("grab.py"))
-        cmd = next(node for node in tree.body
-                   if isinstance(node, ast.FunctionDef) and node.name == "cmd_grab")
+        funcs = [node for node in tree.body
+                 if isinstance(node, ast.FunctionDef) and node.name == "cmd_grab"]
+        for mod_name in ("signup_run.py", "signup_outcome.py", "signup_ledger.py",
+                         "signup_direct.py", "signup_browser.py", "signup_finalize.py"):
+            mod_tree = ast.parse(read("application/" + mod_name))
+            funcs.extend(node for node in ast.walk(mod_tree)
+                         if isinstance(node, ast.FunctionDef))
+        finally_count = 0
         offenders = []
-        for node in ast.walk(cmd):
-            if isinstance(node, ast.Try) and node.finalbody:
-                for stmt in node.finalbody:
-                    offenders.extend(sub for sub in ast.walk(stmt)
-                                     if isinstance(sub, ast.Return))
+        for fn in funcs:
+            for node in ast.walk(fn):
+                if isinstance(node, ast.Try) and node.finalbody:
+                    finally_count += 1
+                    for stmt in node.finalbody:
+                        offenders.extend(sub for sub in ast.walk(stmt)
+                                         if isinstance(sub, ast.Return))
         self.assertFalse(offenders, "cmd_grab 的 finally 里不得 return：%r" % offenders)
+        self.assertGreaterEqual(finally_count, 1, "未扫描到任何带 finally 的 try，扫描范围可能已空转")
 
     def test_app_js_stopping_feedback(self):
         js = read("ui/app.js")

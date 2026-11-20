@@ -223,8 +223,8 @@ class RetryLineParsingTests(unittest.TestCase):
         self.assertEqual(parsed["pending"], "2")
         self.assertEqual(parsed["streak_404"], "3")
         self.assertEqual(parsed["phase"], "full_speed")
-        # 发射端契约守护：grab.py 的 done 行格式串必须以 last_reason 收尾
-        source = (LOCAL / "grab.py").read_text(encoding="utf-8")
+        # 发射端契约守护：signup_outcome.py 的 done 行格式串必须以 last_reason 收尾
+        source = (LOCAL / "application" / "signup_outcome.py").read_text(encoding="utf-8")
         match = re.search(r'log\("\[retry\] kind=done[^"]*"(?:\s*\n\s*"[^"]*")*', source)
         self.assertIsNotNone(match, "done 行格式串找不到：发射端形状变了，先对齐本契约")
         format_text = "".join(re.findall(r'"([^"]*)"', match.group(0)))
