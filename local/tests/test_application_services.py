@@ -2136,7 +2136,6 @@ class SavePrefsWriteFailureTests(unittest.TestCase):
 
         dummy = types.SimpleNamespace()   # save_prefs 只把 patch 交给 update_prefs
         with mock.patch.object(local_app, "PREFS", prefs_path), \
-                mock.patch.object(local_app, "load_prefs", lambda: {"keep": 1}), \
                 mock.patch.object(local_app, "_atomic_write_prefs", denied):
             got = local_app.Api.save_prefs(dummy, {"probe": True})
         self.assertFalse(got["ok"], "写不进去不能让界面以为保存成功")

@@ -6144,6 +6144,39 @@ out.push({ before,
         self.assertFalse(r["checkHidden"], "检查登录回到可见")
         self.assertFalse(r["loginHidden"], "登录按钮回到可见")
 
+    def test_open_card_repaints_when_terms_withdrawn_via_ingest(self):
+        """卡片开着时从外面撤回条款：ingestTerms 落地后卡片立刻换成暂停检查。"""
+        res = run_js(WB_STAMP_JS + r"""
+seed([{ id: "a1", name: "甲活动", sign_start: stamp(now + 3600), sign_end: stamp(now + 7200) }]);
+S.listState = "ready";
+S.demo = false; S.prefs = {};
+S.login.present = true; S.login.result = "valid"; S.login.ok = true; S.login.checking = false;
+S.terms.version = "v1"; S.terms.acceptedVersion = "v1";
+S.terms.acceptedAt = "2026-11-20 10:00:00"; S.terms.unknown = false;
+paintLogin(); updateControls();
+openStatusCard("login", true);
+const before = {
+  big: document.querySelector("#login-pop-big").textContent,
+  termsHidden: document.querySelector("#btn-login-terms").hidden,
+};
+S.terms.prompted = true;
+ingestTerms({ version: "v1", accepted_version: "", accepted_at: "" });
+out.push({
+  before,
+  big: document.querySelector("#login-pop-big").textContent,
+  termsHidden: document.querySelector("#btn-login-terms").hidden,
+  checkHidden: document.querySelector("#btn-login-check").hidden,
+  loginHidden: document.querySelector("#btn-login").hidden,
+});
+""")
+        r = res[0]
+        self.assertEqual(r["before"]["big"], "登录有效", "撤回前卡片显示登录有效")
+        self.assertTrue(r["before"]["termsHidden"], "撤回前「查看条款」隐藏")
+        self.assertEqual(r["big"], "暂停检查", "撤回后打开着的卡片大字要立刻换成暂停检查")
+        self.assertFalse(r["termsHidden"], "进入条款门后「查看条款」可见")
+        self.assertTrue(r["checkHidden"], "进入条款门后「检查登录」收起")
+        self.assertTrue(r["loginHidden"], "进入条款门后「登录」按钮收起")
+
     def test_prototype_demo_controls_are_not_shipped(self):
         """原型里只为演示存在的控件（状态对照表「实现时删除」一节）不进产品，也不变成隐藏功能。"""
         ui = LOCAL / "ui"
