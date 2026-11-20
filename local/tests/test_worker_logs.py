@@ -243,6 +243,22 @@ class EventLineTests(_LogBase):
         self.assertRegex(stamp, r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
         self.assertEqual(rest, "level=WARN source=cli activity=- event=login_failed reason=timeout")
 
+    def test_after_cmd_grab_log_event_carries_activity_id(self):
+        """报名进程查到目标活动后，同进程后续写出的结构化事件必须自动带上该活动 id。
+
+        保证排查单场报名记录时每条事件日志都关联到对应活动，不出现上下文丢失。
+        """
+        tests_dir = str(Path(__file__).resolve().parent)
+        if tests_dir not in sys.path:
+            sys.path.insert(0, tests_dir)
+        from test_worker_boundaries import run_worker
+
+        with mock.patch.dict(grab._EVENT_CONTEXT, dict(grab._EVENT_CONTEXT)):
+            res = run_worker(behavior="success", max_attempts=1)
+            line = self._event("after_grab", "worker")
+        self.assertEqual(res.stop_reason, "success")
+        self.assertIn("activity=act-1", line)
+
 
 class PureFormatterTests(unittest.TestCase):
     def test_scrub_fields_keeps_order_and_drops_reserved_and_secret(self):

@@ -225,7 +225,7 @@ class FakePage:
 
     def __init__(self, clock, behavior, button_visible=True, click_delay=0.0,
                  foreign=False, response_delay=0.0, script_srcs=None,
-                 inject_failed_at=None, break_wait_at=None):
+                 inject_failed_at=None, break_wait_at=None, page_signup_at=None):
         self.clock = clock
         self.behavior = behavior
         self.button_visible = button_visible
@@ -235,6 +235,7 @@ class FakePage:
         self.script_srcs = script_srcs    # 直发检测读入口 script src（None=未知→点击）
         self.inject_failed_at = inject_failed_at   # 到点注入未登记 Request 的 requestfailed
         self.break_wait_at = break_wait_at         # 到点后 wait_for_timeout 抛错（页面失效）
+        self.page_signup_at = page_signup_at       # 到点注入页面自发 signUp 请求与响应
         self.request_handlers = []
         self.response_handlers = []
         self.requestfailed_handlers = []
@@ -307,6 +308,12 @@ class FakePage:
             self.inject_failed_at = None
             self.fire_requestfailed(FakeRequest(
                 SITE + "/dr/api/rjyHdCyr/signUp/ghost-unregistered"))
+        if self.page_signup_at is not None and self.clock.mono >= self.page_signup_at:
+            self.page_signup_at = None
+            req = FakeRequest(SITE + "/dr/api/rjyHdCyr/signUp/" + OPAQUE + "-page")
+            self._notify(req)
+            self._dispatch("response", self.response_handlers,
+                           FakeResponse(req, {"code": 1, "message": "ok"}))
         self._deliver_due()
 
     def eval_on_selector_all(self, selector, script):
@@ -614,11 +621,13 @@ def run_worker(*, behavior="success", at_offset=0.0, retry_for=120.0, max_attemp
                api_token="test-token",
                inject_failed_at=None, break_wait_at=None, join_info_data=None,
                recheck_state="expired", runtime_key=_AUTO_KEY,
-               relogin_wait=0.0, relogin_writes_token=False):
+               relogin_wait=0.0, relogin_writes_token=False,
+               page_signup_at=None, precheck_join_exc=None):
     clock = FakeClock()
     page = FakePage(clock, behavior, button_visible, click_delay, foreign,
                     response_delay, script_srcs,
-                    inject_failed_at=inject_failed_at, break_wait_at=break_wait_at)
+                    inject_failed_at=inject_failed_at, break_wait_at=break_wait_at,
+                    page_signup_at=page_signup_at)
     logs, posts = [], []
     created = {"browser": False}
     delays = list(post_delays or [])
@@ -672,6 +681,8 @@ def run_worker(*, behavior="success", at_offset=0.0, retry_for=120.0, max_attemp
         if "/getJoinInfo/" in path:
             # 首次查询是入场预检（必须未报名）；后续查询才按 join_info_data 作答
             join_calls["n"] += 1
+            if join_calls["n"] == 1 and precheck_join_exc is not None:
+                raise precheck_join_exc
             if join_calls["n"] > 1 and join_info_data is not None:
                 return {"code": 1, "data": join_info_data}
             return {"code": 1, "data": None}
@@ -3281,6 +3292,110 @@ class UnifiedDirectLoopTests(unittest.TestCase):
         self.assertEqual(res.stop_reason, "login_invalid",
                          "整数字符串按原业务判据走 4001")
 
+    def test_page_signup_response_ignored_while_direct_active(self):
+        """直发在途未降级时，页面自发的报名响应不得进入结论或日志。
+
+        防止页面侧回包覆盖直发状态，让用户看到错乱的失败原因或误以为已报名。
+        """
+        reply = staticmethod(lambda t: _d_payload(
+            RETRYABLE_REPLY["code"], RETRYABLE_REPLY["message"]))
+        FakeTransport.responder_fn = reply
+        base = run_worker(behavior="success", at_offset=OPEN_AHEAD,
+                          retry_for=30.0, max_attempts=1, button_visible=False,
+                          script_srcs=self._known(), direct_signer=_RecordingSigner(),
+                          direct_transport=FakeTransport)
+        FakeTransport.reset()
+        FakeTransport.responder_fn = reply
+        res = run_worker(behavior="success", at_offset=OPEN_AHEAD,
+                         retry_for=30.0, max_attempts=1, button_visible=False,
+                         script_srcs=self._known(), direct_signer=_RecordingSigner(),
+                         direct_transport=FakeTransport,
+                         page_signup_at=1000.0 + OPEN_AHEAD + 0.01)
+        self.assertEqual(len(res.requests), 1, "装置确实在页面发出了 signUp 请求")
+        self.assertEqual(res.attempts, base.attempts)
+        self.assertEqual(res.stop_reason, base.stop_reason)
+        self.assertEqual(res.terminal_lines[-1].split("last_reason=")[1],
+                         base.terminal_lines[-1].split("last_reason=")[1])
+        self.assertNotIn("收到其他请求的响应", "\n".join(res.logs))
+
+    def test_pump_wait_returns_early_on_terminal_reason(self):
+        """退避等待中途收到学校明确拒绝时，必须立即停泵收尾，不能等满当前间隔。
+
+        让用户尽快看到名额已满等终态结论，不在已无意义的等待里空耗。
+        """
+        calls = {"n": 0}
+        delivered = []
+
+        def responder(ticket):
+            calls["n"] += 1
+            return _d_http(500) if calls["n"] == 1 else _d_payload(500, "报名人数已满")
+
+        def rel(ticket, event):
+            if event.get("kind") == "completed" and event.get("attempt_no") == 2:
+                at = FakeTransport.clock.mono + 0.05
+                delivered.append(at)
+                return at
+            return None
+
+        FakeTransport.responder_fn = staticmethod(responder)
+        FakeTransport.release_at_fn = rel
+        res = run_worker(behavior="success", at_offset=OPEN_AHEAD,
+                         retry_for=30.0, max_attempts=0, button_visible=False,
+                         script_srcs=self._known(), direct_signer=_RecordingSigner(),
+                         direct_transport=FakeTransport)
+        self.assertEqual(res.stop_reason, "full")
+        self.assertEqual(len(delivered), 1)
+        self.assertLess(res.clock.mono - delivered[0],
+                        grab.SERVER_ERROR_MIN_GAP_S * 0.5)
+
+    def test_pump_wait_returns_early_on_4001_login_suspect(self):
+        """退避等待中途收到 4001 待复查时，必须立即结束等待并进入登录复查。
+
+        避免在失效会话上继续空等完整退避间隔，及时停发并提示处理登录态。
+        """
+        calls = {"n": 0}
+        delivered = []
+
+        def responder(ticket):
+            calls["n"] += 1
+            return _d_http(500) if calls["n"] == 1 else _d_payload(4001, "身份验证失败！")
+
+        def rel(ticket, event):
+            if event.get("kind") == "completed" and event.get("attempt_no") == 2:
+                at = FakeTransport.clock.mono + 0.05
+                delivered.append(at)
+                return at
+            return None
+
+        FakeTransport.responder_fn = staticmethod(responder)
+        FakeTransport.release_at_fn = rel
+        res = run_worker(behavior="success", at_offset=OPEN_AHEAD,
+                         retry_for=30.0, max_attempts=0, button_visible=False,
+                         script_srcs=self._known(), direct_signer=_RecordingSigner(),
+                         direct_transport=FakeTransport)
+        self.assertEqual(res.stop_reason, "login_invalid")
+        self.assertEqual(res.code, 3)
+        self.assertEqual(len(delivered), 1)
+        self.assertLess(res.clock.mono - delivered[0],
+                        grab.SERVER_ERROR_MIN_GAP_S * 0.5)
+
+    def test_direct_ticket_attempt_no_counts_reserved_inflight(self):
+        """上一笔直发票据尚未确认发起时，紧接提交的下一笔票据序号必须严格递增。
+
+        保证传输层每笔票据有独立序号，避免两笔在途请求混用同一编号导致结算错位。
+        """
+        FakeTransport.responder_fn = staticmethod(
+            lambda t: _d_payload(RETRYABLE_REPLY["code"], RETRYABLE_REPLY["message"]))
+        FakeTransport.release_at_fn = (
+            lambda ticket, event: FakeTransport.clock.mono + 9999.0
+            if ticket["request_id"].endswith("-1") else None)
+        run_worker(behavior="success", at_offset=OPEN_AHEAD, retry_for=30.0,
+                   max_attempts=2, button_visible=False, script_srcs=self._known(),
+                   direct_signer=_RecordingSigner(), direct_transport=FakeTransport)
+        tickets = FakeTransport.instances[0].tickets
+        self.assertEqual(len(tickets), 2)
+        self.assertGreater(tickets[1]["attempt_no"], tickets[0]["attempt_no"])
+
 
 class FinalizeFallbackTests(unittest.TestCase):
     """F06 返修：finalize 异常退路共用同一终态优先级——
@@ -3463,6 +3578,19 @@ class EarlyFailureTests(unittest.TestCase):
         self._assert_clean(res, "clock_unavailable")
         self.assertEqual(len(res.posts), 1, "只有预检一次查询")
 
+    def test_preflight_non_clock_join_error_records_unconfirmed_reason(self):
+        """开抢前已报名查询遇到非校时异常时，必须按查询未确认继续并写入对应原因。
+
+        防止把查询异常误记为明确未报名，让零提交结束时的失败原因准确提示未确认。
+        """
+        res = run_worker(behavior="success", at_offset=0.0, retry_for=0.5,
+                         button_visible=False, runtime_key=None,
+                         precheck_join_exc=RuntimeError("join query boom"))
+        self.assertEqual(res.attempts, 0)
+        self.assertEqual(res.stop_reason, "retry_duration")
+        self.assertEqual(res.code, 2)
+        self.assertTrue(res.terminal_lines[-1].endswith("last_reason=已有报名查询未确认"))
+
 
 
 class SignupReplyClassificationTests(unittest.TestCase):
@@ -3560,6 +3688,30 @@ class SignupReplyClassificationTests(unittest.TestCase):
     def test_4001_rechecked_expired_is_login_invalid(self):
         res = self._direct({"code": 4001, "message": "身份验证失败！"})
         self.assertEqual(res.stop_reason, "login_invalid")
+
+    def test_4001_before_recheck_when_budget_expires_reports_login_invalid(self):
+        """提交收到 4001 但尚未及复查时重试预算到期，终态必须按登录失效收口并返回退出码 3。
+
+        防止失效登录态被误报为重试时长到了，误导用户继续等待而不重新登录。
+        """
+        calls = {"n": 0}
+
+        def responder(ticket):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return _d_payload(4001, "身份验证失败！")
+            return _d_payload(RETRYABLE_REPLY["code"], RETRYABLE_REPLY["message"])
+
+        FakeTransport.responder_fn = staticmethod(responder)
+        FakeTransport.release_at_fn = (
+            lambda ticket, event: 1000.42 if event.get("kind") == "completed" else None)
+        res = run_worker(behavior="success", at_offset=0.0, retry_for=0.4256,
+                         max_attempts=0, button_visible=False,
+                         script_srcs=self._known(), direct_signer=_RecordingSigner(),
+                         direct_transport=FakeTransport, recheck_state="valid")
+        self.assertEqual(res.pending, 0)
+        self.assertEqual(res.stop_reason, "login_invalid")
+        self.assertEqual(res.code, 3)
 
     def test_login_words_in_business_text_are_not_login_invalid(self):
         res = self._direct({"code": 500, "message": "请登录后完成身份验证"}, max_attempts=2)
