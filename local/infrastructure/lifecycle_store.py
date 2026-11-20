@@ -73,8 +73,10 @@ class AppLifecycle:
             self._load_and_claim({}, write=False)
         except OSError:
             # 写盘一直失败（目标正被别的句柄占着）：这次启动元数据没写成，程序
-            # 照常启动。上一周期的展示快照在抛出前已经算好，直接留着即可，不再
-            # 重试写入——下一次心跳还会再来一趟。
+            # 照常启动，上一周期的展示快照在抛出前已算好；文件里若留着上一周期
+            # 的运行记录，之后的心跳按归属不符整轮放弃（与锁拿不到时一样），
+            # 只影响下次启动「上次关了多久」的提示；文件里原本没有运行记录时
+            # 心跳照常能写。
             pass
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._heartbeat, daemon=True,
