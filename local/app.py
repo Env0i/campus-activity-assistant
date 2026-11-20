@@ -84,6 +84,7 @@ from application import login_service as _login_service
 from application import login_recovery as _login_recovery
 from application import activity_list_service as _activity_list_service
 from application import login_relay_service as _login_relay_service
+from application import relogin_entry as _relogin_entry
 from application.auto_relogin import AutoReloginMonitor
 from application import phone_service as _phone_service
 from application import advanced_component_service as _advanced_component
@@ -93,6 +94,7 @@ from application import plan_service as _plan_service
 from application import signup_cancellation as _signup_cancellation
 from application import worker_service as _worker_service
 from application import desktop_lifecycle as _desktop_lifecycle
+from application import desktop_window as _desktop_window
 from application import clock_service as _clock_service
 from application import update_service as _update_service
 
@@ -660,6 +662,17 @@ def defer_close_action(callback, delay: float = 0.25) -> None:
     timer.start()
 
 
+def make_tray_icon(*, on_show, on_exit):
+    """托盘图标的唯一创建点（纯装配，供 application.desktop_window 注入）。
+
+    import 留在组合根：只有真要建托盘时才加载 pystray 依赖，启动路径不受影响；
+    application 层因此不必也不许直接 import infrastructure。
+    """
+    from infrastructure import tray_icon as _tray_icon
+
+    return _tray_icon.TrayIcon(on_show=on_show, on_exit=on_exit)
+
+
 def handle_window_close(api, window, *, defer=None) -> bool:
     """closing 回调的全部判定：返回 True 放行关闭，False 取消。
 
@@ -821,7 +834,8 @@ LIST_CLOCK_POLL_S = 0.25
 
 class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
           _login_recovery.LoginFields, _activity_list_service.ActivityListFields,
-          _plan_service.PlanFields, _clock_service.ClockFields):
+          _plan_service.PlanFields, _clock_service.ClockFields,
+          _relogin_entry.ReloginEntryFields, _desktop_window.DesktopWindowFields):
     def _published_plan_state(self):
         return self._plan.published_status() if self._plan else ""
 
@@ -953,6 +967,62 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
                    "payload": lambda: self._clock_payload(),
                    "list_wait": lambda: LIST_CLOCK_WAIT_S, "list_poll": lambda: LIST_CLOCK_POLL_S,
                    "emit": lambda kind, payload: self._emit(kind, payload)})
+
+    def _make_desktop_window(self):
+        return _desktop_window.DesktopWindow(
+            lock=self._lock, coordination=self._coord,
+            ports={"plan": lambda: self._plan,
+                   "emit": lambda kind, payload: self._emit(kind, payload),
+                   "log": lambda message: phone_log(message),
+                   "load_prefs": lambda: load_prefs(),
+                   "update_prefs": lambda patch: update_prefs(patch),
+                   "resolve_close_action": lambda prefs, running: resolve_close_action(
+                       prefs, running),
+                   "ensure_tray": lambda: self._ensure_tray(),
+                   "phone_running": lambda: self._phone.is_running(),
+                   "phone_live": lambda: self._phone.has_live_session(),
+                   "clock_now": lambda: self._clock_now(),
+                   "clock_ready": lambda: self._clock_ready(),
+                   "epoch_of": lambda text: school_epoch(text),
+                   "time_text_of": lambda epoch: school_time_text(epoch),
+                   "plan_done_notice": lambda tasks: _plan_service.plan_done_notice(tasks),
+                   "tray_factory": lambda **kwargs: make_tray_icon(**kwargs)})
+
+    def _make_relogin_entry(self):
+        return _relogin_entry.ReloginEntry(
+            coordination=self._coord, lock=self._lock,
+            login_recovery=self._login_recovery, credential_lock=self._credential_lock,
+            ports={"terms_gate": lambda: self._terms_gate(),
+                   "emit": lambda kind, payload: self._emit(kind, payload),
+                   "log_event": lambda *args, **kwargs: self._log_event(*args, **kwargs),
+                   "relay": lambda: self._relay,
+                   "monitor": lambda: self._auto_relogin,
+                   "plan": lambda: self._plan,
+                   "demo": lambda: DEMO,
+                   "load_prefs": lambda: load_prefs(),
+                   "ocr_ready": lambda prefs: _advanced_features.feature_ready(
+                       prefs, _advanced_features.RELOGIN_OCR, root=DATA_DIR),
+                   "has_credentials": lambda: _credential_store.has_credentials(
+                       CREDENTIAL_FILE),
+                   "load_credentials": lambda: _credential_store.load(CREDENTIAL_FILE),
+                   "save_credentials": lambda user, secret: _credential_store.save(
+                       CREDENTIAL_FILE, user, secret),
+                   "clear_credentials": lambda: _credential_store.clear(CREDENTIAL_FILE),
+                   "credentials_bad": lambda: _credential_store.is_bad(CREDENTIAL_FILE),
+                   "store_available": lambda: _credential_store_available(),
+                   "worker_command": lambda *args: worker_command(*args),
+                   "clock_now": lambda: self._clock_now(),
+                   "epoch_of": lambda text: school_epoch(text),
+                   "clock_bounds": lambda: self._clock.bounds(),
+                   "session_token": lambda: str(json.loads(
+                       SESSION_FILE.read_text(encoding="utf-8")).get("token") or "").strip(),
+                   "save_anchor": lambda token, epoch, uncertainty: (
+                       save_session_timing_anchor(token, epoch, uncertainty)),
+                   "note_origin": lambda origin: setattr(self, "_last_login_origin", origin),
+                   "refresh_check": lambda: threading.Thread(
+                       target=self.check, daemon=True).start(),
+                   "wait_s": lambda: RELOGIN_WAIT_S,
+                   "manual_after": lambda: _MANUAL_RELOGIN_AFTER})
 
     def _phone_actions(self):
         return {
@@ -1112,9 +1182,9 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         # 独立北京时间（决策 012）：生产 main 注入 BusinessClock；
         # 未注入时显式不可用，绝不回退本机时间。测试必须显式注入 Fake。
         self._clock_service = self._make_clock_service(clock)
-        self._window: webview.Window | None = None
-        # 登录中继自己占的那一棵：_relay_finished 只收这一棵，不误伤别的任务
         self._relay_proc_tree = None
+        # 窗口对象由 main() 在 create_window 之后经 _window 代理赋进来
+        self._desktop_window = self._make_desktop_window()
         self._activities: dict[str, dict] = {}
         # EX05/BE2：电脑侧最近一次拉活动列表失败（安全原因短语 + 北京 HH:MM）。
         # 只进手机快照（_phone_raw_state），不写日志；成功刷新即清空（None）。
@@ -1125,10 +1195,6 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         self._credential_lock = threading.Lock()
         self._phone_access_lock = threading.Lock()
         self._component_actions = self._make_component_actions()
-        # 关窗弹窗里点过「退出」才放行：closing 事件返回 False 会取消关闭
-        self._close_approved = False
-        # 托盘图标：只在窗口藏起来以后才建，建不起来也不影响主程序
-        self._tray = None
         # 去重期间又被要求刷新的标记：本轮收尾时补查一次，重登成功后的刷新
         # 不能被「已在检查」静默丢掉（只补一次，不排循环）
         self._check_again = False
@@ -1139,8 +1205,6 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         self._list_last = {"request_id": "", "payload": None}
         # 最近一次 check 的四态结论：start_plan 的放行/拒绝只信它
         self._last_check: dict = {}
-        # 报名进程发来 login_wait（决策 015）：允许这一次在计划运行中自动登录
-        self._login_wait_pending = False
         # 最近一次自动登录发起时刻（单调钟）：成功/失败落盘日志时算整轮耗时
         self._auto_relogin_started_at = None
         # 更新检查独立于登录/报名，只由帮助按钮触发；页面重载复用内存中的在途请求。
@@ -1210,9 +1274,6 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         self._expiry_pushed = False
         # 同一段失效只落一次 login_expired_detected：检查每 60 秒一轮，不重复刷日志
         self._login_expired_logged = False
-        # 窗口不在眼前（最小化或隐藏到后台）时，计划结束要发系统通知
-        self._window_hidden = False
-        self._window_minimized = False
         self._cloudflare = _tunnel_manager.CloudflareTunnel(
             _tunnel_manager.resolve_cloudflared(resource_root=RESOURCE_ROOT, here=HERE, root=DATA_DIR),
             popen=_tunnel_manager.spawn_cloudflared,
@@ -1227,23 +1288,23 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         # 必须明确回「正在启动」，而不是排队后又叠一条隧道。
         self._cloudflare_starting = False
         # 手机重登中继：凭据只在进程内存，singleflight，成功才建时钟锚点
+        self._relogin_entry = self._make_relogin_entry()
         self._relay = _login_relay_service.LoginRelayService(
             spawn=self._spawn_relay_worker, now=time.monotonic,
             emit=self._emit, log=self._log_event,
             on_success=self._anchor_login_success,
             on_finish=self._relay_finished,
             classify_captcha=self._classify_captcha, manual_after=_MANUAL_RELOGIN_AFTER)
-        # 这一场登录用的是谁的账号密码：saved=电脑上保存的，typed=这次手输的
-        # （只在内存里，勾了保存才在成功后写盘）。决定失败时要不要暂停自动登录。
-        self._relay_creds_source = ""
-        # 冲突 5（CR20）：只用这一次的账号被学校说密码不对。只在内存里，退出即丢；
-        # 没有保存的账号时据此暂停自动登录，直到用户输入或保存新的账号密码。
-        self._once_creds_rejected = False
-        self._pending_save: dict | None = None
+        # 调度器的端口写成 lambda：它读的是 Api 上那几个旧名字，替身改哪个名字都立刻生效
         self._auto_relogin = AutoReloginMonitor(
-            now=time.monotonic, check=self.check, start=self._begin_auto_relogin,
-            eligible=self._auto_relogin_eligible, state=self._relay.state,
-            paused=self._auto_relogin_paused, log=self._log_event, ready=self._silent_relogin_ready, on_change=lambda view: self._emit("login_auto", view))
+            now=time.monotonic, check=self.check,
+            start=lambda: self._begin_auto_relogin(),
+            eligible=lambda: self._auto_relogin_eligible(),
+            state=lambda: self._relay.state(),
+            paused=lambda: self._auto_relogin_paused(),
+            log=lambda *args, **kwargs: self._log_event(*args, **kwargs),
+            ready=lambda: self._silent_relogin_ready(),
+            on_change=lambda view: self._emit("login_auto", view))
         if not DEMO:
             self._auto_relogin.start()
 
@@ -1561,187 +1622,44 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
     def remove_advanced_feature(self, key: str='') -> dict:
         return self._component_actions.remove(key)
 
+    # ---------- 重登入口与自动重登门（实现在 application.relogin_entry） ----------
+    # 这些名字是 AutoReloginMonitor、手机动作表与谁挡谁矩阵的接线点，这里只保留
+    # 三行以内的转发；状态归属与逐条判断见该服务与 domain/login_rules 的纯函数。
     def save_relogin_credentials(self, username: str = "", password: str = "") -> dict:
-        """保存续登录用的账号密码（DPAPI 加密落盘）。
-
-        只依赖「本机加密存储可用」：ddddocr 只决定能不能自动识别验证码，
-        手机端人工输码的重登同样需要这份账号——两件事不再互相绑死。
-        """
-        user = str(username or "").strip()
-        secret = str(password or "")
-        if not user or not secret:
-            return {"ok": False, "error": "needs_local_setup",
-                    "text": "请输入账号和密码。"}
-        if not _credential_store_available():
-            return {"ok": False, "error": "store_unavailable",
-                    "text": "本机加密存储不可用，暂时无法保存账号密码。"}
-        try:
-            with self._credential_lock:
-                _credential_store.save(CREDENTIAL_FILE, user, secret)
-                with self._lock:
-                    self._once_creds_rejected = False
-                self._auto_relogin.reset()
-        except Exception as exc:  # noqa: BLE001
-            return {"ok": False, "error": "credential_save_failed",
-                    "text": "账号密码暂时没有保存：%s" % type(exc).__name__}
-        return {"ok": True, "saved": True, "username": user}
+        return self._relogin_entry.save_relogin_credentials(username, password)
 
     def clear_relogin_credentials(self) -> dict:
-        with self._credential_lock:
-            _credential_store.clear(CREDENTIAL_FILE)
-            self._relay.clear_staged()
-            with self._lock:
-                self._once_creds_rejected = False
-            self._relay.cancel(origin="auto")
-            self._auto_relogin.reset()
-        return {"ok": True, "saved": False}
+        return self._relogin_entry.clear_relogin_credentials()
 
     def _silent_relogin_ready(self) -> tuple[bool, str]:
-        """电脑能不能自己把登录补回来；不能时附一个给界面看的原因。
-
-        只看「能力」：条款已同意、验证码识别已装、有可用账号（保存的或这次手输的）、
-        密码没被学校拒绝过。正在检查、拉列表这类瞬时忙碌不算——那由
-        _auto_relogin_eligible 另判，改到下一拍再发起。
-        """
-        if DEMO:
-            return False, "demo"
-        try:
-            if self._terms_gate() is not None:
-                return False, "terms"
-            if not (_credential_store.has_credentials(CREDENTIAL_FILE)
-                    or self._once_credentials_staged()):
-                return False, "no_credentials"
-            if not _advanced_features.feature_ready(
-                    load_prefs(), _advanced_features.RELOGIN_OCR, root=DATA_DIR):
-                return False, "ocr_missing"
-            if self._auto_relogin_paused():
-                return False, "paused"
-        except Exception:  # noqa: BLE001 - 判据读不到就按「不能」处理，界面照旧提醒
-            return False, "unknown"
-        return True, ""
+        return self._relogin_entry._silent_relogin_ready()
 
     def _silent_relogin_state(self) -> tuple[bool, str]:
-        """check 载荷里的静默恢复态：能自己登录、还没失败过、也不是在等人输验证码。
-
-        界面的失效提醒在第一次静默失败后就要回来（后台仍会退避重试）；转人工以后
-        也不该再把胶囊画成「自动登录中」。
-        """
-        ready, reason = self._silent_relogin_ready()
-        if not ready:
-            return False, reason
-        try:
-            relay = self._relay.state() or {}
-        except Exception:
-            relay = {}
-        if relay.get("live") and relay.get("mode") == "manual":
-            return False, "handoff"
-        try:
-            failures = int(self._auto_relogin.snapshot().get("failures") or 0)
-        except Exception:
-            failures = 0
-        if failures > 0:
-            return False, "retry_pending"
-        return True, ""
+        return self._relogin_entry._silent_relogin_state()
 
     def _auto_relogin_eligible(self) -> bool:
-        with self._lock:
-            if (self._closing or self._advanced_busy or self._checking or self._listing
-                    or self._cancelling or self._relogin_blocked_locked()):
-                return False
-        # 冲突 5（CR20）：保存过的账号，或这次运行内存里「只用这一次」的账号，有其一即可；
-        # 其余条件（条款、识别已启用、暂停）一条不放宽
-        return self._silent_relogin_ready()[0]
+        return self._relogin_entry._auto_relogin_eligible()
 
     def _once_credentials_staged(self) -> bool:
-        """这次运行内存里有没有「只用这一次」（手输、没保存）的账号密码。
-
-        只认手输来源：中继暂存区也可能放着「手机重登用保存账号预备」的副本
-        （be-fields A3），那份不算这次的。只读布尔，不碰账号密码本身。
-        """
-        with self._lock:
-            typed = self._relay_creds_source == "typed"
-        return typed and self._relay.has_staged()
+        return self._relogin_entry._once_credentials_staged()
 
     def _auto_relogin_paused(self) -> bool:
-        """自动登录该不该暂停到用户更新密码。
-
-        保存的密码被学校拒绝过（落盘标记）照旧暂停；没有保存的账号、只用这一次的
-        那份被拒绝过（内存标记）也暂停。有保存的账号时以保存的为准，内存标记不管。
-        """
-        if _credential_store.is_bad(CREDENTIAL_FILE):
-            return True
-        with self._lock:
-            rejected = self._once_creds_rejected
-        return rejected and not _credential_store.has_credentials(CREDENTIAL_FILE)
-
-    def _relogin_blocked_locked(self) -> bool:
-        """计划运行中什么时候不该自动登录（决策 015）。调用方持 self._lock。
-
-        计划在等开放、报名进程还没起来：可以原地自动登录。报名进程在跑：只有它确认
-        登录失效、发来 login_wait 时才登录，免得开抢中途把它手里的登录态顶掉。
-        """
-        if self._login_wait_pending:
-            return False
-        if self._proc and self._proc.poll() is None:
-            return True
-        return any(proc.poll() is None for proc in self._plan_procs.values())
+        return self._relogin_entry._auto_relogin_paused()
 
     def _request_auto_relogin(self) -> None:
-        """报名进程发来 login_wait：放行这一次计划运行中的自动登录，并让调度立即动手。"""
-        with self._lock:
-            self._login_wait_pending = True
-        self._auto_relogin.request_recover()
+        return self._relogin_entry._request_auto_relogin()
 
     def _relogin_wait_s(self) -> float:
-        """worker 确认登录失效后能等多久：电脑能自己登录（有账号密码、验证码识别已装）才等。"""
-        return RELOGIN_WAIT_S if self._silent_relogin_ready()[0] else 0.0
+        return self._relogin_entry._relogin_wait_s()
 
     def _relogin_ocr_ready(self) -> bool:
-        """电脑这边有没有「自己认验证码」的能力。"""
-        return bool(_advanced_features.feature_ready(
-            load_prefs(), _advanced_features.RELOGIN_OCR, root=DATA_DIR))
+        return self._relogin_entry._relogin_ocr_ready()
 
     def _manual_relogin_wanted(self, relay=None) -> bool:
-        """验证码该不该交给手机上的人来打。
-
-        电脑装了 OCR 就让它自己认：手机只看到「重试中」，两个人抢同一张图只会
-        互相把对方顶掉。同一场连认 _MANUAL_RELOGIN_AFTER 次都不对、或整轮自动
-        重登连续失败同样次数，说明机器解决不了，这时才把图推给手机。
-        """
-        if not self._relogin_ocr_ready():
-            return True
-        relay = self._relay.state() if relay is None else relay
-        if relay.get("live") and relay.get("mode") in ("auto", "manual"):
-            return relay["mode"] == "manual"
-        # 只有这一场还在跑，attempts 才说明「电脑认了几次都没认对」；
-        # 历史快照里的 attempts 是上一场残留，拿它判定会把手机永久锁进人工模式
-        if relay.get("live") and int(relay.get("attempts") or 0) >= _MANUAL_RELOGIN_AFTER:
-            return True
-        failures = int(self._auto_relogin.snapshot().get("failures") or 0)
-        return failures >= _MANUAL_RELOGIN_AFTER
+        return self._relogin_entry._manual_relogin_wanted(relay)
 
     def _phone_relay_view(self) -> dict:
-        """手机 /api/state 里的重登投影。
-
-        机器还在认的时候，图和挑战号都不下发：手机看不到验证码就不会去提交，
-        也就不会和电脑抢同一张图。mode/retrying/retry_in 让手机能显示「重试中」，
-        而不是把「还没有图」误当成「重登已经结束」。
-        """
-        relay = dict(self._relay.state())
-        auto = self._auto_relogin.snapshot()
-        manual = self._manual_relogin_wanted(relay)
-        state = str(relay.get("state") or "")
-        retrying = bool(auto.get("inflight")) or state in ("starting", "verifying")
-        if not manual:
-            relay["image"] = ""
-            relay["challenge_id"] = ""
-        relay["mode"] = "manual" if manual else "auto"
-        relay["retrying"] = retrying
-        relay["retry_in"] = max(0, int(auto.get("retry_in") or 0))
-        relay["auto_failures"] = max(0, int(auto.get("failures") or 0))
-        # live 原样透传：手机端只有在本场真的还在跑时才播报「重登成功」
-        relay["live"] = bool(relay.get("live"))
-        return relay
+        return self._relogin_entry._phone_relay_view()
 
     def _log_event(self, event: str, level: str = "INFO", **fields) -> None:
         """自动登录的关键动作落盘到 grab.log（行格式与 worker 同源，见 domain.log_events）。
@@ -1782,60 +1700,10 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
                 lock_handle.close()
 
     def _begin_auto_relogin(self) -> dict:
-        """发起一轮自动登录，并把发起结果写进 grab.log（带耗时和失败分类，不带账号）。
-
-        busy 是「现在不该登」（正在检查、计划在跑等），什么都没尝试，不落盘。
-        """
-        began = time.monotonic()
-        result = self._begin_auto_relogin_once()
-        if result.get("ok"):
-            self._auto_relogin_started_at = began
-            self._log_event("auto_relogin_started", elapsed_s=time.monotonic() - began)
-        elif result.get("error") != "busy":
-            self._log_event("auto_relogin_start_failed", level="WARN",
-                            reason=str(result.get("error") or "unknown"),
-                            elapsed_s=time.monotonic() - began)
-            # 发起失败界面收不到中继事件，会一直显示「自动登录中」；推一次当前状态让顶栏收起。
-            # 推送失败不影响发起结果，所以吞掉异常。
-            try:
-                self._emit("phone_relogin", self._relay.state())
-            except Exception:
-                pass
-        return result
+        return self._relogin_entry._begin_auto_relogin()
 
     def _begin_auto_relogin_once(self) -> dict:
-        with self._credential_lock:
-            if self._auto_relogin_paused():
-                return {"ok": False, "error": "bad_password"}
-            if not self._auto_relogin_eligible():
-                return {"ok": False, "error": "busy"}
-            stored = {}
-            try:
-                if _credential_store.has_credentials(CREDENTIAL_FILE):
-                    # 有保存的用保存的（两者都有时以保存的为准）
-                    stored = _credential_store.load(CREDENTIAL_FILE)
-                    result = self._relay.prepare(stored["username"], stored["password"])
-                    if not result.get("ok"):
-                        return result
-                    source = "saved"
-                elif self._once_credentials_staged():
-                    # 没保存、只有这次的：直接用中继内存里那份，不取出、不复制、不落盘
-                    source = "typed"
-                else:
-                    return {"ok": False, "error": "needs_local_setup"}
-                with self._lock:
-                    self._relay_creds_source = source
-                    self._pending_save = None
-                manual = int(self._auto_relogin.snapshot().get("failures") or 0) >= _MANUAL_RELOGIN_AFTER
-                return self._relay.begin(origin="auto", worker_command=worker_command("login"),
-                                         manual=manual)
-            except Exception:
-                return {"ok": False, "error": "needs_local_setup"}
-            finally:
-                stored.clear()
-                # 一次 login_wait 只放行一轮自动登录：发起过就收回（成败都一样）
-                with self._lock:
-                    self._login_wait_pending = False
+        return self._relogin_entry._begin_auto_relogin_once()
 
     def _classify_captcha(self, image: str) -> str:
         prefs = load_prefs()
@@ -1918,35 +1786,9 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         return self._login_recovery.note_conclusion(conclusion)
 
     def _push_login_expired(self) -> None:
-        """配了飞书机器人才推；消息只说失效和怎么办，不带账号。在后台线程里发，不拖界面。"""
-        if DEMO:
-            return
-        hook = _feishu_webhook()
-        if not hook:
-            return
-        card = {
-            "config": {"wide_screen_mode": True},
-            "header": {"template": "orange",
-                       "title": {"tag": "plain_text", "content": "登录已失效"}},
-            "elements": [{"tag": "div", "text": {
-                "tag": "lark_md", "content": "登录已失效，回电脑或手机上重新登录。"}}],
-        }
-        body = json.dumps({"msg_type": "interactive", "card": card},
-                          ensure_ascii=False).encode("utf-8")
-
-        def send() -> None:
-            import urllib.request
-
-            request = urllib.request.Request(hook, data=body,
-                                             headers={"Content-Type": "application/json"})
-            try:
-                with urllib.request.urlopen(request, timeout=10) as response:
-                    response.read(4096)
-                self._emit("log", "登录失效已推送到飞书")
-            except Exception as exc:  # noqa: BLE001 - 推送失败只记类别，不影响登录流程
-                self._emit("log", "飞书推送失败：%s" % type(exc).__name__)
-
-        threading.Thread(target=send, name="feishu-login-expired", daemon=True).start()
+        """配了飞书机器人才推；推送体在 LoginRecovery——「推不推」的判定也在那里。"""
+        return self._login_recovery.push_expired(webhook=_feishu_webhook(),
+                                                 emit=self._emit)
 
     def _do_check_inner(self) -> None:
         return self._login_recovery.do_check_inner()
@@ -2125,255 +1967,57 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
     def _terminate_plan_procs(self) -> None:
         return self._worker_service.terminate_plan_procs()
 
+    # ---------- 窗口外壳（实现在 application.desktop_window） ----------
+    # 签名与方法名是界面契约与 main() 的接线点，这里只保留转发；
+    # 窗口、托盘与三个标志的归属见该服务，旧字段名由 DesktopWindowFields 代理。
     def plan_active_for_close(self) -> bool:
-        """计划在跑或已就绪：关窗必须先问，不能静默最小化/退出。"""
-        plan = getattr(self, "_plan", None)
-        if plan is None:
-            return False
-        try:
-            return plan.published_status() in {"running", "ready"}
-        except Exception:
-            return False
+        return self._desktop_window.plan_active_for_close()
 
     def _close_plan_burden(self) -> dict:
-        """关窗问询用的计划负担（BE1，c3-dialogs-gap CW03/CW04/CW08）：
-        waiting_count=还没提交的场数，next_batch_at=最近一批开放的北京时间 HH:MM:SS。
-
-        只读协调器现有快照（statuses queued/waiting），不新造状态；时刻换算走
-        time_contract（决策 012），不读本机墙钟，钟不可用（_clock_ready 为假）或
-        拿不到批次时 next_batch_at 给空串。任何异常都按「拿不到」处理：这两个
-        字段只影响文案里的数字，绝不能把关窗问询本身卡死。
-        """
-        try:
-            plan = getattr(self, "_plan", None)
-            if plan is None:
-                return {"waiting_count": 0, "next_batch_at": ""}
-            tasks = (plan.snapshot() or {}).get("tasks") or []
-            pending = [task for task in tasks
-                       if str(task.get("status") or "") in {"queued", "waiting"}]
-            if not pending:
-                return {"waiting_count": 0, "next_batch_at": ""}
-            next_at = ""
-            if self._clock_ready():
-                epochs = [school_epoch(str(task.get("sign_start") or "")) for task in pending]
-                epochs = [epoch for epoch in epochs if epoch is not None]
-                if epochs:
-                    # school_time_text 输出 YYYY-MM-DD HH:MM:SS，取后段的时刻
-                    next_at = school_time_text(min(epochs))[11:]
-            return {"waiting_count": len(pending), "next_batch_at": next_at}
-        except Exception:
-            return {"waiting_count": 0, "next_batch_at": ""}
+        return self._desktop_window._close_plan_burden()
 
     def ask_window_close(self) -> dict:
-        """把「要关了，你想怎样」推给界面去选；返回本次判定依据。
-
-        tray_ok / phone_running / phone_live 让对话框先列出正在运行的东西，并说清
-        「隐藏到后台」能不能用：托盘建不起来、手机又没连时隐藏就叫不回来（与 hide_window 同一道门）。
-        waiting_count / next_batch_at（BE1）给利害清单与退出代价写真实数字，只增不改。
-        """
-        plan_running = self.plan_active_for_close()
-        action = resolve_close_action(load_prefs(), plan_running)
-        try:
-            tray_ok = bool(self._ensure_tray())
-        except Exception:
-            tray_ok = False
-        try:
-            phone_running = bool(self._phone.is_running())
-            phone_live = bool(self._phone.has_live_session())
-        except Exception:
-            phone_running = phone_live = False
-        payload = {"plan_running": plan_running, "default_action": action,
-                   "tray_ok": tray_ok, "phone_running": phone_running, "phone_live": phone_live}
-        payload.update(self._close_plan_burden())
-        self._emit("window_close_ask", payload)
-        return dict(payload, ok=True)
+        return self._desktop_window.ask_window_close()
 
     def request_window_close(self, action: str = "") -> dict:
-        """界面四选的结果：hide 藏到后台 / minimize / exit / 先不关，remember_ 表示「以后都这样」。
-
-        只认这几个词；记住的选择写进 ui.json 的 window.close_action，
-        下次点 X 直接照做（计划在跑时仍会先问）。
-
-        hide 是唯一「先做再记」的选项：这条出口有门禁（托盘或手机访问必须至少
-        通一条），门禁没过就不能把「以后都隐藏」写进偏好——否则下次点 X 会直接
-        走到一条走不通的路上，而用户根本没成功隐藏过。
-        """
-        action = str(action or "")
-        allowed = ("hide", "minimize", "exit",
-                   "remember_hide", "remember_minimize", "remember_exit")
-        if action not in allowed:
-            return {"ok": False, "error": "bad_action", "text": "未知的关闭方式。"}
-        remember = action.startswith("remember_")
-        chosen = action[len("remember_"):] if remember else action
-        if chosen == "hide":
-            result = self.hide_window()
-            result["remembered"] = False
-            if not result.get("ok"):
-                # 门禁没通过：原样返回失败原因，用户原来的偏好一个字都不动
-                return result
-            if remember:
-                if self._remember_close_action("hide"):
-                    result["remembered"] = True
-                else:
-                    # 已经藏起来了就别再翻回来，只是这次没记住
-                    result["text"] = "窗口已隐藏，但偏好没有保存成功，这次先不记住。"
-            return result
-        if remember and not self._remember_close_action(chosen):
-            return {"ok": False, "error": "prefs_busy",
-                    "text": "偏好没有保存成功，这次先不记住。"}
-        if chosen == "minimize":
-            try:
-                self._window.minimize()
-            except Exception:
-                return {"ok": False, "error": "no_window", "text": "窗口不可用，没能最小化。"}
-            self._window_minimized = True
-            return {"ok": True, "action": "minimize", "remembered": remember}
-        self._close_approved = True
-        try:
-            self._window.destroy()
-        except Exception:
-            return {"ok": False, "error": "no_window", "text": "窗口不可用，没能退出。"}
-        return {"ok": True, "action": "exit", "remembered": remember}
+        return self._desktop_window.request_window_close(action)
 
     def _remember_close_action(self, action: str) -> bool:
-        """把「以后都这样」写进 ui.json 的 window.close_action，返回是否写成功。"""
-        prefs = load_prefs()
-        window = dict(prefs.get("window") or {}) if isinstance(prefs.get("window"), dict) else {}
-        window["close_action"] = action
-        return bool(update_prefs({"window": window}))
+        return self._desktop_window._remember_close_action(action)
 
-    # ---------- 隐藏到后台（窗口消失、进程继续跑） ----------
     def hide_window(self) -> dict:
-        """把窗口藏起来：手机访问、报名计划、校时全都继续跑。
-
-        藏起来以后任务栏上就没有按钮了，所以必须先有一条能把界面叫回来的路：
-        托盘图标，或者至少还有一条未过期的手机会话。两样都没有就拒绝隐藏——
-        把窗口藏成再也打不开的样子，比不让它隐藏糟糕得多。
-        """
-        tray = self._ensure_tray()
-        if not tray:
-            if not self._phone.has_live_session():
-                return {"ok": False, "error": "hide_unavailable",
-                        "text": "托盘图标和手机访问都不可用：现在隐藏就没法把窗口叫回来，"
-                                "这次先不隐藏。"}
-            phone_log("托盘图标没有建起来：隐藏后请用手机页的「显示电脑窗口」叫回界面。")
-        try:
-            self._window.hide()
-        except Exception:
-            return {"ok": False, "error": "no_window", "text": "窗口不可用，没能隐藏。"}
-        phone_log("窗口已隐藏到后台；进程继续运行，托盘或手机页可以唤回")
-        self._window_hidden = True
-        self._notify_window_hidden()
-        return {"ok": True, "action": "hide", "hidden": True, "tray": self._tray is not None}
+        return self._desktop_window.hide_window()
 
     def _notify_window_hidden(self) -> None:
-        """隐藏成功后弹一次托盘系统通知（BE2，c3-dialogs-gap CW10）：窗口一藏，
-        任务栏上就没有按钮了，托盘气泡是「怎么叫回来」的路标。
-
-        托盘没建起来（_tray 为 None）或 notify 抛错都吞掉：通知只是路标，不影响
-        隐藏结果与返回值；同一次隐藏只在 hide_window 成功路径上调这一处。
-        """
-        try:
-            if self._tray is not None:
-                self._tray.notify("窗口已隐藏，工具在后台运行",
-                                  "报名计划照常运行。点右下角托盘图标回来，"
-                                  "也可以在手机页点“显示电脑窗口”。")
-        except Exception:
-            pass
+        return self._desktop_window._notify_window_hidden()
 
     def show_window(self) -> dict:
-        """把藏起来的窗口叫回来（托盘菜单、手机页都用这一个入口）。"""
-        try:
-            self._window.show()
-        except Exception:
-            return {"ok": False, "error": "no_window", "text": "窗口不可用，没能显示。"}
-        try:
-            # 从最小化里叫回来也走这里：隐藏和最小化一起清掉
-            self._window.restore()
-        except Exception:
-            pass
-        self._window_hidden = False
-        self._window_minimized = False
-        phone_log("窗口已从后台显示出来")
-        return {"ok": True, "hidden": False, "tray": self._tray is not None}
+        return self._desktop_window.show_window()
 
     def window_visibility(self) -> dict:
-        """窗口是否藏在托盘里（界面自动刷新活动列表前问一次）。
-
-        pywebview 隐藏窗口时 WebView2 会不会把 document.hidden 置真无法离线验证，
-        所以界面除了看 document.hidden，还要问这里：藏在托盘里的窗口不该每 10 分钟
-        在后台悄悄访问学校。只读 _window_hidden，不碰窗口、不联网，也不回别的字段。
-        """
-        with self._lock:
-            return {"hidden": bool(self._window_hidden)}
+        return self._desktop_window.window_visibility()
 
     def _on_window_minimized(self) -> None:
-        self._window_minimized = True
+        return self._desktop_window._on_window_minimized()
 
     def _on_window_restored(self) -> None:
-        self._window_minimized = False
+        return self._desktop_window._on_window_restored()
 
     def _on_second_open(self) -> None:
-        """又打开了一次（GL01）：第二份已经退出，把这扇窗叫回前台并告诉界面。
-
-        由单实例监听线程调用。叫回复用 show_window（托盘、手机页同一入口，
-        藏到后台或最小化都能叫回来）；at 是业务时钟秒，时钟不可用给 null，
-        不拿本机墙钟冒充（决策 012）。界面据 second_open 出 note 横幅（Main:2145）。
-        """
-        try:
-            self.show_window()
-        except Exception:
-            pass
-        try:
-            at = float(self._clock_now())
-        except Exception:
-            at = None
-        self._emit("second_open", {"at": at})
-        # 运行记录句照原型 Main:1181
-        self._emit("log", "又打开了一次，已切回这个窗口")
+        return self._desktop_window._on_second_open()
 
     def _plan_source_of(self, plan_id) -> str:
         with self._lock:
             return self._plan_sources.get(str(plan_id or ""), "desktop")
 
     def _notify_plan_done(self, snapshot) -> None:
-        """窗口最小化或藏在后台时计划结束：托盘弹一条系统通知，点通知回到窗口。
-
-        窗口就在眼前时不打扰；托盘建不起来就不发，结果仍在窗口里。
-        """
-        if not (self._window_hidden or self._window_minimized):
-            return
-        title, text = _plan_service.plan_done_notice((snapshot or {}).get("tasks") or [])
-        try:
-            if self._ensure_tray() and self._tray is not None:
-                self._tray.notify(title, text)
-        except Exception:
-            pass
+        return self._desktop_window._notify_plan_done(snapshot)
 
     def _ensure_tray(self) -> bool:
-        """懒建托盘图标；已经建过就直接复用。任何异常都只当作「没有托盘」。"""
-        if self._tray is not None:
-            return True
-        try:
-            from infrastructure import tray_icon as _tray_icon
-
-            tray = _tray_icon.TrayIcon(on_show=self.show_window,
-                                       on_exit=lambda: self.request_window_close("exit"))
-            if tray.start():
-                self._tray = tray
-                return True
-        except Exception:
-            self._tray = None
-        return False
+        return self._desktop_window._ensure_tray()
 
     def _stop_tray(self) -> None:
-        tray = self._tray
-        self._tray = None
-        if tray is not None:
-            try:
-                tray.stop()
-            except Exception:
-                pass
+        return self._desktop_window._stop_tray()
 
     def shutdown(self) -> None:
         return self._desktop_lifecycle.shutdown()
@@ -2458,220 +2102,51 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
     def _stop_phone_access(self) -> dict:
         return self._phone_controller.stop_locked()
 
-    # ---------- 手机重登中继（凭据只在进程内存） ----------
+    # ---------- 手机重登中继（凭据只在进程内存；入口在 application.relogin_entry） ----------
     def prepare_phone_relogin(self, username: str = "", password: str = "",
                               save: bool = False) -> dict:
-        """桌面「准备手机重登」：账号密码只进当前进程内存，响应只回 ready 布尔。
-
-        绝不写 prefs/文件/命令行/env/日志；手机 HTTP 白名单也读不到这份数据。
-        save=True 时，登录成功后才把这份账号密码写进电脑（默认不保存）。
-        """
-        user = str(username or "").strip()
-        secret = str(password or "")
-        typed = bool(user and secret)
-        if not typed:
-            if _credential_store_available():
-                try:
-                    stored = _credential_store.load(CREDENTIAL_FILE)
-                    user, secret = stored["username"], stored["password"]
-                except Exception:
-                    user, secret = "", ""
-        result = self._relay.prepare(user, secret)
-        if result.get("ok"):
-            with self._lock:
-                self._relay_creds_source = "typed" if typed else "saved"
-                if typed:
-                    # 用户输了新的账号密码：解除只用这一次那份被拒后的暂停
-                    self._once_creds_rejected = False
-                self._pending_save = ({"username": user, "password": secret}
-                                      if typed and save else None)
-        user = ""
-        secret = ""
-        if result.get("ok"):
-            self._emit("log", "已为手机重新登录准备好账号（只在本工具内存里）")
-        return result
+        return self._relogin_entry.prepare_phone_relogin(username, password, save)
 
     def _commit_pending_save(self) -> None:
-        """登录成功后才落盘这次手输、又勾了保存的账号密码；没有就什么都不做。"""
-        with self._lock:
-            pending = self._pending_save
-            self._pending_save = None
-        if not pending:
-            return
-        try:
-            with self._credential_lock:
-                _credential_store.save(CREDENTIAL_FILE, pending["username"], pending["password"])
-                self._auto_relogin.reset()
-            self._emit("log", "账号密码已保存到这台电脑（加密存储）")
-        except Exception as exc:  # noqa: BLE001 - 保存失败不影响「已经登录成功」
-            self._emit("log", "账号密码没有保存成功：%s" % type(exc).__name__)
-        finally:
-            pending.clear()
+        return self._relogin_entry._commit_pending_save()
 
     def _relogin_late_answer(self) -> "dict | None":
-        """计划运行中还来不来得及重新登录（架构方案 4.3）；来得及返回 None。
-
-        有场次在提交，或离开放不到 100 秒，就只剩电脑自己的自动登录。业务时钟读不出来时
-        按来不及处理：宁可让用户等电脑自动登录，也不在开抢前抢走登录态。
-        """
-        with self._lock:
-            plan = self._plan
-        if plan is None:
-            return None
-        try:
-            tasks = (plan.snapshot() or {}).get("tasks") or []
-            late = _login_rules.relogin_too_late(
-                tasks, self._clock_now(),
-                lambda task: school_epoch(str(task.get("sign_start") or "")))
-        except Exception:
-            late = True
-        if not late:
-            return None
-        return {"ok": False, "error": "plan_late",
-                "text": "有场次正在提交，或者离开放不到 100 秒。这时只有电脑能自动登录。"}
+        return self._relogin_entry._relogin_late_answer()
 
     def _relogin_entry_gate(self) -> "dict | None":
-        """电脑和手机重新登录共同的前置门：演示、条款、关闭、来不及。"""
-        if DEMO:
-            return {"ok": False, "error": "demo", "text": "演示模式不联网，不会启动重新登录。"}
-        gate = self._terms_gate()
-        if gate is not None:
-            return {"ok": False, "error": "terms_required", "text": "请先在电脑上同意使用条款"}
-        with self._lock:
-            if self._closing:
-                return {"ok": False, "text": "程序正在关闭，已取消本次重新登录"}
-        return self._relogin_late_answer()
+        return self._relogin_entry._relogin_entry_gate()
 
     def _relogin_manual_case(self) -> str:
-        """用户是从哪一步开始重新登录的，只用于日志与文案，不参与判断。"""
-        try:
-            if _credential_store.has_credentials(CREDENTIAL_FILE):
-                return "bad" if _credential_store.is_bad(CREDENTIAL_FILE) else "captcha"
-        except Exception:
-            pass
-        return "login"
+        return self._relogin_entry._relogin_manual_case()
 
     def _begin_typed_relogin(self, username: str, password: str, save: bool,
                              origin: str) -> dict:
-        """用这次手输的账号密码登录：只进内存，save=True 才在成功后写进电脑。"""
-        prepared = self.prepare_phone_relogin(username, password, save=save)
-        if not prepared.get("ok"):
-            return dict(prepared, text="请输入账号和密码。")
-        manual = not self._relogin_ocr_ready()
-        extra = {} if origin == "phone" else {"origin": origin}
-        result = self._relay.begin(plan_active=False, worker_command=worker_command("login"),
-                                   manual=manual, **extra)
-        if result.get("ok"):
-            self._log_event("relogin_manual_started", case="login", origin=origin)
-        else:
-            with self._lock:
-                self._pending_save = None
-        return dict(result, mode="manual" if manual else "auto")
+        return self._relogin_entry._begin_typed_relogin(username, password, save, origin)
 
     # ---------- 电脑上的重新登录（与手机共用一场登录流程） ----------
     def relogin_begin(self, username: str = "", password: str = "", save: bool = False) -> dict:
-        """电脑上点「重新登录」。四种情况（设计 9.3）：
-
-        - 填了账号密码：用这次输入的（默认只在内存里，save=True 成功后才保存）；
-        - 没填：用电脑上保存的；保存的密码被学校拒绝过就停下，让用户输新密码；
-        - 装了验证码识别：电脑自己认，连续认错 3 次转人工；没装：等用户输验证码。
-        和手机共用同一场流程，同一时间只有一场；计划来不及时返回 plan_late。
-        """
-        gate = self._relogin_entry_gate()
-        if gate is not None:
-            return gate
-        if str(username or "").strip() and str(password or ""):
-            return self._begin_typed_relogin(username, password, bool(save), origin="desktop")
-        if not _credential_store.has_credentials(CREDENTIAL_FILE):
-            return {"ok": False, "error": "needs_local_setup", "text": "请输入账号和密码。"}
-        if _credential_store.is_bad(CREDENTIAL_FILE):
-            return {"ok": False, "error": "bad_password",
-                    "text": "保存的密码学校不认，自动登录已暂停。请输入新的账号密码。"}
-        prepared = self.prepare_phone_relogin()
-        if not prepared.get("ok"):
-            return {"ok": False, "error": "needs_local_setup", "text": "请输入账号和密码。"}
-        manual = not self._relogin_ocr_ready()
-        result = self._relay.begin(plan_active=False, worker_command=worker_command("login"),
-                                   manual=manual, origin="desktop")
-        if result.get("ok"):
-            self._log_event("relogin_manual_started",
-                            case=self._relogin_manual_case(), origin="desktop")
-        return dict(result, mode="manual" if manual else "auto")
+        return self._relogin_entry.relogin_begin(username, password, save)
 
     def relogin_submit(self, flow_id: str = "", challenge_id: str = "", code: str = "") -> dict:
         """电脑上输的验证码。"""
         return self._relay.submit(flow_id, challenge_id, code, origin="desktop")
 
     def relogin_cancel(self, flow_id: str = "") -> dict:
-        """取消电脑上发起或接手的这一场登录；旧场的 flow_id 不取消新场。"""
-        state = self._relay.state()
-        if (flow_id and state.get("live") and state.get("flow_id")
-                and flow_id != state.get("flow_id")):
-            return {"ok": False, "error": "stale_flow", "text": "这次重新登录已经结束"}
-        return self._relay.cancel()
+        return self._relogin_entry.relogin_cancel(flow_id)
 
     def relogin_auto_once(self) -> dict:
-        """有保存的账号又装了验证码识别：用户确认后让电脑自动登录一次。"""
-        gate = self._relogin_entry_gate()
-        if gate is not None:
-            return gate
-        if _credential_store.is_bad(CREDENTIAL_FILE):
-            return {"ok": False, "error": "bad_password",
-                    "text": "保存的密码学校不认，自动登录已暂停。请输入新的账号密码。"}
-        current = self._relay.state()
-        if current.get("live"):
-            return {"ok": True, "mode": "auto", "flow_id": str(current.get("flow_id") or ""),
-                    "text": "已经在登录了，等它结束。"}
-        result = self._begin_auto_relogin()
-        if not result.get("ok") and result.get("error") == "busy":
-            return dict(result, text="电脑正在检查登录或加载活动，稍后再试。")
-        return dict(result, mode="auto")
+        return self._relogin_entry.relogin_auto_once()
 
     def phone_relogin_begin(self, username: str = "", password: str = "",
                             save: bool = False) -> dict:
-        if not DEMO and self._terms_gate() is not None:
-            return {"ok": False, "error": "terms_required",
-                    "text": "请先在电脑上同意使用条款"}
-        # 演示、关闭中、计划来不及（有场次在提交或离开放不到 100 秒）都在这一道门里
-        gate = self._relogin_entry_gate()
-        if gate is not None:
-            return gate
-        if str(username or "").strip() and str(password or ""):
-            # 手机上输的账号密码：默认只在电脑内存里，勾了「保存到这台电脑」才在成功后写盘
-            return self._begin_typed_relogin(username, password, bool(save), origin="phone")
-        if not self._manual_relogin_wanted():
-            # 电脑自己会认图：手机别另开一场人工重登，只回报进度。
-            # 已经有一场在跑就什么都不做——重复点按钮不该变成第二个 worker。
-            current = self._relay.state()
-            state = str(current.get("state") or "")
-            # 只有真的还在跑的流程才算忙：历史快照里剩下的 waiting_code/verifying
-            # 不代表「现在别再开一场」，否则一次残留会让手机永远点不动
-            busy = bool(current.get("live")) and state not in (
-                "idle", "success", "failed", "canceled")
-            if not busy:
-                started = self._begin_auto_relogin()
-                if not started.get("ok") and started.get("error") != "busy":
-                    return started
-            return {"ok": True, "mode": "auto",
-                    "text": "电脑正在自动登录，手机上不用再操作"}
-        if not self._relay.prepared():
-            self.prepare_phone_relogin()
-        # 能走到这里说明计划来得及（_relogin_entry_gate 已判过 100 秒窗口）
-        return self._relay.begin(plan_active=False,
-                                 worker_command=worker_command("login"), manual=True)
+        return self._relogin_entry.phone_relogin_begin(username, password, save)
 
     def phone_relogin_submit(self, flow_id: str = "", challenge_id: str = "",
                              code: str = "") -> dict:
         return self._relay.submit(flow_id, challenge_id, code)
 
     def phone_relogin_cancel(self, flow_id: str = "") -> dict:
-        state = self._relay.state()
-        # 历史快照的 flow_id 不属于现在这一场：拿它挡取消只会让用户点了没反应
-        if (flow_id and state.get("live") and state.get("flow_id")
-                and flow_id != state.get("flow_id")):
-            return {"ok": False, "error": "stale_flow",
-                    "text": "这次重新登录已经结束"}
-        return self._relay.cancel(origin=None if state.get("mode") == "manual" else "phone")
+        return self._relogin_entry.phone_relogin_cancel(flow_id)
 
     def _spawn_relay_worker(self, args: list[str]):
         return self._worker_service.spawn_relay(args)
@@ -2824,36 +2299,7 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         return self._worker_service.spawn(args, label, kind)
 
     def _anchor_login_success(self, origin: str = "") -> None:
-        """新登录真实成功后建立 v2 锚点；没有可信时钟就不写（不拿系统时间冒充）。
-
-        只在本次 login worker 成功路径调用：check/refresh/bootstrap 都不续期，
-        也不改 session/storage_state 结构，旧有效凭证不要求重登。
-        origin 由中继给出（auto_ocr=无人值守、phone_manual=手机人工），
-        只用于「上一次是怎么完成的」这一行说明，不参与判断。
-        """
-        self._commit_pending_save()
-        if origin in ("auto_ocr", "phone_manual"):
-            with self._lock:
-                self._last_login_origin = origin
-                began = self._auto_relogin_started_at
-            if origin == "auto_ocr":
-                self._log_event("auto_relogin_ok",
-                                **({"elapsed_s": time.monotonic() - began}
-                                   if began is not None else {}))
-            # 重登成功时桌面还停在「登录已过期」：补一次正常的登录检查，
-            # 让顶栏状态、活动列表和时间锚点跟着刷新。check 自带忙碌去重，
-            # 手动重登、自动重登走的是同一条路。
-            threading.Thread(target=self.check, daemon=True).start()
-        try:
-            lower, upper = self._clock.bounds()
-            token = str(json.loads(SESSION_FILE.read_text(encoding="utf-8"))
-                        .get("token") or "").strip()
-        except Exception:
-            return
-        if not token or not (upper >= lower):
-            return
-        save_session_timing_anchor(token, (lower + upper) / 2.0,
-                                   (upper - lower) / 2.0)
+        return self._relogin_entry._anchor_login_success(origin)
 
     def _pump(self, proc, label: str, kind: str = "grab") -> None:
         return self._worker_service.pump(proc, label, kind)

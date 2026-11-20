@@ -75,6 +75,83 @@ def relogin_too_late(tasks, now, open_epoch) -> bool:
     return False
 
 
+def late_relogin_answer(*, has_plan, tasks, now, open_epoch, clock_unavailable=False):
+    """计划运行中还来不来得及重新登录（架构方案 4.3）；来得及返回 None。
+
+    没有计划就是来得及；业务时钟读不出来（clock_unavailable）按来不及处理：
+    宁可让用户等电脑自动登录，也不在开抢前抢走登录态。
+    """
+    if not has_plan:
+        return None
+    if clock_unavailable:
+        return _LATE_ANSWER
+    if not relogin_too_late(tasks, now, open_epoch):
+        return None
+    return _LATE_ANSWER
+
+
+_LATE_ANSWER = {"ok": False, "error": "plan_late",
+                "text": "有场次正在提交，或者离开放不到 100 秒。这时只有电脑能自动登录。"}
+
+
+def auto_relogin_blocked(*, closing=False, advanced_busy=False, checking=False,
+                         listing=False, cancelling=False, login_wait_pending=False,
+                         proc_running=False, plan_procs_running=False) -> bool:
+    """自动登录这一拍该不该被挡下（G3 忙碌位 + 决策 015 的 login_wait 例外）。
+
+    忙碌位一律挡；单 worker 或计划任务进程在跑时也挡——只有报名进程自己确认
+    登录失效、发来 login_wait 的那一次例外，否则开抢中途换登录态会把它的凭证顶掉。
+    """
+    if closing or advanced_busy or checking or listing or cancelling:
+        return True
+    if login_wait_pending:
+        return False
+    return bool(proc_running or plan_procs_running)
+
+
+def silent_relogin_state(*, ready, ready_reason, relay, auto_failures) -> tuple[bool, str]:
+    """check 载荷里的静默恢复态：能自己登录、还没失败过、也不是在等人输验证码。
+
+    界面的失效提醒在第一次静默失败后就要回来（后台仍会退避重试）；转人工以后
+    也不该再把胶囊画成「自动登录中」。
+    """
+    if not ready:
+        return False, str(ready_reason or "")
+    relay = relay if isinstance(relay, dict) else {}
+    if relay.get("live") and relay.get("mode") == "manual":
+        return False, "handoff"
+    failures = int(auto_failures or 0)
+    if failures > 0:
+        return False, "retry_pending"
+    return True, ""
+
+
+def manual_relogin_wanted(*, ocr_ready, relay, auto_failures, manual_after) -> bool:
+    """验证码该不该交给手机上的人来打。
+
+    电脑装了识别就让它自己认：手机只看到「重试中」，两个人抢同一张图只会
+    互相把对方顶掉。同一场连着认错 manual_after 次、或整轮自动重登连续失败
+    同样次数，说明机器解决不了，这时才把图推给手机。
+    """
+    if not ocr_ready:
+        return True
+    relay = relay if isinstance(relay, dict) else {}
+    if relay.get("live") and relay.get("mode") in ("auto", "manual"):
+        return relay.get("mode") == "manual"
+    # 只有这一场还在跑，attempts 才说明「电脑认了几次都没认对」；
+    # 历史快照里的 attempts 是上一场残留，拿它判定会把手机永久锁进人工模式
+    if relay.get("live") and int(relay.get("attempts") or 0) >= int(manual_after):
+        return True
+    return int(auto_failures or 0) >= int(manual_after)
+
+
+def relogin_manual_case(*, has_credentials, credentials_bad) -> str:
+    """用户是从哪一步开始重新登录的，只用于日志与文案，不参与判断。"""
+    if has_credentials:
+        return "bad" if credentials_bad else "captcha"
+    return "login"
+
+
 def mask_account(name) -> str:
     """账号打码：前两位加后两位，中间四个星号；太短的只留第一位。"""
     text = str(name or "").strip()

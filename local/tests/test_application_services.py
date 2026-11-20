@@ -1469,7 +1469,9 @@ class PhoneReloginTakeoverTests(unittest.TestCase):
         self.api._relay = FakeRelay({"ready": False, "state": "idle"})
         self.api._auto_relogin = FakeAutoRelogin()
         started = []
-        self.api._begin_auto_relogin = lambda: started.append(1) or {"ok": True}
+        # 落点在 application.relogin_entry：Api 上只剩转发，替身要打在服务上
+        self.api._relogin_entry._begin_auto_relogin = \
+            lambda: started.append(1) or {"ok": True}
         result = self.api.phone_relogin_begin()
         self.assertTrue(result["ok"])
         self.assertEqual(result["mode"], "auto")
@@ -1493,7 +1495,9 @@ class PhoneReloginTakeoverTests(unittest.TestCase):
         self.api._relay = relay
         self.api._auto_relogin = FakeAutoRelogin()
         started = []
-        self.api._begin_auto_relogin = lambda: started.append(1) or {"ok": True}
+        # 落点在 application.relogin_entry：Api 上只剩转发，替身要打在服务上
+        self.api._relogin_entry._begin_auto_relogin = \
+            lambda: started.append(1) or {"ok": True}
         result = self.api.phone_relogin_begin()
         self.assertTrue(result["ok"])
         self.assertEqual(result["mode"], "auto")
@@ -2144,9 +2148,10 @@ class LoginExpiredPushTests(unittest.TestCase):
     def test_push_text_has_no_account_fields(self):
         import ast
 
-        tree = ast.parse((LOCAL / "app.py").read_text(encoding="utf-8"))
+        # 推送体在 application.login_recovery（「推不推」的判定本来就在那里）
+        tree = ast.parse((LOCAL / "application" / "login_recovery.py").read_text(encoding="utf-8"))
         node = next(item for item in ast.walk(tree)
-                    if isinstance(item, ast.FunctionDef) and item.name == "_push_login_expired")
+                    if isinstance(item, ast.FunctionDef) and item.name == "push_expired")
         source = ast.unparse(node)
         for banned in ("username", "student", "token", "CREDENTIAL_FILE", "SESSION_FILE"):
             self.assertNotIn(banned, source, "飞书消息不得带账号或登录信息")

@@ -53,7 +53,8 @@ _COLUMNS = busy_states.COLUMNS
 # 期望网格（busy.md 第二节，逐格按源码实测核对）：
 # block = 门禁拒绝且没走到下一步；pass = 走到下一步；merge = 合并在途、不另起。
 # plan_procs 列的依据：_is_busy_locked（local/app.py 4297）、
-# _cancel_busy_reason_locked（2399）、_relogin_blocked_locked（1890）读它；
+# _cancel_busy_reason_locked（2399）读它；自动重登的资格经
+# domain.login_rules.auto_relogin_blocked（ReloginEntry._auto_relogin_eligible）读它；
 # check/list 自己的门、组件移除（1735）、开手机访问（G8）、_spawn_relay_worker、
 # UpdateService（G12）不读它。
 GRID = {
@@ -104,10 +105,10 @@ GRID = {
     "stop_phone_access": dict(zip(_COLUMNS, (
         PASS, PASS, PASS, PASS, PASS, PASS, PASS, PASS, PASS, PASS))),
     # 自动重登：G3（关闭/组件/check/list/取消/worker/plan_procs）。计划在跑：
-    # busy.md 第二节写 G3（login_wait 时放行）= 挡；实测 _relogin_blocked_locked
-    # 只读 _login_wait_pending / _proc / _plan_procs，不读 _plan，
-    # 所以空任务的计划在跑时放行（见 local/app.py 的 _relogin_blocked_locked）。
-    # plan_procs：_relogin_blocked_locked（1890）读 _plan_procs → 挡
+    # busy.md 第二节写 G3（login_wait 时放行）= 挡；实测判据
+    # domain.login_rules.auto_relogin_blocked 只读 login_wait_pending / proc /
+    # plan_procs，不读 _plan，所以空任务的计划在跑时放行。
+    # plan_procs：auto_relogin_blocked 的 plan_procs_running → 挡
     "auto_relogin": dict(zip(_COLUMNS, (
         BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, PASS, BLOCK, BLOCK, PASS, PASS))),
     # 手工/手机重登：G9（关闭）+ G10（取消/check/list/worker）；计划在跑放行。
@@ -514,6 +515,33 @@ class BusyMatrixTests(unittest.TestCase):
     def test_row_update(self):
         _drive(self, "update")
 
+
+class LoginWaitLiftsTheReloginGateTests(unittest.TestCase):
+    """决策 015：计划进程在跑时，只有报名进程自己报了 login_wait 才放行自动重登。
+
+    login_wait 走产品里真实设置它的那条入口：计划监督在 worker 输出里读到
+    login_wait 行后调的就是 Api._request_auto_relogin（application/plan_service
+    的 on_login_wait 端口）。这里直接调同一个方法，不经夹具改状态。
+    """
+
+    def _api_with_plan_process(self):
+        """造一个「计划任务进程还在跑」的 Api：资格判定必须先被这一列挡住。"""
+        api = busy_states.build(self)
+        busy_states.put(api, "plan_procs")
+        return api
+
+    def test_plan_process_blocks_auto_relogin_without_login_wait(self):
+        api = self._api_with_plan_process()
+        self.assertFalse(api._auto_relogin_eligible(),
+                         "计划进程在跑、也没人报登录失效：不放行自动重登")
+
+    def test_login_wait_from_the_worker_lifts_the_block(self):
+        api = self._api_with_plan_process()
+        api._request_auto_relogin()          # 报名进程确认登录失效并报 login_wait
+        self.assertTrue(api._auto_relogin_eligible(),
+                        "报名进程报了 login_wait：这一次要放行，否则开抢中途换不了登录态")
+
+
 # ==================== 源自 test_lock_order.py ====================
 """锁序守卫：本仓库的锁只许按固定等级「由外层向里层」升序获取。
 
@@ -584,6 +612,8 @@ SERVICE_FILES = (
     "application/desktop_lifecycle.py",
     "application/clock_service.py",
     "application/login_relay_service.py",
+    "application/relogin_entry.py",
+    "application/desktop_window.py",
     "application/auto_relogin.py",
     "application/phone_access_session.py",
     "application/phone_service.py",
@@ -616,7 +646,7 @@ LEVELS: dict[str, int] = {
 SERVICE_CLASSES = (
     "Coordinator", "ComponentActions", "PhoneAccessController", "LoginRecovery", "ActivityListService", "LoginRelayService", "AutoReloginMonitor", "PhoneAccessService",
     "AdvancedComponentService", "UpdateService", "PlanCoordinator", "PlanAdmission", "SignupCancellation",
-    "WorkerService", "DesktopLifecycle", "ClockService",
+    "WorkerService", "DesktopLifecycle", "ClockService", "ReloginEntry", "DesktopWindow",
 )
 
 # 三条旧重入已改为持锁调用不再取锁的停机入口；后续不得新增同号重入。
@@ -741,8 +771,11 @@ def _lock_id(expr: ast.AST, owner: str | None, module: str) -> str | None:
             if attr in aliases:
                 return aliases[attr]
         if base == "self" and owner in ("LoginRecovery", "ActivityListService", "PlanAdmission", "SignupCancellation",
-                                         "WorkerService", "DesktopLifecycle", "ClockService") and attr == "_lock":
+                                         "WorkerService", "DesktopLifecycle", "ClockService",
+                                         "ReloginEntry", "DesktopWindow") and attr == "_lock":
             return "Api._lock"
+        if base == "self" and owner == "ReloginEntry" and attr == "_credential_lock":
+            return "Api._credential_lock"
         if base == "owner" and owner == "PlanEvents" and attr == "_lock":
             return "Api._lock"
         lock = ""
@@ -846,6 +879,10 @@ class _LockGraph:
                 return self._known("DesktopLifecycle")
             if _dotted(value.func) == "self._make_clock_service":
                 return self._known("ClockService")
+            if _dotted(value.func) == "self._make_relogin_entry":
+                return self._known("ReloginEntry")
+            if _dotted(value.func) == "self._make_desktop_window":
+                return self._known("DesktopWindow")
             return self._known(_last_name(value.func))
         if isinstance(value, ast.Name):
             for node in ast.walk(fn):

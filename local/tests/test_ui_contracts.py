@@ -5578,7 +5578,9 @@ out.push({ listeners, beforeConfirm, sent });
         self.assertIn("request_window_close", self.controller)
         self.assertIn("remember_", self.controller)
         self.assertIn('submitWindowClose("hide")', self.controller)
-        self.assertIn("window.close_action", (LOCAL / "app.py").read_text(encoding="utf-8"))
+        # 记住的偏好键仍在同一条路上，只是实现搬进了窗口服务
+        self.assertIn("window.close_action",
+                      (LOCAL / "application" / "desktop_window.py").read_text(encoding="utf-8"))
         # 隐藏走后端 window.hide()（pywebview 原生）；前端不自己调，也不引托盘库
         self.assertNotIn("pystray", self.controller)
         self.assertNotIn(".hide()", self.controller)
@@ -5616,8 +5618,12 @@ out.push({ listeners, beforeConfirm, sent });
     def test_hide_needs_a_live_way_back(self):
         """托盘和手机都没连着时拒绝隐藏：否则窗口一藏就再也叫不回来。"""
         app_py = (LOCAL / "app.py").read_text(encoding="utf-8")
-        self.assertIn("has_live_session", app_py)
-        self.assertIn("hide_unavailable", app_py)
+        # 门禁实现搬进窗口服务，Api 上只剩同名转发；两边都核，防止转接被删
+        window_py = (LOCAL / "application" / "desktop_window.py").read_text(encoding="utf-8")
+        self.assertIn("phone_live", window_py, "隐藏门禁要问手机有没有活的会话")
+        self.assertIn("has_live_session", app_py, "端口接到真实会话判定")
+        self.assertIn("hide_unavailable", window_py)
+        self.assertIn("def hide_window(self) -> dict", app_py)
         phone = (LOCAL / "application" / "phone_access_session.py").read_text(encoding="utf-8")
         self.assertIn("def has_live_session(self) -> bool:", phone)
         # 判断只读会话表，且「有没有」与 token/csrf 无关

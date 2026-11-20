@@ -2,8 +2,10 @@
 """登录检查的单飞、补查与结果收尾；副作用由组合根注入。"""
 from __future__ import annotations
 
+import json
 import threading
 import time
+import urllib.request
 
 class LoginRecovery:
     def __init__(self, *, coordination, lock, ports):
@@ -96,6 +98,36 @@ class LoginRecovery:
             self._ports["clear_staged"]()
             with self._lock:
                 self.once_creds_rejected = True
+
+    def push_expired(self, *, webhook, emit):
+        """配了飞书机器人才推；消息只说失效和怎么办，不带账号。在后台线程里发，不拖界面。
+
+        推送体放在这里，是因为「同一次失效只推一次」的判定本来就归本服务：
+        note_conclusion 决定推不推，这里只负责怎么推。webhook 与 emit 由组合根注入。
+        """
+        if not webhook:
+            return
+        card = {
+            "config": {"wide_screen_mode": True},
+            "header": {"template": "orange",
+                       "title": {"tag": "plain_text", "content": "登录已失效"}},
+            "elements": [{"tag": "div", "text": {
+                "tag": "lark_md", "content": "登录已失效，回电脑或手机上重新登录。"}}],
+        }
+        body = json.dumps({"msg_type": "interactive", "card": card},
+                          ensure_ascii=False).encode("utf-8")
+
+        def send() -> None:
+            request = urllib.request.Request(webhook, data=body,
+                                             headers={"Content-Type": "application/json"})
+            try:
+                with urllib.request.urlopen(request, timeout=10) as response:
+                    response.read(4096)
+                emit("log", "登录失效已推送到飞书")
+            except Exception as exc:  # noqa: BLE001 - 推送失败只记类别，不影响登录流程
+                emit("log", "飞书推送失败：%s" % type(exc).__name__)
+
+        threading.Thread(target=send, name="feishu-login-expired", daemon=True).start()
 
     def check(self, request_id=""):
         gate = self._ports["terms_gate"](request_id)

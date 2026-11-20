@@ -1700,7 +1700,8 @@ def _function_node(name: str):
 def _school_action_node(name: str):
     paths = {"check": "application/login_recovery.py",
              "list_activities": "application/activity_list_service.py",
-             "start_plan": "application/plan_admission.py"}
+             "start_plan": "application/plan_admission.py",
+             "phone_relogin_begin": "application/relogin_entry.py"}
     if name not in paths:
         return _function_node(name)
     tree = ast.parse(_read(paths[name]))
@@ -2200,39 +2201,52 @@ class WithdrawTermsTests(unittest.TestCase):
 
 
 class AutoReloginTermsGateTests(unittest.TestCase):
-    """未同意条款时自动登录不触发：执行真实 _auto_relogin_eligible。"""
+    """未同意条款时自动登录不触发：驱动真实的 application.relogin_entry 入口。
+
+    条款门禁仍在组合根（Api._terms_gate），资格结论在入口服务里；这里用真实的
+    两个对象 + 内存替身端口跑，断言的可观察结果与搬家前一致。
+    """
+
+    class _Coord:
+        """协调对象的最小替身：只提供资格判定读的忙碌位与进程登记表。"""
+
+        closing = False
+        advanced_busy = False
+        checking = False
+        listing = False
+        cancelling = False
+        proc = None
+        plan_procs: dict = {}
+
+    class _Relay:
+        def has_staged(self):
+            return False
+
+    class _Monitor:
+        def snapshot(self):
+            return {"failures": 0}
 
     def _eligible(self, prefs):
-        namespace = {
-            "DEMO": False,
-            "TERMS_VERSION": TEST_TERMS,
-            "load_prefs": lambda: dict(prefs),
-            "_advanced_features": types.SimpleNamespace(
-                feature_ready=lambda *args, **kwargs: True, RELOGIN_OCR="relogin_ocr"),
-            "DATA_DIR": None,
-            "_credential_store": types.SimpleNamespace(has_credentials=lambda path: True),
-            "CREDENTIAL_FILE": None,
-        }
-        helpers = ast.Module(body=[_function_node("terms_state"),
-                                   _function_node("terms_unknown_payload")], type_ignores=[])
-        ast.fix_missing_locations(helpers)
-        exec(compile(helpers, "<terms-helpers>", "exec"), namespace)  # noqa: S102
-        methods = ast.Module(body=[_function_node("_terms_gate"),
-                                   _function_node("_silent_relogin_ready"),
-                                   _function_node("_auto_relogin_eligible")], type_ignores=[])
-        ast.fix_missing_locations(methods)
-        exec(compile(methods, "<auto-eligible>", "exec"), namespace)  # noqa: S102
-        api = _FakeApi()
-        api._advanced_busy = False
-        api._relogin_blocked_locked = lambda: False
-        api._terms_gate = types.MethodType(namespace["_terms_gate"], api)
-        # 2026-11-11 起资格判据与 _silent_relogin_ready 共用一份口径，
-        # 两个只影响「这次手输的账号」「密码被拒过」的旁支在替身里按「没有」处理
-        api._once_credentials_staged = lambda: False
-        api._auto_relogin_paused = lambda: False
-        api._silent_relogin_ready = types.MethodType(
-            namespace["_silent_relogin_ready"], api)
-        return types.MethodType(namespace["_auto_relogin_eligible"], api)()
+        # 本文件默认只把 tests 目录放进 sys.path：导入服务前补上 local/
+        if str(LOCAL) not in sys.path:
+            sys.path.insert(0, str(LOCAL))
+        from application.relogin_entry import ReloginEntry
+
+        api = build_api(prefs)
+        entry = ReloginEntry(
+            coordination=self._Coord(), lock=threading.RLock(),
+            login_recovery=types.SimpleNamespace(relay_creds_source="",
+                                                 once_creds_rejected=False),
+            credential_lock=threading.Lock(),
+            ports={"demo": lambda: False,
+                   "terms_gate": lambda: api._terms_gate(),
+                   "has_credentials": lambda: True,
+                   "ocr_ready": lambda _prefs: True,
+                   "load_prefs": lambda: dict(prefs),
+                   "credentials_bad": lambda: False,
+                   "relay": lambda: self._Relay(),
+                   "monitor": lambda: self._Monitor()})
+        return entry._auto_relogin_eligible()
 
     def test_auto_relogin_blocked_without_current_terms(self):
         self.assertFalse(self._eligible({}), "没同意过不能自动登录")

@@ -820,7 +820,8 @@ class AutoStartFailureEmitTests(_ApiCase):
     """F3：自动发起失败（非 busy）时要推一次中继状态，顶栏才会收起「自动登录中」。"""
 
     def test_failed_start_pushes_a_state_so_the_banner_can_clear(self):
-        with mock.patch.object(self.api, "_begin_auto_relogin_once",
+        # 落点在 application.relogin_entry：Api 上只剩转发，替身要打在服务上
+        with mock.patch.object(self.api._relogin_entry, "_begin_auto_relogin_once",
                                lambda: {"ok": False, "error": "needs_local_setup"}):
             result = self.api._begin_auto_relogin()
         self.assertFalse(result.get("ok"))
@@ -830,7 +831,7 @@ class AutoStartFailureEmitTests(_ApiCase):
         self.assertIn("auto_relogin_start_failed", self._log_text())
 
     def test_busy_start_pushes_nothing(self):
-        with mock.patch.object(self.api, "_begin_auto_relogin_once",
+        with mock.patch.object(self.api._relogin_entry, "_begin_auto_relogin_once",
                                lambda: {"ok": False, "error": "busy"}):
             self.api._begin_auto_relogin()
         pushed = [payload for name, payload in self.events if name == "phone_relogin"]
@@ -1126,6 +1127,154 @@ class ProbeRecheckTests(unittest.TestCase):
         (state, _), calls = self._run([{"code": 1}])
         self.assertEqual(state, "valid")
         self.assertEqual(len(calls), 1)
+
+# ==================== 重登入口的纯规则（application.relogin_entry 的判断落点） ====================
+"""搬进 application.relogin_entry 的四类判断：每条都在 domain/login_rules 上逐分支钉住。
+
+入口服务只做端口调用，结论一律来自这些纯函数；纯函数不读墙钟、不拿锁、参数全显式。
+"""
+
+from domain.login_rules import (auto_relogin_blocked, late_relogin_answer,
+                                manual_relogin_wanted, relogin_manual_case,
+                                silent_relogin_state)
+
+
+class AutoReloginBlockedTests(unittest.TestCase):
+    """自动重登资格的第一段：忙碌位与进程占用，login_wait 只放行进程那一条。"""
+
+    def test_each_busy_slot_blocks(self):
+        for slot in ("closing", "advanced_busy", "checking", "listing", "cancelling"):
+            with self.subTest(slot=slot):
+                self.assertTrue(auto_relogin_blocked(**{slot: True}), slot)
+        self.assertFalse(auto_relogin_blocked())
+
+    def test_running_worker_or_plan_task_blocks(self):
+        self.assertTrue(auto_relogin_blocked(proc_running=True))
+        self.assertTrue(auto_relogin_blocked(plan_procs_running=True))
+        self.assertFalse(auto_relogin_blocked(proc_running=False, plan_procs_running=False))
+
+    def test_login_wait_lifts_only_the_running_process_block(self):
+        self.assertFalse(auto_relogin_blocked(login_wait_pending=True, proc_running=True,
+                                              plan_procs_running=True))
+        self.assertTrue(auto_relogin_blocked(login_wait_pending=True, checking=True),
+                        "login_wait 只放行「报名进程在跑」，其余忙碌位照旧挡")
+
+
+class SilentReloginStateTests(unittest.TestCase):
+    """静默恢复态：不能登录 / 转人工 / 失败过 / 正常。"""
+
+    def test_not_ready_returns_the_reason(self):
+        self.assertEqual(silent_relogin_state(ready=False, ready_reason="ocr_missing",
+                                              relay={}, auto_failures=0),
+                         (False, "ocr_missing"))
+        self.assertEqual(silent_relogin_state(ready=False, ready_reason="",
+                                              relay={}, auto_failures=0), (False, ""),
+                         "没有原因时只回空串，不编一个词")
+
+    def test_manual_flow_is_handoff(self):
+        self.assertEqual(silent_relogin_state(ready=True, ready_reason="",
+                                              relay={"live": True, "mode": "manual"},
+                                              auto_failures=0), (False, "handoff"))
+
+    def test_failures_mean_retry_pending(self):
+        self.assertEqual(silent_relogin_state(ready=True, ready_reason="", relay={},
+                                              auto_failures=2), (False, "retry_pending"))
+
+    def test_ready_when_auto_flow_is_live_and_no_failures(self):
+        self.assertEqual(silent_relogin_state(ready=True, ready_reason="",
+                                              relay={"live": True, "mode": "auto"},
+                                              auto_failures=0), (True, ""))
+
+
+class ManualReloginWantedTests(unittest.TestCase):
+    """验证码交给谁：没有识别、本场模式、本场认错次数、整轮失败次数。"""
+
+    def test_no_ocr_always_goes_manual(self):
+        self.assertTrue(manual_relogin_wanted(ocr_ready=False, relay={}, auto_failures=0,
+                                              manual_after=3))
+
+    def test_live_flow_mode_decides(self):
+        self.assertFalse(manual_relogin_wanted(ocr_ready=True,
+                                               relay={"live": True, "mode": "auto"},
+                                               auto_failures=0, manual_after=3))
+        self.assertTrue(manual_relogin_wanted(ocr_ready=True,
+                                              relay={"live": True, "mode": "manual"},
+                                              auto_failures=0, manual_after=3))
+
+    def test_live_attempts_reach_the_threshold(self):
+        self.assertTrue(manual_relogin_wanted(ocr_ready=True,
+                                              relay={"live": True, "attempts": 3},
+                                              auto_failures=0, manual_after=3))
+        self.assertFalse(manual_relogin_wanted(ocr_ready=True,
+                                               relay={"live": True, "attempts": 2},
+                                               auto_failures=0, manual_after=3))
+
+    def test_history_attempts_do_not_count(self):
+        self.assertFalse(manual_relogin_wanted(ocr_ready=True,
+                                               relay={"live": False, "attempts": 9},
+                                               auto_failures=0, manual_after=3),
+                         "上一场剩下的 attempts 不能把手机永久推进人工模式")
+
+    def test_auto_failures_reach_the_threshold(self):
+        self.assertTrue(manual_relogin_wanted(ocr_ready=True, relay={"live": False},
+                                              auto_failures=3, manual_after=3))
+        self.assertFalse(manual_relogin_wanted(ocr_ready=True, relay={"live": False},
+                                               auto_failures=2, manual_after=3))
+
+
+class ReloginManualCaseTests(unittest.TestCase):
+    """日志与文案里的入口分类：没有账号 / 密码被拒 / 只是要输验证码。"""
+
+    def test_three_cases(self):
+        self.assertEqual(relogin_manual_case(has_credentials=False,
+                                             credentials_bad=False), "login")
+        self.assertEqual(relogin_manual_case(has_credentials=True,
+                                             credentials_bad=True), "bad")
+        self.assertEqual(relogin_manual_case(has_credentials=True,
+                                             credentials_bad=False), "captcha")
+
+
+class LateReloginAnswerTests(unittest.TestCase):
+    """计划运行中「来得及吗」：没有计划、提交中、窗口内、窗口外、时钟不可用。"""
+
+    NOW = 1_000_000.0
+
+    def _epoch(self, task):
+        """与生产同口径的开放时刻换算：入参是任务 dict，读不到返回 None。"""
+        return {"2026-11-07 09:00:00": self.NOW + 30,
+                "2026-11-08 09:00:00": self.NOW + 600}.get(str(task.get("sign_start") or ""))
+
+    def test_no_plan_is_not_late(self):
+        self.assertIsNone(late_relogin_answer(
+            has_plan=False, tasks=[{"status": "submitting"}],
+            now=self.NOW, open_epoch=self._epoch))
+
+    def test_submitting_task_is_late(self):
+        answer = late_relogin_answer(has_plan=True, tasks=[{"status": "submitting"}],
+                                     now=self.NOW, open_epoch=self._epoch)
+        self.assertFalse(answer["ok"])
+        self.assertEqual(answer["error"], "plan_late")
+        self.assertIn("电脑能自动登录", answer["text"])
+
+    def test_queued_task_inside_the_window_is_late(self):
+        answer = late_relogin_answer(
+            has_plan=True,
+            tasks=[{"status": "queued", "sign_start": "2026-11-07 09:00:00"}],
+            now=self.NOW, open_epoch=self._epoch)
+        self.assertEqual(answer["error"], "plan_late")
+
+    def test_queued_task_outside_the_window_is_fine(self):
+        self.assertIsNone(late_relogin_answer(
+            has_plan=True,
+            tasks=[{"status": "queued", "sign_start": "2026-11-08 09:00:00"}],
+            now=self.NOW, open_epoch=self._epoch))
+
+    def test_missing_clock_is_late(self):
+        answer = late_relogin_answer(has_plan=True, tasks=[], now=self.NOW,
+                                     open_epoch=self._epoch, clock_unavailable=True)
+        self.assertEqual(answer["error"], "plan_late",
+                         "时钟读不出来按来不及处理，宁可等电脑自己登录")
+
 
 if __name__ == "__main__":
     unittest.main()

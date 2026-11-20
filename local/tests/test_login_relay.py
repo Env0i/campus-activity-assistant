@@ -1639,11 +1639,16 @@ class DesktopReloginWiringTests(unittest.TestCase):
 
     @staticmethod
     def _source(name):
+        """先到逻辑的新落点找，再回组合根找装配函数（Api 上只剩转发）。"""
         import ast
-        tree = ast.parse((Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8"))
-        node = next(item for item in ast.walk(tree)
-                    if isinstance(item, ast.FunctionDef) and item.name == name)
-        return ast.unparse(node)
+        base = Path(__file__).resolve().parents[1]
+        for rel in ("application/relogin_entry.py", "app.py"):
+            tree = ast.parse((base / rel).read_text(encoding="utf-8"))
+            node = next((item for item in ast.walk(tree)
+                         if isinstance(item, ast.FunctionDef) and item.name == name), None)
+            if node is not None:
+                return ast.unparse(node)
+        raise AssertionError("找不到函数 %s" % name)
 
     def test_typed_credentials_only_hit_disk_after_success(self):
         for name in ("prepare_phone_relogin", "_begin_typed_relogin", "relogin_begin",
@@ -1652,7 +1657,9 @@ class DesktopReloginWiringTests(unittest.TestCase):
                              "%s 不得直接写账号密码；只有登录成功后的 _commit_pending_save 能写" % name)
         self.assertIn("if typed and save else None", self._source("prepare_phone_relogin"),
                       "没勾保存时不留待保存的副本")
-        self.assertIn("_credential_store.save", self._source("_commit_pending_save"))
+        # 落盘只在「登录成功后的提交」这一条路上：服务里调注入端口，真实写入在装配处
+        self.assertIn("save_credentials", self._source("_commit_pending_save"))
+        self.assertIn("_credential_store.save", self._source("_make_relogin_entry"))
         self.assertIn("_commit_pending_save", self._source("_anchor_login_success"),
                       "只在登录真的成功后提交保存")
 
@@ -1672,7 +1679,8 @@ class DesktopReloginWiringTests(unittest.TestCase):
         for name in ("relogin_begin", "relogin_auto_once", "phone_relogin_begin"):
             self.assertIn("_relogin_entry_gate", self._source(name),
                           "%s 要过同一道「来不及」判断" % name)
-        self.assertIn("relogin_too_late", self._source("_relogin_late_answer"))
+        # 100 秒窗口判据在 domain.login_rules.relogin_too_late；入口只调这一个纯函数
+        self.assertIn("late_relogin_answer", self._source("_relogin_late_answer"))
 
 if __name__ == "__main__":
     unittest.main()
