@@ -69,7 +69,7 @@ class TrayIcon:
         return self._icon is not None
 
     def stop(self) -> None:
-        """撤掉图标（可从任意线程调）：真正的清理动作投递回消息循环线程。"""
+        """撤掉图标（可从任意线程调）：投递清理并有界等待托盘消息循环线程收尾。"""
         form = self._form
         if form is None:
             return
@@ -78,7 +78,14 @@ class TrayIcon:
 
             form.BeginInvoke(Action(self._dispose))
         except Exception:
-            pass
+            return
+        # 托盘线程是 daemon，投递后不等待会被主进程退出掐断而留下幽灵图标；仅在非托盘线程有界等 2 秒
+        thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            try:
+                thread.join(2.0)
+            except Exception:
+                pass
 
     def notify(self, title: str, text: str) -> bool:
         """在托盘图标上弹一条系统通知气泡，点气泡把窗口叫回来。

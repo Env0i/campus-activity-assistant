@@ -2116,6 +2116,57 @@ class PlanDoneNoticeTests(unittest.TestCase):
         self.assertFalse(tray_icon.TrayIcon().notify("标题", "正文"),
                          "托盘没起来时返回 False，不抛异常")
 
+    def test_tray_stop_posts_dispose_and_joins_with_bounded_timeout(self):
+        import types
+        from infrastructure import tray_icon
+
+        posted, joins = [], []
+        tray = tray_icon.TrayIcon()
+        tray._form = types.SimpleNamespace(BeginInvoke=lambda action: posted.append(action))
+        tray._thread = types.SimpleNamespace(join=lambda timeout=None: joins.append(timeout))
+        with mock.patch.dict(sys.modules, {"System": types.SimpleNamespace(Action=lambda fn: fn)}):
+            tray.stop()
+        self.assertEqual(len(posted), 1, "应投递一次清理动作回托盘线程")
+        self.assertEqual(len(joins), 1, "主线程停托盘必须等托盘线程收尾")
+        self.assertLessEqual(joins[0], 2.0, "等待上限不得超过 2 秒，不能卡住退出")
+        self.assertGreater(joins[0], 0.0)
+
+    def test_tray_stop_on_tray_thread_does_not_join_itself(self):
+        import types
+        from infrastructure import tray_icon
+
+        posted, joins = [], []
+        tray = tray_icon.TrayIcon()
+        tray._form = types.SimpleNamespace(BeginInvoke=lambda action: posted.append(action))
+
+        class _CurrentThreadStub:
+            def join(self, timeout=None):
+                joins.append(timeout)
+
+        stub = _CurrentThreadStub()
+        tray._thread = stub
+        with mock.patch.dict(sys.modules, {"System": types.SimpleNamespace(Action=lambda fn: fn)}), \
+                mock.patch.object(tray_icon.threading, "current_thread", return_value=stub):
+            tray.stop()
+        self.assertEqual(len(posted), 1)
+        self.assertEqual(joins, [], "在托盘线程自身调 stop 不得 join 自己")
+
+    def test_tray_stop_does_not_wait_when_begin_invoke_fails(self):
+        import types
+        from infrastructure import tray_icon
+
+        joins = []
+        tray = tray_icon.TrayIcon()
+
+        def _boom(_action):
+            raise RuntimeError("handle gone")
+
+        tray._form = types.SimpleNamespace(BeginInvoke=_boom)
+        tray._thread = types.SimpleNamespace(join=lambda timeout=None: joins.append(timeout))
+        with mock.patch.dict(sys.modules, {"System": types.SimpleNamespace(Action=lambda fn: fn)}):
+            tray.stop()
+        self.assertEqual(joins, [], "BeginInvoke 投递失败时不得傻等")
+
 
 class SavePrefsWriteFailureTests(unittest.TestCase):
     """保存偏好撞上写不进去（Windows 文件占用）：如实返回失败，绝不把异常抛给界面。"""
