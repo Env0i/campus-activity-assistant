@@ -1585,7 +1585,7 @@ log.js[AO5T]: F:呈现有界运行记录并提供复制 | R:code:local/ui/state/
 selection.js[AU5T]: F:呈现报名状态筛选计数及更多筛选展开状态 | R:code:local/ui/state/filters.js | A:paintChips,paintMoreFilters | S:更多筛选计数不包含常驻关键词和状态胶囊；时钟未知时可报名计数不报伪零。
 settings.js[AU6T]: F:呈现设置抽屉、关窗偏好与条款撤回状态 | R:code:local/ui/state/store.js,code:local/ui/features/terms/state.js | A:paintClosePref,paintTermsRow | S:撤回确认开合独立记录；运行计划期间禁撤回并显示原因，关闭偏好未知值退回ask。
 status-cards.js[AU7M]: F:管理时钟登录手机三张详情卡及手机连接标识，条款门下登录卡改为暂停检查 | R:code:local/ui/views/clock-pop.js,code:local/ui/features/phone-access/state-link.js | A:openStatusCard,paintStatusCards,wireStatusCards | S:登录预计有效仅提示，不参与失效和放行；条款门下学校动作按钮仍禁用只是隐藏，已保存的登录一行只对登录过的人显示；手机标识按访问快照而非配对数
-terms.js[AU7L]: F:呈现条款全文、首次说明、版本更新与许可阅读状态 | R:code:local/ui/features/terms/state.js,code:local/ui/views/settings.js | A:paintTerms,applyTermsFooter,switchTermsDoc | S:未知状态不宣称未同意；保存未确认时禁重复同意并提供复查；首次说明勾选门缺元素时拒绝，更新框无勾选门。
+terms.js[AU7L]: F:呈现条款全文、首次说明、版本更新与许可阅读状态 | R:code:local/ui/features/terms/state.js,code:local/ui/views/settings.js | A:paintTerms,applyTermsFooter,switchTermsDoc | S:未知状态不宣称未同意；保存未确认时禁重复同意并提供复查；首次说明勾选门缺元素时拒绝，更新框无勾选门；paintTerms顺带重画设置抽屉条款行
 update.js[AU7S]: F:呈现手动更新各阶段、下载进度和安装动作 | R:code:local/ui/features/update/actions.js | A:paintUpdate,updateErrorText,revealUpdateStatus | S:状态换来的推进按钮先停800毫秒防连点；launching须后端启动成功前缀才允许关工具。
 
 ===/<repository>/server/===
