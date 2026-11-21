@@ -86,7 +86,7 @@ from application import (
 )
 # 活动读取实现（决策 005 / 016）：静态 import 也是冻结分析发现该模块的唯一入口，
 # 动态替换的请求函数与学校时间解析由下面的薄转发在调用时注入
-from infrastructure import activity_queries
+from infrastructure import activity_queries, school_http, worker_log
 # 学校时间与重试预算只有一份实现（time_contract）：这里不再自己 strptime，
 # 否则同一串学校时间在 CLI、GUI、JS 三处会解析成不同 epoch
 from time_contract import (BudgetExhausted, RetryBudget, parse_school_time,
@@ -182,146 +182,72 @@ def setup_console():
 
 
 def _school_open(request, timeout=None):
-    """学校请求统一走「不走代理」的 opener。
+    """学校请求统一走「不走代理」的 opener；实现在 infrastructure.school_http。
 
-    系统代理（Clash/公司代理）会把校内域名当外网转发或改写请求身份，现象是
-    「浏览器能进、脚本 401」。更新检查、组件下载与飞书通知仍用 urllib 默认
-    opener（跟随环境变量与 Windows 系统代理）。
-
-    每次都按当前 urllib 现建 opener，而不是模块导入时建一次：测试替换
-    grab.urllib 成替身时这条路径同样生效（替身没有 build_opener 就退回 urlopen）。
+    每次在调用时传入 grab.urllib，测试替换 grab.urllib 成替身时仍生效。
     """
-    build_opener = getattr(urllib.request, "build_opener", None)
-    handler = getattr(urllib.request, "ProxyHandler", None)
-    if build_opener is None or handler is None:
-        return urllib.request.urlopen(request, timeout=timeout)
-    return build_opener(handler({})).open(request, timeout=timeout)
+    return school_http.school_open(request, urllib_mod=urllib, timeout=timeout)
 
 
 LOG_MAX_BYTES = 5 * 1024 * 1024   # grab.log 超过这个大小就轮转（S2）
 LOG_KEEP = 5                      # 保留 grab.log.1 … grab.log.5，更老的丢掉
 LOG_LOCK_TIMEOUT_S = 2.0          # 拿不到日志锁就走 stderr/控制台降级，不能卡住 worker
-_LOG_THREAD_LOCK = threading.Lock()
+_LOG_THREAD_LOCK = worker_log._LOG_THREAD_LOCK
 
 
 @contextlib.contextmanager
 def _log_file_lock(timeout_s=LOG_LOCK_TIMEOUT_S):
-    """grab.log 的轮转与追加共用的跨进程锁。
-
-    界面进程与 worker 打开同一个 grab.log.lock：轮转时不会把对方刚写的行挪走，
-    追加也不会落在轮转中间。拿不到锁抛 PrefsLockTimeout，由 log() 降级处理。
-    """
-    deadline = time.monotonic() + max(0.0, float(timeout_s))
-    if not _LOG_THREAD_LOCK.acquire(timeout=max(0.0, deadline - time.monotonic())):
-        raise PrefsLockTimeout("日志正在被本进程另一线程写入")
-    try:
-        try:
-            Path(LOG_LOCK_FILE).parent.mkdir(parents=True, exist_ok=True)
-            handle = open(LOG_LOCK_FILE, "a+b")
-        except OSError:
-            raise PrefsLockTimeout("日志锁文件不可创建")
-        acquired = False
-        try:
-            acquire_file_lock(handle, max(0.0, deadline - time.monotonic()))
-            acquired = True
-            yield
-        finally:
-            if acquired:
-                release_file_lock(handle)
-            handle.close()
-    finally:
-        _LOG_THREAD_LOCK.release()
+    """grab.log 的轮转与追加共用的跨进程锁（实现在 infrastructure.worker_log）。"""
+    # timeout_s 保持定义时绑定 LOG_LOCK_TIMEOUT_S：log() 不传超时，兼容既有用例口径
+    with worker_log.log_file_lock(
+        timeout_s=timeout_s,
+        log_lock_file=LOG_LOCK_FILE,
+        time_mod=time,
+        thread_lock=_LOG_THREAD_LOCK,
+    ):
+        yield
 
 
 def rotate_log_file(path, max_bytes=None, keep=None):
-    """日志超过 max_bytes 就轮转：path → path.1，旧的依次后移，path.keep 之后的丢掉。
-
-    只用标准库的重命名。返回是否轮转了；失败（文件被另一个进程占着等）原样抛出，
-    由 log() 兜住——轮转失败不能让这一行日志也丢了。
-    """
-    path = Path(path)
-    limit = LOG_MAX_BYTES if max_bytes is None else max_bytes
-    count = LOG_KEEP if keep is None else keep
-    try:
-        if path.stat().st_size < limit:
-            return False
-    except FileNotFoundError:
-        return False
-    oldest = path.with_name("%s.%d" % (path.name, count))
-    if oldest.exists():
-        oldest.unlink()
-    for index in range(count - 1, 0, -1):
-        older = path.with_name("%s.%d" % (path.name, index))
-        if older.exists():
-            os.replace(older, path.with_name("%s.%d" % (path.name, index + 1)))
-    os.replace(path, path.with_name(path.name + ".1"))
-    return True
+    """日志超过 max_bytes 就轮转；在调用时取当前 LOG_MAX_BYTES 与 LOG_KEEP。"""
+    return worker_log.rotate_log_file(
+        path,
+        max_bytes=max_bytes,
+        keep=keep,
+        default_max_bytes=LOG_MAX_BYTES,
+        default_keep=LOG_KEEP,
+    )
 
 
 def _stderr_note(text):
-    """写日志自己出了问题时的出口：至少打到 stderr（无控制台的打包形态里 stderr 可能是 None）。"""
-    stream = sys.stderr
-    if stream is None:
-        return
-    try:
-        print(text, file=stream, flush=True)
-    except Exception:
-        pass
+    """写日志自己出了问题时的出口：至少打到 stderr。"""
+    worker_log.stderr_note(text)
 
 
 @contextlib.contextmanager
 def _stdout_to_stderr(enabled):
-    """--json 的 stdout 是给主程序 json.loads 的：log() 等辅助函数会往 stdout
-    打印，这段时间必须把 stdout 改道到 stderr（无控制台的打包形态里 stderr
-    可能是 None，此时丢到系统空设备），否则 JSON 前面多一行，整张列表解析失败。"""
-    if not enabled:
+    """--json 的 stdout 是给主程序 json.loads 的：期间把 stdout 改道到 stderr。"""
+    with worker_log.stdout_to_stderr(enabled):
         yield
-        return
-    stream = sys.stderr
-    devnull = None
-    if stream is None:
-        devnull = open(os.devnull, "w", encoding="utf-8")
-        stream = devnull
-    try:
-        with contextlib.redirect_stdout(stream):
-            yield
-    finally:
-        if devnull is not None:
-            devnull.close()
 
 
 def log(msg):
-    try:
-        ensure_data_dir()
-    except Exception as exc:  # noqa: BLE001 - 数据目录建不出来也要把这一行打出去
-        _stderr_note("[log] 数据目录不可用（%s）" % type(exc).__name__)
-    try:
-        # 日志时间按北京时间（业务时钟）；时钟未配置时保留旧本机戳以免崩溃
-        stamp = school_time_text(now_fn=business_now)
-    except Exception:
-        stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    line = "%s %s" % (stamp, msg)
-    try:
-        with _log_file_lock():
-            # 轮转与追加在同一临界区：另一个进程不会读到挪到一半的日志
-            try:
-                rotate_log_file(LOG_FILE)
-            except Exception as exc:  # noqa: BLE001 - 轮转失败下次写入再试，不丢这一行
-                _stderr_note("[log] 日志轮转失败（%s）" % type(exc).__name__)
-            _append_log_line_unlocked(line)
-    except PrefsLockTimeout:
-        # 另一个进程正占着日志锁：不能无锁追加，当前行只走 stderr/控制台降级。
-        _stderr_note("[log] 没拿到日志文件锁，本次跳过轮转")
-        _stderr_note("[log] 当前行未写入 grab.log：%s" % line)
-    print(line, flush=True)
+    """写一行运行日志；目录、业务时钟、锁、轮转与写入端口均在调用时取 grab 全局。"""
+    worker_log.write_log(
+        msg,
+        ensure_dir_fn=ensure_data_dir,
+        school_time_text_fn=school_time_text,
+        business_now_fn=business_now,
+        lock_ctx_fn=_log_file_lock,
+        rotate_fn=rotate_log_file,
+        log_file=LOG_FILE,
+        append_fn=_append_log_line_unlocked,
+        note_fn=_stderr_note,
+    )
 
 
 def _append_log_line_unlocked(line):
-    try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
-    except Exception as exc:  # noqa: BLE001 - 不再静默：至少让控制台看到这一行没落盘
-        _stderr_note("[log] 写日志文件失败（%s）：%s" % (type(exc).__name__, line))
+    worker_log.append_log_line_unlocked(line, log_file=LOG_FILE, note_fn=_stderr_note)
 
 
 # 事件日志里的活动 ID：cmd_grab 查到目标后设置一次，之后本进程的事件都带上它
@@ -398,56 +324,41 @@ def token():
 
 
 def _hmac_sha256_hex(message: bytes, key: bytes) -> str:
-    return hmac.new(key, message, hashlib.sha256).hexdigest()
+    return school_http.hmac_sha256_hex(message, key)
 
 
 def _xor_base64(value: str, key: str) -> str:
-    """复现官网 K0：按字符异或后按 Latin1 字节做 Base64。"""
-    mixed = "".join(chr(ord(value[i]) ^ ord(key[i % len(key)]))
-                    for i in range(len(value)))
-    return base64.b64encode(mixed.encode("latin-1")).decode("ascii")
+    return school_http.xor_base64(value, key)
 
 
 def _encode_x_token(signature_hex: str, path: str, nonce: str) -> str:
-    encoded = base64.b64encode(signature_hex.encode("utf-8")).decode("ascii")
-    mask = _hmac_sha256_hex(
-        (path + "|" + nonce).encode("utf-8"),
-        REQUEST_SECURITY_CLIENT_KEY.encode("utf-8"),
-    )[:16]
-    return _xor_base64(encoded, mask)[::-1]
+    return school_http.encode_x_token(
+        signature_hex,
+        path,
+        nonce,
+        client_key=REQUEST_SECURITY_CLIENT_KEY,
+        hmac_fn=_hmac_sha256_hex,
+        xor_fn=_xor_base64,
+    )
 
 
-# 注意：这套网关签名的 canonical 里方法写死为 POST，只能给 _post 用；
-# 直发 signUp 是 GET、本来就不带这四个头，不能把它原样挪给 GET，否则会静默算错。
 def sign_request_headers(path: str, body: bytes, timestamp_ms: int,
                          nonce: str) -> dict:
-    """按官网登录页 Z0 算法生成四个网关请求头。"""
-    page_ticket = _hmac_sha256_hex(
-        REQUEST_SECURITY_RAW_KEY.encode("utf-8"),
-        REQUEST_SECURITY_CLIENT_KEY.encode("utf-8"),
+    """按官网登录页 Z0 算法生成四个网关请求头（实现在 infrastructure.school_http）。"""
+    return school_http.sign_request_headers(
+        path,
+        body,
+        timestamp_ms,
+        nonce,
+        raw_key=REQUEST_SECURITY_RAW_KEY,
+        client_key=REQUEST_SECURITY_CLIENT_KEY,
+        hmac_fn=_hmac_sha256_hex,
+        encode_fn=_encode_x_token,
     )
-    body_hash = hashlib.sha256(body or b"").hexdigest()
-    canonical = "\n".join(("POST", str(path), str(timestamp_ms), str(nonce),
-                            body_hash, page_ticket))
-    derived_key = _hmac_sha256_hex(
-        (page_ticket + "|" + str(int(timestamp_ms) // 1000) + "|"
-         + str(path) + "|" + str(nonce)).encode("utf-8"),
-        REQUEST_SECURITY_CLIENT_KEY.encode("utf-8"),
-    )
-    signature = _hmac_sha256_hex(canonical.encode("utf-8"),
-                                 derived_key.encode("utf-8"))
-    return {
-        "X-Page-Ticket": page_ticket,
-        "X-Timestamp": str(timestamp_ms),
-        "X-Nonce": str(nonce),
-        "X-Token": _encode_x_token(signature, str(path), str(nonce)),
-    }
 
 
 def _request_nonce() -> str:
-    seed = "%d-%s-%s" % (int(time.time() * 1000),
-                          secrets.token_hex(8), secrets.token_hex(8))
-    return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
+    return school_http.request_nonce(time_mod=time)
 
 
 # L2（计划 20261109-list-time-and-estimate）：学校列表回包的 HTTP Date 头。
@@ -487,145 +398,57 @@ def clear_school_date() -> None:
 
 
 def _post(path, payload=None, tok=None, timeout=None, budget=None):
-    """POST/GET 共用入口；传 budget 时超时被压进剩余预算。
-
-    预算耗尽抛 BudgetExhausted，且不被本函数的通用 except 吞掉——
-    否则「窗口到点」会被伪装成一次接口异常。
-    """
-    if budget is not None:
-        timeout = budget.timeout_s(15 if timeout is None else timeout)
-    # JSON.stringify 的紧凑格式是签名 bodyHash 的输入；先定字节，再签名和发送。
-    body = json.dumps(payload if payload is not None else {}, ensure_ascii=False,
-                      separators=(",", ":")).encode("utf-8")
-    req = urllib.request.Request(API + path, data=body, method="POST")
-    req.add_header("Content-Type", "application/json")
-    req.add_header("Accept", "application/json, text/plain, */*")
-    tok_value = tok if tok is not None else token()
-    if tok_value:
-        req.add_header("token", tok_value)
-    req.add_header("Referer", REFERER)
-    req.add_header("User-Agent", UA)
-    req_headers = sign_request_headers(path, body, int(time.time() * 1000),
-                                       _request_nonce())
-    for name, value in req_headers.items():
-        req.add_header(name, value)
-    try:
-        # timeout 可由调用方按剩余预算收紧：固定 15 秒会在 2 秒窗口里
-        # 一次查询就把流程拖出截止（R03）
-        resp = _school_open(req, timeout=15 if timeout is None else float(timeout))
-        try:
-            # L2：列表分页回包的 Date 头只侧带出来给列表筛选用，不改返回结构
-            headers = getattr(resp, "headers", None)
-            if headers is not None:
-                _remember_school_date(headers.get("Date"))
-            raw = resp.read().decode("utf-8", "replace")
-        finally:
-            resp.close()
-        return json.loads(raw)
-    except BudgetExhausted:
-        raise
-    except urllib.error.HTTPError as exc:
-        try:
-            raw = exc.read().decode("utf-8", "replace")
-            payload = json.loads(raw)
-            return payload if isinstance(payload, dict) else {
-                "code": -1, "message": "HTTPError"
-            }
-        except Exception:
-            return {"code": -1, "message": "HTTPError"}
-    except Exception as exc:
-        return {"code": -1, "message": type(exc).__name__}
+    """POST/GET 共用入口；调用时从 grab 装配请求与签名端口以保留测试替身接缝。"""
+    return school_http.school_post(
+        path,
+        payload=payload,
+        tok=tok,
+        timeout=timeout,
+        budget=budget,
+        api=API,
+        referer=REFERER,
+        ua=UA,
+        get_token=token,
+        sign_headers_fn=sign_request_headers,
+        nonce_fn=_request_nonce,
+        open_fn=_school_open,
+        remember_date_fn=_remember_school_date,
+        budget_exhausted_cls=BudgetExhausted,
+        time_mod=time,
+        urllib_mod=urllib,
+    )
 
 
 def _get(path, tok=None, timeout=None):
-    """GET：详情接口（只读）与取消报名（run_cancel，唯一的写用途）共用；
-    失败返回 code=-1 由调用方降级。取消接口不重试，成败以随后的复查为准。
-
-    不打印 URL 之外的任何请求头；token 只在内存里使用，绝不进日志。
-    """
-    req = urllib.request.Request(API + path, method="GET")
-    req.add_header("Accept", "application/json, text/plain, */*")
-    req.add_header("token", tok if tok is not None else token())
-    req.add_header("Referer", REFERER)
-    req.add_header("User-Agent", UA)
-    try:
-        resp = _school_open(req, timeout=15 if timeout is None else float(timeout))
-        try:
-            raw = resp.read().decode("utf-8", "replace")
-        finally:
-            resp.close()
-        return json.loads(raw)
-    except Exception as exc:
-        return {"code": -1, "message": type(exc).__name__}
+    """GET 请求薄转发；每次调用从 grab 全局读取 token、_school_open 与 urllib。"""
+    return school_http.school_get(
+        path,
+        tok=tok,
+        timeout=timeout,
+        api=API,
+        referer=REFERER,
+        ua=UA,
+        get_token=token,
+        open_fn=_school_open,
+        urllib_mod=urllib,
+    )
 
 
 def clock_sample(timeout_s=6.0):
-    """用 HTTP Date 做一次粗校时，返回结构化结论（不调整任何本地时间）。
-
-    HTTP Date 只有整秒分辨率，且响应里的时刻对应「服务器生成响应」，
-    本机只能观测到发出请求和收到响应两个时刻。因此：
-
-    * 偏移估计取区间中点，误差至少包含往返耗时的一半与整秒截断的 1 秒；
-    * 差值的可信区间跨过告警阈值时，只能说「不确定」，不能断言本机慢 N 秒；
-    * 没有 Date、解析失败、请求失败或往返太慢，一律 unknown。
-
-    这不是精确对时，也绝不自动把差值加到报名时刻上。
-    """
-    started_wall = time.time()
-    started_mono = time.monotonic()
-    result = {
-        "source": "http_date",
-        "checked_at": started_wall,
-        "rtt_s": None,
-        "offset_s": None,
-        "uncertainty_s": None,
-        "state": "unknown",
-        "detail": "",
-    }
-    try:
-        req = urllib.request.Request(BASE + "/stu/", method="HEAD")
-        req.add_header("User-Agent", UA)
-        resp = _school_open(req, timeout=max(0.5, float(timeout_s)))
-        try:
-            raw = resp.headers.get("Date")
-        finally:
-            resp.close()
-        received_wall = time.time()
-        rtt = time.monotonic() - started_mono
-        result["rtt_s"] = round(rtt, 3)
-        if not raw:
-            result["detail"] = "服务器没有返回 Date"
-            return result
-        from email.utils import parsedate_to_datetime
-        remote = parsedate_to_datetime(raw).timestamp()
-        offset = remote - (started_wall + received_wall) / 2.0
-        # 整秒分辨率最多丢 1 秒；往返延迟按一半计入不确定区间
-        uncertainty = rtt / 2.0 + 1.0
-        result["offset_s"] = round(offset, 3)
-        result["uncertainty_s"] = round(uncertainty, 3)
-        # 往返太慢时，中点估计已经不能支撑「慢几秒」这种结论
-        if rtt > 2.0:
-            result["detail"] = "往返耗时过长，只能算粗校验"
-            return result
-        low = abs(offset) - uncertainty
-        high = abs(offset) + uncertainty
-        if low > 3.0:
-            result["state"] = "warn"
-            result["detail"] = "差值区间整体超过 3 秒"
-        elif high <= 3.0:
-            result["state"] = "ok"
-        else:
-            result["detail"] = "差值区间跨过 3 秒阈值，无法断定"
-        return result
-    except Exception as exc:  # noqa: BLE001 - 校时失败只影响提示，不影响报名
-        result["detail"] = type(exc).__name__
-        return result
+    """HTTP Date 粗校时薄转发；调用时从 grab 传入 time 与 urllib。"""
+    return school_http.clock_sample(
+        timeout_s=timeout_s,
+        base=BASE,
+        ua=UA,
+        open_fn=_school_open,
+        time_mod=time,
+        urllib_mod=urllib,
+    )
 
 
 def clock_skew():
     """兼容旧调用：只取偏移估计；没有可信样本返回 None。"""
-    sample = clock_sample()
-    return sample.get("offset_s") if sample.get("state") != "unknown" else None
+    return school_http.clock_skew(sample_fn=clock_sample)
 
 
 # ---------------------------------------------------------------- 活动查询

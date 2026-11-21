@@ -68,8 +68,10 @@ class DirectOpenerShapeTests(unittest.TestCase):
 
     def test_installing_global_opener_is_not_used(self):
         """绝不 install_opener：那会把桌面进程里所有 urllib 请求一起改掉。"""
-        source = (LOCAL / "grab.py").read_text(encoding="utf-8")
-        self.assertNotIn("install_opener", source)
+        grab_source = (LOCAL / "grab.py").read_text(encoding="utf-8")
+        school_http_source = (LOCAL / "infrastructure" / "school_http.py").read_text(encoding="utf-8")
+        self.assertIn("ProxyHandler", school_http_source)
+        self.assertNotIn("install_opener", grab_source + "\n" + school_http_source)
 
 
 class SchoolRequestUsesDirectOpenerTests(unittest.TestCase):

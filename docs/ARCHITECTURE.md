@@ -248,7 +248,7 @@ controller/view DOM 分离不在本轮范围。
 
 ### 网络与发布物下载（G1）
 
-- **学校请求直连**：`local/grab.py` 的学校请求故意绕开系统代理（实测代理会把校内域名当外网转发，出现「浏览器能进、脚本 401」）；这一条写死，不开放配置。
+- **学校请求直连**：`local/grab.py` 的学校请求故意绕开系统代理（实测代理会把校内域名当外网转发，出现「浏览器能进、脚本 401」）；这一条写死，不开放配置。直连 opener、网关签名与 HTTP Date 粗校时实现在 `local/infrastructure/school_http.py`，`grab.py` 只在调用时注入端口作薄转发。
 - **更新与组件下载只走 Release 资产直链**：`local/update_check.py` 读
   `releases/latest/download/manifest.json`（检查更新）与
   `releases/download/v<版本>/manifest.json`（已知版本下载组件），不再请求 `api.github.com`。
@@ -345,7 +345,7 @@ controller/view DOM 分离不在本轮范围。
 - **登录态单一写入口**：`grab.py` 的 `save_session` 用进程内锁 + `session.json.lock`
   跨进程锁；命令行登录、手机重登中继、`storage_state.json` 双文件事务都走它（命令行登录与中继登录的编排在 `application` 的 `worker_login`）。
 - **日志**：`log_event` 每行带北京时间、级别、来源、活动 ID、事件名；`grab.log`
-  超过 5 MB 轮转成 `grab.log.1…5`；界面进程的自动登录事件也追加到同一份日志。
+  超过 5 MB 轮转成 `grab.log.1…5`；界面进程的自动登录事件也追加到同一份日志。文件锁、轮转、降级输出与追加写入实现在 `local/infrastructure/worker_log.py`，`grab.py` 经调用时转发注入路径、上限与业务时钟。
 
 ### 登录失效与静默自动登录（2026-11-11）
 
