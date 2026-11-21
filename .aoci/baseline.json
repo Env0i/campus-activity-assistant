@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-21T02:51:01Z",
+  "updated_at": "2026-11-21T03:34:09Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "7f2ad279edc12666fd4b89009e29efe8a16d0012699eb22c0eb1be86e7b5c480",
-      "size": 307063,
-      "normalized_sha256": "7f2ad279edc12666fd4b89009e29efe8a16d0012699eb22c0eb1be86e7b5c480"
+      "sha256": "b7bca0d4d4adb7f344f3b7b872625020dd298ec7c5e23f0e9ea735d017e1ce7d",
+      "size": 307461,
+      "normalized_sha256": "b7bca0d4d4adb7f344f3b7b872625020dd298ec7c5e23f0e9ea735d017e1ce7d"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -6755,6 +6755,12 @@
       "sha256": "6ee571d19a9cccda3c49b057d7aac6dbe1771d868981e6c325bd03794fb8b95f",
       "size": 14582,
       "normalized_sha256": "6ee571d19a9cccda3c49b057d7aac6dbe1771d868981e6c325bd03794fb8b95f"
+    },
+    "design/evidence/2026-11-22/real-window-acceptance/README.md": {
+      "role": "index",
+      "sha256": "0e46fde9d1ff6a751bdbd5a1b5d02d12d095fcda863032fd979262f60a90f452",
+      "size": 4885,
+      "normalized_sha256": "0e46fde9d1ff6a751bdbd5a1b5d02d12d095fcda863032fd979262f60a90f452"
     },
     "design/flows/README.md": {
       "role": "index",

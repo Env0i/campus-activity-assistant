@@ -1691,3 +1691,6 @@ README.md[SQ3S]: F:记录报名worker第三批拆分的范围、两模块职责�
 
 ===/<repository>/design/evidence/2026-11-22/grab-http-log-split/scripts/===
 record_io.py[XQ4M]: F:在仓库副本里用固定时刻、随机串与登录态录下请求层发出的请求与返回、粗校时结果和日志输出，并逐字段比对两份副本 | R:code:local/grab.py,code:local/infrastructure/school_http.py | A:--worker,--out,--compare | S:只替换grab上的边界名字，在独立子进程里录，不联网不读真实数据目录
+
+===/<repository>/design/evidence/2026-11-22/real-window-acceptance/===
+README.md[SQ4T]: F:记录报名worker三批拆分后合回主干前的真窗口验收结果、四处存量缺陷及其来源判断 | R:code:design/evidence/2026-11-20/api-closeout/README.md | A:八项验收结果表、缺陷来源表 | S:真实计划起跑与退出、真实报名、重登对话框未覆盖，不能当全过
