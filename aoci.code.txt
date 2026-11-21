@@ -1694,3 +1694,15 @@ record_io.py[XQ4M]: F:在仓库副本里用固定时刻、随机串与登录态�
 
 ===/<repository>/design/evidence/2026-11-22/real-window-acceptance/===
 README.md[SQ4T]: F:记录报名worker三批拆分后合回主干前的真窗口验收结果、四处存量缺陷来源判断及结果条类别补测 | R:code:design/evidence/2026-11-20/api-closeout/README.md,code:local/tests/test_ui_login.py | A:八项验收结果表、缺陷来源表、类别补测表 | S:真实计划起跑与退出、真实报名、重登对话框未覆盖，不能当全过
+
+===/<repository>/design/evidence/2026-11-22/phone-net/===
+README.md[SQ4T]: F:记录手机页第0批的五组清点范围、请求与配对会话组72条变异口径、补测前后统计、新增用例与复现命令 | R:code:design/evidence/2026-11-22/phone-net/move-facts.md,code:local/tests/test_phone_ui.py | A:前后统计表、新增用例表、复现命令 | S:只覆盖请求与配对会话一组，其余四组与真机通道未验证
+after.md[TQ3T]: F:保存补测后手机页请求与配对会话组72条变异的定位、替换、结论与首败用例，附六条等价理由 | R:code:design/evidence/2026-11-22/phone-net/before.md | A:变异结论表、等价判定理由 | S:-
+before.md[TQ3T]: F:保存补测前手机页请求与配对会话组72条变异结论，记18条无人守与六条等价 | R:code:design/evidence/2026-11-22/phone-net/scripts/mutate_phone.py | A:变异结论表、等价判定理由 | S:-
+move-facts.md[SQ4M]: F:清点手机页DOM层67个函数的五组归属、55个状态字段读写、组间调用、PhoneModel成员用途与页面加载现状 | R:code:design/evidence/2026-11-22/phone-net/scripts/move_facts.py,code:local/ui/m/app.js | A:表一至表六及合计 | S:由脚本生成，app.js变后须重跑，不手改
+rule-dups.md[SU5T]: F:逐条对照手机页自行推断登录结论、报名模式、时间冲突的规则与后端快照字段、桌面同名规则及口径差别 | R:code:local/ui/m/app.js,code:local/application/phone_service.py,code:local/ui/state/filters.js | A:登录、报名模式、冲突三张对照表 | S:后端活动快照无closed与open_ts，手机时间筛选和截止判断依赖它们
+
+===/<repository>/design/evidence/2026-11-22/phone-net/scripts/===
+equiv.json[FQ3T]: F:按变异编号保存六条人工等价判定理由，供变异报告合并 | R:code:design/evidence/2026-11-22/phone-net/scripts/mutate_phone.py | A:编号到理由的映射 | S:-
+move_facts.py[XQ3L]: F:只读扫描手机页脚本、页面、静态白名单与测试，按固定名单归组并生成六张清点表，--check核对合计 | R:code:tools/code_shape/jsscan.mjs,code:local/ui/m/app.js | A:main,build_facts,verify_facts,--check | S:输出含中文，非UTF-8控制台需设PYTHONIOENCODING
+mutate_phone.py[XQ3M]: F:在独立副本内对请求与配对会话组按函数范围逐条变异，过node检查后跑手机页测试并分五类出报告 | R:code:design/evidence/2026-11-22/phone-net/scripts/equiv.json,code:local/tests/test_phone_ui.py | A:main,--list,--baseline,--ids,--workers | S:副本产品代码取HEAD，只叠加工作区的test_phone_ui.py
