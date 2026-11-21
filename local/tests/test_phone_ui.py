@@ -2566,6 +2566,53 @@ out.push(posts);
 ''')
         self.assertEqual(values, [1], "连点两下不能发出第二个开始请求")
 
+    def test_poll_preserves_in_memory_csrf_and_caches_cookie_csrf(self):
+        """只读同步不能用空 cookie 擦掉内存令牌，且恢复会话后应记住 cookie 里的写权限。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const headers = [];
+globalThis.__fetch = async (path, opts) => {
+  if (path === "/pair") return {status: 200, json: async () => ({ok: true, csrf: "fake-mem-csrf"})};
+  if (opts && opts.method === "POST") {
+    headers.push(opts.headers["X-Campus-Csrf"] || "");
+    return {status: 200, json: async () => ({ok: true})};
+  }
+  return {status: 200, json: async () => ({state: {activities: [], busy: false}, events: []})};
+};
+$("pair-code").value = "123456";
+await ui.pair();
+await ui.poll(true);
+await ui.beginRelogin();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+document.cookie = "campus_phone_csrf=fake-cookie-csrf";
+ui.model.csrf = "";
+await ui.poll(true);
+document.cookie = "";
+await ui.beginRelogin();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+out.push(headers);
+''')
+        self.assertEqual(values, [["fake-mem-csrf", "fake-cookie-csrf"]])
+
+    def test_initial_wire_probes_cookie_session_once_without_repeating(self):
+        """首屏带会话 cookie 进入时自动探测一次恢复主界面，重复接线不再重复发请求。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const gets = [];
+globalThis.__fetch = async (path, opts) => {
+  if (!opts || !opts.method || opts.method === "GET") gets.push(path);
+  return {status: 200, json: async () => ({state: {activities: [], busy: false}, events: []})};
+};
+ui.model.probed = false;
+document.cookie = "campus_phone_csrf=fake-cookie-csrf";
+ui.wire();
+for (let i = 0; i < 20; i += 1) await Promise.resolve();
+ui.wire();
+for (let i = 0; i < 20; i += 1) await Promise.resolve();
+out.push([gets.length, gets[0] || "", $("pair").hidden, $("app").hidden]);
+''')
+        self.assertEqual(values, [[1, "/api/state?after=0", True, False]])
+
 
 class ReloginSheetTests(unittest.TestCase):
     """RL01–RL08：重登 sheet 六态（原型 sh.isRelogin/rel 段，Phone.dc.html:326-350/881-905）。"""
@@ -2957,6 +3004,74 @@ out.push($("pair-error").textContent.indexOf("网络不通") >= 0);
 ''')
         self.assertEqual(values, [True])
 
+    def test_api_clears_abort_timeout_after_request_settles(self):
+        """请求正常返回后必须清掉 8 秒超时定时器，避免请求结束后残留无用定时器。"""
+        values = run_phone_js('''
+globalThis.AbortController = function FakeAbort() {
+  this.signal = {aborted: false};
+  this.abort = () => { this.signal.aborted = true; };
+};
+globalThis.__fetch = async () => ({
+  status: 200,
+  json: async () => ({state: {activities: [], busy: false}, events: []}),
+});
+await PhoneUI.poll(true);
+out.push(__timerDelays());
+''')
+        self.assertNotIn(8000, values[0])
+
+    def test_action_401_clears_active_poll_and_tick_timers(self):
+        """写操作收到 401 时必须同时停掉轮询与整秒计时器，避免退回配对页后继续后台刷请求。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+globalThis.__fetch = async (path) => {
+  if (path === "/api/action") return {status: 401, json: async () => ({ok: false, error: "need_pair"})};
+  return {status: 200, json: async () => ({state: {activities: [{id: "a1", sign_start: "2026-11-22 09:00:00"}], busy: false}, events: []})};
+};
+await ui.poll(true);
+ui.model.selected = ["a1"];
+const before = __timerDelays().length;
+await ui.startPlan();
+out.push([before, __timerDelays(), $("pair").hidden, $("app").hidden]);
+''')
+        self.assertEqual(values, [[2, [], False, True]])
+
+    def test_403_without_cookie_keeps_csrf_caches_new_cookie_and_backs_off(self):
+        """收到 403 时不许用空 cookie 清掉内存令牌，有新 cookie 要记住并按退避周期延后重拉。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const sent = [];
+let mode = "pair";
+globalThis.__fetch = async (path, opts) => {
+  if (path === "/pair") return {status: 200, json: async () => ({ok: true, csrf: "fake-mem-csrf"})};
+  if (opts && opts.method === "POST") {
+    sent.push(opts.headers["X-Campus-Csrf"] || "");
+    if (mode === "403") return {status: 403, json: async () => ({ok: false, error: "bad_csrf"})};
+    return {status: 200, json: async () => ({ok: true})};
+  }
+  if (mode === "poll403") return {status: 403, json: async () => ({ok: false, error: "bad_csrf"})};
+  return {status: 200, json: async () => ({state: {activities: [], busy: false}, events: []})};
+};
+$("pair-code").value = "123456";
+await ui.pair();
+mode = "403";
+await ui.beginRelogin();
+mode = "ok";
+await ui.beginRelogin();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+document.cookie = "campus_phone_csrf=fake-rotated-csrf";
+mode = "poll403";
+await ui.poll(true);
+const delays = __timerDelays();
+document.cookie = "";
+mode = "ok";
+await ui.beginRelogin();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+out.push([sent, delays]);
+''')
+        self.assertEqual(values[0][0], ["fake-mem-csrf", "fake-mem-csrf", "fake-rotated-csrf"])
+        self.assertIn(2000, values[0][1])
+
 
 class PairStatesDomTests(unittest.TestCase):
     """PA03/EX03/EX04：点阵屏四态、锁定与配错态（BE1 结构化字段驱动）。"""
@@ -3110,6 +3225,75 @@ out.push([$("pair").hidden, $("app").hidden, PhoneUI.model.pairLockLeft,
 ''')
         self.assertEqual(values[0], [True, False, 0, "", True],
                          "配对成功进主界面，锁定倒计时与错误条一并收回")
+
+    def test_pair_led_renders_lit_dots_and_clears_old_error_on_submit(self):
+        """配对点阵屏应正确点亮数字点阵，且再次点配对在途期间应先清掉上一轮红字提示。"""
+        values = run_phone_js('''
+const rawCreate = document.createElement.bind(document);
+document.createElement = (tag) => {
+  const el = rawCreate(tag);
+  if (tag !== "i") return el;
+  return {
+    tagName: "I", className: "", style: {}, dataset: {}, _children: [],
+    setAttribute(k, v) { this["attr_" + k] = v; },
+    appendChild(c) { this._children.push(c); },
+  };
+};
+$("pair-code").value = "123452";
+PhoneUI.renderPair();
+const classes = $("pair-led")._children.map((d) => d.className);
+globalThis.__fetch = async () => ({status: 200, json: async () => ({ok: false, error: "bad_code", remaining_attempts: 2})});
+await PhoneUI.pair();
+const afterFail = [$("pair-error").hidden, $("pair-error").textContent.length > 0];
+$("pair-code").value = "123452";
+let release;
+globalThis.__fetch = () => new Promise((r) => {
+  release = () => r({status: 200, json: async () => ({ok: false, error: "bad_code", remaining_attempts: 1})});
+});
+const pending = PhoneUI.pair();
+const during = [$("pair-error").hidden, $("pair-error").textContent];
+release();
+await pending;
+out.push([classes.filter((c) => c === "on").length > 0,
+          classes.filter((c) => c === "").length > 0, afterFail, during, $("pair-error").hidden]);
+''')
+        self.assertEqual(values, [[True, True, [False, True], [True, ""], False]])
+
+    def test_pair_success_sends_csrf_and_keeps_retry_if_first_poll_fails(self):
+        """配对成功后即使无 cookie 也要带回 csrf 发动作，且首轮拉状态失败仍应排期退避重连。"""
+        values = run_phone_js('''
+const sent = [];
+let pollStatus = 500;
+globalThis.__fetch = async (path, opts) => {
+  if (path === "/pair") return {status: 200, json: async () => ({ok: true, csrf: "fake-pair-csrf"})};
+  if (opts && opts.method === "POST") {
+    sent.push(opts.headers["X-Campus-Csrf"] || "");
+    return {status: 200, json: async () => ({ok: true})};
+  }
+  return {status: pollStatus, json: async () => ({state: {activities: [], busy: false}, events: []})};
+};
+$("pair-code").value = "123456";
+await PhoneUI.pair();
+const delaysAfterFirstFail = __timerDelays();
+pollStatus = 200;
+await PhoneUI.poll(true);
+await PhoneUI.beginRelogin();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+out.push([sent, delaysAfterFirstFail]);
+''')
+        self.assertEqual(values[0][0], ["fake-pair-csrf"])
+        self.assertIn(2000, values[0][1])
+
+    def test_stopping_pair_lock_cancels_pending_countdown_timer(self):
+        """退回配对或取消锁定时必须清除倒计时定时器，避免旧定时器继续改写配对提示。"""
+        values = run_phone_js('''
+PhoneUI.beginPairLock(5);
+const before = __timerDelays();
+globalThis.__fetch = async () => ({status: 401, json: async () => ({ok: false})});
+await PhoneUI.poll(true);
+out.push([before, __timerDelays()]);
+''')
+        self.assertEqual(values, [[[1000], []]])
 
 
 class RunWaitModelTests(unittest.TestCase):
@@ -5124,6 +5308,44 @@ await first;
 out.push([calls, __timers.size]);
 """)
         self.assertEqual(values, [[1, 2]], "单飞 + 只留一个同步定时器，外加 P1 的整秒计时")
+
+    def test_poll_success_resets_backoff_and_replaces_old_poll_timer(self):
+        """同步成功后退避必须重置为 1 秒、且重排时清掉旧轮询定时器，避免定时器越积越多。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+let status = 500;
+globalThis.__fetch = async () => ({
+  status,
+  json: async () => ({state: {activities: [], busy: false}, events: []}),
+});
+await ui.poll(true);
+await ui.poll(true);
+status = 200;
+await ui.poll(true);
+await ui.poll(true);
+const afterOk = __timerDelays();
+status = 500;
+await ui.poll(true);
+out.push([afterOk, __timerDelays()]);
+''')
+        self.assertEqual(values[0][0].count(15000), 1)
+        self.assertEqual(len(values[0][0]), 2)
+        self.assertIn(2000, values[0][1])
+
+    def test_poll_restores_paired_sync_and_second_tick_timers(self):
+        """从无状态刷新恢复并拉到 200 快照后应进入已配对周期，排好轮询与整秒计时器。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+ui.model.paired = false;
+document.cookie = "campus_phone_csrf=fake-cookie-csrf";
+globalThis.__fetch = async () => ({
+  status: 200,
+  json: async () => ({state: {activities: [], busy: false}, events: []}),
+});
+await ui.poll(true);
+out.push([__timerDelays().includes(15000), __timerDelays().length]);
+''')
+        self.assertEqual(values, [[True, 2]])
 
 
 class PhoneTickTests(unittest.TestCase):
