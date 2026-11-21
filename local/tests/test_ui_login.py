@@ -1035,6 +1035,34 @@ out.push({ hidden: $("#result").hidden, text: $("#result").textContent });
         self.assertFalse(data["hidden"], "报名成功结果条遇到 valid check 不得被收起")
         self.assertIn("心理健康讲座", data["text"])
 
+    def test_grab_result_replacing_login_incomplete_clears_kind_and_survives_valid_check(self):
+        """登录未完成结果条被无类别的报名结果替换后，必须清掉旧类别标记，后续登录检查有效时不能把报名结果收起。"""
+        data = run_js(CAPSULE_PRELUDE + r"""
+resetLogin();
+S.login.present = true; S.login.result = "valid"; S.login.ok = true;
+S.login.preLoginSnapshot = loginSnapshotState();
+window.onBackend.done({ kind: "login", ok: false, reason: "登录窗口被关掉了" });
+const loginKind = $("#result").dataset.kind || "";
+window.onBackend.done({ kind: "grab", ok: true, label: "心理健康讲座" });
+const afterGrab = {
+  hidden: $("#result").hidden,
+  text: $("#result").textContent,
+  kind: $("#result").dataset.kind || "",
+};
+window.onBackend.check({ ok: true, result: "valid", hours_left: null });
+const afterCheck = {
+  hidden: $("#result").hidden,
+  text: $("#result").textContent,
+};
+out.push({ loginKind, afterGrab, afterCheck });
+""")[0]
+        self.assertEqual(data["loginKind"], "login_attempt")
+        self.assertFalse(data["afterGrab"]["hidden"])
+        self.assertIn("心理健康讲座", data["afterGrab"]["text"])
+        self.assertEqual(data["afterGrab"]["kind"], "")
+        self.assertFalse(data["afterCheck"]["hidden"], "换成报名结果后 valid check 不得将其收起")
+        self.assertIn("心理健康讲座", data["afterCheck"]["text"])
+
 
     def test_handoff_from_the_backend_does_not_light_auto_login(self):
         """已转人工时后端就算还说 recovering，胶囊也不能报「自动登录中…」。"""

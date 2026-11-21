@@ -7,12 +7,14 @@
 """
 from __future__ import annotations
 
+import io
 import sys
 import types
 import unittest
 import urllib.request
 from pathlib import Path
 from unittest import mock
+from urllib.error import HTTPError
 
 LOCAL = Path(__file__).resolve().parents[1]
 if str(LOCAL) not in sys.path:
@@ -113,6 +115,83 @@ class SchoolRequestUsesDirectOpenerTests(unittest.TestCase):
     def test_post_request_goes_through_direct_opener(self):
         grab._post("/stu/activity/signup", {"activity_id": "x"}, tok="t")
         self.assertTrue(self.calls, "学校 POST 必须走直连 opener")
+
+
+class SchoolRequestContractTests(unittest.TestCase):
+    """学校请求层的请求头与错误回包解析契约。"""
+
+    def setUp(self):
+        self.requests = []
+
+        class _Response:
+            def __init__(self, raw=b'{"code":1,"data":{}}'):
+                self._raw = raw
+                self.headers = {}
+
+            def read(self):
+                return self._raw
+
+            def close(self):
+                pass
+
+        def _open(request, timeout=None):
+            self.requests.append(request)
+            return _Response()
+
+        patch = mock.patch.object(grab, "_school_open", _open)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_get_request_attaches_explicit_or_saved_token_header(self):
+        """详情与取消报名 GET 请求必须携带登录 token 头，否则学校接口会当成未登录拒绝。"""
+        grab._get("/rjyHd/getInfo/act-1", tok="tok-a")
+        with mock.patch.object(grab, "token", lambda: "tok-saved"):
+            grab._get("/rjyHd/getInfo/act-2")
+        self.assertEqual(len(self.requests), 2)
+        self.assertEqual(self.requests[0].get_method(), "GET")
+        self.assertEqual(self.requests[0].get_header("Token"), "tok-a")
+        self.assertEqual(self.requests[1].get_method(), "GET")
+        self.assertEqual(self.requests[1].get_header("Token"), "tok-saved")
+
+    def test_post_request_omits_token_header_when_token_is_empty(self):
+        """未登录或空 token 发 POST 时不加空 token 头，避免网关把请求当成坏凭据拦截。"""
+        grab._post("/rjyHd/listActivity", {}, tok="")
+        grab._post("/rjyHd/listActivity", {}, tok="tok-a")
+        self.assertEqual(len(self.requests), 2)
+        self.assertIsNone(self.requests[0].get_header("Token"))
+        self.assertNotIn("Token", self.requests[0].headers)
+        self.assertEqual(self.requests[1].get_header("Token"), "tok-a")
+
+    def test_post_request_decodes_json_body_on_http_error_and_falls_back_on_non_json(self):
+        """学校以 HTTP 错误状态返回 4001 JSON 时照常解析给调用方识别登录失效，非 JSON 则退回 HTTPError。"""
+        bodies = [
+            b'{"code":4001,"msg":"login expired"}',
+            b"<html>bad gateway</html>",
+        ]
+
+        def _open_error(request, timeout=None):
+            raw = bodies.pop(0)
+            raise HTTPError(
+                request.full_url, 401, "Unauthorized", {}, io.BytesIO(raw)
+            )
+
+        with mock.patch.object(grab, "_school_open", _open_error):
+            expired = grab._post("/rjyHd/listActivity", {}, tok="tok-a")
+            fallback = grab._post("/rjyHd/listActivity", {}, tok="tok-a")
+        self.assertEqual(expired, {"code": 4001, "msg": "login expired"})
+        self.assertEqual(expired["code"], 4001)
+        self.assertEqual(fallback, {"code": -1, "message": "HTTPError"})
+
+    def test_post_request_generates_distinct_32_char_lower_hex_nonce_headers(self):
+        """每次 POST 生成不同的 32 位小写十六进制 X-Nonce 头，满足学校网关防重放签名校验。"""
+        grab._post("/rjyHd/listActivity", {}, tok="tok-a")
+        grab._post("/rjyHd/listActivity", {}, tok="tok-a")
+        self.assertEqual(len(self.requests), 2)
+        first = self.requests[0].get_header("X-nonce")
+        second = self.requests[1].get_header("X-nonce")
+        self.assertRegex(first or "", r"^[0-9a-f]{32}$")
+        self.assertRegex(second or "", r"^[0-9a-f]{32}$")
+        self.assertNotEqual(first, second)
 
 
 class DefaultOpenerKeepsProxyTests(unittest.TestCase):

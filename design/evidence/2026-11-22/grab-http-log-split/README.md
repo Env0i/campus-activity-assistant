@@ -149,3 +149,31 @@ python -B -m unittest discover -s local/tests -p "test_*.py" -v
 - 两个新模块与原实现逐段比对：判断顺序、try 层次与返回形状不变；日志线程锁只有一把，锁超时默认值仍在定义时取。细微差别——日志追加与锁文件现在用模块自己的内置 open，不再经 grab.open，现有用例不受影响。
 - 「POST 不得吞掉 BudgetExhausted」那条不红的变异属于等价变异：预算换算超时在 try 之外完成，请求通道本身不会抛 BudgetExhausted，那句重抛是走不到的防御代码；录制脚本已核对预算耗尽时原样抛出。
 - 另做四条请求层定点变异，在搬迁后与开工提交的原位置上都不变红，属于既有测试缺口、不是本批引入：GET 请求不带 token 头；POST 在 token 为空时也加 token 头；HTTPError 回包不再解析学校的 JSON；请求随机串从 32 位截成 16 位。这四处都是学校接口契约的细节，本目录的录制脚本能发现，但测试套件没有守，留给后续补测。
+
+---
+
+## 9. 请求层契约补测
+
+针对第 8 节识别的四处学校请求层既有测试缺口，在 `local/tests/test_network_policy.py` 的 `SchoolRequestContractTests` 中各补 1 条只断言替身收到的请求对象与返回值的外部可见行为单测（不改动任何产品代码或测试夹具，测试文件总数保持 39 个）。
+
+在 `tempfile.gettempdir()` 下使用 `git archive --format=zip` 导出并叠加测试改动的独立临时副本中，先确认未变异副本跑 `test_network_policy.py`（11 条）与 `test_school_contract.py`（21 条）全绿，随后逐条在独立副本中执行单点变异（每次仅跑 `test_network_policy.py` 与 `test_school_contract.py`，跑完即删副本）：
+
+| 守的行为 | 新用例名 | 变异写法 | 变异下第一条失败用例 | 结论 |
+|---|---|---|---|---|
+| GET 请求携带显式或已保存的登录 token 头 | `test_network_policy.SchoolRequestContractTests.test_get_request_attaches_explicit_or_saved_token_header` | `local/infrastructure/school_http.py` 的 `school_get` 中将 `req.add_header("token", tok if tok is not None else get_token())` 改为 `pass` | `test_network_policy.SchoolRequestContractTests.test_get_request_attaches_explicit_or_saved_token_header` | 已守 |
+| POST 请求在 token 为空时不加空 token 头 | `test_network_policy.SchoolRequestContractTests.test_post_request_omits_token_header_when_token_is_empty` | `local/infrastructure/school_http.py` 的 `_build_post_request` 中将 `if tok_value:` 改为 `if True:` | `test_network_policy.SchoolRequestContractTests.test_post_request_omits_token_header_when_token_is_empty` | 已守 |
+| HTTP 错误状态回包照常解析 JSON 体并在非 JSON 时退回 `HTTPError` | `test_network_policy.SchoolRequestContractTests.test_post_request_decodes_json_body_on_http_error_and_falls_back_on_non_json` | `local/infrastructure/school_http.py` 的 `_decode_http_error` 中将 `payload = json.loads(raw)` 改为 `payload = None` | `test_network_policy.SchoolRequestContractTests.test_post_request_decodes_json_body_on_http_error_and_falls_back_on_non_json` | 已守 |
+| POST 请求每次生成不同的 32 位小写十六进制 `X-Nonce` 头 | `test_network_policy.SchoolRequestContractTests.test_post_request_generates_distinct_32_char_lower_hex_nonce_headers` | `local/infrastructure/school_http.py` 的 `request_nonce` 中将 `hexdigest()[:32]` 改为 `hexdigest()[:16]` | `test_network_policy.SchoolRequestContractTests.test_post_request_generates_distinct_32_char_lower_hex_nonce_headers` | 已守 |
+
+### 复现命令
+
+在仓库根目录执行（临时目录统一使用 `%TEMP%` 或 `tempfile.gettempdir()`，跑前清掉代理环境变量）：
+
+```powershell
+$env:http_proxy=$null; $env:HTTP_PROXY=$null; $env:https_proxy=$null; $env:HTTPS_PROXY=$null; $env:all_proxy=$null
+
+# 1. 新用例与所在测试文件及学校接口契约测试
+python -B -m unittest local.tests.test_network_policy.SchoolRequestContractTests -v
+python -B -m unittest discover -s local/tests -p test_network_policy.py -v
+python -B -m unittest discover -s local/tests -p test_school_contract.py -v
+```

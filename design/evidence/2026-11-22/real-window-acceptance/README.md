@@ -33,3 +33,26 @@
 ## 三、结论
 
 没有发现回归：拆分后的真实 worker 在登录、登录检查、自动重登、学校请求签名与开页、日志落盘、冻结版刷新这些路径上都按原样工作。没覆盖的是真实计划起跑与退出收尾、真实报名一场、重登对话框三处，原因是近期没有可报的真实活动、登录失效时走了自动登录。四处缺陷都是存量问题，另开计划修。
+
+## 四、结果条类别补测
+
+针对登录未完成结果条（`data-kind="login_attempt"`）被后续无类别报名结果替换时必须清除旧 `data-kind` 标记、防止有效登录检查误将报名结果收起的行为，在 `local/tests/test_ui_login.py` 的 `LoginCapsuleEdgeTests` 中补 1 条界面 DOM 行为单测（在 node 沙箱中真实执行，零跳过）。
+
+在 `tempfile.gettempdir()` 下使用 `git archive --format=zip` 导出并叠加测试改动的独立临时副本中，先确认未变异副本跑 `test_ui_login.py`（102 条，0 跳过）与 `test_school_contract.py`（21 条）全绿，随后在独立副本中执行单点变异（跑完即删副本）：
+
+| 守的行为 | 新用例名 | 变异写法 | 变异下第一条失败用例 | 结论 |
+|---|---|---|---|---|
+| 登录未完成结果条被无类别报名结果替换后清掉旧类别标记，后续有效登录检查不收起报名结果 | `test_ui_login.LoginCapsuleEdgeTests.test_grab_result_replacing_login_incomplete_clears_kind_and_survives_valid_check` | `local/ui/features/shell/view-result.js` 的 `setResult` 中将 `else delete el.dataset.kind;` 改为 `/* kept */` | `test_ui_login.LoginCapsuleEdgeTests.test_grab_result_replacing_login_incomplete_clears_kind_and_survives_valid_check` | 已守 |
+
+### 复现命令
+
+在仓库根目录执行（临时目录统一使用 `%TEMP%` 或 `tempfile.gettempdir()`，跑前清掉代理环境变量）：
+
+```powershell
+$env:http_proxy=$null; $env:HTTP_PROXY=$null; $env:https_proxy=$null; $env:HTTPS_PROXY=$null; $env:all_proxy=$null
+
+# 1. 新用例与所在界面行为测试文件及学校接口契约测试
+python -B -m unittest local.tests.test_ui_login.LoginCapsuleEdgeTests.test_grab_result_replacing_login_incomplete_clears_kind_and_survives_valid_check -v
+python -B -m unittest discover -s local/tests -p test_ui_login.py -v
+python -B -m unittest discover -s local/tests -p test_school_contract.py -v
+```
