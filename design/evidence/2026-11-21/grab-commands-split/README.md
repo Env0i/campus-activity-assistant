@@ -128,3 +128,47 @@ python -B -m unittest discover -s local/tests -p "test_*.py" -v
 - BurstPolicy 类体与开工提交逐行比对，只多了告警与时钟异常两个钩子，其余一字未变。
 - 复现上文两条既有缺口（已开放场次换成现在、登录后接口复查失败的退出码）：在开工提交原位置同样改坏，确实不红。
 - 另做五条定点变异，一条变红：取消前登录态未知也放行。四条在搬迁后与开工提交的原位置上都不变红，属于既有测试缺口、不是本批引入：取消前业务时钟未配置也放行；按名称选活动命中多个时直接取第一个；可见浏览器登录时窗口被关掉仍继续等待；手机重登中继保存登录态时不写盘。连同上文四条，共八处既有缺口，留给后续补测。
+
+---
+
+## 9. 既有缺口补测
+
+针对第 4 节与第 8 节识别出的八处既有测试缺口，在不改动任何产品代码、不新建测试文件的前提下，于既有同主题测试类中各补一条外部可见行为测试（夹具仅在 `test_session_persistence.py` 的 `_FakeCtx.__init__` 增加带默认值的 `page=None` 参数，默认值下所有既有测试全绿）。新用例连跑三遍全部通过；在 `tempfile.gettempdir()` 下解包的独立副本中先确认未改坏时全绿，再逐条施加定点变异，八条变异全部变红且第一条失败用例均为对应新用例：
+
+| 守的行为 | 新用例名 | 变异写法 | 变异下第一条失败用例 | 结论 |
+|---|---|---|---|---|
+| 同一 `request_id` 第二次结算被拒绝，首次结论不被覆盖 | `test_worker_boundaries.BurstPolicyPureTests.test_duplicate_settle_with_different_kind_is_rejected_and_keeps_first_conclusion` | `local/application/signup_policy.py` 的 `settle` 中 `if record is None or record["status"] == "settled":` → `if record is None:` | `test_worker_boundaries.BurstPolicyPureTests.test_duplicate_settle_with_different_kind_is_rejected_and_keeps_first_conclusion` | 已守 |
+| `BurstPolicy` 登记发现 `attempt_no` 未递增时经调用时读取的 `grab.log` 输出告警 | `test_worker_boundaries.BurstPolicyPureTests.test_non_monotonic_attempt_no_logs_warning_via_latest_grab_log` | `local/grab.py` 的 `BurstPolicy._log` 改为类定义时绑定 `_bound_log = staticmethod(log)` | `test_worker_boundaries.BurstPolicyPureTests.test_non_monotonic_attempt_no_logs_warning_via_latest_grab_log` | 已守 |
+| 已开放场次把开放时刻替换成当前业务时间并保留原定时刻在 `original_at` | `test_worker_boundaries.ListEntryTests.test_resolve_target_replaces_past_open_time_with_now_and_keeps_original` | `local/application/signup_target.py` 的 `at_or_now` 中 `if ts is not None and ts <= business_now():` → `if False and ...:` | `test_worker_boundaries.ListEntryTests.test_resolve_target_replaces_past_open_time_with_now_and_keeps_original` | 已守 |
+| 可见浏览器登录后接口复查失败返回退出码 2 并记 `verify_failed` 事件 | `test_session_persistence.CmdLoginTransactionTests.test_verify_failure_after_save_returns_two_and_logs_verify_failed` | `local/application/worker_login.py` 的 `verify_failed` 分支 `return 2` → `return 0` | `test_session_persistence.CmdLoginTransactionTests.test_verify_failure_after_save_returns_two_and_logs_verify_failed` | 已守 |
+| 取消报名前业务时钟未配置（`grab._CLOCK["meta"]` 为空）时拒绝且不调接口 | `test_cancel_signup.RunCancelPrecheckTests.test_missing_clock_meta_refuses_without_calling_get` | `local/grab.py` 的 `run_cancel` 转发中 `has_clock_meta=lambda: _CLOCK.get("meta") is not None` → `has_clock_meta=lambda: True` | `test_cancel_signup.RunCancelPrecheckTests.test_missing_clock_meta_refuses_without_calling_get` | 已守 |
+| 按名称关键词选活动命中多场时不选，列出序号提示改用 `--pick` 并返回 `None` | `test_worker_boundaries.ListEntryTests.test_by_index_or_name_refuses_ambiguous_keyword_and_lists_indices` | `local/application/signup_target.py` 的 `by_index_or_name` 中 `if len(hits) > 1:` → `if False and len(hits) > 1:` | `test_worker_boundaries.ListEntryTests.test_by_index_or_name_refuses_ambiguous_keyword_and_lists_indices` | 已守 |
+| 可见浏览器登录时用户关掉窗口返回 1、写 `window_closed` 事件、不保存登录态 | `test_session_persistence.CmdLoginTransactionTests.test_closed_browser_window_returns_one_without_saving_session` | `local/application/worker_login.py` 的 `_wait_for_token` 中 `if page.is_closed():` → `if False and page.is_closed():` | `test_session_persistence.CmdLoginTransactionTests.test_closed_browser_window_returns_one_without_saving_session` | 已守 |
+| 手机重登中继成功落盘走双文件事务保存并写入非空 `saved_at` | `test_login_relay.VerifiedFilesTests.test_cmd_login_relay_saves_verified_pair_with_fresh_saved_at` | `local/application/worker_login.py` 的 `_RelayDeps.save_verified` 中删去 `self._save_verified_files(state, session)` 调用 | `test_login_relay.VerifiedFilesTests.test_cmd_login_relay_saves_verified_pair_with_fresh_saved_at` | 已守 |
+
+### 补测复现命令
+
+```powershell
+# 清除代理环境变量
+$env:http_proxy=$null; $env:HTTP_PROXY=$null; $env:https_proxy=$null; $env:HTTPS_PROXY=$null; $env:all_proxy=$null
+
+# 1. 单独运行八条新增缺口守卫用例
+python -B -m unittest `
+  local.tests.test_worker_boundaries.BurstPolicyPureTests.test_duplicate_settle_with_different_kind_is_rejected_and_keeps_first_conclusion `
+  local.tests.test_worker_boundaries.BurstPolicyPureTests.test_non_monotonic_attempt_no_logs_warning_via_latest_grab_log `
+  local.tests.test_worker_boundaries.ListEntryTests.test_resolve_target_replaces_past_open_time_with_now_and_keeps_original `
+  local.tests.test_worker_boundaries.ListEntryTests.test_by_index_or_name_refuses_ambiguous_keyword_and_lists_indices `
+  local.tests.test_cancel_signup.RunCancelPrecheckTests.test_missing_clock_meta_refuses_without_calling_get `
+  local.tests.test_session_persistence.CmdLoginTransactionTests.test_verify_failure_after_save_returns_two_and_logs_verify_failed `
+  local.tests.test_session_persistence.CmdLoginTransactionTests.test_closed_browser_window_returns_one_without_saving_session `
+  local.tests.test_login_relay.VerifiedFilesTests.test_cmd_login_relay_saves_verified_pair_with_fresh_saved_at -v
+
+# 2. 运行涉及的全部测试套件与代码形状守卫（临时目录使用 %TEMP% / tempfile.gettempdir()）
+python -B -m unittest discover -s local/tests -p test_worker_boundaries.py -v
+python -B -m unittest discover -s local/tests -p test_cancel_signup.py -v
+python -B -m unittest discover -s local/tests -p test_session_persistence.py -v
+python -B -m unittest discover -s local/tests -p test_login_relay.py -v
+python -B -m unittest discover -s local/tests -p test_worker_logs.py -v
+python -B -m unittest discover -s local/tests -p test_retry_policy.py -v
+python -B -m unittest discover -s local/tests -p test_code_shape.py -v
+```
