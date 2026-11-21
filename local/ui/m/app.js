@@ -14,7 +14,7 @@ const PhoneModel = {
     return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
   },
 
-  /* 筛选：关键词 + 报名状态 + 开放时间（今天 / 未来 7 天） */
+  /* 筛选：关键词 + 报名状态 + 开放时间（北京自然日，正在开放两档都留，未校准时不筛） */
   filterItems(items, filter, nowS) {
     const q = String((filter && filter.q) || "").trim().toLowerCase();
     const status = (filter && filter.status) || "all";
@@ -27,12 +27,12 @@ const PhoneModel = {
       const signed = !!item.signed;
       if (status === "free" && signed) return false;
       if (status === "signed" && !signed) return false;
-      if (time !== "all") {
-        const open = Number(item.open_ts || 0);
+      if (time !== "all" && nowS != null) {
+        const open = PhoneModel.openEpochOf(item);
         if (!(open > 0)) return false;
-        const day = 86400;
-        if (time === "today" && !(open <= nowS + day)) return false;
-        if (time === "week" && !(open <= nowS + 7 * day)) return false;
+        const diff = PhoneModel.dayOf(open) - PhoneModel.dayOf(nowS);
+        if (PhoneModel.stOf(item, nowS) !== "open"
+            && ((time === "today" && diff !== 0) || (time === "week" && (diff < 0 || diff > 6)))) return false;
       }
       return true;
     });
@@ -218,11 +218,11 @@ const PhoneModel = {
     if (item && item.signed) bits.push("已报名");
     return bits.join(" · ");
   },
-  /* items 可选：给了就同时按已报名活动的举办时间挡掉重叠的行（电脑上 signedClash 同一规则） */
-  actionable(item, items) {
+  /* items 与 nowS 可选：给 items 挡已报名冲突，给 nowS 按业务此刻排除已截止 */
+  actionable(item, items, nowS) {
     if (!item || item.signed) return false;
     if (!item.open_ts && !item.sign_start) return false;      // 时间未知不可执行
-    if (item.closed) return false;                            // 已截止不可执行
+    if (item.closed || (Number.isFinite(nowS) && !["open", "pre"].includes(PhoneModel.stOf(item, nowS)))) return false;
     if (items && PhoneModel.signedClash(item, items)) return false;   // 与已报名重叠：不可加入
     return true;
   },
@@ -2853,7 +2853,7 @@ if (typeof document !== "undefined") {
   /* RS01 结果态底栏两钮（原型 reselect/finishView，Phone.dc.html:933-934）：都清计划回草稿，
      并按 plan_id 记住已收起（服务端快照一直带终态计划，见 ingest 的 dismissedPlanId）。
      重新选择：把没成功（failed/canceled）的场放回选择集——放回的依据是 state.activities
-     里对应活动仍可选（actionable：未报名、未截止、时间已知、不与已报名冲突）；
+     里对应活动仍可选（actionable：未报名、未截止、时间已知、不与已报名冲突，传入 businessNowS 校验）；
      放不回的场（已截止/时间未知）记进运行记录，不硬塞进勾选（原型是无条件放回，偏差已记） */
   function reselectFailed() {
     const tasks = (model.plan && model.plan.tasks) || [];
@@ -2865,7 +2865,7 @@ if (typeof document !== "undefined") {
       const st = String(t.status || "");
       if (st !== "failed" && st !== "canceled") return;
       const item = (model.items || []).find((i) => i && i.id === t.activity_id);
-      if (item && PhoneModel.actionable(item, model.items)) picked.push(item.id);
+      if (item && PhoneModel.actionable(item, model.items, PhoneModel.businessNowS(model))) picked.push(item.id);
       else skipped += 1;
     });
     model.selected = picked;

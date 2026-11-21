@@ -306,6 +306,28 @@ out.push(PhoneModel.filterItems(items, { time: "week" }, nowS).map((i) => i.id))
         self.assertEqual(values[3], ["a1", "a2"])
         self.assertEqual(values[4], ["a1", "a2", "a3"])
 
+    def test_filter_items_beijing_day_on_sign_start_only(self):
+        """只有 sign_start 无 open_ts 时，今天/本周按北京日历日差分界；未校准不过滤时间。"""
+        values = run_phone_js("""
+const nowS = PhoneModel.schoolSec("2026-11-20 23:30:00");
+const items = [
+  { id: "same", title: "今晚", sign_start: "2026-11-20 23:50:00", sign_end: "2026-11-21 08:00:00" },
+  { id: "next", title: "零点后", sign_start: "2026-11-21 00:30:00", sign_end: "2026-11-21 08:00:00" },
+  { id: "d6", title: "第6天", sign_start: "2026-11-26 10:00:00", sign_end: "2026-11-27 10:00:00" },
+  { id: "d8", title: "第8天", sign_start: "2026-11-28 10:00:00", sign_end: "2026-11-29 10:00:00" },
+  { id: "open", title: "已开放", sign_start: "2026-11-19 10:00:00", sign_end: "2026-11-21 10:00:00" },
+];
+const ids = (time, now) => PhoneModel.filterItems(items, { kw: "", only: "all", time: time }, now).map((x) => x.id);
+out.push(ids("today", nowS));
+out.push(ids("week", nowS));
+out.push(ids("today", null));
+out.push(ids("week", null));
+""")
+        self.assertEqual(values[0], ["same", "open"])
+        self.assertEqual(values[1], ["same", "next", "d6", "open"])
+        self.assertEqual(values[2], ["same", "next", "d6", "d8", "open"])
+        self.assertEqual(values[3], ["same", "next", "d6", "d8", "open"])
+
     def test_bucket_uses_beijing_sign_start_without_open_ts(self):
         """真实手机快照只有 sign_start：按 UTC+8 解析，24 小时内算「今天」（M7）。"""
         values = run_phone_js("""
@@ -403,6 +425,22 @@ out.push(PhoneModel.itemTitle({ name: "篮球" }));
 out.push(PhoneModel.itemMeta({ sign_start: "09:00", signed: true }));
 """)
         self.assertEqual(values, [True, False, False, False, "篮球", "开放 09:00 · 已报名"])
+
+    def test_actionable_checks_closed_when_now_given(self):
+        """只带 sign_start/sign_end 且无 closed 字段时，传 nowS 会拦截已截止活动，未传保持旧口径。"""
+        values = run_phone_js("""
+const nowS = PhoneModel.schoolSec("2026-11-20 11:00:00");
+const expired = { id: "e1", title: "已截止", sign_start: "2026-11-20 09:00:00", sign_end: "2026-11-20 10:00:00" };
+const future = { id: "f1", title: "未开放", sign_start: "2026-11-20 12:00:00", sign_end: "2026-11-20 15:00:00" };
+const unknown = { id: "u1", title: "未知时间" };
+const all = [expired, future, unknown];
+out.push(PhoneModel.actionable(expired, all, nowS));
+out.push(PhoneModel.actionable(future, all, nowS));
+out.push(PhoneModel.actionable(unknown, all, nowS));
+out.push(PhoneModel.actionable(expired, all));
+out.push(PhoneModel.actionable(expired, all, null));
+""")
+        self.assertEqual(values, [False, True, False, True, True])
 
     def test_start_pending_keeps_reconciling_window(self):
         values = run_phone_js("""
@@ -3803,6 +3841,52 @@ out.push([ui.model.filter.q, $("q").value]);
         self.assertEqual(values[1], [False, "", "true"], "搜索钮展开整页搜索并清空关键词")
         self.assertEqual(values[2], ["乙", "乙"], "搜索框与折叠内 #q 写同一个关键词")
 
+    def test_today_chip_shows_real_shape_activity_via_dom(self):
+        """只有 sign_start 无 open_ts 时，点今天筛选片仍能在 #items 呈现当天活动。"""
+        values = run_phone_js("""
+const ui = globalThis.PhoneUI;
+const rawCreate = document.createElement.bind(document);
+const mkNode = (tag) => ({
+  tagName: String(tag || "").toUpperCase(), className: "", textContent: "", innerHTML: "",
+  value: "", type: "", hidden: false, disabled: false, checked: false,
+  dataset: {}, style: {}, attrs: {}, children: [],
+  get childElementCount() { return this.children.length; },
+  get firstChild() { return this.children[0] || null; },
+  setAttribute(k, v) { this.attrs[k] = String(v); },
+  getAttribute(k) { return this.attrs[k] || ""; },
+  appendChild(c) { this.children.push(c); return c; },
+  removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); return c; },
+  addEventListener() {}, querySelectorAll() { return []; }, querySelector() { return null; },
+  classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+});
+const textOf = (n) => (n && n.children && n.children.length ? n.children.map(textOf).join(" ") : String((n && n.textContent) || ""));
+const nowS = PhoneModel.schoolSec("2026-11-20 11:00:00");
+globalThis.__fetch = () => Promise.resolve({ status: 200, json: () => Promise.resolve({ reset: true, seq: 1, state: {
+  terms_ok: true,
+  business_clock: { state: "ready", epoch_s: nowS, tick_s: 10, sampled_tick_s: 10, age_s: 0 },
+  activities: [
+    { id: "t1", name: "今晚讲座", sign_start: "2026-11-20 20:00:00", sign_end: "2026-11-20 22:00:00" },
+    { id: "t2", name: "后天讲座", sign_start: "2026-11-22 10:00:00", sign_end: "2026-11-22 12:00:00" },
+  ],
+} }) });
+await ui.poll(true);
+document.createElement = (tag) => mkNode(tag);
+const box = document.getElementById("items");
+const appended = [];
+const rawAppend = box.appendChild.bind(box);
+box.appendChild = (c) => { appended.push(c); return rawAppend(c); };
+document.getElementById("t-all").dataset.time = "all";
+document.getElementById("t-today").dataset.time = "today";
+document.getElementById("t-today").click();
+const domText = appended.map(textOf).join(" | ");
+out.push([document.getElementById("empty").hidden, domText]);
+document.createElement = rawCreate;
+""")
+        empty_hidden, dom_text = values[0]
+        self.assertTrue(empty_hidden)
+        self.assertIn("今晚讲座", dom_text)
+        self.assertNotIn("后天讲座", dom_text)
+
 
 class SheetShellTests(unittest.TestCase):
     """G03 sheet 外壳：开/关与焦点归还、验证中不关（busyLock）、SH06 网络失败红条。"""
@@ -4515,6 +4599,58 @@ out.push({ cleared: !$("plan-tasks").hidden ? false : $("plan-tasks").textConten
         self.assertTrue(before["shown"], "结果态任务卡可见（前置）")
         self.assertEqual(before["cards"], 2)
         self.assertTrue(after["cleared"], "完成后 #plan-tasks 立即清空（hidden 且无文案）")
+
+    def test_reselect_skips_expired_real_shape_task_via_dom(self):
+        """结果态点重新选择时，sign_end 已过但无 closed 字段的任务不回选区并记入日志。"""
+        values = run_phone_js("""
+const ui = globalThis.PhoneUI;
+const mkNode = (tag) => ({
+  tagName: String(tag || "").toUpperCase(), className: "", textContent: "", innerHTML: "",
+  value: "", type: "", hidden: false, disabled: false, checked: false,
+  dataset: {}, style: {}, attrs: {}, children: [],
+  get childElementCount() { return this.children.length; },
+  get firstChild() { return this.children[0] || null; },
+  setAttribute(k, v) { this.attrs[k] = String(v); },
+  getAttribute(k) { return this.attrs[k] || ""; },
+  appendChild(c) { this.children.push(c); return c; },
+  removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); return c; },
+  addEventListener() {}, querySelectorAll() { return []; }, querySelector() { return null; },
+  classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+});
+const textOf = (n) => (n && n.children && n.children.length ? n.children.map(textOf).join(" ") : String((n && n.textContent) || ""));
+document.createElement = (tag) => mkNode(tag);
+const logLines = [];
+const logs = document.getElementById("logs");
+const rawLogAppend = logs.appendChild.bind(logs);
+logs.appendChild = (c) => { logLines.push(String(c.textContent || "")); return rawLogAppend(c); };
+const revNodes = [];
+const revBox = document.getElementById("review-items");
+const rawRevAppend = revBox.appendChild.bind(revBox);
+revBox.appendChild = (c) => { revNodes.push(c); return rawRevAppend(c); };
+const nowS = PhoneModel.schoolSec("2026-11-20 11:00:00");
+globalThis.__fetch = () => Promise.resolve({ status: 200, json: () => Promise.resolve({ reset: true, seq: 1, state: {
+  terms_ok: true, busy: false, login: { ok: true },
+  business_clock: { state: "ready", epoch_s: nowS, tick_s: 10, sampled_tick_s: 10, age_s: 0 },
+  activities: [
+    { id: "exp", name: "已过场", sign_start: "2026-11-20 08:00:00", sign_end: "2026-11-20 10:00:00" },
+    { id: "fut", name: "未来场", sign_start: "2026-11-20 14:00:00", sign_end: "2026-11-20 16:00:00" },
+  ],
+  plan: { plan_id: "p9", status: "done", tasks: [
+    { task_id: "k1", activity_id: "exp", status: "failed" },
+    { task_id: "k2", activity_id: "fut", status: "failed" },
+  ] },
+} }) });
+await ui.poll(true);
+document.getElementById("btn-reselect").click();
+const barTitle = String(document.getElementById("bar-title").textContent || "");
+document.getElementById("btn-start").click();
+out.push({ barTitle: barTitle, logs: logLines.join("\\n"), review: revNodes.map(textOf).join(" | ") });
+""")
+        res = values[0]
+        self.assertEqual(res["barTitle"], "已选 1 场")
+        self.assertIn("有 1 场已截止或时间冲突", res["logs"])
+        self.assertIn("未来场", res["review"])
+        self.assertNotIn("已过场", res["review"])
 
     def test_signed_groups_render_in_main_list_and_summary_only_in_result(self):
         """UI-F1（G07，原型 Phone.dc.html:285-289）：已报名/已截止组照原型进主列表
