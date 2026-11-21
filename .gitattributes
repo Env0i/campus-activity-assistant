@@ -6,3 +6,6 @@
 
 # Windows 用户双击打开的文本：CRLF，否则旧记事本会挤成一行
 *.txt text eol=crlf
+
+# 例外：AOCI 索引必须是 LF——CRLF 会让索引服务读不出根清单，把仓库误当旧版单文件布局
+aoci*.txt text eol=lf
