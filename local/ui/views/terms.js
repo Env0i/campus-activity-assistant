@@ -8,7 +8,7 @@ function paintTerms() {
   if (inDialog) inDialog.textContent = version;
   const inHelp = $("#help-terms-version");
   if (inHelp) inHelp.textContent = version;
-  paintTermsMeta();
+  paintTermsMeta(); if (typeof paintTermsRow === "function") paintTermsRow();   /* 抽屉条款行同步 */
 }
 
 /* TM02（原型 Main:1571 句式）：元信息行的状态段按真实状态拼——
