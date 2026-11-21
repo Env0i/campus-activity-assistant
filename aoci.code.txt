@@ -1,7 +1,7 @@
 #AOCI-CODE-VOLUME: 1
 
 ===/<repository>/===
-.gitattributes[FC5T]: F:统一文本行尾，保留Windows脚本和文本分发所需CRLF | R:- | A:Git文本属性 | S:-
+.gitattributes[FC6T]: F:统一文本行尾为LF，保留Windows脚本和文本分发所需CRLF，AOCI索引单独固定LF | R:- | A:Git文本属性 | S:aoci索引必须是LF，切分支检出成CRLF会让索引服务读不出根清单
 .gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物、本地工具资料及本机MCP宿主配置 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查
 AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、测试与AOCI治理纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建测试与提交分别受授权边界约束
 CHANGELOG.md[SV4L]: F:按版本和日期保留发布能力、事故修复及验证边界的历史变更 | R:code:VERSION | A:变更记录 | S:-
@@ -1312,7 +1312,7 @@ PRIVACY_POLICY.md[SS7T]: F:披露本机数据处理、迁移删除、外部通�
 README.md[SG6T]: F:索引现行工程文档、批准设计、归档资料及路径迁移对照 | R:- | A:主契约与历史材料导航 | S:历史材料保留原貌，不替代现行文档
 RETRY_POLICY_GUIDE.md[SB8M]: F:解释报名窗口、真实提交计数、黄金风暴、回包、停止和三种预算策略 | R:code:local/grab.py,code:local/business_clock.py,code:local/time_contract.py | A:用户重试策略说明 | S:sign_end硬截止；显式时长不扩窗；无截止直到截止回退两分钟；停止不覆盖证据，服务器404语义待同步
 TIMING_AND_DEDUP_ANALYSIS.md[SB7L]: F:用历史活动分析推送时点、请求预算及独立动态监测状态机 | R:code:server/scripts/activity_watch.py,code:server/scripts/fetch.py | A:日报与动态监测推导/发现时刻语义 | S:推送成功才消耗消息；首轮只建基线，失败不清快照，空活动不等于未初始化
-UI_SPEC.md[SU9L]: F:定义本机工作台、桥接事件字段、计划、条款登录时间及运行可靠性验收 | R:code:local/app.py,code:local/grab.py,code:local/ui/index.html,code:local/business_clock.py | A:前后端主契约/请求归属/终态/更新/自动刷新 | S:迟到事件按plan和request归属合并，终态早于ack不复活；未知登录不判过期；无可信钟不报名；取消报名桌面确认且以复查为准；条款版本不匹配零写入；条款门下登录详情卡收起学校动作按钮只留查看条款
+UI_SPEC.md[SU9L]: F:定义本机工作台、桥接事件字段、计划、条款登录时间及运行可靠性验收 | R:code:local/app.py,code:local/grab.py,code:local/ui/index.html,code:local/business_clock.py | A:前后端主契约/请求归属/终态/更新/自动刷新 | S:迟到事件按plan和request归属合并，终态早于ack不复活；未知登录不判过期；无可信钟不报名；取消报名桌面确认且以复查为准；条款版本不匹配零写入；条款门下登录详情卡收起学校动作按钮只留查看条款；登录未完成的说明遇有效检查自动收起
 USER_AGREEMENT.md[SS7S]: F:定义条款接受、个人使用边界、直发点击披露、责任及重新同意规则 | R:- | A:内嵌用户协议正文真源 | S:拒绝不退出但禁止学校动作；不承诺合规或报名成功，临时密钥仅内存
 
 ===/<repository>/docs/archive/===
@@ -1446,7 +1446,7 @@ phone_session_store.py[PS8S]: F:保存手机设备信任并校验、续期和撤
 prefs_store.py[PD8M]: F:提供偏好原子保存、文件占用有界重试和跨进程读合并写事务 | R:code:local/infrastructure/lifecycle_store.py,code:local/app.py | A:load_from,load_for_update,atomic_write,prefs_transaction,update,PrefsReadError | S:事务内必须用load_for_update，读不到抛PrefsReadError整次放弃，绝不以空字典合并写回；load_from只供无锁显示。替换被拒重试约0.5秒，仍失败清临时文件再抛；update任何失败返回False。事务锁须覆盖读核验合并写，不能持锁联网或等子进程
 process_tree.py[RR9M]: F:以Windows Job约束worker及后代归属并执行整树回收 | R:- | A:ProcessTree,spawn_owned,spawn_owned_worker,kill_tree,create_job_for,SpawnFailure | S:必须挂起创建、归属Job后恢复；归属失败拒绝降级。Job关闭收后代；终止失败可重试，wait不持Job锁
 single_instance.py[RR7M]: F:阻止重复GUI并通过本机端口唤回既有窗口 | R:code:local/app.py | A:SingleInstance,acquire,start_listener,hand_over,close | S:首份互斥量故障放行，第二份唤回失败仍不建窗；仅回环监听且口令恒时比较；只清自身匹配端口记录
-tray_icon.py[IU5M]: F:以WinForms提供托盘、通知及窗口退出入口 | R:- | A:TrayIcon,start,stop,notify | S:托盘失败不阻塞主程序；隐藏Form只作线程调用句柄，消息循环由ApplicationContext承载
+tray_icon.py[IU5M]: F:以WinForms提供托盘、通知及窗口退出入口 | R:code:local/application/desktop_window.py | A:TrayIcon,start,stop,notify | S:托盘失败不阻塞主程序；停止投递清理后非托盘线程最多等2秒，否则守护线程被掐会留下幽灵图标
 tunnel_manager.py[IN8M]: F:探测Tailscale地址并管理受管Quick Tunnel进程及公网状态 | R:code:local/infrastructure/component_packages.py,code:local/infrastructure/process_tree.py | A:tailscale_endpoint,resolve_cloudflared,spawn_cloudflared,CloudflareTunnel | S:不从PATH采信cloudflared；进程纳入Job并可持租约。退出撤旧地址，重启需重配对；停止失败保留进程与地址，不能假报关闭
 webview_mime.py[RU6T]: F:登记JavaScript MIME以确保本地服务加载ES模块 | R:- | A:register_script_types | S:Windows可能将.js登记为text/plain，普通脚本可跑但模块拒载，启动必须覆盖映射
 activity_queries.py[IN8M]: F:读取活动列表与详情，将学校字段归一化并提供报名状态核对 | R:code:contracts/school-api/list-activity.raw-item.json,code:contracts/school-api/get-info.data.json,code:contracts/school-api/get-join-info.json | A:fetch_activities,fetch_activity_detail,enrich_attendance_items,map_activity,parse_attendance_detail,is_joined | S:请求函数与学校时间解析由worker注入。详情成功才缓存，命中返回副本，默认并发4；签到签退保留未知三态。有预算的报名状态查询失败返回None，不能当确认未报名
@@ -1475,12 +1475,12 @@ index.html[EU9L]: F:定义工作台和对话框DOM契约、内嵌条款全文及
 led.js[CU5S]: F:用SVG点阵字库绘制倒计时和结果符号 | R:code:local/ui/features/plan/view-led.js | A:LED_UI.renderLed,clearLed,GLYPHS | S:未知字形为空格；同布局仅换点亮状态，不重建节点。
 legacy-globals.js[AU8S]: F:将仍被普通脚本使用的模块入口显式挂到window | R:code:local/ui/main.js,code:local/ui/app.js | A:installLegacyGlobals | S:只为普通脚本的实际消费者保留挂回项，首次绘制和绑定前先安装。任务合并与终态呈现已由模块直接导入
 main.js[EU9T]: F:组合模块启动、功能接线并释放排队后端事件 | R:code:local/ui/legacy-globals.js,code:local/ui/boot-guard.js,code:local/ui/app.js | A:模块顶层启动 | S:关窗先接线再放事件；首次分档等termsLocked挂回；boot失败标条款未知，不能放开学校动作；登录卡查看条款先收卡再走统一条款入口
-styles.css[FU6L]: F:定义桌面时刻表、计划大屏、对话框和响应式布局 | R:code:local/ui/index.html | A:桌面工作台样式 | S:原生dialog仅在open时使用flex；计划终态描边只读计划级状态，不能由单场结果提前染整屏。
+styles.css[FU6L]: F:定义桌面时刻表、计划大屏、对话框和响应式布局 | R:code:local/ui/index.html | A:桌面工作台样式 | S:原生dialog仅在open时使用flex；计划终态描边只读计划级状态；设置抽屉提示位单配内边距与info色调
 
 ===/<repository>/local/ui/controllers/===
 bridge.js[IU6T]: F:封装pywebview调用和桥接启动等待 | R:code:local/ui/app.js | A:hasBridge,api,waitForBridge | S:api容器存在不代表bootstrap已注册；等待用单调时钟
 prefs.js[AD6T]: F:串行防抖保存偏好差量并支持立即刷新和失败回队 | R:code:local/ui/controllers/bridge.js | A:flushPrefs,savePrefs,savePrefsNow | S:失败回队新值优先；两次自动失败后停重试，下次修改恢复；立即保存不绕过在途串行
-refresh.js[AB9L]: F:编排登录与列表刷新，合并报名事实并同步计划恢复的忙态 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/terms.js,code:local/ui/features/plan/actions.js | A:refresh,handleCheck,applyActivities,noteSignedTasks,autoRefreshTick,ingestBootstrapPlan | S:刷新以请求号隔离，后台失败保留列表选择。只有归属有效且有布尔busy的快照才同步忙态。成功确认按计划和场次一次消费，列表未到也登记，恢复只记身份；120秒后以学校列表为准。临近开放或时间未知的运行场次阻止后台刷新
+refresh.js[AB9L]: F:编排登录与列表刷新，合并报名事实并同步计划恢复的忙态 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/terms.js,code:local/ui/features/plan/actions.js,code:local/ui/features/shell/view-result.js | A:refresh,handleCheck,applyActivities,noteSignedTasks,autoRefreshTick,ingestBootstrapPlan | S:刷新以请求号隔离，后台失败保留列表选择。只有归属有效且有布尔busy的快照才同步忙态。成功确认按计划和场次一次消费，列表未到也登记，恢复只记身份；120秒后以学校列表为准。临近开放或时间未知的运行场次阻止后台刷新。valid检查只收起登录未完成类结果条
 terms.js[AS9L]: F:编排条款门禁、版本同意事务、拒绝与只读展示 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/prefs.js,code:local/ui/views/terms.js | A:ingestTerms,openTerms,acceptTerms,recheckTerms,declineTerms,ensureLicenseText | S:同意提交绑定全文版本，成功需一致版本及同意时间；超时作废请求号并保留门禁；复查确认后仍清拒绝偏好并补加载；拒绝按版本保存；条款状态落地或同意成功后重画登录胶囊及打开着的登录卡
 tick.js[AW8S]: F:按业务时钟推进工作台倒计时和阶段显示并检测睡眠间隔 | R:code:local/ui/controllers/refresh.js,code:local/ui/app.js | A:tick,receiveSecondOpen,doCheck,cleanReason,grabHint,leftText | S:睡眠间隔用单调时钟；业务时间未知不以系统墙钟代替；跨行状态或取消边界才整表重绘
 
@@ -1504,7 +1504,7 @@ actions-selection.js[AB7S]: F:管理活动选择、可见列表全选和行内�
 state-errors.js[DU6T]: F:按组件、登录及网络事实投影活动列表失败文案 | R:code:local/ui/features/shell/state-runtime.js | A:listErrorCopy | S:组件错误优先于登录解释；静默自动登录中不要求用户重登
 
 ===/<repository>/local/ui/features/login/===
-actions-browser.js[AI8S]: F:编排浏览器登录尝试和终态收口 | R:code:local/ui/features/login/state.js,code:local/ui/features/terms/state.js | A:doLogin,handleDone,loginFailCopy | S:取消、超时及失败恢复尝试前登录事实；成功清旧估算锚点，已有列表补加载走后台轮
+actions-browser.js[AI8S]: F:编排浏览器登录尝试和终态收口 | R:code:local/ui/features/login/state.js,code:local/ui/features/terms/state.js,code:local/ui/features/shell/view-result.js | A:doLogin,handleDone,loginFailCopy | S:取消、超时及失败恢复尝试前登录事实；成功清旧估算锚点，已有列表补加载走后台轮；登录未完成的三处结果条带login_attempt类别，供有效检查时收起
 actions-recovery.js[AI8S]: F:编排恢复账号的一次运行暂存、加密保存及确认清除 | R:code:local/ui/features/phone-access/state.js | A:recoveryActionsPack | S:加密不可用退为本次运行；请求后无论成败清空输入，异常不回显原文
 actions-relogin.js[AI9M]: F:编排桌面重登、中继验证码、自动转人工及浏览器交接 | R:code:local/ui/features/login/state-relogin.js,code:local/ui/features/login/view-relogin.js,code:local/ui/features/login/actions-browser.js | A:loginEntry,openRelogin,openLogin,closeRelogin,receiveReloginState,wireRelogin | S:已有live流程直接接续；关框取消人工而不取消未转人工的自动流程；切浏览器先等取消释放。验证码绑定flow和challenge；计划忙不刷新，明确密码错误不重试
 actions.js[AI8T]: F:摄入登录锚点和自动恢复状态并同步相关视口 | R:code:local/ui/features/login/state-machine.js,code:local/ui/features/login/view.js | A:applyAutoState,receiveAutoState,setLogin,syncLoginDependentView | S:仅认auto_state，缺字段保留；估算用后端绝对锚点不按接收时间续期，显式null清除锚点
@@ -1545,15 +1545,15 @@ view.js[IU7M]: F:按计划阶段绘制主栏、运行操作、结果和逐场卡
 actions-help.js[AU5T]: F:打开帮助并编排教程重播 | R:code:local/ui/features/shell/actions-tour.js,code:local/ui/features/shell/view-help.js | A:showHelp,wireHelp | S:运行计划时不重播引导；先关帮助模态再启动教程
 actions-log-panel.js[AU4T]: F:切换运行记录面板并保存展开偏好 | R:- | A:setLogOpen,wireLogPanel | S:恢复偏好用silent避免再次排队保存
 actions-render.js[AU8T]: F:统一工作台重绘并协调忙状态与教程暂停恢复 | R:code:local/ui/features/plan/view.js,code:local/ui/features/plan/view-led.js,code:local/ui/features/shell/actions-tour.js | A:render,setBusy | S:计划运行优先暂停教程，结束从原步骤恢复；列表重绘仅重新定位现有教程高亮
-actions-settings.js[AU7S]: F:编排设置抽屉、条款撤回及OCR启用和组件位置操作 | R:code:local/ui/features/components/state-ocr.js,code:local/ui/features/components/view-ocr.js | A:openSettings,openSettingsSection,closeSettings,wireSettings | S:撤回须二次确认，以后端条款快照立即关门禁且不删账号；关抽屉清撤回确认条
+actions-settings.js[AU7S]: F:编排设置抽屉、条款撤回及OCR启用和组件位置操作 | R:code:local/ui/features/components/state-ocr.js,code:local/ui/features/components/view-ocr.js | A:openSettings,openSettingsSection,closeSettings,wireSettings | S:撤回须二次确认，以后端条款快照立即关门禁且不删账号；撤回成功照原型关抽屉，失败才在抽屉提示位写原因；关抽屉清撤回确认条
 actions-tour-exit.js[AU5T]: F:关闭、完成或跳过教程并恢复焦点和保存版本记录 | R:- | A:tourClose,tourSkip,wireTourExit | S:跳过仅抑制本内容版本自动弹出；恢复焦点前确认元素仍在页面
 actions-tour.js[AU6S]: F:编排教程自动开始、步进、焦点约束及暂停恢复 | R:code:local/ui/features/terms/state.js,code:local/ui/features/shell/view-tour.js,code:local/ui/features/shell/actions-tour-exit.js | A:tourShouldAutoStart,requestAutoTour,maybeStartTour,startTour,tourPauseNow,tourResumeNow | S:自动教程须条款已同意、登录有效且列表就绪；按教程内容版本抑制，与软件版本无关；互动步只放行目标行
 actions-window-close.js[AU8M]: F:编排关窗三选、运行中退出二次确认与偏好保存 | R:code:local/ui/index.html,code:local/ui/state/store.js | A:openWindowCloseDialog,wireWindowClose | S:计划运行时退出二次确认；托盘不可用且手机未连接禁隐藏；Esc不落入全局清空选择。
 state-runtime.js[DR6T]: F:投影worker组件和启动故障的恢复文案 | R:code:local/ui/state/store.js | A:RUNTIME_ERRORS,runtimeErrorCopy | S:未知键按spawn_failed，不把组件故障说成登录失效。
 view-band.js[IU6T]: F:按视口分档切换计划与列表布局 | R:code:local/ui/styles.css | A:bandOf,applyBand,setPlanOpen | S:断点与CSS一致；宽档不保留计划展开态，中窄档计划与列表互斥。
 view-banners.js[IU7T]: F:按优先级投影顶部提示及恢复入口 | R:code:local/ui/features/shell/state-runtime.js,code:local/ui/features/terms/state.js | A:paintBanners | S:只显首条；缺睡眠窗口不声称没有错过；条款未知不自动视为同意。
-view-help.js[IU5T]: F:呈现三步帮助、局部反馈和引导重播入口 | R:code:local/ui/state/store.js | A:fillHelp,helpStatus,revealHelpStatus,paintReplayButtons | S:长地址或错误只作局部反馈，不触发WebView导航。
-view-result.js[IU5T]: F:展示有色调结果条、动作和自动收起 | R:code:local/ui/state/store.js | A:setResult | S:先清旧计时器；到期计划忙则保留；文本转义后进入HTML。
+view-help.js[IU5T]: F:呈现三步帮助、局部反馈和引导重播入口 | R:code:local/ui/state/store.js | A:fillHelp,helpStatus,revealHelpStatus,paintReplayButtons | S:长地址或错误只作局部反馈，不触发WebView导航；提示位在设置抽屉里，抽屉显示或帮助弹窗打开时才滚入可见
+view-result.js[IU5T]: F:展示有色调结果条、动作和自动收起 | R:code:local/ui/state/store.js | A:setResult | S:先清旧计时器；到期计划忙则保留；文本转义后进入HTML；可选类别写到data-kind，收起或换成无类别结论时必须清掉
 view-tour.js[IU6T]: F:呈现五步引导进度、高亮及实际选择反馈 | R:code:local/ui/state/store.js | A:tourVisible,paintTour | S:只定位真实可勾行，不代用户勾选；目标不可见或窄窗时退为底部说明。
 
 ===/<repository>/local/ui/features/terms/===
