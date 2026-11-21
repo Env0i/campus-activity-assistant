@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-21T06:30:05Z",
+  "updated_at": "2026-11-21T08:16:33Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "037de21a7471f1b74f1762414cdbdcc71e7a71218f4e53d9fd4ff2de555543b6",
-      "size": 44605,
-      "normalized_sha256": "037de21a7471f1b74f1762414cdbdcc71e7a71218f4e53d9fd4ff2de555543b6"
+      "sha256": "7fc0936a71d1a1779603df99c15795f426b2045a46a59fa3d4163f640432d38a",
+      "size": 44857,
+      "normalized_sha256": "7fc0936a71d1a1779603df99c15795f426b2045a46a59fa3d4163f640432d38a"
     },
     "CLAUDE.md": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "9e49053f335646187f72b22ac26ca885846a5f654eb95226618015da43c1d7d6",
-      "size": 310980,
-      "normalized_sha256": "9e49053f335646187f72b22ac26ca885846a5f654eb95226618015da43c1d7d6"
+      "sha256": "839707a629f1b1fd0442cfb4adbc9473063788325b9d0cca0de5b889dc09e182",
+      "size": 311080,
+      "normalized_sha256": "839707a629f1b1fd0442cfb4adbc9473063788325b9d0cca0de5b889dc09e182"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -7844,9 +7844,9 @@
     },
     "docs/PHONE_ACCESS.md": {
       "role": "index",
-      "sha256": "4b2b251b6fdf2336ef5d3c5af63e8e22750711ad3c2313320b8ce5669b707309",
-      "size": 15394,
-      "normalized_sha256": "4b2b251b6fdf2336ef5d3c5af63e8e22750711ad3c2313320b8ce5669b707309"
+      "sha256": "f9ae1f4ab3567d1267cf9d8ca19f25f36688e62260693f1b0a4e161d2aacb976",
+      "size": 15496,
+      "normalized_sha256": "f9ae1f4ab3567d1267cf9d8ca19f25f36688e62260693f1b0a4e161d2aacb976"
     },
     "docs/PRIVACY_POLICY.md": {
       "role": "index",
@@ -8699,9 +8699,9 @@
     },
     "local/tests/test_phone_ui.py": {
       "role": "observe",
-      "sha256": "6831b8a5ed38f74254fac1f7248c21ac0a83cc2231817b89296eb0ddf57398c1",
-      "size": 344996,
-      "normalized_sha256": "6831b8a5ed38f74254fac1f7248c21ac0a83cc2231817b89296eb0ddf57398c1"
+      "sha256": "ad889d3cc46f6724bc28334290cc419204888b9519d811fab00bcfc66952cc8a",
+      "size": 352737,
+      "normalized_sha256": "ad889d3cc46f6724bc28334290cc419204888b9519d811fab00bcfc66952cc8a"
     },
     "local/tests/test_qa_bridge_contract.py": {
       "role": "observe",
@@ -9273,9 +9273,9 @@
     },
     "local/ui/m/app.js": {
       "role": "index",
-      "sha256": "49043be5c1544d45d4fe501d7d786a75bdc368e17cf4fa22d6d325a96d149346",
-      "size": 179126,
-      "normalized_sha256": "910eac8137417f590a2ffa6114f03bfb1964bae69b0d6d0ca261bfdc8b805afc"
+      "sha256": "4fd13c5b9cc0e34dcfad0ce5617eee30346c572821875e3770accfd4cdfe810f",
+      "size": 175960,
+      "normalized_sha256": "4fd13c5b9cc0e34dcfad0ce5617eee30346c572821875e3770accfd4cdfe810f"
     },
     "local/ui/m/apple-touch-icon.png": {
       "role": "index",

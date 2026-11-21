@@ -1563,7 +1563,7 @@ state.js[DD8T]: F:投影条款同意状态和学校动作锁定 | R:code:local/u
 actions.js[AV8S]: F:编排手动版本检查、下载确认取消及安装启动 | R:code:local/ui/views/update.js,code:local/ui/state/store.js | A:receiveUpdate,restoreUpdate,checkUpdate,startDownload,confirmDownload,launchInstaller | S:仅接当前request_id事件，合并进度保留安装器；检查不下载；迟到ack不能回退完成态。
 
 ===/<repository>/local/ui/m/===
-app.js[AU8L]: F:实现手机配对、活动选取、报名计划遥控与重登现场 | R:code:local/ui/m/index.html,code:local/ui/state/conflict.js | A:PhoneModel,PhoneUI | S:开始结果未知时保留原请求标识只读对账，不自动重发；业务倒计时依赖电脑时钟快照，睡眠跳变后弃用旧锚点。手机可提交新输入凭据，关闭重登面板即清输入。
+app.js[AU8L]: F:实现手机配对、活动选取、报名计划遥控与重登现场 | R:code:local/ui/m/index.html,code:local/ui/state/conflict.js | A:PhoneModel,PhoneUI | S:开始结果未知时保留原请求标识只读对账，不自动重发；业务倒计时依赖电脑时钟快照，睡眠跳变后弃用旧锚点。手机可提交新输入凭据，关闭重登面板即清输入。后端活动快照无open_ts与closed，开放与截止须按sign_start、sign_end和业务时钟判
 index.html[EU7M]: F:提供手机配对页、计划板与操作抽屉的语义结构 | R:code:local/ui/m/app.js,code:local/ui/m/styles.css | A:配对页,计划核对,重新登录 | S:核对及重登页脚位于滚动内容之外；手机是电脑遥控器，关闭或睡眠电脑会中断执行。
 styles.css[FU5L]: F:定义手机单栏列表、点阵板与底部抽屉布局 | R:code:local/ui/m/index.html | A:手机页面样式 | S:hidden全局优先；抽屉页脚固定在内容滚动区外并计入安全区。
 
