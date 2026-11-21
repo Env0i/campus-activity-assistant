@@ -2100,12 +2100,13 @@ class _FakePage:
 
 
 class _FakeCtx:
-    def __init__(self):
+    def __init__(self, page=None):
         self.closed = False
         self.new_state = {"cookies": [{"name": "new"}]}
+        self.page = page
 
     def new_page(self):
-        return _FakePage()
+        return self.page if self.page is not None else _FakePage()
 
     def storage_state(self):
         return dict(self.new_state)
@@ -2195,6 +2196,31 @@ class CmdLoginTransactionTests(_Base):
         for path, blob in originals.items():
             self.assertEqual(path.read_bytes(), blob, "旧的两份登录态组合必须保持不变")
         self.assertEqual(list(self.root.glob("*.tmp")), [], "回滚后不留临时文件")
+
+    def test_verify_failure_after_save_returns_two_and_logs_verify_failed(self):
+        """可见浏览器登录后若接口复查失败，必须返回退出码 2 并记 verify_failed 事件，不得误报登录成功。"""
+        with mock.patch.object(grab, "check_token", lambda: (False, "接口异常：4001")):
+            code, output = self._login()
+        self.assertEqual(code, 2, output)
+        self.assertNotIn("登录成功，登录态已保存", output)
+        self.assertIn("已保存登录态，但接口校验失败", output)
+        self.assertTrue(any("login_failed" in line and "reason=verify_failed" in line
+                            for line in self.logs), self.logs)
+
+    def test_closed_browser_window_returns_one_without_saving_session(self):
+        """等待登录期间用户关掉浏览器窗口，必须返回 1、记 window_closed 事件且不调用双文件保存。"""
+        page = _FakePage(token="")
+        page.closed = True
+        self.ctx.page = page
+        save_calls = []
+        with mock.patch.object(grab, "save_verified_files",
+                               side_effect=lambda *a, **k: save_calls.append(a)):
+            code, output = self._login()
+        self.assertEqual(code, 1, output)
+        self.assertIn("窗口被关掉了，登录未完成", output)
+        self.assertEqual(save_calls, [], "关窗退出不得写入登录态文件")
+        self.assertTrue(any("login_failed" in line and "reason=window_closed" in line
+                            for line in self.logs), self.logs)
 
 
 class ReadJsonTests(_Base):

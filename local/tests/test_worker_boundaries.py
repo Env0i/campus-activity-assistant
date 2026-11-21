@@ -1259,6 +1259,48 @@ class ListEntryTests(unittest.TestCase):
                 self.assertTrue(all(item is budget for item in budgets),
                                 "%s 丢了调用方传入的预算对象" % label)
 
+    def test_resolve_target_replaces_past_open_time_with_now_and_keeps_original(self):
+        """已开放场次的开放时刻要替换成当前业务时间并保留原定时刻在 original_at，避免重试窗口入场即过期而漏发提交。"""
+        clock = FakeClock(wall=START)
+        past_at = grab.school_time_text(START - 600)
+        future_at = grab.school_time_text(START + 600)
+        now_text = grab.school_time_text(START)
+        original_clock = dict(grab._CLOCK)
+        original_now = time_contract._BUSINESS_NOW
+        grab.configure_business_clock(clock)
+        try:
+            past_target = grab.resolve_target(
+                SimpleNamespace(activity_id="a1", at=past_at, name="已开放活动", pick=0))
+            future_target = grab.resolve_target(
+                SimpleNamespace(activity_id="a2", at=future_at, name="未开放活动", pick=0))
+        finally:
+            grab._CLOCK.update(original_clock)
+            time_contract.configure_time_source(original_now)
+        self.assertEqual(past_target["at"], now_text)
+        self.assertEqual(past_target["original_at"], past_at)
+        self.assertEqual(future_target["at"], future_at)
+        self.assertEqual(future_target["original_at"], future_at)
+
+    def test_by_index_or_name_refuses_ambiguous_keyword_and_lists_indices(self):
+        """按名称关键词选活动命中多场时不猜不抢，列出序号提示用户改用 --pick 并返回 None。"""
+        cand = [
+            {"id": "a1", "name": "网络安全专题讲座", "sign_start": "2026-10-25 10:00:00"},
+            {"id": "a2", "name": "网络安全实践沙龙", "sign_start": "2026-10-25 14:00:00"},
+        ]
+        out_multi = io.StringIO()
+        with contextlib.redirect_stdout(out_multi):
+            chosen_multi = grab._by_index_or_name(cand, SimpleNamespace(pick=0, name="网络安全"))
+        self.assertIsNone(chosen_multi)
+        text = out_multi.getvalue()
+        self.assertIn("匹配到 2 个活动", text)
+        self.assertIn("--pick", text)
+        self.assertIn("1 ", text)
+        self.assertIn("2 ", text)
+        out_single = io.StringIO()
+        with contextlib.redirect_stdout(out_single):
+            chosen_single = grab._by_index_or_name(cand, SimpleNamespace(pick=0, name="实践沙龙"))
+        self.assertEqual(chosen_single, cand[1])
+
     def test_exhausted_lookup_budget_never_opens_browser(self):
         clock = FakeClock()
         logs, posts = [], []
@@ -1526,6 +1568,31 @@ class BurstPolicyPureTests(unittest.TestCase):
         policy.settle(rid, "404")        # 重复结算只认第一次
         self.assertEqual(policy.streak_404, 1)
         self.assertEqual(policy.attempts, 1)
+
+    def test_duplicate_settle_with_different_kind_is_rejected_and_keeps_first_conclusion(self):
+        """同一笔请求第二次结算必须被拒绝并返回 None，首次结算的 404 结论、连击与阶段不得被迟到响应覆盖。"""
+        policy, _ = self._policy()
+        rid = policy.register_request()
+        first = policy.settle(rid, "404", http_status=404)
+        self.assertIsNotNone(first)
+        streak_once = policy.streak_404
+        phase_once = policy.phase
+        second = policy.settle(rid, "real", http_status=200)
+        self.assertIsNone(second)
+        self.assertEqual(policy.settled_kind(rid), "404")
+        self.assertEqual(policy.streak_404, streak_once)
+        self.assertEqual(policy.phase, phase_once)
+
+    def test_non_monotonic_attempt_no_logs_warning_via_latest_grab_log(self):
+        """登记请求时若 attempt_no 未递增，必须通过调用时读取的 grab.log 输出告警以暴露发送序失真。"""
+        policy, _ = self._policy()
+        policy.register_request()
+        policy.attempts = 0
+        captured = []
+        with patch.object(grab, "log", side_effect=captured.append):
+            policy.register_request()
+        self.assertEqual(len(captured), 1)
+        self.assertIn("attempt_no 未递增", captured[0])
 
     def test_max_attempts_blocks_further(self):
         policy, clock = self._policy(max_attempts=2)

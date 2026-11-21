@@ -1072,6 +1072,31 @@ class VerifiedFilesTests(unittest.TestCase):
             self.assertEqual(json.loads(session.read_text(encoding="utf-8")), {"new": 2})
             self.assertEqual(list(root.glob("*.tmp")), [])
 
+    def test_cmd_login_relay_saves_verified_pair_with_fresh_saved_at(self):
+        """手机重登中继成功落盘必须经过双文件事务保存端口并补齐非空 saved_at，确保两份登录态文件原子同步。"""
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as directory:
+            root = Path(directory)
+            saved_calls = []
+
+            def fake_run_http_relay(*, deps, stdin, stdout, pw_deps):
+                deps.save_verified({"cookies": [{"name": "c"}]},
+                                   {"token": "tok-relay", "saved_at": ""})
+                return 0
+
+            with mock.patch.object(grab, "ensure_data_dir", lambda: root), \
+                    mock.patch.object(grab, "STATE_FILE", root / "storage_state.json"), \
+                    mock.patch.object(grab, "SESSION_FILE", root / "session.json"), \
+                    mock.patch.object(login_relay, "run_http_relay", fake_run_http_relay), \
+                    mock.patch.object(grab, "save_verified_files",
+                                      side_effect=lambda st, sess: saved_calls.append((st, dict(sess)))):
+                code = grab._cmd_login_relay(mock.Mock(relay=True))
+            self.assertEqual(code, 0)
+            self.assertEqual(len(saved_calls), 1)
+            state_arg, session_arg = saved_calls[0]
+            self.assertEqual(state_arg, {"cookies": [{"name": "c"}]})
+            self.assertEqual(session_arg["token"], "tok-relay")
+            self.assertTrue(str(session_arg.get("saved_at") or "").strip())
+
 # ==================== 源自 test_login_relay_service.py ====================
 """手机重登中继父进程侧测试：凭据预备、singleflight、状态投影与收口。
 

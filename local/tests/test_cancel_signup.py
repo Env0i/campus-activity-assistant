@@ -243,6 +243,21 @@ class RunCancelPrecheckTests(_CancelHarness):
         self.assertRefused(self.run_cancel(school), "clock_unavailable", school)
         self.assertEqual(school.calls, [], "时钟不可用：连查询都不发")
 
+    def test_missing_clock_meta_refuses_without_calling_get(self):
+        """业务时间可读但时钟元数据未配置时按 clock_unavailable 拒绝取消，且不得发起任何详情或取消请求。"""
+        school = FakeSchool([FakeSchool.joined()])
+        get_calls = []
+        with mock.patch.dict(grab._CLOCK, {"meta": None}), \
+                mock.patch.object(grab, "_post", school.post), \
+                mock.patch.object(grab, "_get", side_effect=lambda *a, **k: get_calls.append(a)), \
+                mock.patch.object(grab, "probe_token", lambda budget=None: ("valid", "ok")), \
+                mock.patch.object(grab, "SITE_CONFIGURED", True), \
+                mock.patch.object(grab, "log", self.logs.append):
+            got = grab.run_cancel("act1")
+        self.assertEqual(got, {"ok": False, "kind": "precheck_failed", "reason": "clock_unavailable"})
+        self.assertEqual(get_calls, [], "时钟未配置时不得调用 grab._get")
+        self.assertEqual(school.calls, [])
+
     def test_clock_lost_midway_does_not_call_cancel(self):
         # 查询期间校时失效（业务读数抛 ClockUnavailable）：不能拿旧时间去判窗口
         school = FakeSchool([FakeSchool.joined()])
