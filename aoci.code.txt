@@ -1687,10 +1687,10 @@ trace_signup.py[XQ4M]: F:在仓库副本里跑worker边界与重试测试，逐�
 README.md[SQ3S]: F:记录报名worker第二批拆分的范围、四模块职责、对照录制、定点变异、审计复核与八处既有缺口的补测结果 | R:code:design/evidence/2026-11-21/grab-signup-split/scripts/trace_signup.py,code:local/tests/test_session_persistence.py | A:变异结果表、补测对照表、复现命令 | S:八处既有缺口已补测并各由变异证实；真实登录与冻结worker未验证
 
 ===/<repository>/design/evidence/2026-11-22/grab-http-log-split/===
-README.md[SQ3S]: F:记录报名worker第三批拆分的范围、两模块职责、请求与日志录制、定点变异与审计复核结论 | R:code:design/evidence/2026-11-22/grab-http-log-split/scripts/record_io.py | A:变异结果表、复现命令 | S:四处请求层契约细节无测试守，录制能发现，留待补测
+README.md[SQ3S]: F:记录报名worker第三批拆分的范围、两模块职责、请求与日志录制、定点变异、审计复核及请求层四处契约补测结果 | R:code:design/evidence/2026-11-22/grab-http-log-split/scripts/record_io.py,code:local/tests/test_network_policy.py | A:变异结果表、契约补测表、复现命令 | S:四处请求层契约已补测并各由变异证实；真实学校请求未验证
 
 ===/<repository>/design/evidence/2026-11-22/grab-http-log-split/scripts/===
 record_io.py[XQ4M]: F:在仓库副本里用固定时刻、随机串与登录态录下请求层发出的请求与返回、粗校时结果和日志输出，并逐字段比对两份副本 | R:code:local/grab.py,code:local/infrastructure/school_http.py | A:--worker,--out,--compare | S:只替换grab上的边界名字，在独立子进程里录，不联网不读真实数据目录
 
 ===/<repository>/design/evidence/2026-11-22/real-window-acceptance/===
-README.md[SQ4T]: F:记录报名worker三批拆分后合回主干前的真窗口验收结果、四处存量缺陷及其来源判断 | R:code:design/evidence/2026-11-20/api-closeout/README.md | A:八项验收结果表、缺陷来源表 | S:真实计划起跑与退出、真实报名、重登对话框未覆盖，不能当全过
+README.md[SQ4T]: F:记录报名worker三批拆分后合回主干前的真窗口验收结果、四处存量缺陷来源判断及结果条类别补测 | R:code:design/evidence/2026-11-20/api-closeout/README.md,code:local/tests/test_ui_login.py | A:八项验收结果表、缺陷来源表、类别补测表 | S:真实计划起跑与退出、真实报名、重登对话框未覆盖，不能当全过

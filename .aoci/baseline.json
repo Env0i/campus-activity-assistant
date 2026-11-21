@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-21T04:22:22Z",
+  "updated_at": "2026-11-21T05:05:19Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "68d4bcfca30b6a1ea994610cd179d00d1766dbef30d6159dc6a1674961a9d465",
-      "size": 308149,
-      "normalized_sha256": "68d4bcfca30b6a1ea994610cd179d00d1766dbef30d6159dc6a1674961a9d465"
+      "sha256": "6dc4d14d721ec6cee3f4f2a373dd05f792b08b083d701ee5d117e6e29293bdcb",
+      "size": 308316,
+      "normalized_sha256": "6dc4d14d721ec6cee3f4f2a373dd05f792b08b083d701ee5d117e6e29293bdcb"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -6746,9 +6746,9 @@
     },
     "design/evidence/2026-11-22/grab-http-log-split/README.md": {
       "role": "index",
-      "sha256": "49a9f3e9ebad064884e0f3077539bec57424bd2e2bdd54de276b59e6736f8138",
-      "size": 16751,
-      "normalized_sha256": "49a9f3e9ebad064884e0f3077539bec57424bd2e2bdd54de276b59e6736f8138"
+      "sha256": "a67f181a8bf9e4ee06bfdd054d4a1d9e484cf0ce0f2a828559f6e81ada681995",
+      "size": 19899,
+      "normalized_sha256": "a67f181a8bf9e4ee06bfdd054d4a1d9e484cf0ce0f2a828559f6e81ada681995"
     },
     "design/evidence/2026-11-22/grab-http-log-split/scripts/record_io.py": {
       "role": "index",
@@ -6758,9 +6758,9 @@
     },
     "design/evidence/2026-11-22/real-window-acceptance/README.md": {
       "role": "index",
-      "sha256": "0e46fde9d1ff6a751bdbd5a1b5d02d12d095fcda863032fd979262f60a90f452",
-      "size": 4885,
-      "normalized_sha256": "0e46fde9d1ff6a751bdbd5a1b5d02d12d095fcda863032fd979262f60a90f452"
+      "sha256": "38248810f33a937cf6635daf5bbf90eb7117b0d5c81e29f037bf0df23e6cf09b",
+      "size": 6844,
+      "normalized_sha256": "38248810f33a937cf6635daf5bbf90eb7117b0d5c81e29f037bf0df23e6cf09b"
     },
     "design/flows/README.md": {
       "role": "index",
@@ -8627,9 +8627,9 @@
     },
     "local/tests/test_network_policy.py": {
       "role": "observe",
-      "sha256": "f38bf200dedd05ce1e4a0429cd65d2a3fe32db587677d6e3899212aece6312c8",
-      "size": 4896,
-      "normalized_sha256": "f38bf200dedd05ce1e4a0429cd65d2a3fe32db587677d6e3899212aece6312c8"
+      "sha256": "839345da96ccbeef34dc77c7337d79a09dac19dc477f3d4f9526482e83efe7e2",
+      "size": 8456,
+      "normalized_sha256": "839345da96ccbeef34dc77c7337d79a09dac19dc477f3d4f9526482e83efe7e2"
     },
     "local/tests/test_phone_infra.py": {
       "role": "observe",
@@ -8747,9 +8747,9 @@
     },
     "local/tests/test_ui_login.py": {
       "role": "observe",
-      "sha256": "eb1d5e8a1f0b4778f98b41b355f1396fd647ec6d8b23224c895890c95be92d0d",
-      "size": 83250,
-      "normalized_sha256": "eb1d5e8a1f0b4778f98b41b355f1396fd647ec6d8b23224c895890c95be92d0d"
+      "sha256": "a6cb1c98a604a95db397120b8c8098802f9feece525f847a25608d9fa32b9ed1",
+      "size": 84681,
+      "normalized_sha256": "a6cb1c98a604a95db397120b8c8098802f9feece525f847a25608d9fa32b9ed1"
     },
     "local/tests/test_ui_main_window.py": {
       "role": "observe",
