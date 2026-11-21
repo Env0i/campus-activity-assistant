@@ -989,6 +989,52 @@ out.push({ disabled: $("#btn-login-check").disabled });
 """)[0]
         self.assertTrue(data["disabled"], "检查中检查按钮要禁用")
 
+    def test_valid_check_dismisses_closed_login_window_result(self):
+        """关掉登录窗口留下登录未完成结果条后，check 返回 valid 时自动收起。"""
+        data = run_js(CAPSULE_PRELUDE + r"""
+resetLogin();
+S.login.present = true; S.login.result = "valid"; S.login.ok = true;
+S.login.preLoginSnapshot = loginSnapshotState();
+window.onBackend.done({ kind: "login", ok: false, reason: "登录窗口被关掉了" });
+const before = { hidden: $("#result").hidden, title: $("#result").textContent,
+  kind: $("#result").dataset.kind };
+window.onBackend.check({ ok: true, result: "valid", hours_left: null });
+out.push({ before, after: { hidden: $("#result").hidden, text: $("#result").textContent,
+  kind: $("#result").dataset.kind || "" } });
+""")[0]
+        self.assertFalse(data["before"]["hidden"])
+        self.assertIn("登录窗口被关掉了", data["before"]["title"])
+        self.assertEqual(data["before"]["kind"], "login_attempt")
+        self.assertTrue(data["after"]["hidden"], "check 确认 valid 后应自动收起该结果条")
+        self.assertEqual(data["after"]["text"], "")
+        self.assertEqual(data["after"]["kind"], "", "收起后应清除结果条类别标记")
+
+    def test_non_valid_check_keeps_login_incomplete_result(self):
+        """check 返回 unknown 或 expired 时不得把登录未完成结果条收起。"""
+        for check_res in ("unknown", "expired"):
+            with self.subTest(result=check_res):
+                data = run_js(CAPSULE_PRELUDE + f"""
+resetLogin();
+S.login.present = true; S.login.result = "valid"; S.login.ok = true;
+S.login.preLoginSnapshot = loginSnapshotState();
+window.onBackend.done({{ kind: "login", ok: false, reason: "窗口被关掉了" }});
+window.onBackend.check({{ ok: false, result: "{check_res}", reason: "仍未确认" }});
+out.push({{ hidden: $("#result").hidden, text: $("#result").textContent }});
+""")[0]
+                self.assertFalse(data["hidden"], f"{check_res} 不得收起登录未完成结果条")
+                self.assertIn("登录窗口被关掉了", data["text"])
+
+    def test_valid_check_keeps_non_login_result_banner(self):
+        """报名结果等其他类别的结果条遇到 valid check 时不得被误收起。"""
+        data = run_js(CAPSULE_PRELUDE + r"""
+resetLogin();
+window.onBackend.done({ kind: "grab", ok: true, label: "心理健康讲座" });
+window.onBackend.check({ ok: true, result: "valid", hours_left: null });
+out.push({ hidden: $("#result").hidden, text: $("#result").textContent });
+""")[0]
+        self.assertFalse(data["hidden"], "报名成功结果条遇到 valid check 不得被收起")
+        self.assertIn("心理健康讲座", data["text"])
+
 
     def test_handoff_from_the_backend_does_not_light_auto_login(self):
         """已转人工时后端就算还说 recovering，胶囊也不能报「自动登录中…」。"""

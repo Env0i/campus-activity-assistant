@@ -9,12 +9,15 @@ export function setResult(result) {
     el.hidden = true;
     el.textContent = "";
     el.className = "result";
+    delete el.dataset.kind;
     return;
   }
   el.hidden = false;
   const cls = result.ok === true ? "is-ok" : (result.ok === "partial" ? "is-partial"
     : (result.ok === "neutral" ? "is-neutral" : "is-bad"));
   el.className = "result " + cls;
+  if (result.kind) el.dataset.kind = String(result.kind);
+  else delete el.dataset.kind;
   el.innerHTML = "<strong>" + esc(result.title || "") + "</strong><span>" + esc(result.text || "") + "</span>" +
     (result.action ? "<button class=\"result-action\" type=\"button\" id=\"result-action\">" + esc(result.action.label) + "</button>" : "");
   if (result.action) {

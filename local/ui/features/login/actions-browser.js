@@ -51,7 +51,7 @@ export function doLogin() {
       }
       setBusy(false);
       syncLoginDependentView();
-      setResult({ ok: false, title: "登录没能开始", text: (res && res.text) || "再点一次「登录」试试。" });
+      setResult({ ok: false, kind: "login_attempt", title: "登录没能开始", text: (res && res.text) || "再点一次「登录」试试。" });
     }
   }).catch((err) => {
     S.login.loginPending = false;
@@ -59,7 +59,7 @@ export function doLogin() {
     S.login.preLoginSnapshot = null;
     setBusy(false);
     syncLoginDependentView();
-    setResult({ ok: false, title: "登录没能开始", text: msg(err) });
+    setResult({ ok: false, kind: "login_attempt", title: "登录没能开始", text: msg(err) });
   });
 }
 
@@ -88,7 +88,7 @@ export function handleDone(payload) {
       S.login.preLoginSnapshot = null;
       syncLoginDependentView();
       const copy = loginFailCopy(data.reason);
-      setResult({ ok: false, title: copy.title, text: copy.text, action: { label: "再试一次", run: doLogin } });
+      setResult({ ok: false, kind: "login_attempt", title: copy.title, text: copy.text, action: { label: "再试一次", run: doLogin } });
     }
     return;
   }

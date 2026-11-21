@@ -138,6 +138,12 @@ function armRefreshTimeout(branch, id, logCheckTimeout) {
   }, seconds * 1000);
 }
 
+/* 未完成的登录结果条在检查确认有效后自动收起；放 refresh 前免混入其 setResult 计数 */
+function clearStaleLoginResult(result) {
+  const el = $("#result");
+  if (result === "valid" && el && !el.hidden && el.dataset && el.dataset.kind === "login_attempt") setResult(null);
+}
+
 /* options.background 为真是「后台自动刷新」（见文件末尾的 autoRefreshTick）：
  * 它和手动刷新走同一套 check + list 双分支，但不能让画面闪——不置 loading（不出骨架）、
  * 不置 S.login.checking（不进「检查中」）、不 render、不开条款弹窗；
@@ -428,6 +434,7 @@ function handleCheck(payload) {
    * 一起刷新，不留「胶囊更新了、倒计时还是旧的」混合态（上面的 request_id
    * 代次校验已保证只有本轮结果能走到这里）。 */
   syncLoginDependentView();
+  clearStaleLoginResult(data.result);
   maybeStartTour();   /* 登录确认有效后，等着的首次引导看看能不能开始 */
   /* 重新登录成功也会走这条 check 事件：顶栏换了，右侧「电脑续登录」卡片还是旧
    * 记录（最近一次登录/账号状态）。顺手让手机面板重取一次自己的快照，

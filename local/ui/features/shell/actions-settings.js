@@ -76,7 +76,8 @@ async function withdrawTerms() {
   /* 回执里的条款快照就是后端事实：门禁立刻按它关上，界面不另算 */
   if (typeof ingestTerms === "function") ingestTerms(result.terms);
   addLog("已撤回使用条款同意；保存的账号和登录信息没有删除");
-  helpStatus("已撤回同意。重新同意后可以继续登录和报名。", "info");
+  /* 照原型 Main.dc.html:1968 撤回成功后直接关掉设置抽屉（交由顶部横幅与运行记录说明），并把焦点还给设置按钮 */
+  closeSettings(true);
   paintTermsRow();
   paintBanners();
   render();

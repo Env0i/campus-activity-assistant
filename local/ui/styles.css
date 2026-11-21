@@ -1048,6 +1048,8 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .draw-b .help-tools { padding: 0 1.375rem; border-top: 0; background: var(--paper); }
 .draw-b .ph-sec { padding-top: .75rem; padding-bottom: .75rem; border-bottom: 1px solid var(--line); }
 .draw-b .help-tool-row { padding: .75rem 0; }
+.draw-b > .help-status { padding: .75rem 1.375rem 1.125rem; line-height: 1.6; }
+.draw-b > .help-status[data-tone="info"] { color: var(--ink-2); }
 .set-g:focus { outline: 0; }
 /* 「高级功能」一项一行照原型 Main.dc.html:527-536 的 .adv-* 抄（rem 换成 px）：白纸卡片、标题行左边
    图标与名称加圆点状态句、右边只亮一只主按钮、最右展开箭头；进度条与说明句长在标题行下面；说明句与

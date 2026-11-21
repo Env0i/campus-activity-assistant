@@ -8984,6 +8984,89 @@ out.push({ open, collapsed, linkShownAfterRepaint: !link.hidden });
         self.assertTrue(row["collapsed"], "关抽屉必须强制收起确认条（既有行为不变）")
         self.assertTrue(row["linkShownAfterRepaint"], "收起后链接钮显隐恢复由 paintTermsRow 接管")
 
+    def test_withdraw_success_closes_drawer_without_help_status(self):
+        """撤回条款成功后照原型关掉设置抽屉，抽屉内不显示已撤回提示。"""
+        res = run_js(r"""
+window.pywebview = { api: { withdraw_terms: () => Promise.resolve(
+  { ok: true, terms: { version: "r9", accepted_version: "", accepted_at: "" } }) } };
+S.terms = { version: "r9", acceptedVersion: "r9", acceptedAt: "2026-11-08 09:12:33" };
+const status = document.querySelector("#help-status");
+status.hidden = true; status.textContent = "";
+openSettings();
+document.querySelector("#btn-terms-withdraw").click();
+document.querySelector("#btn-terms-withdraw-confirm").click();
+await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+out.push({
+  settingsOpen: S.settingsOpen,
+  drawerHidden: document.querySelector("#settings").hidden,
+  statusHidden: status.hidden,
+  statusText: status.textContent,
+});
+""")
+        r = res[0]
+        self.assertFalse(r["settingsOpen"], "撤回成功后必须关掉设置抽屉")
+        self.assertTrue(r["drawerHidden"], "撤回成功后设置抽屉 DOM 必须隐藏")
+        self.assertTrue(r["statusHidden"], "撤回成功后不得在抽屉内点亮提示位")
+        self.assertNotIn("已撤回同意", r["statusText"], "抽屉内不留已撤回同意提示句")
+
+    def test_withdraw_failure_keeps_drawer_open_and_shows_reason(self):
+        """撤回条款失败时不关抽屉，仍在提示位写出失败原因。"""
+        res = run_js(r"""
+window.pywebview = { api: { withdraw_terms: () => Promise.resolve(
+  { ok: false, text: "偏好文件正在被占用" }) } };
+S.terms = { version: "r9", acceptedVersion: "r9", acceptedAt: "2026-11-08 09:12:33" };
+openSettings();
+document.querySelector("#btn-terms-withdraw").click();
+document.querySelector("#btn-terms-withdraw-confirm").click();
+await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+const status = document.querySelector("#help-status");
+out.push({
+  settingsOpen: S.settingsOpen,
+  drawerHidden: document.querySelector("#settings").hidden,
+  statusHidden: status.hidden,
+  statusText: status.textContent,
+});
+""")
+        r = res[0]
+        self.assertTrue(r["settingsOpen"], "撤回失败时抽屉保持打开")
+        self.assertFalse(r["drawerHidden"], "撤回失败时设置抽屉 DOM 保持可见")
+        self.assertFalse(r["statusHidden"], "撤回失败时显示局部提示")
+        self.assertIn("偏好文件正在被占用", r["statusText"])
+
+    def test_help_status_scrolls_when_settings_drawer_is_open(self):
+        """设置抽屉打开时 helpStatus 会调用提示位的 scrollIntoView；全关时不滚。"""
+        res = run_js(r"""
+let scrolled = 0;
+const box = document.querySelector("#help-status");
+box.scrollIntoView = () => { scrolled += 1; };
+document.querySelector("#help").open = false;
+S.settingsOpen = false;
+document.querySelector("#settings").hidden = true;
+helpStatus("抽屉未开时不滚", "warn");
+const closedCount = scrolled;
+openSettings();
+helpStatus("抽屉打开时滚入可见区", "warn");
+out.push({ closedCount, openCount: scrolled });
+""")
+        self.assertEqual(res[0]["closedCount"], 0, "帮助和设置都关着时不得滚")
+        self.assertEqual(res[0]["openCount"], 1, "设置抽屉打开时提示位必须滚入可见")
+
+    def test_settings_help_status_has_horizontal_padding_rule(self):
+        """styles.css 中设置抽屉的 help-status 必须有非零左右内边距与 info 色调。"""
+        import re as _re
+        css = (LOCAL / "ui" / "styles.css").read_text(encoding="utf-8")
+        m = _re.search(r"\.draw-b\s*>\s*\.help-status\s*\{([^}]+)\}", css)
+        self.assertIsNotNone(m, "必须为设置抽屉里的 .help-status 单配对齐规则")
+        pad_m = _re.search(r"padding\s*:\s*([^;]+);", m.group(1))
+        self.assertIsNotNone(pad_m, "抽屉提示位必须声明 padding")
+        parts = pad_m.group(1).split()
+        self.assertGreaterEqual(len(parts), 2, "需要分别指定上下与左右内边距")
+        horiz = [parts[1]] if len(parts) in (2, 3) else [parts[1], parts[3]]
+        for side in horiz:
+            num = _re.match(r"^([0-9.]+)", side)
+            self.assertTrue(num and float(num.group(1)) > 0, f"左右内边距不能为 0：{side}")
+        self.assertRegex(css, r"\.draw-b\s*>\s*\.help-status\[data-tone=\"info\"\]\s*\{[^}]*color\s*:\s*var\(--ink-2\)")
+
 # ==================== 源自 test_ui_contract_update.py ====================
 """界面契约：手动更新、更新看板与首次使用弹层。"""
 

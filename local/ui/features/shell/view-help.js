@@ -22,9 +22,11 @@ export function helpStatus(text, tone) {
   revealHelpStatus(box);
 }
 
-/* 矮窗里反馈可能刚好落在折叠处：用户触发的结果滚入正文可见区，头尾不动。 */
+/* 矮窗里反馈可能刚好落在折叠处：帮助弹窗或设置抽屉可见时滚入可见区，头尾不动。 */
 export function revealHelpStatus(box) {
-  if (box && $("#help").open && typeof box.scrollIntoView === "function") {
+  const settingsEl = $("#settings");
+  const settingsShown = !!S.settingsOpen && !(settingsEl && settingsEl.hidden);
+  if (box && ($("#help").open || settingsShown) && typeof box.scrollIntoView === "function") {
     box.scrollIntoView({ block: "nearest" });
   }
 }
