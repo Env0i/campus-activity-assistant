@@ -1219,7 +1219,7 @@ PhStarting.dc.html[SU3T]: F:展示手机访问正在开启的原型 | R:code:des
 PhStartingTop.dc.html[SU3T]: F:展示顶栏手机访问正在开启的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phstartingtop;tier=wide;frozen=true | S:-
 PhStopAsk.dc.html[SU3T]: F:展示关闭手机访问前的确认对话框 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phstopask;宽屏冻结画板 | S:-
 PhStopping.dc.html[SU3T]: F:展示手机访问正在停止与顶栏等待状态 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phstopping;宽屏冻结画板 | S:-
-Phone.dc.html[SU5L]: F:实现配对、活动筛选、冲突解释、报名计划、离线与重新登录的手机交互原型 | R:code:design/prototype/workbench-2026-11/support.js | A:Phone组件；scene/frozen/height；配对、计划确认、停止取消与验证码交互 | S:活动时钟和结果均为演示；配对错三次锁60秒；提交中及开放前100秒禁人工重登；未知结果不重发；冲突页不撤回报名
+Phone.dc.html[SU5L]: F:实现配对、活动筛选、冲突解释、报名计划、离线与重新登录的手机交互原型，电脑登录分有效、失效、待确认、没登录四态 | R:code:design/prototype/workbench-2026-11/support.js | A:Phone组件；scene/frozen/height；配对、计划确认、停止取消与验证码交互 | S:活动时钟和结果均为演示；配对错三次锁60秒；提交中及开放前100秒禁人工重登；未知结果不重发；冲突页不撤回报名；没登录说登录，失效才说重新登录
 PhoneApp.dc.html[SU3T]: F:提供从配对页开始的可操作手机原型入口 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=pair;390×844 | S:-
 PhoneAuto.dc.html[SU3T]: F:展示电脑正在自动登录的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=auto;390×844;frozen=true | S:-
 PhoneCancel.dc.html[SU3T]: F:展示手机取消计划中单场任务的确认原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=cancelsheet;390×844;frozen=true | S:-
@@ -1292,11 +1292,13 @@ ZeroAct.dc.html[SU3T]: F:展示学校返回零活动的宽屏冻结画板 | R:co
 canvas.json[FU5L]: F:登记工作台各状态画板的位置尺寸、交互标志及展示次序 | R:code:design/prototype/workbench-2026-11/index.html | A:boards,order | S:查看器按坐标重排；order仍决定纳入的画板集合
 index.html[EU5T]: F:按画布配置分组浏览原尺寸工作台画板，支持缩放与哈希定位 | R:code:design/prototype/workbench-2026-11/canvas.json | A:show,fit | S:需HTTP读取canvas.json，file协议打开会显示失败提示
 打开原型.bat[XU4T]: F:启动仅本机监听的静态服务并用浏览器打开工作台原型 | R:code:design/prototype/workbench-2026-11/index.html | A:- | S:缺support.js时拒绝启动；关闭服务器窗口才停止服务
+PhoneLoginUnknown.dc.html[SU3T]: F:展示电脑登录状态待确认的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=loginunknown;390×844;frozen=true | S:-
+PhoneNever.dc.html[SU3T]: F:展示电脑上还没有登录的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=never;390×844;frozen=true | S:-
 
 ===/<repository>/design/specs/===
 README.md[SU6T]: F:索引交互规格并区分规则决策、组件行为和技术验收文档职责 | R:- | A:辅助面板/文案/版本发布入口 | S:规则变化先修决策，不在规格复制业务规则
 assistance-panels.md[SU7S]: F:规定设置抽屉与帮助独立入口的职责、导航、条款路由及窄窗交互 | R:code:local/ui/views/settings.js,code:local/ui/features/shell/view-help.js | A:设置承载配置；帮助承载说明、快捷键、引导 | S:运行中重看引导的前后段存在漂移，须按UI_SPEC和代码核实
-copywriting.md[SU8L]: F:维护登录、活动、计划结果、时钟、设置、更新、手机及条款用户文案 | R:code:local/ui/index.html,code:local/app.py | A:术语/未知结果/结果汇总/登录估算/条款文案 | S:文案不可改变worker机器协议；未知不等于失败，停止不等于取消报名；登录估算不参与有效性判定
+copywriting.md[SU8L]: F:维护登录、活动、计划结果、时钟、设置、更新、手机及条款用户文案，含手机页电脑登录四态 | R:code:local/ui/index.html,code:local/app.py | A:术语/未知结果/结果汇总/登录估算/条款文案 | S:文案不可改变worker机器协议；未知不等于失败，停止不等于取消报名；登录估算不参与有效性判定；手机重登面板按打开时是否首次登录取字
 terms-consent.md[SU8M]: F:规定首次、更新与全文条款路由、版本绑定保存、未知恢复及响应式验收 | R:code:local/ui/controllers/terms.js,code:local/ui/views/terms.js,code:local/app.py | A:版本回执确认/超时只读对账/条款优先引导/正文精确比较 | S:十秒超时不取消事务；未知关闭学校动作；正文只可折叠空白，旧矩阵不代表修后通过
 versioning-and-release.md[SV8S]: F:规定版本真源、升版、tag绑定、同源正式资产和目录更新兼容要求 | R:code:VERSION,code:tools/release.py,code:local/updater.py | A:版本与引导分离/来源资产复核/失败恢复 | S:旧基线与候选并存不代表当前已发布；已发布tag不可重写，离线替身不能代替实包安装探针
 
@@ -1375,6 +1377,8 @@ update_delta.py[IV8M]: F:生成目录清单及文件差分并校验隔离应用 
 update_launcher.py[EV8M]: F:等待主进程退出并切换版本目录后启动固定程序 | R:code:local/updater.py | A:main,read_current,launch_current,apply_staged,apply_and_launch,wait_parent_process | S:回退current、previous、最大有效版本但不改current；写current失败恢复目录；Windows权限或超时不当已退出，仅错误87可。
 updater.py[IV8L]: F:下载校验更新包并管理隔离staging及版本残留 | R:code:local/update_delta.py,code:local/update_check.py | A:download_payload,launch_installer,sweep_version_root,stage_update,switch_version,select_payload | S:仅HTTPS、限额、大小及SHA256通过才原子保留；清扫不跟链接且保护当前/前版/运行目录；current损坏不删版本。
 开发-启动界面.bat[EU3T]: F:切换源码目录运行桌面应用并保留失败控制台 | R:code:local/app.py | A:双击开发批处理 | S:仅源码开发，不能充当安装包根启动器。
+dev_phone_preview.py[XU4S]: F:用演示活动和指定登录快照在127.0.0.1起离线替身手机服务，供开发时查看各登录态页面 | R:code:local/infrastructure/phone_http.py,code:local/application/phone_service.py,code:local/domain/demo_data.py | A:main,--state,--port,--saved,--ocr,--no-browser | S:数据目录强制指到新建临时目录，不读真实登录态也不连学校
+开发-预览手机页.bat[EU3T]: F:双击启动离线手机页预览服务，可透传登录态与端口参数 | R:code:local/dev_phone_preview.py | A:双击开发批处理 | S:仅源码开发用，失败时停住控制台
 
 ===/<repository>/local/application/===
 __init__.py[AG6T]: F:声明用例通过注入端口调用副作用与发布结构化事件的应用层边界 | R:code:local/app.py | A:标准库和domain依赖约束 | S:禁止反向import app避免组合根导入副作用与依赖环
@@ -1567,15 +1571,15 @@ index.html[EU7M]: F:提供手机配对页、计划板与操作抽屉的语义结
 styles.css[FU5L]: F:定义手机单栏列表、点阵板与底部抽屉布局 | R:code:local/ui/m/index.html | A:手机页面样式 | S:hidden全局优先；抽屉页脚固定在内容滚动区外并计入安全区。
 model-conflict.js[DU7M]: F:给手机页纯规则补上时段重叠、跨天、业务时钟、取消说明、冲突原因面板与开始前提醒 | R:code:local/ui/m/model.js,code:local/ui/state/conflict.js | A:businessNowS,sleepJumped,signedClash,whyView,preStartWarnings,planSummary | S:业务时间只认电脑时钟快照，睡眠跳变后弃用旧锚点；只能用Object.assign补成员
 model-list.js[DU7M]: F:给手机页纯规则补上倒计时文案、报名状态、开放分组、勾选冲突、列表行与草稿板投影 | R:code:local/ui/m/model-conflict.js | A:stOf,visibleItems,conflictNotice,rowView,draftBoard,listView | S:报名状态按sign_start、sign_end与业务时钟判，后端快照没有open_ts与closed
-model-relogin.js[DU7M]: F:给手机页纯规则补上重新登录视图、配对点阵字形与配对错误文案，并把PhoneModel挂到全局 | R:code:local/ui/m/model-run.js,code:local/domain/phone_rules.py | A:reloginView,glyphs,ledOf,pairView,pairWrongText | S:配错文案的60秒与后端配错落锁时长耦合，改一处须同步另一处
-model-run.js[DU7M]: F:给手机页纯规则补上开始待定、运行等待板、任务卡、确认文案、结果统计、条款板与核对批次 | R:code:local/ui/m/model-list.js | A:pendingBoard,runBoard,taskCard,confirmView,resultView,reviewBatches | S:-
-model.js[DU7M]: F:定义手机页纯规则对象PhoneModel的核心成员：请求标识、筛选、退避与同步节奏、登录结论、开始门禁与可重选判断 | R:code:local/ui/m/index.html,code:local/ui/m/model-conflict.js | A:PhoneModel,filterItems,canStart,loginRaw,startPending,actionable | S:必须最先加载；只用PhoneModel.x互相引用，不用this，后续文件才能用Object.assign补成员
+model-relogin.js[DU7M]: F:给手机页纯规则补上重新登录视图、登录成功句、配对点阵字形与配对错误文案，并把PhoneModel挂到全局 | R:code:local/ui/m/model-run.js,code:local/domain/phone_rules.py | A:reloginView,loginDoneText,glyphs,ledOf,pairView,pairWrongText | S:配错文案的60秒与后端配错落锁时长耦合，改一处须同步另一处
+model-run.js[DU7M]: F:给手机页纯规则补上开始待定、运行等待板、任务卡、确认文案、结果统计、条款板、核对批次与按登录四态的登录行 | R:code:local/ui/m/model-list.js | A:pendingBoard,runBoard,taskCard,confirmView,resultView,loginLine | S:-
+model.js[DU7M]: F:定义手机页纯规则对象PhoneModel的核心成员：请求标识、筛选、退避与同步节奏、登录四态与文案、开始门禁与可重选判断 | R:code:local/ui/m/index.html,code:local/ui/m/model-conflict.js | A:PhoneModel,filterItems,canStart,loginRaw,loginState,loginCopy | S:必须最先加载，只用PhoneModel.x互相引用；四态只管说法，门禁仍按loginRaw把没登录与失效都算要登录
 ui-list.js[IU7M]: F:绘制手机页活动列表：分区、列表行、冲突原因面板、跳到已报名行与整页搜索开合 | R:code:local/ui/m/model-list.js,code:local/ui/m/ui-session.js | A:LIST_ZONES,buildRow,buildWhy,renderItems,toggleSearch | S:全部用textContent构造，不拼HTML
 ui-plan.js[AU7M]: F:编排手机页报名计划操作：开始与对账、取消等待、停止、取消单场、结果重选、重试设置与核对抽屉 | R:code:local/ui/m/ui-session.js,code:local/ui/m/model-run.js | A:startPlan,reconcile,cancelPendingStart,stopPlan,cancelTask,reselectFailed | S:开始结果未知时保留原请求标识只读对账，不自动重发
-ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model-relogin.js,code:local/ui/m/ui-session.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:手机可提交新输入的账号密码，关闭重登面板即清输入；验证码绑定当前挑战
+ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model-relogin.js,code:local/ui/m/ui-session.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:关面板即清输入，验证码绑定当前挑战；面板标题与成功句按打开时记的relFirstLogin取，不跟后续快照
 ui-session.js[AN8M]: F:定义手机页DOM层共用的$、请求超时与model状态对象，并负责带CSRF的请求、配对与锁定倒计时、轮询退避和会话失效处理 | R:code:local/ui/m/model.js,code:local/infrastructure/phone_http.py | A:model,api,postAction,pair,poll,probeExistingSession | S:$与model是全局词法名，后续ui脚本运行期共用；请求8秒不回就放弃并放回单飞锁；未配对时一个定时器都不排；csrf刷新后从cookie取回
 ui-shell.js[EU7M]: F:提供手机页抽屉外壳与确认槽、绑定全页事件，并导出PhoneUI与启动wire | R:code:local/ui/m/ui-session.js,code:local/ui/m/ui-plan.js,code:local/ui/m/ui-relogin.js | A:openSheet,closeSheet,askConfirm,wire,PhoneUI | S:必须最后加载，启动两行只在这里；前面任一脚本缺席会在wire时报引用错误
-ui-status.js[IU7M]: F:绘制手机页提示条与告警、控件启用门禁、底栏、计划点阵板、任务卡与运行记录 | R:code:local/ui/m/model-run.js,code:local/ui/m/ui-session.js | A:setBanner,renderAlerts,refreshControls,renderBar,renderBoard,addLog | S:提示条带来源标签，只有状态过时类能在同步成功后自动清掉
+ui-status.js[IU7M]: F:绘制手机页提示条与告警、控件启用门禁、底栏、计划点阵板、任务卡与运行记录，登录横幅与底栏按四态取字 | R:code:local/ui/m/model-run.js,code:local/ui/m/ui-session.js | A:setBanner,renderAlerts,refreshControls,renderBar,renderBoard,addLog | S:提示条带来源标签，只有状态过时类能在同步成功后自动清掉
 ui-sync.js[AU7M]: F:摄入电脑状态快照与事件游标并按整秒局部刷新北京时间、倒计时与计划板 | R:code:local/ui/m/model-conflict.js,code:local/ui/m/ui-status.js | A:ingest,scheduleTick,tickClock,tickBoardLed,tickRowLeft | S:事件按序号去重，重置轮次才重新接纳；整秒刷新只改数字不重画、不额外联网
 
 ===/<repository>/local/ui/state/===
@@ -1880,3 +1884,11 @@ work-before.html[TQ2T]: F:保存拆分后手机页配对前规整的body DOM，�
 edge_load.py[XQ3M]: F:对HEAD副本与工作区各起本机替身手机服务，用无头Edge核对脚本请求、错误、全局名撞名与配对前后DOM | R:code:local/infrastructure/phone_http.py | A:命令行入口 | S:只开127.0.0.1，数据目录指到临时目录
 move_check.py[XQ3M]: F:以HEAD原文为准逐成员、逐顶层声明、逐非空行核对手机页拆分，只许多出严格模式、文件头注释与合并外壳 | R:code:tools/code_shape/jsscan.mjs,code:local/ui/m/index.html | A:命令行入口 | S:-
 net_after_move.py[XQ3M]: F:只读复用安全网的72条变异，改为新文件顶格定位后在临时副本复跑，并与原结论对照 | R:code:design/evidence/2026-11-22/phone-net/scripts/mutate_phone.py | A:--workers | S:-
+
+===/<repository>/design/evidence/2026-11-21/phone-login-phases/===
+README.md[SQ4T]: F:记录手机页登录四态呈现的范围、判法、四态乘各位置文案对照、重登面板打开时取态及测试变异截图结果 | R:code:local/ui/m/model.js,code:local/ui/m/ui-relogin.js | A:文案对照表、未验证项、复现命令 | S:真实首次登录全流程、安卓与微信浏览器、打包EXE均未验证
+changed-tests.md[TQ3T]: F:逐条列两条旧用例按决策006改写的输入与断言及原因，并列新增四态与闪字回归用例 | R:code:local/tests/test_phone_ui.py | A:改前改后对照、新增用例清单 | S:-
+mutations.md[TQ3T]: F:记录六条登录四态与重登取态变异的改法和首个失败用例，全部在临时副本变红 | R:code:design/evidence/2026-11-21/phone-login-phases/changed-tests.md | A:变异结果表 | S:-
+
+===/<repository>/design/evidence/2026-11-21/phone-login-phases/scripts/===
+shots.py[XQ3M]: F:按四种登录快照各起本机替身手机服务，用无头Edge配对后截首页与首次登录面板，再截三张原型画板 | R:code:local/infrastructure/phone_http.py,code:design/prototype/workbench-2026-11/PhoneNever.dc.html | A:main | S:只开127.0.0.1，数据目录指临时目录；页面或控制台报错即失败
