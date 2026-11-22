@@ -881,7 +881,7 @@
 
 **「自动登录中…」何时退出**：只有后端 `auto_state=running` 时成立。`handoff` 显示「要你输验证码」，`blocked` 且 `auto_block=ocr_missing` 也显示「要你输验证码」，`backoff` 且仍有剩余时间显示「登录已失效」和「N 分钟后再试」，`idle`、`manual` 或剩余时间到点后都不显示「自动登录中…」。载荷没带自动登录字段时保持上一次，只有结论为 `valid` 或演示模式时收回成 `idle`；前端自己判出的「暂时无法确认」（100 秒超时、请求失败、条款回绝）没有后端字段，胶囊保持后端上一次给的样子，后端状态一变一秒内会推 `login_auto`，下一次校验也会带新值。`login_auto` 事件变化时立即按同一套规则重画。
 
-**手机页登录行**以电脑最近一次学校校验（`login.last_check_state`）为准：`expired` 就写已失效，`valid` 回到「电脑上的登录有效」。电脑这一场静默自动登录还在进行（中继 `origin=auto`、`live`、未转人工，或快照 `login.recovering` 为真）时，登录行写「电脑正在自动重新登录。」，不出失效横幅；转人工后失效提醒回来。
+**手机页登录行**依据 `login.session_present`、`login.session_expired` 与最近一次学校校验（`login.last_check_state`）按四态呈现前半句：`valid` 写「电脑上的登录有效。」，`expired` 写「电脑上的登录已失效。」，`unknown`（含缺字段或非对象）写「电脑上的登录状态还没确认。」，`never`（`session_present === false`）写「电脑上还没有登录。」。电脑这一场静默自动登录还在进行（中继 `origin=auto`、`live`、未转人工，或快照 `login.recovering` 为真）时，登录行整句写「电脑正在自动登录。」（`never` 态）或「电脑正在自动重新登录。」（其余态），不出失效横幅；转人工后失效提醒回来。电脑把这一场交给用户输验证码以中继 `handoff` 为准（`live === true && handoff === true`），交接后重登面板引导句统一写「电脑没认出验证码，换你来输。账号密码由电脑自动填写。」。
 
 #### 结果页与停止确认
 
