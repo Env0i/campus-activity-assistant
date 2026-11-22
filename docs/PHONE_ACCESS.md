@@ -112,10 +112,11 @@ Tailscale。Cloudflare 走 Quick Tunnel，不用装账号也不用登录，`clou
 顺手重新对时。手机锁屏或切到后台时计时器暂停，回前台立刻同步一次。手机上的时间只
 用于显示，到点提交始终由电脑按自己的北京时间执行。
 
-手机状态快照里的 `state.activities[]` 会在活动副本上补充两个只读数值字段
-`open_ts` 与 `close_ts`，分别代表该场次的报名开放时刻（`sign_start`）与报名截止时刻
-（`sign_end`）对应的东八区 epoch 秒数，由电脑端在生成手机快照时通过
-`time_contract.school_epoch` 计算；文本缺失或非法时值为 `null`。这两个字段只存在于
+手机状态快照里的 `state.activities[]` 会在活动副本上补充四个只读数值字段
+`open_ts`、`close_ts`、`act_start_ts` 与 `act_end_ts`，分别代表该场次的报名开放时刻
+（`sign_start`）、报名截止时刻（`sign_end`）、活动举办开始时刻（`act_start`）与举办
+结束时刻（`act_end`）对应的东八区 epoch 秒数，由电脑端在生成手机快照时通过
+`time_contract.school_epoch` 计算；文本缺失或非法时值为 `null`。这四个字段只存在于
 手机快照副本中，不会写入电脑端活动缓存原件。
 
 ---
