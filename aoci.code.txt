@@ -1574,7 +1574,7 @@ model-list.js[DU7M]: F:给手机页纯规则补上倒计时文案、报名状态
 model-relogin.js[DU7M]: F:给手机页纯规则补上重新登录视图、转人工判断、登录成功句、配对点阵字形与配对错误文案，并把PhoneModel挂到全局 | R:code:local/ui/m/model-run.js,code:local/domain/phone_rules.py,code:local/application/login_relay_service.py | A:reloginView,relHandoff,loginDoneText,glyphs,pairView,pairWrongText | S:转人工只认中继live与handoff，不按次数猜；配错文案的60秒与后端配错落锁时长耦合
 model-run.js[DU7M]: F:给手机页纯规则补上开始待定、运行等待板、任务卡、确认文案、结果统计、条款板、核对批次与按登录四态的登录行 | R:code:local/ui/m/model-list.js | A:pendingBoard,runBoard,taskCard,confirmView,resultView,loginLine | S:-
 model.js[DU7M]: F:定义手机页纯规则对象PhoneModel的核心成员：请求标识、筛选、开放时刻、退避与同步节奏、登录四态与文案、开始门禁 | R:code:local/ui/m/index.html,code:local/ui/m/model-conflict.js | A:PhoneModel,filterItems,openEpochOf,canStart,loginState,loginCopy | S:必须最先加载；开放时刻有open_ts键就只用它；四态只管说法，门禁仍按loginRaw
-ui-list.js[IU7M]: F:绘制手机页活动列表：分区、列表行、冲突原因面板、跳到已报名行与整页搜索开合 | R:code:local/ui/m/model-list.js,code:local/ui/m/ui-session.js | A:LIST_ZONES,buildRow,buildWhy,renderItems,toggleSearch | S:全部用textContent构造；未校准时日期组都落在下方区
+ui-list.js[IU7M]: F:绘制手机页活动列表：分区、列表行、冲突原因面板、跳到已报名行与整页搜索开合 | R:code:local/ui/m/model-list.js,code:local/ui/m/ui-session.js | A:LIST_ZONES,buildRow,buildWhy,renderItems,toggleSearch | S:全部用textContent构造；未校准时日期组落下方区，今天区空态收起
 ui-plan.js[AU7M]: F:编排手机页报名计划操作：开始与对账、取消等待、停止、取消单场、结果重选、重试设置与核对抽屉 | R:code:local/ui/m/ui-session.js,code:local/ui/m/model-run.js | A:startPlan,reconcile,cancelPendingStart,stopPlan,cancelTask,reselectFailed | S:开始结果未知时保留原请求标识只读对账，不自动重发
 ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model-relogin.js,code:local/ui/m/ui-session.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:关面板即清输入，验证码绑定当前挑战；面板标题与成功句按打开时记的relFirstLogin取，不跟后续快照
 ui-session.js[AN8M]: F:定义手机页DOM层共用的$、请求超时与model状态对象，并负责带CSRF的请求、配对与锁定倒计时、轮询退避和会话失效处理 | R:code:local/ui/m/model.js,code:local/infrastructure/phone_http.py | A:model,api,postAction,pair,poll,probeExistingSession | S:$与model是全局词法名，后续ui脚本运行期共用；请求8秒不回就放弃并放回单飞锁；未配对时一个定时器都不排；csrf刷新后从cookie取回
@@ -1899,6 +1899,6 @@ changed-tests.md[TQ3T]: F:列两处旧用例补handoff夹具并换引导句期�
 mutations.md[TQ3T]: F:记录五条交接判法、引导句与账号收起变异的改法和首个失败用例，全部在临时副本变红 | R:code:design/evidence/2026-11-22/phone-handoff/changed-tests.md | A:变异结果表 | S:-
 
 ===/<repository>/design/evidence/2026-11-22/phone-open-state/===
-README.md[SQ4T]: F:记录手机开放与截止时刻改由电脑给出的范围、两处分歧与例子、新快照字段、未校准按开放日分组及测试变异结果 | R:code:local/application/phone_service.py,code:local/ui/m/model-list.js | A:分歧清单、复现命令 | S:真机未校准与非标准时间文本未联调
+README.md[SQ4T]: F:记录手机开放与截止时刻改由电脑给出的范围、两处分歧与例子、新快照字段、未校准按开放日分组、测试变异及今天区空态返修 | R:code:local/application/phone_service.py,code:local/ui/m/model-list.js | A:分歧清单、复现命令 | S:真机未校准与非标准时间文本未联调
 changed-tests.md[TQ3T]: F:列三处旧用例删去wallS实参的改前改后与原因，及前后端新增用例 | R:code:local/tests/test_phone_ui.py,code:local/tests/test_phone_service.py | A:改前改后对照、新增用例清单 | S:-
-mutations.md[TQ3T]: F:记录五条快照字段、开放时刻解析、截止读法与未校准分组变异的改法和首个失败用例，全部变红 | R:code:design/evidence/2026-11-22/phone-open-state/changed-tests.md | A:变异结果表 | S:-
+mutations.md[TQ3T]: F:记录五条快照字段、开放时刻解析、截止读法与未校准分组变异及一条空态返修变异的改法和首个失败用例，全部变红 | R:code:design/evidence/2026-11-22/phone-open-state/changed-tests.md | A:变异结果表 | S:-
