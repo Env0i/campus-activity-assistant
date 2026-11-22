@@ -26,3 +26,8 @@
    - 位置：`local/ui/m/model-list.js` `PhoneModel.groupKeyOf`
    - 改法：`nowS` 为 `null` 时回退 `Date.now() / 1000` 并输出「今天 / 明天 / 后天 / 更晚开放」
    - 首个失败用例：`test_phone_ui.ListDetailModelTests.test_uncalibrated_clock_groups_by_beijing_open_day_ignoring_date_now`（`exit=1`）
+
+6. **M6（返修）：`renderItems` 对 `#empty` 隐去条件去掉业务时钟不可用判断**
+   - 位置：`local/ui/m/ui-list.js` `renderItems`
+   - 改法：去掉 `$("empty").hidden` 条件里的 `nowS === null || `，恢复为 `!showList || noMatch || zoneCount[0] > 0`
+   - 运行结果与首个失败用例：`exit=1`，`test_phone_ui.ResultTermsDomTests.test_uncalibrated_clock_hides_today_empty_and_calibrated_empty_today_keeps_it`

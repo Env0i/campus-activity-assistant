@@ -50,3 +50,10 @@ python -m unittest discover -s local/tests -p "test_ui_contracts.py"
 python -m unittest discover -s local/tests -p "test_code_shape.py"
 python -m unittest discover -s local/tests -p "test_*.py"
 ```
+
+## 返修：未校准时今天区空态
+
+- **现象**：电脑业务时钟不可用（`nowS` 为 `null`）且列表里有未来活动时，手机页不再显示「今天没有可报名的活动，往下看即将开放的。」这句与事实不符的提示。
+- **原因**：时钟未校准时待开放场次均按北京开放日组（如 `11月25日 周三`）放进 `#upcoming-items`，上方 `#items` 区为空（`zoneCount[0] === 0`），而 `renderItems` 里 `$("empty").hidden` 原判断未排除 `nowS === null`，导致在不知道哪天是「今天」时仍露出该提示。
+- **修法**：在 `local/ui/m/ui-list.js` 的 `renderItems` 中将 `$("empty").hidden` 条件改为 `!showList || noMatch || nowS === null || zoneCount[0] > 0`，`renderItems` 行数保持不变（96 行）；其余产品代码与 `#upcoming-empty` 未动。
+- **测试与反证结果**：在 `local/tests/test_phone_ui.py` 的 `ResultTermsDomTests` 新增 `test_uncalibrated_clock_hides_today_empty_and_calibrated_empty_today_keeps_it`，覆盖未校准时隐藏 `#empty` 与已校准且今天无场次时照旧显示 `#empty` 两档；`test_phone_ui.py`（251 → 252 通过）、`test_ui_contracts.py`（374 通过）、`test_code_shape.py`（15 通过）及 `tools/code_shape/check.py` 全过；去掉 `nowS === null ||` 的单点变异在 `%TEMP%` 独立副本中触发上述新增用例失败（`exit=1`）。

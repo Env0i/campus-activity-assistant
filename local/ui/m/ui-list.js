@@ -321,7 +321,7 @@ function renderItems() {
       });
     }
   }
-  $("empty").hidden = !showList || noMatch || zoneCount[0] > 0;
+  $("empty").hidden = !showList || noMatch || nowS === null || zoneCount[0] > 0;   // 时钟不可用时不判「今天」，收起今天区空态
   if ($("upcoming-empty")) $("upcoming-empty").hidden = !showList || noMatch || zoneCount[1] > 0;
   /* LD04 勾选冲突提示条（原型 notice，role=alert，显示在列表区） */
   const notice = $("list-notice");

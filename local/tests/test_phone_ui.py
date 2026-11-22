@@ -5007,6 +5007,51 @@ out.push(view.groups.map((g) => [g.title, g.note, g.n, g.cls]));
         self.assertEqual(signed, ["已报名", "", 1, "signed"], "已报名组：注空、cls signed")
         self.assertEqual(closed, ["已截止", "只能查看", 1, ""], "已截止组：注「只能查看」")
 
+    def test_uncalibrated_clock_hides_today_empty_and_calibrated_empty_today_keeps_it(self):
+        """时钟不可用且未来活动落下方日期组时，不显示「今天没有可报名的活动」；时钟可用且今天无活动时照旧显示。"""
+        t_nov25 = int(datetime(2026, 11, 25, 9, 0, 0, tzinfo=timezone(timedelta(hours=8))).timestamp())
+        t_nov26 = int(datetime(2026, 11, 26, 10, 0, 0, tzinfo=timezone(timedelta(hours=8))).timestamp())
+        t_now24 = int(datetime(2026, 11, 24, 12, 0, 0, tzinfo=timezone(timedelta(hours=8))).timestamp())
+        items = [
+            {"id": "f1", "name": "未来甲", "sign_start": "2026-11-25 09:00:00",
+             "open_ts": t_nov25, "close_ts": t_nov25 + 3600},
+            {"id": "f2", "name": "未来乙", "sign_start": "2026-11-26 10:00:00",
+             "open_ts": t_nov26, "close_ts": t_nov26 + 3600},
+        ]
+        down = run_phone_js("""
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now();
+ui.model.clock = null;
+ui.model.items = %s;
+ui.renderItems();
+out.push({
+  emptyHidden: $("empty").hidden,
+  upcomingEmptyHidden: $("upcoming-empty").hidden,
+  itemsKids: $("items").childElementCount,
+  upcomingKids: $("upcoming-items").childElementCount,
+});
+""" % json.dumps(items, ensure_ascii=False))[0]
+        self.assertTrue(down["emptyHidden"], "时钟不可用时不该提示今天没有可报名的活动")
+        self.assertTrue(down["upcomingEmptyHidden"])
+        self.assertEqual(down["itemsKids"], 0)
+        self.assertEqual(down["upcomingKids"], 4, "两场不同日期的未来活动按日期组+行落在 #upcoming-items")
+
+        calibrated = run_phone_js("""
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now();
+PhoneModel.setClock(ui.model, {state: "ready", epoch_s: %d, tick_s: 1, sampled_tick_s: 1, age_s: 0});
+ui.model.items = %s;
+ui.renderItems();
+out.push({
+  emptyHidden: $("empty").hidden,
+  itemsKids: $("items").childElementCount,
+  upcomingKids: $("upcoming-items").childElementCount,
+});
+""" % (t_now24, json.dumps(items, ensure_ascii=False)))[0]
+        self.assertFalse(calibrated["emptyHidden"], "时钟可用且今天确实没场次时，#empty 照旧显示")
+        self.assertEqual(calibrated["itemsKids"], 0)
+        self.assertEqual(calibrated["upcomingKids"], 5, "「现在」分隔行 + 明天/后天两组条 + 两行共 5 个节点")
+
 
 class ExceptionStatesTests(unittest.TestCase):
     """EX01/EX02/EX05/EX06：离线、登录失效、电脑列表失败、时钟待校准（exceptions 任务）。
