@@ -80,9 +80,9 @@ Object.assign(PhoneModel, {
     return String(prefix || "重新登录结束：") + code;
   },
 
-  /* 登录完成成功句：依据成功一刻快照的 login 四态（session_present/session_expired/last_check_state）与是否忙时切换 */
-  loginDoneText(login, planBusy) {
-    if (PhoneModel.loginState(login) === "never") {
+  /* 登录完成成功句：依据打开登录面板时记下的布尔值 firstLogin 与是否忙时切换「登录成功」或「重新登录成功」 */
+  loginDoneText(firstLogin, planBusy) {
+    if (firstLogin) {
       return planBusy ? "登录成功，报名计划照常继续。" : "登录成功，活动列表已刷新。";
     }
     return planBusy ? "重新登录成功，报名计划照常继续。"
@@ -157,7 +157,7 @@ Object.assign(PhoneModel, {
     }
     /* RL08 完成态（原型 relogin==='done'，Phone:892-894）：两套文案 + 附言 */
     if (state === "success" && f.live) {
-      view.text = PhoneModel.loginDoneText(o.login, o.planBusy)
+      view.text = PhoneModel.loginDoneText(!!o.firstLogin, o.planBusy)
         + (o.entered ? (o.savedChoice
           ? "账号已加密保存到电脑，下次失效时" + saveGain + "。"
           : "账号只在这次运行中有效，关闭工具后清除。") : "");

@@ -8,7 +8,8 @@
    refreshControls 每次都重画一遍（忙态、主钮与附言随模型走） */
 function renderRelogin() {
   if (model.sheetId === "relogin") {
-    $("sheet-title").textContent = PhoneModel.loginCopy(PhoneModel.loginState(model.login), false).reloginEntry;
+    $("sheet-title").textContent = PhoneModel.loginCopy(
+      model.relFirstLogin ? "never" : "expired", false).reloginEntry;
   }
   const view = PhoneModel.reloginView(model.flow, model.reloginSetup, {
     confirm: model.relConfirm,
@@ -17,7 +18,7 @@ function renderRelogin() {
     entered: model.relEnteredAcct,
     savedChoice: model.relSavedChoice,
     planBusy: model.busy,
-    login: model.login,
+    firstLogin: !!model.relFirstLogin,
   });
   $("rel-err").textContent = view.err;
   $("rel-err").hidden = !view.err;
@@ -58,6 +59,7 @@ function openRelogin() {
   const liveFlow = !!(flow && flow.live
     && ["starting", "waiting_code", "verifying"].indexOf(String(flow.state || "")) >= 0);
   const setup = model.reloginSetup || {};
+  model.relFirstLogin = PhoneModel.loginState(model.login) === "never";
   model.relConfirm = !liveFlow && !setup.paused && !!setup.saved && !!setup.ocr_ready;
   openSheet("relogin");
   renderRelogin();
@@ -133,8 +135,8 @@ function ingestRelogin(info) {
     model.reloginSubmitting = false;
     endReloginControls();
     if (info.live) {
-      /* RL08（原型 Phone:892-894）：完成态两套文案；计划在跑＝照常继续，闲时按快照四态选句 */
-      $("relogin-note").textContent = PhoneModel.loginDoneText(model.login, model.busy);
+      /* RL08（原型 Phone:892-894）：完成态两套文案；计划在跑＝照常继续，闲时按打开面板时记下的 relFirstLogin 取句 */
+      $("relogin-note").textContent = PhoneModel.loginDoneText(!!model.relFirstLogin, model.busy);
       void poll(true);
     } else {
       // 中继在空闲时会回上一场的结论：那是历史，不是这一次。只按 live 播报，

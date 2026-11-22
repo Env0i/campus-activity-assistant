@@ -4129,13 +4129,13 @@ out.push(PhoneModel.preStartWarnings(model, items));
         保存的密码不对（paused）并入「没保存账号」支（与 relNeedAcct 同口径）。"""
         values = run_phone_js("""
 const mk = (login, setup) => PhoneModel.loginLine(login, setup);
-out.push(mk({session_present: true}, {saved: true, ocr_ready: true, paused: false}));
-out.push(mk({session_present: true}, {saved: true, ocr_ready: false, paused: false}));
-out.push(mk({session_present: true}, {saved: false, ocr_ready: true, paused: false}));
-out.push(mk({session_present: true}, {saved: false, ocr_ready: false, paused: false}));
+out.push(mk({session_present: true, last_check_state: "valid"}, {saved: true, ocr_ready: true, paused: false}));
+out.push(mk({session_present: true, last_check_state: "valid"}, {saved: true, ocr_ready: false, paused: false}));
+out.push(mk({session_present: true, last_check_state: "valid"}, {saved: false, ocr_ready: true, paused: false}));
+out.push(mk({session_present: true, last_check_state: "valid"}, {saved: false, ocr_ready: false, paused: false}));
 out.push(mk({session_expired: true, session_present: true}, {saved: true, ocr_ready: true, paused: false}));
 out.push(mk(null, null));
-out.push(mk({session_present: true}, {saved: true, ocr_ready: true, paused: true}));
+out.push(mk({session_present: true, last_check_state: "valid"}, {saved: true, ocr_ready: true, paused: true}));
 """)
         valid_ocr, valid_cap, nosave_ocr, nosave_cap, expired, bare, paused = values
         self.assertEqual(valid_ocr, "电脑上的登录有效。失效时电脑会自己重新登录。")
@@ -4143,8 +4143,8 @@ out.push(mk({session_present: true}, {saved: true, ocr_ready: true, paused: true
         self.assertEqual(nosave_ocr, "电脑上的登录有效。电脑上没保存账号，重新登录要输账号和密码。")
         self.assertEqual(nosave_cap, "电脑上的登录有效。电脑上没保存账号，重新登录要输账号、密码和验证码。")
         self.assertEqual(expired, "电脑上的登录已失效。失效时电脑会自己重新登录。")
-        self.assertEqual(bare, "电脑上的登录有效。电脑上没保存账号，重新登录要输账号、密码和验证码。",
-                         "快照没到手：按未失效、未保存呈现，不猜")
+        self.assertEqual(bare, "电脑上的登录状态还没确认。电脑上没保存账号，重新登录要输账号、密码和验证码。",
+                         "快照没到手：按待确认、未保存呈现，不写成有效")
         self.assertEqual(paused, "电脑上的登录有效。电脑上没保存账号，重新登录要输账号和密码。")
 
     def test_login_line_follows_the_computers_last_school_check(self):
@@ -4163,9 +4163,9 @@ out.push(PhoneModel.loginExpired({session_present: true, last_check_state: "vali
         expired, valid, unknown, bare, pred_expired, pred_valid = values
         self.assertEqual(expired, "电脑上的登录已失效。失效时电脑会自己重新登录。")
         self.assertEqual(valid, "电脑上的登录有效。失效时电脑会自己重新登录。")
-        self.assertEqual(unknown, "电脑上的登录有效。失效时电脑会自己重新登录。",
-                         "没确认（unknown）不当成失效")
-        self.assertEqual(bare, valid, "老载荷没带 last_check_state：保持原口径")
+        self.assertEqual(unknown, "电脑上的登录状态还没确认。失效时电脑会自己重新登录。",
+                         "没确认（unknown）不写成有效")
+        self.assertEqual(bare, unknown, "缺 last_check_state 时按待确认呈现，不写成有效")
         self.assertTrue(pred_expired)
         self.assertFalse(pred_valid)
 
@@ -4240,6 +4240,181 @@ out.push(shot());
         self.assertFalse(values[0]["banner"], "电脑在自动重登，手机不出失效横幅")
         self.assertTrue(values[1]["line"].startswith("电脑上的登录已失效。"))
         self.assertTrue(values[1]["banner"], "转人工后失效提醒回来")
+
+    def test_login_state_classifies_four_states_and_precedence(self):
+        """纯规则表驱动：loginState 按 非对象/无会话/失效/有效/兜底 的先后判四态。"""
+        cases = [
+            (None, "unknown"), ([], "unknown"), ("valid", "unknown"), (123, "unknown"),
+            ({}, "unknown"), ({"session_present": True}, "unknown"),
+            ({"session_present": True, "session_expired": False, "last_check_state": "unknown"}, "unknown"),
+            ({"session_present": False}, "never"),
+            ({"session_present": False, "session_expired": True, "last_check_state": "expired"}, "never"),
+            ({"session_present": False, "last_check_state": "valid"}, "never"),
+            ({"session_present": True, "session_expired": True, "last_check_state": "valid"}, "expired"),
+            ({"session_present": True, "session_expired": False, "last_check_state": "expired"}, "expired"),
+            ({"session_present": True, "session_expired": False, "last_check_state": "valid"}, "valid"),
+        ]
+        got = run_phone_js(
+            "out.push(...%s.map((x) => PhoneModel.loginState(x)));"
+            % json.dumps([c[0] for c in cases])
+        )
+        for (login, want), actual in zip(cases, got):
+            with self.subTest(login=login):
+                self.assertEqual(actual, want)
+
+    def test_login_copy_covers_all_fields_across_four_states(self):
+        """纯规则表驱动：loginCopy 四态八字段逐字返回「登录」或「重新登录」口径。"""
+        never_copy = {
+            "bannerTitle": "电脑上还没有登录",
+            "bannerText": "可以在手机上登录，也可以回电脑处理。",
+            "bannerAction": "登录",
+            "barSub": "还差一步：登录",
+            "barAction": "登录",
+            "reloginEntry": "在手机上登录",
+            "recoveringLine": "电脑正在自动登录。",
+            "recoveringSub": "电脑正在自动登录，好了就能开始",
+        }
+        relogin_copy = {
+            "bannerTitle": "电脑上的登录已失效",
+            "bannerText": "可以在手机上重新登录，也可以回电脑处理。",
+            "bannerAction": "重新登录",
+            "barSub": "还差一步：重新登录",
+            "barAction": "重新登录",
+            "reloginEntry": "在手机上重新登录",
+            "recoveringLine": "电脑正在自动重新登录。",
+            "recoveringSub": "电脑正在自动重新登录，好了就能开始",
+        }
+        got = run_phone_js(
+            'out.push(["never", "unknown", "expired", "valid"].map((s) => PhoneModel.loginCopy(s, false)));'
+        )[0]
+        for st, actual in zip(["never", "unknown", "expired", "valid"], got):
+            with self.subTest(state=st):
+                self.assertEqual(actual, never_copy if st == "never" else relogin_copy)
+
+    def test_login_line_four_states_by_setup_and_recovering(self):
+        """纯规则表驱动：loginLine 四态乘四种 setup，外加 never/expired 各一条恢复中。"""
+        logins = {
+            "valid": {"session_present": True, "session_expired": False, "last_check_state": "valid"},
+            "expired": {"session_present": True, "session_expired": True, "last_check_state": "expired"},
+            "unknown": {"session_present": True, "session_expired": False, "last_check_state": "unknown"},
+            "never": {"session_present": False, "session_expired": False, "last_check_state": "unknown"},
+        }
+        setups = [
+            {"saved": True, "paused": False, "ocr_ready": True},
+            {"saved": True, "paused": False, "ocr_ready": False},
+            {"saved": False, "paused": False, "ocr_ready": True},
+            {"saved": False, "paused": False, "ocr_ready": False},
+        ]
+        heads = {
+            "valid": "电脑上的登录有效。", "expired": "电脑上的登录已失效。",
+            "unknown": "电脑上的登录状态还没确认。", "never": "电脑上还没有登录。",
+        }
+        tails_never = [
+            "点「登录」后电脑会自己登录。", "登录时只需在这里输验证码。",
+            "电脑上没保存账号，登录要输账号和密码。", "电脑上没保存账号，登录要输账号、密码和验证码。",
+        ]
+        tails_other = [
+            "失效时电脑会自己重新登录。", "失效时只需在这里输验证码。",
+            "电脑上没保存账号，重新登录要输账号和密码。", "电脑上没保存账号，重新登录要输账号、密码和验证码。",
+        ]
+        got = run_phone_js("""
+const logins = %s, setups = %s;
+for (const k of ["valid", "expired", "unknown", "never"]) {
+  out.push(setups.map((s) => PhoneModel.loginLine(logins[k], s, null)));
+}
+const autoLive = {origin: "auto", live: true, state: "starting", handoff: false};
+out.push(PhoneModel.loginLine(logins.never, setups[0], autoLive));
+out.push(PhoneModel.loginLine(logins.expired, setups[0], autoLive));
+""" % (json.dumps(logins), json.dumps(setups)))
+        for idx, k in enumerate(["valid", "expired", "unknown", "never"]):
+            tails = tails_never if k == "never" else tails_other
+            self.assertEqual(got[idx], [heads[k] + t for t in tails], msg=k)
+        self.assertEqual(got[4], "电脑正在自动登录。")
+        self.assertEqual(got[5], "电脑正在自动重新登录。")
+
+    def test_login_done_text_switches_by_first_login_and_busy(self):
+        """纯规则表驱动：loginDoneText 按 firstLogin 与 planBusy 四种组合切句。"""
+        got = run_phone_js("""
+out.push(PhoneModel.loginDoneText(false, false));
+out.push(PhoneModel.loginDoneText(false, true));
+out.push(PhoneModel.loginDoneText(true, false));
+out.push(PhoneModel.loginDoneText(true, true));
+""")
+        self.assertEqual(got, [
+            "重新登录成功，活动列表已刷新。计划不会自动重新开始，要你重新核对后再点开始。",
+            "重新登录成功，报名计划照常继续。",
+            "登录成功，活动列表已刷新。",
+            "登录成功，报名计划照常继续。",
+        ])
+
+    def test_dom_never_uses_login_copy_and_unknown_hides_expired_banner(self):
+        """DOM：never 全页用「登录」文案；unknown 无失效横幅且登录行写「还没确认」。"""
+        values = run_phone_js("""
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now();
+const mkSnap = (login) => ({state: {terms_ok: true, login,
+  relogin_setup: {saved: false, ocr_ready: false, paused: false},
+  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00"}]}});
+ui.ingest(mkSnap({session_present: true, session_expired: false, last_check_state: "unknown"}));
+ui.refreshControls();
+out.push({bannerHidden: $("login-expired-banner").hidden, line: $("login-line").textContent});
+ui.ingest(mkSnap({session_present: false, session_expired: false, last_check_state: "unknown"}));
+ui.model.selected = ["a1"];
+ui.refreshControls();
+out.push({
+  bannerTitle: $("login-expired-title").textContent,
+  bannerText: $("login-expired-text").textContent,
+  bannerAction: $("btn-banner-relogin").textContent,
+  barSub: $("bar-sub").textContent,
+  barAction: $("btn-start").textContent,
+  moreEntry: $("btn-relogin-open").textContent,
+});
+$("btn-banner-relogin").click();
+out.push($("sheet-title").textContent);
+""")
+        self.assertTrue(values[0]["bannerHidden"])
+        self.assertTrue(values[0]["line"].startswith("电脑上的登录状态还没确认。"))
+        self.assertEqual(values[1], {
+            "bannerTitle": "电脑上还没有登录",
+            "bannerText": "可以在手机上登录，也可以回电脑处理。",
+            "bannerAction": "登录",
+            "barSub": "还差一步：登录",
+            "barAction": "登录",
+            "moreEntry": "在手机上登录",
+        })
+        self.assertEqual(values[2], "在手机上登录")
+
+    def test_dom_first_login_keeps_title_and_done_text_across_valid_snapshot(self):
+        """DOM：never 时打开登录面板后收到 login=valid + relay=success 快照仍保持「登录」，重开才切回重新登录。"""
+        values = run_phone_js("""
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now();
+ui.ingest({state: {terms_ok: true, login: {session_present: false, last_check_state: "unknown"},
+  relogin_setup: {saved: true, ocr_ready: false, paused: false},
+  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00"}]}});
+ui.refreshControls();
+$("btn-banner-relogin").click();
+const validDone = {state: {terms_ok: true,
+  login: {session_present: true, session_expired: false, last_check_state: "valid"},
+  login_relay: {state: "success", live: true, flow_id: "f1"},
+  relogin_setup: {saved: true, ocr_ready: false, paused: false},
+  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00"}]}};
+ui.ingest(validDone);
+ui.refreshControls();
+ui.refreshControls();
+out.push({
+  title: $("sheet-title").textContent, relText: $("rel-text").textContent,
+  relNote: $("relogin-note").textContent, moreEntry: $("btn-relogin-open").textContent,
+});
+ui.closeSheet(true);
+$("btn-relogin-open").click();
+out.push($("sheet-title").textContent);
+""")
+        self.assertEqual(values[0]["title"], "在手机上登录")
+        self.assertTrue(values[0]["relText"].startswith("登录成功，活动列表已刷新。"))
+        self.assertTrue(values[0]["relNote"].startswith("登录成功，活动列表已刷新。"))
+        self.assertEqual(values[0]["moreEntry"], "在手机上重新登录")
+        self.assertEqual(values[1], "在手机上重新登录")
 
 
 class SheetsOpsDomTests(unittest.TestCase):

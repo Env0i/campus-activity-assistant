@@ -29,7 +29,8 @@ function openSheet(id) {
   $("review-foot").hidden = id !== "review";
   $("relogin-foot").hidden = id !== "relogin";
   $("sheet-title").textContent = id === "relogin"
-    ? PhoneModel.loginCopy(PhoneModel.loginState(model.login), false).reloginEntry : SHEET_TITLES[id];
+    ? PhoneModel.loginCopy(model.relFirstLogin ? "never" : "expired", false).reloginEntry
+    : SHEET_TITLES[id];
   if (id === "more") {
     $("btn-relogin-open").textContent = PhoneModel.loginCopy(PhoneModel.loginState(model.login), false).reloginEntry;
   }

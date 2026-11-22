@@ -50,7 +50,7 @@ const model = {
   confirm: null,
   /* RL06 确认层：电脑存着账号且装了识别时，begin 前先拦一步（openRelogin 置位）；
      RL08 附言：本轮是否在手机上输了账号、勾没勾「保存到这台电脑」 */
-  relConfirm: false, relEnteredAcct: false, relSavedChoice: false,
+  relConfirm: false, relFirstLogin: false, relEnteredAcct: false, relSavedChoice: false,
   /* PA01/EX03/EX04 配对视图：锁定倒计时的呈现值（权威值是服务端 retry_after_s）、
      当前配对错误句、1 秒呈现 tick 的定时器 id；pairing 是在途单飞锁（A-BUG-6）、
      pairOkPending 是配对成功告警的待展示标记（UI-F13，本会话关闭后不再出现） */
