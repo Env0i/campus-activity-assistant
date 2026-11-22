@@ -998,3 +998,60 @@ class PhoneLinkRestoreTests(DeviceTrustBase):
         status = self.service.link_status()
         self.assertEqual(status["link"], "connected")
         self.assertEqual(status["last_contact_ago_s"], 0)
+
+
+class ActivityTimestampProjectionTests(unittest.TestCase):
+    """手机快照活动副本补齐 open_ts / close_ts，非法时间文本为 None，原缓存不变。"""
+
+    def setUp(self):
+        from fixtures.api_threads import stop_auto_relogin_on_cleanup
+        import app as local_app
+        from time_contract import school_epoch
+
+        self.local_app = local_app
+        self.school_epoch = school_epoch
+        tmp = tempfile.mkdtemp(prefix="campus-phone-ts-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        data = Path(tmp) / "data"
+        data.mkdir()
+        for patch in (
+            mock.patch.object(local_app, "PREFS", Path(tmp) / "ui.json"),
+            mock.patch.object(local_app, "DATA_DIR", data),
+            mock.patch.object(local_app, "DEMO", True),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.api = stop_auto_relogin_on_cleanup(self, local_app.Api())
+
+    def test_snapshot_adds_open_ts_and_close_ts_without_mutating_cache(self):
+        cases = {
+            "valid": {"id": "valid", "name": "有效场",
+                      "sign_start": "2026-11-05 09:00:00", "sign_end": "2026-11-05 18:00:00"},
+            "bad_cal": {"id": "bad_cal", "name": "不存在日期",
+                        "sign_start": "2026-02-30 09:00:00", "sign_end": "2026-02-30 18:00:00"},
+            "iso_t": {"id": "iso_t", "name": "带T",
+                      "sign_start": "2026-11-05T09:00:00", "sign_end": "2026-11-05T18:00:00"},
+            "no_sec": {"id": "no_sec", "name": "缺秒",
+                       "sign_start": "2026-11-05 09:00", "sign_end": "2026-11-05 18:00"},
+        }
+        with self.api._lock:
+            self.api._activity_list.activities = {k: dict(v) for k, v in cases.items()}
+        raw = self.api._phone_raw_state()
+        projected = project_state(raw)
+        by_id = {item["id"]: item for item in projected["activities"]}
+        self.assertIn("open_ts", by_id["valid"])
+        self.assertIn("close_ts", by_id["valid"])
+        self.assertEqual(by_id["valid"]["open_ts"], self.school_epoch("2026-11-05 09:00:00"))
+        self.assertEqual(by_id["valid"]["close_ts"], self.school_epoch("2026-11-05 18:00:00"))
+        for bad_id in ("bad_cal", "iso_t", "no_sec"):
+            self.assertIn("open_ts", by_id[bad_id])
+            self.assertIsNone(by_id[bad_id]["open_ts"])
+            self.assertIn("close_ts", by_id[bad_id])
+            self.assertIsNone(by_id[bad_id]["close_ts"])
+        for orig in self.api._activity_list.activities.values():
+            self.assertNotIn("open_ts", orig)
+            self.assertNotIn("close_ts", orig)
+
+
+if __name__ == "__main__":
+    unittest.main()

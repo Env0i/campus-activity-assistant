@@ -3754,7 +3754,7 @@ class ListDetailModelTests(unittest.TestCase):
 const items = %s;
 const nowS = Date.UTC(2026, 10, 8, 6, 0, 0) / 1000;   /* 北京时间 11-08 14:00 */
 const view = PhoneModel.listView(items, { q: "", status: "all", time: "all" },
-  { nowS: %s, wallS: nowS, selected: %s, busy: %s });
+  { nowS: %s, selected: %s, busy: %s });
 out.push(view.groups.map((g) => [g.title, g.note, g.n, g.cls, g.nowBefore].join("|")));
 out.push([view.counts.free, view.counts.signed, view.counts.all]);
 out.push(view.groups.map((g) => g.now));
@@ -3802,9 +3802,9 @@ out.push(PhoneModel.leftCn(45));
 out.push(PhoneModel.leftCn(-3));
 const items = [{ id: "s0", name: "马上开放", sign_start: "2026-11-08 14:05:00" }];
 const nowS = Date.UTC(2026, 10, 8, 6, 0, 0) / 1000;
-const soon = PhoneModel.listView(items, {}, { nowS: nowS, wallS: nowS, selected: [], busy: false });
+const soon = PhoneModel.listView(items, {}, { nowS: nowS, selected: [], busy: false });
 out.push([soon.groups[0].rows[0].left, soon.groups[0].rows[0].leftCls]);
-const down = PhoneModel.listView(items, {}, { nowS: null, wallS: nowS, selected: [], busy: false });
+const down = PhoneModel.listView(items, {}, { nowS: null, selected: [], busy: false });
 out.push([down.groups[0].rows[0].left, down.groups[0].rows[0].leftCls,
           down.groups[0].rows[0].flags.map((f) => f.text)]);
 """)
@@ -3833,10 +3833,10 @@ const second = PhoneModel.pickItem(first.selected, items, "t2", true);
 out.push([second.selected, second.notice]);
 const off = PhoneModel.pickItem(second.selected, items, "t2", false);
 out.push([off.selected, off.notice]);
-const view = PhoneModel.listView(items, {}, { nowS: nowS, wallS: nowS, selected: ["t1"], busy: false });
+const view = PhoneModel.listView(items, {}, { nowS: nowS, selected: ["t1"], busy: false });
 const row2 = view.groups[0].rows.find((r) => r.id === "t2");
 out.push([row2.warn, row2.hasWarn, row2.selected]);
-const busyView = PhoneModel.listView(items, {}, { nowS: nowS, wallS: nowS, selected: ["t1"], busy: true });
+const busyView = PhoneModel.listView(items, {}, { nowS: nowS, selected: ["t1"], busy: true });
 out.push(busyView.groups[0].rows.find((r) => r.id === "t2").hasWarn);
 """ % json.dumps(items, ensure_ascii=False))
         self.assertEqual(values[0], ["t1"])
@@ -3913,6 +3913,54 @@ out.push([ui.model.filter.q, $("q").value]);
             "LD04 提示条在列表区可见")
         self.assertEqual(values[1], [False, "", "true"], "搜索钮展开整页搜索并清空关键词")
         self.assertEqual(values[2], ["乙", "乙"], "搜索框与折叠内 #q 写同一个关键词")
+
+    def test_open_epoch_uses_open_ts_key_only_and_strict_fallback(self):
+        """有 open_ts 键时只用它（null 不回退解析文本）；缺键时走严格格式与日历校验。"""
+        values = run_phone_js("""
+out.push(PhoneModel.openEpochOf({ open_ts: null, sign_start: "2026-11-05 09:00:00" }));
+out.push(PhoneModel.openEpochOf({ open_ts: 1700000123, sign_start: "2026-11-05 09:00:00" }));
+out.push(PhoneModel.openEpochOf({ sign_start: "2026-11-05 09:00:00" }));
+out.push(PhoneModel.openEpochOf({ sign_start: "2026-02-30 09:00:00" }));
+out.push(PhoneModel.openEpochOf({ sign_start: "2026-11-05T09:00:00" }));
+out.push(PhoneModel.openEpochOf({ sign_start: "2026-11-05 09:00" }));
+""")
+        expected_nov5 = int(datetime(2026, 11, 5, 9, 0, 0, tzinfo=timezone(timedelta(hours=8))).timestamp())
+        self.assertEqual(values, [0, 1700000123, expected_nov5, 0, 0, 0])
+
+    def test_st_of_prefers_close_ts_over_sign_end_text(self):
+        """有 close_ts 键时只用它判截止，忽略 sign_end 文本。"""
+        values = run_phone_js("""
+const nowS = 2000;
+out.push(PhoneModel.stOf({ open_ts: 1000, close_ts: 2000, sign_end: "2099-01-01 00:00:00" }, nowS));
+out.push(PhoneModel.stOf({ open_ts: 1000, close_ts: null, sign_end: "2020-01-01 00:00:00" }, nowS));
+""")
+        self.assertEqual(values, ["closed", "open"])
+
+    def test_uncalibrated_clock_groups_by_beijing_open_day_ignoring_date_now(self):
+        """时钟不可用时 pre 场按北京开放日升序分组，篡改沙箱 Date.now 组名不变。"""
+        items = [
+            {"id": "p2", "name": "十一月六", "sign_start": "2026-11-06 09:00:00"},
+            {"id": "p1a", "name": "十一月四甲", "sign_start": "2026-11-04 14:30:00"},
+            {"id": "p1b", "name": "十一月四乙", "sign_start": "2026-11-04 18:00:00"},
+            {"id": "u1", "name": "待公布", "sign_start": ""},
+            {"id": "s1", "name": "已报名", "sign_start": "2026-11-04 08:00:00", "signed": True},
+            {"id": "c1", "name": "已截止", "sign_start": "2026-11-03 08:00:00", "closed": True},
+        ]
+        values = run_phone_js("""
+const items = %s;
+const realNow = Date.now;
+Date.now = () => Date.UTC(2026, 10, 4, 4, 0, 0);
+const v1 = PhoneModel.listView(items, { q: "", status: "all", time: "all" }, { nowS: null });
+Date.now = () => Date.UTC(2026, 11, 20, 4, 0, 0);
+const v2 = PhoneModel.listView(items, { q: "", status: "all", time: "all" }, { nowS: null });
+const gk = PhoneModel.groupKeyOf(items[1], "pre", null);
+Date.now = realNow;
+out.push(v1.groups.map((g) => [g.title, g.n]), v2.groups.map((g) => [g.title, g.n]), gk);
+""" % json.dumps(items, ensure_ascii=False))
+        want = [["11月4日 周三", 2], ["11月6日 周五", 1], ["待公布", 1], ["已报名", 1], ["已截止", 1]]
+        self.assertEqual(values[0], want)
+        self.assertEqual(values[1], want)
+        self.assertEqual(values[2], "11月4日 周三")
 
     def test_today_chip_shows_real_shape_activity_via_dom(self):
         """只有 sign_start 无 open_ts 时，点今天筛选片仍能在 #items 呈现当天活动。"""

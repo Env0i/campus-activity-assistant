@@ -200,8 +200,8 @@ function buildWhy(item, signedItem, nowS) {
 function goSigned(id) {
   model.whyId = "";
   const clockNow = PhoneModel.businessNowS(model);
-  const shown = PhoneModel.visibleItems(model.items, model.filter,
-    clockNow !== null ? clockNow : Date.now() / 1000).some((it) => it.id === id);
+  // 时钟不可用时只传 clockNow=null，不拿手机墙钟充当筛选日历日
+  const shown = PhoneModel.visibleItems(model.items, model.filter, clockNow).some((it) => it.id === id);
   if (!shown) {
     model.filter = { q: "", status: "all", time: "all" };
     if ($("q")) $("q").value = "";
@@ -221,11 +221,18 @@ function goSigned(id) {
  * UI-F1（G07，原型 Phone.dc.html:285-289）：已报名/已截止是列表内的普通组
  * （组条+旗标+计数连排），照原型进主列表；details#signed-summary 按用户决策 2
  * 只留作结果态的「已报名汇总」入口——草稿态主列表已直接展示这些行，折叠区收起不重复 */
+const TODAY_ZONE_TITLES = ["正在开放", "今天"];
 const LIST_ZONES = [
-  ["items", ["正在开放", "今天"]],
+  ["items", TODAY_ZONE_TITLES],
   ["upcoming-items", ["明天", "后天", "待公布", "更晚开放", "已报名", "已截止"]],
   ["signed-items", []],
 ];
+
+/* 时钟未校准时的绝对日期组归入下方列表区，按开放日期升序展示且不丢行 */
+function inListZone(zone, title) {
+  if (zone[1].indexOf(title) >= 0) return true;
+  return zone[0] === "upcoming-items" && TODAY_ZONE_TITLES.indexOf(title) < 0;
+}
 
 function renderItems() {
   model.nowMs = Date.now();
@@ -233,8 +240,7 @@ function renderItems() {
   /* RS01：结果态供任务卡/底栏/列表开合共用；termsOk 传给行禁用（TM01） */
   const result = PhoneModel.resultView(model.plan, model.busy);
   const view = PhoneModel.listView(model.items, model.filter, {
-    nowS: nowS, wallS: model.nowMs / 1000,
-    selected: model.selected, busy: model.busy, termsOk: model.termsOk,
+    nowS: nowS, selected: model.selected, busy: model.busy, termsOk: model.termsOk,
   });
   const zoneCount = [0, 0, 0];
   LIST_ZONES.forEach((zone, zi) => {
@@ -242,7 +248,7 @@ function renderItems() {
     if (!box) return;
     box.textContent = "";
     view.groups.forEach((group) => {
-      if (zone[1].indexOf(group.title) < 0) return;
+      if (!inListZone(zone, group.title)) return;
       zoneCount[zi] += group.n;
       /* 「现在 {HH:MM}」分隔行（原型 nowline/nowchip，Phone.dc.html:93-97/286） */
       if (group.nowBefore && group.now) {

@@ -42,35 +42,54 @@ Object.assign(PhoneModel, {
     if (m > 0) return m + " 分 " + s + " 秒";
     return s + " 秒";
   },
-  /* 开放状态（原型 stOf，Phone.dc.html:489-493）：signed → closed（报名截止已过，与电脑
-   * classify_signup_mode 同一口径）→ open（已到开放时刻）→ pre → unknown（待公布）。
-   * 时钟不可用（nowS 为 null）时分辨不出 open/closed，按 pre/unknown 呈现「待校准」，
-   * 不在没有可信时钟时假装「已开放」 */
+  /* 开放状态：优先读电脑给出的 open_ts / close_ts，缺 close_ts 键时退回 PhoneModel.schoolSec(sign_end)；
+   * 时钟不可用（nowS 为 null）时分辨不出 open/closed，按 pre/unknown 呈现「待校准」。 */
   stOf(item, nowS) {
     if (!item || item.signed) return "signed";
     if (item.closed) return "closed";
     const open = PhoneModel.openEpochOf(item);
     if (nowS !== null && nowS !== undefined) {
-      const end = PhoneModel.schoolSec(item && item.sign_end);
+      const hasClose = Object.prototype.hasOwnProperty.call(item, "close_ts");
+      const end = hasClose
+        ? (typeof item.close_ts === "number" && Number.isFinite(item.close_ts) ? item.close_ts : null)
+        : PhoneModel.schoolSec(item && item.sign_end);
       if (end !== null && nowS >= end) return "closed";
       if (open > 0 && nowS >= open) return "open";
     }
     return open > 0 ? "pre" : "unknown";
   },
-  /* G07 分组（原型 groups 构建的组名序，Phone.dc.html:728-731）：今天/明天/后天按
-   * openEpochOf 的北京时间日历日（dayOf 即 UTC+8 日序）与业务此刻比对；原型只演示到后天，
-   * 真实列表有更晚的场次，归入「更晚开放」（沿用既有空态句的措辞），不丢行 */
-  groupKeyOf(item, st, nowS, wallS) {
+  /* 时钟不可用时把 openEpochOf 时刻格式化为北京日历日组名，与桌面 relDayText 同口径 */
+  openDayLabel(epochS) {
+    const d = new Date((Number(epochS) + 8 * 3600) * 1000);
+    const week = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+    return (d.getUTCMonth() + 1) + "月" + d.getUTCDate() + "日 " + week[d.getUTCDay()];
+  },
+  /* 时钟不可用时的组标题序：pre 场读 openEpochOf 按北京日历日升序，排在「待公布」「已报名」之前 */
+  uncalibratedGroupTitles(visible) {
+    const dayTitles = (visible || [])
+      .filter((item) => PhoneModel.stOf(item, null) === "pre")
+      .map((item) => PhoneModel.openEpochOf(item))
+      .filter((open) => open > 0)
+      .sort((a, b) => a - b)
+      .map((open) => PhoneModel.openDayLabel(open))
+      .filter((title, idx, arr) => arr.indexOf(title) === idx);
+    return ["正在开放"].concat(dayTitles, ["待公布", "已报名", "已截止"]);
+  },
+  /* 列表分组名：nowS 有值时按今天/明天/后天/更晚开放分组；nowS 为 null 时不读手机时钟，按北京日历日分组 */
+  groupKeyOf(item, st, nowS) {
     if (st === "signed") return "已报名";
     if (st === "open") return "正在开放";
     if (st === "closed") return "已截止";
     if (st === "unknown") return "待公布";
-    const base = nowS !== null && nowS !== undefined ? nowS : wallS;
-    const diff = PhoneModel.dayOf(PhoneModel.openEpochOf(item)) - PhoneModel.dayOf(base);
+    if (nowS === null || nowS === undefined) {
+      const open = PhoneModel.openEpochOf(item);
+      return open > 0 ? PhoneModel.openDayLabel(open) : "待公布";
+    }
+    const diff = PhoneModel.dayOf(PhoneModel.openEpochOf(item)) - PhoneModel.dayOf(nowS);
     if (diff === 1) return "明天";
     if (diff === 2) return "后天";
     if (diff >= 3) return "更晚开放";
-    return "今天";   // diff <= 0：开放日就是今天或已过（只在时钟不可用时出现）
+    return "今天";
   },
   /* G08 段钮可见集（原型 visible 过滤的 seg 分支，Phone.dc.html:721-722）：
    * 「可报名」= 开放状态 open/pre，与段钮计数同一口径；关键词与时间档沿用 filterItems */
@@ -224,12 +243,10 @@ Object.assign(PhoneModel, {
       led: PhoneModel.ledOf("--:--:--", "off", "暂时没有目标", ""),
     };
   },
-  /* G07/G08/G09 列表总聚合（原型 renderVals 的 groups/count/seg 段，Phone.dc.html:704-765/931）：
-   * 计数对全部活动按开放状态聚合（原型 count 在 visible 过滤前累加），分组只收段钮放行的行 */
+  /* 列表总聚合：只读业务时钟 nowS（不接收手机墙钟），未校准时按开放日组序呈现 */
   listView(items, filter, opts) {
     const options = opts || {};
     const nowS = options.nowS !== undefined ? options.nowS : null;
-    const wallS = options.wallS !== undefined ? options.wallS : 0;
     const list = items || [];
     const pick = PhoneModel.nextPick(list, nowS);
     /* termsOk 缺省＝已同意（undefined !== false）：条款门只在快照明确说 false 时收紧（TM01） */
@@ -243,16 +260,17 @@ Object.assign(PhoneModel, {
       if (st === "signed") count.signed += 1;
       if (st === "open" || st === "pre") count.free += 1;
     });
-    const visible = PhoneModel.visibleItems(list, filter,
-      nowS !== null && nowS !== undefined ? nowS : wallS);
-    const titles = ["正在开放", "今天", "明天", "后天", "待公布", "更晚开放", "已报名", "已截止"];
+    const visible = PhoneModel.visibleItems(list, filter, nowS);
+    const titles = nowS !== null && nowS !== undefined
+      ? ["正在开放", "今天", "明天", "后天", "待公布", "更晚开放", "已报名", "已截止"]
+      : PhoneModel.uncalibratedGroupTitles(visible);
     let nowPlaced = false;
     const nowText = nowS !== null && nowS !== undefined
       ? PhoneModel.hhmmss(PhoneModel.beijingSecOf(nowS)).slice(0, 5) : null;
     const groups = [];
     titles.forEach((title) => {
       const rows = visible
-        .filter((item) => PhoneModel.groupKeyOf(item, PhoneModel.stOf(item, nowS), nowS, wallS) === title)
+        .filter((item) => PhoneModel.groupKeyOf(item, PhoneModel.stOf(item, nowS), nowS) === title)
         .map((item) => PhoneModel.rowView(item, ctx));
       if (!rows.length) return;
       const nowBefore = !nowPlaced && title !== "正在开放";   // 原型 nowPlaced：首个非开放组前插「现在」

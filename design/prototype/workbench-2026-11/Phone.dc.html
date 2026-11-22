@@ -374,6 +374,10 @@ class Component extends DCLogic {
     if (m > 0) return m + ' 分 ' + s + ' 秒';
     return s + ' 秒';
   }
+  openDayText(openSec) {
+    var d = new Date(Date.UTC(2026, 10, 4) + Math.floor(openSec / 86400) * 86400000);
+    return (d.getUTCMonth() + 1) + '月' + d.getUTCDate() + '日 ' + ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getUTCDay()];
+  }
   glyphs() {
     if (!this._g) this._g = {
       '0': ['01110', '10001', '10011', '10101', '11001', '10001', '01110'],
@@ -726,12 +730,28 @@ class Component extends DCLogic {
       if (s.fTime === 'today' && i.group !== '今天' && i.group !== '正在开放') return false;
       return true;
     });
+    var groupOf = function (i) {
+      var st = self.stOf(i, s);
+      if (st === 'signed') return '已报名';
+      if (st === 'open' && i.st === 'pre') return '正在开放';
+      if (s.pcClock === 'down' && st === 'pre') return self.openDayText(i.open);
+      return i.group;
+    };
+    var preDayGroups = [];
+    if (s.pcClock === 'down') {
+      visible.filter(function (i) { return self.stOf(i, s) === 'pre'; })
+        .slice().sort(function (a, b) { return a.open - b.open; })
+        .forEach(function (i) {
+          var t = self.openDayText(i.open);
+          if (preDayGroups.indexOf(t) < 0) preDayGroups.push(t);
+        });
+    }
+    var groupOrder = s.pcClock === 'down'
+      ? ['正在开放'].concat(preDayGroups, ['待公布', '已报名', '已截止'])
+      : ['正在开放', '今天', '明天', '后天', '待公布', '已报名', '已截止'];
     var nowPlaced = false, groups = [];
-    ['正在开放', '今天', '明天', '后天', '待公布', '已报名', '已截止'].forEach(function (g) {
-      var list = visible.filter(function (i) {
-        var st = self.stOf(i, s);
-        return (st === 'signed' ? '已报名' : (st === 'open' && i.st === 'pre' ? '正在开放' : i.group)) === g;
-      });
+    groupOrder.forEach(function (g) {
+      var list = visible.filter(function (i) { return groupOf(i) === g; });
       if (!list.length) return;
       var nowBefore = false;
       if (!nowPlaced && g !== '正在开放') { nowBefore = true; nowPlaced = true; }

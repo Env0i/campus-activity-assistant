@@ -46,8 +46,7 @@ function tickClock() {
     });
   }
   const view = PhoneModel.listView(model.items, model.filter, {
-    nowS: nowS, wallS: Date.now() / 1000,
-    selected: model.selected, busy: model.busy, termsOk: model.termsOk,
+    nowS: nowS, selected: model.selected, busy: model.busy, termsOk: model.termsOk,
   });
   tickBoardLed(nowS, view);
   tickRowLeft(view);

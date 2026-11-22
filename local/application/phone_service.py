@@ -1,10 +1,19 @@
 """手机通道的生命周期与桌面入口。副作用通过组合根注入。"""
 from __future__ import annotations
 
+import math
 import threading
 
 from application.phone_access_session import PhoneAccessService as PhoneAccessService
 from domain import retry_rules
+
+
+def _finite_epoch(epoch_fn, value):
+    """用注入的 school_epoch 端口将学校时间文本换算为有限 epoch 秒，非法或缺失返回 None。"""
+    ts = epoch_fn(value)
+    if isinstance(ts, (int, float)) and not isinstance(ts, bool) and math.isfinite(ts):
+        return float(ts)
+    return None
 
 
 
@@ -27,6 +36,11 @@ class PhoneAccessController:
             busy = self._ports["busy"]()
             error = self._ports["list_error"]()
             pc_list_error = dict(error) if error else None
+        # 副本补写 open_ts / close_ts，由注入的 school_epoch 端口按 sign_start / sign_end 换算，原缓存不动
+        epoch_fn = self._ports["school_epoch"]
+        for item in activities:
+            item["open_ts"] = _finite_epoch(epoch_fn, item.get("sign_start"))
+            item["close_ts"] = _finite_epoch(epoch_fn, item.get("sign_end"))
         snapshot = None
         if plan is not None:
             try:

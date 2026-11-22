@@ -41,18 +41,18 @@ const PhoneModel = {
     });
   },
 
-  /* 开放时刻的 epoch 秒：优先 open_ts；真实手机快照里没有 open_ts，
-     只有 sign_start 文本，按北京时间（UTC+8）解析，和运行机器的时区无关。 */
+  /* 开放时刻的 epoch 秒：读快照的 item.open_ts（由电脑端 school_epoch 换算）；
+   * 缺 open_ts 键的旧夹具或预览退回严格格式校验并用 PhoneModel.schoolSec 校日历。 */
   openEpochOf(item) {
     if (!item) return 0;
-    const direct = Number(item.open_ts || 0);
-    if (direct > 0) return direct;
-    const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/
-      .exec(String(item.sign_start || "").trim());
-    if (!m) return 0;
-    const ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]),
-      Number(m[4]) - 8, Number(m[5]), Number(m[6] || 0));
-    return Math.floor(ms / 1000);
+    if (Object.prototype.hasOwnProperty.call(item, "open_ts")) {
+      const ts = item.open_ts;
+      return typeof ts === "number" && Number.isFinite(ts) && ts > 0 ? ts : 0;
+    }
+    const raw = typeof item.sign_start === "string" ? item.sign_start.trim() : "";
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) return 0;
+    const ts = PhoneModel.schoolSec(raw);
+    return ts !== null ? ts : 0;
   },
 
   /* 分区：手机上先看「今天」，再看「即将开放」，已报名的折起来。

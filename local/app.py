@@ -1096,6 +1096,7 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
                 "mask_account": lambda account: _login_rules.mask_account(account),
                 "ocr_ready": lambda: self._relogin_ocr_ready(),
                 "credentials_bad": lambda: _credential_store.is_bad(CREDENTIAL_FILE),
+                "school_epoch": school_epoch,
             })
 
     def _stop_phone_for_component_locked(self):
