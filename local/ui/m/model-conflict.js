@@ -9,9 +9,9 @@ Object.assign(PhoneModel, {
    * 手机上只读：没有取消按钮，不调任何写操作，只说去哪取消。时间只认学校时区（UTC+8）与电脑给的北京时间快照。 */
   WJ: "\u2060",   // U+2060：连住「（跨N天）」「这一场报不了。」「学校网站取消。」，避免孤字换行
   glue(text) { return Array.from(String(text)).join(PhoneModel.WJ); },
-  /* 学校时间文本 → epoch 秒；非法 / 空返回 null */
+  /* 学校时间文本 → epoch 秒（仅认日期与时间之间一个空格）；非法 / 空返回 null */
   schoolSec(text) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/.exec(String(text || "").trim());
+    const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(String(text || "").trim());
     if (!m) return null;
     const [y, mo, d, h, mi, s] = m.slice(1).map(Number);
     if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || s > 59) return null;
@@ -19,6 +19,15 @@ Object.assign(PhoneModel, {
     const back = new Date(utc);
     if (back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) return null;   // 2 月 30 日不滚成 3 月
     return utc / 1000 - 8 * 3600;
+  },
+  /* 读快照的数值时刻键（由电脑端 school_epoch 换算）：带 tsKey 键时只读它，缺键才退回 schoolSec 解析 textKey */
+  tsOf(item, tsKey, textKey) {
+    if (!item || typeof item !== "object") return null;
+    if (Object.prototype.hasOwnProperty.call(item, tsKey)) {
+      const ts = item[tsKey];
+      return typeof ts === "number" && Number.isFinite(ts) ? ts : null;
+    }
+    return PhoneModel.schoolSec(item[textKey]);
   },
   pad2(n) { return String(n).padStart(2, "0"); },
   /* 「11月8日 22:40」：与电脑列表同一写法，不带秒 */
@@ -33,10 +42,10 @@ Object.assign(PhoneModel, {
   lastDayOf(start, end) {
     return PhoneModel.dayOf(PhoneModel.endsAtMidnight(start, end) ? end - 1 : end);
   },
-  /* 举办时段：{s, e}（epoch 秒）；缺失或结束不晚于开始返回 null */
+  /* 举办时段：{s, e}（epoch 秒）；读 act_start_ts / act_end_ts（缺键退回文本），缺失或结束不晚于开始返回 null */
   actRange(item) {
-    const s = PhoneModel.schoolSec(item && item.act_start);
-    const e = PhoneModel.schoolSec(item && item.act_end);
+    const s = PhoneModel.tsOf(item, "act_start_ts", "act_start");
+    const e = PhoneModel.tsOf(item, "act_end_ts", "act_end");
     return s !== null && e !== null && e > s ? { s, e } : null;
   },
   spanDays(item) {
@@ -85,11 +94,11 @@ Object.assign(PhoneModel, {
     if (!Number.isFinite(elapsed) || elapsed < 0 || c.ageS + elapsed > 900) return null;   // 超过 900 秒不可信
     return c.epochAtSampleS + elapsed;
   },
-  /* 取消窗口：现在在 [报名开始, 报名截止] 内 true；时钟不可用或没有截止返回 null */
+  /* 取消窗口：现在在 [报名开始, 报名截止] 内 true；读 open_ts / close_ts（缺键退回文本），时钟不可用或没有截止返回 null */
   cancelWindowOpen(item, nowS) {
-    const end = PhoneModel.schoolSec(item && item.sign_end);
+    const end = PhoneModel.tsOf(item, "close_ts", "sign_end");
     if (nowS === null || nowS === undefined || end === null) return null;
-    const start = PhoneModel.schoolSec(item.sign_start);
+    const start = PhoneModel.tsOf(item, "open_ts", "sign_start");
     if (start !== null && nowS < start) return false;
     return nowS <= end;
   },
@@ -131,17 +140,17 @@ Object.assign(PhoneModel, {
       text: (pts ? pts + " 分" : "分未公布") + " · " + (wage ? "工资 " + wage : "工资未公布"),
     };
   },
-  /* 已报名且还能取消的行：只说去哪取消，手机上没有取消按钮 */
+  /* 已报名且还能取消的行：读 close_ts（缺键退回 sign_end），只说去哪取消，手机上没有取消按钮 */
   cancelNote(item, nowS) {
     if (!item || !item.signed || item.cancel_allowed !== true) return "";
     if (PhoneModel.cancelWindowOpen(item, nowS) !== true) return "";
-    return "可取消至 " + PhoneModel.absWhen(PhoneModel.schoolSec(item.sign_end)) + "，在电脑上或" + PhoneModel.glue("学校网站取消。");
+    return "可取消至 " + PhoneModel.absWhen(PhoneModel.tsOf(item, "close_ts", "sign_end")) + "，在电脑上或" + PhoneModel.glue("学校网站取消。");
   },
-  /* 解除路径四选一（与电脑气泡同文案） */
+  /* 解除路径四选一（与电脑气泡同文案），截止时刻读 close_ts（缺键退回 sign_end） */
   clashWay(sg, nowS) {
     const nm = "「" + sg.name + "」";
     const open = PhoneModel.cancelWindowOpen(sg, nowS);
-    const end = PhoneModel.schoolSec(sg.sign_end);
+    const end = PhoneModel.tsOf(sg, "close_ts", "sign_end");
     if (sg.cancel_allowed === true && open === true) {
       return { kind: "a", hasGo: true, text: "想报这一场，要先取消" + nm + "的报名，" + PhoneModel.absWhen(end) + " 前可以取消。" };
     }

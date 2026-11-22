@@ -16,6 +16,21 @@ def _finite_epoch(epoch_fn, value):
     return None
 
 
+_ACTIVITY_TIME_KEYS = (
+    ("open_ts", "sign_start"),
+    ("close_ts", "sign_end"),
+    ("act_start_ts", "act_start"),
+    ("act_end_ts", "act_end"),
+)
+
+
+def _attach_activity_epochs(activities, epoch_fn):
+    """为手机快照活动副本补写开放、截止与举办起止四个时刻键（由 school_epoch 端口换算），不动原缓存。"""
+    for item in activities:
+        for ts_key, text_key in _ACTIVITY_TIME_KEYS:
+            item[ts_key] = _finite_epoch(epoch_fn, item.get(text_key))
+
+
 
 class PhoneAccessController:
     def __init__(self, *, lock, coordination, coordination_lock, service, ports):
@@ -36,11 +51,8 @@ class PhoneAccessController:
             busy = self._ports["busy"]()
             error = self._ports["list_error"]()
             pc_list_error = dict(error) if error else None
-        # 副本补写 open_ts / close_ts，由注入的 school_epoch 端口按 sign_start / sign_end 换算，原缓存不动
-        epoch_fn = self._ports["school_epoch"]
-        for item in activities:
-            item["open_ts"] = _finite_epoch(epoch_fn, item.get("sign_start"))
-            item["close_ts"] = _finite_epoch(epoch_fn, item.get("sign_end"))
+        # 副本补写四个时刻键，由注入的 school_epoch 端口按对应时间文本换算，原缓存不动
+        _attach_activity_epochs(activities, self._ports["school_epoch"])
         snapshot = None
         if plan is not None:
             try:

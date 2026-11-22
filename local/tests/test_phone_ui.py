@@ -6394,6 +6394,44 @@ out.push({ yes: PhoneModel.refundFlag(freeD), no: PhoneModel.refundFlag(clashC),
         self.assertIsNone(out["signed"])
         self.assertIsNone(out["closed"])
 
+    def test_ts_of_and_act_range_prefer_snapshot_keys_over_text(self):
+        out = run_phone_js(SETUP + r"""
+out.push({
+  withVal: PhoneModel.tsOf({ act_start_ts: 12345, act_start: "2026-11-08 08:00:00" }, "act_start_ts", "act_start"),
+  withNull: PhoneModel.tsOf({ act_start_ts: null, act_start: "2026-11-08 08:00:00" }, "act_start_ts", "act_start"),
+  noKey: PhoneModel.tsOf({ act_start: "2026-11-08 08:00:00" }, "act_start_ts", "act_start"),
+  rangeNull: PhoneModel.actRange({
+    act_start_ts: null, act_start: "2026-11-08 08:00:00",
+    act_end_ts: Date.UTC(2026, 10, 8, 2, 0, 0) / 1000, act_end: "2026-11-08 10:00:00",
+  }),
+});
+""")[0]
+        want_nov8_08 = int(datetime(2026, 11, 8, 8, 0, 0, tzinfo=timezone(timedelta(hours=8))).timestamp())
+        self.assertEqual(out["withVal"], 12345)
+        self.assertIsNone(out["withNull"])
+        self.assertEqual(out["noKey"], want_nov8_08)
+        self.assertIsNone(out["rangeNull"])
+
+    def test_signed_clash_prefers_act_ts_keys_when_text_differs(self):
+        out = run_phone_js(SETUP + r"""
+const ts = (d, h) => Date.UTC(2026, 10, d, h - 8, 0, 0) / 1000;
+const sg = { id: "sg", signed: true,
+  act_start_ts: ts(9, 10), act_end_ts: ts(9, 12),
+  act_start: "2026-11-01 08:00:00", act_end: "2026-11-01 09:00:00" };
+const byTsHit = { id: "c1", signed: false,
+  act_start_ts: ts(9, 11), act_end_ts: ts(9, 13),
+  act_start: "2026-11-02 08:00:00", act_end: "2026-11-02 09:00:00" };
+const byTsMiss = { id: "c2", signed: false,
+  act_start_ts: ts(12, 10), act_end_ts: ts(12, 12),
+  act_start: "2026-11-01 08:30:00", act_end: "2026-11-01 09:30:00" };
+out.push({
+  hit: (PhoneModel.signedClash(byTsHit, [sg, byTsHit]) || {}).id || null,
+  miss: PhoneModel.signedClash(byTsMiss, [sg, byTsMiss]),
+});
+""")[0]
+        self.assertEqual(out["hit"], "sg")
+        self.assertIsNone(out["miss"])
+
 
 class PhoneTimeTextTests(unittest.TestCase):
     def test_cross_day_same_day_and_midnight(self):
@@ -6416,6 +6454,19 @@ out.push({
         self.assertEqual(out["bad"], "")
         self.assertEqual(out["days"], [3, 1])
 
+    def test_school_sec_rejects_t_separator_and_keeps_space_format(self):
+        out = run_phone_js("""
+out.push({
+  withT: PhoneModel.schoolSec("2026-11-08T09:00:00"),
+  withSpace: PhoneModel.schoolSec("2026-11-08 09:00:00"),
+  badCal: PhoneModel.schoolSec("2026-02-30 09:00:00"),
+});
+""")[0]
+        want_nov8_09 = int(datetime(2026, 11, 8, 9, 0, 0, tzinfo=timezone(timedelta(hours=8))).timestamp())
+        self.assertIsNone(out["withT"])
+        self.assertEqual(out["withSpace"], want_nov8_09)
+        self.assertIsNone(out["badCal"])
+
 
 class PhoneCancelNoteTests(unittest.TestCase):
     def test_note_only_when_allowed_and_inside_the_window(self):
@@ -6436,6 +6487,26 @@ out.push({ none, nowS, ok: PhoneModel.cancelNote(signedA, nowS),
         self.assertEqual(out["ok"], "可取消至 11月8日 14:00，在电脑上或" + WJ.join("学校网站取消。"))
         for key in ("no", "nul", "late", "early", "unsigned"):
             self.assertEqual(out[key], "", key)
+
+    def test_cancel_window_and_note_use_close_ts_over_sign_end_text(self):
+        out = run_phone_js(SETUP + r"""
+const model = { clock: null }; clockAt(model);
+const nowS = PhoneModel.businessNowS(model);
+const expiredByTs = Object.assign({}, signedA, {
+  open_ts: nowS - 3600, close_ts: nowS - 60, sign_end: "2026-11-08 14:00:00" });
+const openByTs = Object.assign({}, signedA, {
+  open_ts: nowS - 3600, close_ts: nowS + 3600, sign_end: "2026-11-01 08:00:00" });
+out.push({
+  winExp: PhoneModel.cancelWindowOpen(expiredByTs, nowS),
+  noteExp: PhoneModel.cancelNote(expiredByTs, nowS),
+  winOpen: PhoneModel.cancelWindowOpen(openByTs, nowS),
+  noteOpen: PhoneModel.cancelNote(openByTs, nowS),
+});
+""")[0]
+        self.assertFalse(out["winExp"])
+        self.assertEqual(out["noteExp"], "")
+        self.assertTrue(out["winOpen"])
+        self.assertIn("可取消至 11月6日 15:00", out["noteOpen"])
 
     def test_clock_snapshot_rules(self):
         out = run_phone_js(SETUP + r"""

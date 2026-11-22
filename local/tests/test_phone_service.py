@@ -1052,6 +1052,35 @@ class ActivityTimestampProjectionTests(unittest.TestCase):
             self.assertNotIn("open_ts", orig)
             self.assertNotIn("close_ts", orig)
 
+    def test_snapshot_adds_act_start_ts_and_act_end_ts_without_mutating_cache(self):
+        cases = {
+            "valid": {"id": "valid", "name": "有效举办时段",
+                      "act_start": "2026-11-08 19:00:00", "act_end": "2026-11-08 21:00:00"},
+            "bad_cal": {"id": "bad_cal", "name": "不存在日期",
+                        "act_start": "2026-02-30 19:00:00", "act_end": "2026-02-30 21:00:00"},
+            "iso_t": {"id": "iso_t", "name": "带T",
+                      "act_start": "2026-11-08T19:00:00", "act_end": "2026-11-08T21:00:00"},
+            "no_sec": {"id": "no_sec", "name": "缺秒",
+                       "act_start": "2026-11-08 19:00", "act_end": "2026-11-08 21:00"},
+        }
+        with self.api._lock:
+            self.api._activity_list.activities = {k: dict(v) for k, v in cases.items()}
+        raw = self.api._phone_raw_state()
+        projected = project_state(raw)
+        by_id = {item["id"]: item for item in projected["activities"]}
+        self.assertIn("act_start_ts", by_id["valid"])
+        self.assertIn("act_end_ts", by_id["valid"])
+        self.assertEqual(by_id["valid"]["act_start_ts"], self.school_epoch("2026-11-08 19:00:00"))
+        self.assertEqual(by_id["valid"]["act_end_ts"], self.school_epoch("2026-11-08 21:00:00"))
+        for bad_id in ("bad_cal", "iso_t", "no_sec"):
+            self.assertIn("act_start_ts", by_id[bad_id])
+            self.assertIsNone(by_id[bad_id]["act_start_ts"])
+            self.assertIn("act_end_ts", by_id[bad_id])
+            self.assertIsNone(by_id[bad_id]["act_end_ts"])
+        for orig in self.api._activity_list.activities.values():
+            self.assertNotIn("act_start_ts", orig)
+            self.assertNotIn("act_end_ts", orig)
+
 
 if __name__ == "__main__":
     unittest.main()
