@@ -25,14 +25,11 @@ Object.assign(PhoneModel, {
     return ocrReady ? "电脑会自己重新登录，不用你动手" : "只要输验证码";
   },
 
-  /* RL04 态 1「识别连续失败交接」：这一场是 manual 且电脑认错到了阈值。
-   * 服务端阈值 _MANUAL_RELOGIN_AFTER=3（app.py），与原型「连续认错 3 次」同口径；
-   * attempts 是这一场的认图次数、auto_failures 是整轮自动重登的连续失败数 */
-  REL_HANDOFF_AFTER: 3,
+  /* 交接给用户输验证码：依据后端 login_relay 的 live 与 handoff 两字段（两者均为 true 才算）；
+   * 后端仅在电脑自动识别认满阈值或识别结果不合规时置 handoff=true，本场结束后清掉。 */
   relHandoff(flow) {
-    if (!flow || String(flow.mode || "") !== "manual" || !flow.live) return false;
-    return (Number(flow.attempts) || 0) >= PhoneModel.REL_HANDOFF_AFTER
-      || (Number(flow.auto_failures) || 0) >= PhoneModel.REL_HANDOFF_AFTER;
+    if (!flow || typeof flow !== "object" || Array.isArray(flow)) return false;
+    return flow.live === true && flow.handoff === true;
   },
 
   /* RL04 needAcct：电脑没保存账号或保存的密码不对（paused）时手机输；
@@ -48,7 +45,7 @@ Object.assign(PhoneModel, {
     const s = setup || {};
     if (s.paused) return "";
     if (PhoneModel.relHandoff(flow)) {
-      return "电脑连续 3 次没认对验证码，换你来输。账号密码由电脑自动填写。";
+      return "电脑没认出验证码，换你来输。账号密码由电脑自动填写。";
     }
     const needAcct = !s.saved || !!s.paused;
     if (!needAcct) return "电脑会自动填账号密码，你只要输验证码。";

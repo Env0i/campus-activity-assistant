@@ -2678,7 +2678,7 @@ class ReloginSheetTests(unittest.TestCase):
     def test_lead_four_states_and_relbad_red_error(self):
         """RL04/RL07：lead 四态切换 + paused 红错无 lead。"""
         values = run_phone_js('''
-out.push(PhoneModel.relLead({mode:"manual", live:true, attempts:3}, {saved:true, ocr_ready:true}));
+out.push(PhoneModel.relLead({mode:"manual", live:true, attempts:3, handoff:true}, {saved:true, ocr_ready:true}));
 out.push(PhoneModel.relLead(null, {saved:true, ocr_ready:false}));
 out.push(PhoneModel.relLead(null, {saved:false, ocr_ready:false}));
 out.push(PhoneModel.relLead(null, {saved:false, ocr_ready:true}));
@@ -2690,7 +2690,7 @@ ui.openRelogin();
 out.push([$("rel-err").hidden, $("rel-err").textContent,
           $("rel-lead").hidden, $("relogin-account").hidden, $("rel-auto").hidden]);
 ''')
-        self.assertEqual(values[0], "电脑连续 3 次没认对验证码，换你来输。账号密码由电脑自动填写。")
+        self.assertEqual(values[0], "电脑没认出验证码，换你来输。账号密码由电脑自动填写。")
         self.assertEqual(values[1], "电脑会自动填账号密码，你只要输验证码。")
         self.assertEqual(values[2], "电脑上没有保存账号密码，账号、密码和验证码都要输。")
         self.assertEqual(values[3], "电脑上没有保存账号密码，输入账号和密码就行。")
@@ -2840,15 +2840,68 @@ const png = "%s";
 ui.model.lastOkAt = Date.now();
 ui.ingest({state:{relogin_setup:{saved:true, account_hint:"u*", ocr_ready:true, paused:false}}});
 ui.ingest({state:{login_relay:{mode:"manual", state:"waiting_code", flow_id:"f",
-  challenge_id:"c", image:png, live:true, attempts:3, auto_failures:0}}});
+  challenge_id:"c", image:png, live:true, attempts:3, auto_failures:0, handoff:true}}});
 out.push([$("rel-lead").textContent, $("relogin-account").hidden,
           $("relogin-captcha-group").hidden, $("btn-relogin-submit").hidden,
           $("btn-relogin-refresh").hidden, $("btn-relogin-cancel").hidden,
           $("btn-relogin").hidden]);
 ''' % CAPTCHA_PNG)
         self.assertEqual(values[0], [
-            "电脑连续 3 次没认对验证码，换你来输。账号密码由电脑自动填写。",
+            "电脑没认出验证码，换你来输。账号密码由电脑自动填写。",
             True, False, False, False, False, True])
+
+    def test_rel_handoff_relies_on_live_and_handoff(self):
+        """纯规则表驱动：relHandoff 只看 live === true 且 handoff === true，不按 attempts/auto_failures 猜。"""
+        cases = [
+            ({"handoff": True, "live": True}, True),
+            ({"handoff": True, "live": False}, False),
+            ({"handoff": True}, False),
+            ({"mode": "manual", "live": True, "attempts": 3}, False),
+            ({"mode": "manual", "live": True, "attempts": 3, "handoff": False}, False),
+            ({"auto_failures": 3, "live": True}, False),
+            ({}, False), (None, False), ([], False), ("manual", False), (123, False),
+        ]
+        got = run_phone_js(
+            "out.push(...%s.map((x) => PhoneModel.relHandoff(x)));"
+            "out.push(PhoneModel.relNeedAcct({live: true, handoff: true}, {saved: false, paused: false}));"
+            "out.push(PhoneModel.relNeedAcct({live: true, handoff: false}, {saved: false, paused: false}));"
+            % json.dumps([c[0] for c in cases])
+        )
+        for (flow, want), actual in zip(cases, got[:len(cases)]):
+            with self.subTest(flow=flow):
+                self.assertEqual(actual, want)
+        self.assertEqual(got[len(cases):], [False, True], "交接时即使未落盘保存账号也不再要求手输账号")
+
+    def test_invalid_ocr_handoff_hides_account_and_uses_handoff_lead(self):
+        """DOM：识别结果不合规的交接（attempts=1, handoff=true）切交接引导句并收起账号区。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const png = "%s";
+ui.model.lastOkAt = Date.now();
+ui.ingest({state:{relogin_setup:{saved:true, account_hint:"u*", ocr_ready:true, paused:false}}});
+ui.ingest({state:{login_relay:{origin:"auto", mode:"manual", state:"waiting_code",
+  flow_id:"f1", challenge_id:"c1", image:png, live:true, attempts:1, handoff:true}}});
+out.push([$("rel-lead").textContent, $("relogin-account").hidden, $("relogin-captcha-group").hidden]);
+''' % CAPTCHA_PNG)
+        self.assertEqual(values[0], [
+            "电脑没认出验证码，换你来输。账号密码由电脑自动填写。", True, False,
+        ])
+
+    def test_phone_origin_manual_failures_do_not_trigger_handoff(self):
+        """DOM：手机自己发起的人工场用户连续输错（attempts=3, handoff=false）不按电脑交接处理。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const png = "%s";
+ui.model.lastOkAt = Date.now();
+ui.ingest({state:{relogin_setup:{saved:false, account_hint:"", ocr_ready:false, paused:false}}});
+ui.ingest({state:{login_relay:{origin:"phone", mode:"manual", state:"waiting_code",
+  flow_id:"f2", challenge_id:"c2", image:png, live:true, attempts:3, handoff:false}}});
+out.push([$("rel-lead").textContent, $("relogin-account").hidden, $("relogin-captcha-group").hidden]);
+''' % CAPTCHA_PNG)
+        self.assertNotIn("电脑没认出验证码", values[0][0])
+        self.assertEqual(values[0], [
+            "电脑上没有保存账号密码，账号、密码和验证码都要输。", False, False,
+        ])
 
     def test_rel_can_submit_gates(self):
         """relCanSubmit（原型 Phone:675）：账号密码都填、验证码 4 位才放行主钮。"""
