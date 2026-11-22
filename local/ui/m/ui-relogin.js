@@ -7,6 +7,9 @@
    取值全在 PhoneModel.reloginView，这里只写 DOM；面板显隐由 openSheet/closeSheet 管，
    refreshControls 每次都重画一遍（忙态、主钮与附言随模型走） */
 function renderRelogin() {
+  if (model.sheetId === "relogin") {
+    $("sheet-title").textContent = PhoneModel.loginCopy(PhoneModel.loginState(model.login), false).reloginEntry;
+  }
   const view = PhoneModel.reloginView(model.flow, model.reloginSetup, {
     confirm: model.relConfirm,
     starting: model.reloginStarting,
@@ -14,6 +17,7 @@ function renderRelogin() {
     entered: model.relEnteredAcct,
     savedChoice: model.relSavedChoice,
     planBusy: model.busy,
+    login: model.login,
   });
   $("rel-err").textContent = view.err;
   $("rel-err").hidden = !view.err;
@@ -129,11 +133,8 @@ function ingestRelogin(info) {
     model.reloginSubmitting = false;
     endReloginControls();
     if (info.live) {
-      /* RL08（原型 Phone:892-894）：完成态两套文案照原型；计划在跑＝照常继续，
-         闲时＝列表已刷新但计划不会自动重新开始 */
-      $("relogin-note").textContent = model.busy
-        ? "重新登录成功，报名计划照常继续。"
-        : "重新登录成功，活动列表已刷新。计划不会自动重新开始，要你重新核对后再点开始。";
+      /* RL08（原型 Phone:892-894）：完成态两套文案；计划在跑＝照常继续，闲时按快照四态选句 */
+      $("relogin-note").textContent = PhoneModel.loginDoneText(model.login, model.busy);
       void poll(true);
     } else {
       // 中继在空闲时会回上一场的结论：那是历史，不是这一次。只按 live 播报，

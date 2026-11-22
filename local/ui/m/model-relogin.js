@@ -80,6 +80,15 @@ Object.assign(PhoneModel, {
     return String(prefix || "重新登录结束：") + code;
   },
 
+  /* 登录完成成功句：依据成功一刻快照的 login 四态（session_present/session_expired/last_check_state）与是否忙时切换 */
+  loginDoneText(login, planBusy) {
+    if (PhoneModel.loginState(login) === "never") {
+      return planBusy ? "登录成功，报名计划照常继续。" : "登录成功，活动列表已刷新。";
+    }
+    return planBusy ? "重新登录成功，报名计划照常继续。"
+      : "重新登录成功，活动列表已刷新。计划不会自动重新开始，要你重新核对后再点开始。";
+  },
+
   /* RL01–RL08 重登 sheet 的呈现数据（原型 rel 段，Phone.dc.html:881-905）。
    * flow=state.login_relay、setup=state.relogin_setup（拿不到时不猜 needAcct，字段先收着）、
    * local={confirm,starting,submitting,entered,savedChoice,planBusy}。 */
@@ -148,8 +157,7 @@ Object.assign(PhoneModel, {
     }
     /* RL08 完成态（原型 relogin==='done'，Phone:892-894）：两套文案 + 附言 */
     if (state === "success" && f.live) {
-      view.text = (o.planBusy ? "重新登录成功，报名计划照常继续。"
-        : "重新登录成功，活动列表已刷新。计划不会自动重新开始，要你重新核对后再点开始。")
+      view.text = PhoneModel.loginDoneText(o.login, o.planBusy)
         + (o.entered ? (o.savedChoice
           ? "账号已加密保存到电脑，下次失效时" + saveGain + "。"
           : "账号只在这次运行中有效，关闭工具后清除。") : "");

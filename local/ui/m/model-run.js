@@ -321,21 +321,29 @@ Object.assign(PhoneModel, {
     });
   },
 
-  /* SH05 登录行四态（原型 loginLine，Phone.dc.html:937 逐字）：
-   * 前半句按 state.login（session_expired / session_present，与 ingest 同一口径），
-   * 后半句按 relogin_setup——has=saved 且未暂停（密码不对时自动登录同样开不全，
-   * 并入「没保存账号」支，与 relNeedAcct 同口径）；ocrOn=ocr_ready。 */
+  /* 登录行按四态与 recovering 选前半句，never 态后半句改用登录说法，其余沿用重新登录说法 */
   loginLine(login, setup, flow) {
     const s = setup || {};
+    const st = PhoneModel.loginState(login);
+    const copy = PhoneModel.loginCopy(st, false);
     if (PhoneModel.loginRaw(login) && PhoneModel.loginRecovering(login, flow)) {
-      return "电脑正在自动重新登录。";
+      return copy.recoveringLine;
     }
-    const expired = PhoneModel.loginExpired(login);
+    const heads = {
+      valid: "电脑上的登录有效。",
+      expired: "电脑上的登录已失效。",
+      unknown: "电脑上的登录状态还没确认。",
+      never: "电脑上还没有登录。",
+    };
     const has = !!s.saved && !s.paused;
     const ocrOn = !!s.ocr_ready;
-    return (expired ? "电脑上的登录已失效。" : "电脑上的登录有效。")
-      + (has ? (ocrOn ? "失效时电脑会自己重新登录。" : "失效时只需在这里输验证码。")
+    const tail = st === "never"
+      ? (has ? (ocrOn ? "点「登录」后电脑会自己登录。" : "登录时只需在这里输验证码。")
+             : (ocrOn ? "电脑上没保存账号，登录要输账号和密码。"
+                      : "电脑上没保存账号，登录要输账号、密码和验证码。"))
+      : (has ? (ocrOn ? "失效时电脑会自己重新登录。" : "失效时只需在这里输验证码。")
              : (ocrOn ? "电脑上没保存账号，重新登录要输账号和密码。"
                       : "电脑上没保存账号，重新登录要输账号、密码和验证码。"));
+    return (heads[st] || heads.unknown) + tail;
   },
 });

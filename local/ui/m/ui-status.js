@@ -55,6 +55,10 @@ function renderAlerts(stale) {
   $("terms-alert-title").textContent = "电脑上还没有同意使用条款";
   $("terms-alert-text").textContent = "回电脑同意后才能登录和报名。现在显示的是上次的缓存。";
   $("terms-alert").hidden = !(!off && terms);
+  const expiredCopy = PhoneModel.loginCopy(PhoneModel.loginState(model.login), false);
+  $("login-expired-title").textContent = expiredCopy.bannerTitle;
+  $("login-expired-text").textContent = expiredCopy.bannerText;
+  $("btn-banner-relogin").textContent = expiredCopy.bannerAction;
   $("login-expired-banner").hidden = !(!off && !terms && expired);
   /* EX05（原型 Phone:855）：两句照原型，HH:MM 来自快照 pc_list_error.at */
   $("pclist-alert-title").textContent = "电脑上的活动列表没加载";
@@ -121,6 +125,7 @@ function refreshControls() {
   $("review-policy").textContent = hint;
   $("review-policy").hidden = !hint;
   $("login-line").textContent = PhoneModel.loginLine(model.login, model.reloginSetup, model.flow || null);
+  $("btn-relogin-open").textContent = PhoneModel.loginCopy(PhoneModel.loginState(model.login), false).reloginEntry;
   /* 验证中（提交验证码）sheet 不给关闭钮；开关本身在 openSheet/closeSheet 里管 */
   if (model.sheetId) $("btn-sheet-close").hidden = sheetBusy();
   renderAlerts(stale);   // EX01/EX02/EX05/EX06/TM01：五条告警按原型优先链互斥
@@ -161,6 +166,7 @@ function renderBar() {
   const expiredSub = PhoneModel.loginExpired(model.login, model.flow || null);
   const recoveringSub = PhoneModel.loginRaw(model.login)
     && PhoneModel.loginRecovering(model.login, model.flow || null);
+  const copy = PhoneModel.loginCopy(PhoneModel.loginState(model.login), recoveringSub);
   if (model.busy) {
     const fromPhone = model.plan && String(model.plan.source || "") === "phone"
       ? "（从手机开始）" : "";
@@ -181,8 +187,8 @@ function renderBar() {
     title.textContent = "已选 " + model.selected.length + " 场";
     sub.textContent = model.termsOk === false
       ? "电脑上同意条款后才能开始"
-      : (recoveringSub ? "电脑正在自动重新登录，好了就能开始"            // I2：与登录行同口径
-                 : (expiredSub ? "还差一步：重新登录"                    // EX02（Phone:864）
+      : (recoveringSub ? copy.recoveringSub
+                 : (expiredSub ? copy.barSub
                  : (model.clockState === "unavailable"                   // EX06（Phone:865）
                     ? "电脑校准北京时间后才能开始"
                     : (PhoneModel.connState(model, model.flying).state === "off"  // UI-F3：离线不冒充「已选 N 场，可开始」
@@ -191,7 +197,7 @@ function renderBar() {
   }
   /* EX02：登录失效时底栏主钮换成「重新登录」（点击在 wire 里分流到 openRelogin） */
   $("btn-start").textContent = expired && !model.busy
-    && !(model.pending && !model.pending.done) ? "重新登录" : "核对并开始";
+    && !(model.pending && !model.pending.done) ? copy.barAction : "核对并开始";
   $("btn-start").hidden = model.busy;
 }
 

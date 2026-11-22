@@ -61,7 +61,7 @@
     <!-- EX02 登录失效告警（原型 .alert.bad + 重新登录钮，Phone.dc.html:854）：两句照原型逐字，
          钮开重登 sheet（openRelogin）；显隐由 renderAlerts 按优先链管 -->
     <div id="login-expired-banner" class="alert bad" role="alert" hidden>
-      <span class="grow"><b>电脑上的登录已失效</b><span>可以在手机上重新登录，也可以回电脑处理。</span></span>
+      <span class="grow"><b id="login-expired-title">电脑上的登录已失效</b><span id="login-expired-text">可以在手机上重新登录，也可以回电脑处理。</span></span>
       <button id="btn-banner-relogin" class="b" type="button">重新登录</button>
     </div>
     <!-- EX05 电脑列表失败告警（原型 .alert tone 空，Phone.dc.html:855）：无钮，

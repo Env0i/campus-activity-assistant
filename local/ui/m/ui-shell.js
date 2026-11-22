@@ -28,7 +28,11 @@ function openSheet(id) {
   /* UI-F2：review/relogin 的页脚在 .sh-b 滚动区之外（sheet 级），随所属面板同开同收 */
   $("review-foot").hidden = id !== "review";
   $("relogin-foot").hidden = id !== "relogin";
-  $("sheet-title").textContent = SHEET_TITLES[id];
+  $("sheet-title").textContent = id === "relogin"
+    ? PhoneModel.loginCopy(PhoneModel.loginState(model.login), false).reloginEntry : SHEET_TITLES[id];
+  if (id === "more") {
+    $("btn-relogin-open").textContent = PhoneModel.loginCopy(PhoneModel.loginState(model.login), false).reloginEntry;
+  }
   $("btn-sheet-close").hidden = sheetBusy();
   root.hidden = false;
   $("sheet-box").focus();

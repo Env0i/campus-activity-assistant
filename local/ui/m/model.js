@@ -140,6 +140,40 @@ const PhoneModel = {
     return !!login && (!!login.session_expired || login.session_present === false
       || login.last_check_state === "expired");
   },
+  /* 登录四态判法：依据 login.session_present、login.session_expired 与 login.last_check_state；
+   * 非对象判 unknown，无会话（session_present===false）先于失效判 never，失效或校验 expired 判 expired，valid 判 valid，其余 unknown。 */
+  loginState(login) {
+    if (!login || typeof login !== "object" || Array.isArray(login)) return "unknown";
+    if (login.session_present === false) return "never";
+    if (login.session_expired || login.last_check_state === "expired") return "expired";
+    if (login.last_check_state === "valid") return "valid";
+    return "unknown";
+  },
+  /* 按四态集中返回横幅、底栏、重登入口与自动恢复文案（DOM 层只从这里取字）；未登录取「登录」，其余三态取「重新登录」。 */
+  loginCopy(state, recovering) {
+    if (state === "never") {
+      return {
+        bannerTitle: "电脑上还没有登录",
+        bannerText: "可以在手机上登录，也可以回电脑处理。",
+        bannerAction: "登录",
+        barSub: "还差一步：登录",
+        barAction: "登录",
+        reloginEntry: "在手机上登录",
+        recoveringLine: "电脑正在自动登录。",
+        recoveringSub: "电脑正在自动登录，好了就能开始",
+      };
+    }
+    return {
+      bannerTitle: "电脑上的登录已失效",
+      bannerText: "可以在手机上重新登录，也可以回电脑处理。",
+      bannerAction: "重新登录",
+      barSub: "还差一步：重新登录",
+      barAction: "重新登录",
+      reloginEntry: "在手机上重新登录",
+      recoveringLine: "电脑正在自动重新登录。",
+      recoveringSub: "电脑正在自动重新登录，好了就能开始",
+    };
+  },
   /* 电脑这一场静默自动登录还在进行（与桌面胶囊「自动登录中」同口径）：中继里是电脑自己发起、
    * 还在进行、没转人工的一场，或电脑快照里 recovering 为真（失效已判、中继还没起来）。
    * 转人工（等用户输验证码）后不算。 */
