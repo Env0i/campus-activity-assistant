@@ -99,6 +99,8 @@ python -m http.server 8790 --bind 127.0.0.1 --directory design/prototype/workben
 | PhoneOffline | 手机页：连不上电脑 | Phone.dc.html | offline | 390×844 |
 | PhoneCheck | 手机页：开始没回应 | Phone.dc.html | pending | 390×844 |
 | PhoneExpired | 手机页：登录失效 | Phone.dc.html | expired | 390×844 |
+| PhoneNever | 手机页：电脑上还没有登录 | Phone.dc.html | never | 390×844 |
+| PhoneLoginUnknown | 手机页：登录待确认 | Phone.dc.html | loginunknown | 390×844 |
 | PhoneCaptcha | 手机上重新登录：电脑有账号、没装识别 | Phone.dc.html | captcha | 390×844 |
 | PhoneAuto | 手机上重新登录：电脑正在自动登录 | Phone.dc.html | auto | 390×844 |
 | CloseLive | 关闭窗口（可操作：点标题栏的关闭） | Main.dc.html | closerun | 1280×800 |

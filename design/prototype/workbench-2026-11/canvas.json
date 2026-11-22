@@ -197,6 +197,20 @@
       "h": 844,
       "title": "手机页：登录失效"
     },
+    "PhoneNever.dc.html": {
+      "x": 2820,
+      "y": 6504,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：电脑上还没有登录"
+    },
+    "PhoneLoginUnknown.dc.html": {
+      "x": 3290,
+      "y": 6504,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：登录待确认"
+    },
     "PhoneCaptcha.dc.html": {
       "x": 1880,
       "y": 6504,
@@ -1059,6 +1073,8 @@
     "PhoneOffline.dc.html",
     "PhoneCheck.dc.html",
     "PhoneExpired.dc.html",
+    "PhoneNever.dc.html",
+    "PhoneLoginUnknown.dc.html",
     "PhoneCaptcha.dc.html",
     "PhoneAuto.dc.html",
     "CloseLive.dc.html",
