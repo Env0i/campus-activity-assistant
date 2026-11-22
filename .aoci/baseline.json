@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-21T08:16:33Z",
+  "updated_at": "2026-11-22T05:28:08Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "839707a629f1b1fd0442cfb4adbc9473063788325b9d0cca0de5b889dc09e182",
-      "size": 311080,
-      "normalized_sha256": "839707a629f1b1fd0442cfb4adbc9473063788325b9d0cca0de5b889dc09e182"
+      "sha256": "0b91cf66e2ac750b19f7f1dcc110603ab90b0a990cabddad0e42b213b8916f4b",
+      "size": 348476,
+      "normalized_sha256": "0b91cf66e2ac750b19f7f1dcc110603ab90b0a990cabddad0e42b213b8916f4b"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -511,9 +511,9 @@
     },
     "design/decisions/016-conflict-visibility-and-cancel.md": {
       "role": "index",
-      "sha256": "70f55dd768e65da9cf0e7a9342d29c4600ec67bbfa92f609204213f83736027f",
-      "size": 8237,
-      "normalized_sha256": "70f55dd768e65da9cf0e7a9342d29c4600ec67bbfa92f609204213f83736027f"
+      "sha256": "a49650f8ca3d28ef0715014da4eca460db2e90792df056eefc6ac2227cbfbd3d",
+      "size": 8265,
+      "normalized_sha256": "a49650f8ca3d28ef0715014da4eca460db2e90792df056eefc6ac2227cbfbd3d"
     },
     "design/decisions/README.md": {
       "role": "index",
@@ -6744,6 +6744,912 @@
       "size": 11253,
       "normalized_sha256": "08745841c1b0926088ab32e19f9891d35eb6a94bc7a0b121100c1ca6b4329bd9"
     },
+    "design/evidence/2026-11-21/keepalive-probe/README.md": {
+      "role": "index",
+      "sha256": "182dd37ac24918393701561b96fe72a058090f8cc01ec2e960c9b3a0e9c2abb0",
+      "size": 14130,
+      "normalized_sha256": "182dd37ac24918393701561b96fe72a058090f8cc01ec2e960c9b3a0e9c2abb0"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/RUNBOOK.md": {
+      "role": "index",
+      "sha256": "8e66410c476cd920f75f0c04e9ad810d7a6fe33be9ec922920639fa8a28edccd",
+      "size": 8648,
+      "normalized_sha256": "8e66410c476cd920f75f0c04e9ad810d7a6fe33be9ec922920639fa8a28edccd"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-01.json": {
+      "role": "index",
+      "sha256": "02ec5b2c0a8abeeb222b44bd4e7a8f43ad62edaa9d866832704fd9d213573b2e",
+      "size": 1585,
+      "normalized_sha256": "02ec5b2c0a8abeeb222b44bd4e7a8f43ad62edaa9d866832704fd9d213573b2e"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-02.json": {
+      "role": "index",
+      "sha256": "5aaf451ea8e7c6fcd007c5e65ccfd775e082602527d7776bec7805e52b904be9",
+      "size": 1585,
+      "normalized_sha256": "5aaf451ea8e7c6fcd007c5e65ccfd775e082602527d7776bec7805e52b904be9"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-03.json": {
+      "role": "index",
+      "sha256": "416b5424c57007bd05e689b6c791301bb6883bba93a5465cc58ee3d861a9cb03",
+      "size": 1586,
+      "normalized_sha256": "416b5424c57007bd05e689b6c791301bb6883bba93a5465cc58ee3d861a9cb03"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-04.json": {
+      "role": "index",
+      "sha256": "857c7baaa4625882dadc1ec6217fa33ab8669387f203d3a7414ddc626c022cf5",
+      "size": 1495,
+      "normalized_sha256": "857c7baaa4625882dadc1ec6217fa33ab8669387f203d3a7414ddc626c022cf5"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-05.json": {
+      "role": "index",
+      "sha256": "07d723adfd2467bf3e2a6842a28d11da5141cdd1e4e4975128f38d38c0cb0037",
+      "size": 1057,
+      "normalized_sha256": "07d723adfd2467bf3e2a6842a28d11da5141cdd1e4e4975128f38d38c0cb0037"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-06.json": {
+      "role": "index",
+      "sha256": "273158613680e4d8fc8d3e0b0ace7b7c66f02bdebd87fea78f35cadd448dcc7b",
+      "size": 1495,
+      "normalized_sha256": "273158613680e4d8fc8d3e0b0ace7b7c66f02bdebd87fea78f35cadd448dcc7b"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-07.json": {
+      "role": "index",
+      "sha256": "2a8d7eba5d6ca8bdcf2a5e7a4104b3c10cd96e11c08b1c6240eae560f0a8f7e4",
+      "size": 1569,
+      "normalized_sha256": "2a8d7eba5d6ca8bdcf2a5e7a4104b3c10cd96e11c08b1c6240eae560f0a8f7e4"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-08.json": {
+      "role": "index",
+      "sha256": "c78a5da2f55db95168ead0459bb4d471a48b06426d9e9cadceef1007d5ee9681",
+      "size": 1495,
+      "normalized_sha256": "c78a5da2f55db95168ead0459bb4d471a48b06426d9e9cadceef1007d5ee9681"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-09.json": {
+      "role": "index",
+      "sha256": "cdb26e06f22219dbf1bdf408a69550600666eb575e98eb2429bd4a616e87dc05",
+      "size": 1057,
+      "normalized_sha256": "cdb26e06f22219dbf1bdf408a69550600666eb575e98eb2429bd4a616e87dc05"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-10.json": {
+      "role": "index",
+      "sha256": "ad368f2ce95d8e0627c65f3956edcc61e8fbbb4a356a6e1c70dadc1a3b02c9b7",
+      "size": 1497,
+      "normalized_sha256": "ad368f2ce95d8e0627c65f3956edcc61e8fbbb4a356a6e1c70dadc1a3b02c9b7"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-11.json": {
+      "role": "index",
+      "sha256": "b996aa73e931ea952ab98fc29955e6d86dc1ca0ced918650ecf8332660833f21",
+      "size": 1571,
+      "normalized_sha256": "b996aa73e931ea952ab98fc29955e6d86dc1ca0ced918650ecf8332660833f21"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-12.json": {
+      "role": "index",
+      "sha256": "71d86cdfeb967e2f99d881e16b2f633632af87cee9894838b0118290501565dd",
+      "size": 1497,
+      "normalized_sha256": "71d86cdfeb967e2f99d881e16b2f633632af87cee9894838b0118290501565dd"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-13.json": {
+      "role": "index",
+      "sha256": "b36f92b66baebda238a4e07518a29a719e8bcf8763c7028ec6e1b95b8a13c67f",
+      "size": 1571,
+      "normalized_sha256": "b36f92b66baebda238a4e07518a29a719e8bcf8763c7028ec6e1b95b8a13c67f"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-14.json": {
+      "role": "index",
+      "sha256": "fb4e4024961c0dff310cfb8f85ca83d9ff6bfb09c3bc4534bd0aee897123efe9",
+      "size": 1571,
+      "normalized_sha256": "fb4e4024961c0dff310cfb8f85ca83d9ff6bfb09c3bc4534bd0aee897123efe9"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-15.json": {
+      "role": "index",
+      "sha256": "79df59464450dca8264ea0be598c20131871d905e93b51e7f3d7acadfae8fac5",
+      "size": 2009,
+      "normalized_sha256": "79df59464450dca8264ea0be598c20131871d905e93b51e7f3d7acadfae8fac5"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-16.json": {
+      "role": "index",
+      "sha256": "c81248c019c7a7b1759170f7c3982e942ab830c9291a2db107bbb03504ee4ef0",
+      "size": 1513,
+      "normalized_sha256": "c81248c019c7a7b1759170f7c3982e942ab830c9291a2db107bbb03504ee4ef0"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-17.json": {
+      "role": "index",
+      "sha256": "22401f142e500e2d3c79def4840bfbd8dadf4ad1c936b6a0bf67d25576aba283",
+      "size": 1585,
+      "normalized_sha256": "22401f142e500e2d3c79def4840bfbd8dadf4ad1c936b6a0bf67d25576aba283"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-18.json": {
+      "role": "index",
+      "sha256": "2a48b7bfbf72e66304eab0792649435c51e574b8d09ffdcd05e8bf05fea07399",
+      "size": 1585,
+      "normalized_sha256": "2a48b7bfbf72e66304eab0792649435c51e574b8d09ffdcd05e8bf05fea07399"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-19.json": {
+      "role": "index",
+      "sha256": "b53c6f63b0dd573f7f77f5ab7c09d1e105f573b83039aa79c3c0dea2b5055525",
+      "size": 1586,
+      "normalized_sha256": "b53c6f63b0dd573f7f77f5ab7c09d1e105f573b83039aa79c3c0dea2b5055525"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-20.json": {
+      "role": "index",
+      "sha256": "40e39dcbec6fb3c72756b8d3884bc285f1227cbbb04f4b586c2533409e01b1ca",
+      "size": 1495,
+      "normalized_sha256": "40e39dcbec6fb3c72756b8d3884bc285f1227cbbb04f4b586c2533409e01b1ca"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-21.json": {
+      "role": "index",
+      "sha256": "9b3452146a1d5eb095686fcb468a617be94060c77bd5e835c2c6e0b4a7de977e",
+      "size": 1057,
+      "normalized_sha256": "9b3452146a1d5eb095686fcb468a617be94060c77bd5e835c2c6e0b4a7de977e"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-22.json": {
+      "role": "index",
+      "sha256": "a08b3c020da0d12dc75e5e47a25be06483d06c21c313bf2dd2d1363d5a11bc72",
+      "size": 1569,
+      "normalized_sha256": "a08b3c020da0d12dc75e5e47a25be06483d06c21c313bf2dd2d1363d5a11bc72"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-23.json": {
+      "role": "index",
+      "sha256": "d12ce4b2b56be3679ac1bfc884ccfe9e638a2f6f12369f1380ae7fb8bf2dcb50",
+      "size": 1495,
+      "normalized_sha256": "d12ce4b2b56be3679ac1bfc884ccfe9e638a2f6f12369f1380ae7fb8bf2dcb50"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-24.json": {
+      "role": "index",
+      "sha256": "c652efa5a108c57c7079fef7fbc9cb90d0b62c3d5fdcf562e0fef6b41a25cec0",
+      "size": 1057,
+      "normalized_sha256": "c652efa5a108c57c7079fef7fbc9cb90d0b62c3d5fdcf562e0fef6b41a25cec0"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-25.json": {
+      "role": "index",
+      "sha256": "939bf0b5e1cb04c7adcec4bac6029059bbbe66179015131fa0fd077cff4f385b",
+      "size": 1571,
+      "normalized_sha256": "939bf0b5e1cb04c7adcec4bac6029059bbbe66179015131fa0fd077cff4f385b"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-26.json": {
+      "role": "index",
+      "sha256": "a2ce403ff3f4c6d2e93fd40e9d74bc3ae533a849b7f45a30d6f0aa9f5090dba9",
+      "size": 2009,
+      "normalized_sha256": "a2ce403ff3f4c6d2e93fd40e9d74bc3ae533a849b7f45a30d6f0aa9f5090dba9"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-27.json": {
+      "role": "index",
+      "sha256": "1165154999d6252f4275e0f675bae6d50542c625caddd929dfb173b0ea7b3509",
+      "size": 1571,
+      "normalized_sha256": "1165154999d6252f4275e0f675bae6d50542c625caddd929dfb173b0ea7b3509"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-28.json": {
+      "role": "index",
+      "sha256": "59d3f65d824ab87f13d149f9998b7d889624756613c99a9b4f21d750c46ff7f6",
+      "size": 1571,
+      "normalized_sha256": "59d3f65d824ab87f13d149f9998b7d889624756613c99a9b4f21d750c46ff7f6"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-29.json": {
+      "role": "index",
+      "sha256": "d03b9d2dbb9e21a4f0c7ee265909dc11693b2d896340a87b1d2a0d710ba6c72c",
+      "size": 2009,
+      "normalized_sha256": "d03b9d2dbb9e21a4f0c7ee265909dc11693b2d896340a87b1d2a0d710ba6c72c"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-30.json": {
+      "role": "index",
+      "sha256": "a66e63183e6e59b6fada0be36b39489749d7242c3a21d9f1d8994f40620d0ad1",
+      "size": 1513,
+      "normalized_sha256": "a66e63183e6e59b6fada0be36b39489749d7242c3a21d9f1d8994f40620d0ad1"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-31.json": {
+      "role": "index",
+      "sha256": "e507c3650f1c7c14e20c653ba127b9945df7e5a3f65d4662e78edc0ec91a4faf",
+      "size": 1075,
+      "normalized_sha256": "e507c3650f1c7c14e20c653ba127b9945df7e5a3f65d4662e78edc0ec91a4faf"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-32.json": {
+      "role": "index",
+      "sha256": "5ebe3bd4e268e9757255c1a7f47680a897b3bd73d34a51fac75285ec1f866b69",
+      "size": 1513,
+      "normalized_sha256": "5ebe3bd4e268e9757255c1a7f47680a897b3bd73d34a51fac75285ec1f866b69"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-33.json": {
+      "role": "index",
+      "sha256": "4bb8cd91b174582f80da66a8c397b63f49f29fa9ad10c574863e5000a3e7ab6d",
+      "size": 1075,
+      "normalized_sha256": "4bb8cd91b174582f80da66a8c397b63f49f29fa9ad10c574863e5000a3e7ab6d"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-34.json": {
+      "role": "index",
+      "sha256": "9e1bb20aad553b4adfe8faf5ee4dc0920dc4b53705a9bc18ea0bc09c721903c2",
+      "size": 1513,
+      "normalized_sha256": "9e1bb20aad553b4adfe8faf5ee4dc0920dc4b53705a9bc18ea0bc09c721903c2"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-close-ios-safari-35.json": {
+      "role": "index",
+      "sha256": "b5d1cd75bd9bec76ba3b4c1a8b38092950cb1c970d1160c9b0262c2ff3abfbae",
+      "size": 1075,
+      "normalized_sha256": "b5d1cd75bd9bec76ba3b4c1a8b38092950cb1c970d1160c9b0262c2ff3abfbae"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-01.json": {
+      "role": "index",
+      "sha256": "b51a4cba78915f118fbe3268466f591b3dba45c9616193aeed4f7c984a70bdf7",
+      "size": 1593,
+      "normalized_sha256": "b51a4cba78915f118fbe3268466f591b3dba45c9616193aeed4f7c984a70bdf7"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-02.json": {
+      "role": "index",
+      "sha256": "6c3049c2f744c0873c2d174e253cdae531701b3cbf4579777be6d101ed4c94f1",
+      "size": 1593,
+      "normalized_sha256": "6c3049c2f744c0873c2d174e253cdae531701b3cbf4579777be6d101ed4c94f1"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-03.json": {
+      "role": "index",
+      "sha256": "e15bdc6e61b35aff93e07dd5da950aa6ba0cf5ca238f2426bddd82b7da102c54",
+      "size": 1594,
+      "normalized_sha256": "e15bdc6e61b35aff93e07dd5da950aa6ba0cf5ca238f2426bddd82b7da102c54"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-04.json": {
+      "role": "index",
+      "sha256": "933099a8977201e6cc13577a5feb817e7b37433ca73f277ea6b328eadf988c89",
+      "size": 1503,
+      "normalized_sha256": "933099a8977201e6cc13577a5feb817e7b37433ca73f277ea6b328eadf988c89"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-05.json": {
+      "role": "index",
+      "sha256": "fc1afe9945a77e6b010661a3ad74c4fb84308213be69e6924819a2c38801d561",
+      "size": 1065,
+      "normalized_sha256": "fc1afe9945a77e6b010661a3ad74c4fb84308213be69e6924819a2c38801d561"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-06.json": {
+      "role": "index",
+      "sha256": "133e885029fd90c6fb9fe9a5c7f7db6ac86293ccff2a378d4230a3d00add561a",
+      "size": 1577,
+      "normalized_sha256": "133e885029fd90c6fb9fe9a5c7f7db6ac86293ccff2a378d4230a3d00add561a"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-07.json": {
+      "role": "index",
+      "sha256": "f017be10796f5e2beecbd32b3ec4b0940e046a504355c1d30265c26af5be9e9f",
+      "size": 1577,
+      "normalized_sha256": "f017be10796f5e2beecbd32b3ec4b0940e046a504355c1d30265c26af5be9e9f"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-08.json": {
+      "role": "index",
+      "sha256": "d4c4eccea2818bff30867993ec338dc3988c9fb948556a97bc4bb6853f280e34",
+      "size": 1505,
+      "normalized_sha256": "d4c4eccea2818bff30867993ec338dc3988c9fb948556a97bc4bb6853f280e34"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-09.json": {
+      "role": "index",
+      "sha256": "34a6abdb69437cbea295b271f7d25689c74f0568126e47e2e867b5898338a81b",
+      "size": 1579,
+      "normalized_sha256": "34a6abdb69437cbea295b271f7d25689c74f0568126e47e2e867b5898338a81b"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-10.json": {
+      "role": "index",
+      "sha256": "a45717bcc9ca0fe25925ab38526047258be3373ba0db3cecc84203ab8547df26",
+      "size": 1579,
+      "normalized_sha256": "a45717bcc9ca0fe25925ab38526047258be3373ba0db3cecc84203ab8547df26"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-11.json": {
+      "role": "index",
+      "sha256": "09da6914a10c28cc30dfa22f6a3b962ab63305b0c66212a847c8e5c76ebc4cf0",
+      "size": 2017,
+      "normalized_sha256": "09da6914a10c28cc30dfa22f6a3b962ab63305b0c66212a847c8e5c76ebc4cf0"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-12.json": {
+      "role": "index",
+      "sha256": "089ab24f2a90ca59043d9080d4d4575630c706545bfc9a89568891dc8888651f",
+      "size": 1505,
+      "normalized_sha256": "089ab24f2a90ca59043d9080d4d4575630c706545bfc9a89568891dc8888651f"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-13.json": {
+      "role": "index",
+      "sha256": "ffc30249faf533e9ecc8a66131cd6ef67bd88dfb8936bfe96680c2046db4ed5c",
+      "size": 1579,
+      "normalized_sha256": "ffc30249faf533e9ecc8a66131cd6ef67bd88dfb8936bfe96680c2046db4ed5c"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-14.json": {
+      "role": "index",
+      "sha256": "4bb5d6397fc8be1aa842c877fe469f3569cbc5057d270c0919de365ca05660e0",
+      "size": 1595,
+      "normalized_sha256": "4bb5d6397fc8be1aa842c877fe469f3569cbc5057d270c0919de365ca05660e0"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-15.json": {
+      "role": "index",
+      "sha256": "0e984f8ab7fa9a49db8df2c193245fba5e9f448631961917f988f2c617112a4a",
+      "size": 1595,
+      "normalized_sha256": "0e984f8ab7fa9a49db8df2c193245fba5e9f448631961917f988f2c617112a4a"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-16.json": {
+      "role": "index",
+      "sha256": "00f5f4bb0e41ac5f1a8368daaf9dbc35f5965e0edb4f6c800e472438e009cc4d",
+      "size": 1595,
+      "normalized_sha256": "00f5f4bb0e41ac5f1a8368daaf9dbc35f5965e0edb4f6c800e472438e009cc4d"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-17.json": {
+      "role": "index",
+      "sha256": "e46d82575d74a03c9c9fcc5069993c2c6507e480a42d32f5217cbfd039cc0f0d",
+      "size": 2033,
+      "normalized_sha256": "e46d82575d74a03c9c9fcc5069993c2c6507e480a42d32f5217cbfd039cc0f0d"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-18.json": {
+      "role": "index",
+      "sha256": "400e529b08035e36e1a20238cda783f36af715f8c7e5c3a79008f08fca94e721",
+      "size": 1593,
+      "normalized_sha256": "400e529b08035e36e1a20238cda783f36af715f8c7e5c3a79008f08fca94e721"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-19.json": {
+      "role": "index",
+      "sha256": "464aa84323fc645ce9735fb399029ae2feea2542cd541297005ed5d145990a67",
+      "size": 1593,
+      "normalized_sha256": "464aa84323fc645ce9735fb399029ae2feea2542cd541297005ed5d145990a67"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-20.json": {
+      "role": "index",
+      "sha256": "47a1a51a8b651c0fb47d5c2cd44b26085be66ad20db26f27d7be7636db07ef45",
+      "size": 1594,
+      "normalized_sha256": "47a1a51a8b651c0fb47d5c2cd44b26085be66ad20db26f27d7be7636db07ef45"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-21.json": {
+      "role": "index",
+      "sha256": "dcd5dca402e104aded26b328e54d3bb0f13b5e357f867918af7828cd0fb424bf",
+      "size": 1577,
+      "normalized_sha256": "dcd5dca402e104aded26b328e54d3bb0f13b5e357f867918af7828cd0fb424bf"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-22.json": {
+      "role": "index",
+      "sha256": "714ab958f8c02a3d471511ec08aa3664385f3e0200250f8b8a61071bf71296e3",
+      "size": 1503,
+      "normalized_sha256": "714ab958f8c02a3d471511ec08aa3664385f3e0200250f8b8a61071bf71296e3"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-23.json": {
+      "role": "index",
+      "sha256": "37b3d817bfc02f9b776868daa37c93501f0499ab45bc9470d65a7e714d8e51d2",
+      "size": 1065,
+      "normalized_sha256": "37b3d817bfc02f9b776868daa37c93501f0499ab45bc9470d65a7e714d8e51d2"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-24.json": {
+      "role": "index",
+      "sha256": "c2746b1d075368172b56376002f21f3ebeb73578e0534e57cd8c1dfe41e18c95",
+      "size": 1577,
+      "normalized_sha256": "c2746b1d075368172b56376002f21f3ebeb73578e0534e57cd8c1dfe41e18c95"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-25.json": {
+      "role": "index",
+      "sha256": "8c2e7f1b33d8517c0243a21b94a66501e4b0e7cf6d4114d9b21288ef697684d5",
+      "size": 1579,
+      "normalized_sha256": "8c2e7f1b33d8517c0243a21b94a66501e4b0e7cf6d4114d9b21288ef697684d5"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-26.json": {
+      "role": "index",
+      "sha256": "a78d6cc03f68337cb95b7dc532d924ce428d003498cc7a1da2f548148ca64835",
+      "size": 1505,
+      "normalized_sha256": "a78d6cc03f68337cb95b7dc532d924ce428d003498cc7a1da2f548148ca64835"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-27.json": {
+      "role": "index",
+      "sha256": "d6137cfddcb7d2127a4379e0543a3201f3cac12edcc5abf53d92147cd4635ed7",
+      "size": 1505,
+      "normalized_sha256": "d6137cfddcb7d2127a4379e0543a3201f3cac12edcc5abf53d92147cd4635ed7"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-28.json": {
+      "role": "index",
+      "sha256": "a1fefbeed56f3b99384774175fa711d50551f9e71fcf9b063b6a119d08437245",
+      "size": 1579,
+      "normalized_sha256": "a1fefbeed56f3b99384774175fa711d50551f9e71fcf9b063b6a119d08437245"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-29.json": {
+      "role": "index",
+      "sha256": "2aa52176a6d94382c7303c62d8eef9fd365286c9fcc8740b771a7a75a23ea36f",
+      "size": 1579,
+      "normalized_sha256": "2aa52176a6d94382c7303c62d8eef9fd365286c9fcc8740b771a7a75a23ea36f"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-30.json": {
+      "role": "index",
+      "sha256": "9edd4d92700c41720082b849ec486b6bb9b50b60aa55556e577dd939365d5dfe",
+      "size": 1595,
+      "normalized_sha256": "9edd4d92700c41720082b849ec486b6bb9b50b60aa55556e577dd939365d5dfe"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-31.json": {
+      "role": "index",
+      "sha256": "7a9163a0b2ae48e75e430570da84ab34fb8b85a8f796426b58eec13d7794741b",
+      "size": 1595,
+      "normalized_sha256": "7a9163a0b2ae48e75e430570da84ab34fb8b85a8f796426b58eec13d7794741b"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-32.json": {
+      "role": "index",
+      "sha256": "30bc6dde331777d35ea73cff7b10817703a20365fb2ea64a8877b795fcb5d136",
+      "size": 1592,
+      "normalized_sha256": "30bc6dde331777d35ea73cff7b10817703a20365fb2ea64a8877b795fcb5d136"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-cloudflare-keepalive-ios-safari-33.json": {
+      "role": "index",
+      "sha256": "0513a1c9b5fc7716c9be5747a0dafec31a6d7d6a17d986af29e9815282e1e947",
+      "size": 2030,
+      "normalized_sha256": "0513a1c9b5fc7716c9be5747a0dafec31a6d7d6a17d986af29e9815282e1e947"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-01.json": {
+      "role": "index",
+      "sha256": "6a40baec4b2855bb4ce03a35f92a5df1b969f41482d167851b6c9141bc911f47",
+      "size": 1591,
+      "normalized_sha256": "6a40baec4b2855bb4ce03a35f92a5df1b969f41482d167851b6c9141bc911f47"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-02.json": {
+      "role": "index",
+      "sha256": "bbfbe47a2041faae8e9fa151207ba14ee0ef27841c7d0711629c26e798a34c3c",
+      "size": 1591,
+      "normalized_sha256": "bbfbe47a2041faae8e9fa151207ba14ee0ef27841c7d0711629c26e798a34c3c"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-03.json": {
+      "role": "index",
+      "sha256": "ddf44e6997385e6be89b249cd075b874757a20e7dc35ebfbec7cd72efd91200b",
+      "size": 1591,
+      "normalized_sha256": "ddf44e6997385e6be89b249cd075b874757a20e7dc35ebfbec7cd72efd91200b"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-04.json": {
+      "role": "index",
+      "sha256": "66f1732b813f63c15f782dacddde3cd5b997dbd8920d1f3e73e5db48e0d0d934",
+      "size": 1600,
+      "normalized_sha256": "66f1732b813f63c15f782dacddde3cd5b997dbd8920d1f3e73e5db48e0d0d934"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-05.json": {
+      "role": "index",
+      "sha256": "75e89c3d18cafdd988a89d6081638cf4aa030c76ec2b7dd4230876fd293f6faf",
+      "size": 1587,
+      "normalized_sha256": "75e89c3d18cafdd988a89d6081638cf4aa030c76ec2b7dd4230876fd293f6faf"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-06.json": {
+      "role": "index",
+      "sha256": "a3543fb36917eb150cda017915772b1512c8b1013c5d9e839239e5b124e93402",
+      "size": 1600,
+      "normalized_sha256": "a3543fb36917eb150cda017915772b1512c8b1013c5d9e839239e5b124e93402"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-07.json": {
+      "role": "index",
+      "sha256": "0e91e7382698b5c48ec20ef4f55881c1e1efe0b7bf38ac914dceba4007ec0fe6",
+      "size": 1592,
+      "normalized_sha256": "0e91e7382698b5c48ec20ef4f55881c1e1efe0b7bf38ac914dceba4007ec0fe6"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-08.json": {
+      "role": "index",
+      "sha256": "ed8e9eb8acdc66ad0a802bf94f52c9fcf702557a4f97891819bbc352f4d401a1",
+      "size": 1605,
+      "normalized_sha256": "ed8e9eb8acdc66ad0a802bf94f52c9fcf702557a4f97891819bbc352f4d401a1"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-09.json": {
+      "role": "index",
+      "sha256": "53f2376ded46570dfd7648c2e3da5c11b350924cd76605e70e84a0e76990898f",
+      "size": 1605,
+      "normalized_sha256": "53f2376ded46570dfd7648c2e3da5c11b350924cd76605e70e84a0e76990898f"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-10.json": {
+      "role": "index",
+      "sha256": "b05c75b90d2e9fdc249969c1b0c0e939554eb5d3a43b3d4693ac6b33f185ce35",
+      "size": 1621,
+      "normalized_sha256": "b05c75b90d2e9fdc249969c1b0c0e939554eb5d3a43b3d4693ac6b33f185ce35"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-11.json": {
+      "role": "index",
+      "sha256": "ebada4dc0dde699b0cb4ac05c83c746da04000a046638cd2a3f5d75bc99ad4f5",
+      "size": 1606,
+      "normalized_sha256": "ebada4dc0dde699b0cb4ac05c83c746da04000a046638cd2a3f5d75bc99ad4f5"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-desktop-webview2-12.json": {
+      "role": "index",
+      "sha256": "405af7130c5bcc000abdc407c3ff1649335f873619750b5d3af8dc6d33e660c1",
+      "size": 1608,
+      "normalized_sha256": "405af7130c5bcc000abdc407c3ff1649335f873619750b5d3af8dc6d33e660c1"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-01.json": {
+      "role": "index",
+      "sha256": "cb0b0f54d156548acb92d971699afca49b6ee1d6026783e0aafea1eccecb8227",
+      "size": 1586,
+      "normalized_sha256": "cb0b0f54d156548acb92d971699afca49b6ee1d6026783e0aafea1eccecb8227"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-02.json": {
+      "role": "index",
+      "sha256": "7f077db0527c0c97c664a48a8b1cb51bede7313f56bc9a9f5b76417aad65dc8d",
+      "size": 1586,
+      "normalized_sha256": "7f077db0527c0c97c664a48a8b1cb51bede7313f56bc9a9f5b76417aad65dc8d"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-03.json": {
+      "role": "index",
+      "sha256": "9dff1f17762b36f246f224e2c4feedac76d8e063c3f4f91186eb43a6d353e232",
+      "size": 1587,
+      "normalized_sha256": "9dff1f17762b36f246f224e2c4feedac76d8e063c3f4f91186eb43a6d353e232"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-04.json": {
+      "role": "index",
+      "sha256": "a84d6d1f7aaa7fc97bd192e869056ced33c6df8ca08e90057cb8051f40baec19",
+      "size": 1568,
+      "normalized_sha256": "a84d6d1f7aaa7fc97bd192e869056ced33c6df8ca08e90057cb8051f40baec19"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-05.json": {
+      "role": "index",
+      "sha256": "5085273aa7c1ee9b3d715494430084bf435973f555e16dc577b93aa15f246b3a",
+      "size": 1568,
+      "normalized_sha256": "5085273aa7c1ee9b3d715494430084bf435973f555e16dc577b93aa15f246b3a"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-06.json": {
+      "role": "index",
+      "sha256": "d111bb8453167e470c98bab4cecce212a05d35f7621827273ad546d94040683c",
+      "size": 1568,
+      "normalized_sha256": "d111bb8453167e470c98bab4cecce212a05d35f7621827273ad546d94040683c"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-07.json": {
+      "role": "index",
+      "sha256": "f5e11e1b6179c698e5d684d0ccd3679cc5cbd56484dd9f2a04634ced09943ad8",
+      "size": 1570,
+      "normalized_sha256": "f5e11e1b6179c698e5d684d0ccd3679cc5cbd56484dd9f2a04634ced09943ad8"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-08.json": {
+      "role": "index",
+      "sha256": "39b3faae649e4b4febb3683797e99ef2073313a70beefd835c5afe9efbd6f9a9",
+      "size": 1570,
+      "normalized_sha256": "39b3faae649e4b4febb3683797e99ef2073313a70beefd835c5afe9efbd6f9a9"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-09.json": {
+      "role": "index",
+      "sha256": "123a0723487c03cf9c68024cc3cdc77128f1a4d5af42fc9a9dcd2537dc34801e",
+      "size": 1570,
+      "normalized_sha256": "123a0723487c03cf9c68024cc3cdc77128f1a4d5af42fc9a9dcd2537dc34801e"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-10.json": {
+      "role": "index",
+      "sha256": "8d098de6d60542371155b5b6c1270a6e20e07f6747916d8f4dfedc1ed129aec4",
+      "size": 1586,
+      "normalized_sha256": "8d098de6d60542371155b5b6c1270a6e20e07f6747916d8f4dfedc1ed129aec4"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-11.json": {
+      "role": "index",
+      "sha256": "bbe76457cf278275916fc832b7f69fc4a8f99e81addf715a95b0199f800b4148",
+      "size": 1586,
+      "normalized_sha256": "bbe76457cf278275916fc832b7f69fc4a8f99e81addf715a95b0199f800b4148"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-12.json": {
+      "role": "index",
+      "sha256": "623d36089f35e024993275caff3e92fc3153c418357216bb31cd4cd23ebd130d",
+      "size": 1586,
+      "normalized_sha256": "623d36089f35e024993275caff3e92fc3153c418357216bb31cd4cd23ebd130d"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-close-ios-safari-13.json": {
+      "role": "index",
+      "sha256": "6f5874d4ed3d53fe7b40a48bda5e6fe31af902fb4a74a482d82ebb219e019495",
+      "size": 2030,
+      "normalized_sha256": "6f5874d4ed3d53fe7b40a48bda5e6fe31af902fb4a74a482d82ebb219e019495"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-01.json": {
+      "role": "index",
+      "sha256": "6c1b8f00d355cce77e7a9a5a06427f74ea9d934b45575f1b90dc2abfe8745a9e",
+      "size": 1598,
+      "normalized_sha256": "6c1b8f00d355cce77e7a9a5a06427f74ea9d934b45575f1b90dc2abfe8745a9e"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-02.json": {
+      "role": "index",
+      "sha256": "60218a8ff908652ae1227e399997fceca620ca399036e2b57279898b3abe7317",
+      "size": 1598,
+      "normalized_sha256": "60218a8ff908652ae1227e399997fceca620ca399036e2b57279898b3abe7317"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-03.json": {
+      "role": "index",
+      "sha256": "d882229475a40bd4878d759b3dc0ed188db8495e8a53c8e6dc8170f289a94e5c",
+      "size": 1600,
+      "normalized_sha256": "d882229475a40bd4878d759b3dc0ed188db8495e8a53c8e6dc8170f289a94e5c"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-04.json": {
+      "role": "index",
+      "sha256": "3b5e303bc35b069818e62d6c64c827143b5d77de4933203168cfa6d14572df78",
+      "size": 1608,
+      "normalized_sha256": "3b5e303bc35b069818e62d6c64c827143b5d77de4933203168cfa6d14572df78"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-05.json": {
+      "role": "index",
+      "sha256": "3ee833877b7a1f8bd16cd97bda24d8c82e05b052daf56da4d462a0e88ce28e95",
+      "size": 1593,
+      "normalized_sha256": "3ee833877b7a1f8bd16cd97bda24d8c82e05b052daf56da4d462a0e88ce28e95"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-06.json": {
+      "role": "index",
+      "sha256": "e32e399fd499c457fcdd6e49b02b2283ffe012af018b5dd0b07b82b568cf574f",
+      "size": 1611,
+      "normalized_sha256": "e32e399fd499c457fcdd6e49b02b2283ffe012af018b5dd0b07b82b568cf574f"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-07.json": {
+      "role": "index",
+      "sha256": "01ff3d6d3ad2a58e31bca3f2727b1ba5126fc38795ce4c01de70d2b138178d24",
+      "size": 1598,
+      "normalized_sha256": "01ff3d6d3ad2a58e31bca3f2727b1ba5126fc38795ce4c01de70d2b138178d24"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-08.json": {
+      "role": "index",
+      "sha256": "42270ac720c56137e63b5b8869b0b793116d56966ad3994e28a2c63ce2157a97",
+      "size": 1613,
+      "normalized_sha256": "42270ac720c56137e63b5b8869b0b793116d56966ad3994e28a2c63ce2157a97"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-09.json": {
+      "role": "index",
+      "sha256": "a9c73c62791c5b234702b6b3aa8f28695c6a0055e2a94ae7ecfec6da6b6ea41d",
+      "size": 1610,
+      "normalized_sha256": "a9c73c62791c5b234702b6b3aa8f28695c6a0055e2a94ae7ecfec6da6b6ea41d"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-10.json": {
+      "role": "index",
+      "sha256": "7ee86708e78ba74a3d6ff69ed3d3c7fd6e8e908a5b2eaeec7a8b607769d37a2d",
+      "size": 1600,
+      "normalized_sha256": "7ee86708e78ba74a3d6ff69ed3d3c7fd6e8e908a5b2eaeec7a8b607769d37a2d"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-11.json": {
+      "role": "index",
+      "sha256": "df379d40203ee537acd23e510493ba6e2bbb14082dbb61ed51e13ca0c1e57b89",
+      "size": 1613,
+      "normalized_sha256": "df379d40203ee537acd23e510493ba6e2bbb14082dbb61ed51e13ca0c1e57b89"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-desktop-webview2-12.json": {
+      "role": "index",
+      "sha256": "93c8a49914c268f94b656260f6df86980ee2238dab1fcc7423b3f86444d044ba",
+      "size": 1613,
+      "normalized_sha256": "93c8a49914c268f94b656260f6df86980ee2238dab1fcc7423b3f86444d044ba"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-01.json": {
+      "role": "index",
+      "sha256": "79181ceb30c19d4971a1e4215f52010eb48a86978ba15a687d19be379d4b270a",
+      "size": 1595,
+      "normalized_sha256": "79181ceb30c19d4971a1e4215f52010eb48a86978ba15a687d19be379d4b270a"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-02.json": {
+      "role": "index",
+      "sha256": "eeda0b651fde6bba650c31dc26c83130714afaf1119d90503c622e0b2baf5e01",
+      "size": 2039,
+      "normalized_sha256": "eeda0b651fde6bba650c31dc26c83130714afaf1119d90503c622e0b2baf5e01"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-03.json": {
+      "role": "index",
+      "sha256": "9510380b38f62fd9557fe8269a650451e82ecfa2f2e3ed01c07e89a1770e0970",
+      "size": 1593,
+      "normalized_sha256": "9510380b38f62fd9557fe8269a650451e82ecfa2f2e3ed01c07e89a1770e0970"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-04.json": {
+      "role": "index",
+      "sha256": "e59b0c4862dd848dd90cfa2488b85add0ae6f4262687f812c36193f60ee16341",
+      "size": 2037,
+      "normalized_sha256": "e59b0c4862dd848dd90cfa2488b85add0ae6f4262687f812c36193f60ee16341"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-05.json": {
+      "role": "index",
+      "sha256": "f78162b0fab75be082172197068dc00e4208ac0c41d7afcd1e522506989b8aff",
+      "size": 1593,
+      "normalized_sha256": "f78162b0fab75be082172197068dc00e4208ac0c41d7afcd1e522506989b8aff"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-06.json": {
+      "role": "index",
+      "sha256": "c917ada663d89a4aceb57fe50161a071c67aebed2a5daa91996a81ccc31213e9",
+      "size": 2037,
+      "normalized_sha256": "c917ada663d89a4aceb57fe50161a071c67aebed2a5daa91996a81ccc31213e9"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-07.json": {
+      "role": "index",
+      "sha256": "793ba3753171321a4d997e24020a13306b5cff572da6e9e1c85ebfc7251914ed",
+      "size": 1593,
+      "normalized_sha256": "793ba3753171321a4d997e24020a13306b5cff572da6e9e1c85ebfc7251914ed"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-08.json": {
+      "role": "index",
+      "sha256": "b644995aacbe4d7bf962fc7573de15047e454af2ab8e31e29fda36ff73c73aa1",
+      "size": 2037,
+      "normalized_sha256": "b644995aacbe4d7bf962fc7573de15047e454af2ab8e31e29fda36ff73c73aa1"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-09.json": {
+      "role": "index",
+      "sha256": "992869f4e9d3cc33f795fee97f3dcd634952d5b60f037ee71755781febcc0f16",
+      "size": 1595,
+      "normalized_sha256": "992869f4e9d3cc33f795fee97f3dcd634952d5b60f037ee71755781febcc0f16"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-10.json": {
+      "role": "index",
+      "sha256": "51e35008ceaac5104924776d44c04a9cd5e1e4e542d4d272830ae2fa0022ccd0",
+      "size": 1595,
+      "normalized_sha256": "51e35008ceaac5104924776d44c04a9cd5e1e4e542d4d272830ae2fa0022ccd0"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-11.json": {
+      "role": "index",
+      "sha256": "27f5846cab2c5b94ed8dd83f98cd3e49d74fa06a6c92e9d1b7bcffe79be851c4",
+      "size": 1595,
+      "normalized_sha256": "27f5846cab2c5b94ed8dd83f98cd3e49d74fa06a6c92e9d1b7bcffe79be851c4"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-12.json": {
+      "role": "index",
+      "sha256": "455aba46eaff47bca4fcfb34d834a7d1f3337ac7bc08c2ff15a6a1eb8c989745",
+      "size": 1576,
+      "normalized_sha256": "455aba46eaff47bca4fcfb34d834a7d1f3337ac7bc08c2ff15a6a1eb8c989745"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-13.json": {
+      "role": "index",
+      "sha256": "72c4b056f7c59ae7d93f39fb81042b77e3a3484af5a6c740fec2dd1871e7965f",
+      "size": 1576,
+      "normalized_sha256": "72c4b056f7c59ae7d93f39fb81042b77e3a3484af5a6c740fec2dd1871e7965f"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-14.json": {
+      "role": "index",
+      "sha256": "e319e8d49fabcfc3fc7677f2d84be0fbd7c8abfc810420db5c63f14954b5113d",
+      "size": 1576,
+      "normalized_sha256": "e319e8d49fabcfc3fc7677f2d84be0fbd7c8abfc810420db5c63f14954b5113d"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-15.json": {
+      "role": "index",
+      "sha256": "28c64b4564fc5c4e34b24ee7d6db785580c1c90922a52e72d3516951f1b21ba0",
+      "size": 1578,
+      "normalized_sha256": "28c64b4564fc5c4e34b24ee7d6db785580c1c90922a52e72d3516951f1b21ba0"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-16.json": {
+      "role": "index",
+      "sha256": "7e40803384a59ce67c0d50f6a172a90868a4acfd6afe453ad050379f01b2fc39",
+      "size": 1578,
+      "normalized_sha256": "7e40803384a59ce67c0d50f6a172a90868a4acfd6afe453ad050379f01b2fc39"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-17.json": {
+      "role": "index",
+      "sha256": "4f8f781793cec2898f96ba4ed6b9da7890db9dfcd9c4b761f2889abfd722c653",
+      "size": 1578,
+      "normalized_sha256": "4f8f781793cec2898f96ba4ed6b9da7890db9dfcd9c4b761f2889abfd722c653"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-18.json": {
+      "role": "index",
+      "sha256": "d9cf8b3e3a28b87754151d5c10e929b564e74780bfb981a5b802208a5dbf0f5a",
+      "size": 1594,
+      "normalized_sha256": "d9cf8b3e3a28b87754151d5c10e929b564e74780bfb981a5b802208a5dbf0f5a"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-19.json": {
+      "role": "index",
+      "sha256": "c6d3a9ecdef10a6be3eaa95308471af648aa48ab13da383aad7dc1968dbf67a9",
+      "size": 1594,
+      "normalized_sha256": "c6d3a9ecdef10a6be3eaa95308471af648aa48ab13da383aad7dc1968dbf67a9"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-20.json": {
+      "role": "index",
+      "sha256": "1fd1aaf3cc7653643d191a54ae91d1947ca3d30d7c5826be931b1c0235c044ef",
+      "size": 1594,
+      "normalized_sha256": "1fd1aaf3cc7653643d191a54ae91d1947ca3d30d7c5826be931b1c0235c044ef"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/phone-tailscale-keepalive-ios-safari-21.json": {
+      "role": "index",
+      "sha256": "f6967136f057b697c1e696c5d90840201c8bb466f0555fc9f586b3132503b61b",
+      "size": 2038,
+      "normalized_sha256": "f6967136f057b697c1e696c5d90840201c8bb466f0555fc9f586b3132503b61b"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/requests-cloudflare-close-20261122-104557.jsonl": {
+      "role": "index",
+      "sha256": "6f9a9105bb2c48a5c0440e0365d5dee0548eb5d18a97936e5bbfd6fc66a1e5db",
+      "size": 81087,
+      "normalized_sha256": "6f9a9105bb2c48a5c0440e0365d5dee0548eb5d18a97936e5bbfd6fc66a1e5db"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/requests-cloudflare-close-20261122-112329.jsonl": {
+      "role": "index",
+      "sha256": "48393a17c416efea2cb365a588c55a1cf5990da85e3c74a3924f8f71515bc6ca",
+      "size": 86692,
+      "normalized_sha256": "48393a17c416efea2cb365a588c55a1cf5990da85e3c74a3924f8f71515bc6ca"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/requests-cloudflare-keepalive-20261122-111814.jsonl": {
+      "role": "index",
+      "sha256": "a508260f6d219753220ecc906d9af214f207501a29a0786e2d05ac1dc434d0c1",
+      "size": 94812,
+      "normalized_sha256": "a508260f6d219753220ecc906d9af214f207501a29a0786e2d05ac1dc434d0c1"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/requests-cloudflare-keepalive-20261122-112742.jsonl": {
+      "role": "index",
+      "sha256": "a03cac3d5594246e711214e4a5fe4e5f962256d00a5ce3bc6caf3576901ab158",
+      "size": 94452,
+      "normalized_sha256": "a03cac3d5594246e711214e4a5fe4e5f962256d00a5ce3bc6caf3576901ab158"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/requests-tailscale-close-20261121-163639.jsonl": {
+      "role": "index",
+      "sha256": "e3b0efabd93ebd7188b7a767f6a63e119c1245b3ae837b9d2350d45be0f379f9",
+      "size": 110465,
+      "normalized_sha256": "e3b0efabd93ebd7188b7a767f6a63e119c1245b3ae837b9d2350d45be0f379f9"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/requests-tailscale-close-20261122-103632.jsonl": {
+      "role": "index",
+      "sha256": "971769f4cf7f16640ebe336c19bb0b4f7e8b5f005de9f2da5248b348946a65f9",
+      "size": 108955,
+      "normalized_sha256": "971769f4cf7f16640ebe336c19bb0b4f7e8b5f005de9f2da5248b348946a65f9"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/requests-tailscale-keepalive-20261121-163648.jsonl": {
+      "role": "index",
+      "sha256": "d00f48d446f79f2a77b1ae2d63b2d824ce12f1a25263c8458828dd97fbb830b8",
+      "size": 112234,
+      "normalized_sha256": "d00f48d446f79f2a77b1ae2d63b2d824ce12f1a25263c8458828dd97fbb830b8"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/results/requests-tailscale-keepalive-20261122-104050.jsonl": {
+      "role": "index",
+      "sha256": "21eeba3d0014c058d6af4ad5e5f80cb79e4a14bc0791609a44e0a5350fd44a01",
+      "size": 100902,
+      "normalized_sha256": "21eeba3d0014c058d6af4ad5e5f80cb79e4a14bc0791609a44e0a5350fd44a01"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/scripts/serve_keepalive.py": {
+      "role": "index",
+      "sha256": "dc5e07b8f15bbe490fdc4dc5184112dfbd91face6a2d5a74d4b8aef020ae7bd7",
+      "size": 19964,
+      "normalized_sha256": "dc5e07b8f15bbe490fdc4dc5184112dfbd91face6a2d5a74d4b8aef020ae7bd7"
+    },
+    "design/evidence/2026-11-21/keepalive-probe/scripts/summarize.py": {
+      "role": "index",
+      "sha256": "68cd23d3ba37cb1a5481013472a24b86b9e963230031d64d3c9b2b8f8ad5e5cc",
+      "size": 8834,
+      "normalized_sha256": "68cd23d3ba37cb1a5481013472a24b86b9e963230031d64d3c9b2b8f8ad5e5cc"
+    },
+    "design/evidence/2026-11-21/phone-split/README.md": {
+      "role": "index",
+      "sha256": "7a22a3390c978406609952bd619b9a3a0a428e90fc2b5e0c19ef51b3516154e4",
+      "size": 7814,
+      "normalized_sha256": "7a22a3390c978406609952bd619b9a3a0a428e90fc2b5e0c19ef51b3516154e4"
+    },
+    "design/evidence/2026-11-21/phone-split/changed-tests.md": {
+      "role": "index",
+      "sha256": "466764fdd9321639996c4f917a74636bb2a767640358f916391e34c6363b90f4",
+      "size": 6859,
+      "normalized_sha256": "466764fdd9321639996c4f917a74636bb2a767640358f916391e34c6363b90f4"
+    },
+    "design/evidence/2026-11-21/phone-split/edge-load.md": {
+      "role": "index",
+      "sha256": "d77e3ce64bd2f936091b4ef958de8cee1f168bca0dc77121501a2ad165cb04f2",
+      "size": 1842,
+      "normalized_sha256": "d77e3ce64bd2f936091b4ef958de8cee1f168bca0dc77121501a2ad165cb04f2"
+    },
+    "design/evidence/2026-11-21/phone-split/edge/head-after.html": {
+      "role": "index",
+      "sha256": "0845a76ef7759910998d91e94a137485544db0aeb0c7bf1ebb78bc8802cbe66c",
+      "size": 17810,
+      "normalized_sha256": "0845a76ef7759910998d91e94a137485544db0aeb0c7bf1ebb78bc8802cbe66c"
+    },
+    "design/evidence/2026-11-21/phone-split/edge/head-before.html": {
+      "role": "index",
+      "sha256": "1ecdf388510a63deff713ec3b26cff967775163b717d65d68b67c924e3b2b660",
+      "size": 15016,
+      "normalized_sha256": "1ecdf388510a63deff713ec3b26cff967775163b717d65d68b67c924e3b2b660"
+    },
+    "design/evidence/2026-11-21/phone-split/edge/work-after.html": {
+      "role": "index",
+      "sha256": "0845a76ef7759910998d91e94a137485544db0aeb0c7bf1ebb78bc8802cbe66c",
+      "size": 17810,
+      "normalized_sha256": "0845a76ef7759910998d91e94a137485544db0aeb0c7bf1ebb78bc8802cbe66c"
+    },
+    "design/evidence/2026-11-21/phone-split/edge/work-before.html": {
+      "role": "index",
+      "sha256": "1ecdf388510a63deff713ec3b26cff967775163b717d65d68b67c924e3b2b660",
+      "size": 15016,
+      "normalized_sha256": "1ecdf388510a63deff713ec3b26cff967775163b717d65d68b67c924e3b2b660"
+    },
+    "design/evidence/2026-11-21/phone-split/load-order.md": {
+      "role": "index",
+      "sha256": "d84e950f6c0a8f6a2b46f2f2248f1ae7f63b3466eeacd4d82b1cf84547e8eeb6",
+      "size": 1498,
+      "normalized_sha256": "d84e950f6c0a8f6a2b46f2f2248f1ae7f63b3466eeacd4d82b1cf84547e8eeb6"
+    },
+    "design/evidence/2026-11-21/phone-split/move-check.md": {
+      "role": "index",
+      "sha256": "0e0f69275c014f5cf437f3ec2f34c80a137500a6b1fd0953d538471f421113fd",
+      "size": 697,
+      "normalized_sha256": "0e0f69275c014f5cf437f3ec2f34c80a137500a6b1fd0953d538471f421113fd"
+    },
+    "design/evidence/2026-11-21/phone-split/net-after-move.md": {
+      "role": "index",
+      "sha256": "132cfd893b445216d38644e8d876618241698badfe649a129075ec10cdec3b94",
+      "size": 12315,
+      "normalized_sha256": "132cfd893b445216d38644e8d876618241698badfe649a129075ec10cdec3b94"
+    },
+    "design/evidence/2026-11-21/phone-split/scripts/edge_load.py": {
+      "role": "index",
+      "sha256": "55d99852e6a01e37b765bc11579f75cd42f9d5b333c5bc991aa015d4ec6660aa",
+      "size": 13211,
+      "normalized_sha256": "55d99852e6a01e37b765bc11579f75cd42f9d5b333c5bc991aa015d4ec6660aa"
+    },
+    "design/evidence/2026-11-21/phone-split/scripts/move_check.py": {
+      "role": "index",
+      "sha256": "d2c189b0f9fa2518f50723f5c6c6e047917199718e65d0fde37e0b988f2cf567",
+      "size": 11647,
+      "normalized_sha256": "d2c189b0f9fa2518f50723f5c6c6e047917199718e65d0fde37e0b988f2cf567"
+    },
+    "design/evidence/2026-11-21/phone-split/scripts/net_after_move.py": {
+      "role": "index",
+      "sha256": "ecdd5b3da773c0648084f9c88de918828686b4efe773bd6da7ec1395c0cff358",
+      "size": 10140,
+      "normalized_sha256": "ecdd5b3da773c0648084f9c88de918828686b4efe773bd6da7ec1395c0cff358"
+    },
     "design/evidence/2026-11-22/grab-http-log-split/README.md": {
       "role": "index",
       "sha256": "a67f181a8bf9e4ee06bfdd054d4a1d9e484cf0ce0f2a828559f6e81ada681995",
@@ -6860,9 +7766,9 @@
     },
     "design/proposals/engineering-refactor.md": {
       "role": "index",
-      "sha256": "914bbb8e8c01592e1cf97cdbdeb291395b6bce659aecf5e34b2ad232e6bd47fc",
-      "size": 25262,
-      "normalized_sha256": "de8b72cc8ba9cacfe1e4e6f49f66488a018bf81e0cd037a1b8b990641810620b"
+      "sha256": "32d6585c74636feedce34fd3064edcecd8442b6ab6b0e6e8ea0c93786e0ba27f",
+      "size": 25153,
+      "normalized_sha256": "32d6585c74636feedce34fd3064edcecd8442b6ab6b0e6e8ea0c93786e0ba27f"
     },
     "design/proposals/replayable-product-tour.md": {
       "role": "index",
@@ -7790,9 +8696,9 @@
     },
     "design/specs/copywriting.md": {
       "role": "index",
-      "sha256": "7c025d48ca9dbb1c23f6de7ff78cbbc9e37ad46cd7cccf2ece23b5e4524aff6f",
-      "size": 83388,
-      "normalized_sha256": "7c025d48ca9dbb1c23f6de7ff78cbbc9e37ad46cd7cccf2ece23b5e4524aff6f"
+      "sha256": "3208ff9c44edb29c3483d94b5f0c8c58749121e20289d0039c74ab047a9e8d1b",
+      "size": 83404,
+      "normalized_sha256": "3208ff9c44edb29c3483d94b5f0c8c58749121e20289d0039c74ab047a9e8d1b"
     },
     "design/specs/terms-consent.md": {
       "role": "index",
@@ -8429,9 +9335,9 @@
     },
     "local/infrastructure/phone_http.py": {
       "role": "index",
-      "sha256": "ae6f6c74a884c87fde8d230d321be0bee8a2651ebabaf9b85debfd40e8ded67a",
-      "size": 16803,
-      "normalized_sha256": "ae6f6c74a884c87fde8d230d321be0bee8a2651ebabaf9b85debfd40e8ded67a"
+      "sha256": "058602f767a2736de452110e42f424a5713c95d1ac82bbd7030b038b13f2130e",
+      "size": 17620,
+      "normalized_sha256": "058602f767a2736de452110e42f424a5713c95d1ac82bbd7030b038b13f2130e"
     },
     "local/infrastructure/phone_qr.py": {
       "role": "index",
@@ -8681,9 +9587,9 @@
     },
     "local/tests/test_phone_infra.py": {
       "role": "observe",
-      "sha256": "5109c112dfc4d13fd54878b1f0a0f639c1c10814af6f4e6e0bb1e71b6f2e8ffe",
-      "size": 35590,
-      "normalized_sha256": "5109c112dfc4d13fd54878b1f0a0f639c1c10814af6f4e6e0bb1e71b6f2e8ffe"
+      "sha256": "105bd5eb16e2be74128b3f218bb856d6de1100571d22d9d7560fcc0b0692df78",
+      "size": 36856,
+      "normalized_sha256": "105bd5eb16e2be74128b3f218bb856d6de1100571d22d9d7560fcc0b0692df78"
     },
     "local/tests/test_phone_rules.py": {
       "role": "observe",
@@ -8699,9 +9605,9 @@
     },
     "local/tests/test_phone_ui.py": {
       "role": "observe",
-      "sha256": "ad889d3cc46f6724bc28334290cc419204888b9519d811fab00bcfc66952cc8a",
-      "size": 352737,
-      "normalized_sha256": "ad889d3cc46f6724bc28334290cc419204888b9519d811fab00bcfc66952cc8a"
+      "sha256": "0bab1ffeb98a6325dd0907eeb42d7f815682e929b1178f2b4c2f438298c8494a",
+      "size": 355720,
+      "normalized_sha256": "0bab1ffeb98a6325dd0907eeb42d7f815682e929b1178f2b4c2f438298c8494a"
     },
     "local/tests/test_qa_bridge_contract.py": {
       "role": "observe",
@@ -8717,9 +9623,9 @@
     },
     "local/tests/test_retry_policy.py": {
       "role": "observe",
-      "sha256": "f1276ede64c797401781f321476638163b5ce48cfddcc0e53f69142b881d4e77",
-      "size": 97237,
-      "normalized_sha256": "f1276ede64c797401781f321476638163b5ce48cfddcc0e53f69142b881d4e77"
+      "sha256": "3860b3203d7f85fea15025f80cee3fc7ec93da99795b86bab2e7f9e6b5fbcc38",
+      "size": 97398,
+      "normalized_sha256": "3860b3203d7f85fea15025f80cee3fc7ec93da99795b86bab2e7f9e6b5fbcc38"
     },
     "local/tests/test_school_contract.py": {
       "role": "observe",
@@ -9289,15 +10195,87 @@
     },
     "local/ui/m/index.html": {
       "role": "index",
-      "sha256": "bdd82ce6c63fe9a907871e0183a1f9e6ef8f23441912f280fa4bbbc2ae5c65de",
-      "size": 22744,
-      "normalized_sha256": "bdd82ce6c63fe9a907871e0183a1f9e6ef8f23441912f280fa4bbbc2ae5c65de"
+      "sha256": "45c17f42a52c5215269db09f1b277617fec7da741bb4552818c35fd45d4500ec",
+      "size": 23158,
+      "normalized_sha256": "45c17f42a52c5215269db09f1b277617fec7da741bb4552818c35fd45d4500ec"
+    },
+    "local/ui/m/model-conflict.js": {
+      "role": "index",
+      "sha256": "bac20c19364acd52da6d894ccb1797a36e0c46961c0931c0cdc0df1cd92e56da",
+      "size": 15814,
+      "normalized_sha256": "bac20c19364acd52da6d894ccb1797a36e0c46961c0931c0cdc0df1cd92e56da"
+    },
+    "local/ui/m/model-list.js": {
+      "role": "index",
+      "sha256": "c2b189331f9649a6a9c834f42d99da2cc89a1034ae8cf5592bde3ae56a613c5d",
+      "size": 15488,
+      "normalized_sha256": "c2b189331f9649a6a9c834f42d99da2cc89a1034ae8cf5592bde3ae56a613c5d"
+    },
+    "local/ui/m/model-relogin.js": {
+      "role": "index",
+      "sha256": "6da24fa672c36f20df518d49dccc2878cfc7c0f0607a204badbb1562c25aa689",
+      "size": 14250,
+      "normalized_sha256": "6da24fa672c36f20df518d49dccc2878cfc7c0f0607a204badbb1562c25aa689"
+    },
+    "local/ui/m/model-run.js": {
+      "role": "index",
+      "sha256": "7d10fcb52c5479f4d7b90fb9434dec381029c83e0f20d70d2b5e8868bbdac2f4",
+      "size": 19274,
+      "normalized_sha256": "7d10fcb52c5479f4d7b90fb9434dec381029c83e0f20d70d2b5e8868bbdac2f4"
+    },
+    "local/ui/m/model.js": {
+      "role": "index",
+      "sha256": "7e4b7f8d20881d236ade9b3f0c33ab16b124a6e4013da7d076a68d7887de4ba4",
+      "size": 11790,
+      "normalized_sha256": "7e4b7f8d20881d236ade9b3f0c33ab16b124a6e4013da7d076a68d7887de4ba4"
     },
     "local/ui/m/styles.css": {
       "role": "index",
       "sha256": "49ce95dca212171f0d9dbecb66f90b70b9873ce4b2fba53862791f4274627317",
       "size": 36988,
       "normalized_sha256": "0bc7f0aad813b4cca8f026364ae042e1789f62184fbbbe3657155c4d64b765e4"
+    },
+    "local/ui/m/ui-list.js": {
+      "role": "index",
+      "sha256": "ecbf788bb161d1fdb99893fa63073e757f785b2ed48f84c2703133ae0130ca50",
+      "size": 14461,
+      "normalized_sha256": "ecbf788bb161d1fdb99893fa63073e757f785b2ed48f84c2703133ae0130ca50"
+    },
+    "local/ui/m/ui-plan.js": {
+      "role": "index",
+      "sha256": "4cfa0e226cfc52c681edf6638c9aaee167cd65747d83cd43a332a7e80ffa701a",
+      "size": 12006,
+      "normalized_sha256": "4cfa0e226cfc52c681edf6638c9aaee167cd65747d83cd43a332a7e80ffa701a"
+    },
+    "local/ui/m/ui-relogin.js": {
+      "role": "index",
+      "sha256": "309cace6cd6e04c1ab2dee4d25b33a9c4575363894c45d93259a12dc8e87f9cd",
+      "size": 13676,
+      "normalized_sha256": "309cace6cd6e04c1ab2dee4d25b33a9c4575363894c45d93259a12dc8e87f9cd"
+    },
+    "local/ui/m/ui-session.js": {
+      "role": "index",
+      "sha256": "ee7127b5100d9afe07b8b16de23447a5ebc242ff92cebffa55af5c56a3538224",
+      "size": 13860,
+      "normalized_sha256": "ee7127b5100d9afe07b8b16de23447a5ebc242ff92cebffa55af5c56a3538224"
+    },
+    "local/ui/m/ui-shell.js": {
+      "role": "index",
+      "sha256": "a257426b73eb1ea05c4a5f5e31c360fbda23843ecf2d5ebf09d852713a1c2293",
+      "size": 14327,
+      "normalized_sha256": "a257426b73eb1ea05c4a5f5e31c360fbda23843ecf2d5ebf09d852713a1c2293"
+    },
+    "local/ui/m/ui-status.js": {
+      "role": "index",
+      "sha256": "4a48fdd0f471b3e3a97cfd9d03af1adebbd1d10957c5661618fe0e48e0522e68",
+      "size": 19047,
+      "normalized_sha256": "4a48fdd0f471b3e3a97cfd9d03af1adebbd1d10957c5661618fe0e48e0522e68"
+    },
+    "local/ui/m/ui-sync.js": {
+      "role": "index",
+      "sha256": "51043c4900032b528066e354e1ba8f2a159d54b444823bbfe9b2c72ad9cac067",
+      "size": 11026,
+      "normalized_sha256": "51043c4900032b528066e354e1ba8f2a159d54b444823bbfe9b2c72ad9cac067"
     },
     "local/ui/main.js": {
       "role": "index",
@@ -9823,9 +10801,9 @@
     },
     "tools/code_shape/baseline.json": {
       "role": "index",
-      "sha256": "84c59240cb9f6a5eb06d129379cfd9a33d481d104c7c5ea26824257dc3c7740c",
-      "size": 16734,
-      "normalized_sha256": "84c59240cb9f6a5eb06d129379cfd9a33d481d104c7c5ea26824257dc3c7740c"
+      "sha256": "ede173590e2ed114d5705cb463ca7a41c7113dde70eb78d0f44d74931fe8cf98",
+      "size": 16678,
+      "normalized_sha256": "ede173590e2ed114d5705cb463ca7a41c7113dde70eb78d0f44d74931fe8cf98"
     },
     "tools/code_shape/check.py": {
       "role": "index",

@@ -1137,7 +1137,7 @@ stop-and-result.md[SB4T]: F:说明计划停止确认、进程树收尾、单场�
 README.md[SW3T]: F:索引引导简介提醒界面与工程提案并规定确认、实现验收后迁入决策的生命周期 | R:code:design/proposals/replayable-product-tour.md | A:提案索引 | S:引导未实现的索引描述与提案accepted记录不一致
 activity-description-info-button.md[SU3T]: F:提出活动简介纯文本浮层与已有详情缓存复用，列出字段长文本和失败反馈确认条件 | R:code:contracts/school-api/README.md | A:- | S:字段语义未核对不得实施，回包与懒加载描述待协调
 auto-relogin-failure-notice.md[SU3T]: F:提出自动登录失败与验证码转人工通知需求，保留渠道合并频次及紧迫性待决 | R:code:design/proposals/workbench-ui-polish.md | A:- | S:渠道和频次未定，不可当作现有通知行为
-engineering-refactor.md[SW4M]: F:汇总重构已落地底座与第二步Api拆分进度，规划合入验收、前端手机worker及长文件治理 | R:code:docs/ARCHITECTURE.md | A:重构状态及工程终点 | S:1200行仅参考；离线回归通过不等于真窗口验收，合入前须过清单
+engineering-refactor.md[SW4M]: F:汇总重构已落地底座与Api拆分进度，规划合入验收、前端手机worker及长文件治理，手机页已按普通脚本拆分 | R:code:docs/ARCHITECTURE.md | A:重构状态及工程终点 | S:1200行仅参考；离线回归通过不等于真窗口验收，合入前须过清单
 replayable-product-tour.md[SU3T]: F:保留可重播引导历史提案与遮罩版本跳过暂停方案，将正式规则指向决策009 | R:code:design/decisions/009-replayable-product-tour.md | A:- | S:方案确认并记实现落地，真机用户验收仍待
 workbench-ui-polish.md[SU4S]: F:记录工作台时间轴设置加载及状态过渡打磨方向，区分确认规则、前置缺陷与原型门槛 | R:code:docs/UI_SPEC.md | A:打磨方向及实施门槛 | S:方向已定不等于实现，窄档布局和通知渠道仍待定
 
@@ -1440,7 +1440,7 @@ component_packages.py[IE9L]: F:校验高级组件与受管通道程序，事务�
 credential_store.py[PS8S]: F:用Windows DPAPI原子保存秘密文档和账号密码，并管理密码拒绝标记 | R:- | A:save_document,load_document,save,load,mark_bad,is_bad | S:非Windows拒绝加密而不落明文；外层可留用户名，秘密仅在密文；保存新密码清除拒绝标记
 data_directory.py[RC6T]: F:计算源码与冻结版共享数据根并锚定进程默认目录 | R:- | A:base_dir,default_data_dir | S:只计算路径不迁移或建目录；环境覆盖优先，默认首次解析固定进程锚点
 lifecycle_store.py[PD7M]: F:保存启动、心跳及关闭事实并形成上一运行周期提示 | R:code:local/infrastructure/prefs_store.py,code:local/domain/lifecycle_rules.py | A:AppLifecycle,snapshot,finalize | S:事务内严格读，读写失败只放弃本次、不写空快照；启动认领失败照常启动，文件留着上一周期记录时本轮心跳因归属不符不再写；run_id归属变更后旧实例让位；缺可信时刻关闭记unknown
-phone_http.py[IN8M]: F:提供受限手机HTTP页面、配对、状态与动作路由 | R:code:local/domain/phone_rules.py,code:local/application/phone_service.py,code:local/ui/m/index.html | A:PhoneHttpServer,start,stop,set_public_host | S:公网通道切换后只认当前Host和Origin；动作须有效会话及CSRF。状态只读本机缓存，异常不回请求内容；拒绝前有界排空请求体
+phone_http.py[IN8M]: F:提供受限手机HTTP页面、配对、状态与动作路由 | R:code:local/domain/phone_rules.py,code:local/application/phone_service.py,code:local/ui/m/index.html | A:PhoneHttpServer,start,stop,set_public_host,PHONE_STATIC | S:公网通道切换后只认当前Host和Origin；动作须有效会话及CSRF。状态只读本机缓存，异常不回请求内容；拒绝前有界排空请求体。静态表须与页面脚本标签一一对应
 phone_qr.py[IU4T]: F:为手机访问地址生成PNG二维码 | R:code:local/infrastructure/component_packages.py | A:png_data_uri | S:拒绝查询、片段和用户信息，二维码不携带配对码
 phone_session_store.py[PS8S]: F:保存手机设备信任并校验、续期和撤销设备 | R:code:local/infrastructure/credential_store.py | A:PhoneSessionStore,add_device,validate_device,revoke_all | S:DPAPI文档仅存设备令牌摘要，恒时比较；有效期按last_seen滚动365天；损坏读取视为空信任
 prefs_store.py[PD8M]: F:提供偏好原子保存、文件占用有界重试和跨进程读合并写事务 | R:code:local/infrastructure/lifecycle_store.py,code:local/app.py | A:load_from,load_for_update,atomic_write,prefs_transaction,update,PrefsReadError | S:事务内必须用load_for_update，读不到抛PrefsReadError整次放弃，绝不以空字典合并写回；load_from只供无锁显示。替换被拒重试约0.5秒，仍失败清临时文件再抛；update任何失败返回False。事务锁须覆盖读核验合并写，不能持锁联网或等子进程
@@ -1563,9 +1563,20 @@ state.js[DD8T]: F:投影条款同意状态和学校动作锁定 | R:code:local/u
 actions.js[AV8S]: F:编排手动版本检查、下载确认取消及安装启动 | R:code:local/ui/views/update.js,code:local/ui/state/store.js | A:receiveUpdate,restoreUpdate,checkUpdate,startDownload,confirmDownload,launchInstaller | S:仅接当前request_id事件，合并进度保留安装器；检查不下载；迟到ack不能回退完成态。
 
 ===/<repository>/local/ui/m/===
-app.js[AU8L]: F:实现手机配对、活动选取、报名计划遥控与重登现场 | R:code:local/ui/m/index.html,code:local/ui/state/conflict.js | A:PhoneModel,PhoneUI | S:开始结果未知时保留原请求标识只读对账，不自动重发；业务倒计时依赖电脑时钟快照，睡眠跳变后弃用旧锚点。手机可提交新输入凭据，关闭重登面板即清输入。后端活动快照无open_ts与closed，开放与截止须按sign_start、sign_end和业务时钟判
-index.html[EU7M]: F:提供手机配对页、计划板与操作抽屉的语义结构 | R:code:local/ui/m/app.js,code:local/ui/m/styles.css | A:配对页,计划核对,重新登录 | S:核对及重登页脚位于滚动内容之外；手机是电脑遥控器，关闭或睡眠电脑会中断执行。
+index.html[EU7M]: F:提供手机配对页、计划板与操作抽屉的语义结构，并按顺序加载12份普通脚本 | R:code:local/ui/m/model.js,code:local/ui/m/ui-shell.js,code:local/ui/m/styles.css | A:配对页,计划核对,重新登录,script清单 | S:脚本标签次序即依赖，规则文件在前、ui-shell最后，测试也从这里读清单；手机是电脑遥控器，关闭或睡眠电脑会中断执行
 styles.css[FU5L]: F:定义手机单栏列表、点阵板与底部抽屉布局 | R:code:local/ui/m/index.html | A:手机页面样式 | S:hidden全局优先；抽屉页脚固定在内容滚动区外并计入安全区。
+model-conflict.js[DU7M]: F:给手机页纯规则补上时段重叠、跨天、业务时钟、取消说明、冲突原因面板与开始前提醒 | R:code:local/ui/m/model.js,code:local/ui/state/conflict.js | A:businessNowS,sleepJumped,signedClash,whyView,preStartWarnings,planSummary | S:业务时间只认电脑时钟快照，睡眠跳变后弃用旧锚点；只能用Object.assign补成员
+model-list.js[DU7M]: F:给手机页纯规则补上倒计时文案、报名状态、开放分组、勾选冲突、列表行与草稿板投影 | R:code:local/ui/m/model-conflict.js | A:stOf,visibleItems,conflictNotice,rowView,draftBoard,listView | S:报名状态按sign_start、sign_end与业务时钟判，后端快照没有open_ts与closed
+model-relogin.js[DU7M]: F:给手机页纯规则补上重新登录视图、配对点阵字形与配对错误文案，并把PhoneModel挂到全局 | R:code:local/ui/m/model-run.js,code:local/domain/phone_rules.py | A:reloginView,glyphs,ledOf,pairView,pairWrongText | S:配错文案的60秒与后端配错落锁时长耦合，改一处须同步另一处
+model-run.js[DU7M]: F:给手机页纯规则补上开始待定、运行等待板、任务卡、确认文案、结果统计、条款板与核对批次 | R:code:local/ui/m/model-list.js | A:pendingBoard,runBoard,taskCard,confirmView,resultView,reviewBatches | S:-
+model.js[DU7M]: F:定义手机页纯规则对象PhoneModel的核心成员：请求标识、筛选、退避与同步节奏、登录结论、开始门禁与可重选判断 | R:code:local/ui/m/index.html,code:local/ui/m/model-conflict.js | A:PhoneModel,filterItems,canStart,loginRaw,startPending,actionable | S:必须最先加载；只用PhoneModel.x互相引用，不用this，后续文件才能用Object.assign补成员
+ui-list.js[IU7M]: F:绘制手机页活动列表：分区、列表行、冲突原因面板、跳到已报名行与整页搜索开合 | R:code:local/ui/m/model-list.js,code:local/ui/m/ui-session.js | A:LIST_ZONES,buildRow,buildWhy,renderItems,toggleSearch | S:全部用textContent构造，不拼HTML
+ui-plan.js[AU7M]: F:编排手机页报名计划操作：开始与对账、取消等待、停止、取消单场、结果重选、重试设置与核对抽屉 | R:code:local/ui/m/ui-session.js,code:local/ui/m/model-run.js | A:startPlan,reconcile,cancelPendingStart,stopPlan,cancelTask,reselectFailed | S:开始结果未知时保留原请求标识只读对账，不自动重发
+ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model-relogin.js,code:local/ui/m/ui-session.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:手机可提交新输入的账号密码，关闭重登面板即清输入；验证码绑定当前挑战
+ui-session.js[AN8M]: F:定义手机页DOM层共用的$、请求超时与model状态对象，并负责带CSRF的请求、配对与锁定倒计时、轮询退避和会话失效处理 | R:code:local/ui/m/model.js,code:local/infrastructure/phone_http.py | A:model,api,postAction,pair,poll,probeExistingSession | S:$与model是全局词法名，后续ui脚本运行期共用；请求8秒不回就放弃并放回单飞锁；未配对时一个定时器都不排；csrf刷新后从cookie取回
+ui-shell.js[EU7M]: F:提供手机页抽屉外壳与确认槽、绑定全页事件，并导出PhoneUI与启动wire | R:code:local/ui/m/ui-session.js,code:local/ui/m/ui-plan.js,code:local/ui/m/ui-relogin.js | A:openSheet,closeSheet,askConfirm,wire,PhoneUI | S:必须最后加载，启动两行只在这里；前面任一脚本缺席会在wire时报引用错误
+ui-status.js[IU7M]: F:绘制手机页提示条与告警、控件启用门禁、底栏、计划点阵板、任务卡与运行记录 | R:code:local/ui/m/model-run.js,code:local/ui/m/ui-session.js | A:setBanner,renderAlerts,refreshControls,renderBar,renderBoard,addLog | S:提示条带来源标签，只有状态过时类能在同步成功后自动清掉
+ui-sync.js[AU7M]: F:摄入电脑状态快照与事件游标并按整秒局部刷新北京时间、倒计时与计划板 | R:code:local/ui/m/model-conflict.js,code:local/ui/m/ui-status.js | A:ingest,scheduleTick,tickClock,tickBoardLed,tickRowLeft | S:事件按序号去重，重置轮次才重新接纳；整秒刷新只改数字不重画、不额外联网
 
 ===/<repository>/local/ui/state/===
 clock.js[DD9M]: F:把后端时钟快照锚定到浏览器单调域并判可信时间 | R:code:local/ui/state/store.js,code:local/ui/state/time.js | A:clockReading,businessNowMs,bnowS,bnLeftSec,clockUiState | S:无效返回null不是0；锚点900秒寿命及500毫秒误差上限；桥接误差只计一次，漂移仅采样后时长。
@@ -1664,7 +1675,7 @@ verify_autologin_loop.py[TI9S]: F:故意破坏服务器会话并等待timer检�
 
 ===/<repository>/tools/code_shape/===
 README.md[SQ7S]: F:定义代码大小分层、名单收紧及模块守卫口径 | R:code:tools/code_shape/check.py,code:tools/code_shape/ui_modules.mjs | A:规则说明,检查命令 | S:名单只减不增；匿名函数按出现顺序标识，前插导致键错位需人工批准仅改键不改数值。
-baseline.json[FQ7L]: F:记录存量超限文件函数测试与多赋值属性类 | R:code:tools/code_shape/check.py | A:files,functions,test_functions,classes | S:记录值只允许收紧，甲档与类含原因；不是豁免新增或增长的许可。
+baseline.json[FQ7L]: F:记录存量超限文件函数测试与多赋值属性类 | R:code:tools/code_shape/check.py | A:files,functions,test_functions,classes | S:记录值只允许收紧，甲档与类含原因；不是豁免新增或增长的许可。整函数搬到新文件时只换键不改值
 check.py[XQ8L]: F:按统一物理行与属性量法比对和收紧代码大小名单 | R:code:tools/code_shape/baseline.json,code:tools/code_shape/jsfuncs.mjs | A:collect,compare,tighten,main | S:新未跟踪源码也查；Python函数不含装饰器且嵌套单算；属性仅三方法以上赋值；缺node只读可跳JS，init/tighten拒写防删名单。
 jsfuncs.mjs[XQ6T]: F:向大小守卫输出JS函数范围与物理行JSON | R:code:tools/code_shape/jsscan.mjs,code:tools/code_shape/check.py | A:命令行文件列表 | S:末行无换行补一行；量法保留匿名函数位置供调用方归一化。
 jslex.mjs[KQ7M]: F:无依赖扫描JS记号、模板插值及括号深度 | R:code:tools/code_shape/jsscan.mjs,code:tools/code_shape/ui_refs.mjs | A:tokenize,matchBrackets,braceDepths,KEYWORDS | S:模板插值展开普通记号并计花括号深度；正则不闭合回退为除号，文本段本身不当引用。
@@ -1706,3 +1717,166 @@ rule-dups.md[SU5T]: F:逐条对照手机页自行推断登录结论、报名模�
 equiv.json[FQ3T]: F:按变异编号保存六条人工等价判定理由，供变异报告合并 | R:code:design/evidence/2026-11-22/phone-net/scripts/mutate_phone.py | A:编号到理由的映射 | S:-
 move_facts.py[XQ3L]: F:只读扫描手机页脚本、页面、静态白名单与测试，按固定名单归组并生成六张清点表，--check核对合计 | R:code:tools/code_shape/jsscan.mjs,code:local/ui/m/app.js | A:main,build_facts,verify_facts,--check | S:输出含中文，非UTF-8控制台需设PYTHONIOENCODING
 mutate_phone.py[XQ3M]: F:在独立副本内对请求与配对会话组按函数范围逐条变异，过node检查后跑手机页测试并分五类出报告 | R:code:design/evidence/2026-11-22/phone-net/scripts/equiv.json,code:local/tests/test_phone_ui.py | A:main,--list,--baseline,--ids,--workers | S:副本产品代码取HEAD，只叠加工作区的test_phone_ui.py
+
+===/<repository>/design/evidence/2026-11-21/keepalive-probe/===
+README.md[SP4S]: F:记录手机页连接复用对照实验的单变量设置、事先判据、真机汇总、请求日志发现与结论不定的判定 | R:code:design/evidence/2026-11-21/keepalive-probe/scripts/summarize.py | A:汇总表、判据核对、复现命令 | S:隧道实例间波动大于组别差，完成率差异不能归因保活
+RUNBOOK.md[SP3S]: F:写给用户在iPhone上经Tailscale各一轮、Cloudflare交替各两轮跑保活与不保活测速的步骤、收尾与排错 | R:code:design/evidence/2026-11-21/keepalive-probe/scripts/serve_keepalive.py | A:真机测速手册 | S:-
+
+===/<repository>/design/evidence/2026-11-21/keepalive-probe/results/===
+phone-cloudflare-close-ios-safari-01.json[TP2T]: F:保存Cloudflare不保活组第一隧道Safari普通脚本第1轮上报，四十脚本2412毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-02.json[TP2T]: F:保存Cloudflare不保活组第一隧道Safari普通脚本第2轮上报，四十脚本1923毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-03.json[TP2T]: F:保存Cloudflare不保活组第一隧道Safari普通脚本第3轮上报，四十脚本1441毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-04.json[TP2T]: F:保存Cloudflare不保活组第一隧道扁平模块第1轮中途快照，一个模块未执行，6216毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-05.json[TP2T]: F:保存Cloudflare不保活组第一隧道扁平模块第1轮上报，10秒内零模块执行未完成 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-06.json[TP2T]: F:保存Cloudflare不保活组第一隧道扁平模块第2轮中途快照，尚无模块执行，6521毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-07.json[TP2T]: F:保存Cloudflare不保活组第一隧道扁平模块第2轮上报，四十模块6799毫秒才跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-08.json[TP2T]: F:保存Cloudflare不保活组第一隧道扁平模块第3轮中途快照，零模块执行，6051毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-09.json[TP2T]: F:保存Cloudflare不保活组第一隧道扁平模块第3轮上报，10秒内一个模块都没执行 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-10.json[TP2T]: F:保存Cloudflare不保活组第一隧道链式模块第1轮中途快照，零模块执行，7106毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-11.json[TP2T]: F:保存Cloudflare不保活组第一隧道链式模块第1轮上报，四十模块7707毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-12.json[TP2T]: F:保存Cloudflare不保活组第一隧道链式模块第2轮中途快照，尚无模块执行，6373毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-13.json[TP2T]: F:保存Cloudflare不保活组第一隧道链式模块第2轮上报，四十模块6608毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-14.json[TP2T]: F:保存Cloudflare不保活组第一隧道链式模块第3轮上报，四十模块5901毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-15.json[TP2T]: F:保存Cloudflare不保活组第一隧道链式模块第3轮快照，四十模块已在5901毫秒完成，6037毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-16.json[TP2T]: F:保存Cloudflare不保活组第一隧道预加载链第1轮停跑前快照，零模块执行，7191毫秒出兜底，此后再无上报 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-17.json[TP2T]: F:保存Cloudflare不保活组第二隧道Safari普通脚本第1轮上报，四十脚本2484毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-18.json[TP2T]: F:保存Cloudflare不保活组第二隧道Safari普通脚本第2轮上报，四十脚本1911毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-19.json[TP2T]: F:保存Cloudflare不保活组第二隧道Safari普通脚本第3轮上报，四十脚本1623毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-20.json[TP2T]: F:保存Cloudflare不保活组第二隧道扁平模块第1轮中途快照，零模块执行，6725毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-21.json[TP2T]: F:保存Cloudflare不保活组第二隧道扁平模块第1轮上报，10秒内零模块执行未完成 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-22.json[TP2T]: F:保存Cloudflare不保活组第二隧道扁平模块第2轮上报，四十模块2037毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-23.json[TP2T]: F:保存Cloudflare不保活组第二隧道扁平模块第3轮中途快照，尚无模块执行，6216毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-24.json[TP2T]: F:保存Cloudflare不保活组第二隧道扁平模块第3轮上报，10秒内一个模块都没执行 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-25.json[TP2T]: F:保存Cloudflare不保活组第二隧道链式模块第1轮上报，四十模块6539毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-26.json[TP2T]: F:保存Cloudflare不保活组第二隧道链式模块第1轮快照，四十模块6539毫秒已完成，6722毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-27.json[TP2T]: F:保存Cloudflare不保活组第二隧道链式模块第2轮上报，四十模块5468毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-28.json[TP2T]: F:保存Cloudflare不保活组第二隧道链式模块第3轮上报，四十模块5209毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-29.json[TP2T]: F:保存Cloudflare不保活组第二隧道链式模块第3轮快照，四十模块5209毫秒已完成，6114毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-30.json[TP2T]: F:保存Cloudflare不保活组第二隧道预加载链第1轮中途快照，零模块执行，6725毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-31.json[TP2T]: F:保存Cloudflare不保活组第二隧道预加载链第1轮上报，10秒内零模块执行未完成 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-32.json[TP2T]: F:保存Cloudflare不保活组第二隧道预加载链第2轮中途快照，页面已加载但零模块执行，6448毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-33.json[TP2T]: F:保存Cloudflare不保活组第二隧道预加载链第2轮上报，10秒内一个模块都没执行 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-close-ios-safari-34.json[TP2T]: F:保存Cloudflare不保活组第二隧道预加载链第3轮中途快照，零模块执行，6421毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-close-ios-safari-35.json[TP2T]: F:保存Cloudflare不保活组第二隧道预加载链第3轮上报，10秒内零模块执行，该组这形态三轮全未完成 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-01.json[TP2T]: F:保存Cloudflare保活组第一隧道Safari普通脚本第1轮上报，四十脚本2898毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-02.json[TP2T]: F:保存Cloudflare保活组第一隧道Safari普通脚本第2轮上报，四十脚本2595毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-03.json[TP2T]: F:保存Cloudflare保活组第一隧道Safari普通脚本第3轮上报，四十脚本3560毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-04.json[TP2T]: F:保存Cloudflare保活组第一隧道扁平模块第1轮中途快照，页面已加载但零模块执行，6217毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-keepalive-ios-safari-05.json[TP2T]: F:保存Cloudflare保活组第一隧道扁平模块第1轮上报，10秒内零模块执行未完成 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-06.json[TP2T]: F:保存Cloudflare保活组第一隧道扁平模块第2轮上报，四十模块4498毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-07.json[TP2T]: F:保存Cloudflare保活组第一隧道扁平模块第3轮上报，四十模块3915毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-08.json[TP2T]: F:保存Cloudflare保活组第一隧道链式模块第1轮中途快照，尚无模块执行，6548毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-keepalive-ios-safari-09.json[TP2T]: F:保存Cloudflare保活组第一隧道链式模块第1轮上报，四十模块8385毫秒才跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-10.json[TP2T]: F:保存Cloudflare保活组第一隧道链式模块第2轮上报，四十模块6035毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-11.json[TP2T]: F:保存Cloudflare保活组第一隧道链式模块第2轮快照，四十模块6035毫秒已完成，6121毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-keepalive-ios-safari-12.json[TP2T]: F:保存Cloudflare保活组第一隧道链式模块第3轮中途快照，零模块执行，6101毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-keepalive-ios-safari-13.json[TP2T]: F:保存Cloudflare保活组第一隧道链式模块第3轮上报，四十模块6702毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-14.json[TP2T]: F:保存Cloudflare保活组第一隧道预加载链第1轮上报，四十模块3442毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-15.json[TP2T]: F:保存Cloudflare保活组第一隧道预加载链第2轮上报，四十模块1223毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-16.json[TP2T]: F:保存Cloudflare保活组第一隧道预加载链第3轮上报，四十模块1654毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-17.json[TP2T]: F:保存Cloudflare保活组第一隧道预加载链第3轮快照，四十模块1654毫秒已完成，6642毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-keepalive-ios-safari-18.json[TP2T]: F:保存Cloudflare保活组第二隧道Safari普通脚本第1轮上报，四十脚本2740毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-19.json[TP2T]: F:保存Cloudflare保活组第二隧道Safari普通脚本第2轮上报，四十脚本3929毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-20.json[TP2T]: F:保存Cloudflare保活组第二隧道Safari普通脚本第3轮上报，四十脚本2341毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-21.json[TP2T]: F:保存Cloudflare保活组第二隧道扁平模块第1轮上报，四十模块2811毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-22.json[TP2T]: F:保存Cloudflare保活组第二隧道扁平模块第2轮中途快照，零模块执行，6114毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-keepalive-ios-safari-23.json[TP2T]: F:保存Cloudflare保活组第二隧道扁平模块第2轮上报，10秒内零模块执行未完成 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-24.json[TP2T]: F:保存Cloudflare保活组第二隧道扁平模块第3轮上报，四十模块3617毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-25.json[TP2T]: F:保存Cloudflare保活组第二隧道链式模块第1轮上报，四十模块6331毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-26.json[TP2T]: F:保存Cloudflare保活组第二隧道链式模块第2轮第一份中途快照，零模块执行，6270毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-keepalive-ios-safari-27.json[TP2T]: F:保存Cloudflare保活组第二隧道链式模块第2轮第二份中途快照，仍零模块执行，6067毫秒出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-cloudflare-keepalive-ios-safari-28.json[TP2T]: F:保存Cloudflare保活组第二隧道链式模块第2轮上报，四十模块6285毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-29.json[TP2T]: F:保存Cloudflare保活组第二隧道链式模块第3轮上报，四十模块5230毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-30.json[TP2T]: F:保存Cloudflare保活组第二隧道预加载链第1轮上报，四十模块4456毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-31.json[TP2T]: F:保存Cloudflare保活组第二隧道预加载链第2轮上报，四十模块1299毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-32.json[TP2T]: F:保存Cloudflare保活组第二隧道预加载链第3轮上报，四十模块958毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-cloudflare-keepalive-ios-safari-33.json[TP2T]: F:保存Cloudflare保活组第二隧道预加载链第3轮快照，四十模块958毫秒已完成，5948毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-tailscale-close-desktop-webview2-01.json[TQ2T]: F:保存本机WebView2不保活组自测的普通脚本第1轮上报，四十脚本约126毫秒跑完，只证工具可用 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-desktop-webview2-02.json[TQ2T]: F:保存本机WebView2不保活组自测的普通脚本第2轮上报，四十脚本约204毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-desktop-webview2-03.json[TQ2T]: F:保存本机WebView2不保活组自测的普通脚本第3轮上报，四十脚本约83毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-desktop-webview2-04.json[TQ2T]: F:保存本机WebView2不保活组自测的扁平模块第1轮上报，四十模块约87毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-desktop-webview2-05.json[TQ2T]: F:保存本机WebView2不保活组自测的扁平模块第2轮上报，四十模块约90毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-desktop-webview2-06.json[TQ2T]: F:保存本机WebView2不保活组自测的扁平模块第3轮上报，四十模块约88毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-desktop-webview2-07.json[TQ2T]: F:保存本机WebView2不保活组自测的链式模块第1轮上报，四十模块约133毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-desktop-webview2-08.json[TQ2T]: F:保存本机WebView2不保活组自测的链式模块第2轮上报，四十模块约102毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-desktop-webview2-09.json[TQ2T]: F:保存本机WebView2不保活组自测的链式模块第3轮上报，四十模块约108毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-desktop-webview2-10.json[TQ2T]: F:保存本机WebView2不保活组自测的预加载链第1轮上报，四十模块约101毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-desktop-webview2-11.json[TQ2T]: F:保存本机WebView2不保活组自测的预加载链第2轮上报，四十模块约102毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-desktop-webview2-12.json[TQ2T]: F:保存本机WebView2不保活组自测的预加载链第3轮上报，四十模块约102毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-01.json[TP2T]: F:保存Tailscale不保活组iPhone Safari普通脚本第1轮上报，四十脚本669毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-02.json[TP2T]: F:保存Tailscale不保活组iPhone Safari普通脚本第2轮上报，四十脚本555毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-03.json[TP2T]: F:保存Tailscale不保活组iPhone Safari普通脚本第3轮上报，四十脚本591毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-04.json[TP2T]: F:保存Tailscale不保活组iPhone Safari扁平模块第1轮上报，四十模块743毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-05.json[TP2T]: F:保存Tailscale不保活组iPhone Safari扁平模块第2轮上报，四十模块674毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-06.json[TP2T]: F:保存Tailscale不保活组iPhone Safari扁平模块第3轮上报，四十模块653毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-07.json[TP2T]: F:保存Tailscale不保活组iPhone Safari链式模块第1轮上报，四十模块814毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-08.json[TP2T]: F:保存Tailscale不保活组iPhone Safari链式模块第2轮上报，四十模块738毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-09.json[TP2T]: F:保存Tailscale不保活组iPhone Safari链式模块第3轮上报，四十模块730毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-10.json[TP2T]: F:保存Tailscale不保活组iPhone Safari预加载链第1轮上报，四十模块655毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-11.json[TP2T]: F:保存Tailscale不保活组iPhone Safari预加载链第2轮上报，四十模块735毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-12.json[TP2T]: F:保存Tailscale不保活组iPhone Safari预加载链第3轮上报，四十模块574毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-close-ios-safari-13.json[TP2T]: F:保存Tailscale不保活组iPhone预加载链第3轮快照，四十模块574毫秒已完成，5558毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-tailscale-keepalive-desktop-webview2-01.json[TQ2T]: F:保存本机WebView2保活组自测的普通脚本第1轮上报，四十脚本约83毫秒跑完，只证工具可用 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-desktop-webview2-02.json[TQ2T]: F:保存本机WebView2保活组自测的普通脚本第2轮上报，四十脚本约86毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-desktop-webview2-03.json[TQ2T]: F:保存本机WebView2保活组自测的普通脚本第3轮上报，四十脚本约102毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-desktop-webview2-04.json[TQ2T]: F:保存本机WebView2保活组自测的扁平模块第1轮上报，四十模块约86毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-desktop-webview2-05.json[TQ2T]: F:保存本机WebView2保活组自测的扁平模块第2轮上报，四十模块约98毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-desktop-webview2-06.json[TQ2T]: F:保存本机WebView2保活组自测的扁平模块第3轮上报，四十模块约105毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-desktop-webview2-07.json[TQ2T]: F:保存本机WebView2保活组自测的链式模块第1轮上报，四十模块约152毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-desktop-webview2-08.json[TQ2T]: F:保存本机WebView2保活组自测的链式模块第2轮上报，四十模块约108毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-desktop-webview2-09.json[TQ2T]: F:保存本机WebView2保活组自测的链式模块第3轮上报，四十模块约94毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-desktop-webview2-10.json[TQ2T]: F:保存本机WebView2保活组自测的预加载链第1轮上报，四十模块约82毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-desktop-webview2-11.json[TQ2T]: F:保存本机WebView2保活组自测的预加载链第2轮上报，四十模块约85毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-desktop-webview2-12.json[TQ2T]: F:保存本机WebView2保活组自测的预加载链第3轮上报，四十模块约85毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-01.json[TP2T]: F:保存Tailscale保活组开跑时Safari重开残留标签页重跑的预加载链第3轮，四十模块3158毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-02.json[TP2T]: F:保存Tailscale保活组残留标签页重跑预加载链的快照，四十模块3158毫秒已完成，8122毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-tailscale-keepalive-ios-safari-03.json[TP2T]: F:保存Tailscale保活组残留标签页第二次重跑预加载链第3轮的上报，四十模块551毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-04.json[TP2T]: F:保存Tailscale保活组残留标签页重跑快照，四十模块551毫秒已完成，5517毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-tailscale-keepalive-ios-safari-05.json[TP2T]: F:保存Tailscale保活组残留标签页第三次重跑预加载链的上报，四十模块149毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-06.json[TP2T]: F:保存Tailscale保活组残留标签页重跑快照，四十模块149毫秒已完成，5116毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-tailscale-keepalive-ios-safari-07.json[TP2T]: F:保存Tailscale保活组残留标签页第四次重跑预加载链的上报，四十模块101毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-08.json[TP2T]: F:保存Tailscale保活组残留标签页重跑快照，四十模块101毫秒已完成，5098毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+phone-tailscale-keepalive-ios-safari-09.json[TP2T]: F:保存Tailscale保活组iPhone Safari普通脚本第1轮上报，四十脚本494毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-10.json[TP2T]: F:保存Tailscale保活组iPhone Safari普通脚本第2轮上报，四十脚本515毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-11.json[TP2T]: F:保存Tailscale保活组iPhone Safari普通脚本第3轮上报，四十脚本514毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-12.json[TP2T]: F:保存Tailscale保活组iPhone Safari扁平模块第1轮上报，四十模块598毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-13.json[TP2T]: F:保存Tailscale保活组iPhone Safari扁平模块第2轮上报，四十模块593毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-14.json[TP2T]: F:保存Tailscale保活组iPhone Safari扁平模块第3轮上报，四十模块585毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-15.json[TP2T]: F:保存Tailscale保活组iPhone Safari链式模块第1轮上报，四十模块680毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-16.json[TP2T]: F:保存Tailscale保活组iPhone Safari链式模块第2轮上报，四十模块686毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-17.json[TP2T]: F:保存Tailscale保活组iPhone Safari链式模块第3轮上报，四十模块701毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-18.json[TP2T]: F:保存Tailscale保活组iPhone Safari预加载链第1轮上报，四十模块115毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-19.json[TP2T]: F:保存Tailscale保活组iPhone Safari预加载链第2轮上报，四十模块451毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-20.json[TP2T]: F:保存Tailscale保活组iPhone Safari预加载链第3轮上报，四十模块554毫秒跑完 | R:- | A:arm,payload.form,payload.done_ms | S:-
+phone-tailscale-keepalive-ios-safari-21.json[TP2T]: F:保存Tailscale保活组iPhone预加载链第3轮快照，四十模块554毫秒已完成，5103毫秒仍出兜底 | R:- | A:payload.esm_count,payload.fallback | S:-
+requests-cloudflare-close-20261122-104557.jsonl[TP3L]: F:记录Cloudflare不保活组第一隧道的逐请求到达日志，407个请求各占一条连接，预加载链第1轮后再无到达 | R:code:design/evidence/2026-11-21/keepalive-probe/scripts/serve_keepalive.py | A:ts_ms,path,status,conn_id,conn_req_seq | S:-
+requests-cloudflare-close-20261122-112329.jsonl[TP3L]: F:记录Cloudflare不保活组第二隧道的逐请求到达日志，434个请求各占一条连接 | R:code:design/evidence/2026-11-21/keepalive-probe/scripts/serve_keepalive.py | A:ts_ms,path,status,conn_id,conn_req_seq | S:-
+requests-cloudflare-keepalive-20261122-111814.jsonl[TP3L]: F:记录Cloudflare保活组第一隧道的逐请求到达日志，467个请求复用成23条连接，单连接最多111个 | R:code:design/evidence/2026-11-21/keepalive-probe/scripts/serve_keepalive.py | A:ts_ms,path,status,conn_id,conn_req_seq | S:-
+requests-cloudflare-keepalive-20261122-112742.jsonl[TP3L]: F:记录Cloudflare保活组第二隧道的逐请求到达日志，465个请求复用成34条连接，单连接最多64个 | R:code:design/evidence/2026-11-21/keepalive-probe/scripts/serve_keepalive.py | A:ts_ms,path,status,conn_id,conn_req_seq | S:-
+requests-tailscale-close-20261121-163639.jsonl[TQ2L]: F:记录本机WebView2不保活组自测的请求日志，553个请求用了553条连接，用来证明连接开关生效 | R:code:design/evidence/2026-11-21/keepalive-probe/scripts/serve_keepalive.py | A:ts_ms,path,status,conn_id,conn_req_seq | S:-
+requests-tailscale-close-20261122-103632.jsonl[TP3L]: F:记录Tailscale不保活组iPhone测速的逐请求日志，543个请求各占一条连接 | R:code:design/evidence/2026-11-21/keepalive-probe/scripts/serve_keepalive.py | A:ts_ms,path,status,conn_id,conn_req_seq | S:-
+requests-tailscale-keepalive-20261121-163648.jsonl[TQ2L]: F:记录本机WebView2保活组自测的请求日志，553个请求复用成12条连接，单连接最多68个 | R:code:design/evidence/2026-11-21/keepalive-probe/scripts/serve_keepalive.py | A:ts_ms,path,status,conn_id,conn_req_seq | S:-
+requests-tailscale-keepalive-20261122-104050.jsonl[TP3L]: F:记录Tailscale保活组iPhone测速的逐请求日志，496个请求复用成17条连接，单连接最多92个 | R:code:design/evidence/2026-11-21/keepalive-probe/scripts/serve_keepalive.py | A:ts_ms,path,status,conn_id,conn_req_seq | S:-
+
+===/<repository>/design/evidence/2026-11-21/keepalive-probe/scripts/===
+serve_keepalive.py[TP4L]: F:复用2026-11-12测速服务与脱敏工具，只切换HTTP/1.0断开或HTTP/1.1保活，写带组别的上报与脱敏请求日志并提供离线自检 | R:code:design/evidence/2026-11-12/esm-verify/phone/serve_probe.py,code:design/evidence/2026-11-12/esm-verify/tools/redact.py | A:--arm,--self-check,--selfdrive,--channel | S:日志只记连接编号与来源端口，不记客户端IP
+summarize.py[XP3M]: F:只读汇总对照实验上报与请求日志，按通道组别形态算完成次数、耗时中位数与最大值、连接数及未完成时到达的模块请求 | R:code:design/evidence/2026-11-21/keepalive-probe/README.md | A:命令行输出Markdown表 | S:-
+
+===/<repository>/design/evidence/2026-11-21/phone-split/===
+README.md[SU4T]: F:记录手机页脚本原样拆成12份普通脚本的范围、文件清单、不用ES模块的理由、验证汇总与真机两通道核对结果 | R:code:local/ui/m/index.html,code:design/evidence/2026-11-21/keepalive-probe/README.md | A:验证汇总表、未验证项 | S:打包EXE内加载与安卓、微信浏览器未验
+changed-tests.md[SQ3T]: F:逐处列三份测试改按页面脚本清单装载的位置与原因，以及两组新守卫在临时副本里的变红反证 | R:code:local/tests/test_phone_ui.py,code:local/tests/test_phone_infra.py | A:改动清单、反证记录 | S:假DOM去井号是因手机页$变全局会遮住沙箱$
+edge-load.md[SQ3T]: F:记录无头Edge加载替身手机服务的核对，12份脚本全部200、零错误、未撞浏览器全局名，配对前后DOM与HEAD一致 | R:code:design/evidence/2026-11-21/phone-split/scripts/edge_load.py | A:请求表、产物位置 | S:-
+load-order.md[SQ3T]: F:记录三次加载顺序反证：删掉一份脚本、外壳脚本前移、对调两份规则脚本都让手机页测试变红 | R:code:local/ui/m/index.html | A:反证与首败用例 | S:-
+move-check.md[SQ3T]: F:记录拆分逐字核对结果：101个规则成员、72个页面层顶层声明与全部非空行均与原文一致 | R:code:design/evidence/2026-11-21/phone-split/scripts/move_check.py | A:- | S:-
+net-after-move.md[SQ3T]: F:列请求与配对会话组72条变异在新文件位置的结论与首败用例，与安全网原结论逐条一致 | R:code:design/evidence/2026-11-22/phone-net/after.md | A:变异对照表 | S:-
+
+===/<repository>/design/evidence/2026-11-21/phone-split/edge/===
+head-after.html[TQ2T]: F:保存拆分前版本手机页配对后规整的body DOM，含三场假活动列表，与拆分后版本逐字节相同 | R:code:design/evidence/2026-11-21/phone-split/edge/work-after.html | A:- | S:-
+head-before.html[TQ2T]: F:保存拆分前版本手机页配对前规整的body DOM，与拆分后版本逐字节相同 | R:code:design/evidence/2026-11-21/phone-split/edge/work-before.html | A:- | S:-
+work-after.html[TQ2T]: F:保存拆分后手机页配对后规整的body DOM，配对点阵按点数归一 | R:code:design/evidence/2026-11-21/phone-split/edge/head-after.html | A:- | S:-
+work-before.html[TQ2T]: F:保存拆分后手机页配对前规整的body DOM，去掉了script标签 | R:code:design/evidence/2026-11-21/phone-split/edge/head-before.html | A:- | S:-
+
+===/<repository>/design/evidence/2026-11-21/phone-split/scripts/===
+edge_load.py[XQ3M]: F:对HEAD副本与工作区各起本机替身手机服务，用无头Edge核对脚本请求、错误、全局名撞名与配对前后DOM | R:code:local/infrastructure/phone_http.py | A:命令行入口 | S:只开127.0.0.1，数据目录指到临时目录
+move_check.py[XQ3M]: F:以HEAD原文为准逐成员、逐顶层声明、逐非空行核对手机页拆分，只许多出严格模式、文件头注释与合并外壳 | R:code:tools/code_shape/jsscan.mjs,code:local/ui/m/index.html | A:命令行入口 | S:-
+net_after_move.py[XQ3M]: F:只读复用安全网的72条变异，改为新文件顶格定位后在临时副本复跑，并与原结论对照 | R:code:design/evidence/2026-11-22/phone-net/scripts/mutate_phone.py | A:--workers | S:-
