@@ -26,3 +26,13 @@
    - 位置：`local/ui/m/model-conflict.js` `PhoneModel.schoolSec`
    - 改法：将日期时间分隔符正则表达式改回 `[ T]`
    - 首个失败用例：`test_phone_ui.PhoneTimeTextTests.test_school_sec_rejects_t_separator_and_keeps_space_format`（`exit=1`）
+
+6. **M6：`cancelWindowOpen` 改回直接读 `sign_start` 文本**
+   - 位置：`local/ui/m/model-conflict.js` `PhoneModel.cancelWindowOpen`
+   - 改法：将 `const start = PhoneModel.tsOf(item, "open_ts", "sign_start");` 改回 `const start = PhoneModel.schoolSec(item.sign_start);`
+   - 首个失败用例：`test_phone_ui.PhoneCancelNoteTests.test_cancel_window_start_uses_open_ts_over_sign_start_text`（`exit=1`）
+
+7. **M7：`clashWay` 改回直接读 `sign_end` 文本**
+   - 位置：`local/ui/m/model-conflict.js` `PhoneModel.clashWay`
+   - 改法：将 `const end = PhoneModel.tsOf(sg, "close_ts", "sign_end");` 改回 `const end = PhoneModel.schoolSec(sg.sign_end);`
+   - 首个失败用例：`test_phone_ui.PhoneClashRulesTests.test_clash_way_deadline_uses_close_ts_over_sign_end_text`（`exit=1`）

@@ -6432,6 +6432,30 @@ out.push({
         self.assertEqual(out["hit"], "sg")
         self.assertIsNone(out["miss"])
 
+    def test_clash_way_deadline_uses_close_ts_over_sign_end_text(self):
+        """守住 clashWay 展示的取消截止时刻读 close_ts，不直接解析 sign_end 文本。"""
+        out = run_phone_js(SETUP + r"""
+const model = { clock: null }; clockAt(model);
+const nowS = PhoneModel.businessNowS(model);
+const sg = Object.assign({}, signedA, {
+  cancel_allowed: true,
+  open_ts: nowS - 3600,
+  close_ts: NOW_S + 7200,
+  sign_end: "2026-11-08 14:00:00",
+});
+const way = PhoneModel.clashWay(sg, nowS);
+out.push({
+  kind: way.kind,
+  text: way.text,
+  wantClose: PhoneModel.absWhen(sg.close_ts),
+  badSignEnd: PhoneModel.absWhen(PhoneModel.schoolSec(sg.sign_end)),
+});
+""")[0]
+        self.assertEqual(out["kind"], "a")
+        self.assertEqual(out["wantClose"], "11月6日 16:00")
+        self.assertIn(out["wantClose"], out["text"])
+        self.assertNotIn(out["badSignEnd"], out["text"])
+
 
 class PhoneTimeTextTests(unittest.TestCase):
     def test_cross_day_same_day_and_midnight(self):
@@ -6507,6 +6531,25 @@ out.push({
         self.assertEqual(out["noteExp"], "")
         self.assertTrue(out["winOpen"])
         self.assertIn("可取消至 11月6日 15:00", out["noteOpen"])
+
+    def test_cancel_window_start_uses_open_ts_over_sign_start_text(self):
+        """守住 cancelWindowOpen 的开始时刻读 open_ts，不直接解析 sign_start 文本。"""
+        out = run_phone_js(SETUP + r"""
+const model = { clock: null }; clockAt(model);
+const nowS = PhoneModel.businessNowS(model);
+const notYet = Object.assign({}, signedA, {
+  open_ts: nowS + 3600, close_ts: nowS + 7200, sign_start: "2026-11-01 08:00:00",
+});
+const opened = Object.assign({}, signedA, {
+  open_ts: nowS - 3600, close_ts: nowS + 7200, sign_start: "2027-01-01 08:00:00",
+});
+out.push({
+  notYet: PhoneModel.cancelWindowOpen(notYet, nowS),
+  opened: PhoneModel.cancelWindowOpen(opened, nowS),
+});
+""")[0]
+        self.assertIs(out["notYet"], False)
+        self.assertIs(out["opened"], True)
 
     def test_clock_snapshot_rules(self):
         out = run_phone_js(SETUP + r"""

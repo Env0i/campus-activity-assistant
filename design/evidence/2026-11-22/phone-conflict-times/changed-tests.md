@@ -21,3 +21,7 @@
   - 守卫规则：`PhoneModel.schoolSec` 与电脑 `time_contract.parse_school_time` 及桌面 `toTs` 一致，拒绝 `T` 分隔和非法日历日期，仅接受空格分隔的 `YYYY-MM-DD HH:MM:SS`。
 - `test_phone_ui.PhoneCancelNoteTests.test_cancel_window_and_note_use_close_ts_over_sign_end_text`
   - 守卫规则：`PhoneModel.cancelWindowOpen` 与 `cancelNote` 在快照带 `open_ts` / `close_ts` 时只以这两个数值键为准，即使 `sign_end` 文本滞后或超前也不误判。
+- `test_phone_ui.PhoneCancelNoteTests.test_cancel_window_start_uses_open_ts_over_sign_start_text`
+  - 守卫规则：`PhoneModel.cancelWindowOpen` 的开始时刻优先并只读快照 `open_ts` 键，不直接解析 `sign_start` 文本。
+- `test_phone_ui.PhoneClashRulesTests.test_clash_way_deadline_uses_close_ts_over_sign_end_text`
+  - 守卫规则：`PhoneModel.clashWay` 展示的取消截止时刻优先并只读快照 `close_ts` 键，不直接解析 `sign_end` 文本。
