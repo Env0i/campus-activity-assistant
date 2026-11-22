@@ -1,0 +1,46 @@
+[10:45:57] 启动 cloudflared 临时隧道（只连本机 8765 端口）
+[10:46:01] 隧道就绪（域名已脱敏）
+[10:46:01] 服务已启动，通道=cloudflare，组别=close，端口=8765，请求日志=requests-cloudflare-close-20261122-104557.jsonl
+[10:46:01] 手机打开（日志已脱敏）：https://cloudflare/
+[10:47:08] 收到上报 → phone-cloudflare-close-ios-safari-01.json（arm=close page=h9 form=legacy run=1）
+[10:47:10] 收到上报 → phone-cloudflare-close-ios-safari-02.json（arm=close page=h9 form=legacy run=2）
+[10:47:12] 收到上报 → phone-cloudflare-close-ios-safari-03.json（arm=close page=h9 form=legacy run=3）
+[10:47:19] 收到上报 → phone-cloudflare-close-ios-safari-04.json（arm=close page=h9 form=None run=None）
+[10:47:24] 收到上报 → phone-cloudflare-close-ios-safari-05.json（arm=close page=h9 form=flat run=1）
+[10:47:31] 收到上报 → phone-cloudflare-close-ios-safari-06.json（arm=close page=h9 form=None run=None）
+[10:47:32] 收到上报 → phone-cloudflare-close-ios-safari-07.json（arm=close page=h9 form=flat run=2）
+[10:47:38] 收到上报 → phone-cloudflare-close-ios-safari-08.json（arm=close page=h9 form=None run=None）
+[10:47:43] 收到上报 → phone-cloudflare-close-ios-safari-09.json（arm=close page=h9 form=flat run=3）
+[10:47:51] 收到上报 → phone-cloudflare-close-ios-safari-10.json（arm=close page=h9 form=None run=None）
+[10:47:51] 收到上报 → phone-cloudflare-close-ios-safari-11.json（arm=close page=h9 form=chain run=1）
+[10:47:58] 收到上报 → phone-cloudflare-close-ios-safari-12.json（arm=close page=h9 form=None run=None）
+[10:47:59] 收到上报 → phone-cloudflare-close-ios-safari-13.json（arm=close page=h9 form=chain run=2）
+[10:48:05] 收到上报 → phone-cloudflare-close-ios-safari-14.json（arm=close page=h9 form=chain run=3）
+[10:48:06] 收到上报 → phone-cloudflare-close-ios-safari-15.json（arm=close page=h9 form=None run=None）
+[10:48:13] 收到上报 → phone-cloudflare-close-ios-safari-16.json（arm=close page=h9 form=None run=None）
+[11:01:01] 停止：到时自动退出
+[11:01:02] 端口已释放=True（127.0.0.1:8765）
+[11:23:29] 启动 cloudflared 临时隧道（只连本机 8765 端口）
+[11:23:34] 隧道就绪（域名已脱敏）
+[11:23:34] 隧道边缘连接注册=True
+[11:23:35] 服务已启动，通道=cloudflare，组别=close，端口=8765，请求日志=requests-cloudflare-close-20261122-112329.jsonl
+[11:23:35] 手机打开（日志已脱敏）：https://cloudflare/
+[11:24:18] 收到上报 → phone-cloudflare-close-ios-safari-17.json（arm=close page=h9 form=legacy run=1）
+[11:24:21] 收到上报 → phone-cloudflare-close-ios-safari-18.json（arm=close page=h9 form=legacy run=2）
+[11:24:23] 收到上报 → phone-cloudflare-close-ios-safari-19.json（arm=close page=h9 form=legacy run=3）
+[11:24:30] 收到上报 → phone-cloudflare-close-ios-safari-20.json（arm=close page=h9 form=None run=None）
+[11:24:35] 收到上报 → phone-cloudflare-close-ios-safari-21.json（arm=close page=h9 form=flat run=1）
+[11:24:38] 收到上报 → phone-cloudflare-close-ios-safari-22.json（arm=close page=h9 form=flat run=2）
+[11:24:45] 收到上报 → phone-cloudflare-close-ios-safari-23.json（arm=close page=h9 form=None run=None）
+[11:24:50] 收到上报 → phone-cloudflare-close-ios-safari-24.json（arm=close page=h9 form=flat run=3）
+[11:24:57] 收到上报 → phone-cloudflare-close-ios-safari-25.json（arm=close page=h9 form=chain run=1）
+[11:24:57] 收到上报 → phone-cloudflare-close-ios-safari-26.json（arm=close page=h9 form=None run=None）
+[11:25:03] 收到上报 → phone-cloudflare-close-ios-safari-27.json（arm=close page=h9 form=chain run=2）
+[11:25:09] 收到上报 → phone-cloudflare-close-ios-safari-28.json（arm=close page=h9 form=chain run=3）
+[11:25:10] 收到上报 → phone-cloudflare-close-ios-safari-29.json（arm=close page=h9 form=None run=None）
+[11:25:16] 收到上报 → phone-cloudflare-close-ios-safari-30.json（arm=close page=h9 form=None run=None）
+[11:25:21] 收到上报 → phone-cloudflare-close-ios-safari-31.json（arm=close page=h9 form=preload-chain run=1）
+[11:25:28] 收到上报 → phone-cloudflare-close-ios-safari-32.json（arm=close page=h9 form=None run=None）
+[11:25:34] 收到上报 → phone-cloudflare-close-ios-safari-33.json（arm=close page=h9 form=preload-chain run=2）
+[11:25:40] 收到上报 → phone-cloudflare-close-ios-safari-34.json（arm=close page=h9 form=None run=None）
+[11:25:45] 收到上报 → phone-cloudflare-close-ios-safari-35.json（arm=close page=h9 form=preload-chain run=3）

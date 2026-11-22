@@ -1,0 +1,33 @@
+[16:36:39] 服务已启动，通道=tailscale，组别=close，端口=8765，请求日志=requests-tailscale-close-20261121-163639.jsonl
+[16:36:39] 手机打开（日志已脱敏）：http://127.0.0.1:8765/
+[16:36:41] 收到上报 → phone-tailscale-close-desktop-webview2-01.json（arm=close page=h9 form=legacy run=1）
+[16:36:42] 收到上报 → phone-tailscale-close-desktop-webview2-02.json（arm=close page=h9 form=legacy run=2）
+[16:36:42] 收到上报 → phone-tailscale-close-desktop-webview2-03.json（arm=close page=h9 form=legacy run=3）
+[16:36:42] 收到上报 → phone-tailscale-close-desktop-webview2-04.json（arm=close page=h9 form=flat run=1）
+[16:36:42] 收到上报 → phone-tailscale-close-desktop-webview2-05.json（arm=close page=h9 form=flat run=2）
+[16:36:42] 收到上报 → phone-tailscale-close-desktop-webview2-06.json（arm=close page=h9 form=flat run=3）
+[16:36:42] 收到上报 → phone-tailscale-close-desktop-webview2-07.json（arm=close page=h9 form=chain run=1）
+[16:36:42] 收到上报 → phone-tailscale-close-desktop-webview2-08.json（arm=close page=h9 form=chain run=2）
+[16:36:42] 收到上报 → phone-tailscale-close-desktop-webview2-09.json（arm=close page=h9 form=chain run=3）
+[16:36:43] 收到上报 → phone-tailscale-close-desktop-webview2-10.json（arm=close page=h9 form=preload-chain run=1）
+[16:36:43] 收到上报 → phone-tailscale-close-desktop-webview2-11.json（arm=close page=h9 form=preload-chain run=2）
+[16:36:43] 收到上报 → phone-tailscale-close-desktop-webview2-12.json（arm=close page=h9 form=preload-chain run=3）
+[16:36:43] 自测 /h9/legacy/?run=1（arm=close）：通过（收到 12 份上报，553 条请求）
+[16:36:43] 自测完成，汇总={"total": 12, "counts": {"h9:legacy": 3, "h9:flat": 3, "h9:chain": 3, "h9:preload-chain": 3}, "failures": []}
+[16:36:44] 端口已释放=True（127.0.0.1:8765）
+[16:36:44] 自测结束，硬退出
+[10:36:32] 服务已启动，通道=tailscale，组别=close，端口=8765，请求日志=requests-tailscale-close-20261122-103632.jsonl
+[10:36:32] 手机打开（日志已脱敏）：http://tailscale:8765/
+[10:38:39] 收到上报 → phone-tailscale-close-ios-safari-01.json（arm=close page=h9 form=legacy run=1）
+[10:38:39] 收到上报 → phone-tailscale-close-ios-safari-02.json（arm=close page=h9 form=legacy run=2）
+[10:38:40] 收到上报 → phone-tailscale-close-ios-safari-03.json（arm=close page=h9 form=legacy run=3）
+[10:38:41] 收到上报 → phone-tailscale-close-ios-safari-04.json（arm=close page=h9 form=flat run=1）
+[10:38:42] 收到上报 → phone-tailscale-close-ios-safari-05.json（arm=close page=h9 form=flat run=2）
+[10:38:42] 收到上报 → phone-tailscale-close-ios-safari-06.json（arm=close page=h9 form=flat run=3）
+[10:38:43] 收到上报 → phone-tailscale-close-ios-safari-07.json（arm=close page=h9 form=chain run=1）
+[10:38:44] 收到上报 → phone-tailscale-close-ios-safari-08.json（arm=close page=h9 form=chain run=2）
+[10:38:45] 收到上报 → phone-tailscale-close-ios-safari-09.json（arm=close page=h9 form=chain run=3）
+[10:38:46] 收到上报 → phone-tailscale-close-ios-safari-10.json（arm=close page=h9 form=preload-chain run=1）
+[10:38:46] 收到上报 → phone-tailscale-close-ios-safari-11.json（arm=close page=h9 form=preload-chain run=2）
+[10:38:47] 收到上报 → phone-tailscale-close-ios-safari-12.json（arm=close page=h9 form=preload-chain run=3）
+[10:38:52] 收到上报 → phone-tailscale-close-ios-safari-13.json（arm=close page=h9 form=None run=None）

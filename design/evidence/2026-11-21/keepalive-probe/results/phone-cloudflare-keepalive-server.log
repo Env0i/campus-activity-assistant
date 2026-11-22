@@ -1,0 +1,52 @@
+[11:04:35] 启动 cloudflared 临时隧道（只连本机 8765 端口）
+[11:04:39] 隧道就绪（域名已脱敏）
+[11:04:39] 服务已启动，通道=cloudflare，组别=keepalive，端口=8765，请求日志=requests-cloudflare-keepalive-20261122-110435.jsonl
+[11:04:39] 手机打开（日志已脱敏）：https://cloudflare/
+[11:18:14] 启动 cloudflared 临时隧道（只连本机 8765 端口）
+[11:18:18] 隧道就绪（域名已脱敏）
+[11:18:19] 隧道边缘连接注册=True
+[11:18:19] 服务已启动，通道=cloudflare，组别=keepalive，端口=8765，请求日志=requests-cloudflare-keepalive-20261122-111814.jsonl
+[11:18:19] 手机打开（日志已脱敏）：https://cloudflare/
+[11:20:10] 收到上报 → phone-cloudflare-keepalive-ios-safari-01.json（arm=keepalive page=h9 form=legacy run=1）
+[11:20:13] 收到上报 → phone-cloudflare-keepalive-ios-safari-02.json（arm=keepalive page=h9 form=legacy run=2）
+[11:20:18] 收到上报 → phone-cloudflare-keepalive-ios-safari-03.json（arm=keepalive page=h9 form=legacy run=3）
+[11:20:24] 收到上报 → phone-cloudflare-keepalive-ios-safari-04.json（arm=keepalive page=h9 form=None run=None）
+[11:20:29] 收到上报 → phone-cloudflare-keepalive-ios-safari-05.json（arm=keepalive page=h9 form=flat run=1）
+[11:20:35] 收到上报 → phone-cloudflare-keepalive-ios-safari-06.json（arm=keepalive page=h9 form=flat run=2）
+[11:20:39] 收到上报 → phone-cloudflare-keepalive-ios-safari-07.json（arm=keepalive page=h9 form=flat run=3）
+[11:20:47] 收到上报 → phone-cloudflare-keepalive-ios-safari-08.json（arm=keepalive page=h9 form=None run=None）
+[11:20:48] 收到上报 → phone-cloudflare-keepalive-ios-safari-09.json（arm=keepalive page=h9 form=chain run=1）
+[11:20:55] 收到上报 → phone-cloudflare-keepalive-ios-safari-10.json（arm=keepalive page=h9 form=chain run=2）
+[11:20:55] 收到上报 → phone-cloudflare-keepalive-ios-safari-11.json（arm=keepalive page=h9 form=None run=None）
+[11:21:01] 收到上报 → phone-cloudflare-keepalive-ios-safari-12.json（arm=keepalive page=h9 form=None run=None）
+[11:21:02] 收到上报 → phone-cloudflare-keepalive-ios-safari-13.json（arm=keepalive page=h9 form=chain run=3）
+[11:21:06] 收到上报 → phone-cloudflare-keepalive-ios-safari-14.json（arm=keepalive page=h9 form=preload-chain run=1）
+[11:21:08] 收到上报 → phone-cloudflare-keepalive-ios-safari-15.json（arm=keepalive page=h9 form=preload-chain run=2）
+[11:21:10] 收到上报 → phone-cloudflare-keepalive-ios-safari-16.json（arm=keepalive page=h9 form=preload-chain run=3）
+[11:21:15] 收到上报 → phone-cloudflare-keepalive-ios-safari-17.json（arm=keepalive page=h9 form=None run=None）
+[11:26:37] 启动 cloudflared 临时隧道（只连本机 8765 端口）
+[11:26:40] 隧道就绪（域名已脱敏）
+[11:26:41] 隧道边缘连接注册=True
+[11:26:41] 服务已启动，通道=cloudflare，组别=keepalive，端口=8765，请求日志=requests-cloudflare-keepalive-20261122-112637.jsonl
+[11:26:41] 手机打开（日志已脱敏）：https://cloudflare/
+[11:27:42] 启动 cloudflared 临时隧道（只连本机 8765 端口）
+[11:27:46] 隧道就绪（域名已脱敏）
+[11:27:53] 隧道边缘连接注册=True
+[11:27:53] 服务已启动，通道=cloudflare，组别=keepalive，端口=8765，请求日志=requests-cloudflare-keepalive-20261122-112742.jsonl
+[11:27:53] 手机打开（日志已脱敏）：https://cloudflare/
+[11:28:36] 收到上报 → phone-cloudflare-keepalive-ios-safari-18.json（arm=keepalive page=h9 form=legacy run=1）
+[11:28:41] 收到上报 → phone-cloudflare-keepalive-ios-safari-19.json（arm=keepalive page=h9 form=legacy run=2）
+[11:28:44] 收到上报 → phone-cloudflare-keepalive-ios-safari-20.json（arm=keepalive page=h9 form=legacy run=3）
+[11:28:48] 收到上报 → phone-cloudflare-keepalive-ios-safari-21.json（arm=keepalive page=h9 form=flat run=1）
+[11:28:54] 收到上报 → phone-cloudflare-keepalive-ios-safari-22.json（arm=keepalive page=h9 form=None run=None）
+[11:28:59] 收到上报 → phone-cloudflare-keepalive-ios-safari-23.json（arm=keepalive page=h9 form=flat run=2）
+[11:29:03] 收到上报 → phone-cloudflare-keepalive-ios-safari-24.json（arm=keepalive page=h9 form=flat run=3）
+[11:29:10] 收到上报 → phone-cloudflare-keepalive-ios-safari-25.json（arm=keepalive page=h9 form=chain run=1）
+[11:29:10] 收到上报 → phone-cloudflare-keepalive-ios-safari-26.json（arm=keepalive page=h9 form=None run=None）
+[11:29:17] 收到上报 → phone-cloudflare-keepalive-ios-safari-27.json（arm=keepalive page=h9 form=None run=None）
+[11:29:17] 收到上报 → phone-cloudflare-keepalive-ios-safari-28.json（arm=keepalive page=h9 form=chain run=2）
+[11:29:23] 收到上报 → phone-cloudflare-keepalive-ios-safari-29.json（arm=keepalive page=h9 form=chain run=3）
+[11:29:28] 收到上报 → phone-cloudflare-keepalive-ios-safari-30.json（arm=keepalive page=h9 form=preload-chain run=1）
+[11:29:30] 收到上报 → phone-cloudflare-keepalive-ios-safari-31.json（arm=keepalive page=h9 form=preload-chain run=2）
+[11:29:31] 收到上报 → phone-cloudflare-keepalive-ios-safari-32.json（arm=keepalive page=h9 form=preload-chain run=3）
+[11:29:36] 收到上报 → phone-cloudflare-keepalive-ios-safari-33.json（arm=keepalive page=h9 form=None run=None）
