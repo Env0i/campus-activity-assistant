@@ -43,6 +43,24 @@ from fixtures.ui_harness import (  # noqa: E402
 
 PHONE_DIR = LOCAL / "ui" / "m"
 
+
+def _phone_scripts(index_path: Path | None = None) -> list[str]:
+    """按 index.html 里 <script src> 的出现次序读取手机页脚本清单。"""
+    html = (index_path or (PHONE_DIR / "index.html")).read_text(encoding="utf-8")
+    return re.findall(r'<script\s+src="([^"]+)"\s*></script>', html)
+
+
+def _read_phone_scripts_text() -> str:
+    """按 index.html 清单顺序拼接手机页全部脚本源码。"""
+    return "\n".join((PHONE_DIR / name).read_text(encoding="utf-8") for name in _phone_scripts())
+
+
+LOAD_PHONE_SCRIPTS_LINE = (
+    'for (const m of fs.readFileSync(path.join(uiDir, "index.html"), "utf8")'
+    '.matchAll(/<script\\s+src="([^"]+)"/g)) '
+    'vm.runInContext(fs.readFileSync(path.join(uiDir, m[1]), "utf8"), sandbox, { filename: "m/" + m[1] });'
+)
+
 # 手机面板搬成模块后的装配文件（模块入口）：按路径加载的用例以它为准，
 # 加载时按引用序补齐整组模块、剥壳执行，并把 PhonePanel 挂到 window。
 PANEL_ENTRY = "features/phone-access/actions-panel.js"
@@ -56,7 +74,7 @@ OCR_VIEW_MODULES = ["features/components/state-ocr.js", "features/components/vie
 CAPTCHA_PNG = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
                "AAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=")
 
-# ---- node vm 装置：加载真实 ui/m/app.js + 最小受控 DOM -----------------
+# ---- node vm 装置：按 index.html 清单加载真实手机页脚本 + 最小受控 DOM -----------------
 PHONE_JS_HARNESS = r"""
 "use strict";
 const vm = require("vm");
@@ -108,7 +126,7 @@ const sandbox = {
   out, __els: els,
   document: {
     hidden: false, readyState: "complete", cookie: "",
-    getElementById: (id) => el2("#" + id),
+    getElementById: (id) => el2("#" + String(id).replace(/^#/, "")),
     querySelector: (s) => el2(s),
     querySelectorAll: (s) => (s === "[data-status]" ? ["#s-all", "#s-free"].map(el2)
                               : s === "[data-time]" ? ["#t-all", "#t-today"].map(el2) : []),
@@ -147,7 +165,7 @@ sandbox.__fireTimersUnder = (max) => {
 sandbox.__createdCount = () => createdCount;
 sandbox.__fetch = () => Promise.resolve({ status: 500, json: () => Promise.resolve({}) });
 vm.createContext(sandbox);
-vm.runInContext(fs.readFileSync(path.join(uiDir, "app.js"), "utf8"), sandbox, { filename: "m/app.js" });
+""" + LOAD_PHONE_SCRIPTS_LINE + r"""
 const snippetSource = fs.readFileSync(snippetFile, "utf8");
 const result = vm.runInContext("(async () => {\n" + snippetSource + "\n})()", sandbox, { filename: "snippet.js" });
 const finish = () => process.stdout.write("__RESULT__" + JSON.stringify(out));
@@ -187,8 +205,8 @@ def _get_phone_worker():
     start = PHONE_JS_HARNESS.index("const out = [];")
     end = PHONE_JS_HARNESS.index("const snippetSource = fs.readFileSync(snippetFile, \"utf8\");")
     per_run = PHONE_JS_HARNESS[start:end].replace(
-        'vm.runInContext(fs.readFileSync(path.join(uiDir, "app.js"), "utf8"), sandbox, { filename: "m/app.js" });',
-        "compiledPhoneApp.runInContext(sandbox);"
+        LOAD_PHONE_SCRIPTS_LINE,
+        "for (const s of compiledPhoneScripts) s.runInContext(sandbox);"
     )
     worker_code = (
         '"use strict";\n'
@@ -197,7 +215,9 @@ def _get_phone_worker():
         'const path = require("path");\n'
         'const readline = require("readline");\n'
         'const uiDir = process.argv[1];\n'
-        'const compiledPhoneApp = new vm.Script(fs.readFileSync(path.join(uiDir, "app.js"), "utf8"), { filename: "m/app.js" });\n'
+        'const phoneScriptNames = JSON.parse(process.argv[2]);\n'
+        'const compiledPhoneScripts = phoneScriptNames.map((name) => new vm.Script('
+        'fs.readFileSync(path.join(uiDir, name), "utf8"), { filename: "m/" + name }));\n'
         'const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });\n'
         'rl.on("line", async (line) => {\n'
         '  if (!line.trim()) return;\n'
@@ -212,7 +232,7 @@ def _get_phone_worker():
         '});\n'
     )
     _PHONE_WORKER_PROC = subprocess.Popen(
-        [node, "-e", worker_code, str(PHONE_DIR)],
+        [node, "-e", worker_code, str(PHONE_DIR), json.dumps(_phone_scripts())],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         text=True, encoding="utf-8", errors="replace", bufsize=1
     )
@@ -253,7 +273,7 @@ def run_phone_js(snippet: str, files=None):
             if "views/settings.js" in files:
                 files = list(files) + ["features/shell/actions-settings.js"]
             harness_source = harness_source.replace(
-                'vm.runInContext(fs.readFileSync(path.join(uiDir, "app.js"), "utf8"), sandbox, { filename: "m/app.js" });',
+                LOAD_PHONE_SCRIPTS_LINE,
                 'sandbox.document.readyState = "loading";\n'
                 'sandbox.api = (...args) => sandbox.__api(...args);\n'
                 'sandbox.helpStatus = (text, tone) => out.push({text, tone});\n'
@@ -4333,7 +4353,7 @@ $("btn-confirm-yes").click();
 for (let i = 0; i < 20; i += 1) await Promise.resolve();
 out.push({ posts: posts.filter((p) => p.action === "cancel_task").slice() });
 ''')
-        js = (PHONE_DIR / "app.js").read_text(encoding="utf-8")
+        js = _read_phone_scripts_text()
         self.assertIn('askConfirm("cancelTask", card.name, task.task_id)', js,
                       "卡上取消钮按被点场次传 task_id（B-P1-1）")
         cards, slot, posted = values
@@ -5015,7 +5035,7 @@ class PhoneHttpEnd2EndTests(unittest.TestCase):
         self.api_calls = []
         self.ui_dir = Path(tempfile.mkdtemp(prefix="campus-phone-ui-")).resolve()
         self.addCleanup(shutil.rmtree, str(self.ui_dir), True)
-        for name in ("index.html", "styles.css", "app.js"):
+        for name in ("index.html", "styles.css", *_phone_scripts()):
             (self.ui_dir / name).write_text(
                 (PHONE_DIR / name).read_text(encoding="utf-8"), encoding="utf-8")
 
@@ -5060,7 +5080,7 @@ class PhoneHttpEnd2EndTests(unittest.TestCase):
 
     def test_html_entry_resources_are_really_served(self):
         for path, ctype in (("/", "text/html"), ("/styles.css", "text/css"),
-                            ("/app.js", "javascript")):
+                            *(("/" + name, "javascript") for name in _phone_scripts())):
             with self.subTest(path=path):
                 status, headers, body = self._req("GET", path)
                 self.assertEqual(status, 200)
@@ -5903,7 +5923,7 @@ out.push({review, back, quiet});
         self.assertTrue(r["back"]["hidden"], "「返回」收起核对")
         self.assertEqual(r["back"]["posts"], [], "返回不开始")
         self.assertEqual(r["quiet"], [], "都正常时没有提醒")
-        js = (PHONE_DIR / "app.js").read_text(encoding="utf-8")
+        js = _read_phone_scripts_text()
         self.assertIn("seconds_to_open", js, "开放时间用后端给的秒数，不读手机时钟")
 
     def test_running_plan_says_keep_going_and_edit_on_the_computer(self):
@@ -6250,6 +6270,53 @@ const rows = draw(ui);
 out.push(texts(rows.s1));
 """)[0]
         self.assertNotIn("可取消至", out)
+
+class PhoneScriptSplitGuardTests(unittest.TestCase):
+    """手机页普通脚本拆分守卫：顶格声明唯一、严格模式、加载顺序与单点启动。"""
+
+    def test_manifest_scripts_have_unique_top_level_declarations(self):
+        scripts = _phone_scripts()
+        self.assertGreaterEqual(len(scripts), 1)
+        decl_re = re.compile(
+            r"^(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)"
+            r"|^(?:const|let|class)\s+([A-Za-z_$][A-Za-z0-9_$]*)"
+        )
+        seen: dict[str, str] = {}
+        for name in scripts:
+            text = (PHONE_DIR / name).read_text(encoding="utf-8")
+            for lineno, line in enumerate(text.splitlines(), 1):
+                match = decl_re.match(line)
+                if not match:
+                    continue
+                ident = match.group(1) or match.group(2)
+                self.assertNotIn(
+                    ident, seen,
+                    f"顶格声明 {ident} 重复：{seen.get(ident)} 与 {name}:{lineno}")
+                seen[ident] = f"{name}:{lineno}"
+
+    def test_manifest_scripts_strict_order_and_single_boot(self):
+        scripts = _phone_scripts()
+        seen_ui = False
+        boot_lines = (
+            'if (document.readyState !== "loading") wire();',
+            'else document.addEventListener("DOMContentLoaded", wire);',
+        )
+        for idx, name in enumerate(scripts):
+            text = (PHONE_DIR / name).read_text(encoding="utf-8")
+            lines = text.splitlines()
+            self.assertTrue(lines and lines[0] == '"use strict";',
+                            f"{name} 第一行必须是 \"use strict\";")
+            if name.startswith("ui"):
+                seen_ui = True
+            elif name.startswith("model"):
+                self.assertFalse(seen_ui, f"{name} 必须排在所有 ui 开头的文件之前")
+            is_last = idx == len(scripts) - 1
+            for boot_line in boot_lines:
+                if is_last:
+                    self.assertIn(boot_line, lines, f"最后一份脚本 {name} 缺少启动行：{boot_line}")
+                else:
+                    self.assertNotIn(boot_line, lines, f"非最后一份脚本 {name} 不得包含启动行：{boot_line}")
+
 
 if __name__ == "__main__":
     unittest.main()

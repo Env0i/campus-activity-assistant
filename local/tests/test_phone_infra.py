@@ -15,6 +15,7 @@ from __future__ import annotations
 """
 
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -27,13 +28,19 @@ from pathlib import Path
 LOCAL = Path(__file__).resolve().parents[1]
 if str(LOCAL) not in sys.path:
     sys.path.insert(0, str(LOCAL))
+PHONE_DIR = LOCAL / "ui" / "m"
 
 from application.phone_service import PhoneAccessService  # noqa: E402
 from domain.phone_rules import (  # noqa: E402
     COOKIE_NAME, CSRF_HEADER, DEVICE_COOKIE_NAME, IP_FAIL_LIMIT, IP_LOCK_S,
     MAX_BODY_BYTES,
 )
-from infrastructure.phone_http import PhoneHttpServer  # noqa: E402
+from infrastructure.phone_http import PHONE_STATIC, PhoneHttpServer  # noqa: E402
+
+
+def _phone_scripts() -> list[str]:
+    html = (PHONE_DIR / "index.html").read_text(encoding="utf-8")
+    return re.findall(r'<script\s+src="([^"]+)"\s*></script>', html)
 
 
 def _phone_test_actions(api):
@@ -100,7 +107,7 @@ class PhoneHttpBase(unittest.TestCase):
         (self.ui_dir / "index.html").write_text(
             "<!doctype html><html><body>配对</body></html>", encoding="utf-8")
         (self.ui_dir / "styles.css").write_text("body{}", encoding="utf-8")
-        (self.ui_dir / "app.js").write_text("console.log(1);", encoding="utf-8")
+        (self.ui_dir / _phone_scripts()[0]).write_text("console.log(1);", encoding="utf-8")
         self.raw_state = {"activities": [{"id": "a1", "name": "活动"}],
                           "login": {"session_present": True},
                           "plan": None, "busy": False,
@@ -205,8 +212,26 @@ class RoundTripTests(PhoneHttpBase):
         status, _, body = self._request("GET", "/")
         self.assertEqual(status, 200)
         self.assertIn("配对", body.decode("utf-8"))
-        status, _, _ = self._request("GET", "/app.js")
+        status, _, _ = self._request("GET", "/" + _phone_scripts()[0])
         self.assertEqual(status, 200)
+
+    def test_phone_static_matches_index_html_and_disk(self):
+        scripts = _phone_scripts()
+        self.assertGreaterEqual(len(scripts), 1)
+        self.assertNotIn("/app.js", PHONE_STATIC)
+        for script in scripts:
+            route = "/" + script
+            self.assertIn(route, PHONE_STATIC, f"{script} 必须在 PHONE_STATIC 里")
+            fname, ctype = PHONE_STATIC[route]
+            self.assertEqual(fname, script)
+            self.assertIn("javascript", ctype)
+            self.assertTrue((PHONE_DIR / script).is_file(), f"缺少脚本文件 {script}")
+        for route, (fname, _) in PHONE_STATIC.items():
+            if route.endswith(".js") or fname.endswith(".js"):
+                self.assertIn(fname, scripts, f"PHONE_STATIC 里的 {fname} 未被 index.html 引用")
+        for js_file in PHONE_DIR.glob("*.js"):
+            self.assertIn("/" + js_file.name, PHONE_STATIC,
+                          f"磁盘脚本 {js_file.name} 必须在 PHONE_STATIC 里")
 
     def test_static_brand_icons_are_served(self):
         """PHONE_STATIC 白名单里新增的 favicon.ico 和 apple-touch-icon.png
@@ -415,7 +440,7 @@ class PublicHostSwitchTests(unittest.TestCase):
         self.ui_dir = Path(tempfile.mkdtemp(prefix="campus-phone-ui-")).resolve()
         self.addCleanup(shutil.rmtree, str(self.ui_dir), True)
         for name, text in (("index.html", "<html>配对</html>"),
-                           ("styles.css", "body{}"), ("app.js", ";")):
+                           ("styles.css", "body{}"), (_phone_scripts()[0], ";")):
             (self.ui_dir / name).write_text(text, encoding="utf-8")
         self.raw_state = {"activities": [], "login": {"session_present": True},
                           "plan": None, "busy": False,
@@ -574,7 +599,7 @@ class BackupHostTests(unittest.TestCase):
         self.ui_dir = Path(tempfile.mkdtemp(prefix="campus-phone-ui-")).resolve()
         self.addCleanup(shutil.rmtree, str(self.ui_dir), True)
         for name, text in (("index.html", "<html>配对</html>"),
-                           ("styles.css", "body{}"), ("app.js", ";")):
+                           ("styles.css", "body{}"), (_phone_scripts()[0], ";")):
             (self.ui_dir / name).write_text(text, encoding="utf-8")
         self.raw_state = {"activities": [], "login": {"session_present": True},
                           "plan": None, "busy": False,

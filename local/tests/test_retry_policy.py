@@ -1769,7 +1769,11 @@ class IntegrationBase(unittest.TestCase):
         self.api = ScriptedApi(self.holder)
         self.ui_dir = Path(tempfile.mkdtemp(prefix="campus-int-ui-")).resolve()
         self.addCleanup(shutil.rmtree, str(self.ui_dir), True)
-        for name in ("index.html", "styles.css", "app.js"):
+        scripts = re.findall(
+            r'<script\s+src="([^"]+)"\s*></script>',
+            (PHONE_DIR / "index.html").read_text(encoding="utf-8"),
+        )
+        for name in ("index.html", "styles.css", *scripts):
             (self.ui_dir / name).write_text(
                 (PHONE_DIR / name).read_text(encoding="utf-8"), encoding="utf-8")
         self.raw = {
