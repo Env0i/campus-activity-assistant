@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-22T13:43:50Z",
+  "updated_at": "2026-11-22T14:27:55Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "df47a8f4e376ffe618a747495c5598a11f8cbeb7b5db2ccbcbbb0969910a8bfb",
-      "size": 354494,
-      "normalized_sha256": "df47a8f4e376ffe618a747495c5598a11f8cbeb7b5db2ccbcbbb0969910a8bfb"
+      "sha256": "1974d7560796a04c7078b961dbd2c68b36d05eec2e6d7f49eea09f42590a6e48",
+      "size": 354568,
+      "normalized_sha256": "1974d7560796a04c7078b961dbd2c68b36d05eec2e6d7f49eea09f42590a6e48"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -7694,15 +7694,15 @@
     },
     "design/evidence/2026-11-22/phone-conflict-times/changed-tests.md": {
       "role": "index",
-      "sha256": "8440e970221e6da11dbc4d010b3e2e5efea281cd04d98a2dbe3afc8eafbd8a91",
-      "size": 1979,
-      "normalized_sha256": "8440e970221e6da11dbc4d010b3e2e5efea281cd04d98a2dbe3afc8eafbd8a91"
+      "sha256": "e4738c6908ac1086fc9f24c845e4ed388f8b8359b7549f685de74f54eb472c01",
+      "size": 2458,
+      "normalized_sha256": "e4738c6908ac1086fc9f24c845e4ed388f8b8359b7549f685de74f54eb472c01"
     },
     "design/evidence/2026-11-22/phone-conflict-times/mutations.md": {
       "role": "index",
-      "sha256": "682f62e95a993169bb760f874358f91c6679f366ae163d96d0b93bd361dcedb0",
-      "size": 2062,
-      "normalized_sha256": "682f62e95a993169bb760f874358f91c6679f366ae163d96d0b93bd361dcedb0"
+      "sha256": "1e7e13575f3f7bedc4beb7060bf08c125ee9e1fa52e95e923e961476c6ec21e8",
+      "size": 2877,
+      "normalized_sha256": "1e7e13575f3f7bedc4beb7060bf08c125ee9e1fa52e95e923e961476c6ec21e8"
     },
     "design/evidence/2026-11-22/phone-handoff/README.md": {
       "role": "index",
@@ -9701,9 +9701,9 @@
     },
     "local/tests/test_phone_ui.py": {
       "role": "observe",
-      "sha256": "5618e444be904ad9871a1e76c231e8c1539ec2d0c06d6a429a8eaae05b145ce6",
-      "size": 377171,
-      "normalized_sha256": "5618e444be904ad9871a1e76c231e8c1539ec2d0c06d6a429a8eaae05b145ce6"
+      "sha256": "46fff96bffbc454ceb377e0ffd08ed681ee35447d9cfe5071c304a4f5ad44a32",
+      "size": 378855,
+      "normalized_sha256": "46fff96bffbc454ceb377e0ffd08ed681ee35447d9cfe5071c304a4f5ad44a32"
     },
     "local/tests/test_qa_bridge_contract.py": {
       "role": "observe",

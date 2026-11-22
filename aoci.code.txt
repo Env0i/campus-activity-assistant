@@ -1905,5 +1905,5 @@ mutations.md[TQ3T]: F:记录五条快照字段、开放时刻解析、截止读�
 
 ===/<repository>/design/evidence/2026-11-22/phone-conflict-times/===
 README.md[SQ4T]: F:记录手机冲突与取消改读电脑给的时刻的范围、清单第四节逐条核对结论、新字段与取法、测试变异及不做的体验缺口 | R:code:local/application/phone_service.py,code:local/ui/m/model-conflict.js | A:核对结论、复现命令 | S:真机与真实取消接口未联调
-changed-tests.md[TQ3T]: F:写明未改旧用例，并列举办时刻投影、tsOf、冲突与取消时刻来源及schoolSec写法的新增用例 | R:code:local/tests/test_phone_ui.py,code:local/tests/test_phone_service.py | A:新增用例清单 | S:-
-mutations.md[TQ3T]: F:记录五条举办时刻投影、tsOf、举办时段、取消窗口与schoolSec写法变异的改法和首个失败用例，全部变红 | R:code:design/evidence/2026-11-22/phone-conflict-times/changed-tests.md | A:变异结果表 | S:-
+changed-tests.md[TQ3T]: F:写明未改旧用例，并列举办时刻投影、tsOf、冲突与取消时刻来源、取消窗口开始与解除路径截止时刻及choolSec写法的新增用例 | R:code:local/tests/test_phone_ui.py,code:local/tests/test_phone_service.py | A:新增用例清单 | S:-
+mutations.md[TQ3T]: F:记录七条举办时刻投影、tsOf、举办时段、取消窗口起止、解除路径截止与schoolSec写法变异的改法和首个失败用例，全部变红 | R:code:design/evidence/2026-11-22/phone-conflict-times/changed-tests.md | A:变异结果表 | S:-
