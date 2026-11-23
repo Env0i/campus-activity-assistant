@@ -3189,6 +3189,30 @@ out.push([$("app").hidden, $("pair").hidden, ui.model.csrf,
 ''')
         self.assertEqual(values, [[False, True, "fresh-token", True]])
 
+    def test_can_write_reads_fresh_clock_after_idle_gap_before_start(self):
+        """距离上次界面刷新已超过 30 秒时点开始报名，应按当下时间拦下并提示过时，不发提交请求。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+let now = 1700000000000;
+const realNow = Date.now;
+Date.now = () => now;
+const posts = [];
+globalThis.__fetch = async (_p, opts) => {
+  if (opts && opts.method === "POST") posts.push(opts.body);
+  return {status: 200, json: async () => ({state: {activities: []}, events: []})};
+};
+try {
+  await ui.poll(true);
+  ui.model.selected = ["a1"];
+  now += PhoneModel.staleAfterMs + 1000;
+  await ui.startPlan();
+  out.push({bannerHidden: $("banner").hidden, posts: posts.length});
+} finally {
+  Date.now = realNow;
+}
+''')
+        self.assertEqual(values, [{"bannerHidden": False, "posts": 0}])
+
     def test_need_pair_still_sends_the_user_back_to_pairing(self):
         """401 need_pair 才是「要重新配对」，这条老行为不能一起改掉。"""
         values = run_phone_js('''
@@ -3847,6 +3871,56 @@ out.push({ posts: posts.slice(), pendingDone: ui.model.pending.done,
         self.assertTrue(confirmed["pendingDone"])
         self.assertIn("已取消这次开始", confirmed["banner"], "成功句保留")
 
+    def test_pending_bar_title_switches_after_window_and_start_hides_when_busy(self):
+        """核对中超过 15 秒底栏标题切换提示，运行中隐藏开始按钮且闲置时恢复显示。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now(); ui.model.busy = false;
+ui.model.pending = {at: Date.now() - 5000, done: false};
+$("btn-start").hidden = true;
+ui.refreshControls();
+const early = [$("bar-title").textContent, $("btn-start").hidden];
+ui.model.pending = {at: Date.now() - PhoneModel.PENDING_WINDOW_MS - 1000, done: false};
+ui.refreshControls();
+const late = $("bar-title").textContent;
+ui.model.pending = null; ui.model.busy = true;
+$("btn-start").hidden = false;
+ui.refreshControls();
+out.push({early, late, busyStartHidden: $("btn-start").hidden});
+''')
+        self.assertEqual(values[0]["early"], ["正在核对", False])
+        self.assertEqual(values[0]["late"], "还没有查到结果")
+        self.assertTrue(values[0]["busyStartHidden"])
+
+    def test_board_rail_visibility_and_step_classes_and_task_card_tone(self):
+        """运行中四站进度条按步数显隐并写入阶段类名，任务卡状态徽章按任务状态写入色调类名。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const rawCreate = document.createElement.bind(document);
+document.createElement = (tag) => {
+  if (tag !== "div" && tag !== "span") return rawCreate(tag);
+  return {tagName: tag.toUpperCase(), className: "", textContent: "", _children: [],
+    setAttribute() {}, appendChild(c) { this._children.push(c); return c; }};
+};
+let snap = {terms_ok: true, busy: true, plan: {plan_id: "p1", tasks: [
+  {task_id: "t1", name: "甲", status: "submitting", attempts: 1},
+  {task_id: "t2", name: "乙", status: "waiting", sign_start: "2026-11-09 10:00:00"}]}, activities: []};
+globalThis.__fetch = async () => ({status: 200, json: async () => ({state: snap, events: []})});
+$("board-rail").hidden = true;
+await ui.poll(true);
+const railShown = !$("board-rail").hidden;
+const railCls = $("board-rail")._children.map((d) => d.className);
+const taskSpans = $("plan-tasks")._children.map((c) => c._children.find((x) => x.tagName === "SPAN").className);
+snap = {terms_ok: true, busy: false, plan: null, activities: []};
+$("board-rail").hidden = false;
+await ui.poll(true);
+out.push({railShown, railCls, taskSpans, draftRailHidden: $("board-rail").hidden});
+''')
+        self.assertTrue(values[0]["railShown"])
+        self.assertTrue(any(c for c in values[0]["railCls"]))
+        self.assertTrue(any(c == "" for c in values[0]["railCls"]))
+        self.assertEqual(values[0]["taskSpans"], ["ts run", "ts"])
+        self.assertTrue(values[0]["draftRailHidden"])
+
 
 class ListDetailModelTests(unittest.TestCase):
     """G05/G07/G08/G09/LD01–LD04：列表分组、距开放、段钮计数、草稿板与勾选冲突。
@@ -4134,6 +4208,34 @@ document.createElement = rawCreate;
         self.assertIn("今晚讲座", dom_text)
         self.assertNotIn("后天讲座", dom_text)
 
+    def test_render_board_visibility_led_dots_and_pick_next_selection(self):
+        """详情板与北京时间位必须显式显示，点阵保留亮暗类名，且「选这一场」可加入候选并随选空隐藏。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const rawCreate = document.createElement.bind(document);
+document.createElement = (tag) => {
+  if (tag !== "i") return rawCreate(tag);
+  return {tagName: "I", className: "", style: {}, _children: [], setAttribute() {}, appendChild(c) { this._children.push(c); }};
+};
+ui.ingest({state: {terms_ok: true, busy: false,
+  business_clock: {state: "ready", epoch_s: Date.UTC(2026, 10, 8, 4, 0, 0) / 1000, tick_s: 0, sampled_tick_s: 0},
+  activities: [{id: "a1", name: "甲场", sign_start: "2026-11-08 20:00:00",
+    act_start: "2026-11-10 09:00:00", act_end: "2026-11-10 10:00:00"}]}});
+$("plan-board").hidden = true; $("board-now").hidden = true; $("btn-pick-next").hidden = true;
+$("#board-led")._children = [];
+ui.renderItems();
+const shown = [!$("plan-board").hidden, !$("board-now").hidden, !$("btn-pick-next").hidden];
+const ledCls = $("#board-led")._children.map((d) => d.className);
+$("btn-pick-next").click();
+out.push({shown, hasOn: ledCls.includes("on"), hasEmpty: ledCls.includes(""),
+  barTitle: $("bar-title").textContent, pickHiddenAfter: $("btn-pick-next").hidden});
+''')
+        self.assertEqual(values[0]["shown"], [True, True, True])
+        self.assertTrue(values[0]["hasOn"])
+        self.assertTrue(values[0]["hasEmpty"])
+        self.assertEqual(values[0]["barTitle"], "已选 1 场")
+        self.assertTrue(values[0]["pickHiddenAfter"])
+
 
 class SheetShellTests(unittest.TestCase):
     """G03 sheet 外壳：开/关与焦点归还、验证中不关（busyLock）、SH06 网络失败红条。"""
@@ -4254,6 +4356,21 @@ out.push([$("sheet-err").textContent, $("banner").hidden]);
 ''')
         # sheet-err 不被写入（无 sheet 时不冒红条），banner 照旧兜底
         self.assertEqual(values, [["", False]])
+
+    def test_sheet_close_button_hides_only_when_open_sheet_is_busy(self):
+        """未打开抽屉时不改动关闭钮显隐；抽屉打开且提交忙态时必须隐藏关闭钮。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+ui.model.reloginSubmitting = true;
+$("btn-sheet-close").hidden = false;
+ui.refreshControls();
+const closedKeep = $("btn-sheet-close").hidden;
+ui.openSheet("relogin");
+$("btn-sheet-close").hidden = false;
+ui.refreshControls();
+out.push([closedKeep, $("btn-sheet-close").hidden]);
+''')
+        self.assertEqual(values, [[False, True]])
 
 
 class SheetsOpsModelTests(unittest.TestCase):
@@ -5215,6 +5332,62 @@ out.push({
         self.assertEqual(calibrated["itemsKids"], 0)
         self.assertEqual(calibrated["upcomingKids"], 5, "「现在」分隔行 + 明天/后天两组条 + 两行共 5 个节点")
 
+    def test_result_bar_visibility_stats_tones_and_draft_reset(self):
+        """结果态必须显隐对应底栏按钮与统计区并写入统计色调类，切回草稿后重新收起。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const rawCreate = document.createElement.bind(document);
+document.createElement = (tag) => {
+  if (tag !== "div") return rawCreate(tag);
+  return {tagName: "DIV", className: "", textContent: "", _children: [], setAttribute() {}, appendChild(c) { this._children.push(c); return c; }};
+};
+ui.ingest({state: {terms_ok: true, busy: false,
+  plan: {plan_id: "p1", status: "partial", tasks: [
+    {task_id: "t1", status: "success"}, {task_id: "t2", status: "failed"}]}, activities: []}});
+ui.model.pending = {at: Date.now(), done: false};
+$("btn-reselect").hidden = true; $("btn-finish").hidden = true;
+$("btn-start").hidden = false; $("btn-cancel-start").hidden = false; $("board-stats").hidden = true;
+ui.renderItems();
+const resHidden = [$("btn-reselect").hidden, $("btn-finish").hidden,
+  $("btn-start").hidden, $("btn-cancel-start").hidden, $("board-stats").hidden];
+ui.model.pending = null;
+const statCls = $("board-stats")._children.map((d) => d.className);
+ui.ingest({state: {terms_ok: true, busy: false, plan: null, activities: []}});
+$("btn-finish").click();
+$("btn-reselect").hidden = false; $("btn-finish").hidden = false; $("board-stats").hidden = false;
+ui.renderItems();
+out.push({resHidden, statCls, draftHidden: [$("btn-reselect").hidden, $("btn-finish").hidden, $("board-stats").hidden]});
+''')
+        self.assertEqual(values[0]["resHidden"], [False, False, True, True, False])
+        self.assertEqual(values[0]["statCls"], ["ok", "bad"])
+        self.assertEqual(values[0]["draftHidden"], [True, True, True])
+
+    def test_result_hides_pick_next_and_clears_pick_target(self):
+        """进入结果态后必须隐藏「选这一场」并清空待选目标，不能再把旧候选写入已选列表。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const rawCreate = document.createElement.bind(document);
+const boxes = [];
+document.createElement = (tag) => {
+  if (tag !== "input") return rawCreate(tag);
+  const el = {tagName: "INPUT", checked: false, disabled: false, listeners: {},
+    setAttribute() {}, addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); }};
+  boxes.push(el); return el;
+};
+const a1 = {id: "a1", name: "甲场", sign_start: "2026-11-08 20:00:00", act_start: "2026-11-10 09:00:00", act_end: "2026-11-10 10:00:00"};
+ui.ingest({state: {terms_ok: true, busy: false, activities: [a1]}});
+ui.renderItems();
+ui.ingest({state: {terms_ok: true, busy: false, plan: {plan_id: "p2", status: "completed", tasks: [{task_id: "t1", status: "success"}]}, activities: [a1]}});
+$("btn-pick-next").hidden = false;
+ui.renderItems();
+const pickHidden = $("btn-pick-next").hidden;
+boxes.length = 0;
+$("btn-pick-next").click();
+$("btn-toggle-list").click();
+out.push({pickHidden, checkedCount: boxes.filter((b) => b.checked).length});
+''')
+        self.assertEqual(values, [{"pickHidden": True, "checkedCount": 0}])
+
 
 class ExceptionStatesTests(unittest.TestCase):
     """EX01/EX02/EX05/EX06：离线、登录失效、电脑列表失败、时钟待校准（exceptions 任务）。
@@ -5510,6 +5683,39 @@ ui.ingest({state: {business_clock: {state: "unavailable"}}});
 out.push(ui.model.lastOkText);
 """)
         self.assertEqual(values, ["14:19:40", ""])
+
+    def test_stale_note_and_stop_and_cancel_start_visibility_follow_state(self):
+        """过时提示、停止计划钮与取消等待钮必须双向随新鲜度、忙碌态与未决状态显隐。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now(); ui.model.busy = false; ui.model.pending = null;
+$("stale-note").hidden = false; $("btn-stop").hidden = false; $("btn-cancel-start").hidden = false;
+ui.refreshControls();
+const clean = [$("stale-note").hidden, $("btn-stop").hidden, $("btn-cancel-start").hidden];
+ui.model.lastOkAt = 0; ui.model.busy = true; ui.model.pending = {at: Date.now(), done: false};
+$("stale-note").hidden = true; $("btn-stop").hidden = true; $("btn-cancel-start").hidden = true;
+ui.refreshControls();
+out.push({clean, active: [$("stale-note").hidden, $("btn-stop").hidden, $("btn-cancel-start").hidden]});
+''')
+        self.assertEqual(values, [{"clean": [True, True, True], "active": [False, False, False]}])
+
+    def test_pc_list_error_bar_readies_start_button_and_run_tip_toggles_with_busy(self):
+        """列表失败隐藏底栏后开始按钮仍应恢复可显示状态，且运行提示随忙碌态显隐。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+let snap = {terms_ok: true, busy: false, pc_list_error: {at: "12:00", reason: "err"}, activities: []};
+globalThis.__fetch = async () => ({status: 200, json: async () => ({state: snap, events: []})});
+$("run-tip").hidden = false;
+await ui.poll(true);
+$("btn-start").hidden = true;
+ui.refreshControls();
+const idleErr = [$("action-bar").hidden, $("btn-start").hidden, $("run-tip").hidden];
+snap = {terms_ok: true, busy: true, pc_list_error: null, activities: []};
+$("run-tip").hidden = true;
+await ui.poll(true);
+out.push({idleErr, busyTipHidden: $("run-tip").hidden});
+''')
+        self.assertEqual(values, [{"idleErr": [True, False, True], "busyTipHidden": False}])
 
 
 class PhoneHttpEnd2EndTests(unittest.TestCase):
