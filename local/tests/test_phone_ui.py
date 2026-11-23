@@ -3306,6 +3306,195 @@ out.push([sent, delays]);
         self.assertEqual(values[0][0], ["fake-mem-csrf", "fake-mem-csrf", "fake-rotated-csrf"])
         self.assertIn(2000, values[0][1])
 
+    def test_start_plan_payload_and_sync_accept_clears_notice(self):
+        """开始计划发送完整 items 与 headed 字段、清除勾选冲突提示，并在同步受理后标为已完成不再误报未核对。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const inputs = [];
+const rawCreate = document.createElement.bind(document);
+document.createElement = (tag) => {
+  if (tag !== "input") return rawCreate(tag);
+  const el = {tagName: "INPUT", checked: false, disabled: false, listeners: {},
+    setAttribute() {}, addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); }};
+  inputs.push(el); return el;
+};
+const a1 = {id: "a1", name: "甲", sign_start: "2026-11-08 14:00:00", act_start: "2026-11-10 09:00:00", act_end: "2026-11-10 11:00:00"};
+const a2 = {id: "a2", name: "乙", sign_start: "2026-11-08 15:00:00", act_start: "2026-11-10 10:00:00", act_end: "2026-11-10 12:00:00"};
+ui.model.lastOkAt = Date.now();
+$("banner").hidden = true; $("banner").textContent = "";
+ui.ingest({state: {terms_ok: true, busy: false, activities: [a1, a2]}});
+ui.renderItems();
+inputs[0].checked = true; inputs[0].listeners.change[0]();
+inputs[inputs.length - 1].checked = true; inputs[inputs.length - 1].listeners.change[0]();
+const noticeBefore = [!$("list-notice").hidden, $("list-notice").textContent];
+const posts = [];
+globalThis.__fetch = async (url, opts) => {
+  if (opts && opts.body) { posts.push(JSON.parse(opts.body)); return {status: 200, json: async () => ({ok: true, pending: false})}; }
+  return {status: 200, json: async () => ({state: {terms_ok: true, busy: false, activities: [a1, a2]}, events: []})};
+};
+await ui.startPlan();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+const afterFirst = {noticeHidden: $("list-notice").hidden, noticeText: $("list-notice").textContent, cancelHidden: $("btn-cancel-start").hidden};
+await ui.startPlan();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+out.push({noticeBefore, afterFirst, bannerHidden: $("banner").hidden, posts});
+''')
+        r = values[0]
+        self.assertTrue(r["noticeBefore"][0])
+        self.assertEqual(r["afterFirst"], {"noticeHidden": True, "noticeText": "", "cancelHidden": True})
+        self.assertTrue(r["bannerHidden"], "同步受理后防双击窗口内再点不再误提示还没核对完")
+        self.assertEqual(len(r["posts"]), 1)
+        self.assertEqual(r["posts"][0]["args"]["items"], [{"id": "a1"}])
+        self.assertIs(r["posts"][0]["args"]["headed"], False)
+
+    def test_start_plan_collapses_expanded_list_for_running_plan(self):
+        """上一轮展开过活动列表后开始新计划，运行态列表应默认收起。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const a1 = {id: "a1", name: "甲", sign_start: "2026-11-08 14:00:00", act_start: "2026-11-10 09:00:00", act_end: "2026-11-10 10:00:00"};
+ui.ingest({state: {terms_ok: true, busy: false, activities: [a1],
+  plan: {plan_id: "p0", status: "completed", tasks: [{task_id: "t0", status: "success"}]}}});
+ui.renderItems();
+$("btn-toggle-list").click();
+ui.model.plan = null;
+ui.model.selected = ["a1"];
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.body) return {status: 200, json: async () => ({ok: true, pending: true})};
+  return {status: 200, json: async () => ({state: {terms_ok: true, busy: true, plan: {plan_id: "p1", status: "running", tasks: []}, activities: [a1]}, events: []})};
+};
+await ui.startPlan();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+out.push({todayHidden: $("today-items").hidden, expanded: $("btn-toggle-list").getAttribute("aria-expanded")});
+''')
+        self.assertEqual(values, [{"todayHidden": True, "expanded": "false"}])
+
+    def test_reconcile_single_flight_payload_and_canceled_banner_kind(self):
+        """未决开始对账期间不重发请求、携带 request_id，并在对账为已取消时标为 info 提示条。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now(); ui.model.selected = ["a1"];
+const posts = []; let relState;
+globalThis.__fetch = (_u, opts) => {
+  if (!opts || !opts.body) return Promise.resolve({status: 200, json: async () => ({state: {}, events: []})});
+  const body = JSON.parse(opts.body); posts.push(body);
+  if (body.action === "start_plan") return Promise.resolve({status: 200, json: async () => ({ok: true, pending: true})});
+  return new Promise((r) => { relState = r; });
+};
+await ui.startPlan();
+ui.ingest({state: {}});
+ui.ingest({state: {}});
+const inFlightReconciles = posts.filter((p) => p.action === "start_request_state");
+relState({status: 200, json: async () => ({ok: true, state: "canceled"})});
+for (let i = 0; i < 20; i += 1) await Promise.resolve();
+out.push({startRid: posts[0].args.request_id, count: inFlightReconciles.length,
+  recArgs: inFlightReconciles[0] && inFlightReconciles[0].args,
+  bannerHidden: $("banner").hidden, bannerKind: $("banner").dataset.kind});
+''')
+        r = values[0]
+        self.assertEqual(r["count"], 1)
+        self.assertEqual(r["recArgs"], {"request_id": r["startRid"]})
+        self.assertEqual([r["bannerHidden"], r["bannerKind"]], [False, "info"])
+
+    def test_cancel_pending_start_race_and_failure_recovery(self):
+        """取消等待在途防重发并屏蔽迟到对账，失败保留确认抽屉，重试成功后关闭并触发轮询。"""
+        values = run_phone_js('''
+const ui = PhoneUI; const gets = []; const posts = []; let relRec; let relCan; let canCalls = 0;
+globalThis.__fetch = (url, opts) => {
+  if (!opts || !opts.body) { gets.push(url); return Promise.resolve({status: 200, json: async () => ({state: {terms_ok: true, busy: false, activities: []}, events: []})}); }
+  const body = JSON.parse(opts.body); posts.push(body);
+  if (body.action === "start_plan") return Promise.resolve({status: 200, json: async () => ({ok: true, pending: true})});
+  if (body.action === "start_request_state") return new Promise((r) => { relRec = r; });
+  canCalls += 1;
+  if (canCalls === 1) return new Promise((r) => { relCan = r; });
+  return Promise.resolve({status: 200, json: async () => ({ok: true, state: "canceled"})});
+};
+await ui.poll(true);
+$("banner").hidden = true; $("banner").textContent = "";
+ui.model.selected = ["a1"];
+await ui.startPlan();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+ui.ingest({state: {}});
+ui.askConfirm("cancelstart");
+$("btn-confirm-yes").click();
+void ui.cancelPendingStart();
+const duringCancel = posts.filter((p) => p.action === "cancel_start_request").length;
+relRec({status: 200, json: async () => ({ok: true, state: "rejected", text: "迟到拒绝"})});
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+const lateIgnored = $("banner").hidden && $("banner").textContent === "";
+relCan({status: 200, json: async () => ({ok: false, error: "busy", text: "取消超时"})});
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+const afterFail = {sheetHidden: $("sheet-root").hidden, err: $("sheet-err").textContent, yesDisabled: $("btn-confirm-yes").disabled};
+const getsBeforeRetry = gets.length;
+$("btn-confirm-yes").click();
+for (let i = 0; i < 20; i += 1) await Promise.resolve();
+out.push({duringCancel, lateIgnored, afterFail, totalCan: posts.filter((p) => p.action === "cancel_start_request").length,
+  sheetAfterOk: $("sheet-root").hidden, polledAfterOk: gets.slice(getsBeforeRetry)});
+''')
+        r = values[0]
+        self.assertEqual(r["duringCancel"], 1)
+        self.assertTrue(r["lateIgnored"])
+        self.assertEqual(r["afterFail"], {"sheetHidden": False, "err": "取消超时", "yesDisabled": False})
+        self.assertEqual(r["totalCan"], 2)
+        self.assertTrue(r["sheetAfterOk"])
+        self.assertIn("/api/state?after=0", r["polledAfterOk"])
+
+    def test_cancel_pending_start_post_failure_reconcile_and_done_guard(self):
+        """取消等待失败后允许后续对账落地，且已决后点确认不会发请求也不关闭抽屉。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now(); ui.model.selected = ["a1"];
+const posts = [];
+globalThis.__fetch = async (_u, opts) => {
+  if (!opts || !opts.body) return {status: 200, json: async () => ({state: {}, events: []})};
+  const body = JSON.parse(opts.body); posts.push(body.action);
+  if (body.action === "start_plan") return {status: 200, json: async () => ({ok: true, pending: true})};
+  if (body.action === "cancel_start_request") return {status: 200, json: async () => ({ok: false, text: "未确认"})};
+  return {status: 200, json: async () => ({ok: true, state: "rejected", text: "已被拒绝"})};
+};
+await ui.startPlan();
+ui.askConfirm("cancelstart");
+$("btn-confirm-yes").click();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+ui.ingest({state: {}});
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+const afterRec = {bannerHidden: $("banner").hidden, bannerText: $("banner").textContent};
+const cancelCountBefore = posts.filter((a) => a === "cancel_start_request").length;
+$("btn-confirm-yes").click();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+out.push({afterRec, cancelCountDelta: posts.filter((a) => a === "cancel_start_request").length - cancelCountBefore,
+  sheetHidden: $("sheet-root").hidden, yesDisabled: $("btn-confirm-yes").disabled});
+''')
+        r = values[0]
+        self.assertEqual(r["afterRec"], {"bannerHidden": False, "bannerText": "已被拒绝"})
+        self.assertEqual(r["cancelCountDelta"], 0)
+        self.assertEqual([r["sheetHidden"], r["yesDisabled"]], [False, False])
+
+    def test_save_retry_payload_failure_log_and_clears_dirty_before_hydration(self):
+        """修改重试设置发出完整载荷，失败写入运行记录，成功后解除首轮快照覆盖门禁。"""
+        values = run_phone_js('''
+const ui = PhoneUI; const posts = []; const logLines = []; let saveOk = false;
+const rawLogAppend = $("logs").appendChild.bind($("logs"));
+$("logs").appendChild = (c) => { logLines.push(String(c.textContent || "")); return rawLogAppend(c); };
+const optsObj = {choices: [{value: 120, label: "2 分钟"}, {value: 300, label: "5 分钟"}]};
+ui.ingest({state: {terms_ok: true, retry_options: optsObj}});
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.body) posts.push(JSON.parse(opts.body));
+  return {status: 200, json: async () => saveOk ? {ok: true} : {ok: false, error: "bad", text: "时长不合法"}};
+};
+$("retry-for").value = "300"; $("retry-for").listeners.change[0]();
+$("max-attempts").value = "5"; $("max-attempts").listeners.change[0]();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+const logAfterFail = logLines.join("\\n");
+saveOk = true;
+$("retry-for").listeners.change[0]();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+ui.ingest({state: {terms_ok: true, retry_policy: {retry_for_s: 120, max_attempts: 4}, retry_options: optsObj}});
+out.push({sent: posts[1], logAfterFail, valAfterOkIngest: $("retry-for").value});
+''')
+        r = values[0]
+        self.assertEqual(r["sent"], {"action": "save_retry_policy", "args": {"retry_policy": {"retry_for_s": 300, "max_attempts": 5}}})
+        self.assertIn("没能保存重试设置：时长不合法", r["logAfterFail"])
+        self.assertEqual(r["valAfterOkIngest"], "120")
+
+
 
 class PairStatesDomTests(unittest.TestCase):
     """PA03/EX03/EX04：点阵屏四态、锁定与配错态（BE1 结构化字段驱动）。"""
@@ -5049,6 +5238,138 @@ out.push({openedText, afterOne, afterEmpty, moreStaysOpen: !$("sheet-root").hidd
         self.assertFalse(values[0]["afterEmpty"])
         self.assertTrue(values[0]["moreStaysOpen"])
 
+    def test_stop_plan_payload_and_missing_plan_keeps_confirm_open(self):
+        """停止计划发送对应 plan_id，无活动计划时保留确认抽屉且按钮恢复可点。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const posts = [];
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.body) posts.push(JSON.parse(opts.body));
+  return {status: 200, json: async () => ({ok: true})};
+};
+ui.model.plan = {plan_id: "p1", tasks: [{task_id: "t1", status: "waiting"}]};
+ui.askConfirm("stop");
+$("btn-confirm-yes").click();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+const afterOk = {sheetHidden: $("sheet-root").hidden, sent: posts.filter((p) => p.action === "stop_plan")};
+ui.askConfirm("stop");
+ui.model.plan = null;
+const beforeMissing = posts.length;
+$("btn-confirm-yes").click();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+out.push({afterOk, sheetOnMissing: $("sheet-root").hidden, yesDisabled: $("btn-confirm-yes").disabled, deltaPosts: posts.length - beforeMissing});
+''')
+        r = values[0]
+        self.assertTrue(r["afterOk"]["sheetHidden"])
+        self.assertEqual(r["afterOk"]["sent"], [{"action": "stop_plan", "args": {"plan_id": "p1"}}])
+        self.assertEqual([r["sheetOnMissing"], r["yesDisabled"], r["deltaPosts"]], [False, False, 0])
+
+    def test_show_computer_window_payload_and_logs(self):
+        """请求显示电脑窗口发送空参数载荷，成功与失败分别写入运行记录。"""
+        values = run_phone_js('''
+const posts = []; const logLines = []; let mode = "ok";
+const rawLogAppend = $("logs").appendChild.bind($("logs"));
+$("logs").appendChild = (c) => { logLines.push(String(c.textContent || "")); return rawLogAppend(c); };
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.body) posts.push(JSON.parse(opts.body));
+  return mode === "ok"
+    ? {status: 200, json: async () => ({ok: true})}
+    : {status: 200, json: async () => ({ok: false, text: "窗口已关闭"})};
+};
+$("btn-show-window").click();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+const okLog = logLines.join("\\n");
+mode = "fail";
+$("btn-show-window").click();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+out.push({posts, okLog, failLog: logLines.join("\\n")});
+''')
+        r = values[0]
+        self.assertEqual(r["posts"][0], {"action": "show_window", "args": {}})
+        self.assertIn("已请电脑把窗口显示出来", r["okLog"])
+        self.assertIn("没能显示电脑窗口：窗口已关闭", r["failLog"])
+
+    def test_cancel_task_failure_success_and_missing_task_keeps_confirm_open(self):
+        """取消单场失败留抽屉提示、成功收起抽屉，任务消失后点确认不发请求且留抽屉。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let mode = "fail"; const posts = [];
+globalThis.__fetch = async (_u, opts) => {
+  if (!opts || !opts.body) return {status: 200, json: async () => ({state: {}, events: []})};
+  posts.push(JSON.parse(opts.body));
+  return mode === "fail"
+    ? {status: 200, json: async () => ({ok: false, error: "busy", text: "已在提交"})}
+    : {status: 200, json: async () => ({ok: true})};
+};
+ui.model.plan = {plan_id: "p1", tasks: [{task_id: "t1", name: "甲", status: "waiting"}]};
+ui.askConfirm("cancelTask", "甲", "t1");
+$("btn-confirm-yes").click();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+const failRes = {sheetHidden: $("sheet-root").hidden, err: $("sheet-err").textContent, yesDisabled: $("btn-confirm-yes").disabled};
+mode = "ok";
+$("btn-confirm-yes").click();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+const okRes = {sheetHidden: $("sheet-root").hidden};
+ui.askConfirm("cancelTask", "甲", "t1");
+ui.model.plan.tasks = [];
+const beforeMissing = posts.length;
+$("btn-confirm-yes").click();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+out.push({failRes, okRes, missingSheet: $("sheet-root").hidden, missingDisabled: $("btn-confirm-yes").disabled, deltaPosts: posts.length - beforeMissing});
+''')
+        r = values[0]
+        self.assertEqual(r["failRes"], {"sheetHidden": False, "err": "没能取消这一场：已在提交", "yesDisabled": False})
+        self.assertEqual(r["okRes"], {"sheetHidden": True})
+        self.assertEqual([r["missingSheet"], r["missingDisabled"], r["deltaPosts"]], [False, False, 0])
+
+    def test_review_render_act_line_warns_visibility_and_remove_clears_notice(self):
+        """核对面板仅对有时段的场次渲染活动副行、双向控制提醒区显隐，移除条目同步清冲突条。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const smalls = []; const inputs = []; const rawCreate = document.createElement.bind(document);
+document.createElement = (tag) => {
+  if (tag === "input") {
+    const el = {tagName: "INPUT", checked: false, disabled: false, listeners: {},
+      setAttribute() {}, addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); }};
+    inputs.push(el); return el;
+  }
+  const el = rawCreate(tag);
+  if (tag === "small") { const s = {tagName: "SMALL", textContent: ""}; smalls.push(s); return s; }
+  return el;
+};
+const a1 = {id: "a1", name: "甲", sign_start: "2026-11-08 20:00:00", act_start: "2026-11-11 09:00:00", act_end: "2026-11-11 11:00:00", sign_end_ts: 1};
+const a3 = {id: "a3", name: "冲突乙", sign_start: "2026-11-08 20:00:00", act_start: "2026-11-11 10:00:00", act_end: "2026-11-11 12:00:00", sign_end_ts: 1};
+ui.ingest({state: {terms_ok: true, busy: false, relogin_setup: {saved: true, ocr_ready: true, paused: false},
+  business_clock: {state: "ready", epoch_s: Date.UTC(2026, 10, 8, 6, 0, 0) / 1000, tick_s: 1, sampled_tick_s: 1},
+  activities: [a1, a3]}});
+ui.model.selected = ["a1"];
+ui.refreshControls(); ui.renderItems();
+smalls.length = 0;
+$("review-warns").hidden = false;
+$("btn-start").click();
+const cleanState = {warnsHidden: $("review-warns").hidden, smallTexts: smalls.map((s) => s.textContent)};
+ui.closeSheet(true);
+const cb3 = inputs[inputs.length - 1];
+cb3.checked = true; cb3.listeners.change[0]();
+const noticeShown = !$("list-notice").hidden;
+ui.ingest({state: {business_clock: {state: "holdover", epoch_s: Date.UTC(2026, 10, 8, 6, 0, 0) / 1000, tick_s: 1, sampled_tick_s: 1}}});
+ui.refreshControls();
+$("review-warns").hidden = true;
+$("btn-start").click();
+const warnShown = !$("review-warns").hidden;
+const rmBtn = rawCreate("button"); rmBtn.dataset.id = "a1";
+$("review-items").listeners.click[0]({target: rmBtn});
+out.push({cleanState, noticeShown, warnShown, noticeAfterRemove: [$("list-notice").hidden, $("list-notice").textContent]});
+''')
+        r = values[0]
+        self.assertTrue(r["cleanState"]["warnsHidden"])
+        self.assertEqual(len(r["cleanState"]["smallTexts"]), 1)
+        self.assertIn("活动", r["cleanState"]["smallTexts"][0])
+        self.assertTrue(r["noticeShown"])
+        self.assertTrue(r["warnShown"])
+        self.assertEqual(r["noticeAfterRemove"], [True, ""])
+
+
 
 class ResultTermsModelTests(unittest.TestCase):
     """RS01/RS02/TM01：结果页统计与六支板头、任务卡原因三句、条款板（result-and-terms 任务）。
@@ -5496,6 +5817,64 @@ ui.renderItems();
 out.push({draftCount, resultCount: $("signed-items").childElementCount});
 ''')
         self.assertEqual(values, [{"draftCount": 0, "resultCount": 1}])
+
+    def test_reselect_and_finish_dismiss_plan_collapse_list_and_clear_notice(self):
+        """重新选择与完成回草稿均记住已收起计划、收起列表展开态并清除冲突提示。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const inputs = []; const rawCreate = document.createElement.bind(document);
+document.createElement = (tag) => {
+  if (tag !== "input") return rawCreate(tag);
+  const el = {tagName: "INPUT", checked: false, disabled: false, listeners: {},
+    setAttribute() {}, addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); }};
+  inputs.push(el); return el;
+};
+const a1 = {id: "a1", name: "甲", sign_start: "2026-11-09 20:00:00", act_start: "2026-11-11 09:00:00", act_end: "2026-11-11 11:00:00"};
+const a2 = {id: "a2", name: "乙", sign_start: "2026-11-09 20:00:00", act_start: "2026-11-11 10:00:00", act_end: "2026-11-11 12:00:00"};
+const mkPlan = (pid, busy) => ({busy, activities: [a1, a2], plan: {plan_id: pid, status: busy ? "running" : "partial",
+  tasks: [{task_id: "t1", activity_id: "a1", status: busy ? "waiting" : "failed"}]}});
+const triggerNotice = () => {
+  inputs.length = 0; ui.renderItems();
+  inputs[0].checked = true; inputs[0].listeners.change[0]();
+  inputs[inputs.length - 1].checked = true; inputs[inputs.length - 1].listeners.change[0]();
+};
+ui.ingest({state: mkPlan("p9", false)});
+ui.renderItems();
+$("btn-toggle-list").click();
+triggerNotice();
+const n1 = !$("list-notice").hidden;
+$("btn-reselect").click();
+const r1Notice = [$("list-notice").hidden, $("list-notice").textContent];
+ui.ingest({state: mkPlan("p9", false)});
+ui.renderItems();
+const r1Dismissed = [$("btn-reselect").hidden, $("board-title").textContent];
+ui.ingest({state: mkPlan("p10", true)});
+ui.renderItems();
+const r1Collapsed = [$("today-items").hidden, $("btn-toggle-list").getAttribute("aria-expanded")];
+ui.ingest({state: mkPlan("p10", false)});
+ui.renderItems();
+$("btn-toggle-list").click();
+triggerNotice();
+const n2 = !$("list-notice").hidden;
+$("btn-finish").click();
+const fNotice = [$("list-notice").hidden, $("list-notice").textContent];
+ui.ingest({state: mkPlan("p10", false)});
+ui.renderItems();
+const fDismissed = $("btn-finish").hidden;
+ui.ingest({state: mkPlan("p11", true)});
+ui.renderItems();
+const fCollapsed = [$("today-items").hidden, $("btn-toggle-list").getAttribute("aria-expanded")];
+out.push({n1, r1Notice, r1Dismissed, r1Collapsed, n2, fNotice, fDismissed, fCollapsed});
+''')
+        r = values[0]
+        self.assertTrue(r["n1"] and r["n2"])
+        self.assertEqual(r["r1Notice"], [True, ""])
+        self.assertEqual(r["r1Dismissed"], [True, "核对后再开始"])
+        self.assertEqual(r["r1Collapsed"], [True, "false"])
+        self.assertEqual(r["fNotice"], [True, ""])
+        self.assertTrue(r["fDismissed"])
+        self.assertEqual(r["fCollapsed"], [True, "false"])
+
 
 
 class ExceptionStatesTests(unittest.TestCase):
