@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-23T08:30:43Z",
+  "updated_at": "2026-11-23T09:40:21Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "2f27c8e63fdfc1a3fbae806586edb6b22b6ea5acf2b3ea0c551622852bc8bd55",
-      "size": 362316,
-      "normalized_sha256": "2f27c8e63fdfc1a3fbae806586edb6b22b6ea5acf2b3ea0c551622852bc8bd55"
+      "sha256": "234ef13fbf6c741ce8bb3ff049492737d161093941ae6e6c0c15e5df3955079e",
+      "size": 363152,
+      "normalized_sha256": "234ef13fbf6c741ce8bb3ff049492737d161093941ae6e6c0c15e5df3955079e"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -7859,6 +7859,18 @@
       "sha256": "aa9a54ee4fea13a7058ce48870ad895ed8f0dba4ca62e64a199ddde47368b412",
       "size": 33371,
       "normalized_sha256": "aa9a54ee4fea13a7058ce48870ad895ed8f0dba4ca62e64a199ddde47368b412"
+    },
+    "design/evidence/2026-11-23/phone-relogin-net/before.md": {
+      "role": "index",
+      "sha256": "2f5146189cb09c5add3479305099109aae5f4a9c76a7683b2dd97c682f209b86",
+      "size": 30056,
+      "normalized_sha256": "2f5146189cb09c5add3479305099109aae5f4a9c76a7683b2dd97c682f209b86"
+    },
+    "design/evidence/2026-11-23/phone-relogin-net/scripts/mutate_relogin.py": {
+      "role": "index",
+      "sha256": "15f263c81485f9202c6e78749cc0855e19a24ff1bab0f5544455a530746ac6d3",
+      "size": 42745,
+      "normalized_sha256": "15f263c81485f9202c6e78749cc0855e19a24ff1bab0f5544455a530746ac6d3"
     },
     "design/evidence/2026-11-23/phone-render-net/README.md": {
       "role": "index",
