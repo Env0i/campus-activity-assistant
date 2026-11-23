@@ -1,0 +1,26 @@
+{
+  "M035": {
+    "reason": "closeSheet 第 48 行已将 model.sheetId 置为空串，后续第 65 行先把 model.sheetOpener 读入局部常量 opener 后再清为 null 并调 opener.focus()。之后若再次调用 closeSheet，第 43 行因 !model.sheetId 立即返回；若重新打开任意抽屉，openSheet 第 21 行在读取 sheetOpener 前会无条件执行 model.sheetOpener = document.activeElement || null 覆写原值。去掉第 66 行赋值不会影响任何 DOM、焦点、fetch 请求或定时器。",
+    "callers": "全局扫描 local/ui/m/*.js 全部 sheetOpener 引用：(1) ui-session.js:46 初始化为 null；(2) openSheet（ui-shell.js:21）在 if (!root || !SHEET_TITLES[id] || model.sheetId) return 守卫之后无条件写入 model.sheetOpener = document.activeElement || null；(3) closeSheet（ui-shell.js:65-66）是全目录唯一读取方，第 65 行已取入局部变量 opener 后才执行第 66 行清零，且第 48 行已置 model.sheetId = \"\" 阻止任何重入 closeSheet；其余 10 份脚本零引用。"
+  },
+  "M114": {
+    "reason": "btn-pick-next 仅在 PhoneModel.draftBoard（model-list.js:210-238）以 sel.length === 0 进入未选分支并给出非空 pickId 时由 renderBoard（ui-status.js:292-293）显示；所有能写入非空 model.notice 的路径（buildRow 勾选冲突，ui-list.js:22）必保留 model.selected.length >= 1，而任何使 selected 归零的路径（buildRow 取消勾选、removeFromReview、finishPlanView、reselectFailed、startPlan、ingest 在 selected 缩减时的第 144 行）均将 model.notice 置为空串，且空选择下 PhoneModel.pickItem([], items, pickId, true)（model-list.js:122-131）恒返回 notice: \"\"。因此第 220 行在所有可达状态下都是向已为空串的 model.notice 再写入空串。",
+    "callers": "全局扫描 local/ui/m/*.js 全部 notice 与 pickId 引用：(1) 读取方：ui-list.js:328-329（renderItems 渲染 #list-notice）；(2) 写入方：ui-session.js:44（初值 \"\"）、ui-list.js:22（buildRow，仅勾选冲突且 selected 非空时写非空，取消时写 \"\"）、ui-sync.js:144（ingest 选集缩减清 \"\"）、ui-plan.js:22/156/166/242（均清 \"\"）、ui-shell.js:220（btn-pick-next 点击）；(3) model.pickId 仅在 ui-status.js:274 置 \"\" 与 ui-status.js:292 写入 draftBoard().pickId，而 model-list.js:210-216 保证 selected 非空时 pickId 恒为 \"\"，使第 217 行提前返回。"
+  },
+  "M130": {
+    "reason": "model.pollTimer 的全部读取方只在其真值分支执行 clearTimeout(model.pollTimer)。visibilitychange 隐藏分支第 252 行已调用 clearTimeout 取消旧定时器；即使保留已取消的句柄不置 null，后续任何调度或清理路径（schedule、onNeedPair、visibilitychange、pagehide）再次对其调用 clearTimeout 均为空操作（浏览器与测试沙箱 ++timerSeq 均不复用句柄），且 schedule 会在第 296/299 行立即覆写新句柄，任何 DOM、fetch 请求或活跃定时器均不变。",
+    "callers": "全局扫描 local/ui/m/*.js 全部 pollTimer 引用：(1) ui-session.js:35（初值 null）；(2) onNeedPair（ui-session.js:273-274）；(3) schedule（ui-session.js:295-296、299）；(4) visibilitychange（ui-shell.js:252-253）；(5) pagehide（ui-shell.js:262-263）。上述全部读取方均只执行 if (model.pollTimer) clearTimeout(model.pollTimer)，其余 10 份脚本零引用。"
+  },
+  "M132": {
+    "reason": "model.tickTimer 的全部读取方只在其真值分支执行 clearTimeout(model.tickTimer)。visibilitychange 隐藏分支第 254 行已调用 clearTimeout 取消旧定时器；即使保留已取消的句柄不置 null，后续任何调度或清理路径（scheduleTick、onNeedPair、visibilitychange、pagehide）再次对其调用 clearTimeout 均为空操作（浏览器与测试沙箱 ++timerSeq 均不复用句柄），且 scheduleTick 会在第 11/14 行立即覆写新句柄，任何 DOM、fetch 请求或活跃定时器均不变。",
+    "callers": "全局扫描 local/ui/m/*.js 全部 tickTimer 引用：(1) scheduleTick（ui-sync.js:10-11、14-15）；(2) onNeedPair（ui-session.js:275-276）；(3) visibilitychange（ui-shell.js:254-255）；(4) pagehide（ui-shell.js:264-265）。上述全部读取方均只执行 if (model.tickTimer) clearTimeout(model.tickTimer)，其余 9 份脚本零引用。"
+  },
+  "M137": {
+    "reason": "model.pollTimer 的全部读取方只在其真值分支执行 clearTimeout(model.pollTimer)。pagehide 监听第 262 行已调用 clearTimeout 取消旧定时器；保留已取消的句柄不置 null，后续任何调度或清理路径再次对其调用 clearTimeout 均为空操作，且 schedule 会在第 296/299 行立即覆写新句柄，任何 DOM、fetch 请求或活跃定时器均不变。",
+    "callers": "全局扫描 local/ui/m/*.js 全部 pollTimer 引用：(1) ui-session.js:35（初值 null）；(2) onNeedPair（ui-session.js:273-274）；(3) schedule（ui-session.js:295-296、299）；(4) visibilitychange（ui-shell.js:252-253）；(5) pagehide（ui-shell.js:262-263）。上述全部读取方均只执行 if (model.pollTimer) clearTimeout(model.pollTimer)，其余 10 份脚本零引用。"
+  },
+  "M139": {
+    "reason": "model.tickTimer 的全部读取方只在其真值分支执行 clearTimeout(model.tickTimer)。pagehide 监听第 264 行已调用 clearTimeout 取消旧定时器；保留已取消的句柄不置 null，后续任何调度或清理路径再次对其调用 clearTimeout 均为空操作，且 scheduleTick 会在第 11/14 行立即覆写新句柄，任何 DOM、fetch 请求或活跃定时器均不变。",
+    "callers": "全局扫描 local/ui/m/*.js 全部 tickTimer 引用：(1) scheduleTick（ui-sync.js:10-11、14-15）；(2) onNeedPair（ui-session.js:275-276）；(3) visibilitychange（ui-shell.js:254-255）；(4) pagehide（ui-shell.js:264-265）。上述全部读取方均只执行 if (model.tickTimer) clearTimeout(model.tickTimer)，其余 9 份脚本零引用。"
+  }
+}
