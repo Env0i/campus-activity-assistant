@@ -1931,6 +1931,9 @@ net_after_tidy.py[XQ3M]: F:只读复用手机安全网72条变异定义，把收
 before.md[TQ3M]: F:保存手机摄入与渲染组23个函数226条变异的补测前逐条结论，行为守142、无人守84，并按写入、条件、显隐三类单列统计 | R:code:design/evidence/2026-11-23/phone-render-net/scripts/mutate_render.py | A:变异结论表、分类统计 | S:-
 after-ui-sync.md[TQ3T]: F:记录渲染组第一批ui-sync.js的19条无人守补测后结论、新增用例、三条等价的调用方证明及全组226条复跑统计 | R:code:design/evidence/2026-11-23/phone-render-net/before.md,code:local/tests/test_phone_ui.py | A:逐条结论、全组对照 | S:-
 after-ui-status.md[TQ3T]: F:记录渲染组第二批ui-status.js的29条无人守补测后结论、9条新增用例、三条等价的调用方证明及全组226条复跑统计 | R:code:design/evidence/2026-11-23/phone-render-net/before.md,code:local/tests/test_phone_ui.py | A:逐条结论、新增用例清单、全组对照 | S:-
+README.md[TQ4S]: F:手机页摄入与渲染组安全网总览：三类变异口径、23个函数对照、补测前后四档统计、三批新增用例、主界面显示两条变异结论、等价摘要与复现命令 | R:code:design/evidence/2026-11-23/phone-render-net/after.md | A:整组结论入口 | S:真机与打包窗口未验
+after-ui-list.md[TQ3S]: F:记录渲染组第三批ui-list.js的34条无人守补测后全部行为守的结论、7条新增用例及全组复跑统计 | R:code:design/evidence/2026-11-23/phone-render-net/before.md,code:local/tests/test_phone_ui.py | A:逐条结论、新增用例清单 | S:-
+after.md[TQ3M]: F:渲染组全部226条变异补测后的逐条结论与首个失败用例，行为守220、等价6、无人守0 | R:code:design/evidence/2026-11-23/phone-render-net/scripts/mutate_render.py | A:逐条结论、按文件与口径统计 | S:源码再改须重跑
 
 ===/<repository>/design/evidence/2026-11-23/phone-render-net/scripts/===
 mutate_render.py[XQ4L]: F:对手机摄入与渲染组23个函数生成写入、条件、显隐三类单点变异，在临时副本逐条复跑手机页测试并分五类出报告 | R:code:design/evidence/2026-11-22/phone-net/scripts/mutate_phone.py,code:local/tests/test_phone_ui.py | A:--list,--baseline,--ids,--workers,--equiv-json,--out | S:只在导出副本里改，定位不唯一或语法不过单列无效
