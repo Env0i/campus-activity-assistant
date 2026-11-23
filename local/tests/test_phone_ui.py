@@ -3428,6 +3428,74 @@ out.push({lateNote, otherNote: $("relogin-note").textContent});
             "otherNote": "还不能开始：bad_setup",
         }])
 
+    def test_relogin_buttons_and_input_listeners_drive_begin_submit_and_refresh(self):
+        """重登输入监听应实时更新主钮可用态，点登录、提交与换图按钮应依次发出对应请求。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const actions = [];
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.body) {
+    const b = JSON.parse(opts.body); actions.push(b.action);
+    return {status: 200, json: async () => ({ok: true, mode: "manual"})};
+  }
+  return {status: 200, json: async () => ({state: {}, events: []})};
+};
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: false, ocr_ready: false, paused: false}}});
+ui.refreshControls();
+ui.openRelogin();
+const beginBefore = $("btn-relogin").disabled;
+$("relogin-user").value = "demo-user"; $("relogin-pass").value = "demo-pass";
+$("relogin-user").listeners.input.forEach((fn) => fn());
+const beginReady = $("btn-relogin").disabled;
+$("btn-relogin").click();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+ui.ingest({state: {terms_ok: true,
+  relogin_setup: {saved: true, ocr_ready: false, paused: false},
+  login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1", image: "%s", live: true}}});
+const submitBefore = $("btn-relogin-submit").disabled;
+$("code").value = "1234";
+$("code").listeners.input.forEach((fn) => fn());
+const submitReady = $("btn-relogin-submit").disabled;
+$("btn-relogin-submit").click();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+ui.ingest({state: {terms_ok: true,
+  relogin_setup: {saved: true, ocr_ready: false, paused: false},
+  login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c2", image: "%s", live: true}}});
+$("btn-relogin-refresh").click();
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+out.push({beginBefore, beginReady, submitBefore, submitReady, actions});
+''' % (CAPTCHA_PNG, CAPTCHA_PNG))
+        self.assertEqual(values, [{
+            "beginBefore": True, "beginReady": False,
+            "submitBefore": True, "submitReady": False,
+            "actions": ["phone_relogin_begin", "phone_relogin_submit",
+                        "phone_relogin_cancel", "phone_relogin_begin"],
+        }])
+
+    def test_relogin_cancel_failure_clears_confirm_layer(self):
+        """取消重登被服务端拒绝而保留抽屉时，仍应清掉确认层回到表单态。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.body) return {status: 200, json: async () => ({ok: false, error: "busy"})};
+  return {status: 200, json: async () => ({state: {}, events: []})};
+};
+ui.ingest({state: {terms_ok: true,
+  relogin_setup: {saved: true, ocr_ready: true, paused: false},
+  login_relay: {flow_id: "f-fail", state: "failed", live: true}}});
+ui.openRelogin();
+const confirmShown = !$("btn-relogin-auto").hidden;
+$("btn-relogin-cancel").click();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+ui.refreshControls();
+out.push({confirmShown, sheetOpen: !$("sheet-root").hidden,
+  autoBtnHidden: $("btn-relogin-auto").hidden, formHidden: $("rel-form").hidden});
+''')
+        self.assertEqual(values, [{
+            "confirmShown": True, "sheetOpen": True,
+            "autoBtnHidden": True, "formHidden": False,
+        }])
+
 
 
 class MobileWriteResilienceTests(unittest.TestCase):
@@ -3909,6 +3977,30 @@ out.push({sent: posts[1], logAfterFail, valAfterOkIngest: $("retry-for").value})
         self.assertIn("没能保存重试设置：时长不合法", r["logAfterFail"])
         self.assertEqual(r["valAfterOkIngest"], "120")
 
+    def test_retry_dirty_protects_unsaved_inputs_from_snapshot_overwrite(self):
+        """修改尝试时长或次数且尚未保存成功前，首轮快照不得覆盖用户刚改的值。"""
+        run_case = '''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now(); ui.model.selected = ["a1"];
+const posts = [];
+globalThis.__fetch = async (_u, opts) => {
+  if (!opts || !opts.body) return {status: 200, json: async () => ({state: {}, events: []})};
+  const b = JSON.parse(opts.body); posts.push(b);
+  if (b.action === "save_retry_policy") return {status: 200, json: async () => ({ok: false, error: "bad"})};
+  return {status: 200, json: async () => ({ok: true})};
+};
+const optsObj = {choices: [{value: 120, label: "2 分钟"}, {value: 300, label: "5 分钟"}]};
+ui.ingest({state: {terms_ok: true, retry_options: optsObj}});
+%s
+ui.ingest({state: {terms_ok: true, retry_policy: {retry_for_s: 120, max_attempts: 0}, retry_options: optsObj}});
+await ui.startPlan();
+const startReq = posts.find((p) => p.action === "start_plan");
+out.push({val: $("retry-for").value, policy: startReq && startReq.args.retry_policy});
+'''
+        r1 = run_phone_js(run_case % '$("retry-for").value = "300"; $("retry-for").listeners.change[0]();')
+        r2 = run_phone_js(run_case % '$("max-attempts").value = "5"; $("max-attempts").listeners.change[0]();')
+        self.assertEqual(r1, [{"val": "300", "policy": {"retry_for_s": 300, "max_attempts": 0}}])
+        self.assertEqual(r2[0]["policy"], {"retry_for_s": 120, "max_attempts": 5})
+
 
 
 class PairStatesDomTests(unittest.TestCase):
@@ -4159,6 +4251,35 @@ out.push([$("app").hidden, $("pair").hidden]);
 ''')
         self.assertEqual(pair_out[0], [False, True], "配对成功后必须显示主界面并隐藏配对页")
         self.assertEqual(restore_out[0], [False, True], "首屏会话恢复后必须显示主界面并隐藏配对页")
+
+    def test_pair_code_input_normalizes_clears_error_and_enter_submits(self):
+        """输入配对码应过滤非数字并截断为 6 位、清掉旧错误提示，按回车才发起配对请求。"""
+        values = run_phone_js('''
+const posts = [];
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.body) posts.push(JSON.parse(opts.body));
+  return {status: 403, json: async () => ({ok: false, error: "bad_code", remaining_attempts: 2})};
+};
+$("pair-code").value = "123456";
+await PhoneUI.pair();
+const errBefore = [!$("pair-error").hidden, $("pair-error").textContent];
+$("pair-code").value = "12a34b567";
+$("pair-code").listeners.input.forEach((fn) => fn());
+const afterInput = {val: $("pair-code").value, errHidden: $("pair-error").hidden,
+  errText: $("pair-error").textContent, btnDisabled: $("btn-pair").disabled};
+const countBeforeKey = posts.length;
+$("pair-code").listeners.keydown.forEach((fn) => fn({key: "a"}));
+const afterNonEnter = posts.length - countBeforeKey;
+$("pair-code").listeners.keydown.forEach((fn) => fn({key: "Enter"}));
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+out.push({errBefore, afterInput, afterNonEnter,
+  afterEnter: posts.slice(countBeforeKey)});
+''')
+        r = values[0]
+        self.assertTrue(r["errBefore"][0])
+        self.assertEqual(r["afterInput"], {"val": "123456", "errHidden": True, "errText": "", "btnDisabled": False})
+        self.assertEqual(r["afterNonEnter"], 0)
+        self.assertEqual(r["afterEnter"], [{"code": "123456"}])
 
 
 class RunWaitModelTests(unittest.TestCase):
@@ -4548,6 +4669,42 @@ try {
 ''')
         self.assertEqual(values, [{"cap": "状态已过时", "capB": "最后同步 12:00:00", "ledCls": "led-wrap dim"}])
 
+    def test_review_start_button_closes_sheet_and_posts_and_stop_opens_confirm(self):
+        """核对面板点开始应收起抽屉并发出开始请求，运行中点停止应弹出确认槽并发送停止请求。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const posts = [];
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.body) {
+    posts.push(JSON.parse(opts.body).action);
+    return {status: 200, json: async () => ({ok: true, pending: false})};
+  }
+  return {status: 200, json: async () => ({state: {}, events: []})};
+};
+ui.ingest({state: {terms_ok: true, busy: false,
+  activities: [{id: "a1", name: "甲", sign_start: "2026-11-08 20:00:00",
+    act_start: "2026-11-10 09:00:00", act_end: "2026-11-10 10:00:00"}]}});
+ui.model.selected = ["a1"];
+ui.refreshControls();
+$("btn-start").click();
+const reviewOpen = !$("sheet-root").hidden && !$("review-panel").hidden;
+$("btn-review-start").click();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+const afterReviewStart = {sheetHidden: $("sheet-root").hidden, posts: posts.slice()};
+ui.ingest({state: {terms_ok: true, busy: true, plan: {plan_id: "p1", status: "running", tasks: []}}});
+ui.refreshControls();
+$("btn-stop").click();
+const stopConfirm = [!$("sheet-root").hidden, !$("confirm-panel").hidden, $("sheet-title").textContent];
+$("btn-confirm-yes").click();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+out.push({reviewOpen, afterReviewStart, stopConfirm, posts});
+''')
+        r = values[0]
+        self.assertTrue(r["reviewOpen"])
+        self.assertEqual(r["afterReviewStart"], {"sheetHidden": True, "posts": ["start_plan"]})
+        self.assertEqual(r["stopConfirm"], [True, True, "停止报名计划？"])
+        self.assertEqual(r["posts"], ["start_plan", "stop_plan"])
+
 
 class ListDetailModelTests(unittest.TestCase):
     """G05/G07/G08/G09/LD01–LD04：列表分组、距开放、段钮计数、草稿板与勾选冲突。
@@ -4933,6 +5090,38 @@ out.push({beforeCount, afterOpen, focusAfterClose: focusCount});
         self.assertEqual(values[0]["afterOpen"], {"focusCount": 1, "qVal": "", "sqVal": "", "rowCount": 2})
         self.assertEqual(values[0]["focusAfterClose"], 1)
 
+    def test_more_query_and_status_and_time_chips_filter_dom_and_sync_inputs(self):
+        """更多面板关键词输入应同步整页搜索框并过滤列表，状态与时间筛选片应切换选中态并按口径筛行。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const nowS = PhoneModel.schoolSec("2026-11-20 11:00:00");
+ui.ingest({state: {terms_ok: true,
+  business_clock: {state: "ready", epoch_s: nowS, tick_s: 0, sampled_tick_s: 0},
+  activities: [
+    {id: "t1", name: "甲开放", sign_start: "2026-11-20 10:00:00", sign_end: "2026-11-20 22:00:00"},
+    {id: "w1", name: "乙以后", sign_start: "2026-11-25 10:00:00", sign_end: "2026-11-25 12:00:00"},
+    {id: "s1", name: "丙已报", sign_start: "2026-11-18 08:00:00", signed: true}]}});
+$("search-q").value = "旧词"; $("q").value = "丙已报";
+$("q").listeners.input.forEach((fn) => fn());
+const afterQ = {sqVal: $("search-q").value, filterEmptyHidden: $("filter-empty").hidden};
+$("#s-all").dataset.status = "all"; $("#s-free").dataset.status = "free";
+$("#s-all").click();
+const afterStatus = {allPressed: $("#s-all").getAttribute("aria-pressed"),
+  freePressed: $("#s-free").getAttribute("aria-pressed"), filterEmptyHidden: $("filter-empty").hidden};
+$("q").value = ""; $("q").listeners.input.forEach((fn) => fn());
+$("#t-all").dataset.time = "all"; $("#t-today").dataset.time = "today";
+$("#t-today").click();
+const afterTime = {todayPressed: $("#t-today").getAttribute("aria-pressed"),
+  allPressed: $("#t-all").getAttribute("aria-pressed"),
+  todayEmptyHidden: $("empty").hidden, upcomingEmptyHidden: $("upcoming-empty").hidden};
+out.push({afterQ, afterStatus, afterTime});
+''')
+        r = values[0]
+        self.assertEqual(r["afterQ"], {"sqVal": "丙已报", "filterEmptyHidden": False})
+        self.assertEqual(r["afterStatus"], {"allPressed": "true", "freePressed": "false", "filterEmptyHidden": True})
+        self.assertEqual(r["afterTime"], {"todayPressed": "true", "allPressed": "false",
+                                          "todayEmptyHidden": True, "upcomingEmptyHidden": False})
+
 
 class SheetShellTests(unittest.TestCase):
     """G03 sheet 外壳：开/关与焦点归还、验证中不关（busyLock）、SH06 网络失败红条。"""
@@ -5068,6 +5257,99 @@ ui.refreshControls();
 out.push([closedKeep, $("btn-sheet-close").hidden]);
 ''')
         self.assertEqual(values, [[False, True]])
+
+    def test_open_and_close_sheet_restore_focus_toggle_all_panels_and_clear_confirm(self):
+        """打开抽屉应记住焦点并切换全部面板显隐与入口文案，关闭应复位全部槽位、清除重登确认态并归还焦点。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let focused = 0; document.activeElement = {focus() { focused += 1; }};
+ui.ingest({state: {terms_ok: true, login: {session_present: false},
+  relogin_setup: {saved: true, ocr_ready: true, paused: false}}});
+$("btn-relogin-open").textContent = "旧入口";
+$("sheet-err").hidden = false; $("more-panel").hidden = false; $("confirm-panel").hidden = false;
+$("review-foot").hidden = true; $("btn-sheet-close").hidden = true;
+ui.openSheet("review");
+const openReview = {errHidden: $("sheet-err").hidden, moreHidden: $("more-panel").hidden,
+  confirmHidden: $("confirm-panel").hidden, revFootHidden: $("review-foot").hidden,
+  closeHidden: $("btn-sheet-close").hidden, entryKept: $("btn-relogin-open").textContent};
+$("confirm-panel").hidden = false; $("relogin-panel").hidden = false;
+$("review-foot").hidden = false; $("relogin-foot").hidden = false; $("sheet-err").hidden = false;
+ui.closeSheet(true);
+const closed = [focused, $("confirm-panel").hidden, $("relogin-panel").hidden,
+  $("review-foot").hidden, $("relogin-foot").hidden, $("sheet-err").hidden];
+$("more-panel").hidden = true; $("review-foot").hidden = false;
+ui.openSheet("more");
+const moreOpen = [!$("more-panel").hidden, $("review-foot").hidden, $("btn-relogin-open").textContent];
+ui.closeSheet(true);
+ui.openRelogin();
+const firstAutoHidden = $("btn-relogin-auto").hidden;
+ui.closeSheet(true);
+$("sheet-title").textContent = "错标题";
+ui.openSheet("relogin");
+const relTitle = $("sheet-title").textContent;
+ui.renderRelogin();
+const confirmCleared = $("btn-relogin-auto").hidden;
+ui.closeSheet(true);
+ui.askConfirm("stop");
+const confirmShown = !$("confirm-panel").hidden;
+out.push({openReview, closed, moreOpen, firstAutoHidden, relTitle, confirmCleared, confirmShown});
+''')
+        r = values[0]
+        self.assertEqual(r["openReview"], {"errHidden": True, "moreHidden": True, "confirmHidden": True,
+                                            "revFootHidden": False, "closeHidden": False, "entryKept": "旧入口"})
+        self.assertEqual(r["closed"], [1, True, True, True, True, True])
+        self.assertEqual(r["moreOpen"], [True, True, "在手机上登录"])
+        self.assertFalse(r["firstAutoHidden"])
+        self.assertEqual(r["relTitle"], "在手机上登录")
+        self.assertTrue(r["confirmCleared"])
+        self.assertTrue(r["confirmShown"])
+
+    def test_sheet_backdrop_escape_and_confirm_button_disable_lifecycle(self):
+        """点遮罩或按 Esc 应关闭抽屉而误点内部或他键不关，确认动作在途应禁用双钮、失败后一并放开。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const keyFns = [];
+const origDocAdd = document.addEventListener;
+document.addEventListener = (t, fn) => {
+  if (t === "keydown") keyFns.push(fn);
+  return origDocAdd(t, fn);
+};
+ui.wire();
+document.addEventListener = origDocAdd;
+ui.openSheet("more");
+$("sheet-root").listeners.click.forEach((fn) => fn({target: $("sheet-box"), currentTarget: $("sheet-root")}));
+const afterChildClick = !$("sheet-root").hidden;
+$("sheet-root").listeners.click.forEach((fn) => fn({target: $("sheet-root"), currentTarget: $("sheet-root")}));
+const afterMaskClick = $("sheet-root").hidden;
+ui.openSheet("more");
+keyFns.forEach((fn) => fn({key: "Enter"}));
+const afterEnterKey = !$("sheet-root").hidden;
+keyFns.forEach((fn) => fn({key: "Escape"}));
+const afterEscKey = $("sheet-root").hidden;
+let relStop;
+globalThis.__fetch = (_u, opts) => {
+  if (opts && opts.body) return new Promise((r) => { relStop = r; });
+  return Promise.resolve({status: 200, json: async () => ({state: {}, events: []})});
+};
+ui.ingest({state: {terms_ok: true, busy: true, plan: {plan_id: "p1", tasks: []}}});
+$("btn-confirm-no").disabled = true; $("btn-confirm-yes").disabled = true;
+ui.askConfirm("stop");
+const openEnabled = [!$("btn-confirm-no").disabled, !$("btn-confirm-yes").disabled];
+$("btn-confirm-yes").click();
+const inFlightDisabled = [$("btn-confirm-yes").disabled, $("btn-confirm-no").disabled];
+relStop({status: 200, json: async () => ({ok: false, error: "busy"})});
+for (let i = 0; i < 15; i += 1) await Promise.resolve();
+const afterFailEnabled = [!$("btn-confirm-yes").disabled, !$("btn-confirm-no").disabled];
+out.push({afterChildClick, afterMaskClick, afterEnterKey, afterEscKey,
+  openEnabled, inFlightDisabled, afterFailEnabled});
+''')
+        self.assertEqual(values, [{
+            "afterChildClick": True, "afterMaskClick": True,
+            "afterEnterKey": True, "afterEscKey": True,
+            "openEnabled": [True, True],
+            "inFlightDisabled": [True, True],
+            "afterFailEnabled": [True, True],
+        }])
 
 
 class SheetsOpsModelTests(unittest.TestCase):
@@ -7109,6 +7391,20 @@ out.push([calibrated, $("last-sync").textContent]);
 ''')
         self.assertEqual(values, [["最近同步 12:34", "最近同步 --:--"]])
 
+    def test_refresh_button_click_forces_poll_from_seq_zero(self):
+        """点击右上角刷新按钮应从游标 0 发起一次全量状态拉取。"""
+        values = run_phone_js('''
+const gets = [];
+globalThis.__fetch = async (url) => {
+  gets.push(url);
+  return {status: 200, json: async () => ({state: {activities: [], busy: false}, events: []})};
+};
+$("btn-refresh").click();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+out.push(gets);
+''')
+        self.assertEqual(values, [["/api/state?after=0"]])
+
 
 class PhoneTickTests(unittest.TestCase):
     """P1：每秒对整秒刷新北京时间与倒计时，只改数字、不重画、不额外联网。"""
@@ -7411,6 +7707,18 @@ try {
 }
 ''')
         self.assertEqual(values, [["soon", ""]])
+
+    def test_pagehide_clears_active_poll_and_tick_timers(self):
+        """页面进入后台卸载缓存前（pagehide）应同时清掉轮询与整秒计时器。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+globalThis.__fetch = async () => ({status: 200, json: async () => ({state: {activities: [], busy: false}, events: []})});
+await ui.poll(true);
+const before = __timerDelays().length;
+__fire("window", "pagehide");
+out.push([before, __timerDelays()]);
+''')
+        self.assertEqual(values, [[2, []]])
 
 
 class WorkbenchPhoneTests(unittest.TestCase):
