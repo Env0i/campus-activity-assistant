@@ -2919,6 +2919,131 @@ out.push({waitNoId, idleCapHidden, formShown, closed, reShown: !$("captcha").hid
             "idleCapHidden": True, "formShown": True, "closed": True, "reShown": True, "codeCleared": "",
         }])
 
+    def test_submit_relogin_sends_post_csrf_and_full_payload_and_clears_code(self):
+        """提交验证码应发 POST、带 CSRF 头与完整 flow_id/challenge_id/code，成功后清空输入并拉状态。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+document.cookie = "campus_phone_csrf=demo-csrf-token";
+ui.ingest({state: {terms_ok: true, login_relay: {
+  mode: "manual", state: "waiting_code", flow_id: "f-sub", challenge_id: "c-sub", image: "%s"}}});
+$("code").value = "1234";
+const reqs = [];
+globalThis.__fetch = async (url, opts) => {
+  const o = opts || {};
+  reqs.push({url, method: o.method || "GET",
+    csrf: (o.headers && o.headers["X-Campus-Csrf"]) || "",
+    body: o.body ? JSON.parse(o.body) : null});
+  if (url === "/api/action") return {status: 200, json: async () => ({ok: true})};
+  return {status: 200, json: async () => ({state: {}, events: []})};
+};
+await ui.submitRelogin();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+out.push({reqs, codeAfter: $("code").value});
+''' % CAPTCHA_PNG)
+        r = values[0]
+        post = [x for x in r["reqs"] if x["url"] == "/api/action"]
+        polls = [x for x in r["reqs"] if x["url"].startswith("/api/state")]
+        self.assertEqual(len(post), 1)
+        self.assertEqual(post[0]["method"], "POST")
+        self.assertEqual(post[0]["csrf"], "demo-csrf-token")
+        self.assertEqual(post[0]["body"]["action"], "phone_relogin_submit")
+        self.assertEqual(post[0]["body"]["args"]["flow_id"], "f-sub")
+        self.assertEqual(post[0]["body"]["args"]["challenge_id"], "c-sub")
+        self.assertEqual(post[0]["body"]["args"]["code"], "1234")
+        self.assertEqual(r["codeAfter"], "")
+        self.assertTrue(polls)
+
+    def test_submit_relogin_stale_challenge_mismatch_updates_note_and_clears_code(self):
+        """当前流程挑战已换代时提交验证码应提示换新图、清空输入框且不发提交请求。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+ui.ingest({state: {terms_ok: true, login_relay: {
+  mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1", image: "%s"}}});
+ui.ingest({state: {terms_ok: true, login_relay: {
+  mode: "manual", state: "waiting_code", flow_id: "f1"}}});
+$("relogin-note").textContent = "旧提示";
+$("code").value = "1234";
+let posts = 0;
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.method === "POST") posts += 1;
+  return {status: 200, json: async () => ({ok: true})};
+};
+await ui.submitRelogin();
+out.push({posts, note: $("relogin-note").textContent, code: $("code").value});
+''' % CAPTCHA_PNG)
+        self.assertEqual(values, [{"posts": 0, "note": "验证码已换代，请看新图", "code": ""}])
+
+    def test_submit_relogin_duplicate_keeps_lock_while_other_error_unlocks_with_reason(self):
+        """重复提交应保持锁定并提示等结果，其余拒绝应写明原因并解锁以允许再次提交。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const polls = []; let posts = 0;
+let reply = {ok: false, error: "duplicate_submit"};
+globalThis.__fetch = async (url, opts) => {
+  if (!opts || opts.method !== "POST") { polls.push(url); return {status: 200, json: async () => ({state: {}, events: []})}; }
+  posts += 1;
+  return {status: 200, json: async () => reply};
+};
+ui.ingest({state: {terms_ok: true, login_relay: {
+  mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1", image: "%s"}}});
+ui.openRelogin();
+$("relogin-note").textContent = "旧提示"; $("code").value = "1234";
+await ui.submitRelogin();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+const dup = {note: $("relogin-note").textContent, spinHidden: $("rel-spin").hidden,
+  submitDisabled: $("btn-relogin-submit").disabled, code: $("code").value, polls: polls.slice()};
+ui.closeSheet(true);
+ui.ingest({state: {terms_ok: true, login_relay: {
+  mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c2", image: "%s"}}});
+ui.openRelogin();
+$("relogin-note").textContent = "旧提示"; $("code").value = "1234";
+reply = {ok: false, error: "bad_code", text: "验证码错了"};
+await ui.submitRelogin();
+const fail = {note: $("relogin-note").textContent, spinHidden: $("rel-spin").hidden,
+  submitDisabled: $("btn-relogin-submit").disabled};
+reply = {ok: true};
+await ui.submitRelogin();
+out.push({dup, fail, posts});
+''' % (CAPTCHA_PNG, CAPTCHA_PNG))
+        r = values[0]
+        self.assertEqual(r["dup"]["note"], "正在登录，请等结果")
+        self.assertFalse(r["dup"]["spinHidden"])
+        self.assertTrue(r["dup"]["submitDisabled"])
+        self.assertEqual(r["dup"]["code"], "1234")
+        self.assertIn("/api/state?after=0", r["dup"]["polls"])
+        self.assertEqual(r["fail"], {"note": "验证码错了", "spinHidden": True, "submitDisabled": False})
+        self.assertEqual(r["posts"], 3)
+
+    def test_cancel_relogin_sends_flow_id_hides_captcha_and_clears_challenge(self):
+        """取消重登应携带 flow_id、成功后隐藏验证码图并清除当前挑战以禁用和阻断提交。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const posts = [];
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.body) posts.push(JSON.parse(opts.body));
+  if (opts && opts.method === "POST") return {status: 200, json: async () => ({ok: true})};
+  return {status: 200, json: async () => ({state: {}, events: []})};
+};
+ui.ingest({state: {terms_ok: true, login_relay: {
+  mode: "manual", state: "waiting_code", flow_id: "f-cancel", challenge_id: "c1", image: "%s", live: true}}});
+$("code").value = "1234";
+const beforeHidden = $("captcha").hidden;
+const ok = await ui.cancelRelogin();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+const afterCancel = {ok, capHidden: $("captcha").hidden, submitDisabled: $("btn-relogin-submit").disabled};
+await ui.submitRelogin();
+ui.ingest({state: {terms_ok: true, login_relay: {
+  mode: "manual", state: "waiting_code", flow_id: "f-cancel", challenge_id: "c1", image: "%s", live: true}}});
+out.push({beforeHidden, afterCancel, posts,
+  reopenedCapHidden: $("captcha").hidden, codeAfterReopen: $("code").value});
+''' % (CAPTCHA_PNG, CAPTCHA_PNG))
+        r = values[0]
+        self.assertFalse(r["beforeHidden"])
+        self.assertEqual(r["afterCancel"], {"ok": True, "capHidden": True, "submitDisabled": True})
+        self.assertEqual(r["posts"], [{"action": "phone_relogin_cancel", "args": {"flow_id": "f-cancel"}}])
+        self.assertFalse(r["reopenedCapHidden"])
+        self.assertEqual(r["codeAfterReopen"], "")
+
 
 
 class ReloginSheetTests(unittest.TestCase):
@@ -3207,6 +3332,101 @@ out.push({moreTitle, formA, confirmB, pausedErrHidden,
         self.assertFalse(r["pausedErrHidden"])
         self.assertTrue(r["autoSecondHidden"])
         self.assertFalse(r["autoDoneHidden"])
+
+    def test_begin_relogin_clears_confirm_and_previous_account_postscript(self):
+        """发起开始应立即收起确认层，且下一轮未在手机端输账号时完成态不残留上一轮附言。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let relBegin;
+globalThis.__fetch = (_u, opts) => {
+  if (opts && opts.method === "POST") return new Promise((r) => { relBegin = r; });
+  return Promise.resolve({status: 200, json: async () => ({state: {}, events: []})});
+};
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: true, ocr_ready: true, paused: false}}});
+ui.openRelogin();
+const confirmBefore = [$("btn-relogin-auto").hidden, $("rel-spin").hidden];
+$("btn-relogin-auto").click();
+const duringBegin = {spinHidden: $("rel-spin").hidden, autoBtnHidden: $("btn-relogin-auto").hidden,
+  textHidden: $("rel-text").hidden};
+relBegin({status: 200, json: async () => ({ok: true, mode: "manual"})});
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+globalThis.__fetch = async (_u, opts) => opts && opts.method === "POST"
+  ? {status: 200, json: async () => ({ok: true, mode: "manual"})}
+  : {status: 200, json: async () => ({state: {}, events: []})};
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: false, ocr_ready: false, paused: false}}});
+ui.refreshControls();
+$("relogin-user").value = "demo-user"; $("relogin-pass").value = "demo-pass";
+$("relogin-save").checked = true;
+await ui.beginRelogin();
+ui.ingest({state: {login_relay: {mode: "manual", state: "success", flow_id: "f1", live: true}}});
+const firstDone = $("rel-text").textContent;
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: true, ocr_ready: false, paused: false}}});
+await ui.beginRelogin();
+ui.ingest({state: {login_relay: {mode: "manual", state: "success", flow_id: "f2", live: true}}});
+out.push({confirmBefore, duringBegin, firstDone, secondDone: $("rel-text").textContent});
+''')
+        r = values[0]
+        self.assertEqual(r["confirmBefore"], [False, True])
+        self.assertEqual(r["duringBegin"], {"spinHidden": False, "autoBtnHidden": True, "textHidden": True})
+        self.assertIn("账号已加密保存到电脑", r["firstDone"])
+        self.assertNotIn("账号已加密保存到电脑", r["secondDone"])
+        self.assertNotIn("只在这次运行中有效", r["secondDone"])
+
+    def test_begin_relogin_empty_credentials_recovers_lock_and_manual_note(self):
+        """账号或密码为空时应提示必填并解除开始锁以允许补填重发，手动受理后应提示要验证码。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const posts = [];
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.method === "POST") {
+    posts.push(JSON.parse(opts.body));
+    return {status: 200, json: async () => ({ok: true, mode: "manual"})};
+  }
+  return {status: 200, json: async () => ({state: {}, events: []})};
+};
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: false, ocr_ready: false, paused: false}}});
+ui.openRelogin();
+$("relogin-user").value = ""; $("relogin-pass").value = "";
+$("relogin-note").textContent = "旧提示";
+await ui.beginRelogin();
+const emptyRes = {note: $("relogin-note").textContent, spinHidden: $("rel-spin").hidden,
+  formHidden: $("rel-form").hidden, openDisabled: $("btn-relogin-open").disabled, posts: posts.length};
+$("relogin-user").value = "demo-user"; $("relogin-pass").value = "demo-pass";
+$("relogin-note").textContent = "旧提示";
+await ui.beginRelogin();
+out.push({emptyRes, manualNote: $("relogin-note").textContent, posts});
+''')
+        r = values[0]
+        self.assertEqual(r["emptyRes"], {
+            "note": "账号和密码都要填。", "spinHidden": True, "formHidden": False,
+            "openDisabled": False, "posts": 0})
+        self.assertEqual(r["manualNote"], "正在向电脑要验证码…")
+        self.assertEqual(r["posts"], [{"action": "phone_relogin_begin", "args": {
+            "username": "demo-user", "password": "demo-pass", "save": False}}])
+
+    def test_begin_relogin_failure_distinguishes_plan_late_and_other_errors(self):
+        """发起重登被拒时应区分计划临近来不及与一般原因并写入提示。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let reply = {ok: false, error: "plan_late", text: "距开放太近"};
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.method === "POST") return {status: 200, json: async () => reply};
+  return {status: 200, json: async () => ({state: {}, events: []})};
+};
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: true, ocr_ready: false, paused: false}}});
+ui.refreshControls();
+$("relogin-note").textContent = "旧提示";
+await ui.beginRelogin();
+const lateNote = $("relogin-note").textContent;
+reply = {ok: false, error: "bad_setup"};
+$("relogin-note").textContent = "旧提示";
+await ui.beginRelogin();
+out.push({lateNote, otherNote: $("relogin-note").textContent});
+''')
+        self.assertEqual(values, [{
+            "lateNote": "现在来不及重新登录：距开放太近",
+            "otherNote": "还不能开始：bad_setup",
+        }])
 
 
 
