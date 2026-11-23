@@ -1578,7 +1578,7 @@ model-run.js[DU7M]: F:给手机页纯规则补上开始待定、运行等待板�
 model.js[DU7M]: F:定义手机页纯规则对象PhoneModel的核心成员：请求标识、筛选、开放时刻、退避与同步节奏、会话状态码分流、登录四态与文案、开始门禁 | R:code:local/ui/m/index.html,code:local/ui/m/model-conflict.js | A:PhoneModel,filterItems,openEpochOf,sessionVerdict,canStart,loginState | S:必须最先加载；开始门禁最后还要actBlock为空；四态只管说法，门禁仍按loginRaw
 ui-list.js[IU7M]: F:绘制手机页活动列表：分区、列表行、冲突原因面板、跳到已报名行与整页搜索开合 | R:code:local/ui/m/model-list.js,code:local/ui/m/ui-session.js | A:LIST_ZONES,buildRow,buildWhy,renderItems,toggleSearch | S:全部用textContent构造；未校准时日期组落下方区，今天区空态收起
 ui-plan.js[AU7M]: F:编排手机页报名计划操作：开始与对账、取消等待、停止、取消单场、结果重选、重试设置与核对抽屉 | R:code:local/ui/m/ui-session.js,code:local/ui/m/model-run.js | A:startPlan,reconcile,cancelPendingStart,stopPlan,cancelTask,reselectFailed | S:开始结果未知时保留原请求标识只读对账，不自动重发
-ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model-relogin.js,code:local/ui/m/ui-session.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:关面板即清输入，验证码绑定当前挑战；面板标题与成功句按打开时记的relFirstLogin取，不跟后续快照
+ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model-relogin.js,code:local/ui/m/ui-session.js,code:local/ui/m/ui-shell.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:关面板即清输入，验证码绑定当前挑战；发起、提交、取消失败句同时写抽屉红条，因#relogin-note在更多面板里被挡；标题与成功句按打开时记的relFirstLogin取
 ui-session.js[AN8M]: F:定义手机页DOM层共用的$、请求超时与model状态对象，并负责带CSRF的请求、配对与锁定倒计时、轮询退避和会话失效处理 | R:code:local/ui/m/model.js,code:local/infrastructure/phone_http.py | A:model,api,postAction,pair,poll,adoptCookieCsrf | S:$与model是全局词法名；请求8秒不回就放弃并放回单飞锁；未配对时一个定时器都不排；写请求与403按cookie覆盖csrf，轮询只在内存为空时补
 ui-shell.js[EU7M]: F:提供手机页抽屉外壳与确认槽、绑定全页事件，并导出PhoneUI与启动wire | R:code:local/ui/m/ui-session.js,code:local/ui/m/ui-plan.js,code:local/ui/m/ui-relogin.js | A:openSheet,closeSheet,askConfirm,wire,PhoneUI | S:必须最后加载，启动两行只在这里；前面任一脚本缺席会在wire时报引用错误
 ui-status.js[IU7M]: F:绘制手机页提示条与告警、控件启用门禁、底栏、计划点阵板、任务卡与运行记录，登录横幅与底栏按四态取字 | R:code:local/ui/m/model-run.js,code:local/ui/m/ui-session.js | A:setBanner,renderAlerts,refreshControls,renderBar,renderBoard,addLog | S:提示条带来源标签，只有状态过时类能自动清掉；举办时间检查的底栏句排在离线之后、默认副题之前
@@ -1967,3 +1967,11 @@ before.md[TQ3S]: F:保存外壳与接线组141条变异的补测前逐条结论�
 ===/<repository>/design/evidence/2026-11-23/phone-shell-net/scripts/===
 equiv.json[FQ3T]: F:按变异编号保存外壳组判为等价的理由与调用方证明，含收抽屉清焦点来源、选下一场写提示和两处计时器句柄清空 | R:code:design/evidence/2026-11-23/phone-shell-net/scripts/mutate_shell.py | A:编号到理由与调用方的映射 | S:-
 mutate_shell.py[XQ4L]: F:对手机页外壳ui-shell.js 7个函数生成写入、条件、显隐、返回值、文字与禁用、事件绑定六类单点变异，在临时副本逐条复跑手机页测试并出报告 | R:code:design/evidence/2026-11-23/phone-relogin-net/scripts/mutate_relogin.py,code:local/tests/test_phone_ui.py | A:--list,--baseline,--ids,--workers,--equiv-json,--out | S:只在导出副本里改，单条超90秒按失败计
+
+===/<repository>/design/evidence/2026-11-23/real-env-smoke/===
+README.md[SQ3T]: F:记录手机页在真实Chromium浏览器与当前源码重打onefile EXE里的两环境离线冒烟：配对、列表筛选、抽屉、计划开始停止、重登入口及包内ui/m逐字节一致 | R:code:local/dev_phone_preview.py,code:local/build/build_exe.py | A:冒烟结论、真机待验清单、复现命令 | S:计划运行靠未入库临时替身，真机与学校链路未验
+
+===/<repository>/design/evidence/2026-11-23/real-env-smoke/scripts/===
+capture_exe_window.ps1[XQ2T]: F:以演示模式启动打包EXE并只截应用窗口矩形作为WebView2渲染证据 | R:code:design/evidence/2026-11-23/real-env-smoke/README.md | A:窗口截图 | S:-
+check_exe_phone_assets.py[XQ2T]: F:从打包EXE的PyInstaller归档取出ui/m成员，与工作区手机页源码逐个比对SHA-256 | R:code:design/evidence/2026-11-23/real-env-smoke/README.md | A:一致或差异清单 | S:-
+probe_phone_http.py[XQ2T]: F:起离线手机页预览服务，核对首页、样式与关键脚本可读及配对码格式后停服 | R:code:local/dev_phone_preview.py | A:探针结论 | S:只连127.0.0.1
