@@ -1,1 +1,6 @@
-{}
+{
+  "M078": {
+    "reason": "beginRelogin 第 171 行先将 model.relEnteredAcct 置为 false，随后第 173 行 refreshControls() 调 renderRelogin()（ui-relogin.js:18-19）传入 entered: false，PhoneModel.reloginView（model-relogin.js:158）按 o.entered ? (o.savedChoice ? ... : ...) : \"\" 短路而不读取 savedChoice；之后仅当第 177 行进入输账号分支且通过第 180 行非空校验时，第 190 行才把 model.relEnteredAcct 置为 true，紧接着同一同步块的下一句第 191 行（中间无分支、无 await、无异常）立即以 model.relSavedChoice = args.save 覆写该字段，未进入该分支时 model.relEnteredAcct 始终为 false。去掉第 172 行写入不会影响任何 DOM、fetch 请求、定时器或返回值。",
+    "callers": "全局扫描 local/ui/m/*.js 全部 relSavedChoice、savedChoice 与 relEnteredAcct 引用：(1) 读取方唯一：renderRelogin（ui-relogin.js:19）读取 model.relSavedChoice 并与 entered: model.relEnteredAcct（ui-relogin.js:18）一起传入 PhoneModel.reloginView，仅在 model-relogin.js:158 的 o.entered ? (o.savedChoice ? ... : ...) : \"\" 分支读取 o.savedChoice；(2) 写入方：ui-session.js:53 初始化为 false，beginRelogin（ui-relogin.js:171-172、190-191）为全目录唯一将 relEnteredAcct 置为 true 并更新 relSavedChoice 的地方，第 190 行与第 191 行同步紧邻，不存在 relEnteredAcct 为 true 而未执行第 191 行覆写的路径；(3) beginRelogin 的全部调用方（ui-shell.js:185 btn-relogin 点击、ui-shell.js:187 btn-relogin-auto 点击、ui-relogin.js:284 refreshRelogin、ui-shell.js:277 PhoneUI.beginRelogin）及其余 9 份脚本均不读写 relSavedChoice 与 relEnteredAcct。"
+  }
+}
