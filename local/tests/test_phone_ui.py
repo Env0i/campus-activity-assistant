@@ -3428,6 +3428,119 @@ out.push({lateNote, otherNote: $("relogin-note").textContent});
             "otherNote": "还不能开始：bad_setup",
         }])
 
+    def test_relogin_action_failures_show_in_sheet_error_bar(self):
+        """发起与提交失败要在重登抽屉里看得见红条，而不是只写被面板挡住的后台行。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let reply = {ok: false, error: "not_available"};
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.method === "POST") return {status: 200, json: async () => reply};
+  return {status: 200, json: async () => ({state: {}, events: []})};
+};
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: true, ocr_ready: false, paused: false}}});
+ui.openRelogin();
+$("sheet-err").hidden = true; $("sheet-err").textContent = "";
+await ui.beginRelogin();
+const begin = {hidden: $("sheet-err").hidden, text: $("sheet-err").textContent,
+               note: $("relogin-note").textContent};
+ui.ingest({state: {terms_ok: true,
+  relogin_setup: {saved: true, ocr_ready: false, paused: false},
+  login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1", image: "%s", live: true}}});
+$("code").value = "1234";
+reply = {ok: false, error: "wrong_code", text: "验证码不对，已换一张图"};
+await ui.submitRelogin();
+const submit = {hidden: $("sheet-err").hidden, text: $("sheet-err").textContent,
+                note: $("relogin-note").textContent};
+ui.ingest({state: {terms_ok: true,
+  relogin_setup: {saved: false, ocr_ready: false, paused: false}}});
+$("relogin-user").value = "demo-user"; $("relogin-pass").value = "demo-pass";
+reply = {ok: true, mode: "manual"};
+await ui.beginRelogin();
+const cleared = {hidden: $("sheet-err").hidden, text: $("sheet-err").textContent};
+out.push({begin, submit, cleared});
+''' % CAPTCHA_PNG)
+        self.assertEqual(values, [{
+            "begin": {"hidden": False, "text": "还不能开始：not_available",
+                      "note": "还不能开始：not_available"},
+            "submit": {"hidden": False, "text": "验证码不对，已换一张图",
+                       "note": "验证码不对，已换一张图"},
+            "cleared": {"hidden": True, "text": ""},
+        }])
+
+    def test_relogin_required_fields_failure_shows_in_sheet_bar(self):
+        """账号或密码留空时，重登抽屉里要看见必填红条，且不发请求。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let posts = 0;
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.method === "POST") { posts += 1; return {status: 200, json: async () => ({ok: true})}; }
+  return {status: 200, json: async () => ({state: {}, events: []})};
+};
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: false, ocr_ready: false, paused: false}}});
+ui.openRelogin();
+$("sheet-err").hidden = true; $("sheet-err").textContent = "";
+$("relogin-user").value = "demo-user"; $("relogin-pass").value = "";
+await ui.beginRelogin();
+out.push([$("sheet-err").hidden, $("sheet-err").textContent, posts]);
+''')
+        self.assertEqual(values, [[False, "账号和密码都要填。", 0]])
+
+    def test_relogin_stale_challenge_and_duplicate_submit_use_sheet_bar(self):
+        """验证码换代要就地提示；重复提交分支要靠提交开头清掉旧红条。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let posts = 0; let reply = {ok: true};
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.method === "POST") { posts += 1; return {status: 200, json: async () => reply}; }
+  return {status: 200, json: async () => ({state: {}, events: []})};
+};
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: true, ocr_ready: false, paused: false}}});
+ui.openRelogin();
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "waiting_code",
+  flow_id: "f1", challenge_id: "c1", image: "%s", live: true}}});
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "waiting_code",
+  flow_id: "f1", live: true}}});
+$("sheet-err").hidden = true; $("sheet-err").textContent = "";
+$("code").value = "1234";
+await ui.submitRelogin();
+const stale = [$("sheet-err").hidden, $("sheet-err").textContent, posts];
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "waiting_code",
+  flow_id: "f1", challenge_id: "c2", image: "%s", live: true}}});
+$("sheet-err").hidden = false; $("sheet-err").textContent = "旧错误";
+$("code").value = "1234";
+reply = {ok: false, error: "duplicate_submit"};
+await ui.submitRelogin();
+out.push({stale, cleared: [$("sheet-err").hidden, $("sheet-err").textContent, posts]});
+''' % (CAPTCHA_PNG, CAPTCHA_PNG))
+        self.assertEqual(values, [{
+            "stale": [False, "验证码已换代，请看新图", 0],
+            "cleared": [True, "", 1],
+        }])
+
+    def test_relogin_cancel_failure_shows_in_sheet_bar(self):
+        """取消失败要在重登抽屉里说明原因，抽屉保持打开。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.method === "POST") {
+    return {status: 200, json: async () => ({ok: false, error: "busy", text: "电脑正忙"})};
+  }
+  return {status: 200, json: async () => ({state: {}, events: []})};
+};
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: true, ocr_ready: false, paused: false},
+  login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1",
+    image: "%s", live: true}}});
+ui.openRelogin();
+$("sheet-err").hidden = true; $("sheet-err").textContent = "";
+const canceled = await ui.cancelRelogin();
+out.push({canceled, sheetOpen: !$("sheet-root").hidden,
+          errHidden: $("sheet-err").hidden, err: $("sheet-err").textContent});
+''' % CAPTCHA_PNG)
+        self.assertEqual(values, [{
+            "canceled": False, "sheetOpen": True,
+            "errHidden": False, "err": "没能取消这次重新登录：电脑正忙",
+        }])
+
     def test_relogin_buttons_and_input_listeners_drive_begin_submit_and_refresh(self):
         """重登输入监听应实时更新主钮可用态，点登录、提交与换图按钮应依次发出对应请求。"""
         values = run_phone_js('''

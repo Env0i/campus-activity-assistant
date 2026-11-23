@@ -164,6 +164,8 @@ function ingestRelogin(info) {
 async function beginRelogin() {
   // 单飞：连点两下也只是同一次开始，不会发出第二个 POST
   if (model.reloginStarting) return;
+  // 新的一次开始先清上一轮的红条，失败原因由下面按分支写回抽屉
+  showSheetError("");
   if (!canWrite()) { setBanner("状态已过时，先刷新再重新登录", "stale_action"); return; }
   model.reloginStarting = true;
   /* RL06：确认层用完即收；RL08 附言：先清上一轮的「输过账号/勾了保存」 */
@@ -181,6 +183,7 @@ async function beginRelogin() {
       // 主钮已按 relCanSubmit 禁用，这里是直调/竞态的保险丝
       model.reloginStarting = false;
       $("relogin-note").textContent = "账号和密码都要填。";
+      showSheetError("账号和密码都要填。");
       refreshControls();
       return;
     }
@@ -194,9 +197,13 @@ async function beginRelogin() {
   const { body } = await postAction({ action: "phone_relogin_begin", args: args });
   model.reloginStarting = false;
   if (!body || !body.ok) {
-    $("relogin-note").textContent = body && body.error === "plan_late"
+    /* 失败原因两处都写：更多面板的后台行 + 重登抽屉里的红条；
+       抽屉打开时 #relogin-note 被面板挡住，只写它会像点了没反应 */
+    const text = body && body.error === "plan_late"
       ? "现在来不及重新登录：" + String(body.text || "有场次正在提交，或者离开放不到 100 秒。")
       : "还不能开始：" + String((body && body.text) || (body && body.error) || "请到电脑上准备账号");
+    $("relogin-note").textContent = text;
+    showSheetError(text);
     refreshControls();
     return;
   }
@@ -217,9 +224,12 @@ async function submitRelogin() {
   if (!model.flow || !model.challenge) return;
   if (!PhoneModel.canSubmitRelogin(model, model.challenge)) return;
   if (!PhoneModel.relCanSubmit({ needCap: true, code })) return;   // relCanSubmit（原型 Phone:675）：4 位才发
+  // 新的一次提交先清上一轮的红条
+  showSheetError("");
   if (!PhoneModel.matchesChallenge(model.flow, model.challenge.flow_id,
                                    model.challenge.challenge_id)) {
     $("relogin-note").textContent = "验证码已换代，请看新图";
+    showSheetError("验证码已换代，请看新图");
     $("code").value = "";
     return;
   }
@@ -249,9 +259,11 @@ async function submitRelogin() {
       return;
     }
     model.reloginSubmitting = false;
-    $("relogin-note").textContent = String(
+    const text = String(
       (result && result.body && (result.body.text || result.body.error))
         || "提交没有被接受");
+    $("relogin-note").textContent = text;
+    showSheetError(text);
     refreshControls();
     return;
   }
@@ -268,7 +280,9 @@ async function cancelRelogin() {
     action: "phone_relogin_cancel", args: { flow_id: flowId } });
   if (body && body.error) {
     // 取消没发出去就不能假装已经取消：留着旧图，让用户重试
-    addLog("没能取消这次重新登录：" + String(body.text || body.error));
+    const text = "没能取消这次重新登录：" + String(body.text || body.error);
+    addLog(text);
+    showSheetError(text);
     return false;
   }
   model.challenge = null;
