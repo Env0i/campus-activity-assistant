@@ -1575,11 +1575,11 @@ model-conflict.js[DU7M]: F:给手机页纯规则补上时刻取法、时段重�
 model-list.js[DU7M]: F:给手机页纯规则补上倒计时文案、报名状态、开放分组、勾选冲突、列表行与草稿板投影 | R:code:local/ui/m/model-conflict.js,code:local/application/phone_service.py | A:stOf,groupKeyOf,visibleItems,rowView,draftBoard,listView | S:截止先读快照close_ts；时钟不可用按开放日分组；待开放或开放中缺举办时间写举办时间待公布
 model-relogin.js[DU7M]: F:给手机页纯规则补上重新登录视图、转人工判断、登录成功句、配对点阵字形与配对错误文案，并把PhoneModel挂到全局 | R:code:local/ui/m/model-run.js,code:local/domain/phone_rules.py,code:local/application/login_relay_service.py | A:reloginView,relHandoff,loginDoneText,glyphs,pairView,pairWrongText | S:转人工只认中继live与handoff，不按次数猜；配错文案的60秒与后端配错落锁时长耦合
 model-run.js[DU7M]: F:给手机页纯规则补上开始待定、运行等待板、任务卡、确认文案、结果统计、条款板、核对批次与按登录四态的登录行 | R:code:local/ui/m/model-list.js | A:pendingBoard,runBoard,taskCard,confirmView,resultView,loginLine | S:-
-model.js[DU7M]: F:定义手机页纯规则对象PhoneModel的核心成员：请求标识、筛选、开放时刻、退避与同步节奏、登录四态与文案、开始门禁 | R:code:local/ui/m/index.html,code:local/ui/m/model-conflict.js | A:PhoneModel,filterItems,openEpochOf,canStart,loginState,loginCopy | S:必须最先加载；开始门禁最后还要actBlock为空；四态只管说法，门禁仍按loginRaw
+model.js[DU7M]: F:定义手机页纯规则对象PhoneModel的核心成员：请求标识、筛选、开放时刻、退避与同步节奏、会话状态码分流、登录四态与文案、开始门禁 | R:code:local/ui/m/index.html,code:local/ui/m/model-conflict.js | A:PhoneModel,filterItems,openEpochOf,sessionVerdict,canStart,loginState | S:必须最先加载；开始门禁最后还要actBlock为空；四态只管说法，门禁仍按loginRaw
 ui-list.js[IU7M]: F:绘制手机页活动列表：分区、列表行、冲突原因面板、跳到已报名行与整页搜索开合 | R:code:local/ui/m/model-list.js,code:local/ui/m/ui-session.js | A:LIST_ZONES,buildRow,buildWhy,renderItems,toggleSearch | S:全部用textContent构造；未校准时日期组落下方区，今天区空态收起
 ui-plan.js[AU7M]: F:编排手机页报名计划操作：开始与对账、取消等待、停止、取消单场、结果重选、重试设置与核对抽屉 | R:code:local/ui/m/ui-session.js,code:local/ui/m/model-run.js | A:startPlan,reconcile,cancelPendingStart,stopPlan,cancelTask,reselectFailed | S:开始结果未知时保留原请求标识只读对账，不自动重发
 ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model-relogin.js,code:local/ui/m/ui-session.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:关面板即清输入，验证码绑定当前挑战；面板标题与成功句按打开时记的relFirstLogin取，不跟后续快照
-ui-session.js[AN8M]: F:定义手机页DOM层共用的$、请求超时与model状态对象，并负责带CSRF的请求、配对与锁定倒计时、轮询退避和会话失效处理 | R:code:local/ui/m/model.js,code:local/infrastructure/phone_http.py | A:model,api,postAction,pair,poll,probeExistingSession | S:$与model是全局词法名，后续ui脚本运行期共用；请求8秒不回就放弃并放回单飞锁；未配对时一个定时器都不排；csrf刷新后从cookie取回
+ui-session.js[AN8M]: F:定义手机页DOM层共用的$、请求超时与model状态对象，并负责带CSRF的请求、配对与锁定倒计时、轮询退避和会话失效处理 | R:code:local/ui/m/model.js,code:local/infrastructure/phone_http.py | A:model,api,postAction,pair,poll,adoptCookieCsrf | S:$与model是全局词法名；请求8秒不回就放弃并放回单飞锁；未配对时一个定时器都不排；写请求与403按cookie覆盖csrf，轮询只在内存为空时补
 ui-shell.js[EU7M]: F:提供手机页抽屉外壳与确认槽、绑定全页事件，并导出PhoneUI与启动wire | R:code:local/ui/m/ui-session.js,code:local/ui/m/ui-plan.js,code:local/ui/m/ui-relogin.js | A:openSheet,closeSheet,askConfirm,wire,PhoneUI | S:必须最后加载，启动两行只在这里；前面任一脚本缺席会在wire时报引用错误
 ui-status.js[IU7M]: F:绘制手机页提示条与告警、控件启用门禁、底栏、计划点阵板、任务卡与运行记录，登录横幅与底栏按四态取字 | R:code:local/ui/m/model-run.js,code:local/ui/m/ui-session.js | A:setBanner,renderAlerts,refreshControls,renderBar,renderBoard,addLog | S:提示条带来源标签，只有状态过时类能自动清掉；举办时间检查的底栏句排在离线之后、默认副题之前
 ui-sync.js[AU7M]: F:摄入电脑状态快照与事件游标并按整秒局部刷新北京时间、倒计时与计划板 | R:code:local/ui/m/model-conflict.js,code:local/ui/m/ui-status.js | A:ingest,scheduleTick,tickClock,tickBoardLed,tickRowLeft | S:事件按序号去重，重置轮次才重新接纳；整秒刷新只改数字不重画、不额外联网
@@ -1919,3 +1919,10 @@ mutations.md[TQ3T]: F:记录截止边界与转人工选句、只说一次三条�
 README.md[SQ4T]: F:记录手机开始前举办时间检查的范围、与桌面对应、新规则与文案、七条夹具改动及测试变异结果 | R:code:local/ui/m/model-conflict.js,code:local/ui/m/ui-status.js | A:规则与文案、复现命令 | S:真机未验证
 changed-tests.md[TQ3T]: F:逐条列七条旧用例补举办时间夹具的改前改后与原因，及四条新增用例 | R:code:local/tests/test_phone_ui.py | A:夹具改动、新增用例清单 | S:-
 mutations.md[TQ3T]: F:记录五条开始门禁、已选与已报名先后、底栏文案与行内写法变异的改法和首个失败用例，全部变红 | R:code:design/evidence/2026-11-23/phone-act-pending/changed-tests.md | A:变异结果表 | S:-
+
+===/<repository>/design/evidence/2026-11-23/phone-session-tidy/===
+README.md[SQ4T]: F:记录手机请求与配对会话组三处重复收拢的改前改后位置、擞名检查、72条安全网复跑零变化及测试结果 | R:code:local/ui/m/ui-session.js,code:design/evidence/2026-11-22/phone-net/after.md | A:重定位映射表、复现命令 | S:真机与打包EXE未验证
+net-after-tidy.md[TQ3T]: F:逐条列请求与配对会话组72条变异整理后的新位置、结论及与安全网补测后结论的对照 | R:code:design/evidence/2026-11-23/phone-session-tidy/scripts/net_after_tidy.py | A:变异对照表 | S:-
+
+===/<repository>/design/evidence/2026-11-23/phone-session-tidy/scripts/===
+net_after_tidy.py[XQ3M]: F:只读复用手机安全网72条变异定义，把收拢到新函数或改了写法的条目重定位，在临时副本逐条复跑并与补测后结论对照 | R:code:design/evidence/2026-11-22/phone-net/scripts/mutate_phone.py,code:local/tests/test_phone_ui.py | A:命令行入口 | S:定位不到的单列，不冒充结论
