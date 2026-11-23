@@ -3406,6 +3406,33 @@ out.push([before, __timerDelays()]);
 ''')
         self.assertEqual(values, [[[1000], []]])
 
+    def test_pair_and_session_restore_show_app_view(self):
+        """配对成功或首屏凭会话 cookie 恢复时必须显示主界面并隐藏配对页。"""
+        pair_out = run_phone_js('''
+$("app").hidden = true;
+$("pair").hidden = false;
+$("pair-code").value = "482913";
+globalThis.__fetch = async (path) => path === "/pair"
+  ? {status: 200, json: async () => ({ok: true, csrf: "c1"})}
+  : {status: 200, json: async () => ({state: {activities: [], busy: false}, events: []})};
+$("btn-pair").click();
+for (let i = 0; i < 20; i += 1) await Promise.resolve();
+out.push([$("app").hidden, $("pair").hidden]);
+''')
+        restore_out = run_phone_js('''
+$("app").hidden = true;
+$("pair").hidden = false;
+PhoneUI.model.probed = false;
+document.cookie = "campus_phone_csrf=fake-cookie-csrf";
+globalThis.__fetch = async () => (
+  {status: 200, json: async () => ({state: {activities: [], busy: false}, events: []})});
+PhoneUI.wire();
+for (let i = 0; i < 20; i += 1) await Promise.resolve();
+out.push([$("app").hidden, $("pair").hidden]);
+''')
+        self.assertEqual(pair_out[0], [False, True], "配对成功后必须显示主界面并隐藏配对页")
+        self.assertEqual(restore_out[0], [False, True], "首屏会话恢复后必须显示主界面并隐藏配对页")
+
 
 class RunWaitModelTests(unittest.TestCase):
     """G04/G10/RW02/RW03：LED 计划板、四站 rail、任务卡与确认文案（run-wait 任务）。
