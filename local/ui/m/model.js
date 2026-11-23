@@ -74,6 +74,14 @@ const PhoneModel = {
     return Math.min(15000, Math.max(1000, cur * 2));
   },
 
+  /* 收拢 api() /api/action 分支与 poll() 的 HTTP 会话状态码分流，不读写 model，只按 status 返回结论。 */
+  sessionVerdict(status) {
+    if (status === 200) return "ok";
+    if (status === 401) return "need_pair";
+    if (status === 403) return "forbidden";
+    return "fail";
+  },
+
   /* 状态过时：30 秒没有新快照 pill 就不再算「已连接」。
      空闲同步是 15 秒一次，门禁必须比它长一个周期，否则正常空闲也会被误判成
      「先刷新再开始」；连续失联两个周期（约 30 秒）才锁写入口。 */

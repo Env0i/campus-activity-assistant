@@ -60,6 +60,22 @@ const model = {
   dismissedPlanId: "",
 };
 
+/* 收拢 api() 写请求分支与 onForbidden() 的 CSRF cookie 刷新逻辑，读取 cookie 并写入 model.csrf。 */
+function adoptCookieCsrf() {
+  const fresh = readCookie("campus_phone_csrf");
+  if (fresh) model.csrf = fresh;
+}
+/* 收拢 pair() 成功与 poll() 成功时切到主界面的显隐切换，写入 #pair.hidden 与 #app.hidden。 */
+function showAppView() {
+  $("pair").hidden = true;
+  $("app").hidden = false;
+}
+/* 收拢 onNeedPair() 回退配对页的显隐切换，写入 #app.hidden 与 #pair.hidden。 */
+function showPairView() {
+  $("app").hidden = true;
+  $("pair").hidden = false;
+}
+
 /* ---- 接口 ---- */
 async function api(path, options) {
   const opts = Object.assign({ credentials: "same-origin" }, options || {});
@@ -72,8 +88,7 @@ async function api(path, options) {
     // 重启后设备信任会换发新的 CSRF cookie：写请求每次都按当前 cookie 取值。
     // 沿用页面打开时读到的旧值，就会变成「能看状态、点什么都没反应」，
     // 而且界面上只看到 bad_csrf，看不出是令牌过期。
-    const fresh = readCookie("campus_phone_csrf");
-    if (fresh) model.csrf = fresh;
+    adoptCookieCsrf();
     if (model.csrf) opts.headers["X-Campus-Csrf"] = model.csrf;
   }
   const controller = typeof AbortController === "function" ? new AbortController() : null;
@@ -86,8 +101,9 @@ async function api(path, options) {
     const resp = await fetch(path, opts);
     const body = await resp.json().catch(() => ({}));
     if (path === "/api/action") {
-      if (resp.status === 401) onNeedPair();
-      if (resp.status === 403) onForbidden(body);
+      const verdict = PhoneModel.sessionVerdict(resp.status);
+      if (verdict === "need_pair") onNeedPair();
+      if (verdict === "forbidden") onForbidden(body);
       if (resp.status !== 200 || body.ok === false) {
         body.ok = false;
         body.error = body.error || "action_failed";
@@ -208,8 +224,7 @@ async function pair() {
     stopPairLock();
     model.pairErr = "";
     renderPair();
-    $("pair").hidden = true;
-    $("app").hidden = false;
+    showAppView();
     await poll(true);
   } finally {
     model.pairing = false;
@@ -224,15 +239,15 @@ async function poll(force) {
   refreshControls();   // R-备注：先把「同步中」pill 与禁用的刷新钮画出来再发请求（不是「刷新中…」字样）
   try {
     const { status, body } = await api("/api/state?after=" + (force ? 0 : model.seq));
-    if (status === 401) { onNeedPair(); return; }
-    if (status === 403) { onForbidden(body); return; }
-    if (status !== 200) { onPollFail(); return; }
+    const verdict = PhoneModel.sessionVerdict(status);
+    if (verdict === "need_pair") { onNeedPair(); return; }
+    if (verdict === "forbidden") { onForbidden(body); return; }
+    if (verdict !== "ok") { onPollFail(); return; }
     model.lastOkAt = Date.now();
     model.backoff = 1000;
     model.paired = true;
     // 状态能读到就说明会话还在：直接进主界面，不要求重新配对
-    $("pair").hidden = true;
-    $("app").hidden = false;
+    showAppView();
     // 读到新快照：过时门禁解除，但网络/403 的提示要留到下次明确覆盖
     clearStaleBanner();
     ingest(body || {});
@@ -260,8 +275,7 @@ function onNeedPair() {
   if (model.tickTimer) clearTimeout(model.tickTimer);
   model.tickTimer = null;
   stopPairLock();                    // 会话都没了，旧锁定倒计时一并收回
-  $("app").hidden = true;
-  $("pair").hidden = false;
+  showPairView();
   renderPair();                      // A-BUG-5：回配对页要按当前模型重画点阵屏，不残留旧点亮状态
 }
 /* 403 不等于「没配对」：bad_csrf 是令牌和目标会话对不上（比如两个手机页同时开着，
@@ -269,8 +283,7 @@ function onNeedPair() {
    这两种都不该把用户赶回配对界面——他配过对，只是这次请求不合格。 */
 function onForbidden(body) {
   const code = String((body && body.error) || "");
-  const fresh = readCookie("campus_phone_csrf");
-  if (fresh) model.csrf = fresh;
+  adoptCookieCsrf();
   setBanner(code === "bad_csrf"
     ? "会话令牌已更新，正在重新同步；一直失败就刷新页面再试"
     : "请求被拒绝（" + (code || "403") + "），请刷新页面再试", "error");
