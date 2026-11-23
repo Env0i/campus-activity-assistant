@@ -4533,8 +4533,10 @@ globalThis.__fetch = async (path, opts) => {
 };
 ui.model.lastOkAt = Date.now();
 ui.ingest({state: {terms_ok: true, busy: false, activities: [
-  {id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00"},
-  {id: "a2", name: "乙活动", sign_start: "2026-11-09 09:00:00"}]}});
+  {id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00",
+   act_start: "2026-11-11 09:00:00", act_end: "2026-11-11 10:00:00"},
+  {id: "a2", name: "乙活动", sign_start: "2026-11-09 09:00:00",
+   act_start: "2026-11-11 11:00:00", act_end: "2026-11-11 12:00:00"}]}});
 ui.model.selected = ["a1", "a2"];
 ui.refreshControls();
 $("btn-start").click();
@@ -4928,8 +4930,10 @@ globalThis.__fetch = () => Promise.resolve({ status: 200, json: () => Promise.re
   terms_ok: true, busy: false, login: { ok: true },
   business_clock: { state: "ready", epoch_s: nowS, tick_s: 10, sampled_tick_s: 10, age_s: 0 },
   activities: [
-    { id: "exp", name: "已过场", sign_start: "2026-11-20 08:00:00", sign_end: "2026-11-20 10:00:00" },
-    { id: "fut", name: "未来场", sign_start: "2026-11-20 14:00:00", sign_end: "2026-11-20 16:00:00" },
+    { id: "exp", name: "已过场", sign_start: "2026-11-20 08:00:00", sign_end: "2026-11-20 10:00:00",
+      act_start: "2026-11-21 09:00:00", act_end: "2026-11-21 10:00:00" },
+    { id: "fut", name: "未来场", sign_start: "2026-11-20 14:00:00", sign_end: "2026-11-20 16:00:00",
+      act_start: "2026-11-21 11:00:00", act_end: "2026-11-21 12:00:00" },
   ],
   plan: { plan_id: "p9", status: "done", tasks: [
     { task_id: "k1", activity_id: "exp", status: "failed" },
@@ -5136,7 +5140,7 @@ out.push([$("bar-sub").textContent, $("btn-start").disabled]);
 const ui = PhoneUI;
 ui.model.lastOkAt = Date.now();
 ui.ingest({state: {terms_ok: true, login: {session_expired: true, session_present: true},
-  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00"}]}});
+  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00", act_start: "2026-11-11 09:00:00", act_end: "2026-11-11 10:00:00"}]}});
 ui.model.selected = ["a1"];
 ui.refreshControls();
 out.push({alertShown: !$("login-expired-banner").hidden,
@@ -5201,7 +5205,7 @@ const ui = PhoneUI;
 ui.model.lastOkAt = Date.now();
 ui.ingest({state: {terms_ok: true, busy: false,
   pc_list_error: {reason: "活动列表没能加载", at: "14:12"},
-  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00"}]}});
+  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00", act_start: "2026-11-11 09:00:00", act_end: "2026-11-11 10:00:00"}]}});
 ui.model.selected = ["a1"];
 ui.refreshControls();
 out.push({alertShown: !$("pclist-alert").hidden,
@@ -5281,7 +5285,7 @@ const ui = PhoneUI;
 ui.model.lastOkAt = Date.now();
 ui.ingest({state: {terms_ok: true, busy: false,
   business_clock: {state: "unavailable"},
-  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00"}]}});
+  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00", act_start: "2026-11-11 09:00:00", act_end: "2026-11-11 10:00:00"}]}});
 ui.model.selected = ["a1"];
 ui.refreshControls();
 ui.renderItems();
@@ -6120,7 +6124,7 @@ ui.model.lastOkAt = Date.now();
 ui.ingest({state: {terms_ok: false, busy: false,
   business_clock: {state: "ready", epoch_s: Date.UTC(2026, 10, 8, 6, 0, 0) / 1000,
                    tick_s: 1000000, sampled_tick_s: 1000000},
-  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00"}]}});
+  activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00", act_start: "2026-11-11 09:00:00", act_end: "2026-11-11 10:00:00"}]}});
 ui.model.selected = ["a1"];
 ui.refreshControls();
 ui.renderItems();
@@ -6203,7 +6207,7 @@ ui.ingest({state: {terms_ok: true, busy: false,
                    tick_s: 1000000, sampled_tick_s: 1000000},
   relogin_setup: {saved: false, ocr_ready: false, paused: false},
   activities: [{id: "a1", name: "甲活动", seconds_to_open: 2 * 86400,
-                sign_start: "2026-11-10 14:00:00"}]}});
+                sign_start: "2026-11-10 14:00:00", act_start: "2026-11-11 09:00:00", act_end: "2026-11-11 10:00:00"}]}});
 ui.model.selected = ["a1"];
 ui.refreshControls();
 const picked = [{id: "a1", name: "甲活动", seconds_to_open: 2 * 86400,
@@ -6705,6 +6709,121 @@ const rows = draw(ui);
 out.push(texts(rows.s1));
 """)[0]
         self.assertNotIn("可取消至", out)
+
+class ActPendingBlockTests(unittest.TestCase):
+    """开始前举办时间检查（规则、文案、门禁与 DOM 呈现）。"""
+
+    def test_act_block_table(self):
+        """actBlock 表驱动：空选择、已选缺时间、已选齐全但已报名缺时间、两者都缺已选优先、都齐全。"""
+        out = run_phone_js(r"""
+const okSel = { id: "a1", name: "甲活动", act_start: "2026-11-08 09:00:00", act_end: "2026-11-08 10:00:00" };
+const badSel = { id: "a2", name: "乙活动" };
+const okSig = { id: "s1", name: "已报齐全", signed: true, act_start: "2026-11-09 09:00:00", act_end: "2026-11-09 10:00:00" };
+const badSig = { id: "s2", name: "已报缺时", signed: true };
+out.push([
+  PhoneModel.actBlock([badSel, badSig], []),
+  PhoneModel.actBlock([okSel, badSel, okSig], ["a1", "a2"]),
+  PhoneModel.actBlock([okSel, badSig], ["a1"]),
+  PhoneModel.actBlock([badSel, badSig], ["a2"]),
+  PhoneModel.actBlock([okSel, okSig], ["a1"]),
+]);
+""")[0]
+        self.assertEqual(out[0], None)
+        self.assertEqual(out[1], {"kind": "selected", "names": ["乙活动"]})
+        self.assertEqual(out[2], {"kind": "signed", "names": ["已报缺时"]})
+        self.assertEqual(out[3], {"kind": "selected", "names": ["乙活动"]})
+        self.assertEqual(out[4], None)
+
+    def test_act_block_text_and_can_start(self):
+        """actBlockText 覆盖 null/单场/多场/12 字截断；其余门禁都过时 canStart 因 actBlock 返回 false。"""
+        out = run_phone_js(SETUP + r"""
+const longName = "一二三四五六七八九十甲乙丙丁";
+const textsOut = [
+  PhoneModel.actBlockText(null),
+  PhoneModel.actBlockText({ kind: "selected", names: ["音乐节"] }),
+  PhoneModel.actBlockText({ kind: "selected", names: [longName] }),
+  PhoneModel.actBlockText({ kind: "selected", names: ["甲", "乙"] }),
+  PhoneModel.actBlockText({ kind: "signed", names: ["校史馆"] }),
+  PhoneModel.actBlockText({ kind: "signed", names: [longName] }),
+  PhoneModel.actBlockText({ kind: "signed", names: ["甲", "乙"] }),
+];
+const baseModel = { lastOkAt: Date.now(), nowMs: Date.now(), busy: false, clockState: "ready", selected: ["a1"] };
+clockAt(baseModel);
+const badItem = { id: "a1", name: "缺时场次" };
+const badSig = { id: "s1", name: "已报缺时", signed: true };
+const okItem = { id: "a1", name: "齐全场次", act_start: "2026-11-11 09:00:00", act_end: "2026-11-11 10:00:00" };
+out.push({
+  textsOut,
+  blockedSel: PhoneModel.canStart(Object.assign({}, baseModel, { items: [badItem] })),
+  blockedSig: PhoneModel.canStart(Object.assign({}, baseModel, { items: [okItem, badSig] })),
+  allowed: PhoneModel.canStart(Object.assign({}, baseModel, { items: [okItem] })),
+});
+""")[0]
+        self.assertEqual(out["textsOut"], [
+            "",
+            "还差一步：已选的「音乐节」举办时间待公布，先取消勾选",
+            "还差一步：已选的「一二三四五六七八九十甲乙…」举办时间待公布，先取消勾选",
+            "还差一步：已选的 2 场举办时间待公布，先取消勾选",
+            "还差一步：已报名的「校史馆」缺少举办时间，暂时开始不了",
+            "还差一步：已报名的「一二三四五六七八九十甲乙…」缺少举办时间，暂时开始不了",
+            "还差一步：已报名的 2 场缺少举办时间，暂时开始不了",
+        ])
+        self.assertFalse(out["blockedSel"])
+        self.assertFalse(out["blockedSig"])
+        self.assertTrue(out["allowed"])
+
+    def test_dom_selected_pending_shows_bar_and_row_and_recovers_on_uncheck(self):
+        """已选缺时间时底栏副题与主钮禁用、列表行写「举办时间待公布」、取消勾选后副题恢复。"""
+        out = run_phone_js(SETUP + DOM + r"""
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now();
+ui.ingest({ state: {
+  terms_ok: true, busy: false, login: { session_present: true, last_check_state: "valid" },
+  business_clock: { state: "ready", epoch_s: NOW_S, tick_s: 50, sampled_tick_s: 50, age_s: 0 },
+  activities: [
+    { id: "p1", name: "缺时预报名", sign_start: "2026-11-08 14:00:00" },
+    { id: "o1", name: "缺时开放中", sign_start: "2026-11-06 10:00:00" },
+    { id: "ok1", name: "齐全活动", sign_start: "2026-11-09 10:00:00",
+      act_start: "2026-11-12 09:00:00", act_end: "2026-11-12 10:00:00" },
+  ],
+} });
+ui.model.selected = ["p1", "ok1"];
+ui.refreshControls();
+const rows = draw(ui);
+const blocked = { sub: $("bar-sub").textContent, disabled: $("btn-start").disabled,
+  rowPre: texts(rows.p1), rowOpen: texts(rows.o1) };
+const box = tags(rows.p1, "input")[0];
+box.checked = false;
+box.listeners.change[0]();
+out.push({ blocked, recovered: { sub: $("bar-sub").textContent, disabled: $("btn-start").disabled } });
+""")[0]
+        self.assertEqual(out["blocked"]["sub"], "还差一步：已选的「缺时预报名」举办时间待公布，先取消勾选")
+        self.assertTrue(out["blocked"]["disabled"])
+        self.assertIn("举办时间待公布", out["blocked"]["rowPre"])
+        self.assertIn("举办时间待公布", out["blocked"]["rowOpen"])
+        self.assertEqual(out["recovered"], {"sub": "1 场预报名", "disabled": False})
+
+    def test_dom_signed_pending_blocks_bar_and_start(self):
+        """已选活动齐全但已报名活动缺举办时间时，底栏副题提示且主钮禁用。"""
+        out = run_phone_js(SETUP + DOM + r"""
+const ui = PhoneUI;
+ui.model.lastOkAt = Date.now();
+ui.ingest({ state: {
+  terms_ok: true, busy: false, login: { session_present: true, last_check_state: "valid" },
+  business_clock: { state: "ready", epoch_s: NOW_S, tick_s: 50, sampled_tick_s: 50, age_s: 0 },
+  activities: [
+    { id: "ok1", name: "齐全活动", sign_start: "2026-11-09 10:00:00",
+      act_start: "2026-11-12 09:00:00", act_end: "2026-11-12 10:00:00" },
+    { id: "s1", name: "缺时已报名", signed: true, sign_start: "2026-11-05 10:00:00" },
+  ],
+} });
+ui.model.selected = ["ok1"];
+ui.refreshControls();
+out.push({ sub: $("bar-sub").textContent, disabled: $("btn-start").disabled });
+""")[0]
+        self.assertEqual(out["sub"], "还差一步：已报名的「缺时已报名」缺少举办时间，暂时开始不了")
+        self.assertTrue(out["disabled"])
+
 
 class PhoneScriptSplitGuardTests(unittest.TestCase):
     """手机页普通脚本拆分守卫：顶格声明唯一、严格模式、加载顺序与单点启动。"""

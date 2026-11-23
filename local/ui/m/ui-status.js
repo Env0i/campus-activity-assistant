@@ -184,6 +184,7 @@ function renderBar() {
   } else {
     const picked = (model.items || []).filter(
       (item) => model.selected.indexOf(item.id) >= 0);
+    const actText = PhoneModel.actBlockText(PhoneModel.actBlock(model.items, model.selected));
     title.textContent = "已选 " + model.selected.length + " 场";
     sub.textContent = model.termsOk === false
       ? "电脑上同意条款后才能开始"
@@ -193,7 +194,7 @@ function renderBar() {
                     ? "电脑校准北京时间后才能开始"
                     : (PhoneModel.connState(model, model.flying).state === "off"  // UI-F3：离线不冒充「已选 N 场，可开始」
                        ? "连上电脑后才能开始"
-                       : PhoneModel.planSummary(picked, PhoneModel.businessNowS(model))))));
+                       : (actText || PhoneModel.planSummary(picked, PhoneModel.businessNowS(model)))))));
   }
   /* EX02：登录失效时底栏主钮换成「重新登录」（点击在 wire 里分流到 openRelogin） */
   $("btn-start").textContent = expired && !model.busy

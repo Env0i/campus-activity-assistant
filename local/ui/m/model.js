@@ -131,7 +131,8 @@ const PhoneModel = {
     if (model.clockState === "unavailable") return false;   // EX06：快照明说不可用才拦，syncing 由服务端拦
     if ((model.clockState === "ready" || model.clockState === "holdover")
         && PhoneModel.businessNowS(model) === null) return false;   // A-BUG-4
-    return (model.selected || []).length > 0;
+    return (model.selected || []).length > 0
+      && PhoneModel.actBlock(model.items, model.selected) === null;
   },
   /* 登录是否已失效（EX02）：session_expired、快照明说没有会话，或电脑最近一次学校校验
    * 说已失效（last_check_state=expired：本机会话文件还在也可能被学校判失效）；

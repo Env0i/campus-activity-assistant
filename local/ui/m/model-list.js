@@ -178,7 +178,8 @@ Object.assign(PhoneModel, {
     const leftCls = st === "pre" && !clockDown && gap < 600 ? "soon" : "";
     const warn = hitSel ? "与已选的「" + hitSel.name + "」时间重叠" : "";         // Phone:761
     const act = PhoneModel.actSpan(item)
-      || (st === "closed" || st === "unknown" ? PhoneModel.itemMeta(item) : "");
+      || ((st === "pre" || st === "open") ? "举办时间待公布"
+        : (st === "closed" || st === "unknown" ? PhoneModel.itemMeta(item) : ""));
     return {
       id: item.id, item: item, name: PhoneModel.itemTitle(item), st: st,
       selected: selected, disabled: disabled, clash: clash, signedItem: hitSigned || null,

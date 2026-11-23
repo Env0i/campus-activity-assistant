@@ -48,6 +48,35 @@ Object.assign(PhoneModel, {
     const e = PhoneModel.tsOf(item, "act_end_ts", "act_end");
     return s !== null && e !== null && e > s ? { s, e } : null;
   },
+  /* 开始前举办时间检查：读 selectedIds、items[].signed 与 actRange；已选缺时间优先于已报名缺时间 */
+  actBlock(items, selectedIds) {
+    const selIds = (selectedIds || []).map(String);
+    if (!selIds.length) return null;
+    const list = items || [];
+    const sel = list.filter((i) => i && selIds.indexOf(String(i.id)) >= 0);
+    const selMissing = sel.filter((i) => PhoneModel.actRange(i) === null);
+    if (selMissing.length) return { kind: "selected", names: selMissing.map((i) => PhoneModel.itemTitle(i)) };
+    const signedMissing = list.filter((i) => i && !!i.signed && PhoneModel.actRange(i) === null);
+    if (signedMissing.length) return { kind: "signed", names: signedMissing.map((i) => PhoneModel.itemTitle(i)) };
+    return null;
+  },
+  /* 把 actBlock 结果转成底栏提示文案：读 block.kind 与 block.names，首场名称超过 12 字截断并加省略号 */
+  actBlockText(block) {
+    if (!block || !Array.isArray(block.names) || !block.names.length) return "";
+    const chars = Array.from(String(block.names[0] || ""));
+    const name = chars.length > 12 ? chars.slice(0, 12).join("") + "…" : chars.join("");
+    if (block.kind === "selected") {
+      return block.names.length === 1
+        ? "还差一步：已选的「" + name + "」举办时间待公布，先取消勾选"
+        : "还差一步：已选的 " + block.names.length + " 场举办时间待公布，先取消勾选";
+    }
+    if (block.kind === "signed") {
+      return block.names.length === 1
+        ? "还差一步：已报名的「" + name + "」缺少举办时间，暂时开始不了"
+        : "还差一步：已报名的 " + block.names.length + " 场缺少举办时间，暂时开始不了";
+    }
+    return "";
+  },
   spanDays(item) {
     const r = PhoneModel.actRange(item);
     return r ? PhoneModel.lastDayOf(r.s, r.e) - PhoneModel.dayOf(r.s) + 1 : null;
