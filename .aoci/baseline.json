@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-23T14:38:38Z",
+  "updated_at": "2026-11-23T15:02:28Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "94161a59808e71df885168f7e8ddcff130276093f48d6df59fb6a65103edf453",
-      "size": 367657,
-      "normalized_sha256": "94161a59808e71df885168f7e8ddcff130276093f48d6df59fb6a65103edf453"
+      "sha256": "bd2f123a72ec9f60fd782256a942bc1cf745ee880f16aaef6ffa2c0b45e1ab44",
+      "size": 368144,
+      "normalized_sha256": "bd2f123a72ec9f60fd782256a942bc1cf745ee880f16aaef6ffa2c0b45e1ab44"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -7830,6 +7830,12 @@
       "size": 2453,
       "normalized_sha256": "c8b07aadb9875fd5d08b1e2f9447acf5365b846facc747d5b8f881d82f626a93"
     },
+    "design/evidence/2026-11-23/phone-page-closeout/README.md": {
+      "role": "index",
+      "sha256": "1e0412a6160eb723dc220c8b74e3aa70b861beea0b549cec4a408ee534aa0b5b",
+      "size": 7253,
+      "normalized_sha256": "1e0412a6160eb723dc220c8b74e3aa70b861beea0b549cec4a408ee534aa0b5b"
+    },
     "design/evidence/2026-11-23/phone-plan-net/README.md": {
       "role": "index",
       "sha256": "d6bba0bee45e8e3ab0856f9e9b83534bdc2eaed66dea2edee1224c6ef9a5eac0",
@@ -8000,9 +8006,9 @@
     },
     "design/evidence/2026-11-23/real-env-smoke/README.md": {
       "role": "index",
-      "sha256": "9597a363fef591ae52082d2471b86e625fefdcba30e53b02529c23939c58ef63",
-      "size": 7514,
-      "normalized_sha256": "9597a363fef591ae52082d2471b86e625fefdcba30e53b02529c23939c58ef63"
+      "sha256": "8a84fac10318301193a5474edc31e50beabd123a9b669eadcf7b0b5f27edc643",
+      "size": 8517,
+      "normalized_sha256": "8a84fac10318301193a5474edc31e50beabd123a9b669eadcf7b0b5f27edc643"
     },
     "design/evidence/2026-11-23/real-env-smoke/scripts/capture_exe_window.ps1": {
       "role": "index",
@@ -8072,9 +8078,9 @@
     },
     "design/proposals/engineering-refactor.md": {
       "role": "index",
-      "sha256": "32d6585c74636feedce34fd3064edcecd8442b6ab6b0e6e8ea0c93786e0ba27f",
-      "size": 25153,
-      "normalized_sha256": "32d6585c74636feedce34fd3064edcecd8442b6ab6b0e6e8ea0c93786e0ba27f"
+      "sha256": "9957dab651475c649aabfed89231328045e39a955e9b258eef07c941a9a1d9d1",
+      "size": 26891,
+      "normalized_sha256": "9957dab651475c649aabfed89231328045e39a955e9b258eef07c941a9a1d9d1"
     },
     "design/proposals/replayable-product-tour.md": {
       "role": "index",
