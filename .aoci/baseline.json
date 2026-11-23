@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-23T07:25:09Z",
+  "updated_at": "2026-11-23T08:30:43Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "404061f84eb4573a93c5f17f95f6a64e08894da7f17105a133c427b9c53db24c",
-      "size": 360712,
-      "normalized_sha256": "404061f84eb4573a93c5f17f95f6a64e08894da7f17105a133c427b9c53db24c"
+      "sha256": "2f27c8e63fdfc1a3fbae806586edb6b22b6ea5acf2b3ea0c551622852bc8bd55",
+      "size": 362316,
+      "normalized_sha256": "2f27c8e63fdfc1a3fbae806586edb6b22b6ea5acf2b3ea0c551622852bc8bd55"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -7830,6 +7830,36 @@
       "size": 2453,
       "normalized_sha256": "c8b07aadb9875fd5d08b1e2f9447acf5365b846facc747d5b8f881d82f626a93"
     },
+    "design/evidence/2026-11-23/phone-plan-net/README.md": {
+      "role": "index",
+      "sha256": "d6bba0bee45e8e3ab0856f9e9b83534bdc2eaed66dea2edee1224c6ef9a5eac0",
+      "size": 8694,
+      "normalized_sha256": "d6bba0bee45e8e3ab0856f9e9b83534bdc2eaed66dea2edee1224c6ef9a5eac0"
+    },
+    "design/evidence/2026-11-23/phone-plan-net/after.md": {
+      "role": "index",
+      "sha256": "ee70f1080e4c1f1a1d517735a285828e816b2ad51bdc64fde9ec84cdc8ffa52d",
+      "size": 24734,
+      "normalized_sha256": "ee70f1080e4c1f1a1d517735a285828e816b2ad51bdc64fde9ec84cdc8ffa52d"
+    },
+    "design/evidence/2026-11-23/phone-plan-net/before.md": {
+      "role": "index",
+      "sha256": "1af820d819e986b40b76d8eade01d2824b1cead46b28aa7c05b0c65a96491b68",
+      "size": 19780,
+      "normalized_sha256": "1af820d819e986b40b76d8eade01d2824b1cead46b28aa7c05b0c65a96491b68"
+    },
+    "design/evidence/2026-11-23/phone-plan-net/scripts/equiv.json": {
+      "role": "index",
+      "sha256": "97166981cb76252c81909903a8201c0d4fbffc86ebd8511fa200e72500d57761",
+      "size": 1140,
+      "normalized_sha256": "97166981cb76252c81909903a8201c0d4fbffc86ebd8511fa200e72500d57761"
+    },
+    "design/evidence/2026-11-23/phone-plan-net/scripts/mutate_plan.py": {
+      "role": "index",
+      "sha256": "aa9a54ee4fea13a7058ce48870ad895ed8f0dba4ca62e64a199ddde47368b412",
+      "size": 33371,
+      "normalized_sha256": "aa9a54ee4fea13a7058ce48870ad895ed8f0dba4ca62e64a199ddde47368b412"
+    },
     "design/evidence/2026-11-23/phone-render-net/README.md": {
       "role": "index",
       "sha256": "edc50aca6831edeef1140f907269a9b85616da11fd543dda0680aa85e451a64d",
@@ -9815,9 +9845,9 @@
     },
     "local/tests/test_phone_ui.py": {
       "role": "observe",
-      "sha256": "284736658f7cb60a0a1a635b9639e1377ac2b5e6ac704e15378d2f42c7dc7652",
-      "size": 422352,
-      "normalized_sha256": "284736658f7cb60a0a1a635b9639e1377ac2b5e6ac704e15378d2f42c7dc7652"
+      "sha256": "2a80ac4ceb6332dd87145b66cd8ff80f845db5c8f01703ef84d75f24da73367d",
+      "size": 443643,
+      "normalized_sha256": "2a80ac4ceb6332dd87145b66cd8ff80f845db5c8f01703ef84d75f24da73367d"
     },
     "local/tests/test_qa_bridge_contract.py": {
       "role": "observe",

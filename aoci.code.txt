@@ -1938,3 +1938,12 @@ after.md[TQ3M]: F:渲染组全部226条变异补测后的逐条结论与首个�
 ===/<repository>/design/evidence/2026-11-23/phone-render-net/scripts/===
 mutate_render.py[XQ4L]: F:对手机摄入与渲染组23个函数生成写入、条件、显隐三类单点变异，在临时副本逐条复跑手机页测试并分五类出报告 | R:code:design/evidence/2026-11-22/phone-net/scripts/mutate_phone.py,code:local/tests/test_phone_ui.py | A:--list,--baseline,--ids,--workers,--equiv-json,--out | S:只在导出副本里改，定位不唯一或语法不过单列无效
 equiv.json[FQ3T]: F:按变异编号保存渲染组判为等价的理由与全部调用方证明，供变异报告合并 | R:code:design/evidence/2026-11-23/phone-render-net/scripts/mutate_render.py | A:编号到理由的映射 | S:后续批次只追加，不改已有条目
+
+===/<repository>/design/evidence/2026-11-23/phone-plan-net/===
+README.md[TQ4T]: F:手机页计划操作组安全网总览：ui-plan.js 13个函数五类97条变异口径、补测前后统计、11条新增用例、等价摘要与复现命令 | R:code:design/evidence/2026-11-23/phone-plan-net/after.md | A:整组结论入口 | S:真机与打包窗口未验
+after.md[TQ3S]: F:计划操作组97条变异补测后的逐条结论与首个失败用例，行为守96、等价1、无人守0 | R:code:design/evidence/2026-11-23/phone-plan-net/scripts/mutate_plan.py | A:逐条结论、分类统计 | S:M008以超时计守
+before.md[TQ3S]: F:保存计划操作组97条变异的补测前逐条结论，行为守53、无人守44，按五类口径单列统计 | R:code:design/evidence/2026-11-23/phone-plan-net/scripts/mutate_plan.py | A:变异结论表、分类统计 | S:-
+
+===/<repository>/design/evidence/2026-11-23/phone-plan-net/scripts/===
+equiv.json[FQ3T]: F:按变异编号保存计划操作组判为等价的理由与全部调用方证明，供变异报告合并 | R:code:design/evidence/2026-11-23/phone-plan-net/scripts/mutate_plan.py | A:编号到理由与调用方的映射 | S:-
+mutate_plan.py[XQ4L]: F:对手机计划操作组13个函数生成写入、条件、显隐、载荷、返回值五类单点变异，在临时副本逐条复跑手机页测试并分五类出报告 | R:code:design/evidence/2026-11-23/phone-render-net/scripts/mutate_render.py,code:local/tests/test_phone_ui.py | A:--list,--baseline,--ids,--workers,--equiv-json,--out | S:只在导出副本里改，单条超90秒按失败计
