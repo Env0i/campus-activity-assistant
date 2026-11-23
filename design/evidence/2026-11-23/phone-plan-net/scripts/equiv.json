@@ -1,0 +1,6 @@
+{
+  "M019": {
+    "reason": "startPlan 第 21 行新建的 model.pending.outcome 初值为 undefined，第 33 行仅在同步受理且无 pending 标记的分支将其设为 \"accepted\"；该值只在同作用域存活，全目录 12 份脚本仅有 model.js:250-251（PhoneModel.startPending）读取 pending.outcome，且只判断 === \"canceled\" || === \"rejected\"，\"accepted\" 与 undefined 在所有正常分支返回值完全相同。",
+    "callers": "全局扫描 local/ui/m/*.js 所有 pending.outcome 与 .outcome 引用：(1) model.js:250-251（PhoneModel.startPending）为唯一读取方，仅检查 pending.outcome === \"canceled\" || pending.outcome === \"rejected\"；(2) ui-plan.js:33（写入 \"accepted\"）、ui-plan.js:52（reconcile 写入 body.state）、ui-plan.js:80（cancelPendingStart 写入 \"canceled\"）；(3) model-conflict.js:238 为任务卡字段 t.outcome_label，非 pending.outcome；(4) 其余 9 份脚本（index/ui-status/ui-list/ui-sync/ui-session/ui-relogin/ui-shell/model-list/model-run/model-relogin）零读取，DOM、定时器和 postAction 请求均不读取 pending.outcome。"
+  }
+}
