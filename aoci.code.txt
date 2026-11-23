@@ -1510,14 +1510,14 @@ state-errors.js[DU6T]: F:按组件、登录及网络事实投影活动列表失�
 ===/<repository>/local/ui/features/login/===
 actions-browser.js[AI8S]: F:编排浏览器登录尝试和终态收口 | R:code:local/ui/features/login/state.js,code:local/ui/features/terms/state.js,code:local/ui/features/shell/view-result.js | A:doLogin,handleDone,loginFailCopy | S:取消、超时及失败恢复尝试前登录事实；成功清旧估算锚点，已有列表补加载走后台轮；登录未完成的三处结果条带login_attempt类别，供有效检查时收起
 actions-recovery.js[AI8S]: F:编排恢复账号的一次运行暂存、加密保存及确认清除 | R:code:local/ui/features/phone-access/state.js | A:recoveryActionsPack | S:加密不可用退为本次运行；请求后无论成败清空输入，异常不回显原文
-actions-relogin.js[AI9M]: F:编排桌面重登、中继验证码、自动转人工及浏览器交接 | R:code:local/ui/features/login/state-relogin.js,code:local/ui/features/login/view-relogin.js,code:local/ui/features/login/actions-browser.js | A:loginEntry,openRelogin,openLogin,closeRelogin,receiveReloginState,wireRelogin | S:已有live流程直接接续；关框取消人工而不取消未转人工的自动流程；切浏览器先等取消释放。验证码绑定flow和challenge；计划忙不刷新，明确密码错误不重试
+actions-relogin.js[AI9M]: F:编排桌面重登、中继验证码、自动转人工及浏览器交接 | R:code:local/ui/features/login/state-relogin.js,code:local/ui/features/login/view-relogin.js,code:local/ui/features/login/actions-browser.js | A:loginEntry,openRelogin,openLogin,closeRelogin,receiveReloginState,wireRelogin | S:已有live流程直接接续；关框取消人工而不取消未转人工的自动流程；切浏览器先等取消释放。验证码绑定flow和challenge；转人工次数只在同一场第一次看到handoff时记下；计划忙不刷新，明确密码错误不重试
 actions.js[AI8T]: F:摄入登录锚点和自动恢复状态并同步相关视口 | R:code:local/ui/features/login/state-machine.js,code:local/ui/features/login/view.js | A:applyAutoState,receiveAutoState,setLogin,syncLoginDependentView | S:仅认auto_state，缺字段保留；估算用后端绝对锚点不按接收时间续期，显式null清除锚点
 state-machine.js[DI8T]: F:纯推导登录阶段与兼容视图状态 | R:code:local/ui/features/login/actions.js,code:local/ui/features/login/view.js | A:LOGIN_PHASES,LOGIN_VIEW_STATES,AUTO_STATES,loginPhase,loginViewState | S:忙碌不遮蔽明确失效及自动恢复；条款覆盖普通阶段但保留演示、自动恢复与登录中
 state-recovery.js[DI5T]: F:遮罩账号以供恢复状态展示 | R:code:local/domain/login_rules.py | A:maskAccount | S:-
 state-relogin.js[DI7T]: F:推导重登步骤、操作组合和后端拒绝说明 | R:code:local/ui/features/login/actions-relogin.js,code:local/ui/features/login/view-relogin.js | A:RELOGIN_STEPS,RELOGIN_CASES,reloginWay,reloginActs,reloginCapSub,reloginRefusal | S:从账号表单进验证码保留上一步；plan_late独立表达100秒临界限制
 state.js[DI8T]: F:保存登录前快照并据绝对锚点及业务钟投影有效期估算 | R:code:local/ui/features/login/actions-browser.js,code:local/ui/features/login/view.js | A:loginSnapshotState,restoreLoginSnapshotState,loginHoursLeft,expiryText,loginEstimateShort,loginEstimateText | S:估算仅展示不参与放行或判失效；业务钟不可用则剩余未知，预计过期仍服从学校valid事实
 view-recovery.js[IU6S]: F:绘制保存和暂存账号、恢复能力及管理确认 | R:code:local/ui/features/phone-access/state.js,code:local/ui/features/login/state-recovery.js | A:recoveryPaintPack | S:saved优先staged，暂存不能冒充只用一次；存储不可用锁定本次运行
-view-relogin.js[IU7M]: F:绘制重登步骤、表单和验证码挑战 | R:code:local/ui/features/login/state-relogin.js,code:local/ui/features/plan/state-draft.js | A:reloginStep,reloginResetForm,reloginShowChallenge,reloginCase,reloginNextReady,reloginCodeReady | S:每次开框清密码验证码及保存勾选；验证码四位字母数字，图和尝试事实仅取后端
+view-relogin.js[IU7M]: F:绘制重登步骤、表单和验证码挑战 | R:code:local/ui/features/login/state-relogin.js,code:local/ui/features/plan/state-draft.js | A:reloginStep,reloginResetForm,reloginShowChallenge,reloginCase,reloginNextReady,reloginCodeReady | S:每次开框清密码验证码及保存勾选；转人工原因只在转人工那张按传入的handoff_attempts显示一次
 view.js[IU7S]: F:绘制登录胶囊、横幅及自动恢复退避 | R:code:local/ui/features/login/state.js,code:local/ui/features/login/state-machine.js | A:loginBannerHtml,paintLogin | S:未知校验提示网络而非重登；估算不替学校结论；退避使用单调时钟
 
 ===/<repository>/local/ui/features/phone-access/===
@@ -1586,7 +1586,7 @@ ui-sync.js[AU7M]: F:摄入电脑状态快照与事件游标并按整秒局部刷
 clock.js[DD9M]: F:把后端时钟快照锚定到浏览器单调域并判可信时间 | R:code:local/ui/state/store.js,code:local/ui/state/time.js | A:clockReading,businessNowMs,bnowS,bnLeftSec,clockUiState | S:无效返回null不是0；锚点900秒寿命及500毫秒误差上限；桥接误差只计一次，漂移仅采样后时长。
 conflict.js[DB8S]: F:投影跨天时段、已报名冲突时间线及取消资格 | R:code:local/ui/state/time.js,code:local/ui/state/filters.js | A:actSpanAbs,cancelWindowOpen,canCancelNow,conflictTipModel,cancelBlock | S:窗口未知返回null；零点结束按前日24:00；取消须避开计划与刷新并发，气泡要求已确认重叠。
 filters.js[DB9M]: F:归一化活动详情并投影筛选、选择、冲突和下一场 | R:code:local/ui/state/store.js,code:local/ui/state/labels.js,code:local/ui/state/conflict.js | A:normalize,filtered,nextOpen,validateSelection,signedClash | S:筛选不改全局下一场与冲突集合；未知签到不写无需，奖励0不丢；冲突比举办半开区间，已报名时间缺失保守阻止。
-labels.js[DD8S]: F:按业务时间投影报名模式、活动任务状态及时间标签 | R:code:local/ui/state/clock.js,code:local/ui/state/time.js | A:modeOf,stateOf,taskLabel,taskClass,leftOf | S:时钟无效不拿OS判开放；未知开放时间与待校准分开；未确认结果警示中性色，最终门禁在后端。
+labels.js[DD8S]: F:按业务时间投影报名模式、活动任务状态及时间标签 | R:code:local/ui/state/clock.js,code:local/ui/state/time.js | A:modeOf,stateOf,taskLabel,taskClass,leftOf | S:时钟无效不拿OS判开放；截止那一刻即已截止，与modeOf一致；未确认结果警示中性色
 rounds.js[DD8T]: F:管理刷新标识、owner接续缓存和代次幂等落地 | R:code:local/ui/controllers/refresh.js,code:local/ui/state/store.js | A:newRoundId,cacheRoundPayload,takeRoundPayload,markRoundApplied,loginPresent | S:缓存16项130秒按单调时长；skipped接owner不增代次；状态可跨轮重放、提示跨轮去重；登录存在缺失不强转false。
 store.js[DD9S]: F:集中持有桌面状态S、帮助引导及重试选项 | R:code:local/ui/controllers/refresh.js,code:local/ui/features/terms/state.js | A:S,$,DEFAULT_HELP,TOUR_STEPS,FIRST_USE_POINTS | S:保留登录重试前完整快照和计划最大代次；组件故障同轮check/list都无故障才解除；条款交互仅内存。
 time.js[DG8S]: F:严格解析学校UTC+8时间并提供格式、跨天文本及转义 | R:code:local/ui/state/clock.js,code:local/ui/state/labels.js | A:toTs,schoolParts,fmt,durText,relDayText,dayLabel | S:非法日期回验拒绝自动滚月；相对日期取可信业务现在，未知时不猜跨日或年份，不用主机时区。
@@ -1907,3 +1907,8 @@ mutations.md[TQ3T]: F:记录五条快照字段、开放时刻解析、截止读�
 README.md[SQ4T]: F:记录手机冲突与取消改读电脑给的时刻的范围、清单第四节逐条核对结论、新字段与取法、测试变异及不做的体验缺口 | R:code:local/application/phone_service.py,code:local/ui/m/model-conflict.js | A:核对结论、复现命令 | S:真机与真实取消接口未联调
 changed-tests.md[TQ3T]: F:写明未改旧用例，并列举办时刻投影、tsOf、冲突与取消时刻来源、取消窗口开始与解除路径截止时刻及choolSec写法的新增用例 | R:code:local/tests/test_phone_ui.py,code:local/tests/test_phone_service.py | A:新增用例清单 | S:-
 mutations.md[TQ3T]: F:记录七条举办时刻投影、tsOf、举办时段、取消窗口起止、解除路径截止与schoolSec写法变异的改法和首个失败用例，全部变红 | R:code:design/evidence/2026-11-22/phone-conflict-times/changed-tests.md | A:变异结果表 | S:-
+
+===/<repository>/design/evidence/2026-11-23/desktop-two-fixes/===
+README.md[SQ4T]: F:记录桌面两处小缺陷的现象例子、根因、修法及测试变异结果：截止那一刻列表仍判开放、转人工后用户输错仍报电脑没认对 | R:code:local/ui/state/labels.js,code:local/ui/features/login/view-relogin.js | A:缺陷说明、复现命令 | S:真窗口未验证
+changed-tests.md[TQ3T]: F:写明未改旧断言，并列截止边界与转人工原因只说一次的三条新增用例 | R:code:local/tests/test_ui_main_window.py,code:local/tests/test_ui_reliability.py | A:新增用例清单 | S:-
+mutations.md[TQ3T]: F:记录截止边界与转人工选句、只说一次三条变异的改法和首个失败用例，全部变红 | R:code:design/evidence/2026-11-23/desktop-two-fixes/changed-tests.md | A:变异结果表 | S:-

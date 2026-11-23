@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-22T14:27:55Z",
+  "updated_at": "2026-11-23T01:50:49Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "1974d7560796a04c7078b961dbd2c68b36d05eec2e6d7f49eea09f42590a6e48",
-      "size": 354568,
-      "normalized_sha256": "1974d7560796a04c7078b961dbd2c68b36d05eec2e6d7f49eea09f42590a6e48"
+      "sha256": "6bc99ce9c36339d5e6f8fe964064a555b337ae7d58c9bcc8be94df751ef30dfe",
+      "size": 355477,
+      "normalized_sha256": "6bc99ce9c36339d5e6f8fe964064a555b337ae7d58c9bcc8be94df751ef30dfe"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -7794,6 +7794,24 @@
       "size": 6844,
       "normalized_sha256": "38248810f33a937cf6635daf5bbf90eb7117b0d5c81e29f037bf0df23e6cf09b"
     },
+    "design/evidence/2026-11-23/desktop-two-fixes/README.md": {
+      "role": "index",
+      "sha256": "7726576449914e8f6d604da71e400dbf18f8c9c136d54bc4b74e60f8c3e36c69",
+      "size": 6115,
+      "normalized_sha256": "7726576449914e8f6d604da71e400dbf18f8c9c136d54bc4b74e60f8c3e36c69"
+    },
+    "design/evidence/2026-11-23/desktop-two-fixes/changed-tests.md": {
+      "role": "index",
+      "sha256": "53435195d11edef80c7fa71b8c4d4cb60ea8ba420a0d2276b309eeab03d41a27",
+      "size": 1750,
+      "normalized_sha256": "53435195d11edef80c7fa71b8c4d4cb60ea8ba420a0d2276b309eeab03d41a27"
+    },
+    "design/evidence/2026-11-23/desktop-two-fixes/mutations.md": {
+      "role": "index",
+      "sha256": "57630c591cbbac8822d5349d3802a0cd83097759602284a1c7568689c7e4f340",
+      "size": 2006,
+      "normalized_sha256": "57630c591cbbac8822d5349d3802a0cd83097759602284a1c7568689c7e4f340"
+    },
     "design/flows/README.md": {
       "role": "index",
       "sha256": "69b964722253fc0483aad5135f8c3092726f92f4e1984dc812c59c42407a55c4",
@@ -9803,9 +9821,9 @@
     },
     "local/tests/test_ui_main_window.py": {
       "role": "observe",
-      "sha256": "48c0cd1b91c518c4208498f324062defbb4df0f0c45052f72a231d810ebced1c",
-      "size": 117720,
-      "normalized_sha256": "48c0cd1b91c518c4208498f324062defbb4df0f0c45052f72a231d810ebced1c"
+      "sha256": "fe2921e749173338bc4ffecf4b502f3db5ec9995f22c2c1c7c2fcbf8d00f136e",
+      "size": 118499,
+      "normalized_sha256": "fe2921e749173338bc4ffecf4b502f3db5ec9995f22c2c1c7c2fcbf8d00f136e"
     },
     "local/tests/test_ui_plan.py": {
       "role": "observe",
@@ -9815,9 +9833,9 @@
     },
     "local/tests/test_ui_reliability.py": {
       "role": "observe",
-      "sha256": "cc32f401dcb68c7a7fee883288c1fd566c45dc96196367c9dd9b3bc2f139ebb2",
-      "size": 147805,
-      "normalized_sha256": "cc32f401dcb68c7a7fee883288c1fd566c45dc96196367c9dd9b3bc2f139ebb2"
+      "sha256": "ce39c50b58de9cee1e9e680ca3c889a257b7015c62e702c5df58dfe2390aa7af",
+      "size": 152291,
+      "normalized_sha256": "ce39c50b58de9cee1e9e680ca3c889a257b7015c62e702c5df58dfe2390aa7af"
     },
     "local/tests/test_updater.py": {
       "role": "observe",
@@ -9987,9 +10005,9 @@
     },
     "local/ui/features/login/actions-relogin.js": {
       "role": "index",
-      "sha256": "93e3c0498ed673c5e628a86235a2327d47adc214105c62379d4c69cb76ff7f76",
-      "size": 16662,
-      "normalized_sha256": "93e3c0498ed673c5e628a86235a2327d47adc214105c62379d4c69cb76ff7f76"
+      "sha256": "129999d3d6d1f52fd4feade89d25cb44f2d41d901dc48f9554074d57bc955655",
+      "size": 17327,
+      "normalized_sha256": "129999d3d6d1f52fd4feade89d25cb44f2d41d901dc48f9554074d57bc955655"
     },
     "local/ui/features/login/actions.js": {
       "role": "index",
@@ -10029,9 +10047,9 @@
     },
     "local/ui/features/login/view-relogin.js": {
       "role": "index",
-      "sha256": "77aff3196c7b7c601c17ec378c7dd723d388e628910adf69cb4677703ff60b2b",
-      "size": 9001,
-      "normalized_sha256": "77aff3196c7b7c601c17ec378c7dd723d388e628910adf69cb4677703ff60b2b"
+      "sha256": "c3bf7b335dbf941c07064d3379e18501a02a705563fb5dce37db5435beed5aae",
+      "size": 9213,
+      "normalized_sha256": "c3bf7b335dbf941c07064d3379e18501a02a705563fb5dce37db5435beed5aae"
     },
     "local/ui/features/login/view.js": {
       "role": "index",
@@ -10399,9 +10417,9 @@
     },
     "local/ui/state/labels.js": {
       "role": "index",
-      "sha256": "1db5a7c4abbfd6e7957d0cf8c39faf8cf11cc9cb0affe20c5e7693b5c823c455",
-      "size": 5092,
-      "normalized_sha256": "1db5a7c4abbfd6e7957d0cf8c39faf8cf11cc9cb0affe20c5e7693b5c823c455"
+      "sha256": "eca0295bbfcf766b6ce86299d6e16299688c24880e5ad89752f9f58ec98ffad6",
+      "size": 5146,
+      "normalized_sha256": "eca0295bbfcf766b6ce86299d6e16299688c24880e5ad89752f9f58ec98ffad6"
     },
     "local/ui/state/rounds.js": {
       "role": "index",
