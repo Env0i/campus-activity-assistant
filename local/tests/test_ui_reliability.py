@@ -541,6 +541,78 @@ out.push({ log: S.recentLogs.join("\n") });
         third = handoff_log(3)
         self.assertIn("自动识别 3 次没认对", third)
 
+    def test_handoff_reason_shown_once_and_user_retries_keep_tries_only(self):
+        """识别结果不合规转人工后用户再输错两次：原因只在第 1 张显示，后续换图只留已试次数，运行记录只记一条。"""
+        res = run_js(r"""
+const snap = () => ({ err: document.querySelector("#rl-err").textContent,
+  errHidden: !!document.querySelector("#rl-err").hidden,
+  tries: document.querySelector("#rl-cap-tries").textContent });
+S.login.present = true;
+S.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+window.onBackend.check({ ok: false, result: "expired", auto_state: "running" });
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "auto", flow_id: "f1", challenge_id: "c1", attempts: 1, handoff: true,
+  image: "data:image/png;base64,AAA" });
+document.querySelector("#btn-login").click();
+const first = snap();
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "auto", flow_id: "f1", challenge_id: "c2", attempts: 2, handoff: true,
+  image: "data:image/png;base64,BBB" });
+const second = snap();
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "auto", flow_id: "f1", challenge_id: "c3", attempts: 3, handoff: true,
+  image: "data:image/png;base64,CCC" });
+const third = snap();
+out.push({ first, second, third,
+  logs: S.recentLogs.filter((line) => line.indexOf("验证码") >= 0) });
+""")
+        data = res[0]
+        self.assertEqual(data["first"]["err"], "电脑没认出这张验证码，请输入验证码。")
+        self.assertFalse(data["first"]["errHidden"])
+        self.assertEqual(data["first"]["tries"], "已经试过 1 次，换了一张新图。")
+        self.assertEqual(data["second"]["err"], "")
+        self.assertTrue(data["second"]["errHidden"])
+        self.assertEqual(data["second"]["tries"], "已经试过 2 次，换了一张新图。")
+        self.assertEqual(data["third"]["err"], "")
+        self.assertTrue(data["third"]["errHidden"])
+        self.assertEqual(data["third"]["tries"], "已经试过 3 次，换了一张新图。")
+        self.assertEqual(len(data["logs"]), 1)
+        self.assertIn("电脑没认出验证码", data["logs"][0])
+
+    def test_handoff_at_three_attempts_and_reopen_uses_recorded_count(self):
+        """认满 3 次转人工说「自动识别 3 次没认对」；早先已转人工的场次打开对话框不按当前 attempts 重推。"""
+        res = run_js(r"""
+S.login.present = true;
+S.advanced = { credential: { saved: true, ocr_ready: true, paused: false } };
+window.pywebview = { api: { relogin_cancel: () => Promise.resolve({ ok: true }) } };
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "auto", flow_id: "f1", challenge_id: "c1", attempts: 1, handoff: true,
+  image: "data:image/png;base64,AAA" });
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "auto", flow_id: "f1", challenge_id: "c3", attempts: 3, handoff: true,
+  image: "data:image/png;base64,CCC" });
+document.querySelector("#btn-login").click();
+const lateOpen = { err: document.querySelector("#rl-err").textContent,
+  tries: document.querySelector("#rl-cap-tries").textContent };
+document.querySelector("#btn-rl-cancel").click();
+window.onBackend.phone_relogin({ state: "canceled", live: false, origin: "auto", flow_id: "f1" });
+window.onBackend.phone_relogin({ state: "waiting_code", mode: "manual", live: true,
+  origin: "auto", flow_id: "f2", challenge_id: "c4", attempts: 3, handoff: true,
+  image: "data:image/png;base64,DDD" });
+document.querySelector("#btn-login").click();
+const threeTries = { err: document.querySelector("#rl-err").textContent,
+  tries: document.querySelector("#rl-cap-tries").textContent,
+  logs: S.recentLogs.filter((line) => line.indexOf("验证码") >= 0) };
+out.push({ lateOpen, threeTries });
+""")
+        data = res[0]
+        self.assertEqual(data["lateOpen"]["err"], "")
+        self.assertEqual(data["lateOpen"]["tries"], "已经试过 3 次，换了一张新图。")
+        self.assertEqual(data["threeTries"]["err"], "自动识别 3 次没认对，请输入验证码。")
+        self.assertEqual(data["threeTries"]["tries"], "已经试过 3 次，换了一张新图。")
+        self.assertEqual(len(data["threeTries"]["logs"]), 2)
+        self.assertIn("自动识别 3 次没认对", data["threeTries"]["logs"][1])
+
 
 # 计划栏结果页（计划 20261106-plan-panel 的 result-panel，P1 / P8）：计划结论不再写进 #result 条，
 # 改由计划栏的标签、标题、副行和五类大数字承担（原型 Main.dc.html 渲染函数 res 段）。

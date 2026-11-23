@@ -171,10 +171,11 @@ export function reloginShowChallenge(data) {
   const tries = $("#rl-cap-tries");
   if (tries) tries.textContent = Number(payload.attempts) > 0 ? "已经试过 " + Number(payload.attempts) + " 次，换了一张新图。" : "";
   reloginStep("cap");
-  /* 电脑自动发起的一场认不出来就交给用户：不另开一场，直接让用户输这一张的验证码 */
-  if (payload.handoff) {
-    const times = Number(payload.attempts) || 0;
-    reloginError(times >= 3 ? "自动识别 3 次没认对，请输入验证码。" : "电脑没认出这张验证码，请输入验证码。");
+  /* 电脑自动发起的一场认不出来就交给用户：只在转人工那一张显示原因，之后换图只留已试次数 */
+  const hasHandoffAt = payload.handoff_attempts !== null && payload.handoff_attempts !== undefined;
+  const handoffAt = hasHandoffAt ? Number(payload.handoff_attempts) : null;
+  if (payload.handoff && handoffAt !== null && Number(payload.attempts || 0) === handoffAt) {
+    reloginError(handoffAt >= 3 ? "自动识别 3 次没认对，请输入验证码。" : "电脑没认出这张验证码，请输入验证码。");
   }
   const code = $("#rl-code");
   if (code) { code.value = ""; reloginCodeReady(); if (typeof code.focus === "function") code.focus(); }

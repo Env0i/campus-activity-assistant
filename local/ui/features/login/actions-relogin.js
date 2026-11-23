@@ -24,6 +24,34 @@ export let reloginRelay = null;
 
 /* 转人工只提醒一次：中继会重放快照，同一个 handoff 不能每来一条就刷一条运行记录 */
 export let reloginHandoffSeen = false;
+export let reloginHandoffFlow = "";
+export let reloginHandoffAttempts = null;
+
+function trackReloginHandoff(data) {
+  const handoff = !!data.handoff;
+  const flowId = String(data.flow_id || "");
+  if (!handoff || (reloginHandoffSeen && flowId !== reloginHandoffFlow)) {
+    reloginHandoffSeen = false;
+    reloginHandoffFlow = "";
+    reloginHandoffAttempts = null;
+  }
+  if (!handoff || reloginHandoffSeen) return;
+  reloginHandoffSeen = true;
+  reloginHandoffFlow = flowId;
+  /* 运行记录的次数要跟验证码页的提示一致：认错一次就转人工（识别结果不合规）和认满 3 次是两条路，说法不同 */
+  const times = Number(data.attempts) || 0;
+  reloginHandoffAttempts = times;
+  addLog(times >= 3
+    ? "[!] 自动识别 3 次没认对，请点「重新登录」输入验证码"
+    : "[!] 电脑没认出验证码，请点「重新登录」输入验证码");
+}
+
+function challengeWithHandoff(data) {
+  if (!data || typeof data !== "object") return data;
+  if (!data.handoff || reloginHandoffAttempts === null) return data;
+  if (String(data.flow_id || "") !== reloginHandoffFlow) return data;
+  return Object.assign({}, data, { handoff_attempts: reloginHandoffAttempts });
+}
 
 /* 中继里这一场是不是「电脑自己发起、还在进行、没转人工」。flowId 给定时还要是同一场。
  * 关对话框不取消它，顶栏「自动登录中…」也只认它。 */
@@ -76,7 +104,7 @@ export function openRelogin() {
   if (reloginRelay && reloginRelay.live) {
     S.relogin.flowId = String(reloginRelay.flow_id || "");
     if (reloginRelay.state === "waiting_code" && reloginRelay.mode !== "auto" && reloginRelay.image) {
-      reloginShowChallenge(reloginRelay);
+      reloginShowChallenge(challengeWithHandoff(reloginRelay));
       return;
     }
     reloginStep("wait", reloginRelay.mode === "auto" ? "电脑正在识别验证码…" : "正在登录…");
@@ -214,16 +242,7 @@ export function receiveReloginState(payload) {
   const data = payload || {};
   reloginRelay = data;
   const handoff = !!data.handoff;
-  /* 转人工：后台不另开一场，等用户在对话框里输这张验证码；只提醒一次 */
-  if (handoff && !reloginHandoffSeen) {
-    reloginHandoffSeen = true;
-    /* 运行记录的次数要跟验证码页的提示一致：认错一次就转人工（识别结果不合规）和认满 3 次是两条路，说法不同 */
-    const times = Number(data.attempts) || 0;
-    addLog(times >= 3
-      ? "[!] 自动识别 3 次没认对，请点「重新登录」输入验证码"
-      : "[!] 电脑没认出验证码，请点「重新登录」输入验证码");
-  }
-  if (!handoff) reloginHandoffSeen = false;
+  trackReloginHandoff(data);
   if (S.login) {
     /* 一场走完（成功/失败/取消）就不再是「等用户输码」，下一段失效还能重新静默恢复 */
     if (data.state === "success" || data.live === false) S.login.handoff = false;
@@ -240,7 +259,7 @@ export function receiveReloginState(payload) {
   if (data.flow_id) S.relogin.flowId = String(data.flow_id);
   const state = String(data.state || "");
   if (state === "waiting_code" && data.mode !== "auto" && data.image) {
-    reloginShowChallenge(data);
+    reloginShowChallenge(challengeWithHandoff(data));
     return;
   }
   if (state === "verifying" || state === "starting" || (state === "waiting_code" && data.mode === "auto")) {
