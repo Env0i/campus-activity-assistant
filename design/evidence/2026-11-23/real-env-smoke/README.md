@@ -51,6 +51,8 @@
 
 以下各项本次没有条件执行，不能算通过：
 
+> 2026-11-23 更新：用户已在 iPhone Safari 上复测第 1–8 项，结果见第 8 节；Android Chrome 与第 9–10 项仍未验。
+
 1. 在 iPhone Safari 与 Android Chrome 上通过真实 Tailscale 地址打开手机页，完成扫码 + 配对码配对。
 2. 375 / 390 / 430 宽度与横竖屏切换，确认无横向滚动、底部操作条不被安全区遮挡。
 3. 故意输错配对码，确认 3 次后锁定与 60 秒倒计时文案。
@@ -64,9 +66,9 @@
 
 ## 5. 未覆盖项
 
-- 真实手机浏览器（iOS Safari / Android Chrome）与真机触摸事件。
+- Android Chrome 与真机触摸事件（iPhone Safari 已复测，见第 8 节）。
 - 真实 Tailscale / Cloudflare 通道、真实学校接口与真实登录失效链路。
-- 手机重登的验证码提交与成功回调（离线替身没有对应动作）。
+- 真实学校的手机重登验证码提交与成功回调（离线替身已走通，未连学校）。
 - 设备信任 cookie 在程序重启后的免配对恢复。
 - 抽屉点遮罩关闭、焦点归还与屏幕阅读器语义（本轮只触发了 Esc 与取消）。
 - 打包 EXE 里开启手机访问组件的端到端路径。
@@ -91,3 +93,9 @@ python local/build/build_exe.py --mode onefile
 python design/evidence/2026-11-23/real-env-smoke/scripts/check_exe_phone_assets.py
 powershell -NoProfile -ExecutionPolicy Bypass -File design/evidence/2026-11-23/real-env-smoke/scripts/capture_exe_window.ps1
 ```
+
+## 8. 真机复测（2026-11-23，用户执行）
+
+- **环境**：iPhone + Safari，通过 Tailscale 地址直连本机离线预览；页面与数据是替身，未连学校。
+- **通过项**：配对与配对码错误锁定；列表与三档筛选；勾选、核对、开始、停止与取消单场（替身后端）；锁屏或切后台再回前台；断网与恢复；手机实际宽度下的竖屏/横屏与安全区；加入主屏的图标；重登失败红条与成功重登——第一次点「登录」回 `not_available`，抽屉红条显示「还不能开始：not_available」；再点一次进入验证码，输入 `AB12` 后完成。
+- **仍未验**：Android Chrome；真实学校登录失效链路与真实验证码提交；打包 EXE 内开启手机访问；设备信任重启免配对；高 DPI 与最小窗口布局。
