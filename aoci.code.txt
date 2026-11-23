@@ -1958,3 +1958,12 @@ after.md[TQ3S]: F:重新登录组全部129条变异补测后的逐条结论与�
 ===/<repository>/design/evidence/2026-11-23/phone-relogin-net/scripts/===
 mutate_relogin.py[XQ4L]: F:对手机重新登录组8个函数生成写入、条件、显隐、载荷、返回值、文字六类单点变异，在临时副本逐条复跑手机页测试并分五类出报告 | R:code:design/evidence/2026-11-23/phone-plan-net/scripts/mutate_plan.py,code:local/tests/test_phone_ui.py | A:--list,--baseline,--ids,--workers,--equiv-json,--out | S:只在导出副本里改，单条超90秒按失败计
 equiv.json[FQ3T]: F:按变异编号保存重新登录组判为等价的理由与调用方证明，供变异报告合并；现只有M078 | R:code:design/evidence/2026-11-23/phone-relogin-net/scripts/mutate_relogin.py | A:编号到理由与调用方的映射 | S:-
+
+===/<repository>/design/evidence/2026-11-23/phone-shell-net/===
+README.md[SQ4S]: F:手机页外壳与接线组安全网总览：ui-shell.js 7个函数六类141条变异口径、补测前后统计、10条新增用例、6条等价摘要、复现命令与手机页五个证据目录665条全页合计 | R:code:design/evidence/2026-11-23/phone-shell-net/after.md | A:整组结论入口、全页总览 | S:真机与打包窗口未验
+after.md[TQ3S]: F:外壳与接线组141条变异补测后的逐条结论与首个失败用例，行为守135、等价6、无人守0 | R:code:design/evidence/2026-11-23/phone-shell-net/scripts/mutate_shell.py | A:逐条结论、分类统计 | S:源码再改须重跑
+before.md[TQ3S]: F:保存外壳与接线组141条变异的补测前逐条结论，行为守83、无人守58，按六类口径与函数单列统计 | R:code:design/evidence/2026-11-23/phone-shell-net/scripts/mutate_shell.py | A:变异结论表、分类统计 | S:-
+
+===/<repository>/design/evidence/2026-11-23/phone-shell-net/scripts/===
+equiv.json[FQ3T]: F:按变异编号保存外壳组判为等价的理由与调用方证明，含收抽屉清焦点来源、选下一场写提示和两处计时器句柄清空 | R:code:design/evidence/2026-11-23/phone-shell-net/scripts/mutate_shell.py | A:编号到理由与调用方的映射 | S:-
+mutate_shell.py[XQ4L]: F:对手机页外壳ui-shell.js 7个函数生成写入、条件、显隐、返回值、文字与禁用、事件绑定六类单点变异，在临时副本逐条复跑手机页测试并出报告 | R:code:design/evidence/2026-11-23/phone-relogin-net/scripts/mutate_relogin.py,code:local/tests/test_phone_ui.py | A:--list,--baseline,--ids,--workers,--equiv-json,--out | S:只在导出副本里改，单条超90秒按失败计
