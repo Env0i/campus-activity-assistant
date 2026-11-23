@@ -2770,6 +2770,156 @@ out.push([gets.length, gets[0] || "", $("pair").hidden, $("app").hidden]);
 ''')
         self.assertEqual(values, [[1, "/api/state?after=0", True, False]])
 
+    def test_captcha_src_attribute_cleared_on_non_png_and_flow_end(self):
+        """无有效图片或流程结束收起验证码时，应同时隐藏图片并清除 src 属性。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const img = $("captcha");
+Object.defineProperty(img, "src", {
+  get() { return this.getAttribute("src") || ""; },
+  set(v) { this.setAttribute("src", v); }, configurable: true,
+});
+const png = "%s";
+ui.ingest({state: {login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1", image: png}}});
+const shown = [img.hidden, img.getAttribute("src") === png, img.src === png];
+ui.ingest({state: {login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c2", image: ""}}});
+const badImg = [img.hidden, img.getAttribute("src") === undefined, img.src];
+ui.ingest({state: {login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c3", image: png}}});
+ui.ingest({state: {login_relay: {mode: "manual", state: "success", flow_id: "f1", live: true}}});
+out.push({shown, badImg, ended: [img.hidden, img.getAttribute("src") === undefined, img.src]});
+''' % CAPTCHA_PNG)
+        self.assertEqual(values, [{"shown": [False, True, True], "badImg": [True, True, ""], "ended": [True, True, ""]}])
+
+    def test_auto_snapshot_clears_challenge_submitting_and_starting_locks(self):
+        """自动登录快照到达时应清掉挑战、提交锁与开始锁，允许后续关闭面板及再次开始。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let relBegin; let relSubmit; const posts = [];
+globalThis.__fetch = (url, opts) => {
+  if (!opts || !opts.body) return Promise.resolve({status: 200, json: async () => ({state: {}, events: []})});
+  const body = JSON.parse(opts.body); posts.push(body.action);
+  if (body.action === "phone_relogin_submit") return new Promise((r) => { relSubmit = r; });
+  if (body.action === "phone_relogin_begin" && !relBegin) return new Promise((r) => { relBegin = r; });
+  return Promise.resolve({status: 200, json: async () => ({ok: true, mode: "manual"})});
+};
+const png = "%s";
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1", image: png}}});
+$("code").value = "1234";
+void ui.submitRelogin();
+ui.openRelogin();
+const b1 = ui.beginRelogin();
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "auto", state: "waiting_code", retrying: true, flow_id: "f1", challenge_id: "c1", live: true}}});
+const closeHidden = $("btn-sheet-close").hidden;
+const submitDisabled = $("btn-relogin-submit").disabled;
+const openDisabled = $("btn-relogin-open").disabled;
+const subBefore = posts.filter((a) => a === "phone_relogin_submit").length;
+await ui.submitRelogin();
+const subDelta = posts.filter((a) => a === "phone_relogin_submit").length - subBefore;
+$("btn-relogin-done").click();
+const sheetClosed = $("sheet-root").hidden;
+const begBefore = posts.filter((a) => a === "phone_relogin_begin").length;
+await ui.beginRelogin();
+const begDelta = posts.filter((a) => a === "phone_relogin_begin").length - begBefore;
+relBegin({status: 200, json: async () => ({ok: false})}); relSubmit({status: 200, json: async () => ({ok: false})});
+await b1;
+out.push({closeHidden, submitDisabled, openDisabled, subDelta, sheetClosed, begDelta});
+''' % CAPTCHA_PNG)
+        self.assertEqual(values, [{"closeHidden": False, "submitDisabled": True, "openDisabled": False,
+                                   "subDelta": 0, "sheetClosed": True, "begDelta": 1}])
+
+    def test_starting_and_verifying_snapshots_reset_submitting_and_pick_mode_note(self):
+        """启动与核对态快照应解除提交锁，并按手动等待口径更新提示文字。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let relSub;
+globalThis.__fetch = (_u, opts) => {
+  if (!opts || !opts.body) return Promise.resolve({status: 200, json: async () => ({state: {}, events: []})});
+  return new Promise((r) => { relSub = r; });
+};
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1", image: ""}}});
+$("code").value = "1234";
+const s1 = ui.submitRelogin();
+ui.openRelogin();
+$("relogin-note").textContent = "旧提示";
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "starting", flow_id: "f2", live: true}}});
+const startingRes = [$("relogin-note").textContent, $("rel-busy-text").textContent];
+relSub({status: 200, json: async () => ({ok: true})});
+await s1;
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "waiting_code", flow_id: "f2", challenge_id: "c2", image: ""}}});
+$("code").value = "1234";
+const s2 = ui.submitRelogin();
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "verifying", flow_id: "f2", challenge_id: "c2", live: true}}});
+ui.ingest({state: {terms_ok: true, login_relay: {}}});
+const afterReset = [$("rel-spin").hidden, $("rel-form").hidden];
+$("btn-sheet-close").click();
+relSub({status: 200, json: async () => ({ok: false})});
+await s2;
+out.push({startingRes, afterReset, closed: $("sheet-root").hidden});
+''')
+        self.assertEqual(values, [{"startingRes": ["正在向电脑要验证码…", "正在向电脑要验证码…"],
+                                   "afterReset": [True, False], "closed": True}])
+
+    def test_terminal_snapshots_unlock_sheet_and_reset_challenge(self):
+        """成功与失败终态均应解除提交锁以便关闭面板，并清掉旧挑战以便同编号重现。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let relSub;
+globalThis.__fetch = (_u, opts) => {
+  if (!opts || !opts.body) return Promise.resolve({status: 200, json: async () => ({state: {}, events: []})});
+  return new Promise((r) => { relSub = r; });
+};
+const png = "%s";
+const runCase = (term) => {
+  ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1", image: png}}});
+  $("code").value = "1234";
+  void ui.submitRelogin();
+  ui.openRelogin();
+  ui.ingest({state: {terms_ok: true, login_relay: Object.assign({flow_id: "f1", live: true}, term)}});
+  const spinHidden = $("rel-spin").hidden;
+  $("btn-sheet-close").click();
+  const closed = $("sheet-root").hidden;
+  ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1", image: png}}});
+  return {spinHidden, closed, capShown: !$("captcha").hidden, codeCleared: $("code").value};
+};
+const okCase = runCase({state: "success"});
+const failCase = runCase({state: "failed", safe_error: "eof"});
+relSub({status: 200, json: async () => ({ok: false})});
+out.push({okCase, failCase});
+''' % CAPTCHA_PNG)
+        expect = {"spinHidden": True, "closed": True, "capShown": True, "codeCleared": ""}
+        self.assertEqual(values, [{"okCase": expect, "failCase": expect}])
+
+    def test_idle_snapshot_clears_captcha_and_locks_unlike_waiting_without_id(self):
+        """无挑战编号的等待态不触发空闲清理，真正进入空闲态才隐藏旧图、解锁关闭并重置挑战。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let relSub;
+globalThis.__fetch = (_u, opts) => {
+  if (!opts || !opts.body) return Promise.resolve({status: 200, json: async () => ({state: {}, events: []})});
+  return new Promise((r) => { relSub = r; });
+};
+const png = "%s";
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1", image: png}}});
+$("code").value = "1234";
+void ui.submitRelogin();
+ui.openRelogin();
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1"}}});
+const waitNoId = {capHidden: $("captcha").hidden, busyText: $("rel-busy-text").textContent};
+ui.ingest({state: {terms_ok: true, login_relay: {state: "idle"}}});
+const idleCapHidden = $("captcha").hidden;
+const formShown = !$("rel-form").hidden;
+$("btn-sheet-close").click();
+const closed = $("sheet-root").hidden;
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "manual", state: "waiting_code", flow_id: "f1", challenge_id: "c1", image: png}}});
+relSub({status: 200, json: async () => ({ok: false})});
+out.push({waitNoId, idleCapHidden, formShown, closed, reShown: !$("captcha").hidden, codeCleared: $("code").value});
+''' % CAPTCHA_PNG)
+        self.assertEqual(values, [{
+            "waitNoId": {"capHidden": False, "busyText": "正在登录，请等结果"},
+            "idleCapHidden": True, "formShown": True, "closed": True, "reShown": True, "codeCleared": "",
+        }])
+
+
 
 class ReloginSheetTests(unittest.TestCase):
     """RL01–RL08：重登 sheet 六态（原型 sh.isRelogin/rel 段，Phone.dc.html:326-350/881-905）。"""
@@ -3013,6 +3163,51 @@ out.push([PhoneModel.relCanSubmit({needAcct:true, user:"u", pass:"p"}),
           PhoneModel.relCanSubmit({needAcct:false})]);
 ''')
         self.assertEqual(values[0], [True, False, False, True, False, True])
+
+    def test_render_relogin_sheet_title_err_text_auto_save_and_footer_buttons(self):
+        """重登渲染应守住标题不越页覆盖并恢复，以及错误、正文、自动认图、附言与页脚各钮的双向显隐。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+$("btn-more").click();
+ui.refreshControls();
+const moreTitle = $("sheet-title").textContent;
+ui.closeSheet(true);
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: false, ocr_ready: true, paused: false}}});
+ui.openRelogin();
+$("sheet-title").textContent = "错标题";
+$("rel-err").hidden = false; $("rel-text").hidden = false; $("rel-auto").hidden = true;
+$("rel-save-gain").textContent = "旧附言"; $("btn-relogin-auto").hidden = false;
+$("rel-second-row").hidden = true; $("btn-relogin-done").hidden = false;
+ui.refreshControls();
+const formA = {title: $("sheet-title").textContent, errHidden: $("rel-err").hidden, textHidden: $("rel-text").hidden,
+  autoHidden: $("rel-auto").hidden, saveLine: $("rel-save-gain").textContent,
+  autoBtnHidden: $("btn-relogin-auto").hidden, secondRowHidden: $("rel-second-row").hidden,
+  doneHidden: $("btn-relogin-done").hidden};
+ui.closeSheet(true);
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: true, ocr_ready: true, paused: false}}});
+$("rel-text").hidden = true; $("btn-relogin-auto").hidden = true;
+ui.openRelogin();
+const confirmB = {textHidden: $("rel-text").hidden, autoBtnHidden: $("btn-relogin-auto").hidden};
+ui.closeSheet(true);
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: true, ocr_ready: true, paused: true}}});
+$("rel-err").hidden = true; ui.openRelogin();
+const pausedErrHidden = $("rel-err").hidden;
+$("rel-second-row").hidden = false; $("btn-relogin-done").hidden = true;
+ui.ingest({state: {terms_ok: true, login_relay: {mode: "auto", state: "waiting_code", retrying: true}}});
+out.push({moreTitle, formA, confirmB, pausedErrHidden,
+  autoSecondHidden: $("rel-second-row").hidden, autoDoneHidden: $("btn-relogin-done").hidden});
+''')
+        r = values[0]
+        self.assertEqual(r["moreTitle"], "更多")
+        self.assertEqual(r["formA"]["title"], "在手机上重新登录")
+        self.assertTrue(r["formA"]["errHidden"] and r["formA"]["textHidden"] and r["formA"]["autoBtnHidden"] and r["formA"]["doneHidden"])
+        self.assertFalse(r["formA"]["autoHidden"] or r["formA"]["secondRowHidden"])
+        self.assertIn("电脑会自己重新登录", r["formA"]["saveLine"])
+        self.assertEqual(r["confirmB"], {"textHidden": False, "autoBtnHidden": False})
+        self.assertFalse(r["pausedErrHidden"])
+        self.assertTrue(r["autoSecondHidden"])
+        self.assertFalse(r["autoDoneHidden"])
+
 
 
 class MobileWriteResilienceTests(unittest.TestCase):
