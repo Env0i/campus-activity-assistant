@@ -1325,6 +1325,19 @@ out.push($("#plan-tickets").innerHTML);
         self.assertEqual(out.count("报后不可退"), 1)
         self.assertIn("职业规划讲座", out)
 
+    def test_state_of_closes_at_exact_sign_end_second(self):
+        """业务时钟恰好等于 sign_end 时 stateOf 判 closed，早一秒判 open（与 modeOf 一致）。"""
+        out = run_js(CONFLICT_SETUP + r"""
+const baseItem = { id: "edge1", name: "卡秒活动", signed: false,
+  sign_start: "2026-11-06 10:00:00", sign_end: "2026-11-06 14:00:00", state: "开放中" };
+const atEnd = { state: stateOf(baseItem), mode: modeOf(baseItem) };
+setBusinessNow(Date.UTC(2026, 10, 6, 5, 59, 59));
+const beforeEnd = { state: stateOf(baseItem), mode: modeOf(baseItem) };
+out.push({ atEnd, beforeEnd });
+""")[0]
+        self.assertEqual(out["atEnd"], {"state": "closed", "mode": "closed"})
+        self.assertEqual(out["beforeEnd"], {"state": "open", "mode": "instant_signup"})
+
 
 class CancelFlowTests(unittest.TestCase):
     """点「取消报名」只展开确认块；「不取消」不调接口；只有「确认取消报名」才调 cancel_signup。"""

@@ -33,7 +33,7 @@ function stateOf(item) {
     if (state.indexOf("开放中") >= 0 || state === "open") return "open";
     return "unknown";
   }
-  if (end !== null && end < bn) return "closed";
+  if (end !== null && end <= bn) return "closed";   // 截止那一刻即已截止，与 modeOf 一致
   /* 开放时间已知时随业务时钟换组，不能一直沿用上次拉列表时的「未开放」文本 */
   const open = toTs(item.sign_start);
   if (open !== null) return open > bn ? "waiting" : "open";
