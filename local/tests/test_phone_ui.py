@@ -732,6 +732,105 @@ out.push(ui.model.selected);
 ''')
         self.assertEqual(values, [["a1"]])
 
+    def test_ingest_reset_rewinds_poll_cursor_and_clears_old_logs(self):
+        """断线重置必须清空旧日志文本并把事件游标回拨到本轮事件序号，避免漏收或重放。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.paired = true;
+const urls = []; let round = 0;
+$("logs").textContent = "旧日志";
+const replies = [
+  {state: {}, events: [{seq: 5, kind: "log", payload: "第一轮"}]},
+  {reset: true, state: {}, events: [{seq: 2, kind: "log", payload: "重置后"}]},
+  {state: {}, events: []},
+];
+globalThis.__fetch = async (p) => { urls.push(p); return {status: 200, json: async () => replies[round++]}; };
+await ui.poll(false);
+const afterEvent = $("logs").textContent;
+await ui.poll(false);
+const afterResetText = $("logs").textContent;
+await ui.poll(false);
+out.push({urls, afterEvent, afterResetText});
+''')
+        self.assertEqual(values[0]["afterEvent"], "旧日志")
+        self.assertEqual(values[0]["afterResetText"], "")
+        self.assertEqual(values[0]["urls"], [
+            "/api/state?after=0", "/api/state?after=5", "/api/state?after=2"])
+
+    def test_ingest_keeps_notice_when_selection_intact_and_clears_when_pruned(self):
+        """同步未删减已选场次时保留冲突提示条，仅在被服务端状态踢掉时自动收起。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const rawCreate = document.createElement.bind(document);
+const inputs = [];
+document.createElement = (tag) => {
+  if (tag !== "input") return rawCreate(tag);
+  const el = {tagName: "INPUT", checked: false, disabled: false, listeners: {},
+    setAttribute() {}, addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); }};
+  inputs.push(el); return el;
+};
+const a1 = {id: "a1", name: "甲", sign_start: "2026-11-08 14:00:00", act_start: "2026-11-10 09:00:00", act_end: "2026-11-10 11:00:00"};
+const a2 = {id: "a2", name: "乙", sign_start: "2026-11-08 15:00:00", act_start: "2026-11-10 10:00:00", act_end: "2026-11-10 12:00:00"};
+ui.ingest({state: {terms_ok: true, activities: [a1, a2]}});
+ui.renderItems();
+inputs[0].checked = true; inputs[0].listeners.change[0]();
+inputs[inputs.length - 1].checked = true; inputs[inputs.length - 1].listeners.change[0]();
+const beforeNotice = [!$("list-notice").hidden, $("list-notice").textContent];
+ui.ingest({state: {terms_ok: true, activities: [a1, a2]}});
+ui.renderItems();
+const intactNotice = [!$("list-notice").hidden, $("list-notice").textContent];
+ui.ingest({state: {terms_ok: true, activities: [Object.assign({}, a1, {signed: true}), a2]}});
+ui.renderItems();
+out.push({beforeNotice, intactNotice, prunedNotice: [!$("list-notice").hidden, $("list-notice").textContent]});
+''')
+        self.assertTrue(values[0]["beforeNotice"][0])
+        self.assertTrue(values[0]["intactNotice"][0])
+        self.assertEqual(values[0]["intactNotice"][1], values[0]["beforeNotice"][1])
+        self.assertEqual(values[0]["prunedNotice"], [False, ""])
+
+    def test_ingest_keeps_saved_retry_policy_against_stale_poll_snapshot(self):
+        """初次同步并修改保存重试设置后，后续旧快照不得把用户已保存的选择覆盖回去。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now(); ui.model.selected = ["a1"];
+const snap = (r) => ({state: {
+  activities: [{id: "a1", name: "甲", sign_start: "2026-11-08 14:00:00",
+    act_start: "2026-11-10 09:00:00", act_end: "2026-11-10 10:00:00"}],
+  retry_policy: {retry_for_s: r, max_attempts: 3},
+  retry_options: {choices: [{value: 600, label: "10 分钟"}, {value: 120, label: "2 分钟"}]},
+  business_clock: {state: "ready", epoch_s: Date.now() / 1000, tick_s: 1, sampled_tick_s: 1}}, events: []});
+ui.ingest(snap(600));
+const posts = [];
+globalThis.__fetch = async (_p, opts) => {
+  if (opts && opts.body) posts.push(JSON.parse(opts.body));
+  return {status: 200, json: async () => ({ok: true})};
+};
+$("retry-for").value = "120";
+$("retry-for").listeners.change[0]();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+ui.ingest(snap(600));
+await ui.startPlan();
+const startReq = posts.find((p) => p.action === "start_plan");
+out.push({selectVal: $("retry-for").value, sentRetry: startReq && startReq.args && startReq.args.retry_policy});
+''')
+        self.assertEqual(values[0]["selectVal"], "120")
+        self.assertEqual(values[0]["sentRetry"], {"retry_for_s": 120, "max_attempts": 3})
+
+    def test_ingest_evicts_oldest_seen_event_after_400_events(self):
+        """事件去重窗口超过 400 条后应淘汰最早一条序号，不再无限积压且能再次接收该序号。"""
+        values = run_phone_js('''
+const ui = PhoneUI; const logs = $("logs"); const seen = [];
+const rawAppend = logs.appendChild.bind(logs);
+logs.appendChild = (child) => { seen.push(child.textContent); return rawAppend(child); };
+const evs = [];
+for (let i = 1; i <= 401; i += 1) evs.push({seq: i, kind: "log", payload: "日志" + i});
+ui.ingest({state: {}, events: evs});
+seen.length = 0;
+ui.ingest({state: {}, events: [
+  {seq: 1, kind: "log", payload: "重放1"},
+  {seq: 401, kind: "log", payload: "重放401"}]});
+out.push(seen);
+''')
+        self.assertEqual(values, [["重放1"]])
+
 
 class HelpAdvancedBehaviorTests(unittest.TestCase):
     def test_import_disabled_and_failure_states_are_independent(self):
@@ -4707,6 +4806,39 @@ out.push({ sheet: !$("sheet-root").hidden, posts: posts.slice() });
         self.assertFalse(retried["sheet"], "成功才收 sheet")
         self.assertEqual(retried["posts"], ["stop_plan", "stop_plan"])
 
+    def test_ingest_refreshes_open_review_drawer_and_closes_only_review_when_empty(self):
+        """核对抽屉打开期间状态刷新应重画剩余批次并在全部失效时收起；其他抽屉不受影响。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const rawCreate = document.createElement.bind(document);
+document.createElement = (tag) => {
+  if (tag !== "div" && tag !== "b") return rawCreate(tag);
+  return {tagName: tag.toUpperCase(), className: "", textContent: "", innerHTML: "", dataset: {}, _children: [],
+    setAttribute() {}, appendChild(c) { this._children.push(c); return c; }};
+};
+const textOf = (el) => (el.textContent || "") + (el._children || []).map(textOf).join("|");
+const a1 = {id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00", act_start: "2026-11-11 09:00:00", act_end: "2026-11-11 10:00:00"};
+const a2 = {id: "a2", name: "乙活动", sign_start: "2026-11-09 09:00:00", act_start: "2026-11-11 11:00:00", act_end: "2026-11-11 12:00:00"};
+ui.ingest({state: {terms_ok: true, busy: false, activities: [a1, a2]}});
+ui.model.selected = ["a1", "a2"];
+ui.refreshControls(); $("btn-start").click();
+const openedText = ($("review-items")._children || []).map(textOf).join(";");
+$("review-items")._children = [];
+ui.ingest({state: {terms_ok: true, busy: false, activities: [a1, Object.assign({}, a2, {closed: true})]}});
+const afterOne = {open: !$("sheet-root").hidden, text: ($("review-items")._children || []).map(textOf).join(";")};
+ui.ingest({state: {terms_ok: true, busy: false, activities: [Object.assign({}, a1, {closed: true}), Object.assign({}, a2, {closed: true})]}});
+const afterEmpty = !$("sheet-root").hidden;
+$("btn-more").click();
+ui.ingest({state: {terms_ok: true, busy: false, activities: []}});
+out.push({openedText, afterOne, afterEmpty, moreStaysOpen: !$("sheet-root").hidden});
+''')
+        self.assertIn("乙活动", values[0]["openedText"])
+        self.assertTrue(values[0]["afterOne"]["open"])
+        self.assertIn("甲活动", values[0]["afterOne"]["text"])
+        self.assertNotIn("乙活动", values[0]["afterOne"]["text"])
+        self.assertFalse(values[0]["afterEmpty"])
+        self.assertTrue(values[0]["moreStaysOpen"])
+
 
 class ResultTermsModelTests(unittest.TestCase):
     """RS01/RS02/TM01：结果页统计与六支板头、任务卡原因三句、条款板（result-and-terms 任务）。
@@ -5855,6 +5987,19 @@ out.push([__timerDelays().includes(15000), __timerDelays().length]);
 ''')
         self.assertEqual(values, [[True, 2]])
 
+    def test_ingest_updates_last_sync_time_and_falls_back_when_uncalibrated(self):
+        """快照摄入后应把最近同步按北京时间 HH:MM 写入页面，时钟不可用时落回占位符。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const epoch = Math.floor(Date.UTC(2026, 10, 8, 4, 34, 56) / 1000);
+ui.ingest({state: {business_clock: {state: "ready", epoch_s: epoch, tick_s: 0, sampled_tick_s: 0}}});
+const calibrated = $("last-sync").textContent;
+ui.model.clock = null;
+ui.ingest({state: {business_clock: {state: "unavailable"}}});
+out.push([calibrated, $("last-sync").textContent]);
+''')
+        self.assertEqual(values, [["最近同步 12:34", "最近同步 --:--"]])
+
 
 class PhoneTickTests(unittest.TestCase):
     """P1：每秒对整秒刷新北京时间与倒计时，只改数字、不重画、不额外联网。"""
@@ -5956,6 +6101,52 @@ out.push({delays: __timerDelays(), fetches: fetches});
         self.assertEqual(shown["fetches"], hidden["fetches"] + 1, "回前台立刻补一次同步重新对时")
         self.assertLessEqual(len(shown["delays"]), 2)
         self.assertLessEqual(min(shown["delays"]), 1000, "恢复整秒计时")
+
+    def test_second_tick_updates_nowchip_only_when_calibrated(self):
+        """整秒刷新在时钟已校准时同步更新列表的「现在」分隔时钟，未校准时不覆盖现有内容。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.paired = true;
+const chip = {textContent: "11:00"};
+document.querySelectorAll = (sel) => (sel === ".nowchip b" ? [chip] : []);
+const epoch = Math.floor(Date.UTC(2026, 10, 8, 4, 5, 10) / 1000);
+ui.ingest({state: {activities: [], business_clock: {state: "ready", epoch_s: epoch, tick_s: 0, sampled_tick_s: 0}}});
+ui.tickClock();
+const calibrated = chip.textContent;
+chip.textContent = "保持";
+ui.model.clock = null;
+ui.ingest({state: {activities: [], business_clock: {state: "unavailable"}}});
+ui.tickClock();
+out.push([calibrated, chip.textContent]);
+''')
+        self.assertEqual(values, [["12:05", "保持"]])
+
+    def test_tick_board_led_assigns_lit_dot_classes_when_countdown_changes(self):
+        """整秒刷新重绘点阵屏时必须为亮暗点格分别保留对应的 on 与空类名。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.paired = true;
+let wall = 1700000000000; let mono = 5000;
+const realNow = Date.now; Date.now = () => wall;
+globalThis.performance = {now: () => mono};
+const rawCreate = document.createElement.bind(document);
+document.createElement = (tag) => {
+  if (tag !== "i") return rawCreate(tag);
+  return {tagName: "I", className: "", style: {}, dataset: {}, _children: [], setAttribute() {}, appendChild(c) { this._children.push(c); }};
+};
+try {
+  globalThis.__fetch = async () => ({status: 200, json: async () => ({
+    state: {activities: [{id: "a1", name: "篮球赛", open_ts: 7200}], busy: false, plan: null, terms_ok: true,
+      business_clock: {state: "ready", epoch_s: 3600.5, tick_s: 5, sampled_tick_s: 5}}, events: [], seq: 1})});
+  await ui.poll(true);
+  $("#board-led")._children = [];
+  wall += 1000; mono += 1000;
+  ui.tickClock();
+  const cls = $("#board-led")._children.map((d) => d.className);
+  out.push([cls.includes("on"), cls.includes("")]);
+} finally {
+  Date.now = realNow;
+}
+''')
+        self.assertEqual(values, [[True, True]])
 
 
 class PhoneTickSleepAndDrawerTests(unittest.TestCase):
@@ -6085,6 +6276,32 @@ try {
 }
 """)
         self.assertEqual(values[0], "09:00:02", "显示来自服务端快照 3600 秒加两秒，与手机墙钟无关")
+
+    def test_tick_row_left_updates_urgent_class_name(self):
+        """行内倒计时进入 10 分钟窗口时应补上临近样式类，跨过开放时刻后应清除该样式类。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.paired = true;
+let wall = 1700000000000; let mono = 5000;
+const realNow = Date.now; Date.now = () => wall;
+globalThis.performance = {now: () => mono};
+try {
+  globalThis.__fetch = async () => ({status: 200, json: async () => ({
+    state: {activities: [{id: "a1", name: "篮球赛", open_ts: 3900}], busy: false, plan: null, terms_ok: true,
+      business_clock: {state: "ready", epoch_s: 3600, tick_s: 5, sampled_tick_s: 5}}, events: [], seq: 1})});
+  await ui.poll(true);
+  const small = {textContent: "11 分", className: ""};
+  const rowNode = {dataset: {id: "a1"}, querySelector: (sel) => (sel === ".time small" ? small : null)};
+  $("#items").querySelectorAll = (sel) => (sel === "[data-id]" ? [rowNode] : []);
+  ui.tickClock();
+  const urgentCls = small.className;
+  wall += 310000; mono += 310000;
+  ui.tickClock();
+  out.push([urgentCls, small.className]);
+} finally {
+  Date.now = realNow;
+}
+''')
+        self.assertEqual(values, [["soon", ""]])
 
 
 class WorkbenchPhoneTests(unittest.TestCase):
