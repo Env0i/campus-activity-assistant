@@ -205,4 +205,6 @@ python -m http.server 8790 --bind 127.0.0.1 --directory design/prototype/workben
 | CancelRefused | 取消报名：学校没有取消 | Main.dc.html | cancelrefused | 1280×800 |
 | CancelUnknown | 取消报名：没能确认 | Main.dc.html | cancelunknown | 1280×800 |
 | PhoneConflict | 手机页：时间重叠，点按看原因 | Phone.dc.html | conflict | 390×844 |
+| PhoneActPending | 手机页：举办时间待公布 | Phone.dc.html | actpending | 390×844 |
+| PhoneSignedActPending | 手机页：已报名活动缺举办时间 | Phone.dc.html | signedactpending | 390×844 |
 | ImplNotes | 实现备注 | ImplNotes.dc.html | — | 1280×2120 |

@@ -940,6 +940,20 @@
       "h": 844,
       "title": "手机页：时间重叠，点按看原因"
     },
+    "PhoneActPending.dc.html": {
+      "x": 4550,
+      "y": 24536,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：举办时间待公布"
+    },
+    "PhoneSignedActPending.dc.html": {
+      "x": 5020,
+      "y": 24536,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：已报名活动缺举办时间"
+    },
     "ConflictPast.dc.html": {
       "x": 6800,
       "y": 23616,
@@ -1180,6 +1194,8 @@
     "CancelRefused.dc.html",
     "CancelUnknown.dc.html",
     "PhoneConflict.dc.html",
+    "PhoneActPending.dc.html",
+    "PhoneSignedActPending.dc.html",
     "AdvCheck.dc.html",
     "AdvTimeout.dc.html",
     "AdvBroken.dc.html",

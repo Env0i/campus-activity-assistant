@@ -352,7 +352,7 @@ body{margin:0}
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"pair","options":["pair","pairlock","home","picked","review","pending","running","offline","result","expired","never","loginunknown","captcha","auto","relall","relacct","relconfirm","relbad","phoneterms","reviewwarn","search","stopsheet","cancelsheet","conflict","pairfail","pclisterr","pcclock"]},"frozen":{"editor":null},"height":{"editor":null},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"pair","options":["pair","pairlock","home","picked","review","pending","running","offline","result","expired","never","loginunknown","captcha","auto","relall","relacct","relconfirm","relbad","phoneterms","reviewwarn","search","stopsheet","cancelsheet","conflict","actpending","signedactpending","pairfail","pclisterr","pcclock"]},"frozen":{"editor":null},"height":{"editor":null},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
   state = this.init((this.props || {}).scene || 'pair');
 
@@ -410,7 +410,14 @@ class Component extends DCLogic {
   }
   items() {
     if (this.state && this.state.cx) return this.cxItems();
-    return this._base();
+    var base = this._base();
+    if (this.state && this.state.scene === 'actpending') {
+      return base.concat([{ id: 'ap1', pts: 2, wage: 20, name: '校园音乐节筹备会', place: '学生活动中心', st: 'pre', open: 55800, group: '今天', act: '举办时间待公布', actPending: true }]);
+    }
+    if (this.state && this.state.scene === 'signedactpending') {
+      return base.concat([{ id: 'sp1', pts: 1, wage: 10, name: '校史馆志愿讲解', place: '校史馆', st: 'signed', open: 28800, group: '已报名', act: '举办时间待公布', actPending: true }]);
+    }
+    return base;
   }
   _base() {
     if (!this._it) this._it = [
@@ -496,6 +503,28 @@ class Component extends DCLogic {
     return it.st;
   }
   overlap(a, b) { return !!(a.d && b.d) && this.startAbs(a) < this.endAbs(b) && this.startAbs(b) < this.endAbs(a); }
+  actBlock(s) {
+    var self = this, sel = (s.selected || []).map(function (id) { return self.find(id); }).filter(Boolean);
+    if (!sel.length) return null;
+    var apSel = sel.filter(function (i) { return !!i.actPending; });
+    if (apSel.length) return { kind: 'selected', names: apSel.map(function (i) { return i.name; }) };
+    var apSig = this.items().filter(function (i) { return self.stOf(i, s) === 'signed' && !!i.actPending; });
+    if (apSig.length) return { kind: 'signed', names: apSig.map(function (i) { return i.name; }) };
+    return null;
+  }
+  actBlockText(block) {
+    if (!block || !block.names || !block.names.length) return '';
+    var nm = String(block.names[0] || '');
+    if (nm.length > 12) nm = nm.slice(0, 12) + '…';
+    if (block.kind === 'selected') {
+      return block.names.length === 1
+        ? '还差一步：已选的「' + nm + '」举办时间待公布，先取消勾选'
+        : '还差一步：已选的 ' + block.names.length + ' 场举办时间待公布，先取消勾选';
+    }
+    return block.names.length === 1
+      ? '还差一步：已报名的「' + nm + '」缺少举办时间，暂时开始不了'
+      : '还差一步：已报名的 ' + block.names.length + ' 场缺少举办时间，暂时开始不了';
+  }
   win(s) { return s.retry > 0 ? s.retry : (s.retry === -1 ? 120 : 3600); }
   isEnd(st) { return ['success', 'full', 'failed', 'unconfirmed', 'canceled'].indexOf(st) >= 0; }
 
@@ -532,6 +561,8 @@ class Component extends DCLogic {
     if (scene === 'pclisterr') s.pcList = 'error';
     if (scene === 'conflict') { s.cx = 'a'; s.seg = 'all'; s.tip = 'cxm'; }
     if (scene === 'pcclock') { s.pcClock = 'down'; s.selected = ['t1']; }
+    if (scene === 'actpending') s.selected = ['ap1'];
+    if (scene === 'signedactpending') s.selected = ['t1'];
     return s;
   }
 
@@ -647,7 +678,7 @@ class Component extends DCLogic {
   };
   startPlan = () => {
     var s = this.state;
-    if (s.conn === 'off' || s.login !== 'valid' || !s.selected.length) return;
+    if (s.conn === 'off' || s.login !== 'valid' || !s.selected.length || this.actBlock(s)) return;
     this.setState({ phase: 'pending', pendingLong: false, sheet: '', lines: this.log(s, '已发出开始请求') });
     this._pending = setTimeout(this.confirmStart, 1600);
   };
@@ -895,6 +926,7 @@ class Component extends DCLogic {
     else if (s.pcClock === 'down') alert = { tone: '', title: '电脑上的北京时间还没校准', detail: '校准后才能开始报名计划，现在可以先选活动。', action: '', hasAction: false, fn: function () {} };
     else if (s.bookmark) alert = { tone: 'ok', title: '已连接电脑', detail: '建议把这一页存成书签，下次直接打开。', action: '知道了', hasAction: true, fn: function () { self.setState({ bookmark: false }); } };
 
+    var actBlk = this.actBlock(s);
     var bar = { show: false, title: '', sub: '', label: '', cls: 'b-amber', off: false, fn: function () {} };
     if (s.phase === 'draft' && sel.length) {
       bar = { show: true, title: '已选 ' + sel.length + ' 场', sub: summary, label: '核对并开始', cls: 'b-amber', off: false, fn: function () { self.setState({ sheet: 'review', sheetErr: '' }); } };
@@ -902,6 +934,7 @@ class Component extends DCLogic {
       else if (!s.termsOk) { bar.sub = '电脑上同意条款后才能开始'; bar.off = true; }
       else if (s.login === 'expired' || isNever) { bar.sub = lc.barSub; bar.label = lc.barAction; bar.fn = this.beginRelogin; }
       else if (s.pcClock === 'down') { bar.sub = '电脑校准北京时间后才能开始'; bar.off = true; }
+      else if (actBlk) { bar.sub = this.actBlockText(actBlk); bar.off = true; }
     }
     if (s.phase === 'pending') bar = { show: true, title: s.pendingLong ? '还没有查到结果' : '正在核对', sub: '请先不要重复点击', label: '取消等待', cls: 'b-ghost', off: false, fn: function () { self.setState({ sheet: 'cancelstart', sheetErr: '' }); } };
     if (s.phase === 'running') bar = { show: true, title: '计划进行中', sub: '断网时也可以点停止', label: '停止计划', cls: 'b-ghost', off: false, fn: function () { self.setState({ sheet: 'stop', sheetErr: '' }); } };
@@ -978,7 +1011,7 @@ class Component extends DCLogic {
       searchOpen: s.searchOpen, toggleSearch: function () { self.setState({ searchOpen: !s.searchOpen, q: '' }); }, q: s.q, onQ: function (e) { self.setState({ q: e.target.value }); }, hasNotice: !!s.notice, notice: s.notice, groups: groups, noRows: !groups.length,
       bar: bar, reselect: function () { var st = self.state; self.setState({ phase: 'draft', selected: st.tasks.filter(function (t) { return t.status === 'failed' || t.status === 'canceled'; }).map(function (t) { return t.id; }), signedLocal: st.signedLocal.concat(st.tasks.filter(function (t) { return t.status === 'success'; }).map(function (t) { return t.id; })), tasks: [], now: 51605, lines: ['14:20:05  已把未成功的场次放回计划（演示时间已复位）'] }); },
       finishView: function () { var st = self.state; self.setState({ phase: 'draft', selected: [], signedLocal: st.signedLocal.concat(st.tasks.filter(function (t) { return t.status === 'success'; }).map(function (t) { return t.id; })), tasks: [], now: 51605, lines: ['14:20:05  这次计划已结束（演示时间已复位）'] }); },
-      sheetOn: !!s.sheet, sh: sh, batches: batches, retry: String(s.retry), maxA: s.maxA, onRetry: function (e) { self.setState({ retry: Number(e.target.value) }); }, onMax: function (e) { var v = Math.floor(Number(e.target.value)); if (v >= 0) self.setState({ maxA: v }); }, hasRetryHint: !!retryHint, retryHint: retryHint, cantStart: off || !s.termsOk || s.login !== 'valid' || !sel.length, startPlan: this.startPlan,
+      sheetOn: !!s.sheet, sh: sh, batches: batches, retry: String(s.retry), maxA: s.maxA, onRetry: function (e) { self.setState({ retry: Number(e.target.value) }); }, onMax: function (e) { var v = Math.floor(Number(e.target.value)); if (v >= 0) self.setState({ maxA: v }); }, hasRetryHint: !!retryHint, retryHint: retryHint, cantStart: off || !s.termsOk || s.login !== 'valid' || !sel.length || !!actBlk, startPlan: this.startPlan,
       timeChips: [{ k: 'all', t: '不限' }, { k: 'today', t: '今天' }, { k: 'week', t: '7 天内' }].map(function (c) { return { text: c.t, on: s.fTime === c.k, cls: s.fTime === c.k ? 'on' : '', pick: function () { self.setState({ fTime: c.k }); } }; }),
       loginLine: loginHead + loginTail, relEntry: lc.reloginEntry, beginRelogin: this.beginRelogin, showWindow: function () { self.setState({ windowShown: true, lines: self.log(self.state, '已请电脑把窗口显示出来') }); }, showWindowLabel: s.windowShown ? '已请电脑显示窗口' : '显示电脑窗口', logLines: s.lines.slice(-6).map(function (t) { return { text: t }; }),
       demoOffline: function () { self.setState({ conn: 'off', tries: 1, sheet: '' }); }, demoExpired: function () { self.setState({ login: 'expired', sheet: '' }); }, demoNoCred: function () { var on = !(self.state.credReady || self.state.credMem); self.setState({ credReady: on, credMem: false }); }, demoCredLabel: has ? '模拟电脑没保存账号密码' : '恢复：电脑已保存账号密码',
