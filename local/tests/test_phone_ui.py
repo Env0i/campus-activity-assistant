@@ -3921,6 +3921,29 @@ out.push({railShown, railCls, taskSpans, draftRailHidden: $("board-rail").hidden
         self.assertEqual(values[0]["taskSpans"], ["ts run", "ts"])
         self.assertTrue(values[0]["draftRailHidden"])
 
+    def test_render_items_refreshes_clock_before_offline_board_render(self):
+        """离线期间展开或重绘列表时必须先刷新当前时刻，保证计划板立即切换为离线状态。"""
+        values = run_phone_js('''
+const ui = PhoneUI;
+const realNow = Date.now;
+try {
+  const t0 = 1700000000000;
+  Date.now = () => t0;
+  ui.ingest({state: {terms_ok: true, busy: true,
+    business_clock: {state: "ready", epoch_s: Math.floor(t0 / 1000), tick_s: 0, sampled_tick_s: 0},
+    plan: {plan_id: "p1", status: "running", tasks: [
+      {task_id: "t1", name: "甲", status: "waiting", sign_start: "2026-11-09 10:00:00"}]},
+    activities: [{id: "a1", name: "乙", sign_start: "2026-11-08 20:00:00"}]}});
+  ui.model.lastOkAt = t0; ui.model.nowMs = t0; ui.model.lastOkText = "12:00:00";
+  ui.model.offlineTries = 1; ui.model.flying = false;
+  Date.now = () => t0 + PhoneModel.staleAfterMs + 5000;
+  $("btn-toggle-list").click();
+  out.push({cap: $("board-cap-text").textContent, capB: $("board-cap-b").textContent,
+    ledCls: $("board-led-wrap").className});
+} finally { Date.now = realNow; }
+''')
+        self.assertEqual(values, [{"cap": "状态已过时", "capB": "最后同步 12:00:00", "ledCls": "led-wrap dim"}])
+
 
 class ListDetailModelTests(unittest.TestCase):
     """G05/G07/G08/G09/LD01–LD04：列表分组、距开放、段钮计数、草稿板与勾选冲突。
@@ -4235,6 +4258,76 @@ out.push({shown, hasOn: ledCls.includes("on"), hasEmpty: ledCls.includes(""),
         self.assertTrue(values[0]["hasEmpty"])
         self.assertEqual(values[0]["barTitle"], "已选 1 场")
         self.assertTrue(values[0]["pickHiddenAfter"])
+
+    def test_render_items_group_cls_and_zone_and_toggle_visibility(self):
+        """重绘列表必须保留开放组样式，按匹配与忙闲收放次日区、空态提示、搜索框与切换钮。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const mk = (tag) => ({tagName: tag.toUpperCase(), className: "", textContent: "", _children: [],
+  dataset: {}, style: {}, attrs: {}, listeners: {},
+  setAttribute(k, v) { this.attrs[k] = v; }, appendChild(c) { this._children.push(c); return c; },
+  addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); }});
+document.createElement = (tag) => mk(tag);
+for (const id of ["items", "upcoming-items", "signed-items"]) {
+  Object.defineProperty($(id), "textContent", {get() { return ""; }, set(v) { if (!v) this._children.length = 0; }});
+}
+PhoneModel.setClock(ui.model, {state: "ready", epoch_s: Date.UTC(2026, 10, 8, 6, 0, 0) / 1000, tick_s: 0, sampled_tick_s: 0});
+ui.model.items = [{id: "o1", name: "开场", sign_start: "2026-11-08 10:00:00"},
+  {id: "m1", name: "明场", sign_start: "2026-11-09 09:00:00"}];
+ui.model.filter.status = "free"; ui.model.searchOpen = true; ui.model.listOpen = false;
+$("upcoming-zone").hidden = true; $("filter-empty").hidden = false;
+$("btn-toggle-list").hidden = false; $("search-view").hidden = true;
+ui.renderItems();
+const draft = {openCls: $("items")._children[0].className,
+  upCls: $("upcoming-items")._children.find((c) => c.className && c.className.startsWith("grp")).className,
+  upHidden: $("upcoming-zone").hidden, emptyHidden: $("filter-empty").hidden,
+  toggleHidden: $("btn-toggle-list").hidden, searchHidden: $("search-view").hidden};
+ui.model.filter.q = "无匹配"; $("upcoming-zone").hidden = false; $("filter-empty").hidden = true;
+ui.renderItems();
+const empty = {upHidden: $("upcoming-zone").hidden, emptyHidden: $("filter-empty").hidden,
+  emptyText: $("filter-empty").textContent};
+ui.model.filter.q = ""; ui.model.busy = true; ui.model.plan = {plan_id: "p1", status: "running", tasks: []};
+$("search-view").hidden = false; $("btn-toggle-list").hidden = true;
+ui.renderItems();
+out.push({draft, empty, busySearchHidden: $("search-view").hidden, busyToggleHidden: $("btn-toggle-list").hidden});
+''')
+        res = values[0]
+        self.assertEqual(res["draft"], {"openCls": "grp open", "upCls": "grp", "upHidden": False,
+                                        "emptyHidden": True, "toggleHidden": True, "searchHidden": False})
+        self.assertEqual(res["empty"], {"upHidden": True, "emptyHidden": False, "emptyText": "没有符合筛选的活动。"})
+        self.assertTrue(res["busySearchHidden"])
+        self.assertFalse(res["busyToggleHidden"])
+
+    def test_toggle_search_reveals_box_before_focus_and_clears_queries(self):
+        """展开搜索必须在聚焦前先显示输入框并清空筛选词与旧输入，收起时不触发聚焦。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+const mk = (tag) => ({tagName: tag.toUpperCase(), className: "", textContent: "", _children: [],
+  dataset: {}, style: {}, attrs: {}, listeners: {},
+  setAttribute(k, v) { this.attrs[k] = v; }, appendChild(c) { this._children.push(c); return c; },
+  addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); }});
+document.createElement = (tag) => mk(tag);
+for (const id of ["items", "upcoming-items", "signed-items"]) {
+  Object.defineProperty($(id), "textContent", {get() { return ""; }, set(v) { if (!v) this._children.length = 0; }});
+}
+PhoneModel.setClock(ui.model, {state: "ready", epoch_s: Date.UTC(2026, 10, 8, 6, 0, 0) / 1000, tick_s: 0, sampled_tick_s: 0});
+ui.model.items = [{id: "a1", name: "甲讲座", sign_start: "2026-11-09 09:00:00"},
+  {id: "a2", name: "乙会议", sign_start: "2026-11-09 10:00:00"}];
+ui.model.filter = {q: "甲", status: "all", time: "all"};
+$("q").value = "甲"; $("search-q").value = "甲"; $("search-view").hidden = true;
+ui.renderItems();
+const beforeCount = $("upcoming-items")._children.filter((n) => n.tagName === "LABEL").length;
+let focusCount = 0;
+$("search-q").focus = () => { if (!$("search-view").hidden) focusCount += 1; };
+$("btn-search").click();
+const afterOpen = {focusCount, qVal: $("q").value, sqVal: $("search-q").value,
+  rowCount: $("upcoming-items")._children.filter((n) => n.tagName === "LABEL").length};
+$("btn-search").click();
+out.push({beforeCount, afterOpen, focusAfterClose: focusCount});
+''')
+        self.assertEqual(values[0]["beforeCount"], 1)
+        self.assertEqual(values[0]["afterOpen"], {"focusCount": 1, "qVal": "", "sqVal": "", "rowCount": 2})
+        self.assertEqual(values[0]["focusAfterClose"], 1)
 
 
 class SheetShellTests(unittest.TestCase):
@@ -5387,6 +5480,22 @@ $("btn-toggle-list").click();
 out.push({pickHidden, checkedCount: boxes.filter((b) => b.checked).length});
 ''')
         self.assertEqual(values, [{"pickHidden": True, "checkedCount": 0}])
+
+    def test_signed_summary_items_populate_only_in_result_state(self):
+        """已报名汇总折叠区的活动行只能在结果态填充，草稿态不得重复填入汇总列表。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+ui.model.items = [{id: "s1", name: "已报名场", sign_start: "2026-11-08 08:00:00", signed: true}];
+ui.model.busy = false; ui.model.plan = null;
+$("signed-items")._children = [];
+ui.renderItems();
+const draftCount = $("signed-items").childElementCount;
+ui.model.plan = {plan_id: "p1", status: "completed", tasks: [{task_id: "t1", status: "success"}]};
+$("signed-items")._children = [];
+ui.renderItems();
+out.push({draftCount, resultCount: $("signed-items").childElementCount});
+''')
+        self.assertEqual(values, [{"draftCount": 0, "resultCount": 1}])
 
 
 class ExceptionStatesTests(unittest.TestCase):
@@ -7159,6 +7268,118 @@ const rows = draw(ui);
 out.push(texts(rows.s1));
 """)[0]
         self.assertNotIn("可取消至", out)
+
+    def test_build_row_renders_unknown_time_left_soon_flags_place_reward_and_warn(self):
+        """活动行必须按字段呈现待公布样式、临近倒计时色调、旗标类名、地点、奖励与重叠提醒。"""
+        out = run_phone_js(SETUP + DOM + r"""
+const ui = PhoneUI;
+ui.model.items = [
+  {id: "o1", name: "已选场", sign_start: "2026-11-06 10:00:00", act_start: "2026-11-07 09:00:00", act_end: "2026-11-07 10:00:00"},
+  {id: "p1", name: "急场", place: "报告厅", sign_start: "2026-11-06 14:05:00", act_start: "2026-11-07 09:00:00",
+    act_end: "2026-11-07 11:00:00", reward_state: "ready", points: 2, wage: 0},
+  {id: "p2", name: "晚场", place: "操场", sign_start: "2026-11-06 16:00:00"},
+  {id: "u1", name: "待定", sign_start: ""},
+  {id: "c1", name: "过期", place: "旧礼堂", sign_start: "2026-11-05 09:00:00", closed: true},
+];
+ui.model.filter.status = "all"; ui.model.selected = ["o1"]; ui.model.busy = false;
+clockAt(ui.model);
+const rows = draw(ui);
+out.push({
+  p1: {bCls: tags(rows.p1, "b")[0].className, smCls: tags(rows.p1, "small").map((s) => s.className),
+    flags: tags(rows.p1, "span").filter((s) => s.className.startsWith("flag")).map((s) => s.className),
+    warn: tags(rows.p1, "span").filter((s) => s.className === "w").map((s) => s.textContent), text: texts(rows.p1)},
+  p2: {smCls: tags(rows.p2, "small").map((s) => s.className),
+    flags: tags(rows.p2, "span").filter((s) => s.className.startsWith("flag")).map((s) => s.className)},
+  u1: {bCls: tags(rows.u1, "b")[0].className, smN: tags(rows.u1, "small").length},
+  c1: {smN: tags(rows.c1, "small").length, text: texts(rows.c1)},
+  o1WarnN: tags(rows.o1, "span").filter((s) => s.className === "w").length,
+});
+""")[0]
+        self.assertEqual(out["p1"]["bCls"], "")
+        self.assertEqual(out["p1"]["smCls"], ["soon"])
+        self.assertEqual(out["p1"]["flags"], ["flag next"])
+        self.assertIn("与已选的「已选场」时间重叠", out["p1"]["warn"][0])
+        self.assertIn("报告厅", out["p1"]["text"])
+        self.assertIn("2 分 · 工资 0", out["p1"]["text"])
+        self.assertEqual(out["p2"]["smCls"], [""])
+        self.assertEqual(out["p2"]["flags"], ["flag"])
+        self.assertEqual(out["u1"], {"bCls": "txt", "smN": 0})
+        self.assertEqual(out["c1"]["smN"], 0)
+        self.assertNotIn("旧礼堂", out["c1"]["text"])
+        self.assertEqual(out["o1WarnN"], 0)
+
+    def test_clash_row_click_prevents_default_and_go_button_stops_bubbling(self):
+        """点重叠行阻止默认行为，点「去已报名那场」阻止冒泡回行以免原因面板重新打开。"""
+        out = run_phone_js(SETUP + DOM + r"""
+const ui = PhoneUI;
+ui.model.items = [signedA, clashB];
+clockAt(ui.model);
+let rows = draw(ui);
+const ev = {defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }};
+rows.b1.listeners.click[0](ev);
+rows.b1.listeners.click[0]({});
+rows.b1.listeners.click[0]({});
+rows = draw(ui);
+const goBtn = tags(rows.b1, "button")[0];
+const goEv = {propagationStopped: false, stopPropagation() { this.propagationStopped = true; }};
+goBtn.listeners.click[0](goEv);
+if (!goEv.propagationStopped) rows.b1.listeners.click[0]({preventDefault() {}});
+rows = draw(ui);
+out.push({prevented: ev.defaultPrevented, stopped: goEv.propagationStopped, whyAfter: whyOf(rows.b1)});
+""")[0]
+        self.assertEqual(out, {"prevented": True, "stopped": True, "whyAfter": 0})
+
+    def test_go_signed_resets_hidden_filters_scrolls_flashes_and_clears_after_two_seconds(self):
+        """「去已报名那场」须收起原因、重置隐藏筛选与开关、滚动并高亮目标行且两秒后熄灭。"""
+        out = run_phone_js(SETUP + DOM + r"""
+const ui = PhoneUI; const scrolled = [];
+for (const id of ["items", "upcoming-items", "signed-items"]) {
+  Object.defineProperty($(id), "textContent", {get() { return ""; }, set(v) { if (!v) this._children.length = 0; }});
+}
+const rawMk = document.createElement;
+document.createElement = (tag) => {
+  const el = rawMk(tag);
+  el.scrollIntoView = (opts) => scrolled.push(opts);
+  el.classList = {remove(c) { el.className = el.className.split(/\s+/).filter((x) => x && x !== c).join(" "); }, add() {}};
+  return el;
+};
+document.querySelector = (sel) => {
+  const m = /^\[data-id="([^"]+)"\]$/.exec(sel);
+  if (!m) return null;
+  for (const b of ["#items", "#upcoming-items", "#signed-items"]) {
+    const hit = $(b)._children.find((n) => n.dataset && n.dataset.id === m[1]);
+    if (hit) return hit;
+  }
+  return null;
+};
+ui.model.items = [signedA, clashB]; clockAt(ui.model);
+let rows = draw(ui);
+clickRow(rows.b1); rows = draw(ui);
+const goBtn = tags(rows.b1, "button")[0];
+ui.model.filter = {q: "模拟", status: "free", time: "today"};
+$("q").value = "模拟"; $("search-q").value = "模拟"; $("signed-summary").open = false;
+$("s-all").dataset.status = "all"; $("s-free").dataset.status = "free";
+$("t-all").dataset.time = "all"; $("t-today").dataset.time = "today";
+goBtn.listeners.click[0]({stopPropagation() {}});
+const s1Row = document.querySelector('[data-id="s1"]');
+const b1Row = document.querySelector('[data-id="b1"]');
+const immediate = {s1Shown: !!s1Row, s1Flash: !!(s1Row && s1Row.className.includes("flash")),
+  b1Flash: !!(b1Row && b1Row.className.includes("flash")), b1Why: b1Row ? whyOf(b1Row) : -1,
+  q: $("q").value, sq: $("search-q").value, sAll: $("s-all")["attr_aria-pressed"],
+  sFree: $("s-free")["attr_aria-pressed"], tAll: $("t-all")["attr_aria-pressed"],
+  tToday: $("t-today")["attr_aria-pressed"], sumOpen: $("signed-summary").open, scrolled};
+__fireTimers();
+const afterTimer = s1Row.className.includes("flash");
+rows = draw(ui);
+out.push({immediate, afterTimer, afterRedraw: rows.s1.className.includes("flash")});
+""")[0]
+        self.assertEqual(out["immediate"], {
+            "s1Shown": True, "s1Flash": True, "b1Flash": False, "b1Why": 0,
+            "q": "", "sq": "", "sAll": "true", "sFree": "false",
+            "tAll": "true", "tToday": "false", "sumOpen": True,
+            "scrolled": [{"block": "center", "behavior": "smooth"}]})
+        self.assertFalse(out["afterTimer"])
+        self.assertFalse(out["afterRedraw"])
 
 class ActPendingBlockTests(unittest.TestCase):
     """开始前举办时间检查（规则、文案、门禁与 DOM 呈现）。"""
