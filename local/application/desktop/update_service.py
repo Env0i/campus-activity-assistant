@@ -13,6 +13,13 @@ import re
 import threading
 from dataclasses import dataclass
 
+from application.desktop.update_version_download import (
+    download_fallback_asset,
+    download_version_asset,
+    select_version_payload,
+    stage_and_cleanup,
+)
+
 _REQUEST_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 
@@ -347,6 +354,47 @@ def run_download(state, request_id: str, installer: dict, *,
                      text=str(got.get("text") or "下载没能完成，请重试。")), True)
 
 
+def _try_installer_fallback(state, base: dict, installer: dict, publish,
+                            download_installer_fallback, reason: str) -> bool:
+    """版本目录链路失败时回到用户已有的完整 Inno 安装器。"""
+    got = download_fallback_asset(
+        base, installer, publish=publish,
+        cancel=lambda: state._update_cancelled or state.is_closing(),
+        download_installer_fallback=download_installer_fallback, reason=reason)
+    if not got or not got.get("ok"):
+        return False
+    path = str(got.get("path") or "")
+    with state._lock:
+        state._update_installer_path = path
+    publish(dict(base, state="ready_to_install", payload_kind="installer_fallback",
+                 text="完整安装器已下载并校验通过，可以启动安装程序。",
+                 installer_path=path, fallback_reason=reason), True)
+    return True
+
+
+def _finish_version_download(state, base: dict, mode: str, staging_dir,
+                             result: dict, publish, download_installer_fallback,
+                             installer: dict) -> None:
+    """把暂存结果落进 state 或回退到完整安装器。"""
+    if result.get("ok"):
+        path = str(result.get("path") or staging_dir)
+        with state._lock:
+            state._update_staging_path = path
+        publish(dict(base, state="ready_to_restart", payload_kind=mode,
+                     text="更新目录已准备好，关闭程序后完成切换。",
+                     staging_path=path), True)
+        return
+    if _try_installer_fallback(state, base, installer, publish,
+                               download_installer_fallback, "apply_failed"):
+        return
+    # staging 的异常文本常带本机绝对路径，不能原样推给界面；细节只写运行记录。
+    detail = str(result.get("detail") or "").strip()
+    if detail:
+        state._emit("log", "[X] 更新包应用失败：%s" % detail)
+    publish(dict(base, state="failed", error_code="apply_failed",
+                 text="更新包应用失败，已保留当前版本。"), True)
+
+
 def run_version_download(state, request_id: str, installer: dict, *,
                          download, publish, current_version: str,
                          latest_url: str, stage_update, base_dir,
@@ -358,112 +406,37 @@ def run_version_download(state, request_id: str, installer: dict, *,
     base = dict(state._update_result or {})
     base.update({"request_id": request_id, "current_version": current_version,
                  "url": latest_url, "installer": installer, "error_code": ""})
-    delta = installer.get("delta")
-    deltas = installer.get("deltas")
-    selected = None
-    if isinstance(deltas, list):
-        selected = next((item for item in deltas
-                         if isinstance(item, dict)
-                         and item.get("base_version") == current_version), None)
-    if selected is None and isinstance(delta, dict) and delta.get("base_version") == current_version:
-        selected = delta
-    mode = "delta" if selected is not None else "full"
-    full = installer.get("full") if isinstance(installer.get("full"), dict) else installer
-    selected = selected or full
-
-    def do_download(asset, asset_mode):
-        total = asset.get("bytes") if isinstance(asset.get("bytes"), int) else 0
-        last = [0]
-        def progress(done, expect):
-            if done == expect or done - last[0] >= 1024 * 1024:
-                last[0] = done
-                publish(dict(base, state="downloading_delta" if asset_mode == "delta" else "downloading_full",
-                             payload_kind=asset_mode,
-                             text="正在下载增量包…" if asset_mode == "delta" else "正在下载安装包…",
-                             downloaded=done, total_bytes=total), False)
-        publish(dict(base, state="downloading_delta" if asset_mode == "delta" else "downloading_full",
-                     payload_kind=asset_mode,
-                     text="正在下载增量包…" if asset_mode == "delta" else "正在下载安装包…",
-                     downloaded=0, total_bytes=total), False)
-        try:
-            fetch = download_delta if asset_mode == "delta" and download_delta is not None else (
-                download_full if asset_mode == "full" and download_full is not None else download)
-            return fetch(asset["url"], name=asset["name"],
-                            expect_bytes=asset.get("bytes") or 0,
-                            expect_sha256=asset.get("sha256") or "",
-                            cancel=lambda: state._update_cancelled or state.is_closing(),
-                            progress=progress)
-        except Exception:
-            return {"ok": False, "error_code": "unexpected_error",
-                    "text": "下载没能完成，请重试。"}
-
-    def fallback_to_installer(reason):
-        """版本目录链路失败时回到用户已有的完整 Inno 安装器。"""
-        if download_installer_fallback is None or not installer.get("url"):
-            return False
-        total = installer.get("bytes") if isinstance(installer.get("bytes"), int) else 0
-        last = [0]
-        def progress(done, expect):
-            if done != expect and done - last[0] < 1024 * 1024:
-                return
-            last[0] = done
-            publish(dict(base, state="downloading_full", payload_kind="installer_fallback",
-                         text="正在下载完整安装器…", fallback_reason=reason,
-                         downloaded=done, total_bytes=total), False)
-        publish(dict(base, state="downloading_full", payload_kind="installer_fallback",
-                     text="增量更新未能应用，正在下载完整安装器…",
-                     fallback_reason=reason, downloaded=0, total_bytes=total), False)
-        try:
-            got = download_installer_fallback(
-                installer["url"], name=installer["name"],
-                expect_bytes=installer.get("bytes") or 0,
-                expect_sha256=installer.get("sha256") or "",
-                cancel=lambda: state._update_cancelled or state.is_closing(),
-                progress=progress)
-        except Exception:
-            got = {"ok": False, "error_code": "unexpected_error",
-                   "text": "完整安装器下载没能完成，请重试。"}
-        if not got.get("ok"):
-            return False
-        path = str(got.get("path") or "")
-        with state._lock:
-            state._update_installer_path = path
-        publish(dict(base, state="ready_to_install", payload_kind="installer_fallback",
-                     text="完整安装器已下载并校验通过，可以启动安装程序。",
-                     installer_path=path, fallback_reason=reason), True)
-        return True
-
-    got = do_download(selected, mode) if isinstance(selected, dict) and selected.get("url") else {
-        "ok": False, "error_code": "no_payload", "text": "没有可下载的更新包。"}
+    cancel = lambda: state._update_cancelled or state.is_closing()  # noqa: E731
+    mode, selected, full = select_version_payload(installer, current_version)
+    got = download_version_asset(
+        selected, mode, base=base, publish=publish, download=download,
+        download_delta=download_delta, download_full=download_full, cancel=cancel)
     if (not got.get("ok") and mode == "delta"
             and got.get("error_code") != "cancelled"
             and full is not selected and full.get("url")):
         mode, selected = "full", full
-        got = do_download(selected, mode)
+        got = download_version_asset(
+            selected, mode, base=base, publish=publish, download=download,
+            download_delta=download_delta, download_full=download_full, cancel=cancel)
     if not got.get("ok"):
         code = str(got.get("error_code") or "unexpected_error")
-        if code != "cancelled" and fallback_to_installer("download_failed"):
+        if code != "cancelled" and _try_installer_fallback(
+                state, base, installer, publish, download_installer_fallback, "download_failed"):
             return
         publish(dict(base, state="available" if code == "cancelled" else "failed",
                      error_code=code, text=str(got.get("text") or "下载没能完成，请重试。")), True)
         return
-
-    publish(dict(base, state="applying", payload_kind=mode,
-                 text="正在校验并准备更新目录…"), False)
-    downloaded_path = str(got.get("path") or "")
-    result = stage_update(
-        base_dir, str(got.get("path") or ""), staging_dir, mode=mode,
-        base_version=current_version,
-        target_manifest=selected.get("target_manifest") or target_manifest,
-        target_version=selected.get("target_version") or target_version)
-    if cleanup_download is not None and downloaded_path:
-        try:
-            cleanup_download(downloaded_path)
-        except Exception:
-            pass
+    publish(dict(base, state="applying", payload_kind=mode, text="正在校验并准备更新目录…"), False)
+    result = stage_and_cleanup(
+        stage_update, base_dir, got, staging_dir, mode=mode,
+        current_version=current_version, selected=selected,
+        target_manifest=target_manifest, target_version=target_version,
+        cleanup_download=cleanup_download)
     if not result.get("ok") and mode == "delta" and full is not selected and full.get("url"):
         mode, selected = "full", full
-        got = do_download(selected, mode)
+        got = download_version_asset(
+            selected, mode, base=base, publish=publish, download=download,
+            download_delta=download_delta, download_full=download_full, cancel=cancel)
         if not got.get("ok") and got.get("error_code") == "cancelled":
             # 增量应用失败后改下完整包，用户此时取消：口径与首段下载一致，回到可重新下载；
             # 不能落到 apply_failed，更不能再去拉完整安装器（用户明明已经喊停）。
@@ -471,30 +444,10 @@ def run_version_download(state, request_id: str, installer: dict, *,
                          text="已取消下载，可重新下载。"), True)
             return
         if got.get("ok"):
-            downloaded_path = str(got.get("path") or "")
-            result = stage_update(
-                base_dir, str(got.get("path") or ""), staging_dir, mode="full",
-                base_version=current_version,
-                target_manifest=selected.get("target_manifest") or target_manifest,
-                target_version=selected.get("target_version") or target_version)
-            if cleanup_download is not None and downloaded_path:
-                try:
-                    cleanup_download(downloaded_path)
-                except Exception:
-                    pass
-    if result.get("ok"):
-        path = str(result.get("path") or staging_dir)
-        with state._lock:
-            state._update_staging_path = path
-        publish(dict(base, state="ready_to_restart", payload_kind=mode,
-                     text="更新目录已准备好，关闭程序后完成切换。",
-                     staging_path=path), True)
-    else:
-        if fallback_to_installer("apply_failed"):
-            return
-        # staging 的异常文本常带本机绝对路径，不能原样推给界面；细节只写运行记录。
-        detail = str(result.get("detail") or "").strip()
-        if detail:
-            state._emit("log", "[X] 更新包应用失败：%s" % detail)
-        publish(dict(base, state="failed", error_code="apply_failed",
-                     text="更新包应用失败，已保留当前版本。"), True)
+            result = stage_and_cleanup(
+                stage_update, base_dir, got, staging_dir, mode="full",
+                current_version=current_version, selected=selected,
+                target_manifest=target_manifest, target_version=target_version,
+                cleanup_download=cleanup_download)
+    _finish_version_download(state, base, mode, staging_dir, result, publish,
+                             download_installer_fallback, installer)

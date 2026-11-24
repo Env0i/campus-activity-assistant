@@ -11,38 +11,31 @@
 """
 from __future__ import annotations
 
-import inspect
 import json
 import queue
-import re
 import secrets
 import threading
 
+from application.login.login_relay_protocol import (
+    STATE_CANCELED,
+    STATE_FAILED,
+    STATE_STARTING,
+    STATE_SUCCESS,
+    STATE_VERIFYING,
+    STATE_WAITING_CODE,
+    VALID_CODE_RE,
+    accepts_origin,
+    apply_relay_event,
+    new_flow_record,
+    parse_relay_line,
+)
 from domain.login.login_rules import mask_account
 from domain.phone.phone_rules import clip_text
-
-# OCR 自动提交前的形状门禁：与 worker 的 valid_code 一致，四位 ASCII 字母数字
-_VALID_CODE_RE = re.compile(r"^[0-9A-Za-z]{4}$")
 
 # relay 公开状态的阶段名（手机/桌面据此显示，不含任何凭据）
 STATE_IDLE = "idle"
 STATE_NEEDS_LOCAL_SETUP = "needs_local_setup"
 STATE_PLAN_ACTIVE = "plan_active"
-STATE_STARTING = "starting"
-STATE_WAITING_CODE = "waiting_code"
-STATE_VERIFYING = "verifying"
-STATE_SUCCESS = "success"
-STATE_FAILED = "failed"
-STATE_CANCELED = "canceled"
-
-_SAFE_ERRORS = {
-    "needs_local_setup", "plan_active", "terms_required", "busy",
-    "spawn_failed", "bad_page", "bad_response", "token_unverified",
-    "expired", "canceled", "eof", "timeout", "internal", "demo",
-    "max_tries",
-    # 学校明确说账号或密码不对：登录进程报出这个码时，界面停下并暂停自动登录
-    "bad_password",
-}
 
 # 公开投影的终态：结论已定，旧验证码图/挑战号/剩余秒不再对外暴露
 _TERMINAL_STATES = (STATE_IDLE, STATE_SUCCESS, STATE_FAILED, STATE_CANCELED)
@@ -94,24 +87,6 @@ def public_state(flow, now=None) -> dict:
     }
 
 
-def _accepts_origin(callback) -> bool:
-    """判断成功回调是否收一个来源标签。
-
-    旧调用方传的是零参 lambda；用签名判断比「先传参、失败再退回零参」干净，
-    也不必让异常参与正常流程。取不到签名（如某些 Mock）时按零参处理。
-    """
-    try:
-        params = inspect.signature(callback).parameters
-    except (TypeError, ValueError):
-        return False
-    for param in params.values():
-        if param.kind in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD):
-            return True
-        if param.kind is param.VAR_POSITIONAL:
-            return True
-    return False
-
-
 class LoginRelayService:
     """手机重登中继：单飞会话管理 + 子进程 stdin/stdout 桥。"""
 
@@ -122,7 +97,7 @@ class LoginRelayService:
         self._emit = emit or (lambda _kind, _payload: None)
         self._log = log or (lambda _event, **_fields: None)
         self._on_success = on_success or (lambda: None)
-        self._success_takes_origin = _accepts_origin(self._on_success)
+        self._success_takes_origin = accepts_origin(self._on_success)
         self._on_finish = on_finish or (lambda: None)
         self._classify_captcha = classify_captcha
         self._manual_after = max(0, int(manual_after))
@@ -170,53 +145,42 @@ class LoginRelayService:
             self._staged = None
 
     # ---------- 会话生命周期 ----------
-    def begin(self, *, plan_active: bool = False, terms_ok: bool = True,
-              demo: bool = False, worker_command=None,
-              origin: str = "phone", manual: bool = False) -> dict:
-        """开始一场中继：单飞、条款、计划活跃都在这里拦下。
+    def _reserve_flow_locked(self, *, plan_active: bool, terms_ok: bool, demo: bool,
+                             worker_command, origin: str, manual: bool):
+        if self._closed:
+            return None, None, {"ok": False, "error": "canceled"}
+        if demo:
+            return None, None, {"ok": False, "error": "demo",
+                                "text": "演示模式不联网，不会启动重新登录。"}
+        if self._flow is not None:
+            return None, None, {"ok": False, "error": "busy", "text": "已有一次重新登录在进行"}
+        if not terms_ok:
+            return None, None, {"ok": False, "error": "terms_required",
+                                "text": "请先在电脑上同意使用条款"}
+        if plan_active:
+            return None, None, {"ok": False, "error": STATE_PLAN_ACTIVE,
+                                "text": "报名计划仍在运行：先停止并等终态，再重新登录"}
+        if self._staged is None:
+            return None, None, {"ok": False, "error": STATE_NEEDS_LOCAL_SETUP,
+                                "text": "请先在电脑上准备账号密码"}
+        if worker_command is None:
+            return None, None, {"ok": False, "error": "spawn_failed", "text": "缺少 worker 命令"}
+        creds = dict(self._staged)
+        flow_id = secrets.token_hex(8)
+        auto_ready = (not manual) and callable(self._classify_captcha)
+        flow = new_flow_record(flow_id, origin, auto_ready)
+        # spawn 前预留；不能持服务锁调用 Api，否则与关闭屏障反向成环。
+        self._flow = flow
+        return flow, creds, None
 
-        origin 记录发起方（phone=手机、auto=无人值守 OCR）：手机入口的
-        撤销只清 phone 场，独立 OCR 重登不受手机开关影响。
-        """
-        with self._lock:
-            if self._closed:
-                return {"ok": False, "error": "canceled"}
-            if demo:
-                return {"ok": False, "error": "demo",
-                        "text": "演示模式不联网，不会启动重新登录。"}
-            if self._flow is not None:
-                return {"ok": False, "error": "busy", "text": "已有一次重新登录在进行"}
-            if not terms_ok:
-                return {"ok": False, "error": "terms_required",
-                        "text": "请先在电脑上同意使用条款"}
-            if plan_active:
-                return {"ok": False, "error": "plan_active",
-                        "text": "报名计划仍在运行：先停止并等终态，再重新登录"}
-            if self._staged is None:
-                return {"ok": False, "error": "needs_local_setup",
-                        "text": "请先在电脑上准备账号密码"}
-            creds = dict(self._staged)
-            if worker_command is None:
-                return {"ok": False, "error": "spawn_failed", "text": "缺少 worker 命令"}
-            flow_id = secrets.token_hex(8)
-            flow = {"flow_id": flow_id, "state": STATE_STARTING, "challenge_id": "",
-                    "image": "", "expires_in": None, "deadline": None,
-                    "attempts": 0, "max_attempts": 0,
-                    "safe_error": "", "tree": None, "success_fired": False,
-                    "submit_pending": False, "handoff": False,
-                    "mode": "manual" if manual or not callable(self._classify_captcha) else "auto",
-                    "origin": str(origin or "phone"), "stdin": None,
-                    "lines": queue.Queue(), "reader_done": threading.Event()}
-            # spawn 前预留；不能持服务锁调用 Api，否则与关闭屏障反向成环。
-            self._flow = flow
-        args = list(worker_command) + ["--relay"]
+    def _spawn_relay_proc(self, flow: dict, creds: dict, worker_command):
         try:
-            tree = self._spawn(args)
+            tree = self._spawn(list(worker_command) + ["--relay"])
         except Exception as exc:  # noqa: BLE001 - 只回类型，不回堆栈
             creds.clear()
             self._finish(flow)
-            return {"ok": False, "error": "spawn_failed",
-                    "text": "重新登录进程没能启动：%s" % type(exc).__name__}
+            return None, None, None, {"ok": False, "error": "spawn_failed",
+                                      "text": "重新登录进程没能启动：%s" % type(exc).__name__}
         proc = getattr(tree, "proc", tree)
         stdin = getattr(proc, "stdin", None)
         if stdin is None:
@@ -226,7 +190,27 @@ class LoginRelayService:
             except Exception:  # noqa: BLE001
                 pass
             self._finish(flow)
-            return {"ok": False, "error": "spawn_failed", "text": "重新登录进程没有输入管道"}
+            return None, None, None, {"ok": False, "error": "spawn_failed",
+                                      "text": "重新登录进程没有输入管道"}
+        return tree, proc, stdin, None
+
+    def begin(self, *, plan_active: bool = False, terms_ok: bool = True,
+              demo: bool = False, worker_command=None,
+              origin: str = "phone", manual: bool = False) -> dict:
+        """开始一场中继：单飞、条款、计划活跃都在这里拦下。
+
+        origin 记录发起方（phone=手机、auto=无人值守 OCR）：手机入口的
+        撤销只清 phone 场，独立 OCR 重登不受手机开关影响。
+        """
+        with self._lock:
+            flow, creds, err = self._reserve_flow_locked(
+                plan_active=plan_active, terms_ok=terms_ok, demo=demo,
+                worker_command=worker_command, origin=origin, manual=manual)
+        if err is not None:
+            return err
+        tree, proc, stdin, err = self._spawn_relay_proc(flow, creds, worker_command)
+        if err is not None:
+            return err
         with self._lock:
             canceled = self._flow is not flow or self._closed
             if not canceled:
@@ -239,7 +223,7 @@ class LoginRelayService:
             self._on_finish()
             return {"ok": False, "error": "canceled"}
         # 首行下发凭据后立刻清掉这份临时副本；预备库保留到关闭/显式清除
-        sent = self._send(flow, {"kind": "credentials", "flow_id": flow_id,
+        sent = self._send(flow, {"kind": "credentials", "flow_id": flow["flow_id"],
                     "username": creds["username"], "password": creds["password"]})
         creds.clear()
         if not sent:
@@ -254,7 +238,7 @@ class LoginRelayService:
             self._threads.extend((self._reader, self._pump_thread))
             self._reader.start()
             self._pump_thread.start()
-        return {"ok": True, "flow_id": flow_id}
+        return {"ok": True, "flow_id": flow["flow_id"]}
 
     def submit(self, flow_id, challenge_id, code, origin="phone") -> dict:
         with self._lock:
@@ -390,107 +374,56 @@ class LoginRelayService:
             self._handle_line(flow, line)
         self._finish(flow)
 
-    def _handle_line(self, flow, line: str) -> None:
-        prefix = "[login] "
-        if not line.startswith(prefix):
-            return
+    def _run_auto_ocr(self, flow: dict, snapshot: dict) -> dict:
+        """在锁外识别验证码并尝试自动提交，失败或越界则交接人工。"""
         try:
-            data = json.loads(line[len(prefix):])
-        except ValueError:
+            code = str(self._classify_captcha(snapshot["image"]) or "")
+        except Exception:
+            code = ""
+        if not VALID_CODE_RE.fullmatch(code):
+            with self._lock:
+                if self._flow is flow and flow.get("challenge_id") == snapshot["challenge_id"]:
+                    flow["mode"] = "manual"
+                    flow["handoff"] = True
+                    snapshot = public_state(flow, self._now())
+            ocr_result = "invalid"
+        elif self._send_submit(flow, {
+                "kind": "submit", "flow_id": snapshot["flow_id"],
+                "challenge_id": snapshot["challenge_id"], "code": code}, automatic=True) == "sent":
+            with self._lock:
+                if self._flow is flow:
+                    flow["state"] = STATE_VERIFYING
+                    snapshot = public_state(flow, self._now())
+            ocr_result = "submitted"
+        else:
+            ocr_result = "failed"
+        self._log("auto_relogin_ocr_attempt",
+                  attempt=int(snapshot.get("attempts") or 0), result=ocr_result)
+        return snapshot
+
+    def _handle_line(self, flow, line: str) -> None:
+        parsed = parse_relay_line(line, flow.get("flow_id"))
+        if parsed is None:
             return
-        if not isinstance(data, dict):
-            return
-        if str(data.get("flow_id") or "") != str(flow.get("flow_id") or ""):
-            return                      # 旧 flow 的行不得改写当前会话
-        kind = str(data.get("kind") or "")
-        success = False
-        handoff_attempts = None
-        rejected_reason = None
+        kind, data = parsed
         with self._lock:
             if self._flow is not flow or flow["state"] in (
                     STATE_SUCCESS, STATE_FAILED, STATE_CANCELED):
                 return
-            try:
-                if kind == "challenge":
-                    challenge_id = str(data.get("challenge_id") or "")
-                    if challenge_id and challenge_id == str(flow.get("challenge_id") or ""):
-                        # 同一 challenge 的事件更新（重复投递）：不清空输入状态、
-                        # 不清空已输入状态，只非破坏性同步计数，也不补发事件
-                        # ——新事件会被手机当成新验证码，清掉正在输入的码。
-                        flow["attempts"] = max(int(flow.get("attempts") or 0),
-                                               max(0, int(data.get("attempts") or 0)))
-                        flow["max_attempts"] = 0
-                        return
-                    flow["submit_pending"] = False
-                    flow["state"] = STATE_WAITING_CODE
-                    flow["challenge_id"] = challenge_id
-                    image = str(data.get("image") or "")
-                    flow["image"] = image if image.startswith("data:image/png;base64,") else ""
-                    flow["expires_in"] = None
-                    flow["deadline"] = None
-                    flow["attempts"] = max(0, int(data.get("attempts") or 0))
-                    if self._manual_after and flow["attempts"] >= self._manual_after:
-                        # 自动识别连续认错到上限：这一场转人工，记下交接事实
-                        if flow.get("mode") == "auto":
-                            handoff_attempts = flow["attempts"]
-                            flow["handoff"] = True
-                        flow["mode"] = "manual"
-                    flow["max_attempts"] = 0
-                elif kind == "rejected":
-                    flow["submit_pending"] = False
-                    flow["attempts"] = max(0, int(data.get("attempts") or 0))
-                    flow["safe_error"] = _safe(data.get("reason"))
-                    rejected_reason = flow["safe_error"]
-                elif kind == "verifying":
-                    flow["state"] = STATE_VERIFYING
-                elif kind == "success":
-                    # worker 若自己声明了完成方（它跑过 OCR），以它为准；
-                    # 没声明就沿用开局时的来源
-                    declared = str(data.get("origin") or "")
-                    if declared in ("auto", "phone"):
-                        flow["origin"] = declared
-                    flow["state"] = STATE_SUCCESS
-                    flow["safe_error"] = ""
-                    success = not flow.get("success_fired")
-                    flow["success_fired"] = True
-                elif kind in ("failed", "canceled"):
-                    flow["state"] = STATE_FAILED if kind == "failed" else STATE_CANCELED
-                    flow["safe_error"] = _safe(data.get("error"))
-            except (TypeError, ValueError, OverflowError):
+            outcome = apply_relay_event(flow, kind, data, self._manual_after)
+            if outcome["ignore"]:
                 return
             snapshot = public_state(flow, self._now())
-        if handoff_attempts is not None:
-            self._log("auto_relogin_handoff", attempts=handoff_attempts)
-        if rejected_reason is not None:
+        if outcome["handoff_attempts"] is not None:
+            self._log("auto_relogin_handoff", attempts=outcome["handoff_attempts"])
+        if outcome["rejected_reason"] is not None:
             self._log("auto_relogin_ocr_attempt",
-                      attempt=int(snapshot.get("attempts") or 0), result=rejected_reason)
+                      attempt=int(snapshot.get("attempts") or 0),
+                      result=outcome["rejected_reason"])
         if (kind == "challenge" and snapshot.get("mode") == "auto"
                 and callable(self._classify_captcha) and snapshot["image"]):
-            try:
-                code = str(self._classify_captcha(snapshot["image"]) or "")
-            except Exception:
-                code = ""
-            ocr_result = None
-            if not _VALID_CODE_RE.fullmatch(code):
-                with self._lock:
-                    if self._flow is flow and flow.get("challenge_id") == snapshot["challenge_id"]:
-                        flow["mode"] = "manual"
-                        flow["handoff"] = True
-                        snapshot = public_state(flow, self._now())
-                ocr_result = "invalid"
-            elif self._send_submit(flow, {
-                    "kind": "submit", "flow_id": snapshot["flow_id"],
-                    "challenge_id": snapshot["challenge_id"], "code": code}, automatic=True) == "sent":
-                with self._lock:
-                    if self._flow is flow:
-                        flow["state"] = STATE_VERIFYING
-                        snapshot = public_state(flow, self._now())
-                ocr_result = "submitted"
-            else:
-                ocr_result = "failed"
-            self._log("auto_relogin_ocr_attempt",
-                      attempt=int(snapshot.get("attempts") or 0), result=ocr_result)
-        if success:
+            snapshot = self._run_auto_ocr(flow, snapshot)
+        if outcome["success"]:
             self._notify_success(flow)
         self._emit("phone_relogin", snapshot)
 
@@ -544,8 +477,3 @@ class LoginRelayService:
             self._on_finish()
         except Exception:  # noqa: BLE001
             pass
-
-
-def _safe(value) -> str:
-    text = str(value or "")
-    return text if text in _SAFE_ERRORS else "internal"
