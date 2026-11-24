@@ -113,7 +113,7 @@
 | 计划栏阶段 | 草稿·没选(禁用开始) / 草稿·已选 / 草稿·有提醒 / 等开放(琥珀倒计时) / 修改中 / 提交中(红色倒计时) / 结果(大数字) |
 | 计划条（中窄档底部） | 草稿 / 修改中 / 运行中（沿用倒计时）/ 结果（结论标题与副行，不给开始），与计划栏同源 |
 | 结果分类 | 已报名(绿) / 名额已满(中性) / 待核对(中性) / 错过了(红，电脑睡眠盖住开放时刻且没提交) / 未成功(红) / 登录失效(红) |
-| 设置抽屉 | 三组导航：高级功能 / 登录 / 程序；高级功能的两张卡照原型改成「一项一行」——图标、名称与一句状态、至多一个主按钮、展开箭头，其余收进展开区（见「设置里的组件行」小节）；手机访问的四种连接状态与识别行各档见「手机连接状态」与「组件状态机」两节；登录组为登录恢复（没账号 / 已保存 / 仅本次运行 / 密码被拒）；程序组含本机数据与撤回同意入口 |
+| 设置抽屉 | 三组导航：高级功能 / 登录 / 程序；高级功能的两张卡照原型改成「一项一行」——图标、名称与一句状态、至多一个主按钮、展开箭头，其余收进展开区（见「设置里的组件行」小节）；手机访问的四种连接状态与识别行各档见「手机连接状态」与「组件状态机」两节；登录组为登录恢复（没账号 / 已保存 / 仅本次运行 / 密码被拒）；程序组含飞书提醒、本机数据与撤回同意入口 |
 | 帮助面板 | 三步说明 + 快捷键 + 页脚「重看引导」「知道了」 |
 | 横幅 | 单次只一条，优先级：组件缺失 > 条款未同意 > 断网 > 刚睡眠 > 登录问题 > 时间问题 > 工具已经开着（第二份启动唤回时） |
 | 窗口出口 | 最小化(默认焦点) / 直接关闭 / 隐藏到后台；计划运行中退出要二次确认 |
@@ -206,6 +206,8 @@
 | `stop()` | — | `{ok:bool, text?}` | 兼容旧 UI：停止当前计划或单活动任务 |
 | `open_data()` | — | `{ok:true}` | 直接返回 |
 | `save_prefs(patch)` | 对象，浅合并写入统一数据根下的 `ui.json`（先确保数据目录存在） | `{ok:true}` | 直接返回 |
+| `save_feishu_webhook(url)` | 机器人地址字符串；空串表示清空 | `{ok:true, url, text}` 或 `{ok:false, error, text}`，`error` ∈ `bad_url` / `config_unreadable` / `write_failed` | 直接返回；只写 `config.json` 的 `feishu_webhook`，其他键原样保留 |
+| `test_feishu_webhook(url)` | 同上 | `{ok:true, text}` 或 `{ok:false, error, text}`，`error` ∈ `empty_url` / `bad_url` / `send_failed` | 直接返回；走既有 webhook 适配器发一条测试消息，失败原因只写异常类别、不回显地址 |
 | `accept_terms(document_version)` | `document_version` = 用户实际读到的内嵌全文版本（`#dlg-terms-document-version`，如 `2026-11-03-r4`） | `{ok:true, terms:{version, accepted_version, accepted_at}}` 或 `{ok:false, error:"terms_version_mismatch", text, terms}` / `{ok:false, text}`（如 prefs 锁竞争） | 直接返回（本机桥接，不进学校 API） |
 | `withdraw_terms()` | — | `{ok:true, terms:{version, accepted_version:null, accepted_at:null, withdrawn_at}}` 或 `{ok:false, text}` | 直接返回；后端会检查 `terms_withdrawn_eligible()`（计划 running/ready 时拒绝） |
 | `relogin_begin(source)` | `source ∈ {"manual", "auto", "phone"}` | `{ok:true}` / `{ok:false, text}` | `onBackend.done`（`kind:"login"`），`source` 会附在 done 事件里 |
@@ -941,6 +943,18 @@
 4. **后台不闪**：`refresh(true, {background:true})` 不置 `S.listState="loading"`（不出骨架）、不置 `S.login.checking`（不进「检查中」）、不 `render()`、不开条款弹窗、不开结果框或横幅；兜底计时器（100 / 130 秒）改看内部 pending 标志收口。成功时走既有 `applyActivities` 成功路径：勾选保留仍在列表里的场次，筛选与滚动容器不动；「N 分钟前更新」照常显示上次成功时刻。
 5. **后台失败**：保留原有列表与勾选，不切错误空态、不挂横幅、不写失败日志。回包失败、桥接异常、入队被拒、130 秒无回应四条路径统一累计次数，**连续 3 次**才在运行记录写一条「活动列表自动刷新连续 3 次没成功，列表还是 HH:MM 的；可以点「刷新」重试」（HH:MM 是最近一次列表成功的北京时间，不可得时写「列表还是上次的」），之后继续失败不再刷屏；任何一次列表成功（手动或后台）都把计数清零，要重新连续 3 次才再写。手动刷新失败的老行为不变（清空列表并显示错误空态）。
 6. **验收**：`local/tests/screens/test_ui_reliability.py::AutoListRefreshTests`（node 沙箱，逐条跳过条件都有「单独成立不刷、撤掉立即刷」的对照）与 `local/tests/desktop/test_application_services.py::WindowVisibilityTests`。真实窗口里隐藏到托盘时 `document.hidden` 的取值、10 分钟后台刷新是否无闪烁，需要真机确认。
+
+### 5.21 设置抽屉「飞书提醒」（2026-11-24）
+
+程序组在「本机数据」上方多一节「飞书提醒」，说明写「建一个只有你自己的群，加一个自定义机器人，把地址贴在这里。报名结果和登录失效都发到这个群。」
+
+1. **控件**：地址输入 `#feishu-url`（`aria-label="飞书机器人地址"`，占位 `https://…`）、两个按钮 `#btn-feishu-test`「发测试消息」与 `#btn-feishu-save`「保存」、一行就地反馈 `#feishu-note`（`role="status"`，平时 `hidden`）。
+2. **校验**：只认 `https://` 且带主机名的地址；`http://`、含空白、认不出主机的都不保存。空串是「清空」，不是非法地址。
+3. **保存**：写回 `config.json` 的 `feishu_webhook`，其他键原样保留；现有 `config.json` 读不出来（权限、占用、不是合法 JSON）时拒绝保存、不覆盖原文件，提示「这次没有保存」。成功写「已保存，飞书提醒会发到这个群。」，清空写「地址已清空，不再发飞书提醒。」。
+4. **测试消息**：走既有 `feishu_webhook` 适配器；成功写「测试消息已发出，去群里看看。」，失败写「测试消息没发出去（<异常类别>）：检查网络，或确认地址是从群里复制的。」——不回显地址。
+5. **反馈样式**：成功与提示用 `ph-note`，失败用 `ph-note ph-err`；只在保存或发测试之后出现，不写大屏、不进运行记录。输入框只在打开抽屉时对齐已保存的地址，之后的输入不被重画覆盖。
+6. **推送口径不变**：报名结果与登录失效沿用现有通道（`grab.py` 结果卡片 + 基础设施里的 webhook 适配器），本设置只改地址，不另写发送。
+7. **原型**：`design/prototype/workbench-2026-11/Main.dc.html` 的设置画板同节（地址、两个按钮、说明文字），实现与它同布局；交互是本地演示，不发真请求。
 
 ## 6. 文案要求
 

@@ -21,6 +21,7 @@
 | [auto-relogin-failure-notice.md](auto-relogin-failure-notice.md) 自动登录失败后怎么告知用户 | proposed（尚未实现） |
 | [workbench-ui-polish.md](workbench-ui-polish.md) 工作台界面打磨：时间轴列表、设置抽屉与状态过渡 | proposed（方向已定，原型和代码未改） |
 | [engineering-refactor.md](engineering-refactor.md) 代码工程化重构：状态机、单一规则与模块边界 | proposed（方向已定，1.2.2 发版后审计再定计划） |
+| [owner-chat-self-service.md](owner-chat-self-service.md) 私聊自助：不打开学校平台也能管好自己的报名 | proposed（2026-11-24 已确认并拆计划，落地后转入 decisions） |
 
 ## 生命周期
 

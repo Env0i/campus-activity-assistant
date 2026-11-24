@@ -15,10 +15,10 @@
 ```
 /root/campus-activity-watch/      应用与脚本
 ├── scripts/                     生产脚本（cron 用相对路径调用）
-│   ├── lib/                     公共库（common / fetch / notify / card / render / site_target）
+│   ├── lib/                     公共库（common / fetch / notify / card / render / site_target / school_detail / mine_rules / mine_cards）
 │   ├── login/                   登录探针与寿命统计（login / token_probe / token_report）
-│   ├── push/                    日报推送与动态监测（run / remind / scan / activity_watch / query）
-│   ├── signup/                  预报名清单与调度（watchlist / watchlist_runner / grab_card）
+│   ├── push/                    日报推送、动态监测与提醒（run / remind / scan / activity_watch / query / attend_remind / personal_notice）
+│   ├── signup/                  预报名清单、调度与取消（watchlist / watchlist_runner / grab_card / cancel_signup / cancel_actions.js）
 │   └── ops/                     运维自检与触发（net_probe / regress / selfcheck / trigger_server）
 ├── bot/                         飞书长连接机器人（bot.js + node_modules）
 ├── deploy/                      部署脚本与 systemd 模板
@@ -85,7 +85,8 @@ journalctl -u campus-bot -n 100 --no-pager
 30 16 * * * cd /root/campus-activity-watch && /usr/bin/python3 scripts/push/run.py                                          >> data/cron.log 2>&1
 30 21 * * * cd /root/campus-activity-watch && /usr/bin/python3 scripts/push/run.py --late-checkin --with-open                >> data/cron.log 2>&1
 */5  * * * * cd /root/campus-activity-watch && /usr/bin/python3 scripts/push/scan.py                                        >> data/scan.log 2>&1
-*    * * * * cd /root/campus-activity-watch && /usr/bin/python3 scripts/push/activity_watch.py                              >> data/activity_watch.log 2>&1
+*    * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 scripts/push/activity_watch.py   >> data/activity_watch.log 2>&1
+7-59/5 * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 scripts/push/attend_remind.py >> data/attend_remind.log 2>&1
 */15 * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 scripts/login/token_probe.py    >> data/token_probe.log 2>&1
 */30 * * * * cd /root/campus-activity-watch && /usr/bin/python3 scripts/login/token_report.py                                >> data/token_report.log 2>&1
 */5  * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 scripts/ops/net_probe.py      >> data/net_probe.log 2>&1
@@ -98,6 +99,11 @@ journalctl -u campus-bot -n 100 --no-pager
 - `activity_watch.py` **每分钟唤醒，但不是每分钟访问学校**：它读 `data/activity_watch.json` 的
   `next_poll_at` 自己控频（白天 3 分钟 / 夜间 10 分钟；**没有**临近开放加密这一档）。
   这样「刚开放那一分钟」能被赶上，又不会变成全天每分钟打接口。
+- `activity_watch.py` 那一行现在**必须带 `PRIVATE_OWNER_OPEN_ID`**：本人已报名或排队场次的改期、
+  下架与冲突复核对内私聊 owner；没配时只记日志，公共群消息不受影响。
+- `attend_remind.py` 每 5 分钟唤醒（`7-59/5` 错开整点），只有落进提醒窗口的场次才查 `getInfo`，
+  同一场当天只查一次；没有临近场次时一次 `getInfo` 都不调。去重状态在 `data/attend_remind.json`，
+  发送成功才记，错过窗口不补发。
 - 所有行都 `cd` 到应用目录——脚本里用的是 `data/...` 相对路径。
 - 改完用 `crontab -l` 复核，别用编辑器覆盖整个 crontab（历史上因此丢过行）。
 
@@ -108,7 +114,8 @@ journalctl -u campus-bot -n 100 --no-pager
 | `data/cron.log` | 定时推送的成功/失败、异常堆栈 |
 | `data/remind.log` | 07:05 私聊提醒 |
 | `data/scan.log` | 临近提醒（开放前 10 分钟） |
-| `data/activity_watch.log` | 动态监测：每轮一行（活动库条数、事件数、下次时间、用时）；失败与退避也在这里 |
+| `data/activity_watch.log` | 动态监测：每轮一行（活动库条数、事件数、下次时间、用时）；失败与退避、私聊变动通知是否发出也在这里 |
+| `data/attend_remind.log` | 开始与签退提醒：每轮选中哪些场次、发了什么、没发的原因（未知详情、错过窗口、已发过） |
 | `data/token_probe.log` | 每 15 分钟一行：`时间 token=指纹 saved_at=… age=… result=ok|fail|…` |
 | `data/token_report.log` | token 寿命汇总 |
 | `data/net_probe.log` | 出网自检：`result=ok|fail|http-error` |
@@ -153,6 +160,9 @@ cd /root/campus-activity-watch && python3 scripts/push/activity_watch.py --dry-r
 
 # 动态监测：忽略排期立刻跑一轮（真发）
 cd /root/campus-activity-watch && python3 scripts/push/activity_watch.py --force
+
+# 手动跑一轮开始/签退提醒（真发；已发过的按 data/attend_remind.json 去重）
+cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx python3 scripts/push/attend_remind.py
 
 # 对比某条活动的「原定开放 / 本次发现 / 上次状态」
 python3 -c "
@@ -202,6 +212,9 @@ ssh root@<你的服务器IP> 'systemctl restart campus-bot && systemctl is-activ
 | 新活动过了很久才出现 | `activity_watch.log` 尾部：`未到下一轮时间` 说明控频正常；`第 N 次连续失败` 说明抓取在退避；两者都没有但无事件，看 `data/activity_watch.json` 里该活动是否已有 `discovered_at` |
 | 动态监测完全不动 | `config.json` 的 `watch.enabled` 是否被写成 false；`data/activity_watch.json` 是否损坏（日志会写「解析失败」，原文件不会被动） |
 | 私聊没消息 | `remind.log` / `watchlist.log` 是否出现「未配置 PRIVATE_OWNER_OPEN_ID」；`users.json` 的 p2p 记录与 `private_chat_id` 是否一致 |
+| 开始 / 签退提醒没到 | `attend_remind.log`：cron 行是否为 `7-59/5`、是否出现「未配置 PRIVATE_OWNER_OPEN_ID」；`data/attend_remind.json` 的 `sent` 里是否已有「场次 + start/checkout」；错过窗口不补发是设计 |
+| 场次变动没收到私聊 | `activity_watch.py` 的 cron 行是否带 `PRIVATE_OWNER_OPEN_ID`；`data/personal_notice.json` 里是否还压着发不出去的通知；公共群消息有没有照常到达 |
+| 私聊点「取消报名」没出确认卡 | `journalctl -u campus-bot` 里 `cancel confirm card failed`；在应用目录手跑 `python3 scripts/signup/cancel_signup.py confirm --id <id> --name <名称>` 看那一行 JSON |
 | 登录态失效 | `token_probe.log` 尾部 `result=fail` → 看 `/root/campus-login/auto_login.log` 是否已自动重登 → 不行就本机 `login.py` 后传 `storage_state.json` |
 | 接口 timeout / handshake | `net_probe.log`：`net=school-only` 是学校侧，`net=down` 是整机断网；ECS 带宽为 0 时表现为 TLS 握手超时 |
 | 自动登录失败 | `auto_login.log` 里 `login_rejected` / `ocr_incomplete`；确认 `credentials.json` 存在且 600、账号密码没改 |

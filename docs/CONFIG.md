@@ -60,7 +60,7 @@
 | 键 | 必填 | 说明 |
 |---|---|---|
 | `site.base` | 运行学校功能时必填 | 目标学校站点根地址；留空时只能运行离线部分 |
-| `feishu_webhook` | 否 | 群自定义机器人地址；填了抢报名结果会发飞书卡片，留空只在控制台打印 |
+| `feishu_webhook` | 否 | 群自定义机器人地址；填了抢报名结果会发飞书卡片，留空只在控制台打印。设置抽屉的「飞书提醒」一节可以直接填、保存和发测试消息，保存时只改这一个键 |
 
 本机版**不需要** `app_id` / `app_secret`：它只推送结果，不接收消息，也不发私聊。
 
@@ -82,6 +82,8 @@
 | `data/state.json` | run/scan | 推送进度（`announced` / `last_push_ts` / `reminded_signup`） | 删了会重推，不建议 |
 | `data/activity_watch.json` | activity_watch | 公开活动的发现时刻、上次状态、待推送事件 | 删了会把现有活动全当「首次发现」重发一轮 |
 | `data/watchlist.json` | bot / runner | owner 的预报名清单 | 删了等于放弃所有预报名 |
+| `data/attend_remind.json` | attend_remind | 开始/签退提醒去重（「场次 + 提醒类型」，发送成功才记）与当天的详情缓存 | 删了会把当天的提醒重发一轮；只想重发某一场，删对应的 `sent` 条目 |
+| `data/personal_notice.json` | activity_watch | 已报名/排队场次变动、下架、冲突的私聊待发与已发记录 | 删了会重发最近一批变动（只发给 owner） |
 | `bot/data/users.json` | owner 实例 | 私聊收件人表（只记 p2p） | 删了私聊静默，需本人重新私聊一次 |
 
 ---
@@ -93,7 +95,7 @@
 | 变量 | 默认 | 谁读 | 作用 |
 |---|---|---|---|
 | `SCHOOL_ORIGIN` | 占位域名（真实值见 `config.json` 的 `site.base`） | `common.py` | 目标学校站点根地址，**换目标学校只改这一处**（`API_BASE`、`HOME_URL` 都由它拼） |
-| `PRIVATE_OWNER_OPEN_ID` | 空 | `notify.py`、`grab_signup.py`、`bot.js` | owner 的 `open_id`；空 = 私聊全部关闭，`private_owner` 实例拒绝启动 |
+| `PRIVATE_OWNER_OPEN_ID` | 空 | `notify.py`、`grab_signup.py`、`bot.js`、`activity_watch.py`、`attend_remind.py` | owner 的 `open_id`；空 = 私聊全部关闭（个人变动通知与开始/签退提醒只记日志），`private_owner` 实例拒绝启动 |
 | `WATCHLIST_FILE` | `server/data/watchlist.json` | `watchlist.py` | 预报名清单路径（测试用） |
 | `GRAB_SCRIPT` | `/root/campus-login/grab_signup.py` | `watchlist_runner.py` | 抢报名脚本绝对路径 |
 | `GRAB_STATUS_DIR` | `server/data` | `watchlist_runner.py` | `systemd-run` 退出码落盘目录 |
@@ -101,7 +103,7 @@
 | `TRIGGER_TOKEN` | 空 | `trigger_server.py` | 触发口令；**为空时服务拒绝启动** |
 | `PYTHONIOENCODING` | — | 全部 | 建议 `utf-8`（Windows 控制台打印符号会崩） |
 
-> `activity_watch.py` 不需要任何环境变量：轮询间隔在 `config.json` 的 `watch` 段，状态文件固定在 `data/`。
+> `activity_watch.py` 的轮询间隔在 `config.json` 的 `watch` 段，状态文件固定在 `data/`；只有 `PRIVATE_OWNER_OPEN_ID` 要注入——没有它照常运行，但本人场次的变动、下架与冲突只记日志、不发私聊。
 > 时区也不靠环境变量——业务时间统一按 `common.business_now()`（固定 +08:00）算，
 > 服务器时区设错也不会把「待开放」判成「已结束」。
 
@@ -195,6 +197,10 @@ cron 里没有 systemd 的环境变量，必须**写在同一行**（或 crontab
 }
 ```
 
+设置抽屉的「飞书提醒」一节等价于手改这一行：只接受 `https://` 地址，保存时只改 `feishu_webhook`、
+其他键原样保留；现有 `config.json` 读不出来时拒绝保存、不覆盖；「发测试消息」走同一个 webhook 适配器，
+成功或失败原因就在设置里显示。说明文字：建一个只有你自己的群，加一个自定义机器人，把地址贴在这里。
+
 ---
 
 ## 4. 校验与常见配置错误
@@ -218,6 +224,8 @@ python3 scripts/ops/selfcheck.py          # 凭据、缓存、锁、卡片构造
 | 预报名按钮点击无效 | `PRIVATE_OWNER_OPEN_ID` 与 `users.json` 的键不一致，或卡片被转发到别的会话 |
 | 活动被过滤掉了 | `filter.keyword_blocklist` 命中标题（只影响推送，动态监测仍会记录状态） |
 | 换目标学校后全 404 | `SCHOOL_ORIGIN` 没改，或目标学校接口结构不同（本项目按当前学生端适配） |
+| 本机设置里保存飞书地址提示「读不出现有的 config.json」 | 文件被占用或没有读权限；这次没有保存、原文件未改，修好后再保存 |
+| 本机设置里发测试消息失败 | 看就地提示里的异常类别（多半是网络或地址从群里没复制全）；地址只接受 `https://` |
 
 ---
 
