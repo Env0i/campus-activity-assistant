@@ -75,11 +75,12 @@ CRON_LINES="0 7 * * * cd $APP && ${OWNER_ENV}$PY scripts/push/run.py --with-grab
 4-59/15 * * * * cd $APP && ${OWNER_ENV}$PY scripts/login/token_probe.py >> $APP/data/token_probe.log 2>&1
 9-59/30 * * * * cd $APP && $PY scripts/login/token_report.py >> $APP/data/token_report.log 2>&1
 1-59/5 * * * * cd $APP && ${OWNER_ENV}$PY scripts/ops/net_probe.py >> $APP/data/net_probe.log 2>&1
+7-59/5 * * * * cd $APP && ${OWNER_ENV}$PY scripts/push/attend_remind.py >> $APP/data/attend_remind.log 2>&1
 * * * * * sleep 20; cd $APP && ${OWNER_ENV}$PY scripts/signup/watchlist_runner.py >> $APP/data/watchlist.log 2>&1
 * * * * * sleep 40; cd $APP && $PY scripts/push/activity_watch.py >> $APP/data/activity_watch.log 2>&1"
 
 ( crontab -l 2>/dev/null | grep -v 'campus-activity-watch' || true; echo "$CRON_LINES" ) | crontab -
-echo "✓ 已安装定时任务：清单 07:00（--with-grab）/ 10:30 / 16:30 / 21:30，私人提醒 07:05，扫描每 5 分钟，令牌探活每 15 分钟、令牌报告每 30 分钟、出网自检每 5 分钟、预报名 runner 每分钟、动态监测每分钟唤醒（自行控频）"
+echo "✓ 已安装定时任务：清单 07:00（--with-grab）/ 10:30 / 16:30 / 21:30，私人提醒 07:05，扫描每 5 分钟，令牌探活每 15 分钟、令牌报告每 30 分钟、出网自检每 5 分钟、开始与签退提醒每 5 分钟、预报名 runner 每分钟、动态监测每分钟唤醒（自行控频）"
 echo
 crontab -l | grep 'campus-activity-watch'
 echo

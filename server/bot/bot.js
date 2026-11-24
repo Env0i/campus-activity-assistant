@@ -25,6 +25,8 @@ const APP_SECRET = process.env.FEISHU_APP_SECRET;
 const APP_DIR = process.env.APP_DIR || '/root/campus-activity-watch';
 const PY = process.env.PY_BIN || '/usr/bin/python3';
 const USERS_FILE = path.join(__dirname, 'data', 'users.json');
+const { CancelActions, CANCEL_GROUP_DENIED } = require('../scripts/signup/cancel_actions');
+const cancelActions = new CancelActions({ execFile, py: PY, appDir: APP_DIR, log, decodeBtnValue });
 
 // 唯一有效角色。名字会写进文档与 systemd 单元，改动要同步 docs/FEISHU_BOT.md。
 const ROLE_COMBINED = 'combined';
@@ -529,7 +531,7 @@ async function handleCardAction(data) {
     if (text.length > 1 && text[0] === '"' && text[text.length - 1] === '"') {
       text = text.slice(1, -1).trim();
     }
-    const isGrab = text.startsWith('g:') || text.startsWith('u:');
+    const isPersonal = /^(g|u|c|x):/.test(text);
     // 卡片落在哪种会话里：优先看回调的 chat_type，但它并非每个版本的飞书
     // 都会带上（线上日志出现过 chat: unknown）。会话类型缺失时，用
     // 「点击会话 == 已记录的 owner 私聊」兜底——这个 chat_id 只可能来自
@@ -542,10 +544,11 @@ async function handleCardAction(data) {
     // 解析出的会话类型用于视图集：命中 owner 私聊就按 p2p 处理，其余保持原样
     const viewChatType = isOwnerP2p ? 'p2p' : chatType;
 
-    if (isGrab && !isOwnerP2p) {
-      // 群（或会话类型未知）永远不进 handleGrabAction：不是「校验后拒绝」，是压根不进去
-      log('grab action denied: grab requires owner p2p chat');
-      return { toast: { type: 'error', content: GRAB_GROUP_DENIED } };
+    if (isPersonal && !isOwnerP2p) {
+      // 群（会话类型未知）永远不进个人动作：取消更不可逆，连确认卡都不给。
+      log('personal action denied: requires owner p2p chat');
+      const denied = /^[cx]/.test(text) ? CANCEL_GROUP_DENIED : GRAB_GROUP_DENIED;
+      return { toast: { type: 'error', content: denied } };
     }
 
     if (isOwnerP2p && !ownerCardActionAllowed(data)) {
@@ -554,16 +557,13 @@ async function handleCardAction(data) {
       return { toast: { type: 'error', content: GRAB_DENIED } };
     }
 
+    // 个人动作都只来自 owner 私聊：g:/u: 是预报名增删，c:/x: 是取消已报名。
+    if (isPersonal) return await (/^[cx]:/.test(text) ? cancelActions.handle(data, text) : handleGrabAction(data, text));
+
     const m = text.match(/v:([A-Za-z]+)/);
     const view = m ? m[1].toLowerCase() : 'pending';
     log('card action:', JSON.stringify(raw), '-> text:', text, '-> view:', view,
       '-> chat:', viewChatType || 'unknown', '-> role:', BOT_ROLE);
-
-    // 预报名 / 取消预报名：value 是 g:<base64> 或 u:<活动id>，
-    // 只可能是 owner 私聊（上面已挡掉其它场合），handleGrabAction 里还会再校验一次。
-    if (isGrab) {
-      return await handleGrabAction(data, text);
-    }
 
     if (!allowedViews(viewChatType).includes(view)) {
       return { toast: { type: 'info', content: '这个按钮暂时没做' } };

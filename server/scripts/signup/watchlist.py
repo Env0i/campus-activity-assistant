@@ -32,7 +32,9 @@ for _sub in ("signup", "lib"):
     _p = str(ROOT / "scripts" / _sub)
     if _p not in sys.path:
         sys.path.insert(0, _p)
-from common import atomic_write_text, file_lock  # noqa: E402
+import fetch  # noqa: E402
+import mine_rules as rules  # noqa: E402
+from common import atomic_write_text, file_lock, load_session  # noqa: E402
 
 # 测试时可以指到临时文件，避免污染真实清单
 FILE = Path(os.environ.get("WATCHLIST_FILE") or (ROOT / "data" / "watchlist.json"))
@@ -113,10 +115,74 @@ def _refresh_card() -> None:
         print("[!] 卡片刷新失败：%s" % exc)
 
 
+def _list_items() -> list:
+    """取一次活动列表，供冲突比对看「本人报了谁、清单里排着谁」。
+
+    取不到就抛出：静默放行等于把两个撞车的场次一起排进清单，
+    到点必然有一场白抢，还占着已报名的名额。
+    """
+    token = str(load_session().get("token") or "").strip()
+    if not token:
+        raise RuntimeError("没有登录态，没法确认已报名场次的时段，先不加入")
+    try:
+        return fetch.fetch_all(token)
+    except Exception as exc:                                  # noqa: BLE001
+        raise RuntimeError("取活动列表失败（%s），没法确认是否和已报名的撞上，先不加入"
+                           % type(exc).__name__) from exc
+
+
+def _span(item: dict):
+    """一场活动的举办时段；没公布或写坏都算「查不到」，返回 None。"""
+    return rules.interval(item.get("act_start"), item.get("act_end"))
+
+
+def _span_text(item: dict) -> str:
+    return rules.span_text(item.get("act_start"), item.get("act_end")) or "%s–%s" % (
+        item.get("act_start") or "?", item.get("act_end") or "?")
+
+
+def _conflict_note(activity_id: str, items: list, entries: list) -> str:
+    """新场次和已报名、清单里排队中的场次比举办时段，半开区间重叠就算冲突。
+
+    冲突、对方时段查不到都抛 RuntimeError（拒绝加入并说明）；只有新场次自己的
+    举办时间没公布时返回一句备注——那时允许加入，硬拦下来等于凭空少一次报名机会。
+    """
+    target = next((it for it in items if it.get("id") == activity_id), None)
+    mine = _span(target) if target else None
+    if mine is None:
+        return "举办时间未公布，暂时没法检查是否和已报名或排队的场次冲突"
+    for item in items:
+        if item.get("id") == activity_id or not item.get("signed"):
+            continue
+        other = _span(item)
+        if other is None:
+            raise RuntimeError("已报名的「%s」举办时间未知，可能和这场撞上，先不加入"
+                               % (item.get("name") or "活动"))
+        if rules.overlaps(mine, other):
+            raise RuntimeError("和已报名的「%s」时段重叠：%s"
+                               % (item.get("name") or "活动", _span_text(item)))
+    for entry in entries:
+        if entry.get("id") == activity_id or entry.get("status") not in ACTIVE:
+            continue
+        queued = next((it for it in items if it.get("id") == entry.get("id")), None)
+        other = _span(queued) if queued else None
+        if other is None:
+            raise RuntimeError("清单里排着「%s」，但查不到它的举办时间，可能和这场撞上，先不加入"
+                               % (entry.get("name") or "活动"))
+        if rules.overlaps(mine, other):
+            raise RuntimeError("和清单里排队的「%s」时段重叠：%s"
+                               % (entry.get("name") or "活动", _span_text(queued)))
+    return ""
+
+
 def add(activity_id: str, name: str, open_at: str,
         lead: float = DEFAULT_LEAD, window: float = DEFAULT_WINDOW,
-        sign_end: str = "") -> dict:
-    """同一活动重复点「预报名」按覆盖处理，不叠出两条。"""
+        sign_end: str = "", items: list = None) -> dict:
+    """同一活动重复点「预报名」按覆盖处理，不叠出两条。
+
+    items 是调用方先取好的活动列表（命令行路径总传）：传了就在写清单前做时段
+    冲突检查，撞车或查不清直接拒绝，清单一个字节都不动。
+    """
     start = parse_at(open_at)          # 先校验，避免把写坏的时间存进去
     end_ts = None
     if str(sign_end or "").strip():
@@ -130,6 +196,8 @@ def add(activity_id: str, name: str, open_at: str,
         raise RuntimeError(
             "这场报名窗口已经结束（%s 开放），预报名不适用" % open_at)
     with _transaction() as (entries, state):
+        # 冲突检查放在锁内：清单刚被别的点击改过也能看到最新的排队场次
+        note = _conflict_note(activity_id, items, entries) if items is not None else ""
         entry = find(entries, activity_id)
         if entry is None:
             entry = {"id": activity_id, "attempts": 0, "created_at": now_str()}
@@ -147,6 +215,8 @@ def add(activity_id: str, name: str, open_at: str,
             "finished_at": "",
         })
         state["changed"] = True
+    if note:
+        entry["conflict_note"] = note   # 只回给调用方看，事务已经写完，不会进清单文件
     return entry
 
 
@@ -168,6 +238,14 @@ def mark(activity_id: str, **fields) -> dict:
         entry.update(fields)
         state["changed"] = True
     return entry
+
+
+def _add_line(entry: dict) -> str:
+    """加入成功的那一行；举办时间没公布时把「没查冲突」一并写出来。"""
+    line = "已加入预报名：%s  %s（提前 %d 秒开页面）" % (
+        entry["name"], entry["open_at"], int(entry["lead"]))
+    note = entry.get("conflict_note") or ""
+    return line + ("（%s）" % note if note else "")
 
 
 def _fmt_line(e: dict) -> str:
@@ -205,12 +283,11 @@ def main(argv=None) -> int:
     if args.cmd == "add":
         try:
             entry = add(args.id, args.name, args.at, args.lead, args.window,
-                        args.sign_end)
+                        args.sign_end, items=_list_items())
         except (ValueError, RuntimeError) as exc:
             print("[x] %s" % exc)
             return 1
-        print("已加入预报名：%s  %s（提前 %d 秒开页面）"
-              % (entry["name"], entry["open_at"], int(entry["lead"])))
+        print(_add_line(entry))
         return 0
 
     if args.cmd in ("remove", "cancel"):

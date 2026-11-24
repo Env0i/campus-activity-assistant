@@ -45,6 +45,7 @@ from common import (ACTIVITY_WATCH_FILE, ACTIVITY_WATCH_LOCK,  # noqa: E402
                     load_session, load_watch_config, try_file_lock)
 from fetch import (STATUS_CLOSED, STATUS_OPEN, STATUS_PENDING, STATUS_UNKNOWN,  # noqa: E402
                    classify_public, fetch_all, parse_dt)
+import personal_notice                                     # noqa: E402
 
 # 状态文件与锁由模块级变量持有，测试可以整体替换成临时目录，
 # 不必读写真仓库的 data/。
@@ -81,8 +82,7 @@ FIELD_LABELS = {
     "checkin": "签到时间",
 }
 
-# 连续三轮都抓不到才认为活动真的从活动库里消失了。
-# 学校分页偶发少返回一页是常态，一轮没见到就宣布结束会造成假消息。
+# 连续三轮都抓不到才认为活动真的消失了：学校分页偶发少返回一页是常态。
 MISSING_ROUNDS_LIMIT = 3
 
 
@@ -423,16 +423,17 @@ def _run_once(state: dict, settings: dict, token: str, now: datetime,
 
     rows = classify_public(items, now)
 
-    # 首次成功抓取只建基线。判据同时看 activities 与 baseline_initialized：
-    # 一旦建过基线，即使活动库暂时被清空（连续缺失后全部移除），
-    # 也不该把之后的第一条新活动当成「首次运行」静默吞掉。
+    # 首次成功抓取只建基线：判据同时看 activities 与 baseline_initialized，
+    # 建过基线后活动库被清空，也不该把之后第一条新活动当成首次运行吞掉。
     bootstrap = not (state.get("activities") or state.get("baseline_initialized"))
     if bootstrap:
         initialize_baseline(state, rows, now)
     else:
-        activities, fresh = compute_events(state.get("activities") or {}, rows, now)
+        prev_rows = state.get("activities") or {}
+        activities, fresh = compute_events(prev_rows, rows, now)
         state["activities"] = activities
         state["pending_events"] = merge_pending(state.get("pending_events") or [], fresh)
+        gone = [row for aid, row in prev_rows.items() if aid not in activities]
 
     state["last_run_at"] = now.strftime(FMT)
     state["last_success_at"] = now.strftime(FMT)
@@ -441,18 +442,17 @@ def _run_once(state: dict, settings: dict, token: str, now: datetime,
     state["next_poll_at"] = _next_at(settings, now)
 
     if bootstrap:
-        # 首轮静默：不调用 _send，也不留待推事件。
-        # 没有「强制首轮播报」开关——部署脚本一旦误加参数就是一次群刷屏，
-        # 需要主动播报时人工跑固定日报就够了。
+        # 首轮静默：不调用 _send、不留待推事件；也没有「强制首轮播报」开关，
+        # 部署脚本误加参数就是一次群刷屏，需要播报时人工跑固定日报。
         if dry:
-            print("[i] --dry-run：baseline_initialized，%d 条活动只建基线，不写状态"
-                  % len(rows))
+            print("[i] --dry-run：baseline_initialized，%d 条活动只建基线，不写状态" % len(rows))
             return 0
         save_state(state)
         print("[i] baseline_initialized：%d 条活动只建基线，本轮不发送通知；下次 %s（用时 %.1fs）"
               % (len(rows), state["next_poll_at"], time.time() - started))
         return 0
 
+    personal_notice.announce(items, fresh, gone, now, dry=dry)
     pending = state.get("pending_events") or []
     if not pending:
         if not dry:

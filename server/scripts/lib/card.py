@@ -273,20 +273,16 @@ def rush_card(items, now, lead_minutes=10):
                  "orange", elements,
                  ["只提醒开放时间；报名请在活动详情页自行完成"])
 
+def _buttons(current="", with_mine=False):
+    """底部快捷按钮。value 用字符串，飞书部分版本对 dict 值会报 200671。
 
-def mine_card(items, now):
-    elements = _items_to_elements(
-        items, _mine_md, now, empty_text="你还没有报名任何活动。")
-    return _card("我的报名 %d 项" % len(items),
-                 "更新于 %s" % now.strftime("%H:%M"), "green", elements,
-                 ["只列活动还没开始的"])
-
-
-def _buttons(current=""):
-    """底部快捷按钮。value 用字符串，飞书部分版本对 dict 值会报 200671。"""
-    specs = [("待报名", "v:pending", "primary"),
-             ("报名中", "v:open", "default"),
-             ("全部", "v:all", "default")]
+    with_mine 只给菜单卡用：群里点「我的报名」会被机器人拒绝，所以
+    公开卡片上不放这个按钮，避免发一个点了就被拒的死按钮。
+    """
+    specs = [("我的报名", "v:mine", "default")] if with_mine else []
+    specs += [("待报名", "v:pending", "primary"),
+              ("报名中", "v:open", "default"),
+              ("全部", "v:all", "default")]
     actions = []
     for label, value, btype in specs:
         if value.split(":", 1)[1] == current:
@@ -305,7 +301,7 @@ def menu_card(now):
     elements = [
         {"tag": "div", "text": {"tag": "lark_md", "content":
             "我能查这些，点下面的按钮，或者直接 @我 说关键词。"}},
-        _buttons(""),
+        _buttons("", with_mine=True),
     ]
     return _card("学生活动助手", "群聊菜单", "blue", elements,
                  "点按钮切换，或直接 @我 说关键词")
@@ -410,6 +406,9 @@ def grab_pending_card(items, now, queued_ids=(), subtitle=None):
         # 用户还得自己回忆「我刚点的到底是哪一场」。
         if vid and vid in queued:
             text += "\n**已预报名** ✅ 到点自动报名，结果私聊回报"
+            # 举办时间没公布就查不了冲突：允许先排着，但要在卡上说明这一点
+            if not str(it.get("act_start") or "").strip():
+                text += "\n举办时间未公布，暂时没法检查是否和已报名或排队的场次冲突"
         elements.append({"tag": "div",
                          "text": {"tag": "lark_md", "content": text}})
         if not vid:

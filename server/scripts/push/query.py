@@ -9,21 +9,77 @@
 """
 import json
 import sys
+import time
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-from card import (all_card, menu_card, mine_card, open_card,  # noqa: E402
-                  pending_card)
-from common import MAX_LIST_ITEMS, fmt_when, load_config, load_session  # noqa: E402
-from fetch import classify, fetch_all, mine_items               # noqa: E402
+import mine_rules                                              # noqa: E402
+import school_detail                                           # noqa: E402
+from card import all_card, menu_card, open_card, pending_card   # noqa: E402
+from common import MAX_LIST_ITEMS, load_config, load_session   # noqa: E402
+from mine_cards import cancel_available, mine_card, mine_detail_text  # noqa: E402
+from fetch import classify, fetch_all                           # noqa: E402
 from render import open_lines, pending_lines, trim              # noqa: E402
 
 # 和卡片共用同一个上限：同一条活动在卡片里被截掉、在文字里还露出来，
 # 两条通道就会对不上，用户会以为某一端漏了。
 MAX_ITEMS = MAX_LIST_ITEMS
+
+# 我的报名要逐场查详情（签到签退、能否取消）。一次查询的总预算与单场超时：
+# 学校慢的时候宁可几场写「未知」，也不能让整张卡片等到超时。
+MINE_DETAIL_BUDGET_S = 20.0
+MINE_DETAIL_TIMEOUT_S = 8.0
+
+
+def apply_detail(item, response):
+    """把 getInfo 回包并进列表条目；查不到的部分保持 None，卡片会写未知。"""
+    facts = mine_rules.parse_attendance(response)
+    for key in ("checkin_required", "checkin_start", "checkin_end",
+                "checkout_required", "checkout_start", "checkout_end",
+                "cancel_allowed"):
+        item[key] = facts[key]
+    for key in ("sign_start", "sign_end"):
+        if not item.get(key) and facts[key]:
+            item[key] = facts[key]
+    data = mine_rules.detail_fields(response)
+    for key, school_key in (("act_start", "hdkssj"), ("act_end", "hdjssj")):
+        if not item.get(key) and data.get(school_key):
+            item[key] = str(data[school_key]).strip()
+
+
+def enrich_mine(items, token, now, budget_s=MINE_DETAIL_BUDGET_S,
+                clock=time.monotonic, fetch=school_detail.get_detail):
+    """逐场补详情：总预算内能查几场查几场，失败只标记，不抛给调用方。"""
+    deadline = clock() + budget_s
+    for it in items:
+        remaining = deadline - clock()
+        if remaining <= 0:
+            it["detail_unknown"] = True
+            continue
+        timeout = min(MINE_DETAIL_TIMEOUT_S, remaining)
+        try:
+            apply_detail(it, fetch(str(it.get("id") or ""), token, timeout))
+        except school_detail.SchoolRequestError:
+            it["detail_unknown"] = True
+    return items
+
+
+def not_ended(item, now):
+    """结束时间已知就按结束判；未知时不隐藏——藏掉一场还在进行的活动更糟。"""
+    end = mine_rules.parse_time(item.get("act_end"))
+    return end is None or end > now
+
+
+def prepare_mine(items, token, now, **kwargs):
+    """我的报名：已报名、未结束、按举办时间排序，并尽量补上详情。"""
+    signed = [it for it in items if it.get("signed")]
+    enrich_mine(signed, token, now, **kwargs)
+    alive = [it for it in signed if not_ended(it, now)]
+    alive.sort(key=lambda it: mine_rules.parse_time(it.get("act_start")) or datetime.max)
+    return alive
 
 
 def render_pending(items, now, type_filter=""):
@@ -54,17 +110,20 @@ def render_open(items, now, type_filter=""):
 
 
 def render_mine(items, now):
+    """纯文本兜底：与卡片同一套细节，取消按钮没有替代物，只能写清条件。"""
     title = "🎟 我的报名 %d 项" % len(items)
     if not items:
         return title + "\n\n你还没有报名任何活动。"
-    lines = [title, "", "只列活动还没开始的：", ""]
+    lines = [title, "", "只列还没结束的场次：", ""]
     for it in items[:MAX_ITEMS]:
-        lines.append("▸ %s" % fmt_when(it.get("act_start") or "", now))
+        span = mine_rules.span_text(it.get("act_start"), it.get("act_end")) or "时间待确认"
+        lines.append("▸ " + span)
         lines.append("　" + it["name"])
         meta = [it.get("type") or "其他"]
         if it.get("place"):
             meta.append(str(it["place"]))
         lines.append("　" + "｜".join(meta))
+        lines.append("　" + mine_detail_text(it, now, cancel_available(it, now)))
         lines.append("")
     return trim(lines)
 
@@ -116,7 +175,7 @@ def main() -> int:
     pending, open_now = classify(
         items, session.get("gender", ""),
         [w for w in cfg.get("keyword_blocklist", []) if w], now)
-    mine = mine_items(items, now)
+    mine = prepare_mine(items, token, now) if view in ("mine", "我的") else []
 
     if type_filter:
         pending = [i for i in pending
