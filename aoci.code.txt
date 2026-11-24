@@ -14,7 +14,7 @@ ruff.toml[FQ5T]: F:配置Python静态检查范围及存量例外 | R:code:requir
 
 ===/<repository>/.githooks/===
 commit-msg[XQ6T]: F:提交时检查类型、结果长度、正文长度与相邻署名尾注 | R:code:AGENTS.md | A:commit-msg钩子 | S:-
-pre-commit[XQ6T]: F:仅在暂存Python或脚本代码时运行三项结构守卫并阻止失败提交 | R:code:local/tests/test_layer_boundaries.py,code:local/tests/test_ui_layers.py,code:local/tests/test_code_shape.py | A:pre-commit钩子 | S:只看暂存改动的扩展名，纯文档和配置不会触发守卫
+pre-commit[XQ6T]: F:仅在暂存Python或脚本代码时运行三项结构守卫并阻止失败提交 | R:code:local/tests/architecture/test_layer_boundaries.py,code:local/tests/architecture/test_ui_layers.py,code:local/tests/architecture/test_code_shape.py | A:pre-commit钩子 | S:只看暂存改动的扩展名，纯文档和配置不会触发守卫
 
 ===/<repository>/.github/workflows/===
 ci.yml[FV6T]: F:为推送及拉取请求分别执行Windows本机与Linux服务器检查 | R:code:AGENTS.md | A:local-windows,server-linux | S:-
@@ -1305,18 +1305,18 @@ terms-consent.md[SU8M]: F:规定首次、更新与全文条款路由、版本绑
 versioning-and-release.md[SV8S]: F:规定版本真源、升版、tag绑定、同源正式资产和目录更新兼容要求 | R:code:VERSION,code:tools/release.py,code:local/updater.py | A:版本与引导分离/来源资产复核/失败恢复 | S:旧基线与候选并存不代表当前已发布；已发布tag不可重写，离线替身不能代替实包安装探针
 
 ===/<repository>/docs/===
-ARCHITECTURE.md[SG9M]: F:描述双产品数据流、学校接口、分层与本机服务职责、并发、组件、报名模块分工和恢复契约 | R:code:local/app.py,code:local/grab.py,code:local/application/signup_run.py,code:local/infrastructure/school_http.py,code:local/application/plan_service.py,code:server/scripts/common.py,code:server/bot/bot.js | A:combined分流/推送成功记账/锁等级/组件事务租约/直发点击核对/报名端口调用时装配/worker命令编排下沉应用层/请求与日志层下沉基础设施 | S:网络未知不等于4001；学校Date仅补列表筛选，不放行报名。状态发布在状态锁外；协调锁内不等待服务。app再导出仍是测试注入缝，组件读取失败不可误报未安装
-CONFIG.md[SC7M]: F:汇集本机与服务器配置字段、环境变量、运行状态文件及配置故障定位 | R:code:server/scripts/common.py,code:server/bot/bot.js,code:local/site_target.py | A:watch控频/owner私聊门禁/配置与状态分离 | S:双实例角色示例已落后于combined，部署须核对ARCHITECTURE及源码
-FEISHU_BOT.md[SM8M]: F:说明Webhook推送、自建应用群查询和owner私聊的部署权限及故障排查 | R:code:server/bot/bot.js,code:server/scripts/notify.py,code:server/scripts/watchlist.py | A:combined单连接/群只读/owner私聊动作/权限事件配置 | S:同App双进程会抢事件；身份、点击人、会话须一致，转发卡不能授权；群查询仍使用部署者会话
-GRAB.md[SB7T]: F:说明owner私聊预报名从卡片、清单到分钟runner和临近开放进程的链路 | R:code:server/scripts/watchlist.py,code:server/scripts/watchlist_runner.py,code:server/deploy/grab_signup.py | A:queued/running活跃态/同id幂等/结束复查 | S:回调直接返回新卡不可额外PATCH，否则旧卡覆盖；群视角不得暴露本人结论
-LOGIN.md[SI8S]: F:说明双产品真实登录校验、会话生命周期、估算锚点及自动和人工恢复 | R:code:local/grab.py,code:server/deploy/server_refresh.js,code:server/deploy/auto_login.py | A:4001与网络未知分流/凭证绑定锚点/OCR有限重试/DPAPI存储 | S:十小时是估算下限，17.5小时仅历史单次样本，均不能判失效；刷新不续期，探针网络错不可盲试密码
-OPERATIONS.md[SI7S]: F:规定服务器布局、combined机器人、cron、日志轮转、更新回滚及故障排查 | R:code:server/bot/bot.js,code:server/deploy/server_refresh.js | A:自部署运维入口/线上待同步差异 | S:只运行一个应用长连接；部署不覆盖运行状态；分钟唤醒不等于每分钟请求学校
+ARCHITECTURE.md[SG9M]: F:描述双产品数据流、学校接口、分层与本机服务职责、并发、组件、报名模块分工和恢复契约 | R:code:local/app.py,code:local/grab.py,code:local/application/signup/signup_run.py,code:local/infrastructure/school/school_http.py,code:local/application/plan/plan_service.py,code:server/scripts/lib/common.py,code:server/bot/bot.js | A:combined分流/推送成功记账/锁等级/组件事务租约/直发点击核对/报名端口调用时装配/worker命令编排下沉应用层/请求与日志层下沉基础设施 | S:网络未知不等于4001；学校Date仅补列表筛选，不放行报名。状态发布在状态锁外；协调锁内不等待服务。app再导出仍是测试注入缝，组件读取失败不可误报未安装
+CONFIG.md[SC7M]: F:汇集本机与服务器配置字段、环境变量、运行状态文件及配置故障定位 | R:code:server/scripts/lib/common.py,code:server/bot/bot.js,code:local/infrastructure/school/site_target.py | A:watch控频/owner私聊门禁/配置与状态分离 | S:双实例角色示例已落后于combined，部署须核对ARCHITECTURE及源码
+FEISHU_BOT.md[SM8M]: F:说明Webhook推送、自建应用群查询和owner私聊的部署权限及故障排查 | R:code:server/bot/bot.js,code:server/scripts/lib/notify.py,code:server/scripts/signup/watchlist.py | A:combined单连接/群只读/owner私聊动作/权限事件配置 | S:同App双进程会抢事件；身份、点击人、会话须一致，转发卡不能授权；群查询仍使用部署者会话
+GRAB.md[SB7T]: F:说明owner私聊预报名从卡片、清单到分钟runner和临近开放进程的链路 | R:code:server/scripts/signup/watchlist.py,code:server/scripts/signup/watchlist_runner.py,code:server/deploy/signup/grab_signup.py | A:queued/running活跃态/同id幂等/结束复查 | S:回调直接返回新卡不可额外PATCH，否则旧卡覆盖；群视角不得暴露本人结论
+LOGIN.md[SI8S]: F:说明双产品真实登录校验、会话生命周期、估算锚点及自动和人工恢复 | R:code:local/grab.py,code:server/deploy/login/server_refresh.js,code:server/deploy/login/auto_login.py | A:4001与网络未知分流/凭证绑定锚点/OCR有限重试/DPAPI存储 | S:十小时是估算下限，17.5小时仅历史单次样本，均不能判失效；刷新不续期，探针网络错不可盲试密码
+OPERATIONS.md[SI7S]: F:规定服务器布局、combined机器人、cron、日志轮转、更新回滚及故障排查 | R:code:server/bot/bot.js,code:server/deploy/login/server_refresh.js | A:自部署运维入口/线上待同步差异 | S:只运行一个应用长连接；部署不覆盖运行状态；分钟唤醒不等于每分钟请求学校
 PHONE_ACCESS.md[SU8M]: F:定义手机控制启用、八项动作、重登、通道安全、组件安装事务及快照活动的四个时刻字段 | R:code:local/application/phone_service.py,code:local/infrastructure/phone_http.py,code:local/domain/phone_rules.py,code:local/app.py | A:手机操作与通道边界、组件事务、设备信任、快照时刻字段 | S:默认不监听；手动关闭撤销会话，Cloudflare不自恢复；未知写结果只对账不重发；公开投影不回传电脑已保存凭据，手机新输入的账号密码可经所选通道提交，默认只存内存、勾选保存且登录成功后才写盘
 PRIVACY_POLICY.md[SS7T]: F:披露本机数据处理、迁移删除、外部通信、手机配对及部署者责任 | R:code:local/ui/index.html,code:docs/PHONE_ACCESS.md | A:版本化内嵌隐私正文真源 | S:迁移只补缺不删源，自定义根与迁移副本卸载不删；Cloudflare转发手机新输入的凭据，不等于电脑已保存凭据向手机回传
 README.md[SG6T]: F:索引现行工程文档、批准设计、归档资料及路径迁移对照 | R:- | A:主契约与历史材料导航 | S:历史材料保留原貌，不替代现行文档
-RETRY_POLICY_GUIDE.md[SB8M]: F:解释报名窗口、真实提交计数、黄金风暴、回包、停止和三种预算策略 | R:code:local/grab.py,code:local/business_clock.py,code:local/time_contract.py | A:用户重试策略说明 | S:sign_end硬截止；显式时长不扩窗；无截止直到截止回退两分钟；停止不覆盖证据，服务器404语义待同步
+RETRY_POLICY_GUIDE.md[SB8M]: F:解释报名窗口、真实提交计数、黄金风暴、回包、停止和三种预算策略 | R:code:local/grab.py,code:local/infrastructure/clock/business_clock.py,code:local/infrastructure/clock/time_contract.py | A:用户重试策略说明 | S:sign_end硬截止；显式时长不扩窗；无截止直到截止回退两分钟；停止不覆盖证据，服务器404语义待同步
 TIMING_AND_DEDUP_ANALYSIS.md[SB7L]: F:用历史活动分析推送时点、请求预算及独立动态监测状态机 | R:code:server/scripts/activity_watch.py,code:server/scripts/fetch.py | A:日报与动态监测推导/发现时刻语义 | S:推送成功才消耗消息；首轮只建基线，失败不清快照，空活动不等于未初始化
-UI_SPEC.md[SU9L]: F:定义本机工作台、桥接事件字段、计划、条款登录时间及运行可靠性验收，含手机页登录行四态、转人工与开始前举办时间检查 | R:code:local/app.py,code:local/grab.py,code:local/ui/index.html,code:local/business_clock.py | A:前后端主契约/请求归属/终态/更新/自动刷新 | S:迟到事件按plan和request归属合并，终态早于ack不复活；未知登录不判过期；无可信钟不报名；取消报名桌面确认且以复查为准；条款版本不匹配零写入；条款门下登录详情卡收起学校动作按钮只留查看条款；登录未完成的说明遇有效检查自动收起
+UI_SPEC.md[SU9L]: F:定义本机工作台、桥接事件字段、计划、条款登录时间及运行可靠性验收，含手机页登录行四态、转人工与开始前举办时间检查 | R:code:local/app.py,code:local/grab.py,code:local/ui/index.html,code:local/infrastructure/clock/business_clock.py | A:前后端主契约/请求归属/终态/更新/自动刷新 | S:迟到事件按plan和request归属合并，终态早于ack不复活；未知登录不判过期；无可信钟不报名；取消报名桌面确认且以复查为准；条款版本不匹配零写入；条款门下登录详情卡收起学校动作按钮只留查看条款；登录未完成的说明遇有效检查自动收起
 USER_AGREEMENT.md[SS7S]: F:定义条款接受、个人使用边界、直发点击披露、责任及重新同意规则 | R:- | A:内嵌用户协议正文真源 | S:拒绝不退出但禁止学校动作；不承诺合规或报名成功，临时密钥仅内存
 
 ===/<repository>/docs/archive/===
@@ -1359,107 +1359,31 @@ README.md[SG3T]: F:说明历史讨论、发现、交接和计划的归档分类�
 
 ===/<repository>/local/===
 README.md[SG6L]: F:说明本机版安装、命令行与图形操作、报名计划、手机访问和常见故障 | R:code:local/app.py,code:local/grab.py,code:docs/UI_SPEC.md | A:安装/活动选择/重试策略/可选组件 | S:混有旧六步引导、寿命和运行中禁重登说明，当前行为以工程契约及代码为准
-advanced_helper.py[EI7S]: F:为固定可选组件提供一次性JSON探测、二维码与验证码识别入口 | R:code:local/infrastructure/advanced_features.py,code:local/infrastructure/phone_qr.py | A:run/main/固定feature协议 | S:stdout必须单JSON；账号会话不进协议；外置模型只来自宿主注入目录，模型失败不偷偷改用库内模型
-app.py[EG9L]: F:组合本机业务服务、基础设施端口与WebView桥接，以同名转发保留Api对外入口并管理程序窗口及运行周期 | R:code:local/application/coordination.py,code:local/application/plan_service.py,code:local/application/login_recovery.py,code:local/application/relogin_entry.py,code:local/application/desktop_window.py,code:local/application/phone_access_session.py,code:local/application/update_service.py,code:local/grab.py | A:Api/bootstrap/条款门禁/服务装配/同名转发/update_prefs/main | S:demo数据根须在导入runtime_paths前隔离；条款版本不符零写入不启worker。锁外读计划后回锁确认归属；旧模块再导出是测试注入缝。update_prefs事务内经_load_prefs_for_update严格读，宽松load_prefs只供无锁显示，换回会让读失败冲掉整份偏好。重登与窗口方法是端口和矩阵的接线名，须保留同名转发。未注入时钟明确不可用；关窗后先收worker再结束生命周期，onefile资源不能留孤儿使用
-business_clock.py[RR9L]: F:用多源SNTP一致锚点和单调经过时长提供可验证业务时钟与跨进程快照 | R:code:local/time_contract.py,code:local/app.py,code:local/grab.py | A:BusinessClock/ClockClient/now/bounds/snapshot/request_resync | S:拒绝同支持数矛盾簇及旧轮迟到发布；至少两源一致且误差不超0.5秒。系统墙钟仅诊断不兜底；Windows tick含睡眠。快照校验owner和锚点年龄，重写文件不延长900秒锚点有效期；失败自动退避5/10/20/30秒
+advanced_helper.py[EI7S]: F:为固定可选组件提供一次性JSON探测、二维码与验证码识别入口 | R:code:local/infrastructure/components/advanced_features.py,code:local/infrastructure/phone/phone_qr.py | A:run/main/固定feature协议 | S:stdout必须单JSON；账号会话不进协议；外置模型只来自宿主注入目录，模型失败不偷偷改用库内模型
+app.py[EG9L]: F:组合本机业务服务、基础设施端口与WebView桥接，以同名转发保留Api对外入口并管理程序窗口及运行周期 | R:code:local/application/coordination.py,code:local/application/plan/plan_service.py,code:local/application/login/login_recovery.py,code:local/application/login/relogin_entry.py,code:local/application/desktop/desktop_window.py,code:local/application/phone/phone_access_session.py,code:local/application/desktop/update_service.py,code:local/grab.py | A:Api/bootstrap/条款门禁/服务装配/同名转发/update_prefs/main | S:demo数据根须在导入runtime_paths前隔离；条款版本不符零写入不启worker。锁外读计划后回锁确认归属；旧模块再导出是测试注入缝。update_prefs事务内经_load_prefs_for_update严格读，宽松load_prefs只供无锁显示，换回会让读失败冲掉整份偏好。重登与窗口方法是端口和矩阵的接线名，须保留同名转发。未注入时钟明确不可用；关窗后先收worker再结束生命周期，onefile资源不能留孤儿使用
 config.example.json[FC5T]: F:给出本机学校地址与飞书Webhook的脱敏可选配置结构 | R:code:local/site_target.py,code:local/grab.py | A:site.base/feishu_webhook | S:样例空值不能当已配置站点
-grab.py[EB9L]: F:提供本机worker命令与时钟边界，登录、取消、查目标与报名编排及学校请求、日志实现都经调用时端口转发到应用层与基础设施 | R:code:local/application/signup_run.py,code:local/application/signup_policy.py,code:local/application/worker_login.py,code:local/application/worker_cancel.py,code:local/infrastructure/school_http.py,code:local/infrastructure/worker_log.py,code:local/infrastructure/login_session_store.py,code:local/business_clock.py | A:login/check/list/cancel/grab/selftest | S:stdout的JSON及retry行是协议。搬走的编排、请求层与日志层都在调用时从本模块全局取名字（含urllib、time），测试替换grab.X才生效，不能改成import时绑定；BurstPolicy是只覆盖告警与时钟异常钩子的子类。日志锁超时默认值在定义时取。双文件保存把本模块open交给事务，替身才打得到。运行时密钥仅存当前场次进程内存
-login_relay.py[AI8L]: F:编排手机重登worker的验证码挑战、HTTP登录及浏览器兜底 | R:code:local/site_target.py,code:local/grab.py | A:run_http_relay,run_relay,ChallengeBook | S:仅首次验证码成功契约缺字段才切浏览器；网络或密码拒绝不切换。本场新凭证校验及双文件保存成功后才报成功
+grab.py[EB9L]: F:提供本机worker命令与时钟边界，登录、取消、查目标与报名编排及学校请求、日志实现都经调用时端口转发到应用层与基础设施 | R:code:local/application/signup/signup_run.py,code:local/application/signup/signup_policy.py,code:local/application/worker/worker_login.py,code:local/application/worker/worker_cancel.py,code:local/infrastructure/school/school_http.py,code:local/infrastructure/worker/worker_log.py,code:local/infrastructure/stores/login_session_store.py | A:login/check/list/cancel/grab/selftest | S:stdout的JSON及retry行是协议。搬走的编排、请求层与日志层都在调用时从本模块全局取名字（含urllib、time），测试替换grab.X才生效，不能改成import时绑定；BurstPolicy是只覆盖告警与时钟异常钩子的子类。日志锁超时默认值在定义时取。双文件保存把本模块open交给事务，替身才打得到。运行时密钥仅存当前场次进程内存
 requirements-advanced-ocr.txt[FE5T]: F:声明可选验证码识别组件的构建依赖 | R:code:local/infrastructure/component_packages.py | A:- | S:-
 requirements-advanced-phone.txt[FE5T]: F:声明可选手机组件的构建依赖 | R:code:local/infrastructure/component_packages.py | A:- | S:-
 requirements.txt[FV6T]: F:声明本机版基础运行依赖及平台条件 | R:code:tools/release.py | A:- | S:pywebview与相关依赖锁版以稳定本机回环页面供给；高级组件按需安装
-runtime_paths.py[PD8S]: F:统一源码和冻结版数据路径并迁移旧版数据 | R:code:local/infrastructure/data_directory.py,code:local/infrastructure/prefs_store.py | A:ensure_data_dir,migration_record,DATA_DIR | S:冻结迁移持跨进程锁只补缺失，原子复制不删除源；等锁超时不记失败也不封死后续重试
-signup_plan.py[AB9L]: F:冻结活动与重试快照，校验时段占用并独立调度多场报名 | R:code:local/time_contract.py,code:local/business_clock.py,code:local/application/plan_service.py | A:TaskSpec,validate_plan,PlanCoordinator | S:举办时段按半开区间检查；已报名活动时段未知也阻止。每场按准备时刻独立启动，不等待前批重试；首次checkpoint不被重放覆盖，终态不退回非终态
-signup_signing.py[KS8S]: F:按学校契约生成报名AES签名并解析运行时密钥 | R:code:local/grab.py | A:parse_runtime_key,build_signup_hash,SignerUnavailable | S:运行时密钥为16位ASCII字母数字原始UTF-8，不做hex或base64解码；CNG不可用仅抛不可用，不自造替代算法
-signup_transport.py[IN8S]: F:有界并发发送已签名报名请求并产生安全结果事件 | R:code:local/grab.py | A:DirectTransport | S:物理并发上限2且无等待队列；逻辑TTL不释放物理请求。started提交点锁内重读截止；关闭不取消在途请求，不自动重试或跟随重定向
-site_target.py[FC8T]: F:解析本机学校站点来源并标识是否已配置 | R:code:tools/release.py,code:server/scripts/site_target.py | A:BASE_URL,CONFIGURED,resolve_base | S:优先级为环境、配置、构建内置；全缺时占位且未配置，学校动作应拒绝
-time_contract.py[CB9M]: F:统一学校时间解析、业务时钟注入和重试硬预算 | R:code:local/business_clock.py,code:local/signup_plan.py | A:parse_school_time,school_epoch,configure_time_source,RetryBudget | S:学校文本固定UTC+8，历史本机保存时刻不改。业务时钟未注入即报错；预算取绝对截止与独立经过时长更紧值，耗尽拒发动作，不能把0传成禁用超时
-update_check.py[IV8L]: F:检查固定仓库正式清单并解析可校验更新资产 | R:code:local/updater.py,code:local/update_delta.py | A:check_latest_release,parse_version,payload_from_manifest,resolve_component_assets | S:每次检查复用一次manifest响应；用到资产损坏即失败，无关旧条目跳过；拆分组件齐备且兼容标识一致才可用。
-update_delta.py[IV8M]: F:生成目录清单及文件差分并校验隔离应用 | R:code:local/updater.py | A:manifest_from_directory,build_delta,apply_delta,verify_directory,validate_relative_path | S:拒绝路径穿越及链接；ZIP成员须精确匹配清单，基础及目标哈希均校验；失败恢复原staging。
-update_launcher.py[EV8M]: F:等待主进程退出并切换版本目录后启动固定程序 | R:code:local/updater.py | A:main,read_current,launch_current,apply_staged,apply_and_launch,wait_parent_process | S:回退current、previous、最大有效版本但不改current；写current失败恢复目录；Windows权限或超时不当已退出，仅错误87可。
-updater.py[IV8L]: F:下载校验更新包并管理隔离staging及版本残留 | R:code:local/update_delta.py,code:local/update_check.py | A:download_payload,launch_installer,sweep_version_root,stage_update,switch_version,select_payload | S:仅HTTPS、限额、大小及SHA256通过才原子保留；清扫不跟链接且保护当前/前版/运行目录；current损坏不删版本。
-开发-启动界面.bat[EU3T]: F:切换源码目录运行桌面应用并保留失败控制台 | R:code:local/app.py | A:双击开发批处理 | S:仅源码开发，不能充当安装包根启动器。
-dev_phone_preview.py[XU4S]: F:用演示活动和指定登录快照在127.0.0.1起离线替身手机服务，供开发时查看各登录态页面 | R:code:local/infrastructure/phone_http.py,code:local/application/phone_service.py,code:local/domain/demo_data.py | A:main,--state,--port,--saved,--ocr,--no-browser | S:数据目录强制指到新建临时目录，不读真实登录态也不连学校
-开发-预览手机页.bat[EU3T]: F:双击启动离线手机页预览服务，可透传登录态与端口参数 | R:code:local/dev_phone_preview.py | A:双击开发批处理 | S:仅源码开发用，失败时停住控制台
+signup_plan.py[AB9L]: F:冻结活动与重试快照，校验时段占用并独立调度多场报名 | R:code:local/infrastructure/clock/time_contract.py,code:local/infrastructure/clock/business_clock.py,code:local/application/plan/plan_service.py | A:TaskSpec,validate_plan,PlanCoordinator | S:举办时段按半开区间检查；已报名活动时段未知也阻止。每场按准备时刻独立启动，不等待前批重试；首次checkpoint不被重放覆盖，终态不退回非终态
+update_launcher.py[EV8M]: F:等待主进程退出并切换版本目录后启动固定程序 | R:code:local/infrastructure/update/updater.py | A:main,read_current,launch_current,apply_staged,apply_and_launch,wait_parent_process | S:回退current、previous、最大有效版本但不改current；写current失败恢复目录；Windows权限或超时不当已退出，仅错误87可。
 
 ===/<repository>/local/application/===
 __init__.py[AG6T]: F:声明用例通过注入端口调用副作用与发布结构化事件的应用层边界 | R:code:local/app.py | A:标准库和domain依赖约束 | S:禁止反向import app避免组合根导入副作用与依赖环
-activity_list_service.py[AB8S]: F:编排列表单飞拉取、缓存合并、错误记录及结构化结果发布 | R:code:local/application/coordination.py,code:local/domain/plan_rules.py | A:门禁占位/重复请求对账/workerJSON/活动投影 | S:快照深复制；异常必须释放listing，失败不能把旧缓存置空；校时等候与worker、详情请求耗时分别诊断
-advanced_component_service.py[AC8L]: F:管理单组件下载校验、缓存复用、整组提交、取消和移除事务 | R:code:local/infrastructure/component_packages.py,code:local/updater.py | A:单飞下载/拆分资产/单体回退/安装回执 | S:网络错及404不回退单体，404是未发布；取消与安装共锁确定提交点，提交后拒取消；关停须等已提交安装完成或回滚
-auto_relogin.py[AI8M]: F:调度登录检查、失效恢复、人工交接及失败退避并投影统一状态 | R:code:local/domain/login_rules.py,code:local/application/login_relay_service.py | A:定期检查/request_recover/reset/view | S:外部回调锁外执行；busy和其他活跃流程接管不累失败；转人工不增失败，generation隔离reset前回调
-clock_service.py[AR8S]: F:提供业务钟快照、可用性、手动单飞重校、列表短等待和准备前监测 | R:code:local/business_clock.py,code:local/application/plan_admission.py | A:now/snapshot/手动同步/计划前监测 | S:仅demo可用系统墙钟；列表等不到仍继续列表，不因时钟阻断；重校网络在协调锁外，计划准备前20秒每计划请求一次
-component_actions.py[AC8M]: F:编排组件下载导入启停、位置与安全快照，协调登录和手机通道 | R:code:local/application/advanced_component_service.py,code:local/application/component_projection.py | A:advanced_busy/替换停服务/启用偏好/自动更新调度 | S:锁序凭据到手机到协调；隧道停不掉不可替换；安装成功与偏好保存失败分别报告；移除OCR不删持久凭据
-component_projection.py[AC7T]: F:纯投影组件下载、通道、凭据与手机访问事实为界面快照 | R:code:local/application/component_actions.py | A:features/channels/credential | S:退出notice优先后续stopped；不读盘取锁发事件，不输出密码密文及安装路径
 coordination.py[AW9S]: F:持有唯一协调锁、关闭屏障、在途槽位和受管进程登记并代理旧Api字段 | R:code:local/app.py,code:local/application/worker_service.py,code:local/application/desktop_lifecycle.py | A:忙碌/创建登记/关闭完成Event/兼容代理 | S:不可重入锁不能拆：创建登记和关闭资源快照同临界区防漏收。持锁不调用服务，只读锁外发布不可变计划态；locked调用者须持锁，兼容代理不能复制状态
-desktop_lifecycle.py[AW8T]: F:置桌面关闭屏障并按序停止组件登录手机计划及受管进程树 | R:code:local/application/coordination.py,code:local/application/worker_service.py | A:锁内资源快照/锁外关停/完成事件 | S:后到shutdown锁外等待同一完成Event，返回即真正收尾；树终止成功不重复杀PID，异常仍发布完成事件
-login_recovery.py[AI8M]: F:编排检查单飞补查、真实结论、过期通知与飞书失效推送及中继结束凭据处理 | R:code:local/application/login_service.py,code:local/application/auto_relogin.py,code:local/infrastructure/feishu_webhook.py | A:检查门禁/补查一次/恢复请求/中继收尾/push_expired | S:曾有效后才推一次失效通知；网络异常不记expired。一次性密码拒绝只清内存，不能污染持久凭据，失败清pending_save。失效推送在后台线程经注入的post_json端口发送，本模块不联网，失败只记异常类别
-login_relay_service.py[AI9L]: F:单飞暂存凭据并通过worker驱动验证码、OCR转人工和安全状态 | R:code:local/application/worker_service.py,code:local/domain/phone_rules.py | A:begin/submit/cancel/public_state/OCR交接/成功回调 | S:凭据不进文件环境参数日志；锁外spawn且取消关闭后迟到spawn必须终止。同challenge不清输入或重复发事件，submit_pending防重发；手机取消只取消phone来源，历史终态live=false不能重播成功
-login_service.py[AI8T]: F:整理登录检查事件及worker结束结论并连接领域分类与界面协议 | R:code:local/domain/login_rules.py,code:local/domain/worker_lines.py | A:valid/expired/none/unknown/hint/done | S:本轮无粗测须unknown覆盖旧告警；估算不放行；检查取首个来源错误，done从尾部找末错，网络不诱导重登
-phone_access_session.py[AU9L]: F:管理受限HTTP访问、一次性配对、内存会话、设备信任及白名单动作派发 | R:code:local/domain/phone_rules.py,code:local/infrastructure/phone_http.py | A:绑定/配对限速/信任恢复/事件游标/动作派发 | S:seen不续created八小时寿命；手动关闭撤信任而进程退出保留。校验建会话与stop同锁防权限复活；事件锁独立不回调HTTP，严格动作白名单不反射Api；start_plan服务端补source=phone
-phone_service.py[AU8M]: F:编排桌面手机通道开启、状态聚合、隔道退出联动及固定入口恢复，并给手机快照活动补开放、截止与举办起止时刻 | R:code:local/application/phone_access_session.py,code:local/application/coordination.py | A:状态聚合/启动停止/Tailscale恢复/_attach_activity_epochs | S:运行时不能直接切通道；隔道退出notice须保留并停旧HTTP；Cloudflare不自动恢复不签长期信任；四个时刻键经注入的school_epoch只加在副本上
-plan_admission.py[AB9L]: F:接纳计划并维护启动幂等对账、取消墓碑、代次和终态提交发布 | R:code:local/application/coordination.py,code:local/domain/plan_rules.py | A:请求ID/门禁复核/最终预留/重放/取消/PlanEvents | S:预检后最终锁内再验时钟忙碌；当前及待定请求不淘汰，取消墓碑独立32条缓存且满拒收，防迟到复活。旧计划不覆盖新代次；成功先写缓存，终态锁外取快照再锁内提交，事件锁外发布
-plan_service.py[AB9L]: F:运行单场worker并装配冻结预算、监督进程、解析进度和证据终态 | R:code:local/domain/plan_rules.py,code:local/domain/retry_window.py,code:local/application/coordination.py | A:参数组装/创建登记/watchdog/行解析/完成通知 | S:业务截止只映射一次单调上限，校时回拨不扩预算；仅自动模式接纳有界严格增长扩窗，终态后不扩。取消不等EOF，先停唤watchdog再join；证据优先杀进程方式，进度不可冒充终态
-signup_cancellation.py[AB8T]: F:编排桌面单场取消门禁、worker归一与成功后缓存回写 | R:code:local/domain/cancel_rules.py,code:local/application/coordination.py | A:cancelling互斥/结果归一/活动事件 | S:未知可能已提交，不重试；成功清signed和sync_pending；非刷新事件后恢复原列表请求终态避免污染对账，学校原话不写取消日志
-update_service.py[AV9L]: F:管理更新检查、受信下载、完整增量目录准备及安装器或启动器发起 | R:code:local/update_check.py,code:local/updater.py | A:单飞/快照接管/delta回退/full准备/launch | S:仅冻结versions布局且有launcher走目录切换，其余安装器；取消后不fallback。launching检查不能清staging；启动器成功才延迟退出，安装器不自动退，错误不得污染登录组件状态
-worker_service.py[AW9S]: F:创建登记短命worker、单任务和登录中继并转发输出与回收进程树 | R:code:local/application/coordination.py,code:local/application/login_service.py | A:run/spawn/relay/pump/超时回收 | S:创建登记与closing同锁，不能先spawn后登记；communicate超时先终树后有界补读，解除登记才关句柄；pump只清自己proc所有权，锚点失败不推翻登录成功
-worker_activity_list.py[AB8M]: F:编排worker的列表登录探测、查询、时间筛选排序、详情补全及命令输出 | R:code:local/grab.py,code:local/infrastructure/activity_queries.py | A:run_list,still_relevant,keep_in_list,sign_state | S:学校Date只用于筛选和排序，开放文案仍要求业务时钟。先筛后补详情，文本模式不补。JSON输出与诊断分流，错误返回2，计时异常不影响输出
-desktop_window.py[AU7M]: F:编排桌面窗口外壳：关窗三选与偏好、隐藏与唤回、托盘、二次打开及计划结束通知 | R:code:local/app.py,code:local/infrastructure/tray_icon.py | A:request_window_close,ask_window_close,hide_window,show_window,_on_second_open,DesktopWindowFields | S:隐藏须托盘或活手机会话至少一条，门禁不过不记住隐藏偏好；窗口托盘全经端口注入，旧字段名由代理类提供
-relogin_entry.py[AI8L]: F:编排桌面与手机共用的重登入口、自动重登资格与发起、凭据暂存落盘及登录成功锚定 | R:code:local/domain/login_rules.py,code:local/application/login_recovery.py,code:local/application/coordination.py,code:local/application/login_relay_service.py | A:relogin_begin,phone_relogin_begin,prepare_phone_relogin,_auto_relogin_eligible,_begin_auto_relogin_once,save_relogin_credentials | S:判断全在login_rules，本类只调端口；忙碌判定在协调锁内，事件与中继调用在锁外。login_wait只放行计划运行中的一次自动登录；状态不复制，读写LoginRecovery与协调对象
-signup_browser.py[AB8L]: F:编排单场报名的浏览器阶段：开页取密钥、已报名前置核对、等待开放、挂页面监听、主调度循环与点击兜底，并在关浏览器前收尾 | R:code:local/application/signup_direct.py,code:local/application/signup_finalize.py,code:local/application/signup_ledger.py,code:local/application/signup_outcome.py | A:run_browser_phase | S:页面回调只入队，不记日志不读钟；finalize_fn须在直发路径建好后、开放前预检前赋值，挪位会让等开放时预算到点走错收口；finally只清理不return
-signup_direct.py[AB8M]: F:管理直发通道：选路径并上报path事件、单向退回点击、版本不兼容或重登后重取密钥、现算签名发一笔与开放前预检 | R:code:local/application/signup_ledger.py,code:local/signup_signing.py,code:local/signup_transport.py | A:setup_direct_path,try_direct_fire,precheck_before_open,downgrade_to_click,rekey_after_version,rekey_after_relogin | S:运行时密钥只绑进签名partial，不存属性不写日志；预留在try_submit前登记、被拒即释放；预检票据attempt_no为0，不进调度账本
-signup_finalize.py[AB8M]: F:提供发射闸门、50毫秒短事件泵与统一有界收尾：冻结接纳、一秒尾窗、成功粘性和单次最终核对 | R:code:local/application/signup_ledger.py,code:local/application/signup_outcome.py | A:may_fire,pump_wait,finalize,fallback_terminal | S:收尾只算一次，结果缓存不重入；尾窗后冻结不再接纳迟到事件；有提交就用独立3秒预算查一次报名状态，异常按成功、未决、异常类型的优先级收口
-signup_ledger.py[AB8L]: F:维护单场报名的同一调度账本：状态初值、按回包分类下结论、页面与直发事件结算、事件泵、在途同步与扩窗重建预算 | R:code:local/domain/signup_reply.py,code:local/grab.py | A:new_signup_state,apply_conclusion,settle_pending,settle_direct_event,sync_budget_window,sync_pending | S:state键名即日志与终态口径，不可改；只按已登记Request或run_id加attempt_no认领事件，未知事件无副作用；扩窗只换ctx.budget，读取方须现读不缓存
-signup_outcome.py[AB8S]: F:输出单场报名唯一终态：done结构化行、各停止原因的人读结论、通知与退出码，以及校时失效与预算到点两个收口 | R:code:local/domain/retry_rules.py,code:local/domain/signup_reply.py | A:terminal,clock_stop,budget_stop,REPLY_STOP_HINTS,SubmitAborted | S:done行last_reason必须在行末，界面解析与契约测试都靠它；重复调用terminal只回2不再写行；有未决提交时校时失效收成unconfirmed
-signup_run.py[AB8M]: F:单场自动报名入口：建业务时钟与冻结起点、建预算、鉴权与等自动登录、粗校时、查目标、发窗口事件后进入浏览器阶段 | R:code:local/grab.py,code:local/application/signup_browser.py,code:local/application/signup_outcome.py | A:run_signup,wait_for_relogin | S:外部名字全经调用时装配的ports取，本层不import根模块与第三方；已知起点且窗口已过时零网络零浏览器；准备阶段的意外异常照旧外抛，只有浏览器阶段统一收成终态
-signup_policy.py[AB8L]: F:定义提交节奏状态机：黄金风暴、常规全速、404自适应退避与扩窗，并按请求身份记账结算 | R:code:local/grab.py,code:local/application/signup_ledger.py | A:BurstPolicy,GOLDEN_WINDOW_S,FULL_SPEED_INTERVAL_S,NOT_READY_404_LIMIT,ADAPTIVE_WINDOW_S,INFLIGHT_TTL_S | S:时间只经构造注入的clock读；告警与时钟异常走可覆盖钩子，基类默认不写日志、抛RuntimeError，须经grab子类使用；扩窗永不越过sign_end，同一请求只结算一次
-signup_target.py[AB6S]: F:编排报名目标选择：筛可抢候选、按序号或名称选取、交互确认，已开放场次把开放时刻换成当前业务时间 | R:code:local/grab.py | A:resolve_target,candidates,pick_activity,by_index_or_name,at_or_now | S:三条查目标路径共用传入预算；名称命中多个就拒绝并列出序号，不猜
-worker_cancel.py[AB8S]: F:编排单场取消报名：登录与时钟、已报名与取消窗口四条前置核对，只调一次取消接口并以复查为准 | R:code:local/grab.py,code:local/application/signup_cancellation.py | A:run_cancel | S:前置不满足一律不调接口；接口只调一次不重试，复查明确未报名才算cancelled，学校原话清洗后只附在refused上
-worker_login.py[AI8S]: F:编排本机登录：可见浏览器等用户登录、写双文件登录态再接口复查，以及手机重登中继的依赖适配 | R:code:local/grab.py,code:local/login_relay.py,code:local/infrastructure/login_session_store.py | A:run_login,run_login_relay,page_local_storage,session_from_items | S:Playwright与login_relay由grab延迟导入后传入；登录态必须双文件事务写入，写失败或接口复查失败都返回2；中继凭据只在内存里用完即弃
 
 ===/<repository>/local/build/===
-build_advanced.py[OV8M]: F:构建手机与OCR单体或四类复用资产并生成摘要清单、ZIP和构建报告 | R:code:local/infrastructure/component_packages.py,code:local/advanced_helper.py | A:组件资产生产/校验探针 | S:输出必须系统临时根独立绝对子目录且拒既有运行目录；手机OCR依赖互斥；cloudflared显式固定版本，OCR运行时模型分开；清单探针过才封包
+build_advanced.py[OV8M]: F:构建手机与OCR单体或四类复用资产并生成摘要清单、ZIP和构建报告 | R:code:local/infrastructure/components/component_packages.py,code:local/advanced_helper.py | A:组件资产生产/校验探针 | S:输出必须系统临时根独立绝对子目录且拒既有运行目录；手机OCR依赖互斥；cloudflared显式固定版本，OCR运行时模型分开；清单探针过才封包
 build_exe.py[OV8S]: F:先冻结worker再嵌入主程序，支持版本化目录及兼容单EXE | R:code:local/app.py,code:local/grab.py,code:local/update_launcher.py | A:冻结EXE/onedir/更新启动器 | S:worker作为数据落资源根，不能再次分析或成同名目录；失败不降级外置worker，图标缺失立即失败
 build_installer.py[OV8L]: F:从指定冻结程序派生Inno安装包并管理白名单、版本载荷和卸载确认 | R:code:local/build/build_exe.py,code:local/update_launcher.py | A:安装器渲染/编译/产物核验 | S:AppId发布后固定；模板只替换占位键不format花括号；运行状态不得入包，静默卸载保留数据，交互删除默认否且仅默认根
 make_portable.py[OV6M]: F:组装嵌入式Python、应用依赖和启动器的历史绿色目录 | R:code:local/runtime_paths.py,code:local/requirements.txt | A:历史便携包构建 | S:复用输出按精确名单清会话偏好日志，避免运行态进包；浏览器用系统内核
 
 ===/<repository>/local/domain/===
 __init__.py[DB6T]: F:声明领域纯函数职责与注入规则 | R:code:local/app.py | A:纯规则依赖边界 | S:不读文件墙钟网络进程，仅标准库及领域包
-cancel_rules.py[DB7T]: F:清洗学校文案并归一worker取消报名末行结果 | R:code:local/grab.py | A:取消返回结构/学校原话清洗 | S:只认最后非空行，坏输出归unknown，仅refused透出清洗后80字原话
-component_rules.py[DV6T]: F:按注入的连续等待时长判定组件检查三十秒超时 | R:code:local/infrastructure/component_packages.py | A:检查超时产品阈值 | S:非法时长按未超时，不自行计时
-demo_data.py[DU6T]: F:生成覆盖开放、冲突、缺失时间、取消能力及奖励三态的离线活动 | R:code:local/app.py | A:注入时刻与格式化器的演示样例 | S:缺失举办时间为空串；零奖励与未公布、未返回分开
-errors.py[DB6T]: F:定义关闭屏障拒绝新worker的语义异常 | R:code:local/app.py | A:ClosingError | S:不能归成组件错误或学校报名失败
-lifecycle_rules.py[DB7S]: F:从上一周期快照计算关闭时长和正常异常未知质量 | R:code:local/domain/time_text.py | A:旧文本与可信epoch生命周期投影 | S:异常周期不套更早关闭记录，矛盾退未知；旧墙钟文本不可反推v2锚点
-log_events.py[DS7T]: F:格式化固定事件日志并过滤敏感键、清洗截断转义字段 | R:code:local/grab.py,code:local/app.py | A:结构化日志文本 | S:固定字段不可覆盖；敏感键包含匹配宁可多挡，过滤不替代调用者避免传敏感值
-login_rules.py[DI8M]: F:归一自动登录、临近开放门禁、会话估算、check四态归因及重登入口的资格与分流判断 | R:code:local/app.py,code:local/domain/worker_lines.py | A:登录快照/凭证绑定估算/人工接管/auto_relogin_blocked/late_relogin_answer/manual_relogin_wanted | S:十小时估算不参与放行清理；只认匹配凭证v2锚点；首条失败行归因且网络优先，末尾重登指引不能误判失效。忙碌位一律挡，login_wait只豁免进程在跑；时钟读不出按来不及
-phone_rules.py[DS9L]: F:定义手机地址来源、动作参数、敏感投影、会话与事件回放纯安全规则 | R:code:local/application/phone_service.py,code:local/infrastructure/phone_http.py | A:绑定/Origin/JSON体/动作参数/文本图像投影/游标 | S:仅回环或TailscaleIPv4绑定；Origin精确匹配；体64KiB且拒坏UTF8非有限JSON及多余键。可输入账号密码但状态不回传凭据；PNG完整验证；八小时会话不滑续，两分钟连接态不等于会话失效
-plan_rules.py[DB9M]: F:权威归一计划项并判断截止冲突、合并短期成功和裁决监督终态 | R:code:local/app.py,code:local/signup_plan.py | A:接纳/缓存同步/停止结果裁决 | S:前端只选活动，缓存事实变化整单拒绝；已报名时段参与冲突；本地成功保留120秒同步窗。成功证据优先退出码与停止；停止不撤回已发请求，未决保留真实计数
-retry_rules.py[DB8S]: F:解析重试终态、归并真实计次并投影路径和登录等待遥测 | R:code:local/domain/retry_window.py,code:local/domain/signup_reply.py | A:worker监督字段 | S:两路真实计数取较大值防回落，last_reason尾字段可含空格；解析失败不改变退出码
-retry_window.py[DB9S]: F:统一三类重试模式绝对截止、约束来源和自动扩窗可接纳增量 | R:code:local/domain/retry_rules.py,code:local/time_contract.py | A:retry窗口公式/监督增量 | S:正数不扩窗，仅-1自动延长120至1500秒；sign_end硬截；无截止的零模式回退120秒。父监督只平移合法增长的单调截止，不因校时重算预算
-signup_reply.py[DB8T]: F:分类学校报名回包并给出终态标签和未知时钟错误阈值 | R:code:local/grab.py | A:classify_signup_reply/stop_reason_label | S:优先成功再4001再短语，失效只认4001不猜文本；未知连续三次、超时两次，分类不执行重试
-time_text.py[DB7T]: F:纯换算时间文本、参考时刻、学校差值及任务监督截止 | R:code:local/domain/retry_window.py | A:注入school_epoch时间换算 | S:缺失时钟时间返回未知，无有效重试起点不给截止
-worker_lines.py[DB8T]: F:解析worker时间前缀、真实checkpoint和HTTP粗校时结构行 | R:code:local/grab.py,code:local/domain/login_rules.py | A:strip前缀/checkpoint/http_date | S:去前缀仅识别，原行留日志；checkpoint只认三种真实事件及正epoch，坏数据不补接收时刻
 
 ===/<repository>/local/infrastructure/===
-__init__.py[RI6T]: F:声明副作用适配层边界并在导入时登记WebView模块脚本MIME类型 | R:code:local/infrastructure/webview_mime.py | A:register_script_types | S:导入有MIME登记副作用；不能反向import app，否则引入组合根副作用
-advanced_features.py[IE7M]: F:管理手机与验证码识别高级功能的启用、安装和延迟识别 | R:code:local/infrastructure/component_packages.py,code:local/domain/component_rules.py | A:feature_state,feature_ready,install_feature,classify_captcha | S:启动探测不自动安装；冻结态不以自身EXE跑pip；OCR失败回人工
-component_packages.py[IE9L]: F:校验高级组件与受管通道程序，事务安装并隔离执行helper | R:code:local/infrastructure/data_directory.py,code:local/infrastructure/prefs_store.py | A:feature_status,install,remove,invoke,commit_artifact_group,cloudflared | S:摘要只证完整性不证来源；执行前重验，组按兼容ID及依赖闭合切换；拒绝穿越、链接和额外文件。使用租约阻止运行中换包，事务恢复保留原组
-credential_store.py[PS8S]: F:用Windows DPAPI原子保存秘密文档和账号密码，并管理密码拒绝标记 | R:- | A:save_document,load_document,save,load,mark_bad,is_bad | S:非Windows拒绝加密而不落明文；外层可留用户名，秘密仅在密文；保存新密码清除拒绝标记
-data_directory.py[RC6T]: F:计算源码与冻结版共享数据根并锚定进程默认目录 | R:- | A:base_dir,default_data_dir | S:只计算路径不迁移或建目录；环境覆盖优先，默认首次解析固定进程锚点
-lifecycle_store.py[PD7M]: F:保存启动、心跳及关闭事实并形成上一运行周期提示 | R:code:local/infrastructure/prefs_store.py,code:local/domain/lifecycle_rules.py | A:AppLifecycle,snapshot,finalize | S:事务内严格读，读写失败只放弃本次、不写空快照；启动认领失败照常启动，文件留着上一周期记录时本轮心跳因归属不符不再写；run_id归属变更后旧实例让位；缺可信时刻关闭记unknown
-phone_http.py[IN8M]: F:提供受限手机HTTP页面、配对、状态与动作路由 | R:code:local/domain/phone_rules.py,code:local/application/phone_service.py,code:local/ui/m/index.html | A:PhoneHttpServer,start,stop,set_public_host,PHONE_STATIC | S:公网通道切换后只认当前Host和Origin；动作须有效会话及CSRF。状态只读本机缓存，异常不回请求内容；拒绝前有界排空请求体。静态表须与页面脚本标签一一对应
-phone_qr.py[IU4T]: F:为手机访问地址生成PNG二维码 | R:code:local/infrastructure/component_packages.py | A:png_data_uri | S:拒绝查询、片段和用户信息，二维码不携带配对码
-phone_session_store.py[PS8S]: F:保存手机设备信任并校验、续期和撤销设备 | R:code:local/infrastructure/credential_store.py | A:PhoneSessionStore,add_device,validate_device,revoke_all | S:DPAPI文档仅存设备令牌摘要，恒时比较；有效期按last_seen滚动365天；损坏读取视为空信任
-prefs_store.py[PD8M]: F:提供偏好原子保存、文件占用有界重试和跨进程读合并写事务 | R:code:local/infrastructure/lifecycle_store.py,code:local/app.py | A:load_from,load_for_update,atomic_write,prefs_transaction,update,PrefsReadError | S:事务内必须用load_for_update，读不到抛PrefsReadError整次放弃，绝不以空字典合并写回；load_from只供无锁显示。替换被拒重试约0.5秒，仍失败清临时文件再抛；update任何失败返回False。事务锁须覆盖读核验合并写，不能持锁联网或等子进程
-process_tree.py[RR9M]: F:以Windows Job约束worker及后代归属并执行整树回收 | R:- | A:ProcessTree,spawn_owned,spawn_owned_worker,kill_tree,create_job_for,SpawnFailure | S:必须挂起创建、归属Job后恢复；归属失败拒绝降级。Job关闭收后代；终止失败可重试，wait不持Job锁
-single_instance.py[RR7M]: F:阻止重复GUI并通过本机端口唤回既有窗口 | R:code:local/app.py | A:SingleInstance,acquire,start_listener,hand_over,close | S:首份互斥量故障放行，第二份唤回失败仍不建窗；仅回环监听且口令恒时比较；只清自身匹配端口记录
-tray_icon.py[IU5M]: F:以WinForms提供托盘、通知及窗口退出入口 | R:code:local/application/desktop_window.py | A:TrayIcon,start,stop,notify | S:托盘失败不阻塞主程序；停止投递清理后非托盘线程最多等2秒，否则守护线程被掐会留下幽灵图标
-tunnel_manager.py[IN8M]: F:探测Tailscale地址并管理受管Quick Tunnel进程及公网状态 | R:code:local/infrastructure/component_packages.py,code:local/infrastructure/process_tree.py | A:tailscale_endpoint,resolve_cloudflared,spawn_cloudflared,CloudflareTunnel | S:不从PATH采信cloudflared；进程纳入Job并可持租约。退出撤旧地址，重启需重配对；停止失败保留进程与地址，不能假报关闭
-webview_mime.py[RU6T]: F:登记JavaScript MIME以确保本地服务加载ES模块 | R:- | A:register_script_types | S:Windows可能将.js登记为text/plain，普通脚本可跑但模块拒载，启动必须覆盖映射
-activity_queries.py[IN8M]: F:读取活动列表与详情，将学校字段归一化并提供报名状态核对 | R:code:contracts/school-api/list-activity.raw-item.json,code:contracts/school-api/get-info.data.json,code:contracts/school-api/get-join-info.json | A:fetch_activities,fetch_activity_detail,enrich_attendance_items,map_activity,parse_attendance_detail,is_joined | S:请求函数与学校时间解析由worker注入。详情成功才缓存，命中返回副本，默认并发4；签到签退保留未知三态。有预算的报名状态查询失败返回None，不能当确认未报名
-login_session_store.py[PI8M]: F:持有session与storage_state登录态文件的唯一写入入口，提供写锁、单文件原子写和双文件事务回滚 | R:code:local/infrastructure/prefs_store.py,code:local/grab.py | A:session_write_lock,write_json_atomic,save_session,save_storage_state,save_verified_files | S:锁序固定线程锁再跨进程区域锁，共用一个超时预算；双写第二份替换失败只回滚已落位文件，回滚失败不得盖掉原异常。诊断只写stderr；不承诺断电原子性，opener端口供调用方传自己的open
-feishu_webhook.py[IM5T]: F:向飞书webhook发送一次JSON POST并读取有限响应 | R:code:local/application/login_recovery.py,code:local/app.py | A:post_json | S:不重试不记日志，失败抛给调用方，避免一次失效变成多条重复推送
-school_http.py[IN8M]: F:实现学校HTTP请求层：绕开系统代理的直连通道、网关四个签名头与随机串、POST与GET及失败返回形状、HTTP Date粗校时 | R:code:local/grab.py,code:local/tests/test_network_policy.py | A:school_open,sign_request_headers,school_post,school_get,clock_sample,request_nonce | S:urllib与time一律由调用方传入，不在import时绑定；直连用空ProxyHandler，不装全局opener；签名canonical方法写死POST，只给POST用；预算换算在try外，耗尽原样抛出
-worker_log.py[RO7S]: F:提供worker日志层：跨进程日志锁、按大小轮转、写一行带北京时间戳的日志、stderr降级出口与JSON模式下的stdout改道 | R:code:local/grab.py,code:local/infrastructure/prefs_store.py | A:write_log,log_file_lock,rotate_log_file,append_log_line_unlocked,stderr_note,stdout_to_stderr | S:轮转与追加在同一把锁内；拿不到锁只走stderr，不无锁追加；进程内线程锁只此一把
+__init__.py[RI6T]: F:声明副作用适配层边界并在导入时登记WebView模块脚本MIME类型 | R:code:local/infrastructure/desktop/webview_mime.py | A:register_script_types | S:导入有MIME登记副作用；不能反向import app，否则引入组合根副作用
 
 ===/<repository>/local/installer/===
 ChineseSimplified.isl[FL4L]: F:提供Inno安装器简体中文消息与语言参数 | R:code:tools/release.py | A:LangOptions,Messages | S:此语言文件必须保留UTF-8 BOM，否则Inno按ANSI解码
@@ -1569,20 +1493,8 @@ state.js[DD8T]: F:投影条款同意状态和学校动作锁定 | R:code:local/u
 actions.js[AV8S]: F:编排手动版本检查、下载确认取消及安装启动 | R:code:local/ui/views/update.js,code:local/ui/state/store.js | A:receiveUpdate,restoreUpdate,checkUpdate,startDownload,confirmDownload,launchInstaller | S:仅接当前request_id事件，合并进度保留安装器；检查不下载；迟到ack不能回退完成态。
 
 ===/<repository>/local/ui/m/===
-index.html[EU7M]: F:提供手机配对页、计划板与操作抽屉的语义结构，并按顺序加载12份普通脚本 | R:code:local/ui/m/model.js,code:local/ui/m/ui-shell.js,code:local/ui/m/styles.css | A:配对页,计划核对,重新登录,script清单 | S:脚本标签次序即依赖，规则文件在前、ui-shell最后，测试也从这里读清单；手机是电脑遥控器，关闭或睡眠电脑会中断执行
+index.html[EU7M]: F:提供手机配对页、计划板与操作抽屉的语义结构，并按顺序加载model与ui子目录的12份普通脚本 | R:code:local/ui/m/model/model.js,code:local/ui/m/ui/ui-shell.js,code:local/ui/m/styles.css | A:配对页,计划核对,重新登录,script清单 | S:脚本标签次序即依赖，规则文件在前、ui-shell最后，测试也从这里读清单；图标仍走根路径URL；手机是电脑遥控器，关闭或睡眠电脑会中断执行
 styles.css[FU5L]: F:定义手机单栏列表、点阵板与底部抽屉布局 | R:code:local/ui/m/index.html | A:手机页面样式 | S:hidden全局优先；抽屉页脚固定在内容滚动区外并计入安全区。
-model-conflict.js[DU7M]: F:给手机页纯规则补上时刻取法、时段重叠、开始前举办时间检查、业务时钟、取消说明、冲突原因面板与开始前提醒 | R:code:local/ui/m/model.js,code:local/ui/state/conflict.js,code:local/application/phone_service.py | A:tsOf,actBlock,actBlockText,signedClash,cancelWindowOpen,whyView | S:业务时间只认电脑时钟快照；快照有时刻键就只用它；已选缺举办时间优先于已报名缺时间
-model-list.js[DU7M]: F:给手机页纯规则补上倒计时文案、报名状态、开放分组、勾选冲突、列表行与草稿板投影 | R:code:local/ui/m/model-conflict.js,code:local/application/phone_service.py | A:stOf,groupKeyOf,visibleItems,rowView,draftBoard,listView | S:截止先读快照close_ts；时钟不可用按开放日分组；待开放或开放中缺举办时间写举办时间待公布
-model-relogin.js[DU7M]: F:给手机页纯规则补上重新登录视图、转人工判断、登录成功句、配对点阵字形与配对错误文案，并把PhoneModel挂到全局 | R:code:local/ui/m/model-run.js,code:local/domain/phone_rules.py,code:local/application/login_relay_service.py | A:reloginView,relHandoff,loginDoneText,glyphs,pairView,pairWrongText | S:转人工只认中继live与handoff，不按次数猜；配错文案的60秒与后端配错落锁时长耦合
-model-run.js[DU7M]: F:给手机页纯规则补上开始待定、运行等待板、任务卡、确认文案、结果统计、条款板、核对批次与按登录四态的登录行 | R:code:local/ui/m/model-list.js | A:pendingBoard,runBoard,taskCard,confirmView,resultView,loginLine | S:-
-model.js[DU7M]: F:定义手机页纯规则对象PhoneModel的核心成员：请求标识、筛选、开放时刻、退避与同步节奏、会话状态码分流、登录四态与文案、开始门禁 | R:code:local/ui/m/index.html,code:local/ui/m/model-conflict.js | A:PhoneModel,filterItems,openEpochOf,sessionVerdict,canStart,loginState | S:必须最先加载；开始门禁最后还要actBlock为空；四态只管说法，门禁仍按loginRaw
-ui-list.js[IU7M]: F:绘制手机页活动列表：分区、列表行、冲突原因面板、跳到已报名行与整页搜索开合 | R:code:local/ui/m/model-list.js,code:local/ui/m/ui-session.js | A:LIST_ZONES,buildRow,buildWhy,renderItems,toggleSearch | S:全部用textContent构造；未校准时日期组落下方区，今天区空态收起
-ui-plan.js[AU7M]: F:编排手机页报名计划操作：开始与对账、取消等待、停止、取消单场、结果重选、重试设置与核对抽屉 | R:code:local/ui/m/ui-session.js,code:local/ui/m/model-run.js | A:startPlan,reconcile,cancelPendingStart,stopPlan,cancelTask,reselectFailed | S:开始结果未知时保留原请求标识只读对账，不自动重发
-ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model-relogin.js,code:local/ui/m/ui-session.js,code:local/ui/m/ui-shell.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:关面板即清输入，验证码绑定当前挑战；发起、提交、取消失败句同时写抽屉红条，因#relogin-note在更多面板里被挡；标题与成功句按打开时记的relFirstLogin取
-ui-session.js[AN8M]: F:定义手机页DOM层共用的$、请求超时与model状态对象，并负责带CSRF的请求、配对与锁定倒计时、轮询退避和会话失效处理 | R:code:local/ui/m/model.js,code:local/infrastructure/phone_http.py | A:model,api,postAction,pair,poll,adoptCookieCsrf | S:$与model是全局词法名；请求8秒不回就放弃并放回单飞锁；未配对时一个定时器都不排；写请求与403按cookie覆盖csrf，轮询只在内存为空时补
-ui-shell.js[EU7M]: F:提供手机页抽屉外壳与确认槽、绑定全页事件，并导出PhoneUI与启动wire | R:code:local/ui/m/ui-session.js,code:local/ui/m/ui-plan.js,code:local/ui/m/ui-relogin.js | A:openSheet,closeSheet,askConfirm,wire,PhoneUI | S:必须最后加载，启动两行只在这里；前面任一脚本缺席会在wire时报引用错误
-ui-status.js[IU7M]: F:绘制手机页提示条与告警、控件启用门禁、底栏、计划点阵板、任务卡与运行记录，登录横幅与底栏按四态取字 | R:code:local/ui/m/model-run.js,code:local/ui/m/ui-session.js | A:setBanner,renderAlerts,refreshControls,renderBar,renderBoard,addLog | S:提示条带来源标签，只有状态过时类能自动清掉；举办时间检查的底栏句排在离线之后、默认副题之前
-ui-sync.js[AU7M]: F:摄入电脑状态快照与事件游标并按整秒局部刷新北京时间、倒计时与计划板 | R:code:local/ui/m/model-conflict.js,code:local/ui/m/ui-status.js | A:ingest,scheduleTick,tickClock,tickBoardLed,tickRowLeft | S:事件按序号去重，重置轮次才重新接纳；整秒刷新只改数字不重画、不额外联网
 
 ===/<repository>/local/ui/state/===
 clock.js[DD9M]: F:把后端时钟快照锚定到浏览器单调域并判可信时间 | R:code:local/ui/state/store.js,code:local/ui/state/time.js | A:clockReading,businessNowMs,bnowS,bnLeftSec,clockUiState | S:无效返回null不是0；锚点900秒寿命及500毫秒误差上限；桥接误差只计一次，漂移仅采样后时长。
@@ -1611,27 +1523,14 @@ config.example.json[FC5T]: F:展示脱敏服务器通知、过滤和动态发现
 requirements.txt[FC6T]: F:声明服务器Python浏览器登录报名及验证码识别依赖 | R:code:server/scripts/login.py,code:server/deploy/auto_login.py | A:playwright,ddddocr | S:常规抓取推送用标准库；Node浏览器守护依赖不由此文件提供。
 
 ===/<repository>/server/bot/===
-bot.js[EM9L]: F:按群和owner私聊分流飞书消息卡片并编排查询预报名 | R:code:server/bot/handled_messages.js,code:server/scripts/query.py,code:server/scripts/watchlist.py,code:server/scripts/grab_card.py | A:BOT_ROLE=combined,im.message.receive_v1,card.action.trigger | S:角色非法拒启；群仅响应真人@且只读；私聊动作校验owner及记录会话；仅实际回复成功持久去重；缓存损坏或自身身份未知不建长连接。
+bot.js[EM9L]: F:按群和owner私聊分流飞书消息卡片并编排查询预报名 | R:code:server/bot/handled_messages.js,code:server/scripts/push/query.py,code:server/scripts/signup/watchlist.py,code:server/scripts/signup/grab_card.py | A:BOT_ROLE=combined,im.message.receive_v1,card.action.trigger | S:角色非法拒启；群仅响应真人@且只读；私聊动作校验owner及记录会话；仅实际回复成功持久去重；缓存损坏或自身身份未知不建长连接。
 handled_messages.js[ID8S]: F:持久化消息处理记录并抑制并发重投 | R:code:server/bot/bot.js,code:server/bot/test_handled_messages.js | A:HandledMessages,load,has,mark,processOnce | S:handler严格true才mark，异常及finally释放在途供重试；坏JSON或时间戳抛错不重建；48小时2000条上限。
 package.json[FM3T]: F:声明飞书机器人包入口和SDK运行依赖 | R:code:server/bot/bot.js | A:npm start | S:-
 test_bot_runtime.js[TM7L]: F:用VM假飞书及子进程覆盖combined权限、降级和持久去重 | R:code:server/bot/bot.js,code:server/bot/handled_messages.js | A:node server/bot/test_bot_runtime.js | S:用户表隔离临时目录；假WS不联网，等异步启动达到start或exit稳定点才断言。
 test_handled_messages.js[TD6S]: F:离线检验持久去重、失败重试、并发、过期和坏文件 | R:code:server/bot/handled_messages.js | A:node server/bot/test_handled_messages.js | S:withStore等异步用例完成才finally清临时目录；不载bot、不跑子进程或网络。
 
 ===/<repository>/server/deploy/===
-README.md[SO5T]: F:索引登录维护、自动报名与安装交付落点 | R:code:docs/OPERATIONS.md,code:server/deploy/auto_login.py | A:部署文件表,同步命令 | S:凭据和运行data不随仓库交付；真实依赖版本无部署证据时标blocked。
-atomic_json.js[ID8T]: F:独占同目录临时文件原子写JSON | R:code:server/deploy/server_refresh.js | A:atomicWriteJson | S:先序列化，wx及0600建临时文件，fsync关闭后rename；失败仅清本次文件，新目录0700不改已有权限。
-auto_login.py[EI9L]: F:复核会话失效并驱动验证码登录及owner告警 | R:code:server/scripts/common.py,code:server/scripts/token_probe.py | A:main,--check,--force,--trigger,--preempt,--dry-run | S:单次失败即时复核，网络未知不当失效；flock单实例，最多5次间隔30秒；凭据权限开放拒绝；登录及业务API双确认后原子保存；换新寿命取指纹首见非saved_at。
-campus-autologin.service[OI8T]: F:定义无人值守重登一次性systemd服务 | R:code:server/deploy/auto_login.py | A:campus-autologin.service | S:oneshot超时300秒；owner为部署占位须与机器人一致。
-campus-autologin.timer[OW6T]: F:每五分钟调度自动登录检查 | R:code:server/deploy/campus-autologin.service | A:campus-autologin.timer | S:Persistent补错过触发，分钟精度不能充当秒级报名时钟。
-campus-login.service[OI8T]: F:定义浏览器登录维持daemon及重启日志策略 | R:code:server/deploy/server_refresh.js | A:campus-login.service | S:失败30秒重启，可选外部EnvironmentFile覆盖站点，日志append。
-deploy.sh[OV7T]: F:通过SSH上传私有业务包与会话并调用远程安装 | R:code:server/deploy/remote_install.sh,code:server/deploy/sync_token.sh | A:deploy.sh user@host | S:先探SSH且要求已有会话；真实配置随部署包上传、会话独立0600，不可作脱敏发布打包器。
-grab_signup.py[EB9L]: F:对指定活动预加载并按开放时序执行页面报名及最终通知 | R:code:server/scripts/watchlist_runner.py,code:server/deploy/auto_login.py | A:main,BurstPolicy,run_submit_loop | S:只指定活动本人会话；sign_end硬截扩窗；计次绑定真实signUp请求并保留引用，乱序响应按请求结算；丢响应保留pending，查不到不等于失败；退出移除监听。
-make_template.sh[OV7S]: F:收集依赖并生成脱敏combined服务交付ZIP | R:code:server/bot/bot.js,code:server/bot/handled_messages.js,code:server/deploy/atomic_json.js | A:make_template.sh | S:机器人与去重、续期与原子写成对复制缺件失败；配置从占位生成；只一个combined连接，owner与机器人身份分开。
-remote_install.sh[OW8S]: F:校验环境并安装错峰cron及combined服务模板 | R:code:server/scripts/fetch.py,code:server/scripts/watchlist_runner.py,code:server/bot/bot.js | A:remote_install.sh | S:真实fetch成功才写cron；替换匹配旧任务后追加全清单；缺凭据或owner不生成服务，生成只提示启用不自动起连接。
-server_refresh.js[EI9M]: F:用一次性或常驻页面维持刷新机会并保存有效会话 | R:code:server/deploy/atomic_json.js,code:server/deploy/campus-login.service | A:server_refresh.js,--daemon | S:API验证后才写完整状态及业务会话，失败退出4；daemon检测外部状态重载但不主动登录；常驻仅给刷新机会不保证续期。
-set_credentials.py[EI8T]: F:交互收集账号密码并原子替换部署凭据 | R:code:server/deploy/auto_login.py | A:main | S:密码不回显，中断空值不写；临时及结果0600，只输出权限字节数；需保留stdin键盘输入。
-sync_token.sh[OI7T]: F:校验后经SSH同步会话并在远端复验 | R:code:server/scripts/fetch.py,code:server/scripts/login.py | A:sync_token.sh user@host | S:本机fetch失败不传，远端目录不存在拒绝；覆盖0600后真实复验；固定解释器路径须核环境。
-test_atomic_json.js[TD6S]: F:离线检验原子JSON写入保旧清理和权限 | R:code:server/deploy/atomic_json.js | A:node server/deploy/test_atomic_json.js | S:不载Playwright；finally清独立目录；Windows跳POSIX权限，不能作Linux权限已验证。
+README.md[SO5T]: F:索引登录维护、自动报名与安装交付落点 | R:code:docs/OPERATIONS.md,code:server/deploy/login/auto_login.py | A:部署文件表,同步命令 | S:凭据和运行data不随仓库交付；真实依赖版本无部署证据时标blocked。
 
 ===/<repository>/server/deploy/legacy/===
 README.md[SO2T]: F:标明旧nginx触发路由停用及恢复前提 | R:code:docs/OPERATIONS.md | A:历史部署说明 | S:保留旧脚本不证明当前外部触发链接可用。
@@ -1641,47 +1540,15 @@ install_nginx_route.py[OO3T]: F:在旧nginx锚点插入精确触发代理 | R:co
 ===/<repository>/server/deploy/logrotate/===
 campus[OO4T]: F:按周或大小轮转登录及业务日志 | R:code:server/deploy/server_refresh.js | A:logrotate配置 | S:copytruncate保留inode兼容追加写；delaycompress延后压缩。
 
-===/<repository>/server/scripts/===
-activity_watch.py[AB9L]: F:按昼夜排期发现公开活动变化并持久化待发送事件 | R:code:server/scripts/common.py,code:server/scripts/fetch.py,code:server/scripts/run.py | A:compute_events,merge_pending,initialize_baseline,main | S:首轮只建基线；失败不清快照或推断结束，连续缺三轮才移除；待发先落盘，发送严格True才清；非阻塞锁防堆积，dry仍联网取锁。
-card.py[DU8L]: F:构造公开日报动态及owner预报名卡片 | R:code:server/scripts/common.py,code:server/scripts/render.py | A:pending_card,digest_card,public_event_card,grab_pending_card,remind_card,status_label | S:公开卡无个人报名及写动作；预报名仅私聊；按钮value用字符串与base64url防SDK字典及名称分隔兼容问题。
-common.py[CG9M]: F:集中服务器配置、北京时间、状态会话和原子读写锁 | R:code:server/scripts/site_target.py,code:server/scripts/fetch.py | A:business_now,load_config,load_session,atomic_write_text,file_lock,update_state | S:坏状态JSON抛错不能清去重历史；写先权限后replace并fsync；OS锁外叠RLock及路径重入计数；监测、推送和私人意愿状态分开。
-fetch.py[IB9M]: F:完整分页拉取学校活动并归一化公开及本人报名投影 | R:code:server/scripts/common.py,code:server/scripts/card.py,code:server/scripts/query.py | A:fetch_all,classify,classify_public,public_item,item_status,main | S:4001短暂重试后才判失效；分页不完整抛错；公开白名单剔除signed且不因本人已报隐藏；抓取不能标推送成功。
-grab_card.py[AU8S]: F:保存私聊卡快照并按活动与清单重建刷新 | R:code:server/scripts/card.py,code:server/scripts/notify.py,code:server/scripts/watchlist.py | A:save,load,live_items,refresh,card_json | S:快照白名单0600原子写；已开放不挂预报名；点击回调直接新卡，后台变化才PATCH，成功message_id作刷新依据。
-login.py[II8S]: F:静默同步浏览器会话或等待本人可见浏览器登录 | R:code:server/scripts/common.py,code:server/scripts/fetch.py | A:build_session,try_silent_sync,interactive_login,main | S:静默只认localStorage出现token，没有额外API校验；交互最多15分钟；日志不输出敏感身份，保存走common。
-net_probe.py[IR7S]: F:区分学校不可达与整机断网并控频通知 | R:code:server/scripts/site_target.py,code:server/scripts/notify.py | A:main | S:不携token只读512字节；HTTP错误仍算可达；连续两败才告警且每周期最多三次发送，异常退出0。
-notify.py[IU9L]: F:适配多平台推送、飞书限流及owner私聊卡片更新 | R:code:server/scripts/common.py,code:server/scripts/card.py,code:server/scripts/grab_card.py | A:send,send_card,send_private,send_private_card,update_card | S:HTTP2xx不代表业务成功，拒bool当0；仅限流码退避；私聊须环境owner、用户记录及显式会话一致，收件人未知不取token；None未配置与False失败分开。
-query.py[AU7S]: F:为机器人实时生成公开或本人活动文本与卡片 | R:code:server/scripts/fetch.py,code:server/scripts/card.py,code:server/scripts/render.py | A:main,render_pending,render_open,render_mine,render_types | S:仅生成不发送；本人视图必须由调用方守私聊；当前分类用datetime.now而非业务时钟。
-regress.py[TQ7S]: F:串行运行服务器日报扫描查询及自检汇总结果 | R:code:server/scripts/run.py,code:server/scripts/scan.py,code:server/scripts/selfcheck.py | A:run,main | S:非离线：真实查询扫描且临时改生产推送时间再恢复，还调用改去重状态脚本，不可当无副作用检查。
-remind.py[AB8T]: F:筛选当天未开始的本人已报名活动发私聊提醒 | R:code:server/scripts/fetch.py,code:server/scripts/notify.py,code:server/scripts/card.py | A:main | S:个人状态不回退群；dry仍抓真实接口；成功可为message_id不能只认True；今日按datetime.now。
-render.py[DU7S]: F:统一活动日报查询提醒的纯文本排版及总条数 | R:code:server/scripts/card.py,code:server/scripts/query.py | A:pending_lines,open_lines,digest_items,digest_lines,trim | S:卡片文本共用限额；时间带日期避免历史消息相对时间失真；digest两类合计限额。
-run.py[AB9M]: F:编排抓取公共日报、成功去重及可选owner私聊卡 | R:code:server/scripts/fetch.py,code:server/scripts/common.py,code:server/scripts/notify.py | A:main,build_message,build_watch_message,send_watch_events,send_grab_card | S:锁内占推送时刻后锁外发，失败仅仍属自身占位才回滚；严格True才成功且只记实际展示条目；私聊失败不回滚公共成功，dry仍真实抓取写报告。
-scan.py[AB8S]: F:分批提醒未来十分钟开放活动并按开放时刻去重 | R:code:server/scripts/fetch.py,code:server/scripts/notify.py | A:main,send_rush_card | S:查重发送落盘同锁防cron重叠；严格True才记，失败停后续批保重试；公开不按本人signed过滤。
-selfcheck.py[TQ7M]: F:检查状态、并发扫描、飞书缓存及卡片文本一致性 | R:code:server/scripts/scan.py,code:server/scripts/notify.py,code:server/scripts/card.py | A:main,check_token_cache,check_cards,check_parity,check_limit_parity | S:非离线只读：起四个真实scan，删token缓存再向飞书申请落盘，可能发临近提醒并改业务状态。
-site_target.py[CC8T]: F:解析服务器唯一学校根地址及配置状态 | R:code:server/scripts/common.py,code:server/scripts/net_probe.py | A:resolve_base,BASE_URL,CONFIGURED,CONFIG_MESSAGE | S:环境变量先于配置site.base；无配置占位且CONFIGURED=false；本机服务器不共享运行时代码。
-token_probe.py[II8M]: F:探测学校会话有效性并记录指纹与独立告警周期 | R:code:server/scripts/common.py,code:server/scripts/token_report.py | A:main | S:不改会话或业务去重；网络异常5秒后重试一次；两次非ok告警最多三次发送，HTTP/JSON错误归网络，通常退出0。
-token_report.py[AQ6M]: F:按指纹归并探针观测寿命并生成Markdown | R:code:server/scripts/token_probe.py | A:parse_lines,group_by_token,describe,render,main | S:saved_at空格须非贪婪解析；同指纹取最早保存时间；仅写报告，首次fail按当前实现直接判失效。
-trigger_server.py[IW8S]: F:提供口令HTTP触发强制日报及健康检查 | R:code:server/scripts/run.py | A:Handler.do_GET,main | S:无TRIGGER_TOKEN拒启；精确路径锁内占60秒冷却；run --force绕防重且180秒超时；输出HTML转义，启动及默认请求日志会含口令路径。
-watchlist.py[AB9M]: F:持久化本人预报名意愿并冻结运行时序策略 | R:code:server/scripts/common.py,code:server/scripts/watchlist_runner.py | A:load,save,add,remove,mark,main | S:坏清单抛错不空覆盖；事务锁内本地改写0600；同ID再加重置queued；拒硬截止不晚于开放或已过窗口；个人意愿独立去重。
-watchlist_runner.py[AW9M]: F:对齐预报名清单并交systemd执行及收编结算 | R:code:server/scripts/watchlist.py,code:server/deploy/grab_signup.py | A:main,launch,unit_token,unit_name,status_file,read_code | S:runner锁叠清单事务；unit用完整ID哈希防串场；先running再拉起，0码才done；冻结策略原样传，dry仍可写终态并删除旧状态文件。
-
 ===/<repository>/server/scripts/dev/===
 README.md[SQ5T]: F:界定一次性接口探索与手工推卡工具 | R:code:server/scripts/dev/explore.py,code:server/scripts/dev/probe_login.py,code:server/scripts/dev/push_card.py | A:开发工具索引 | S:可能真实联网；长期能力应提升正式scripts并补验证。
 explore.py[IQ5T]: F:用持久Chrome探查活动入口及接口页面摘要 | R:code:server/scripts/common.py | A:main | S:真实站点访问且写探索产物，并非离线；未配置退出，导入及产物根按dev层级计算。
 probe_login.py[II5T]: F:采样登录页输入、验证码候选、按钮及iframe | R:code:server/scripts/common.py | A:main,JS | S:只采结构不提交登录；未配置站点返回2；导入路径仅加入dev自身。
 push_card.py[IU5T]: F:向指定飞书会话发送菜单或空列表测试卡 | R:code:server/scripts/notify.py,code:server/scripts/card.py | A:build,main | S:真实发送而非预览；提供chat_id才取token；当前只看HTTP布尔未复核业务码。
 
-===/<repository>/tools/===
-build_update_delta.py[OV7T]: F:离线封装版本差分ZIP及旁路清单生成 | R:code:local/update_delta.py | A:build_outputs,main | S:复用产品归档验证；清单去下划线内部字段，.part原子替换，失败清本次半成品。
-qa_business_clock_worker.py[TQ8M]: F:从候选EXE提取worker并隔离执行过期重试探针 | R:code:local/grab.py,code:local/business_clock.py,code:tools/release.py | A:run_probe,main,--exe,--evidence-root | S:不执行主EXE；固定QA epoch非真实授时，tick同机；退出2且单个retry_duration终态及无登录产物才满足断言；零网络仍依赖生产边界验证。
-qa_runtime_reliability.py[TU8L]: F:以本地回环服务加载生产UI及测试桥驱动Edge验收 | R:code:local/ui/index.html,code:local/tests/fixtures/runtime_bridge.js | A:main,--run,--scenario,--ui-root,--evidence-root | S:桥插led.js前；外部请求全拦并记失败，页面及控制台错误也失败；仅回环且不杀占端口者，Edge缺失blocked不安装；无run也建证据目录启停服务。
-release.py[OV9L]: F:以VERSION分离只读检查、本地构建准备与正式发布 | R:code:VERSION,code:tools/release_guards.py,code:local/build/build_installer.py,code:local/update_delta.py | A:main,stage_local_assets,verify_release_assets,do_publish,zip_server,write_manifest | S:准备前后HEAD及dirty一致；站点仅环境注入并finally移除生成模块；ZIP与独立EXE同源；单资产300MiB/清单65536字节上限；发布干净main、来源指纹及人工确认后上传前重验，tag不强改。
-release_guards.py[OQ8S]: F:顺序执行发版结构分层静态及全量守卫并校验站点 | R:code:tools/release.py,code:tools/code_shape/check.py,code:requirements-dev.txt | A:run_guards,guard_steps,run_command,site_origin_for_build | S:每步有界且失败即停，超时124；当前解释器不自动装ruff；正式构建缺站点或非HTTPS拒绝，dirty预览可未注入。
-split_branches.py[OV8S]: F:从干净main生成local/server根快照及可选推送 | R:code:local/README.md,code:server/README.md,code:docs/OPERATIONS.md | A:main,build_branch,--dry-run,--only | S:临时clone无硬链接并建orphan，排敏感产物；默认真实force推送；dry仍临时建分支提交仅免推送；分发快照非开发源。
-verify_autologin_loop.py[TI9S]: F:故意破坏服务器会话并等待timer检验无人值守闭环 | R:code:server/deploy/auto_login.py,code:server/scripts/token_probe.py,code:server/deploy/campus-autologin.timer | A:main,--dry-run,--timeout | S:真实运行先0600备份再破坏、超时恢复；只认本轮offset后登录开始、复探ok及指纹相符；会真实登录告警；dry仍建备份时间线并读会话。
-
 ===/<repository>/tools/code_shape/===
 README.md[SQ7S]: F:定义代码大小分层、名单收紧及模块守卫口径 | R:code:tools/code_shape/check.py,code:tools/code_shape/ui_modules.mjs | A:规则说明,检查命令 | S:名单只减不增；匿名函数按出现顺序标识，前插导致键错位需人工批准仅改键不改数值。
-baseline.json[FQ7L]: F:记录存量超限文件函数测试与多赋值属性类 | R:code:tools/code_shape/check.py | A:files,functions,test_functions,classes | S:记录值只允许收紧，甲档与类含原因；不是豁免新增或增长的许可。整函数搬到新文件时只换键不改值
+baseline.json[FQ7L]: F:记录存量超限文件函数测试与多赋值属性类 | R:code:tools/code_shape/check.py | A:files,functions,test_functions,classes | S:记录值只允许收紧，甲档与类含原因；不是豁免新增或增长的许可。整函数或整文件搬到新路径时只换键不改值
 check.py[XQ8L]: F:按统一物理行与属性量法比对和收紧代码大小名单 | R:code:tools/code_shape/baseline.json,code:tools/code_shape/jsfuncs.mjs | A:collect,compare,tighten,main | S:新未跟踪源码也查；Python函数不含装饰器且嵌套单算；属性仅三方法以上赋值；缺node只读可跳JS，init/tighten拒写防删名单。
 jsfuncs.mjs[XQ6T]: F:向大小守卫输出JS函数范围与物理行JSON | R:code:tools/code_shape/jsscan.mjs,code:tools/code_shape/check.py | A:命令行文件列表 | S:末行无换行补一行；量法保留匿名函数位置供调用方归一化。
 jslex.mjs[KQ7M]: F:无依赖扫描JS记号、模板插值及括号深度 | R:code:tools/code_shape/jsscan.mjs,code:tools/code_shape/ui_refs.mjs | A:tokenize,matchBrackets,braceDepths,KEYWORDS | S:模板插值展开普通记号并计花括号深度；正则不闭合回退为除号，文本段本身不当引用。
@@ -1978,3 +1845,221 @@ probe_phone_http.py[XQ2T]: F:起离线手机页预览服务，核对首页、样
 
 ===/<repository>/design/evidence/2026-11-23/phone-page-closeout/===
 README.md[SQ4S]: F:手机页分支合回主干前的收口证据：全量离线回归结果、快进前提、拆分与会话收拢与五组安全网等交付摘要、仍未验项与复现命令 | R:code:design/evidence/2026-11-23/real-env-smoke/README.md,code:design/proposals/engineering-refactor.md | A:手机页一段的整体入口 | S:仍未验项与冒烟证据同步，不当全过
+
+===/<repository>/design/evidence/2026-11-24/layout/===
+README.md[SQ5M]: F:记录全仓库目录整理：三层、local根模块、手机页、测试、工具、服务器版共176处旧路径到新路径对照、守卫与期望值说明及验证汇总 | R:code:docs/ARCHITECTURE.md,code:tools/code_shape/baseline.json | A:旧新路径对照表 | S:历史证据里的旧路径不回改，复跑旧变异脚本须按表换路径；服务器未重新部署
+
+===/<repository>/local/application/activity/===
+activity_list_service.py[AB8S]: F:编排列表单飞拉取、缓存合并、错误记录及结构化结果发布 | R:code:local/application/coordination.py,code:local/domain/plan/plan_rules.py | A:门禁占位/重复请求对账/workerJSON/活动投影 | S:快照深复制；异常必须释放listing，失败不能把旧缓存置空；校时等候与worker、详情请求耗时分别诊断
+
+===/<repository>/local/application/components/===
+advanced_component_service.py[AC8L]: F:管理单组件下载校验、缓存复用、整组提交、取消和移除事务 | R:code:local/infrastructure/components/component_packages.py,code:local/infrastructure/update/updater.py | A:单飞下载/拆分资产/单体回退/安装回执 | S:网络错及404不回退单体，404是未发布；取消与安装共锁确定提交点，提交后拒取消；关停须等已提交安装完成或回滚
+component_actions.py[AC8M]: F:编排组件下载导入启停、位置与安全快照，协调登录和手机通道 | R:code:local/application/components/advanced_component_service.py,code:local/application/components/component_projection.py | A:advanced_busy/替换停服务/启用偏好/自动更新调度 | S:锁序凭据到手机到协调；隧道停不掉不可替换；安装成功与偏好保存失败分别报告；移除OCR不删持久凭据
+component_projection.py[AC7T]: F:纯投影组件下载、通道、凭据与手机访问事实为界面快照 | R:code:local/application/components/component_actions.py | A:features/channels/credential | S:退出notice优先后续stopped；不读盘取锁发事件，不输出密码密文及安装路径
+
+===/<repository>/local/application/desktop/===
+clock_service.py[AR8S]: F:提供业务钟快照、可用性、手动单飞重校、列表短等待和准备前监测 | R:code:local/infrastructure/clock/business_clock.py,code:local/application/plan/plan_admission.py | A:now/snapshot/手动同步/计划前监测 | S:仅demo可用系统墙钟；列表等不到仍继续列表，不因时钟阻断；重校网络在协调锁外，计划准备前20秒每计划请求一次
+desktop_lifecycle.py[AW8T]: F:置桌面关闭屏障并按序停止组件登录手机计划及受管进程树 | R:code:local/application/coordination.py,code:local/application/worker/worker_service.py | A:锁内资源快照/锁外关停/完成事件 | S:后到shutdown锁外等待同一完成Event，返回即真正收尾；树终止成功不重复杀PID，异常仍发布完成事件
+desktop_window.py[AU7M]: F:编排桌面窗口外壳：关窗三选与偏好、隐藏与唤回、托盘、二次打开及计划结束通知 | R:code:local/app.py,code:local/infrastructure/desktop/tray_icon.py | A:request_window_close,ask_window_close,hide_window,show_window,_on_second_open,DesktopWindowFields | S:隐藏须托盘或活手机会话至少一条，门禁不过不记住隐藏偏好；窗口托盘全经端口注入，旧字段名由代理类提供
+update_service.py[AV9L]: F:管理更新检查、受信下载、完整增量目录准备及安装器或启动器发起 | R:code:local/infrastructure/update/update_check.py,code:local/infrastructure/update/updater.py | A:单飞/快照接管/delta回退/full准备/launch | S:仅冻结versions布局且有launcher走目录切换，其余安装器；取消后不fallback。launching检查不能清staging；启动器成功才延迟退出，安装器不自动退，错误不得污染登录组件状态
+
+===/<repository>/local/application/login/===
+auto_relogin.py[AI8M]: F:调度登录检查、失效恢复、人工交接及失败退避并投影统一状态 | R:code:local/domain/login/login_rules.py,code:local/application/login/login_relay_service.py | A:定期检查/request_recover/reset/view | S:外部回调锁外执行；busy和其他活跃流程接管不累失败；转人工不增失败，generation隔离reset前回调
+login_recovery.py[AI8M]: F:编排检查单飞补查、真实结论、过期通知与飞书失效推送及中继结束凭据处理 | R:code:local/application/login/login_service.py,code:local/application/login/auto_relogin.py,code:local/infrastructure/notify/feishu_webhook.py | A:检查门禁/补查一次/恢复请求/中继收尾/push_expired | S:曾有效后才推一次失效通知；网络异常不记expired。一次性密码拒绝只清内存，不能污染持久凭据，失败清pending_save。失效推送在后台线程经注入的post_json端口发送，本模块不联网，失败只记异常类别
+login_relay_service.py[AI9L]: F:单飞暂存凭据并通过worker驱动验证码、OCR转人工和安全状态 | R:code:local/application/worker/worker_service.py,code:local/domain/phone/phone_rules.py | A:begin/submit/cancel/public_state/OCR交接/成功回调 | S:凭据不进文件环境参数日志；锁外spawn且取消关闭后迟到spawn必须终止。同challenge不清输入或重复发事件，submit_pending防重发；手机取消只取消phone来源，历史终态live=false不能重播成功
+login_service.py[AI8T]: F:整理登录检查事件及worker结束结论并连接领域分类与界面协议 | R:code:local/domain/login/login_rules.py,code:local/domain/worker/worker_lines.py | A:valid/expired/none/unknown/hint/done | S:本轮无粗测须unknown覆盖旧告警；估算不放行；检查取首个来源错误，done从尾部找末错，网络不诱导重登
+relogin_entry.py[AI8L]: F:编排桌面与手机共用的重登入口、自动重登资格与发起、凭据暂存落盘及登录成功锚定 | R:code:local/domain/login/login_rules.py,code:local/application/login/login_recovery.py,code:local/application/coordination.py,code:local/application/login/login_relay_service.py | A:relogin_begin,phone_relogin_begin,prepare_phone_relogin,_auto_relogin_eligible,_begin_auto_relogin_once,save_relogin_credentials | S:判断全在login_rules，本类只调端口；忙碌判定在协调锁内，事件与中继调用在锁外。login_wait只放行计划运行中的一次自动登录；状态不复制，读写LoginRecovery与协调对象
+
+===/<repository>/local/application/phone/===
+phone_access_session.py[AU9L]: F:管理受限HTTP访问、一次性配对、内存会话、设备信任及白名单动作派发 | R:code:local/domain/phone/phone_rules.py,code:local/infrastructure/phone/phone_http.py | A:绑定/配对限速/信任恢复/事件游标/动作派发 | S:seen不续created八小时寿命；手动关闭撤信任而进程退出保留。校验建会话与stop同锁防权限复活；事件锁独立不回调HTTP，严格动作白名单不反射Api；start_plan服务端补source=phone
+phone_service.py[AU8M]: F:编排桌面手机通道开启、状态聚合、隔道退出联动及固定入口恢复，并给手机快照活动补开放、截止与举办起止时刻 | R:code:local/application/phone/phone_access_session.py,code:local/application/coordination.py | A:状态聚合/启动停止/Tailscale恢复/_attach_activity_epochs | S:运行时不能直接切通道；隔道退出notice须保留并停旧HTTP；Cloudflare不自动恢复不签长期信任；四个时刻键经注入的school_epoch只加在副本上
+
+===/<repository>/local/application/plan/===
+plan_admission.py[AB9L]: F:接纳计划并维护启动幂等对账、取消墓碑、代次和终态提交发布 | R:code:local/application/coordination.py,code:local/domain/plan/plan_rules.py | A:请求ID/门禁复核/最终预留/重放/取消/PlanEvents | S:预检后最终锁内再验时钟忙碌；当前及待定请求不淘汰，取消墓碑独立32条缓存且满拒收，防迟到复活。旧计划不覆盖新代次；成功先写缓存，终态锁外取快照再锁内提交，事件锁外发布
+plan_service.py[AB9L]: F:运行单场worker并装配冻结预算、监督进程、解析进度和证据终态 | R:code:local/domain/plan/plan_rules.py,code:local/domain/signup/retry_window.py,code:local/application/coordination.py | A:参数组装/创建登记/watchdog/行解析/完成通知 | S:业务截止只映射一次单调上限，校时回拨不扩预算；仅自动模式接纳有界严格增长扩窗，终态后不扩。取消不等EOF，先停唤watchdog再join；证据优先杀进程方式，进度不可冒充终态
+
+===/<repository>/local/application/signup/===
+signup_browser.py[AB8L]: F:编排单场报名的浏览器阶段：开页取密钥、已报名前置核对、等待开放、挂页面监听、主调度循环与点击兜底，并在关浏览器前收尾 | R:code:local/application/signup/signup_direct.py,code:local/application/signup/signup_finalize.py,code:local/application/signup/signup_ledger.py,code:local/application/signup/signup_outcome.py | A:run_browser_phase | S:页面回调只入队，不记日志不读钟；finalize_fn须在直发路径建好后、开放前预检前赋值，挪位会让等开放时预算到点走错收口；finally只清理不return
+signup_cancellation.py[AB8T]: F:编排桌面单场取消门禁、worker归一与成功后缓存回写 | R:code:local/domain/signup/cancel_rules.py,code:local/application/coordination.py | A:cancelling互斥/结果归一/活动事件 | S:未知可能已提交，不重试；成功清signed和sync_pending；非刷新事件后恢复原列表请求终态避免污染对账，学校原话不写取消日志
+signup_direct.py[AB8M]: F:管理直发通道：选路径并上报path事件、单向退回点击、版本不兼容或重登后重取密钥、现算签名发一笔与开放前预检 | R:code:local/application/signup/signup_ledger.py,code:local/infrastructure/signup/signup_signing.py,code:local/infrastructure/signup/signup_transport.py | A:setup_direct_path,try_direct_fire,precheck_before_open,downgrade_to_click,rekey_after_version,rekey_after_relogin | S:运行时密钥只绑进签名partial，不存属性不写日志；预留在try_submit前登记、被拒即释放；预检票据attempt_no为0，不进调度账本
+signup_finalize.py[AB8M]: F:提供发射闸门、50毫秒短事件泵与统一有界收尾：冻结接纳、一秒尾窗、成功粘性和单次最终核对 | R:code:local/application/signup/signup_ledger.py,code:local/application/signup/signup_outcome.py | A:may_fire,pump_wait,finalize,fallback_terminal | S:收尾只算一次，结果缓存不重入；尾窗后冻结不再接纳迟到事件；有提交就用独立3秒预算查一次报名状态，异常按成功、未决、异常类型的优先级收口
+signup_ledger.py[AB8L]: F:维护单场报名的同一调度账本：状态初值、按回包分类下结论、页面与直发事件结算、事件泵、在途同步与扩窗重建预算 | R:code:local/domain/signup/signup_reply.py,code:local/grab.py | A:new_signup_state,apply_conclusion,settle_pending,settle_direct_event,sync_budget_window,sync_pending | S:state键名即日志与终态口径，不可改；只按已登记Request或run_id加attempt_no认领事件，未知事件无副作用；扩窗只换ctx.budget，读取方须现读不缓存
+signup_outcome.py[AB8S]: F:输出单场报名唯一终态：done结构化行、各停止原因的人读结论、通知与退出码，以及校时失效与预算到点两个收口 | R:code:local/domain/signup/retry_rules.py,code:local/domain/signup/signup_reply.py | A:terminal,clock_stop,budget_stop,REPLY_STOP_HINTS,SubmitAborted | S:done行last_reason必须在行末，界面解析与契约测试都靠它；重复调用terminal只回2不再写行；有未决提交时校时失效收成unconfirmed
+signup_policy.py[AB8L]: F:定义提交节奏状态机：黄金风暴、常规全速、404自适应退避与扩窗，并按请求身份记账结算 | R:code:local/grab.py,code:local/application/signup/signup_ledger.py | A:BurstPolicy,GOLDEN_WINDOW_S,FULL_SPEED_INTERVAL_S,NOT_READY_404_LIMIT,ADAPTIVE_WINDOW_S,INFLIGHT_TTL_S | S:时间只经构造注入的clock读；告警与时钟异常走可覆盖钩子，基类默认不写日志、抛RuntimeError，须经grab子类使用；扩窗永不越过sign_end，同一请求只结算一次
+signup_run.py[AB8M]: F:单场自动报名入口：建业务时钟与冻结起点、建预算、鉴权与等自动登录、粗校时、查目标、发窗口事件后进入浏览器阶段 | R:code:local/grab.py,code:local/application/signup/signup_browser.py,code:local/application/signup/signup_outcome.py | A:run_signup,wait_for_relogin | S:外部名字全经调用时装配的ports取，本层不import根模块与第三方；已知起点且窗口已过时零网络零浏览器；准备阶段的意外异常照旧外抛，只有浏览器阶段统一收成终态
+signup_target.py[AB6S]: F:编排报名目标选择：筛可抢候选、按序号或名称选取、交互确认，已开放场次把开放时刻换成当前业务时间 | R:code:local/grab.py | A:resolve_target,candidates,pick_activity,by_index_or_name,at_or_now | S:三条查目标路径共用传入预算；名称命中多个就拒绝并列出序号，不猜
+
+===/<repository>/local/application/worker/===
+worker_activity_list.py[AB8M]: F:编排worker的列表登录探测、查询、时间筛选排序、详情补全及命令输出 | R:code:local/grab.py,code:local/infrastructure/school/activity_queries.py | A:run_list,still_relevant,keep_in_list,sign_state | S:学校Date只用于筛选和排序，开放文案仍要求业务时钟。先筛后补详情，文本模式不补。JSON输出与诊断分流，错误返回2，计时异常不影响输出
+worker_cancel.py[AB8S]: F:编排单场取消报名：登录与时钟、已报名与取消窗口四条前置核对，只调一次取消接口并以复查为准 | R:code:local/grab.py,code:local/application/signup/signup_cancellation.py | A:run_cancel | S:前置不满足一律不调接口；接口只调一次不重试，复查明确未报名才算cancelled，学校原话清洗后只附在refused上
+worker_login.py[AI8S]: F:编排本机登录：可见浏览器等用户登录、写双文件登录态再接口复查，以及手机重登中继的依赖适配 | R:code:local/grab.py,code:local/infrastructure/login/login_relay.py,code:local/infrastructure/stores/login_session_store.py | A:run_login,run_login_relay,page_local_storage,session_from_items | S:Playwright与login_relay由grab延迟导入后传入；登录态必须双文件事务写入，写失败或接口复查失败都返回2；中继凭据只在内存里用完即弃
+worker_service.py[AW9S]: F:创建登记短命worker、单任务和登录中继并转发输出与回收进程树 | R:code:local/application/coordination.py,code:local/application/login/login_service.py | A:run/spawn/relay/pump/超时回收 | S:创建登记与closing同锁，不能先spawn后登记；communicate超时先终树后有界补读，解除登记才关句柄；pump只清自己proc所有权，锚点失败不推翻登录成功
+
+===/<repository>/local/dev/===
+dev_phone_preview.py[XU4S]: F:用演示活动和指定登录快照在127.0.0.1起离线替身手机服务，供开发时查看各登录态页面 | R:code:local/infrastructure/phone/phone_http.py,code:local/application/phone/phone_service.py,code:local/domain/common/demo_data.py | A:main,--state,--port,--saved,--ocr,--no-browser | S:数据目录强制指到新建临时目录，不读真实登录态也不连学校
+
+===/<repository>/local/domain/common/===
+demo_data.py[DU6T]: F:生成覆盖开放、冲突、缺失时间、取消能力及奖励三态的离线活动 | R:code:local/app.py | A:注入时刻与格式化器的演示样例 | S:缺失举办时间为空串；零奖励与未公布、未返回分开
+errors.py[DB6T]: F:定义关闭屏障拒绝新worker的语义异常 | R:code:local/app.py | A:ClosingError | S:不能归成组件错误或学校报名失败
+time_text.py[DB7T]: F:纯换算时间文本、参考时刻、学校差值及任务监督截止 | R:code:local/domain/signup/retry_window.py | A:注入school_epoch时间换算 | S:缺失时钟时间返回未知，无有效重试起点不给截止
+
+===/<repository>/local/domain/components/===
+component_rules.py[DV6T]: F:按注入的连续等待时长判定组件检查三十秒超时 | R:code:local/infrastructure/components/component_packages.py | A:检查超时产品阈值 | S:非法时长按未超时，不自行计时
+
+===/<repository>/local/domain/desktop/===
+lifecycle_rules.py[DB7S]: F:从上一周期快照计算关闭时长和正常异常未知质量 | R:code:local/domain/common/time_text.py | A:旧文本与可信epoch生命周期投影 | S:异常周期不套更早关闭记录，矛盾退未知；旧墙钟文本不可反推v2锚点
+
+===/<repository>/local/domain/login/===
+login_rules.py[DI8M]: F:归一自动登录、临近开放门禁、会话估算、check四态归因及重登入口的资格与分流判断 | R:code:local/app.py,code:local/domain/worker/worker_lines.py | A:登录快照/凭证绑定估算/人工接管/auto_relogin_blocked/late_relogin_answer/manual_relogin_wanted | S:十小时估算不参与放行清理；只认匹配凭证v2锚点；首条失败行归因且网络优先，末尾重登指引不能误判失效。忙碌位一律挡，login_wait只豁免进程在跑；时钟读不出按来不及
+
+===/<repository>/local/domain/phone/===
+phone_rules.py[DS9L]: F:定义手机地址来源、动作参数、敏感投影、会话与事件回放纯安全规则 | R:code:local/application/phone/phone_service.py,code:local/infrastructure/phone/phone_http.py | A:绑定/Origin/JSON体/动作参数/文本图像投影/游标 | S:仅回环或TailscaleIPv4绑定；Origin精确匹配；体64KiB且拒坏UTF8非有限JSON及多余键。可输入账号密码但状态不回传凭据；PNG完整验证；八小时会话不滑续，两分钟连接态不等于会话失效
+
+===/<repository>/local/domain/plan/===
+plan_rules.py[DB9M]: F:权威归一计划项并判断截止冲突、合并短期成功和裁决监督终态 | R:code:local/app.py,code:local/signup_plan.py | A:接纳/缓存同步/停止结果裁决 | S:前端只选活动，缓存事实变化整单拒绝；已报名时段参与冲突；本地成功保留120秒同步窗。成功证据优先退出码与停止；停止不撤回已发请求，未决保留真实计数
+
+===/<repository>/local/domain/signup/===
+cancel_rules.py[DB7T]: F:清洗学校文案并归一worker取消报名末行结果 | R:code:local/grab.py | A:取消返回结构/学校原话清洗 | S:只认最后非空行，坏输出归unknown，仅refused透出清洗后80字原话
+retry_rules.py[DB8S]: F:解析重试终态、归并真实计次并投影路径和登录等待遥测 | R:code:local/domain/signup/retry_window.py,code:local/domain/signup/signup_reply.py | A:worker监督字段 | S:两路真实计数取较大值防回落，last_reason尾字段可含空格；解析失败不改变退出码
+retry_window.py[DB9S]: F:统一三类重试模式绝对截止、约束来源和自动扩窗可接纳增量 | R:code:local/domain/signup/retry_rules.py,code:local/infrastructure/clock/time_contract.py | A:retry窗口公式/监督增量 | S:正数不扩窗，仅-1自动延长120至1500秒；sign_end硬截；无截止的零模式回退120秒。父监督只平移合法增长的单调截止，不因校时重算预算
+signup_reply.py[DB8T]: F:分类学校报名回包并给出终态标签和未知时钟错误阈值 | R:code:local/grab.py | A:classify_signup_reply/stop_reason_label | S:优先成功再4001再短语，失效只认4001不猜文本；未知连续三次、超时两次，分类不执行重试
+
+===/<repository>/local/domain/worker/===
+log_events.py[DS7T]: F:格式化固定事件日志并过滤敏感键、清洗截断转义字段 | R:code:local/grab.py,code:local/app.py | A:结构化日志文本 | S:固定字段不可覆盖；敏感键包含匹配宁可多挡，过滤不替代调用者避免传敏感值
+worker_lines.py[DB8T]: F:解析worker时间前缀、真实checkpoint和HTTP粗校时结构行 | R:code:local/grab.py,code:local/domain/login/login_rules.py | A:strip前缀/checkpoint/http_date | S:去前缀仅识别，原行留日志；checkpoint只认三种真实事件及正epoch，坏数据不补接收时刻
+
+===/<repository>/local/infrastructure/clock/===
+business_clock.py[RR9L]: F:用多源SNTP一致锚点和单调经过时长提供可验证业务时钟与跨进程快照 | R:code:local/infrastructure/clock/time_contract.py,code:local/app.py,code:local/grab.py | A:BusinessClock/ClockClient/now/bounds/snapshot/request_resync | S:拒绝同支持数矛盾簇及旧轮迟到发布；至少两源一致且误差不超0.5秒。系统墙钟仅诊断不兜底；Windows tick含睡眠。快照校验owner和锚点年龄，重写文件不延长900秒锚点有效期；失败自动退避5/10/20/30秒
+time_contract.py[CB9M]: F:统一学校时间解析、业务时钟注入和重试硬预算 | R:code:local/infrastructure/clock/business_clock.py,code:local/signup_plan.py | A:parse_school_time,school_epoch,configure_time_source,RetryBudget | S:学校文本固定UTC+8，历史本机保存时刻不改。业务时钟未注入即报错；预算取绝对截止与独立经过时长更紧值，耗尽拒发动作，不能把0传成禁用超时
+
+===/<repository>/local/infrastructure/components/===
+advanced_features.py[IE7M]: F:管理手机与验证码识别高级功能的启用、安装和延迟识别 | R:code:local/infrastructure/components/component_packages.py,code:local/domain/components/component_rules.py | A:feature_state,feature_ready,install_feature,classify_captcha | S:启动探测不自动安装；冻结态不以自身EXE跑pip；OCR失败回人工
+component_packages.py[IE9L]: F:校验高级组件与受管通道程序，事务安装并隔离执行helper | R:code:local/infrastructure/stores/data_directory.py,code:local/infrastructure/stores/prefs_store.py | A:feature_status,install,remove,invoke,commit_artifact_group,cloudflared | S:摘要只证完整性不证来源；执行前重验，组按兼容ID及依赖闭合切换；拒绝穿越、链接和额外文件。使用租约阻止运行中换包，事务恢复保留原组
+
+===/<repository>/local/infrastructure/desktop/===
+process_tree.py[RR9M]: F:以Windows Job约束worker及后代归属并执行整树回收 | R:- | A:ProcessTree,spawn_owned,spawn_owned_worker,kill_tree,create_job_for,SpawnFailure | S:必须挂起创建、归属Job后恢复；归属失败拒绝降级。Job关闭收后代；终止失败可重试，wait不持Job锁
+single_instance.py[RR7M]: F:阻止重复GUI并通过本机端口唤回既有窗口 | R:code:local/app.py | A:SingleInstance,acquire,start_listener,hand_over,close | S:首份互斥量故障放行，第二份唤回失败仍不建窗；仅回环监听且口令恒时比较；只清自身匹配端口记录
+tray_icon.py[IU5M]: F:以WinForms提供托盘、通知及窗口退出入口 | R:code:local/application/desktop/desktop_window.py | A:TrayIcon,start,stop,notify | S:托盘失败不阻塞主程序；停止投递清理后非托盘线程最多等2秒，否则守护线程被掐会留下幽灵图标
+webview_mime.py[RU6T]: F:登记JavaScript MIME以确保本地服务加载ES模块 | R:- | A:register_script_types | S:Windows可能将.js登记为text/plain，普通脚本可跑但模块拒载，启动必须覆盖映射
+
+===/<repository>/local/infrastructure/login/===
+login_relay.py[AI8L]: F:编排手机重登worker的验证码挑战、HTTP登录及浏览器兜底 | R:code:local/infrastructure/school/site_target.py,code:local/grab.py | A:run_http_relay,run_relay,ChallengeBook | S:仅首次验证码成功契约缺字段才切浏览器；网络或密码拒绝不切换。本场新凭证校验及双文件保存成功后才报成功
+
+===/<repository>/local/infrastructure/notify/===
+feishu_webhook.py[IM5T]: F:向飞书webhook发送一次JSON POST并读取有限响应 | R:code:local/application/login/login_recovery.py,code:local/app.py | A:post_json | S:不重试不记日志，失败抛给调用方，避免一次失效变成多条重复推送
+
+===/<repository>/local/infrastructure/phone/===
+phone_http.py[IN8M]: F:提供受限手机HTTP页面、配对、状态与动作路由 | R:code:local/domain/phone/phone_rules.py,code:local/application/phone/phone_service.py,code:local/ui/m/index.html | A:PhoneHttpServer,start,stop,set_public_host,PHONE_STATIC | S:公网通道切换后只认当前Host和Origin；动作须有效会话及CSRF。状态只读本机缓存，异常不回请求内容；拒绝前有界排空请求体。静态表须与页面脚本标签一一对应
+phone_qr.py[IU4T]: F:为手机访问地址生成PNG二维码 | R:code:local/infrastructure/components/component_packages.py | A:png_data_uri | S:拒绝查询、片段和用户信息，二维码不携带配对码
+tunnel_manager.py[IN8M]: F:探测Tailscale地址并管理受管Quick Tunnel进程及公网状态 | R:code:local/infrastructure/components/component_packages.py,code:local/infrastructure/desktop/process_tree.py | A:tailscale_endpoint,resolve_cloudflared,spawn_cloudflared,CloudflareTunnel | S:不从PATH采信cloudflared；进程纳入Job并可持租约。退出撤旧地址，重启需重配对；停止失败保留进程与地址，不能假报关闭
+
+===/<repository>/local/infrastructure/school/===
+activity_queries.py[IN8M]: F:读取活动列表与详情，将学校字段归一化并提供报名状态核对 | R:code:contracts/school-api/list-activity.raw-item.json,code:contracts/school-api/get-info.data.json,code:contracts/school-api/get-join-info.json | A:fetch_activities,fetch_activity_detail,enrich_attendance_items,map_activity,parse_attendance_detail,is_joined | S:请求函数与学校时间解析由worker注入。详情成功才缓存，命中返回副本，默认并发4；签到签退保留未知三态。有预算的报名状态查询失败返回None，不能当确认未报名
+school_http.py[IN8M]: F:实现学校HTTP请求层：绕开系统代理的直连通道、网关四个签名头与随机串、POST与GET及失败返回形状、HTTP Date粗校时 | R:code:local/grab.py,code:local/tests/school/test_network_policy.py | A:school_open,sign_request_headers,school_post,school_get,clock_sample,request_nonce | S:urllib与time一律由调用方传入，不在import时绑定；直连用空ProxyHandler，不装全局opener；签名canonical方法写死POST，只给POST用；预算换算在try外，耗尽原样抛出
+site_target.py[FC8T]: F:解析本机学校站点来源并标识是否已配置 | R:code:tools/release/release.py,code:server/scripts/lib/site_target.py | A:BASE_URL,CONFIGURED,resolve_base | S:优先级为环境、配置、构建内置；全缺时占位且未配置，学校动作应拒绝
+
+===/<repository>/local/infrastructure/signup/===
+signup_signing.py[KS8S]: F:按学校契约生成报名AES签名并解析运行时密钥 | R:code:local/grab.py | A:parse_runtime_key,build_signup_hash,SignerUnavailable | S:运行时密钥为16位ASCII字母数字原始UTF-8，不做hex或base64解码；CNG不可用仅抛不可用，不自造替代算法
+signup_transport.py[IN8S]: F:有界并发发送已签名报名请求并产生安全结果事件 | R:code:local/grab.py | A:DirectTransport | S:物理并发上限2且无等待队列；逻辑TTL不释放物理请求。started提交点锁内重读截止；关闭不取消在途请求，不自动重试或跟随重定向
+
+===/<repository>/local/infrastructure/stores/===
+credential_store.py[PS8S]: F:用Windows DPAPI原子保存秘密文档和账号密码，并管理密码拒绝标记 | R:- | A:save_document,load_document,save,load,mark_bad,is_bad | S:非Windows拒绝加密而不落明文；外层可留用户名，秘密仅在密文；保存新密码清除拒绝标记
+data_directory.py[RC6T]: F:计算源码与冻结版共享数据根并锚定进程默认目录 | R:- | A:base_dir,default_data_dir | S:只计算路径不迁移或建目录；环境覆盖优先，默认首次解析固定进程锚点
+lifecycle_store.py[PD7M]: F:保存启动、心跳及关闭事实并形成上一运行周期提示 | R:code:local/infrastructure/stores/prefs_store.py,code:local/domain/desktop/lifecycle_rules.py | A:AppLifecycle,snapshot,finalize | S:事务内严格读，读写失败只放弃本次、不写空快照；启动认领失败照常启动，文件留着上一周期记录时本轮心跳因归属不符不再写；run_id归属变更后旧实例让位；缺可信时刻关闭记unknown
+login_session_store.py[PI8M]: F:持有session与storage_state登录态文件的唯一写入入口，提供写锁、单文件原子写和双文件事务回滚 | R:code:local/infrastructure/stores/prefs_store.py,code:local/grab.py | A:session_write_lock,write_json_atomic,save_session,save_storage_state,save_verified_files | S:锁序固定线程锁再跨进程区域锁，共用一个超时预算；双写第二份替换失败只回滚已落位文件，回滚失败不得盖掉原异常。诊断只写stderr；不承诺断电原子性，opener端口供调用方传自己的open
+phone_session_store.py[PS8S]: F:保存手机设备信任并校验、续期和撤销设备 | R:code:local/infrastructure/stores/credential_store.py | A:PhoneSessionStore,add_device,validate_device,revoke_all | S:DPAPI文档仅存设备令牌摘要，恒时比较；有效期按last_seen滚动365天；损坏读取视为空信任
+prefs_store.py[PD8M]: F:提供偏好原子保存、文件占用有界重试和跨进程读合并写事务 | R:code:local/infrastructure/stores/lifecycle_store.py,code:local/app.py | A:load_from,load_for_update,atomic_write,prefs_transaction,update,PrefsReadError | S:事务内必须用load_for_update，读不到抛PrefsReadError整次放弃，绝不以空字典合并写回；load_from只供无锁显示。替换被拒重试约0.5秒，仍失败清临时文件再抛；update任何失败返回False。事务锁须覆盖读核验合并写，不能持锁联网或等子进程
+runtime_paths.py[PD8S]: F:统一源码和冻结版数据路径并迁移旧版数据 | R:code:local/infrastructure/stores/data_directory.py,code:local/infrastructure/stores/prefs_store.py | A:ensure_data_dir,migration_record,DATA_DIR | S:冻结迁移持跨进程锁只补缺失，原子复制不删除源；等锁超时不记失败也不封死后续重试
+
+===/<repository>/local/infrastructure/update/===
+update_check.py[IV8L]: F:检查固定仓库正式清单并解析可校验更新资产 | R:code:local/infrastructure/update/updater.py,code:local/infrastructure/update/update_delta.py | A:check_latest_release,parse_version,payload_from_manifest,resolve_component_assets | S:每次检查复用一次manifest响应；用到资产损坏即失败，无关旧条目跳过；拆分组件齐备且兼容标识一致才可用。
+update_delta.py[IV8M]: F:生成目录清单及文件差分并校验隔离应用 | R:code:local/infrastructure/update/updater.py | A:manifest_from_directory,build_delta,apply_delta,verify_directory,validate_relative_path | S:拒绝路径穿越及链接；ZIP成员须精确匹配清单，基础及目标哈希均校验；失败恢复原staging。
+updater.py[IV8L]: F:下载校验更新包并管理隔离staging及版本残留 | R:code:local/infrastructure/update/update_delta.py,code:local/infrastructure/update/update_check.py | A:download_payload,launch_installer,sweep_version_root,stage_update,switch_version,select_payload | S:仅HTTPS、限额、大小及SHA256通过才原子保留；清扫不跟链接且保护当前/前版/运行目录；current损坏不删版本。
+
+===/<repository>/local/infrastructure/worker/===
+worker_log.py[RO7S]: F:提供worker日志层：跨进程日志锁、按大小轮转、写一行带北京时间戳的日志、stderr降级出口与JSON模式下的stdout改道 | R:code:local/grab.py,code:local/infrastructure/stores/prefs_store.py | A:write_log,log_file_lock,rotate_log_file,append_log_line_unlocked,stderr_note,stdout_to_stderr | S:轮转与追加在同一把锁内；拿不到锁只走stderr，不无锁追加；进程内线程锁只此一把
+
+===/<repository>/local/launchers/dev/===
+开发-启动界面.bat[EU3T]: F:切换到local源码目录运行桌面应用并保留失败控制台 | R:code:local/app.py | A:双击开发批处理 | S:仅源码开发，不能充当安装包根启动器
+开发-预览手机页.bat[EU3T]: F:双击启动离线手机页预览服务，可透传登录态与端口参数 | R:code:local/dev/dev_phone_preview.py | A:双击开发批处理 | S:仅源码开发用，失败时停住控制台
+
+===/<repository>/local/ui/m/model/===
+model-conflict.js[DU7M]: F:给手机页纯规则补上时刻取法、时段重叠、开始前举办时间检查、业务时钟、取消说明、冲突原因面板与开始前提醒 | R:code:local/ui/m/model/model.js,code:local/ui/state/conflict.js,code:local/application/phone/phone_service.py | A:tsOf,actBlock,actBlockText,signedClash,cancelWindowOpen,whyView | S:业务时间只认电脑时钟快照；快照有时刻键就只用它；已选缺举办时间优先于已报名缺时间
+model-list.js[DU7M]: F:给手机页纯规则补上倒计时文案、报名状态、开放分组、勾选冲突、列表行与草稿板投影 | R:code:local/ui/m/model/model-conflict.js,code:local/application/phone/phone_service.py | A:stOf,groupKeyOf,visibleItems,rowView,draftBoard,listView | S:截止先读快照close_ts；时钟不可用按开放日分组；待开放或开放中缺举办时间写举办时间待公布
+model-relogin.js[DU7M]: F:给手机页纯规则补上重新登录视图、转人工判断、登录成功句、配对点阵字形与配对错误文案，并把PhoneModel挂到全局 | R:code:local/ui/m/model/model-run.js,code:local/domain/phone/phone_rules.py,code:local/application/login/login_relay_service.py | A:reloginView,relHandoff,loginDoneText,glyphs,pairView,pairWrongText | S:转人工只认中继live与handoff，不按次数猜；配错文案的60秒与后端配错落锁时长耦合
+model-run.js[DU7M]: F:给手机页纯规则补上开始待定、运行等待板、任务卡、确认文案、结果统计、条款板、核对批次与按登录四态的登录行 | R:code:local/ui/m/model/model-list.js | A:pendingBoard,runBoard,taskCard,confirmView,resultView,loginLine | S:-
+model.js[DU7M]: F:定义手机页纯规则对象PhoneModel的核心成员：请求标识、筛选、开放时刻、退避与同步节奏、会话状态码分流、登录四态与文案、开始门禁 | R:code:local/ui/m/index.html,code:local/ui/m/model/model-conflict.js | A:PhoneModel,filterItems,openEpochOf,sessionVerdict,canStart,loginState | S:必须最先加载；开始门禁最后还要actBlock为空；四态只管说法，门禁仍按loginRaw
+
+===/<repository>/local/ui/m/ui/===
+ui-list.js[IU7M]: F:绘制手机页活动列表：分区、列表行、冲突原因面板、跳到已报名行与整页搜索开合 | R:code:local/ui/m/model/model-list.js,code:local/ui/m/ui/ui-session.js | A:LIST_ZONES,buildRow,buildWhy,renderItems,toggleSearch | S:全部用textContent构造；未校准时日期组落下方区，今天区空态收起
+ui-plan.js[AU7M]: F:编排手机页报名计划操作：开始与对账、取消等待、停止、取消单场、结果重选、重试设置与核对抽屉 | R:code:local/ui/m/ui/ui-session.js,code:local/ui/m/model/model-run.js | A:startPlan,reconcile,cancelPendingStart,stopPlan,cancelTask,reselectFailed | S:开始结果未知时保留原请求标识只读对账，不自动重发
+ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model/model-relogin.js,code:local/ui/m/ui/ui-session.js,code:local/ui/m/ui/ui-shell.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:关面板即清输入，验证码绑定当前挑战；发起、提交、取消失败句同时写抽屉红条，因#relogin-note在更多面板里被挡；标题与成功句按打开时记的relFirstLogin取
+ui-session.js[AN8M]: F:定义手机页DOM层共用的$、请求超时与model状态对象，并负责带CSRF的请求、配对与锁定倒计时、轮询退避和会话失效处理 | R:code:local/ui/m/model/model.js,code:local/infrastructure/phone/phone_http.py | A:model,api,postAction,pair,poll,adoptCookieCsrf | S:$与model是全局词法名；请求8秒不回就放弃并放回单飞锁；未配对时一个定时器都不排；写请求与403按cookie覆盖csrf，轮询只在内存为空时补
+ui-shell.js[EU7M]: F:提供手机页抽屉外壳与确认槽、绑定全页事件，并导出PhoneUI与启动wire | R:code:local/ui/m/ui/ui-session.js,code:local/ui/m/ui/ui-plan.js,code:local/ui/m/ui/ui-relogin.js | A:openSheet,closeSheet,askConfirm,wire,PhoneUI | S:必须最后加载，启动两行只在这里；前面任一脚本缺席会在wire时报引用错误
+ui-status.js[IU7M]: F:绘制手机页提示条与告警、控件启用门禁、底栏、计划点阵板、任务卡与运行记录，登录横幅与底栏按四态取字 | R:code:local/ui/m/model/model-run.js,code:local/ui/m/ui/ui-session.js | A:setBanner,renderAlerts,refreshControls,renderBar,renderBoard,addLog | S:提示条带来源标签，只有状态过时类能自动清掉；举办时间检查的底栏句排在离线之后、默认副题之前
+ui-sync.js[AU7M]: F:摄入电脑状态快照与事件游标并按整秒局部刷新北京时间、倒计时与计划板 | R:code:local/ui/m/model/model-conflict.js,code:local/ui/m/ui/ui-status.js | A:ingest,scheduleTick,tickClock,tickBoardLed,tickRowLeft | S:事件按序号去重，重置轮次才重新接纳；整秒刷新只改数字不重画、不额外联网
+
+===/<repository>/server/deploy/install/===
+deploy.sh[OV7T]: F:通过SSH上传私有业务包与会话并调用远程安装 | R:code:server/deploy/install/remote_install.sh,code:server/deploy/install/sync_token.sh | A:deploy.sh user@host | S:先探SSH且要求已有会话；真实配置随部署包上传、会话独立0600，不可作脱敏发布打包器。
+make_template.sh[OV7S]: F:收集依赖并生成脱敏combined服务交付ZIP | R:code:server/bot/bot.js,code:server/bot/handled_messages.js,code:server/deploy/login/atomic_json.js | A:make_template.sh | S:机器人与去重、续期与原子写成对复制缺件失败；配置从占位生成；只一个combined连接，owner与机器人身份分开。
+remote_install.sh[OW8S]: F:校验环境并安装错峰cron及combined服务模板 | R:code:server/scripts/lib/fetch.py,code:server/scripts/signup/watchlist_runner.py,code:server/bot/bot.js | A:remote_install.sh | S:真实fetch成功才写cron；替换匹配旧任务后追加全清单；缺凭据或owner不生成服务，生成只提示启用不自动起连接。
+set_credentials.py[EI8T]: F:交互收集账号密码并原子替换部署凭据 | R:code:server/deploy/login/auto_login.py | A:main | S:密码不回显，中断空值不写；临时及结果0600，只输出权限字节数；需保留stdin键盘输入。
+sync_token.sh[OI7T]: F:校验后经SSH同步会话并在远端复验 | R:code:server/scripts/lib/fetch.py,code:server/scripts/login/login.py | A:sync_token.sh user@host | S:本机fetch失败不传，远端目录不存在拒绝；覆盖0600后真实复验；固定解释器路径须核环境。
+
+===/<repository>/server/deploy/login/===
+atomic_json.js[ID8T]: F:独占同目录临时文件原子写JSON | R:code:server/deploy/login/server_refresh.js | A:atomicWriteJson | S:先序列化，wx及0600建临时文件，fsync关闭后rename；失败仅清本次文件，新目录0700不改已有权限。
+auto_login.py[EI9L]: F:复核会话失效并驱动验证码登录及owner告警 | R:code:server/scripts/lib/common.py,code:server/scripts/login/token_probe.py | A:main,--check,--force,--trigger,--preempt,--dry-run | S:单次失败即时复核，网络未知不当失效；flock单实例，最多5次间隔30秒；凭据权限开放拒绝；登录及业务API双确认后原子保存；换新寿命取指纹首见非saved_at。
+server_refresh.js[EI9M]: F:用一次性或常驻页面维持刷新机会并保存有效会话 | R:code:server/deploy/login/atomic_json.js,code:server/deploy/systemd/campus-login.service | A:server_refresh.js,--daemon | S:API验证后才写完整状态及业务会话，失败退出4；daemon检测外部状态重载但不主动登录；常驻仅给刷新机会不保证续期。
+test_atomic_json.js[TD6S]: F:离线检验原子JSON写入保旧清理和权限 | R:code:server/deploy/login/atomic_json.js | A:node server/deploy/login/test_atomic_json.js | S:不载Playwright；finally清独立目录；Windows跳POSIX权限，不能作Linux权限已验证。
+
+===/<repository>/server/deploy/signup/===
+grab_signup.py[EB9L]: F:对指定活动预加载并按开放时序执行页面报名及最终通知 | R:code:server/scripts/signup/watchlist_runner.py,code:server/deploy/login/auto_login.py | A:main,BurstPolicy,run_submit_loop | S:只指定活动本人会话；sign_end硬截扩窗；计次绑定真实signUp请求并保留引用，乱序响应按请求结算；丢响应保留pending，查不到不等于失败；退出移除监听。
+
+===/<repository>/server/deploy/systemd/===
+campus-autologin.service[OI8T]: F:定义无人值守重登一次性systemd服务 | R:code:server/deploy/login/auto_login.py | A:campus-autologin.service | S:oneshot超时300秒；owner为部署占位须与机器人一致。
+campus-autologin.timer[OW6T]: F:每五分钟调度自动登录检查 | R:code:server/deploy/systemd/campus-autologin.service | A:campus-autologin.timer | S:Persistent补错过触发，分钟精度不能充当秒级报名时钟。
+campus-login.service[OI8T]: F:定义浏览器登录维持daemon及重启日志策略 | R:code:server/deploy/login/server_refresh.js | A:campus-login.service | S:失败30秒重启，可选外部EnvironmentFile覆盖站点，日志append。
+
+===/<repository>/server/scripts/lib/===
+card.py[DU8L]: F:构造公开日报动态及owner预报名卡片 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/render.py | A:pending_card,digest_card,public_event_card,grab_pending_card,remind_card,status_label | S:公开卡无个人报名及写动作；预报名仅私聊；按钮value用字符串与base64url防SDK字典及名称分隔兼容问题。
+common.py[CG9M]: F:集中服务器配置、北京时间、状态会话和原子读写锁 | R:code:server/scripts/lib/site_target.py,code:server/scripts/lib/fetch.py | A:business_now,load_config,load_session,atomic_write_text,file_lock,update_state | S:坏状态JSON抛错不能清去重历史；写先权限后replace并fsync；OS锁外叠RLock及路径重入计数；监测、推送和私人意愿状态分开。
+fetch.py[IB9M]: F:完整分页拉取学校活动并归一化公开及本人报名投影 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/card.py,code:server/scripts/push/query.py | A:fetch_all,classify,classify_public,public_item,item_status,main | S:4001短暂重试后才判失效；分页不完整抛错；公开白名单剔除signed且不因本人已报隐藏；抓取不能标推送成功。
+notify.py[IU9L]: F:适配多平台推送、飞书限流及owner私聊卡片更新 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/card.py,code:server/scripts/signup/grab_card.py | A:send,send_card,send_private,send_private_card,update_card | S:HTTP2xx不代表业务成功，拒bool当0；仅限流码退避；私聊须环境owner、用户记录及显式会话一致，收件人未知不取token；None未配置与False失败分开。
+render.py[DU7S]: F:统一活动日报查询提醒的纯文本排版及总条数 | R:code:server/scripts/lib/card.py,code:server/scripts/push/query.py | A:pending_lines,open_lines,digest_items,digest_lines,trim | S:卡片文本共用限额；时间带日期避免历史消息相对时间失真；digest两类合计限额。
+site_target.py[CC8T]: F:解析服务器唯一学校根地址及配置状态 | R:code:server/scripts/lib/common.py,code:server/scripts/ops/net_probe.py | A:resolve_base,BASE_URL,CONFIGURED,CONFIG_MESSAGE | S:环境变量先于配置site.base；无配置占位且CONFIGURED=false；本机服务器不共享运行时代码。
+
+===/<repository>/server/scripts/login/===
+login.py[II8S]: F:静默同步浏览器会话或等待本人可见浏览器登录 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/fetch.py | A:build_session,try_silent_sync,interactive_login,main | S:静默只认localStorage出现token，没有额外API校验；交互最多15分钟；日志不输出敏感身份，保存走common。
+token_probe.py[II8M]: F:探测学校会话有效性并记录指纹与独立告警周期 | R:code:server/scripts/lib/common.py,code:server/scripts/login/token_report.py | A:main | S:不改会话或业务去重；网络异常5秒后重试一次；两次非ok告警最多三次发送，HTTP/JSON错误归网络，通常退出0。
+token_report.py[AQ6M]: F:按指纹归并探针观测寿命并生成Markdown | R:code:server/scripts/login/token_probe.py | A:parse_lines,group_by_token,describe,render,main | S:saved_at空格须非贪婪解析；同指纹取最早保存时间；仅写报告，首次fail按当前实现直接判失效。
+
+===/<repository>/server/scripts/ops/===
+net_probe.py[IR7S]: F:区分学校不可达与整机断网并控频通知 | R:code:server/scripts/lib/site_target.py,code:server/scripts/lib/notify.py | A:main | S:不搼token只读512字节；HTTP错误仍算可达；连续两败才告警且每周期最多三次发送，异常退出0。
+regress.py[TQ7S]: F:串行运行服务器日报扫描查询及自检汇总结果 | R:code:server/scripts/push/run.py,code:server/scripts/push/scan.py,code:server/scripts/ops/selfcheck.py | A:run,main | S:非离线：真实查询扫描且临时改生产推送时间再恢复，还调用改去重状态脚本，不可当无副作用检查。
+selfcheck.py[TQ7M]: F:检查状态、并发扫描、飞书缓存及卡片文本一致性 | R:code:server/scripts/push/scan.py,code:server/scripts/lib/notify.py,code:server/scripts/lib/card.py | A:main,check_token_cache,check_cards,check_parity,check_limit_parity | S:非离线只读：起四个真实scan，删token缓存再向飞书申请落盘，可能发临近提醒并改业务状态。
+trigger_server.py[IW8S]: F:提供口令HTTP触发强制日报及健康检查 | R:code:server/scripts/push/run.py | A:Handler.do_GET,main | S:无TRIGGER_TOKEN拒启；精确路径锁内占60秒冷却；run --force绕防重且180秒超时；输出HTML转义，启动及默认请求日志会含口令路径。
+
+===/<repository>/server/scripts/push/===
+activity_watch.py[AB9L]: F:按昼夜排期发现公开活动变化并持久化待发送事件 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/fetch.py,code:server/scripts/push/run.py | A:compute_events,merge_pending,initialize_baseline,main | S:首轮只建基线；失败不清快照或推断结束，连续缺三轮才移除；待发先落盘，发送严格True才清；非阻塞锁防堆积，dry仍联网取锁。
+query.py[AU7S]: F:为机器人实时生成公开或本人活动文本与卡片 | R:code:server/scripts/lib/fetch.py,code:server/scripts/lib/card.py,code:server/scripts/lib/render.py | A:main,render_pending,render_open,render_mine,render_types | S:仅生成不发送；本人视图必须由调用方守私聊；当前分类用datetime.now而非业务时钟。
+remind.py[AB8T]: F:筛选当天未开始的本人已报名活动发私聊提醒 | R:code:server/scripts/lib/fetch.py,code:server/scripts/lib/notify.py,code:server/scripts/lib/card.py | A:main | S:个人状态不回退群；dry仍抓真实接口；成功可为message_id不能只认True；今日按datetime.now。
+run.py[AB9M]: F:编排抓取公共日报、成功去重及可选owner私聊卡 | R:code:server/scripts/lib/fetch.py,code:server/scripts/lib/common.py,code:server/scripts/lib/notify.py | A:main,build_message,build_watch_message,send_watch_events,send_grab_card | S:锁内占推送时刻后锁外发，失败仅仍属自身占位才回滚；严格True才成功且只记实际展示条目；私聊失败不回滚公共成功，dry仍真实抓取写报告。
+scan.py[AB8S]: F:分批提醒未来十分钟开放活动并按开放时刻去重 | R:code:server/scripts/lib/fetch.py,code:server/scripts/lib/notify.py | A:main,send_rush_card | S:查重发送落盘同锁防cron重叠；严格True才记，失败停后续批保重试；公开不按本人signed过滤。
+
+===/<repository>/server/scripts/signup/===
+grab_card.py[AU8S]: F:保存私聊卡快照并按活动与清单重建刷新 | R:code:server/scripts/lib/card.py,code:server/scripts/lib/notify.py,code:server/scripts/signup/watchlist.py | A:save,load,live_items,refresh,card_json | S:快照白名单0600原子写；已开放不挂预报名；点击回调直接新卡，后台变化才PATCH，成功message_id作刷新依据。
+watchlist.py[AB9M]: F:持久化本人预报名意愿并冻结运行时序策略 | R:code:server/scripts/lib/common.py,code:server/scripts/signup/watchlist_runner.py | A:load,save,add,remove,mark,main | S:坏清单抛错不空覆盖；事务锁内本地改写0600；同ID再加重置queued；拒硬截止不晚于开放或已过窗口；个人意愿独立去重。
+watchlist_runner.py[AW9M]: F:对齐预报名清单并交systemd执行及收编结算 | R:code:server/scripts/signup/watchlist.py,code:server/deploy/signup/grab_signup.py | A:main,launch,unit_token,unit_name,status_file,read_code | S:runner锁叠清单事务；unit用完整ID哈希防串场；先running再拉起，0码才done；冻结策略原样传，dry仍可写终态并删除旧状态文件。
+
+===/<repository>/tools/dev/===
+split_branches.py[OV8S]: F:从干净main生成local/server根快照及可选推送 | R:code:local/README.md,code:server/README.md,code:docs/OPERATIONS.md | A:main,build_branch,--dry-run,--only | S:临时clone无硬链接并建orphan，排敏感产物；默认真实force推送；dry仍临时建分支提交仅免推送；分发快照非开发源。
+
+===/<repository>/tools/qa/===
+qa_business_clock_worker.py[TQ8M]: F:从候选EXE提取worker并隔离执行过期重试探针 | R:code:local/grab.py,code:local/infrastructure/clock/business_clock.py,code:tools/release/release.py | A:run_probe,main,--exe,--evidence-root | S:不执行主EXE；固定QA epoch非真实授时，tick同机；退出2且单个retry_duration终态及无登录产物才满足断言；零网络仍依赖生产边界验证。
+qa_runtime_reliability.py[TU8L]: F:以本地回环服务加载生产UI及测试桥驱动Edge验收 | R:code:local/ui/index.html,code:local/tests/fixtures/runtime_bridge.js | A:main,--run,--scenario,--ui-root,--evidence-root | S:桥插led.js前；外部请求全拦并记失败，页面及控制台错误也失败；仅回环且不杀占端口者，Edge缺失blocked不安装；无run也建证据目录启停服务。
+verify_autologin_loop.py[TI9S]: F:故意破坏服务器会话并等待timer检验无人值守闭环 | R:code:server/deploy/login/auto_login.py,code:server/scripts/login/token_probe.py,code:server/deploy/systemd/campus-autologin.timer | A:main,--dry-run,--timeout | S:真实运行先0600备份再破坏、超时恢复；只认本轮offset后登录开始、复探ok及指纹相符；会真实登录告警；dry仍建备份时间线并读会话。
+
+===/<repository>/tools/release/===
+build_update_delta.py[OV7T]: F:离线封装版本差分ZIP及旁路清单生成 | R:code:local/infrastructure/update/update_delta.py | A:build_outputs,main | S:复用产品归档验证；清单去下划线内部字段，.part原子替换，失败清本次半成品。
+release.py[OV9L]: F:以VERSION分离只读检查、本地构建准备与正式发布 | R:code:VERSION,code:tools/release/release_guards.py,code:local/build/build_installer.py,code:local/infrastructure/update/update_delta.py | A:main,stage_local_assets,verify_release_assets,do_publish,zip_server,write_manifest | S:准备前后HEAD及dirty一致；站点仅环境注入并finally移除生成模块；ZIP与独立EXE同源；单资产300MiB/清单65536字节上限；发布干净main、来源指纹及人工确认后上传前重验，tag不强改。
+release_guards.py[OQ8S]: F:顺序执行发版结构分层静态及全量守卫并校验站点 | R:code:tools/release/release.py,code:tools/code_shape/check.py,code:requirements-dev.txt | A:run_guards,guard_steps,run_command,site_origin_for_build | S:每步有界且失败即停，超时124；当前解释器不自动装ruff；正式构建缺站点或非HTTPS拒绝，dirty预览可未注入。
