@@ -16,7 +16,7 @@
 
 | 键 | 类型 | 必填 | 默认/留空时 | 作用 | 代码位置 |
 |---|---|---|---|---|---|
-| `site.base` | string | 运行学校功能时必填 | 留空则使用占位域名，不能访问目标学校 | 目标学校站点根地址；只写 origin，不带 `/dr/api` 或 `/stu/` | `scripts/site_target.py` |
+| `site.base` | string | 运行学校功能时必填 | 留空则使用占位域名，不能访问目标学校 | 目标学校站点根地址；只写 origin，不带 `/dr/api` 或 `/stu/` | `scripts/lib/site_target.py` |
 | `notify.channel` | string | 否 | — | 通道名，只用于日志区分；除 `qq` 外都走 webhook 分支 | `notify.py` |
 | `notify.platform` | string | **是** | — | 走哪条通道：`feishu`（应用/webhook 统一入口）或 `webhook`（纯群机器人） | `notify.py` `send()` |
 | `notify.webhook_url` | string | 二选一 | 留空则不走 webhook | 群自定义机器人的 Webhook 地址（自动推送 + 动态事件都走它） | `notify.py` `send()` |
@@ -125,7 +125,7 @@
 cron 里没有 systemd 的环境变量，必须**写在同一行**（或 crontab 顶部统一 export）：
 
 ```cron
-*/15 * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 scripts/token_probe.py >> data/token_probe.log 2>&1
+*/15 * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 scripts/login/token_probe.py >> data/token_probe.log 2>&1
 ```
 
 需要 owner 变量的 cron 任务：`run.py --with-grab`（07:00）、`remind.py`（07:05）、`token_probe.py`、`net_probe.py`、`watchlist_runner.py`。
@@ -201,8 +201,8 @@ cron 里没有 systemd 的环境变量，必须**写在同一行**（或 crontab
 
 ```bash
 cd server
-python3 -c "import sys;sys.path.insert(0,'scripts');import notify;print(list(notify.load_config()))"
-python3 scripts/selfcheck.py          # 凭据、缓存、锁、卡片构造
+python3 -c "import sys;sys.path.insert(0,'scripts/lib');import notify;print(list(notify.load_config()))"
+python3 scripts/ops/selfcheck.py          # 凭据、缓存、锁、卡片构造
 ```
 
 | 现象 | 多半是 |

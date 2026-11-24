@@ -31,9 +31,9 @@
 
 ```
 server/
-├── scripts/        # 生产脚本，cron / systemd 直接调，目录名是相对的，别改
+├── scripts/        # 生产脚本（lib/ push/ signup/ login/ ops/ dev/），cron / systemd 直接调，目录名是相对的，别改
 ├── bot/            # 飞书机器人（长连接 + 卡片回调）
-├── deploy/         # systemd 单元、server_refresh.js、auto_login.py、部署脚本
+├── deploy/         # 部署与登录脚本（systemd/ install/ login/ signup/ legacy/ logrotate/）
 ├── tests/          # 离线测试，不碰真实数据
 ├── docs/           # 运维文档（main 里在仓库根 docs/，分发到 server 分支时铺到根）
 ├── config.example.json
@@ -44,13 +44,13 @@ server/
 
 ## 配置真源与交付证据
 
-- **学校地址只有一个来源**：`scripts/common.py` 的 `SCHOOL_ORIGIN`（可用同名环境变量覆盖）。
-  `scripts/`、`deploy/`（含 `auto_login.py`、`grab_signup.py`）一律从它派生 `API_BASE` / `REFERER`，
+- **学校地址只有一个来源**：`scripts/lib/common.py` 的 `SCHOOL_ORIGIN`（可用同名环境变量覆盖）。
+  `scripts/`、`deploy/`（含 `deploy/login/auto_login.py`、`deploy/signup/grab_signup.py`）一律从它派生 `API_BASE` / `REFERER`，
   任何脚本里再出现写死的域名都会被 `tests/test_endpoints.py` 的静态扫描判失败。
-- **预报名清单是并发安全的**：`scripts/watchlist.py` 的 `add` / `remove` / `mark` 都走
+- **预报名清单是并发安全的**：`scripts/signup/watchlist.py` 的 `add` / `remove` / `mark` 都走
   `watchlist.lock` 的读改写事务（POSIX `flock`，Windows `msvcrt`），runner 每分钟对齐时
   也按同一把锁写状态；清单 JSON 解析失败会明确报错，不会用空清单覆盖。
-- **抢报名策略与本机同契约**：`deploy/grab_signup.py` 的提交节奏是黄金风暴（开放后
+- **抢报名策略与本机同契约**：`deploy/signup/grab_signup.py` 的提交节奏是黄金风暴（开放后
   0~1.6 秒内 90ms×10）→ 常规全速 180ms → 连续 3 次 404 后 1.6 倍退避（上限 3 秒，
   自适应扩窗最长到起点起 25 分钟），传入 `--sign-end` 时报名截止是硬上限、扩窗绝不
   越过。每笔 signUp 请求分配唯一 request_id 并如实计次（点按钮/刷新/查询不计数），
@@ -62,7 +62,7 @@ server/
   原样传给抓取脚本；同一 activity-id 单飞，unit 存活时不重复拉起。
 - **unit 名不截断 activity_id**：`watchlist_runner` 用「安全编码 + 完整 id 的 SHA-256 前 8 位」
   生成 systemd unit 与状态文件名，前 8 位相同的两场活动不再串号。
-- **服务器 ZIP 带 provenance**：`tools/release.py` 的 `zip_server()` 会生成
+- **服务器 ZIP 带 provenance**：`tools/release/release.py` 的 `zip_server()` 会生成
   `campus-server-<tag>.manifest.json`（版本、完整 HEAD、来源是否干净、ZIP 与每个成员的 SHA-256/大小），
   `verify_server_zip()` 可离线重算核验；ZIP 顶层成员只允许
   `bot/deploy/docs/scripts/tests/README.md/CHANGELOG.md/LICENSE/requirements.txt/config.example.json`，
@@ -89,12 +89,12 @@ mkdir -p /root/campus-activity-watch /root/campus-bot /root/campus-login
 ## 常用命令
 
 ```bash
-python3 server/scripts/run.py --dry                 # 看这一轮会推什么，不发
-python3 server/scripts/run.py --force               # 忽略「今天已推过」，真推一次
-python3 server/scripts/query.py pending             # 命令行查待开放活动
-python3 server/scripts/activity_watch.py --dry-run  # 看动态监测这一轮会发什么，不发送不写状态
-python3 server/scripts/watchlist.py list            # 看预报名清单
-python3 server/scripts/selfcheck.py                 # 运行时自检
+python3 server/scripts/push/run.py --dry                 # 看这一轮会推什么，不发
+python3 server/scripts/push/run.py --force               # 忽略「今天已推过」，真推一次
+python3 server/scripts/push/query.py pending             # 命令行查待开放活动
+python3 server/scripts/push/activity_watch.py --dry-run  # 看动态监测这一轮会发什么，不发送不写状态
+python3 server/scripts/signup/watchlist.py list          # 看预报名清单
+python3 server/scripts/ops/selfcheck.py                  # 运行时自检
 python3 server/tests/test_endpoints.py              # 站点地址测试（离线）
 python3 -m unittest server.tests.test_activity_watch -v   # 动态发现边界测试（离线）
 node server/bot/test_bot_runtime.js                 # 机器人 combined 双入口测试（离线）

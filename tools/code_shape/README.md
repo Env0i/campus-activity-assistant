@@ -13,7 +13,7 @@
    - 三个内层包都不许 import `local/` 根目录下的顶层模块（`runtime_paths`、`app` 之类）；标准库以 `sys.stdlib_module_names` 判定。
    - `import a, b` 的每个 alias 都判；`from 包 import 名`、`from local import 名`、`import local.名` 都先解析成完整模块名再判；
      相对 import 按 level 解析到实际的包（level 1 是同包，不算越界）；函数体里的延迟 import 也算。
-   - 存量例外写在 `local/tests/test_layer_boundaries.py` 的 `LEGACY_DIRECTION_VIOLATIONS`，
+   - 存量例外写在 `local/tests/architecture/test_layer_boundaries.py` 的 `LEGACY_DIRECTION_VIOLATIONS`，
      键是「文件、完整模块名」，按模块锁、不按包锁；每条带理由与去向。
 2. **前端**（`local/ui`，按 `index.html` 的加载顺序；`led.js` 会被加载，和 `app.js` 同算根层；不含手机页 `m/`；过渡期模块与普通脚本并存，清单口径与模块专守见下面「模块图守卫」一节）
    - `state/` 不引用 `views/`、`controllers/`、`app.js` 定义的顶层名字；
@@ -56,7 +56,7 @@ node tools/code_shape/ui_modules.mjs                                      # 只�
 node tools/code_shape/ui_modules.mjs --expect > tools/code_shape/ui_modules_expect.json
 ```
 
-期望值由 `--expect` 生成，不手写；`local/tests/test_ui_modules.py` 比对：五类问题
+期望值由 `--expect` 生成，不手写；`local/tests/architecture/test_ui_layers.py` 比对：五类问题
 （顶层循环、缺 import、普通脚本引用了没挂回的模块名字、违反层规则、挂出去没人用）
 必须为空，「模块用到的普通脚本全局
 名字」与「挂回名单」两份清单与实际逐项相等，多一项少一项都红。「模块用到的普通脚本

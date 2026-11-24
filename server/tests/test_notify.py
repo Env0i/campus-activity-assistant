@@ -27,7 +27,8 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+for _sub in ("lib", "push"):
+    sys.path.insert(0, str(ROOT / "scripts" / _sub))
 
 from notify import _business_ok  # noqa: E402
 import card                      # noqa: E402
@@ -236,7 +237,7 @@ def check_public_copy() -> int:
     empty_text = query.render_open([], NOW)
     check("query open 空列表只陈述状态", "没有报名已开放的活动" in empty_text)
 
-    source = (ROOT / "scripts" / "query.py").read_text(encoding="utf-8")
+    source = (ROOT / "scripts" / "push" / "query.py").read_text(encoding="utf-8")
     source_hits = [w for w in ("碰碰运气", "抢名额") if w in source]
     check("query.py 源码不再出现碰碰运气/抢名额", not source_hits,
           "命中 %s" % source_hits)

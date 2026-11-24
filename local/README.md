@@ -61,7 +61,7 @@
 > | `3-检查登录和活动.bat` | `python local/grab.py check`，再 `python local/grab.py list` |
 > | `4-图形界面.bat` | `python local/app.py` |
 
-想在源码树里图省事，双击 **`local/开发-启动界面.bat`** 也能起界面：它切到 `local/` 再跑 `python app.py`，起不来的话窗口会停在报错上。这个文件只给开发用，不进绿色版和安装包——发布用的启动模板还是 `local/launchers/` 那套。
+想在源码树里图省事，双击 **`local/launchers/dev/开发-启动界面.bat`** 也能起界面：它切到 `local/` 再跑 `python app.py`，起不来的话窗口会停在报错上。这个文件只给开发用，不进绿色版和安装包——发布用的启动模板还是 `local/launchers/` 那套。
 
 ### 完全不想装 Python：用绿色版
 
@@ -104,13 +104,13 @@
 
 ### 自己构建（开发者）
 
-- **一条命令出全套资产**：`python tools/release.py --prepare` —— 构建一次冻结 onefile EXE
+- **一条命令出全套资产**：`python tools/release/release.py --prepare` —— 构建一次冻结 onefile EXE
   （grab-worker 已内置，独立可用），再由**同一份 EXE** 派生三资产：独立 EXE、四成员完整 ZIP
   （EXE + README + 启动说明 + LICENSE）、安装版（内部调用 `local/build/build_installer.py`），外加 manifest
   清单（版本、完整 commit、source_dirty、每个文件的 SHA-256）。旧版「主 EXE 必须与
   `grab-worker.exe` 同目录」是历史旧包口径，已被 2026-10-25 的独立 EXE 决定取代（见
   `design/decisions/010-standalone-exe-and-settings.md`）。构建脚本不读 `data/`、不把登录态
-  打进包；`X.Y.Z` 读仓库根 `VERSION`。资产是本地预览，只有 `tools/release.py --publish` 才会上
+  打进包；`X.Y.Z` 读仓库根 `VERSION`。资产是本地预览，只有 `tools/release/release.py --publish` 才会上
   GitHub——它要求干净 main、逐项核验三资产与来源一致、人工确认，默认不打 tag 不上传。
 - **单独构建 EXE**：开发机装 PyInstaller 后在仓库根运行 `python local/build/build_exe.py --mode onefile`；
 - **单独构建安装版**：`python local/build/build_installer.py`（或 `--source dist/campus-grab-exe-onedir`），
@@ -347,21 +347,20 @@ WebView2 运行时 Windows 10/11 一般自带；万一窗口是空白，装一�
 
 ## 五、文件说明
 
-**目录分工**（2026-11-03 整理后）：
+**目录分工**（2026-11-24 按功能整理后）：
 
-- `local/` 根目录：运行模块（`grab.py`、`app.py` 等）、`ui/`、依赖清单 `requirements*.txt`、配置模板 `config.example.json` 和本说明。
-- `local/build/`：打包脚本，都在仓库根运行：`python local/build/build_exe.py`（EXE）、`python local/build/build_installer.py`（安装版）、`python local/build/make_portable.py`（绿色版，历史形态）、`python local/build/build_advanced.py --feature … --output-dir …`（可选组件包）。发版一条龙是 `python tools/release.py --prepare`。
-- `local/launchers/`：绿色版包根目录的启动文件模板（6 个 `.bat` 和 2 份排障 `.txt`）。源码树里它们只是模板，不直接双击，开发时用 `python local/grab.py …`；打包时 `make_portable.py` 把它们拷到包根目录，安装器从这里取 `遇到问题先看我.txt`，包里的位置和以前完全一样。
+- `local/` 根目录：运行入口（`grab.py`、`app.py`、`update_launcher.py`、`advanced_helper.py`、`signup_plan.py`）、`ui/`、依赖清单 `requirements*.txt`、配置模板 `config.example.json` 和本说明。
+- `local/build/`：打包脚本，都在仓库根运行：`python local/build/build_exe.py`（EXE）、`python local/build/build_installer.py`（安装版）、`python local/build/make_portable.py`（绿色版，历史形态）、`python local/build/build_advanced.py --feature … --output-dir …`（可选组件包）。发版一条龙是 `python tools/release/release.py --prepare`。
+- `local/launchers/`：绿色版包根目录的启动文件模板（6 个 `.bat` 和 2 份排障 `.txt`；`dev/` 下放源码树专用的两个开发快捷 `.bat`）。打包用模板源码树里不直接双击，开发时用 `python local/grab.py …`；打包时 `make_portable.py` 把它们拷到包根目录，安装器从这里取 `遇到问题先看我.txt`，包里的位置和以前完全一样。
 
 ```
 local/
 ├─ grab.py                  主脚本（登录 / 查活动 / 到点自动报名 / 自检）
 ├─ app.py                   图形界面外壳和多活动计划 API（组合入口）
-├─ domain/                  纯规则层：登录分类、重试策略、计划门禁、时间换算（无 IO）
-├─ application/             用例层：计划任务监督、更新通道、check 事件整理（端口注入）
-├─ infrastructure/          适配器层：偏好存储、进程树所有权、生命周期持久化
-├─ update_check.py          手动查 GitHub 正式版本、挑安装器资产、校验 manifest
-├─ updater.py               安装器流式下载（<tmp>、SHA-256）与启动桥接
+├─ domain/                  纯规则层：按功能分子目录（无 IO）
+├─ application/             用例层：按功能分子目录（端口注入）
+├─ infrastructure/          适配器层：按功能分子目录（含时钟、学校请求、更新、存储、登录中继、签名传输）
+├─ dev/                     开发辅助脚本（dev_phone_preview.py）
 ├─ signup_plan.py           报名批次、活动时段冲突和任务状态协调器
 ├─ ui/                      界面本体：index.html / styles.css + 按层拆分的脚本
 │  ├─ state/                状态与纯规则（store/rounds/clock/plan/login/filters/labels/task-display/time）
@@ -412,6 +411,6 @@ local/
 
 ## 独立北京时间（决策 012，2026-10-26 返修轮更新）
 
-无需校准系统时间：`business_clock.py` 用公共 NTP（阿里云×2 + Cloudflare）做有界校时，业务时刻 = 锚点 + 经过时长（Win32 GetTickCount64）。CLI `grab.py` 自带一次有界同步；图形界面/打包 worker 复用主程序快照（CAMPUS_CLOCK_SNAPSHOT/OWNER）。
+无需校准系统时间：`infrastructure/clock/business_clock.py` 用公共 NTP（阿里云×2 + Cloudflare）做有界校时，业务时刻 = 锚点 + 经过时长（Win32 GetTickCount64）。CLI `grab.py` 自带一次有界同步；图形界面/打包 worker 复用主程序快照（CAMPUS_CLOCK_SNAPSHOT/OWNER）。
 
 图形界面只有一个时间入口：顶栏「北京时间 + 时分秒 + 状态图形」，正常安静显示；未校准显示「待校准」，点开「时间详情」可看最近校准、估计误差、使用记录和时间来源，并提供「重新校准时间」（失败态「重试校准」）。时钟不可用时开始按钮禁用（「北京时间未校准」），登录校验不受影响；工具不会修改电脑时间。示例输出与真实授时是两回事：`--demo` 的顶栏时间标注「演示时间」。失败重试与门禁见 design/decisions/012；登录剩余估算未知时不要求重登；原有 CLI/EXE/ZIP 用法不变。

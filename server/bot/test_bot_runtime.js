@@ -463,7 +463,7 @@ test('combined 群 @ 查询覆盖待开放/开放/全部三个公开视图', asy
       }));
       const last = state.execCalls[state.execCalls.length - 1];
       assert.ok(last, word + ' 应当触发一次查询');
-      assert.equal(last.args[0], 'scripts/query.py', '群查询只读 query.py');
+      assert.equal(last.args[0], 'scripts/push/query.py', '群查询只读 query.py');
       assert.equal(last.args[1], view, word + ' 应当走 ' + view + ' 视图');
     }
     assert.equal(state.cards.length, 3, '三次查询各回一张卡片');
@@ -528,7 +528,7 @@ test('combined 允许 owner 私聊点预报名', async () => {
     });
     assert.equal(res.toast.type, 'success', '本人私聊点预报名应当成功');
     const adds = state.execCalls.filter(
-      (c) => c.args[0] === 'scripts/watchlist.py' && c.args[1] === 'add');
+      (c) => c.args[0] === 'scripts/signup/watchlist.py' && c.args[1] === 'add');
     assert.equal(adds.length, 1, '应当调用一次 watchlist add');
     assert.ok(adds[0].args.includes('evt_grab'));
   });
@@ -592,7 +592,7 @@ test('combined 卡片回调缺 chat_type 时 owner 私聊点预报名仍成功',
     });
     assert.equal(res.toast.type, 'success', 'chat_type 缺失不能把本人私聊误判成群');
     const adds = state.execCalls.filter(
-      (c) => c.args[0] === 'scripts/watchlist.py' && c.args[1] === 'add');
+      (c) => c.args[0] === 'scripts/signup/watchlist.py' && c.args[1] === 'add');
     assert.equal(adds.length, 1);
     assert.ok(adds[0].args.includes('evt_no_chat_type'));
   });

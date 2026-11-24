@@ -43,61 +43,61 @@ from pathlib import Path
 import webview
 
 from signup_plan import PlanCoordinator, TaskSpec, classify_signup_mode, validate_plan
-from business_clock import BusinessClock, ClockUnavailable
-from time_contract import school_epoch, school_time_text, configure_time_source
-from update_check import check_latest_release
-import update_check as _update_check
+from infrastructure.clock.business_clock import BusinessClock, ClockUnavailable
+from infrastructure.clock.time_contract import school_epoch, school_time_text, configure_time_source
+from infrastructure.update.update_check import check_latest_release
+from infrastructure.update import update_check as _update_check
 from urllib.error import HTTPError, URLError
-import updater
+from infrastructure.update import updater
 
 # 登录态/偏好统一数据根：开发用 local/data，冻结 EXE 用 %LOCALAPPDATA%
 # （CAMPUS_DATA_DIR 可覆盖），与 grab-worker 解析出同一份登录文件
-from runtime_paths import (DATA_DIR, LOG_FILE, LOG_LOCK_FILE, SESSION_FILE,
+from infrastructure.stores.runtime_paths import (DATA_DIR, LOG_FILE, LOG_LOCK_FILE, SESSION_FILE,
                            UI_STATE_FILE, ensure_data_dir, migration_record)
 
 # 分层依赖（只准向下）：app（interface 外观）→ application → domain 纯规则；
 # 外部副作用统一走 infrastructure 适配器。旧模块级名字保留为兼容包装/再导出，
 # 测试与调用方按原名注入、patch 的语义不变。
-from domain import cancel_rules as _cancel_rules
-from domain import demo_data as _demo_data
-from domain import lifecycle_rules as _lifecycle_rules
-from domain import log_events as _log_events
-from domain import login_rules as _login_rules
-from domain import plan_rules as _plan_rules
-from domain import retry_rules as _retry_rules
-from domain import time_text as _time_text
-from domain import worker_lines as _worker_lines
-from domain.errors import ClosingError as _ClosingError
-from infrastructure import lifecycle_store as _lifecycle_store
-from infrastructure import prefs_store as _prefs_store
-from infrastructure import process_tree as _process_tree
-from infrastructure import phone_http as _phone_http
-from infrastructure import advanced_features as _advanced_features
-from infrastructure import component_packages as _component_packages
-from infrastructure import credential_store as _credential_store
-from infrastructure import feishu_webhook as _feishu_webhook_post
-from infrastructure import phone_session_store as _phone_session_store
-from infrastructure import phone_qr as _phone_qr
-from infrastructure import tunnel_manager as _tunnel_manager
-from infrastructure import single_instance as _single_instance
+from domain.signup import cancel_rules as _cancel_rules
+from domain.common import demo_data as _demo_data
+from domain.desktop import lifecycle_rules as _lifecycle_rules
+from domain.worker import log_events as _log_events
+from domain.login import login_rules as _login_rules
+from domain.plan import plan_rules as _plan_rules
+from domain.signup import retry_rules as _retry_rules
+from domain.common import time_text as _time_text
+from domain.worker import worker_lines as _worker_lines
+from domain.common.errors import ClosingError as _ClosingError
+from infrastructure.stores import lifecycle_store as _lifecycle_store
+from infrastructure.stores import prefs_store as _prefs_store
+from infrastructure.desktop import process_tree as _process_tree
+from infrastructure.phone import phone_http as _phone_http
+from infrastructure.components import advanced_features as _advanced_features
+from infrastructure.components import component_packages as _component_packages
+from infrastructure.stores import credential_store as _credential_store
+from infrastructure.notify import feishu_webhook as _feishu_webhook_post
+from infrastructure.stores import phone_session_store as _phone_session_store
+from infrastructure.phone import phone_qr as _phone_qr
+from infrastructure.phone import tunnel_manager as _tunnel_manager
+from infrastructure.desktop import single_instance as _single_instance
 from application import coordination as _coordination
-from application import login_service as _login_service
-from application import login_recovery as _login_recovery
-from application import activity_list_service as _activity_list_service
-from application import login_relay_service as _login_relay_service
-from application import relogin_entry as _relogin_entry
-from application.auto_relogin import AutoReloginMonitor
-from application import phone_service as _phone_service
-from application import advanced_component_service as _advanced_component
-from application import component_projection as _component_projection
-from application import component_actions as _component_actions
-from application import plan_service as _plan_service
-from application import signup_cancellation as _signup_cancellation
-from application import worker_service as _worker_service
-from application import desktop_lifecycle as _desktop_lifecycle
-from application import desktop_window as _desktop_window
-from application import clock_service as _clock_service
-from application import update_service as _update_service
+from application.login import login_service as _login_service
+from application.login import login_recovery as _login_recovery
+from application.activity import activity_list_service as _activity_list_service
+from application.login import login_relay_service as _login_relay_service
+from application.login import relogin_entry as _relogin_entry
+from application.login.auto_relogin import AutoReloginMonitor
+from application.phone import phone_service as _phone_service
+from application.components import advanced_component_service as _advanced_component
+from application.components import component_projection as _component_projection
+from application.components import component_actions as _component_actions
+from application.plan import plan_service as _plan_service
+from application.signup import signup_cancellation as _signup_cancellation
+from application.worker import worker_service as _worker_service
+from application.desktop import desktop_lifecycle as _desktop_lifecycle
+from application.desktop import desktop_window as _desktop_window
+from application.desktop import clock_service as _clock_service
+from application.desktop import update_service as _update_service
 
 HERE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 RESOURCE_ROOT = Path(getattr(sys, "_MEIPASS", HERE))
@@ -387,12 +387,12 @@ def worker_problem() -> str:
 def _component_error(exc: Exception) -> str:
     """把**进程创建**抛出的异常归类为结构化组件错误码（check/list/login 收尾共用）。
 
-    实现已下沉 domain.login_rules（纯分类）；此处保留旧名字兼容包装。
+    实现已下沉 domain.login.login_rules（纯分类）；此处保留旧名字兼容包装。
     """
     return _login_rules.component_error(exc)
 
 
-# 关闭屏障语义类型在 domain.errors；旧名字保留为再导出（同 class 对象）。
+# 关闭屏障语义类型在 domain.common.errors；旧名字保留为再导出（同 class 对象）。
 # 调用方必须把它与组件异常分开处理——关闭拒绝不得归类为 worker_* 组件码，
 # 也不得冒充报名失败向上抛。
 
@@ -401,7 +401,7 @@ DEMO = False
 
 
 def demo_items() -> list[dict]:
-    """演示样例集：纯数据模型在 domain.demo_data，时间与格式化在此注入。"""
+    """演示样例集：纯数据模型在 domain.common.demo_data，时间与格式化在此注入。"""
     return _demo_data.demo_items(time.time(), school_time_text)
 
 
@@ -516,7 +516,7 @@ def version_switch_available(*, frozen=None, here=None, version=None, launcher=N
     return Path(path).is_file()
 
 
-# 偏好存储原语已下沉 infrastructure.prefs_store；旧名字保留为再导出，
+# 偏好存储原语已下沉 infrastructure.stores.prefs_store；旧名字保留为再导出，
 # 测试与调用方继续用 app.load_prefs_from / app._atomic_write_prefs 等注入。
 load_prefs_from = _prefs_store.load_from
 _load_prefs_for_update = _prefs_store.load_for_update
@@ -603,7 +603,7 @@ class _UnavailableClock:
 
 
 def _credential_id(token: str) -> str:
-    """本机内部凭证摘要（纯规则在 domain.login_rules）：只用于把 v2 锚点和具体凭证绑定。"""
+    """本机内部凭证摘要（纯规则在 domain.login.login_rules）：只用于把 v2 锚点和具体凭证绑定。"""
     return _login_rules.credential_id(token)
 
 
@@ -620,7 +620,7 @@ def save_session_timing_anchor(token: str, epoch: float, uncertainty_s: float = 
 
 # 界面偏好与生命周期心跳共用的持久化锁：读-合并-写必须串行，
 # 否则心跳的整份快照会覆盖用户刚存的筛选/引导状态（反之亦然）。
-# 锁与事务原语在 infrastructure.prefs_store；这里保留旧常量名供注入/patch。
+# 锁与事务原语在 infrastructure.stores.prefs_store；这里保留旧常量名供注入/patch。
 _PREFS_LOCK = _prefs_store.PREFS_LOCK
 _PREFS_LOCK_TIMEOUT_S = _prefs_store.LOCK_TIMEOUT_S   # 生命周期元数据：拿不到就放弃本次写入
 _PREFS_SAVE_TIMEOUT_S = _prefs_store.SAVE_TIMEOUT_S   # 用户偏好：给正在收尾的另一个进程留出时间
@@ -670,7 +670,7 @@ def make_tray_icon(*, on_show, on_exit):
     import 留在组合根：只有真要建托盘时才加载 pystray 依赖，启动路径不受影响；
     application 层因此不必也不许直接 import infrastructure。
     """
-    from infrastructure import tray_icon as _tray_icon
+    from infrastructure.desktop import tray_icon as _tray_icon
 
     return _tray_icon.TrayIcon(on_show=on_show, on_exit=on_exit)
 
@@ -723,7 +723,7 @@ def login_state(clock=None) -> dict:
 
     E1（计划 20261109，决策 006 修订 2026-11-09）：预计有效按本机 v2 锚点
     （session_timing_v2）+ 可信业务时钟估；估算只作提示，session_expired 恒由
-    学校校验决定，估算到点也不算失效。分类规则在 domain.login_rules。
+    学校校验决定，估算到点也不算失效。分类规则在 domain.login.login_rules。
     """
     try:
         data = json.loads(SESSION_FILE.read_text(encoding="utf-8"))
@@ -766,33 +766,33 @@ def _last_check_fields(last: dict) -> dict:
     return {"last_check_at": text, "last_check_state": state}
 
 
-# 时间文本换算已下沉 domain.time_text；旧名字保留为兼容包装（学校时间换算
-# 在此注入 time_contract.school_epoch，domain/application 不直连混合模块；
+# 时间文本换算已下沉 domain.common.time_text；旧名字保留为兼容包装（学校时间换算
+# 在此注入 infrastructure.clock.time_contract.school_epoch，domain/application 不直连混合模块；
 # 墙钟读取也留在此界面层，domain 只做纯格式化）。
 _parse_local_time = _time_text.parse_local_time
 _latest_moment = _time_text.latest_moment
 
 
 def _now_text() -> str:
-    """本地墙钟文本（兼容名；实现在 domain.time_text.format_local_text，取时在此）。"""
+    """本地墙钟文本（兼容名；实现在 domain.common.time_text.format_local_text，取时在此）。"""
     return _time_text.format_local_text(datetime.now())
 
 
 def _seconds_until(ts: str | None, now: "float | None") -> "int | None":
-    """学校时间文本距现在多少秒（实现在 domain.time_text，换算函数在此注入）。"""
+    """学校时间文本距现在多少秒（实现在 domain.common.time_text，换算函数在此注入）。"""
     return _time_text.seconds_until(ts, now, school_epoch)
 
 
 def _task_deadline(spec) -> "float | None":
-    """父层视角的本场绝对截止（实现在 domain.time_text，换算函数在此注入）。"""
+    """父层视角的本场绝对截止（实现在 domain.common.time_text，换算函数在此注入）。"""
     return _time_text.task_deadline(spec, school_epoch)
 
-# 生命周期纯记账已下沉 domain.lifecycle_rules；旧名字保留为再导出。
+# 生命周期纯记账已下沉 domain.desktop.lifecycle_rules；旧名字保留为再导出。
 compute_lifecycle = _lifecycle_rules.compute_lifecycle
 compute_lifecycle_v2 = _lifecycle_rules.compute_lifecycle_v2
 
 
-# 生命周期持久化已下沉 infrastructure.lifecycle_store；旧名字保留为再导出。
+# 生命周期持久化已下沉 infrastructure.stores.lifecycle_store；旧名字保留为再导出。
 AppLifecycle = _lifecycle_store.AppLifecycle
 
 
@@ -1212,7 +1212,7 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         # 最近一次自动登录发起时刻（单调钟）：成功/失败落盘日志时算整轮耗时
         self._auto_relogin_started_at = None
         # 更新检查独立于登录/报名，只由帮助按钮触发；页面重载复用内存中的在途请求。
-        # 状态与单飞槽位在 application.update_service.UpdateService：_updating 表示
+        # 状态与单飞槽位在 application.desktop.update_service.UpdateService：_updating 表示
         # 「任一更新动作在途」（检查或下载），_update_installer 是检查阶段选好的安装器
         # 资产（URL/大小/哈希），下载只信它、不收界面传来的地址；_update_installer_path
         # 是校验通过后的本地产物。这里只留转发与端口注入；请求号格式只在服务里检查，Api 不再重复。
@@ -1626,9 +1626,9 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
     def remove_advanced_feature(self, key: str='') -> dict:
         return self._component_actions.remove(key)
 
-    # ---------- 重登入口与自动重登门（实现在 application.relogin_entry） ----------
+    # ---------- 重登入口与自动重登门（实现在 application.login.relogin_entry） ----------
     # 这些名字是 AutoReloginMonitor、手机动作表与谁挡谁矩阵的接线点，这里只保留
-    # 三行以内的转发；状态归属与逐条判断见该服务与 domain/login_rules 的纯函数。
+    # 三行以内的转发；状态归属与逐条判断见该服务与 domain/login/login_rules 的纯函数。
     def save_relogin_credentials(self, username: str = "", password: str = "") -> dict:
         return self._relogin_entry.save_relogin_credentials(username, password)
 
@@ -1666,7 +1666,7 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         return self._relogin_entry._phone_relay_view()
 
     def _log_event(self, event: str, level: str = "INFO", **fields) -> None:
-        """自动登录的关键动作落盘到 grab.log（行格式与 worker 同源，见 domain.log_events）。
+        """自动登录的关键动作落盘到 grab.log（行格式与 worker 同源，见 domain.worker.log_events）。
 
         界面进程不 import grab（冻结主程序里没有它），所以这里自己追加一行；
         字段先过黑名单（不带账号、密码、验证码）。追加前要先拿 grab.log.lock：
@@ -1720,7 +1720,7 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         self._trace("front_ready")
         return {"ok": True}
 
-    # ---------- 更新（状态与用例在 application.update_service） ----------
+    # ---------- 更新（状态与用例在 application.desktop.update_service） ----------
     def _update_is_closing(self) -> bool:
         """读一个布尔值在 CPython 里是原子的；这里不拿 Api 锁，是为了不让「服务锁 → Api 锁」嵌套。"""
         return bool(self._closing)
@@ -2106,7 +2106,7 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
     def _stop_phone_access(self) -> dict:
         return self._phone_controller.stop_locked()
 
-    # ---------- 手机重登中继（凭据只在进程内存；入口在 application.relogin_entry） ----------
+    # ---------- 手机重登中继（凭据只在进程内存；入口在 application.login.relogin_entry） ----------
     def prepare_phone_relogin(self, username: str = "", password: str = "",
                               save: bool = False) -> dict:
         return self._relogin_entry.prepare_phone_relogin(username, password, save)
@@ -2269,7 +2269,7 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
                        status: callable) -> dict:
         """运行一个单活动脚本；取消只终止对应进程，不影响同批其他任务。
 
-        用例实现在 application.plan_service；worker 命令、环境、进程树创建、
+        用例实现在 application.plan.plan_service；worker 命令、环境、进程树创建、
         监督余量、学校时间换算与时钟异常类型都从这里以端口注入（裸名解析
         保持测试按 app.X 替换的语义）。
         """
@@ -2310,8 +2310,8 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
 
 
 # ---- 兼容包装：已下沉 domain / infrastructure 的纯规则与进程树适配器 ----
-# 实现见 domain.time_text / domain.retry_rules / domain.login_rules /
-# domain.worker_lines / infrastructure.process_tree；旧名字保留供测试与
+# 实现见 domain.common.time_text / domain.signup.retry_rules / domain.login.login_rules /
+# domain.worker.worker_lines / infrastructure.desktop.process_tree；旧名字保留供测试与
 # 内部调用按原名注入、patch。
 _task_deadline = _time_text.task_deadline
 _kill_tree = _process_tree.kill_tree
@@ -2329,22 +2329,22 @@ _ATTEMPT_RE = _retry_rules.ATTEMPT_RE
 
 
 def _parse_retry_line(line: str) -> "dict | None":
-    """解析 worker 的 [retry] 结构化终态行（实现在 domain.retry_rules）。"""
+    """解析 worker 的 [retry] 结构化终态行（实现在 domain.signup.retry_rules）。"""
     return _retry_rules.parse_retry_line(line)
 
 
 def _check_reason_line(out: str) -> tuple[str, str]:
-    """从 check 的完整输出提取 (来源行, 末行)（实现在 domain.login_rules）。"""
+    """从 check 的完整输出提取 (来源行, 末行)（实现在 domain.login.login_rules）。"""
     return _login_rules.check_reason_line(out)
 
 
 def _check_result(state: dict, code: int, text: str) -> str:
-    """check 的四态结论（实现在 domain.login_rules）。"""
+    """check 的四态结论（实现在 domain.login.login_rules）。"""
     return _login_rules.check_result(state, code, text)
 
 
 def _check_hint(text: str, code: int) -> str:
-    """把 check 的来源行粗分类：network / login / error（实现在 domain.login_rules）。"""
+    """把 check 的来源行粗分类：network / login / error（实现在 domain.login.login_rules）。"""
     return _login_rules.check_hint(text, code)
 
 

@@ -108,7 +108,7 @@ python -m pytest server/tests/test_watchlist_safety.py -k <用例名片段>
 # Node 离线测试：不连网，不读真实配置
 node server/bot/test_bot_runtime.js
 node server/bot/test_handled_messages.js
-node server/deploy/test_atomic_json.js
+node server/deploy/login/test_atomic_json.js
 
 # 语法检查；前端脚本拆成了多个文件（含 features 两层目录），要逐个 node --check
 python -m compileall local server
@@ -133,7 +133,7 @@ python local/app.py --demo
 
 # 发版：不带参数时只读检查；--prepare 只在本地构建，不打 tag、不上传
 # --publish 是对外发布，必须用户授权
-python tools/release.py --prepare
+python tools/release/release.py --prepare
 ```
 
 ## 测试注意
@@ -142,7 +142,7 @@ python tools/release.py --prepare
   - **冻结测试文件总数**：`local/tests/` 下核心测试文件已按业务域收敛为 **39 个**。除新增顶层独立业务域外，**禁止新建任何 `test_*.py` 文件**；新用例必须写入对应业务域的既有测试文件中。
   - **只守两头，不守中间接线**：优先编写 `local/domain/` 纯函数表驱动单测（零 Mock、零线程、零 I/O）与最外层前后端返回结构契约。**禁止编写**锁定内部方法调用链、私有属性名、monkeypatch 路径（如 `test_api_patch_targets`）或模块接线关系的过渡守卫测试。
   - **拆分 `app.Api` 的标准动作**：先将复杂状态判断抽成 `domain/` 纯函数并单测，再将 `Api` 对应方法改为 3 行以内的薄转发壳（委托给 `application/` 服务），禁止通过重复实例化整个 `Api` 加重度 `unittest.mock` 来测三层逻辑。
-  - **发版与构建审计分离**：打包、依赖锁、安装脚本与发版产物检查统一放在 `tools/release_tests/`，仅在发版或独立审计时运行，不混入日常 `local/tests` 单测套件。
+  - **发版与构建审计分离**：打包、依赖锁、安装脚本与发版产物检查统一放在 `tools/release/tests/`，仅在发版或独立审计时运行，不混入日常 `local/tests` 单测套件。
 
 - **不联网**：所有测试都替换掉了学校请求。部分用例按 `local.xxx` 导入，所以要从仓库根运行。
 - **创建 `app.Api`**：新用例必须经过 `local/tests/fixtures/api_threads.py` 的 `stop_auto_relogin_on_cleanup`。原因是 `Api` 一构造就会启动自动重登线程；不收掉的话，全量会越跑越慢，计时类用例会变红。
@@ -153,7 +153,7 @@ python tools/release.py --prepare
 - **界面测试有两类**：
   - 契约测试：按 `index.html` 的加载顺序把脚本拼起来（`read_ui_scripts()`，不含 led.js），在拼接结果上做文本断言。过渡期模块与普通脚本并存（ESM 地基批）：清单是普通脚本在前、模块入口的引用图随后（被引用的在前），拼接时模块去掉 import 语句与 export 关键字后排在后面。
   - 行为测试：用 node 沙箱按同一顺序回放（沙箱里是同一口径的另一份清单实现）。本机没有 node 时会跳过，跳过要如实报告。
-  - 界面契约测试按功能分在 `local/tests/test_ui_contracts.py`，公共的读取函数和 node 沙箱在 `local/tests/fixtures/ui_harness.py`。
+  - 界面契约测试按功能分在 `local/tests/screens/test_ui_contracts.py`，公共的读取函数和 node 沙箱在 `local/tests/fixtures/ui_harness.py`。
   - 新测试文件先把测试目录放进 `sys.path` 再 import fixtures，文件尾带 `unittest.main()` 入口。
 - **脚本式的 server 测试**：`server/tests/` 里的 `test_dedup.py`、`test_endpoints.py`、`test_notify.py` 没有 `test_` 函数，pytest 收集不到。其中 `test_dedup.py` 会临时改写 `server/data/state.json`，不要跑。
 - **临时目录**：一律放在 `tempfile.gettempdir()` 下面；server 测试也可以用环境变量 `CAMPUS_TEST_ROOT` 指定。
@@ -178,11 +178,11 @@ python tools/release.py --prepare
   - 冻结态是打进资源根的 `grab-worker.exe`。它是 onefile 打包，每次启动都要先解包。
 - **worker 输出就是协议**：
   - `list --json` 的 stdout 由 `app` 解析成 JSON。
-  - 计划运行时的 `[retry]` 等行由 `domain/worker_lines` 和 `retry_rules` 解析。
+  - 计划运行时的 `[retry]` 等行由 `domain/worker/worker_lines` 和 `domain/signup/retry_rules` 解析。
   - 往 `grab.py` 加打印之前，先查清这一路输出是谁在解析。
 - **报名计划**：
   - `signup_plan.PlanCoordinator` 按报名开放时刻分批，并检查举办时段冲突。
-  - `application/plan_service` 启动并监督每一场的 worker。
+  - `application/plan/plan_service` 启动并监督每一场的 worker。
   - 单场报名链路见 `docs/ARCHITECTURE.md` 的「报名链路（决策 015）」：以直发签名为主、点击兜底，回包分类，终态核对，登录失效时先复查再交接。
 - **分层**：
   - 依赖只能向下：`domain/`（纯函数，不做 IO，不读墙钟）← `application/`（用例，依赖经端口注入）← `infrastructure/`（有副作用的适配器）。
@@ -198,12 +198,12 @@ python tools/release.py --prepare
 - **站点地址**：由 `site_target` 按下面的顺序取，取到即止。
   1. `SCHOOL_ORIGIN`
   2. `config.json` 的 `site.base`
-  3. 构建时由 `tools/release.py` 生成的 `_site_build.py`（不入库）
+  3. 构建时由 `tools/release/release.py` 生成的 `_site_build.py`（不入库）
   4. 占位地址。这时 `CONFIGURED=False`，所有学校动作直接拒绝。
 - **前端**：
   - 没有打包器。`local/ui/index.html` 按 `<script>` 顺序加载 `state/`（唯一的状态仓库 `S` 和纯投影）、`views/`（DOM 呈现）、`controllers/`（编排和桥接）和 `app.js`（启动和事件分发）。加载顺序本身就是依赖关系。
   - 过渡期（ESM 地基批）普通脚本先跑、模块后跑：脚本清单末尾是 `boot-guard.js`（普通脚本，管后端事件的排队重放和「界面没有加载完整」的兜底提示）与 `type="module"` 的 `main.js`（模块入口，依次挂回过渡名单、执行原先 app.js 末尾的启动调用、置 `__modulesReady`、放出排队的事件）。`legacy-globals.js` 把模块里的名字挂回 window 给普通脚本用，名单里每个名字没有普通脚本再用时必须删，全部迁完后整个文件删除。顶层循环引用会让整张模块图起不来，由 `tools/code_shape/ui_modules.mjs` 守着。
-  - 手机页在 `local/ui/m/`，由 `infrastructure/phone_http` 在 8765 端口提供。
+  - 手机页在 `local/ui/m/`，由 `infrastructure/phone/phone_http` 在 8765 端口提供。
 
 ### 服务器版
 
@@ -221,13 +221,13 @@ python tools/release.py --prepare
 ### 发版
 
 - 版本号的真源是根目录的 `VERSION`。
-- `tools/release.py --prepare` 构建一份冻结 EXE，再由同一份 EXE 派生出独立 EXE、四成员 ZIP、安装版和 manifest。
+- `tools/release/release.py --prepare` 构建一份冻结 EXE，再由同一份 EXE 派生出独立 EXE、四成员 ZIP、安装版和 manifest。
 - `--publish` 要求三件事：在干净的 main 上，逐项核验资产，人工确认。
-- `--prepare` 与 `--publish` 动手前先跑发版守卫（tools/release_guards.py），任何一步不过就不构建、不发布；命令行上没有跳过守卫的开关。
+- `--prepare` 与 `--publish` 动手前先跑发版守卫（tools/release/release_guards.py），任何一步不过就不构建、不发布；命令行上没有跳过守卫的开关。
 
 ## 代码结构规则
 
-这些规则由 `local/tests/` 的 `test_code_shape.py`、`test_layer_boundaries.py`、`test_ui_layers.py` 守着，量法、名单和命令的细节见 `tools/code_shape/README.md`。
+这些规则由 `local/tests/architecture/` 下的 `test_code_shape.py`、`test_layer_boundaries.py`、`test_ui_layers.py` 守着，量法、名单和命令的细节见 `tools/code_shape/README.md`。
 
 - **大小**：
   - 新文件不超过 500 行，新函数不超过 60 行。

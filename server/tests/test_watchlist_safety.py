@@ -31,8 +31,10 @@ except Exception:
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "scripts"
-if str(SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS))
+for _sub in ("lib", "signup"):
+    _p = str(SCRIPTS / _sub)
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import watchlist as wl  # noqa: E402
 import watchlist_runner as runner  # noqa: E402

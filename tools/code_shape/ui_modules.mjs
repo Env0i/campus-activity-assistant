@@ -20,7 +20,7 @@
 //
 // 期望值 tools/code_shape/ui_modules_expect.json 由本脚本生成，不手写：
 //   node tools/code_shape/ui_modules.mjs --expect > tools/code_shape/ui_modules_expect.json
-// 五类问题必须为空；两份清单与实际逐项相等，多一项少一项都红（local/tests/test_ui_modules.py）。
+// 五类问题必须为空；两份清单与实际逐项相等，多一项少一项都红（local/tests/architecture/test_ui_layers.py）。
 // 词法复用同目录的 jslex.mjs 与 jsscan.mjs，名字分析复用 ui_refs.mjs 导出的函数。
 //
 // 从仓库根运行：node tools/code_shape/ui_modules.mjs [--expect]

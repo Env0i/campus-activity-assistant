@@ -74,7 +74,7 @@
 
 ### 2.1 守护进程（`campus-login.service`）
 
-`server/deploy/server_refresh.js --daemon`：
+`server/deploy/login/server_refresh.js --daemon`：
 
 - 每 2 小时用当前 token 调一次 `listActivity` 校验；
 - 校验通过 → 原子回写 `storage_state.json` 与 `data/session.json`（`saved_at` 刷新）；
@@ -157,11 +157,11 @@ cd /root/campus-login && python3 set_credentials.py
 
 自动重登连续失败时，走人工：
 
-1. 本机 `python server/scripts/login.py`，在弹出的 Chrome 里登录一次；
+1. 本机 `python server/scripts/login/login.py`，在弹出的 Chrome 里登录一次；
 2. 导出 `data/storage_state.json`（扁平 `{"xgUniToken": "...", ...}` 或 Playwright 完整 state 都支持）；
 3. `scp` 到服务器 `/root/campus-login/`，权限 600；
 4. `cd /root/campus-login && node server_refresh.js`（单跑一次，立刻校验并回写会话）；
-5. `cd /root/campus-activity-watch && python3 scripts/fetch.py` 确认退出码 0。
+5. `cd /root/campus-activity-watch && python3 scripts/lib/fetch.py` 确认退出码 0。
 
 ## 6. 监控口径
 

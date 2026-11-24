@@ -24,9 +24,9 @@ fi
 
 echo "[pre-commit] 跑三道守卫（约 9 秒）"
 "$PY" -m pytest \
-    local/tests/test_layer_boundaries.py \
-    local/tests/test_ui_layers.py \
-    local/tests/test_code_shape.py \
+    local/tests/architecture/test_layer_boundaries.py \
+    local/tests/architecture/test_ui_layers.py \
+    local/tests/architecture/test_code_shape.py \
     -q --no-header -p no:cacheprovider
 
 if [ $? -ne 0 ]; then

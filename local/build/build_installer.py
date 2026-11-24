@@ -4,7 +4,7 @@
 
 正式分发形态三种（决策 013）：独立 EXE、完整 ZIP、**安装版（本脚本产出）**——
 开始菜单、控制面板卸载项、卸载时可确认删除登录数据。三者必须由**同一份冻结
-EXE** 派生（同源由 tools/release.py 把关，本脚本只吃显式给定的 exe 文件，
+EXE** 派生（同源由 tools/release/release.py 把关，本脚本只吃显式给定的 exe 文件，
 自己绝不重新构建主程序）。绿色版 zip 已停止新增发布，只保留历史资产与
 make_portable.py 的构建能力。
 
@@ -449,7 +449,7 @@ def build(exe: "Path | str", out_dir: "Path | str",
           version: "str | None" = None, iscc: "Path | str | None" = None,
           payload_dir: "Path | str | None" = None,
           updater: "Path | str | None" = None) -> Path:
-    """从一份显式冻结 EXE 构建安装包，返回安装包路径（tools/release.py 的同源入口）。
+    """从一份显式冻结 EXE 构建安装包，返回安装包路径（tools/release/release.py 的同源入口）。
 
     版本缺省读 VERSION；ISCC 缺省自动探测（找不到就报错停止，绝不假装成功）。
     返回的路径按「产品名-安装版-版本.exe」精确命名——目录里若有别的旧安装包，

@@ -33,7 +33,7 @@
 |------|------|------|
 | `campus-login.service` | simple | `node server_refresh.js --daemon`：每 2h 校验 token，成功即刷新会话 |
 | `campus-bot.service` | simple | `BOT_ROLE=combined`：一个长连接进程分流两个入口——群里被 @ 只读查询；owner 私聊才有个人查询与预报名/报名动作 |
-| `campus-trigger.service` | simple | `python3 server/scripts/trigger_server.py`：HTTP 一键触发（18080） |
+| `campus-trigger.service` | simple | `python3 server/scripts/ops/trigger_server.py`：HTTP 一键触发（18080） |
 | `campus-autologin.service` | oneshot | `python3 /root/campus-login/auto_login.py --preempt` |
 | `campus-autologin.timer` | timer | `OnCalendar=*:0/5`，每 5 分钟唤起上面的 oneshot |
 
@@ -60,17 +60,17 @@ journalctl -u campus-bot -n 100 --no-pager
 ## 3. crontab
 
 ```cron
-0 7  * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 server/scripts/run.py --with-grab >> data/cron.log 2>&1
-5 7  * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 server/scripts/remind.py            >> data/remind.log 2>&1
-30 10 * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/run.py                                          >> data/cron.log 2>&1
-30 16 * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/run.py                                          >> data/cron.log 2>&1
-30 21 * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/run.py --late-checkin --with-open                >> data/cron.log 2>&1
-*/5  * * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/scan.py                                        >> data/scan.log 2>&1
-*    * * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/activity_watch.py                              >> data/activity_watch.log 2>&1
-*/15 * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 server/scripts/token_probe.py    >> data/token_probe.log 2>&1
-*/30 * * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/token_report.py                                >> data/token_report.log 2>&1
-*/5  * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 server/scripts/net_probe.py      >> data/net_probe.log 2>&1
-*/1  * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 server/scripts/watchlist_runner.py >> data/watchlist.log 2>&1
+0 7  * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 server/scripts/push/run.py --with-grab >> data/cron.log 2>&1
+5 7  * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 server/scripts/push/remind.py            >> data/remind.log 2>&1
+30 10 * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/push/run.py                                          >> data/cron.log 2>&1
+30 16 * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/push/run.py                                          >> data/cron.log 2>&1
+30 21 * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/push/run.py --late-checkin --with-open                >> data/cron.log 2>&1
+*/5  * * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/push/scan.py                                        >> data/scan.log 2>&1
+*    * * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/push/activity_watch.py                              >> data/activity_watch.log 2>&1
+*/15 * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 server/scripts/login/token_probe.py    >> data/token_probe.log 2>&1
+*/30 * * * * cd /root/campus-activity-watch && /usr/bin/python3 server/scripts/login/token_report.py                                >> data/token_report.log 2>&1
+*/5  * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 server/scripts/ops/net_probe.py      >> data/net_probe.log 2>&1
+*/1  * * * * cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx /usr/bin/python3 server/scripts/signup/watchlist_runner.py >> data/watchlist.log 2>&1
 ```
 
 要点：
@@ -114,26 +114,26 @@ sudo logrotate -d /etc/logrotate.d/campus   # 只看不切
 
 ```bash
 # 手动跑一轮推送（不写去重状态）
-cd /root/campus-activity-watch && python3 server/scripts/run.py --dry
+cd /root/campus-activity-watch && python3 server/scripts/push/run.py --dry
 
 # 强制真推一次（会写 announced，慎用）
-cd /root/campus-activity-watch && python3 server/scripts/run.py --force
+cd /root/campus-activity-watch && python3 server/scripts/push/run.py --force
 
 # 补发今天的私聊提醒（07:05 漏发时）
-cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx python3 server/scripts/remind.py
+cd /root/campus-activity-watch && PRIVATE_OWNER_OPEN_ID=ou_xxx python3 server/scripts/push/remind.py
 
 # 换 token（本机登录后）
 scp -i ~/.ssh/<私钥文件名> data/storage_state.json root@<你的服务器IP>:/root/campus-login/
 ssh root@<你的服务器IP> 'cd /root/campus-login && node server_refresh.js'
 
 # 看预报名清单
-cd /root/campus-activity-watch && python3 server/scripts/watchlist.py list
+cd /root/campus-activity-watch && python3 server/scripts/signup/watchlist.py list
 
 # 动态监测：只看这一轮会发什么，不发送、不写状态
-cd /root/campus-activity-watch && python3 server/scripts/activity_watch.py --dry-run --force
+cd /root/campus-activity-watch && python3 server/scripts/push/activity_watch.py --dry-run --force
 
 # 动态监测：忽略排期立刻跑一轮（真发）
-cd /root/campus-activity-watch && python3 server/scripts/activity_watch.py --force
+cd /root/campus-activity-watch && python3 server/scripts/push/activity_watch.py --force
 
 # 对比某条活动的「原定开放 / 本次发现 / 上次状态」
 python3 -c "
@@ -141,8 +141,8 @@ import json;d=json.load(open('/root/campus-activity-watch/data/activity_watch.js
 for k,v in d['activities'].items(): print(k, v['status'], v['sign_start'], v['discovered_at'])"
 
 # 手工加/删预报名
-python3 server/scripts/watchlist.py add --id <id> --name <名称> --at "2026-10-30 12:00:00"
-python3 server/scripts/watchlist.py remove --id <id>
+python3 server/scripts/signup/watchlist.py add --id <id> --name <名称> --at "2026-10-30 12:00:00"
+python3 server/scripts/signup/watchlist.py remove --id <id>
 ```
 
 ## 6. 部署更新
@@ -151,14 +151,14 @@ python3 server/scripts/watchlist.py remove --id <id>
 
 ```bash
 # 1) 本地自检（不联网、不发消息）
-python -m py_compile server/scripts/*.py
+python -m compileall server/scripts
 node --check server/bot/bot.js
 python server/tests/test_endpoints.py && python server/tests/test_notify.py
 python -m unittest server.tests.test_activity_watch -v
 node server/bot/test_bot_runtime.js
 
 # 2) 传文件（只传改动的那几个，别整套覆盖 data/）
-scp -i ~/.ssh/<私钥文件名> server/scripts/<file>.py root@<你的服务器IP>:/root/campus-activity-watch/server/scripts/
+scp -i ~/.ssh/<私钥文件名> server/scripts/<分类>/<file>.py root@<你的服务器IP>:/root/campus-activity-watch/server/scripts/<分类>/
 scp -i ~/.ssh/<私钥文件名> server/bot/bot.js        root@<你的服务器IP>:/root/campus-bot/bot.js
 
 # 3) 重启（combined 只有一个进程）

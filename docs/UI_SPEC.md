@@ -120,7 +120,7 @@
 
 **「需要更新」一档（2026-11-12）**：主程序升级后，装好的旧单体组件包会变成 `status=outdated`（与文件损坏的 `failed` 分开）。两处都显示状态 chip「需要更新」，标题行的按钮改叫「更新组件」，说明写「主程序已升级，组件需要随新版本更新」，并说明重装后配对与已存账号密码都不用重来。这一档不显示「加载失败」，也不引导去「重新导入组件包」；导入旧版本 ZIP 仍会拒绝。启用过的组件会在程序启动后自动更新一次，没启用的停在「需要更新」等用户点。
 
-设置抽屉接口（2026-11-07 落地）：组件状态来自 `advanced_features_state`，动作为 `download_advanced_feature(key)`、`cancel_advanced_feature_download(key)`、`enable_advanced_feature(key)`（装好未启用时的「启用」，不打开导入弹窗）、导入弹窗用的 `inspect_advanced_component` 与 `install_advanced_feature`；组件位置与打开文件夹只走电脑端专用接口 `advanced_component_location(key)` 与 `open_advanced_component_dir(key)`，不进快照。手机访问的「配过对没有」= `phone_access_state.paired_count > 0` 或布尔 `live_session`（配对码、二维码、「手机已连接。配对码已换成新的…」那条绿条、「再配一台」与详情卡的配对行照旧看这一个）。「现在连着没有」读 `phone_access_state.link`（五种取值：没开启为 `off`，开启后还没有人来过为 `waiting`，最近一次来访距今小于 2 分钟为 `connected`，达到 2 分钟为 `disconnected`，时钟不可用为 `unknown`；阈值在 `domain/phone_rules.py` 的 `PHONE_IDLE_DISCONNECT_S = 120`）与 `last_contact_ago_s`（最近一次来访距今的秒数，还没有来访时为 `null`）；`link` 没给或为 `unknown` 时退回「配过对 / 有活动会话」的两档旧规则，老快照下界面一字不变。设置抽屉的手机 chip、顶栏的手机标识与手机详情卡共用 `features/phone-access/state-link.js` 的 `phoneLinkView`，规则见「手机连接状态」小节。登录恢复读 `credential.saved`、`credential.staged`、`credential.staged_hint`（只用这一次的账号提示，不含密码）与 `credential.paused`（学校拒绝已保存的密码）；「只用这一次」经 `prepare_phone_relogin` 只进内存，「保存到本机」经 `save_relogin_credentials`。
+设置抽屉接口（2026-11-07 落地）：组件状态来自 `advanced_features_state`，动作为 `download_advanced_feature(key)`、`cancel_advanced_feature_download(key)`、`enable_advanced_feature(key)`（装好未启用时的「启用」，不打开导入弹窗）、导入弹窗用的 `inspect_advanced_component` 与 `install_advanced_feature`；组件位置与打开文件夹只走电脑端专用接口 `advanced_component_location(key)` 与 `open_advanced_component_dir(key)`，不进快照。手机访问的「配过对没有」= `phone_access_state.paired_count > 0` 或布尔 `live_session`（配对码、二维码、「手机已连接。配对码已换成新的…」那条绿条、「再配一台」与详情卡的配对行照旧看这一个）。「现在连着没有」读 `phone_access_state.link`（五种取值：没开启为 `off`，开启后还没有人来过为 `waiting`，最近一次来访距今小于 2 分钟为 `connected`，达到 2 分钟为 `disconnected`，时钟不可用为 `unknown`；阈值在 `domain/phone/phone_rules.py` 的 `PHONE_IDLE_DISCONNECT_S = 120`）与 `last_contact_ago_s`（最近一次来访距今的秒数，还没有来访时为 `null`）；`link` 没给或为 `unknown` 时退回「配过对 / 有活动会话」的两档旧规则，老快照下界面一字不变。设置抽屉的手机 chip、顶栏的手机标识与手机详情卡共用 `features/phone-access/state-link.js` 的 `phoneLinkView`，规则见「手机连接状态」小节。登录恢复读 `credential.saved`、`credential.staged`、`credential.staged_hint`（只用这一次的账号提示，不含密码）与 `credential.paused`（学校拒绝已保存的密码）；「只用这一次」经 `prepare_phone_relogin` 只进内存，「保存到本机」经 `save_relogin_credentials`。
 
 **组件状态机**（2026-11-15 落地）：两个组件行（手机控制、验证码识别）在界面上走同一台状态机，代码共用一台纯函数状态机与一个行绘制函数——`features/components/state-machine.js` 的 `componentState`（纯函数，不碰 DOM、不发请求、不读时钟）与 `features/components/view-row.js` 的 `paintComponentRow`（画两行共有的主按钮、取消按钮、没装块、导入兜底、进度块、位置两行、红条、读状态说明与「重试」）；两行的认阶段 `phonePhase` / `ocrPhase` 是薄适配，名字、参数、返回值不变，行与行的差别由各自的 spec 常量与调用方算好的文案保留。
 
@@ -137,7 +137,7 @@
 
 三条已定的规则：检查中不假装在下载（进度块收起，也不显示成没装）；取消下载直接回到没装，界面上不留「已取消」这句话；安装失败回到安装前的状态，多一条红条说明。各状态的颜色（状态句深色、圆点亮色、小字与红条各自一档）见「设置里的组件行」小节。
 
-读状态是一份派生事实（`probe`），只有四种取值，界面据此决定收起按钮还是给「重试」：`waiting` 等锁、还没有结论——写「正在确认组件状态…」，有缓存结论的行保留原来的字；`timeout` 等锁满 30 秒——写「另一个窗口正在安装或更新组件，已等 30 秒」；`unreadable` 暂时读不到组件状态——写「暂时读不到组件状态」；空表示读到了结论。`waiting`、`timeout`、`unreadable` 期间不给主按钮与「启用」（那几下点下去也装不上），`timeout` 与 `unreadable` 另给「重试」，面板忙时「重试」禁用。说明元素带 `data-probe`，样式与测试按它认档。30 秒这个数与 `local/domain/component_rules.py` 的 `COMPONENT_CHECK_TIMEOUT_S` 同口径，但两边算法不同（那边按等待起点算，这边按这一次点「重试」的起点算），改一处要一起改。
+读状态是一份派生事实（`probe`），只有四种取值，界面据此决定收起按钮还是给「重试」：`waiting` 等锁、还没有结论——写「正在确认组件状态…」，有缓存结论的行保留原来的字；`timeout` 等锁满 30 秒——写「另一个窗口正在安装或更新组件，已等 30 秒」；`unreadable` 暂时读不到组件状态——写「暂时读不到组件状态」；空表示读到了结论。`waiting`、`timeout`、`unreadable` 期间不给主按钮与「启用」（那几下点下去也装不上），`timeout` 与 `unreadable` 另给「重试」，面板忙时「重试」禁用。说明元素带 `data-probe`，样式与测试按它认档。30 秒这个数与 `local/domain/components/component_rules.py` 的 `COMPONENT_CHECK_TIMEOUT_S` 同口径，但两边算法不同（那边按等待起点算，这边按这一次点「重试」的起点算），改一处要一起改。
 
 「重试」记下点下去那一刻这一行的 `lock_wait_s` 作为起点，再取一次快照；下一次快照里这一行读到结论（`probe` 为空）就把起点清掉。自动再取快照只在有行处于 `waiting` 时进行，`timeout` 与 `unreadable` 不自动轮询，交给用户点。
 
@@ -420,12 +420,12 @@
 
 ### 5.12 版本单一来源与 Release 资产（验收条款）
 
-1. **VERSION 唯一来源**：仓库根 `VERSION`（`major.minor.patch`）是 GUI（`bootstrap`/`help`）、`build_exe.py`、`make_portable.py`、`tools/release.py` 的唯一版本来源；运行时读取顺序为冻结资源根 → 脚本旁（绿色版）→ 仓库根，不依赖启动 cwd；文件缺失或格式非法直接启动失败并给开发者可读错误，不静默回退旧版本。
+1. **VERSION 唯一来源**：仓库根 `VERSION`（`major.minor.patch`）是 GUI（`bootstrap`/`help`）、`build_exe.py`、`make_portable.py`、`tools/release/release.py` 的唯一版本来源；运行时读取顺序为冻结资源根 → 脚本旁（绿色版）→ 仓库根，不依赖启动 cwd；文件缺失或格式非法直接启动失败并给开发者可读错误，不静默回退旧版本。
 2. **版本线口径**：实际已发布基线是 **v1.0.2**；当前待发布候选是 **v1.1.0**（累计功能增强，minor）。内部 3.x 只是未发布草案编号，不构成对外版本历史；同一候选的返修/测试/验收轮次**不升版**（开发证据用 commit/时间/哈希区分）；正式发布后 bug 用 patch、累计功能用 minor、兼容性破坏才评估 major。完整口径见 [design/specs/versioning-and-release.md](../design/specs/versioning-and-release.md)；引导内容版本 `TOUR_VERSION` 独立管理（见 §5.11）。
 3. **构建**：`build_exe.py` 构建前校验 VERSION 并打印；`--add-data` 把同一份 VERSION 放进冻结资源根；`make_portable.py` 的应用清单包含 `runtime_paths.py` 并把根 VERSION 复制到应用目录。
-4. **发布三阶段互斥**：`tools/release.py` 默认 `--check`（只读零副作用，报告版本/资产名/白名单/已有候选来源/发布门禁预演）；`--prepare` 在本地构建 onefile 主 EXE 并按白名单组装资产（可在 feature 分支执行，产物仅供预览）；`--publish` 才打 tag 并 `gh` 上传。**tag 只能由 VERSION 推导**：位置参数 tag 只作校验输入（不一致即拒绝），不再单独触发发布。publish 的门禁顺序：干净 `main`（返回完整 HEAD）→ tag==VERSION 推导 → **资产逐项核验**（manifest 存在且为对象、版本/tag 一致、`source_dirty` 必须是**显式布尔 false**（缺失/null/0/字符串都算来源未知，拒绝）、来源=当前完整 HEAD、EXE/ZIP 齐全、大小与 SHA-256 与 manifest 一致、ZIP 成员恰为白名单）→ 人工确认 → **确认后复核** → tag → 上传；任何一项不符都在副作用之前拒绝并提示显式 `--prepare`，**绝不静默复用旧候选或现场补构建**——「当前在干净 main」不构成绕过理由。
+4. **发布三阶段互斥**：`tools/release/release.py` 默认 `--check`（只读零副作用，报告版本/资产名/白名单/已有候选来源/发布门禁预演）；`--prepare` 在本地构建 onefile 主 EXE 并按白名单组装资产（可在 feature 分支执行，产物仅供预览）；`--publish` 才打 tag 并 `gh` 上传。**tag 只能由 VERSION 推导**：位置参数 tag 只作校验输入（不一致即拒绝），不再单独触发发布。publish 的门禁顺序：干净 `main`（返回完整 HEAD）→ tag==VERSION 推导 → **资产逐项核验**（manifest 存在且为对象、版本/tag 一致、`source_dirty` 必须是**显式布尔 false**（缺失/null/0/字符串都算来源未知，拒绝）、来源=当前完整 HEAD、EXE/ZIP 齐全、大小与 SHA-256 与 manifest 一致、ZIP 成员恰为白名单）→ 人工确认 → **确认后复核** → tag → 上传；任何一项不符都在副作用之前拒绝并提示显式 `--prepare`，**绝不静默复用旧候选或现场补构建**——「当前在干净 main」不构成绕过理由。
 5. **确认后来源绑定与远端 tag 事实**（人工确认可能等待很久）：确认返回后、第一次 Git 写入前必须重验「同一干净 main、同一完整 HEAD、同一 VERSION、同一批资产（EXE/ZIP/manifest 指纹）」——期间任何变化都中止并要求重新核验确认；上传前再比对一次指纹。新 tag 用 `git tag -a <tag> <已核验完整提交>` **显式绑定**（不靠执行当时 HEAD）；origin 上的同名 tag 用只读 `git ls-remote` 独立核验最终提交（附注 tag 取 peeled 值优先，轻量 tag 取其值；**查询失败按错误拒绝，不当成不存在**）：本地或远端指向不一致都在写入前拒绝、不 force；远端已正确则复用，远端缺失且本地正确则显式 push 已核验 tag，两边都缺才创建绑定 SHA 的新 tag 并 push，push 完成后再查一次远端指向确认落地。`gh release create` 必须带 `--verify-tag`——禁止 gh 在远端缺 tag 时从默认分支自动补一个未经核验的 tag。已有 Release 默认拒绝覆盖附件，覆盖必须显式 `--clobber`。绿色版/服务器版打包与分发分支同步是**另行授权**的兼容流程，publish 不得隐式触发；check/prepare 不发起任何远端请求。
-6. **资产形态**（2026-10-25 收尾轮更新，取代五成员/同目录旧口径；详见 §5.13.8 与决策 010）：`campus-activity-watch-vX.Y.Z-win-x64.zip` 为完整便携包（成员白名单：主 EXE、`README.md`、`启动说明.txt`、`LICENSE`——worker 已内置进主 EXE，ZIP 不再携带外置 `grab-worker.exe`；`OUT/data` 等任何 data/config/log/缓存不得进入）；`campus-activity-watch-vX.Y.Z-win-x64.exe` 为**独立可用单文件**（内置 worker，拷到空目录即可用）；发布资产名一律用 ASCII（`tools/release.py` 的 `exe_asset_name`/`zip_asset_name`/`installer_asset_name` 三函数是唯一推导，:129-147——GitHub 会把非 ASCII 前缀规范化成别的形式，v1.1.0 曾人工补救；安装版资产名 `campus-activity-watch-installer-vX.Y.Z-win-x64.exe`，本地 Inno 产物是中文名、上传前统一改名）；publish 核验新增「ZIP 内主 EXE 与单独 EXE 字节一致」层；prepare 产出 manifest（版本、tag、分支、**完整 HEAD**、`source_dirty`、构建时刻、每文件 SHA-256/大小），构建前后来源必须一致（中途改代码的产物不能当候选），启动说明生成器输入统一 LF 再输出 CRLF（防 CRLF 检出环境产生 CR CR LF）。
+6. **资产形态**（2026-10-25 收尾轮更新，取代五成员/同目录旧口径；详见 §5.13.8 与决策 010）：`campus-activity-watch-vX.Y.Z-win-x64.zip` 为完整便携包（成员白名单：主 EXE、`README.md`、`启动说明.txt`、`LICENSE`——worker 已内置进主 EXE，ZIP 不再携带外置 `grab-worker.exe`；`OUT/data` 等任何 data/config/log/缓存不得进入）；`campus-activity-watch-vX.Y.Z-win-x64.exe` 为**独立可用单文件**（内置 worker，拷到空目录即可用）；发布资产名一律用 ASCII（`tools/release/release.py` 的 `exe_asset_name`/`zip_asset_name`/`installer_asset_name` 三函数是唯一推导，:129-147——GitHub 会把非 ASCII 前缀规范化成别的形式，v1.1.0 曾人工补救；安装版资产名 `campus-activity-watch-installer-vX.Y.Z-win-x64.exe`，本地 Inno 产物是中文名、上传前统一改名）；publish 核验新增「ZIP 内主 EXE 与单独 EXE 字节一致」层；prepare 产出 manifest（版本、tag、分支、**完整 HEAD**、`source_dirty`、构建时刻、每文件 SHA-256/大小），构建前后来源必须一致（中途改代码的产物不能当候选），启动说明生成器输入统一 LF 再输出 CRLF（防 CRLF 检出环境产生 CR CR LF）。
 7. **状态分项记录**：构建成功、资产准备完成、GitHub 上传、用户验收分别记录，不得合并为一个「完成」状态；未上传前不得在任何文档声称 Release 已存在。证据按轮次记录：首轮 153 单测/3.1.0 候选构建、返修后 179 单测 + 14 文件编译 + 1.1.0 脏预览（manifest `source_dirty=true`）均为**已执行轮次的历史证据**；2026-10-25 发布收尾轮（FG1–FG3）的新增回归**未运行**，待授权执行，不沿用旧通过数字。
 
 ### 5.14 运行目标、整屏终态与清筛选（验收条款，2026-10-25 返修轮）
@@ -610,7 +610,7 @@
    不覆盖下一条；表格 `.c-place` 同为 `role="button"` + `tabindex="0"` + `aria-expanded`，
    聚焦或 Enter/Space 都能展开全文，且展开/点击地点**不得改变勾选或开始计划**；
    不使用只靠 hover/title 的方式。
-7. **可复用的离线 QA 证据**：`tools/qa_runtime_reliability.py` 只绑定 `127.0.0.1`，
+7. **可复用的离线 QA 证据**：`tools/qa/qa_runtime_reliability.py` 只绑定 `127.0.0.1`，
    原样读取 `local/ui` 四文件，只在 `app.js` 之前注入
    `local/tests/fixtures/runtime_bridge.js`；桥的未实现方法直接抛错，结果类方法必须
    两阶段（立即回执 + `onBackend` 事件）。外部请求全部拦截且必须为 0；端口占用报错
@@ -940,7 +940,7 @@
 3. **窗口不可见**：`document.hidden` 为真，或后端 `window_visibility()` 返回 `hidden:true`（pywebview 隐藏窗口时 WebView2 是否把 `document.hidden` 置真无法离线验证，所以两个都问；老后端没有这个接口时当作可见）。不可见期间不刷新；从不可见变可见时，若已满 10 分钟，立即补刷一次（`visibilitychange` 里在原有 bootstrap 同步之后调一次 `autoRefreshTick`；那一步刚刷新过的话会因「正在拉列表」自己跳过，不连刷两次）。
 4. **后台不闪**：`refresh(true, {background:true})` 不置 `S.listState="loading"`（不出骨架）、不置 `S.login.checking`（不进「检查中」）、不 `render()`、不开条款弹窗、不开结果框或横幅；兜底计时器（100 / 130 秒）改看内部 pending 标志收口。成功时走既有 `applyActivities` 成功路径：勾选保留仍在列表里的场次，筛选与滚动容器不动；「N 分钟前更新」照常显示上次成功时刻。
 5. **后台失败**：保留原有列表与勾选，不切错误空态、不挂横幅、不写失败日志。回包失败、桥接异常、入队被拒、130 秒无回应四条路径统一累计次数，**连续 3 次**才在运行记录写一条「活动列表自动刷新连续 3 次没成功，列表还是 HH:MM 的；可以点「刷新」重试」（HH:MM 是最近一次列表成功的北京时间，不可得时写「列表还是上次的」），之后继续失败不再刷屏；任何一次列表成功（手动或后台）都把计数清零，要重新连续 3 次才再写。手动刷新失败的老行为不变（清空列表并显示错误空态）。
-6. **验收**：`local/tests/test_ui_reliability.py::AutoListRefreshTests`（node 沙箱，逐条跳过条件都有「单独成立不刷、撤掉立即刷」的对照）与 `test_application_services.py::WindowVisibilityTests`。真实窗口里隐藏到托盘时 `document.hidden` 的取值、10 分钟后台刷新是否无闪烁，需要真机确认。
+6. **验收**：`local/tests/screens/test_ui_reliability.py::AutoListRefreshTests`（node 沙箱，逐条跳过条件都有「单独成立不刷、撤掉立即刷」的对照）与 `local/tests/desktop/test_application_services.py::WindowVisibilityTests`。真实窗口里隐藏到托盘时 `document.hidden` 的取值、10 分钟后台刷新是否无闪烁，需要真机确认。
 
 ## 6. 文案要求
 
@@ -1031,7 +1031,7 @@
 - [ ] 组件故障经 check/list 任一入口、登录/开始同步失败都能挂上唯一横幅；同轮另一分支成功不撤横幅；下一轮两分支完成才恢复；同步拒绝不卡 pending；真实业务结果与横幅并存
 - [ ] 窄窗口（≤980）或目标隐藏时引导退回底部说明条；计划运行中引导自动暂停，结束后从原步骤继续
 - [ ] 版本只在设置抽屉「版本与更新」行显示（与 VERSION 一致，不写死候选号）；「打开发布页」点击才用系统浏览器打开，启动时不联网；打不开时设置抽屉内有局部反馈与可复制的固定地址
-- [ ] `python tools/release.py`（默认 check）零副作用输出资产名与门禁预演；prepare 产出的 ZIP 只含白名单成员并附 SHA-256 清单；publish 未获授权时不创建 tag、不上传
+- [ ] `python tools/release/release.py`（默认 check）零副作用输出资产名与门禁预演；prepare 产出的 ZIP 只含白名单成员并附 SHA-256 清单；publish 未获授权时不创建 tag、不上传
 - [ ] 取消同批某一场后，批次数与 LED 目标立即只跟剩下的非终态场次；立即场成功后目标回到仍等待的未来场，LED 不再停在 00:00:00
 - [ ] 全终态但 `plan_done` 未到显示「正在汇总结果」；单场成功/失败不会把整屏染成计划结论
 - [ ] 登录有效且学校返回 0 场：列表写 0、大屏不重复原因、不给登录引导；无法确认登录态时不说「过期」
@@ -1070,37 +1070,37 @@ python app.py --demo     :: 假数据，调样式用
 - 改完至少跑一遍（仓库根，获运行授权后）：
   - `python -X utf8 -m unittest discover -s local/tests -p "test_*.py" -v`
   - `python -X utf8 -m compileall local server`、`node --check local/ui/app.js`
-  - `python -X utf8 tools/qa_runtime_reliability.py --host 127.0.0.1 --port 8388 --evidence-root <临时目录> --run`
+  - `python -X utf8 tools/qa/qa_runtime_reliability.py --host 127.0.0.1 --port 8388 --evidence-root <临时目录> --run`
   - 再用当前 EXE `--demo` 做原生点击自查（mock 截图不能代替）。
 
 ### 10.1 本轮旧条款对照（旧句 → 新规则 → 代码位置 → 当前证据）
 
 | 旧句 | 新规则 | 代码位置 | 当前证据 |
 |---|---|---|---|
-| 「阻塞超时不得为 0」 | 预算到点抛 `BudgetExhausted`，拒绝发起 | `local/time_contract.py` `RetryBudget.timeout_s/ms` | `test_worker_boundaries` 预算用例；`test_time_contract` |
+| 「阻塞超时不得为 0」 | 预算到点抛 `BudgetExhausted`，拒绝发起 | `local/infrastructure/clock/time_contract.py` `RetryBudget.timeout_s/ms` | `test_worker_boundaries` 预算用例；`test_time_contract` |
 | 「旧轮迟到事件被丢弃」（无暂存） | 旧 owner 终态先暂存，skipped ack 后重放一次 | `local/ui/app.js` `cacheRoundPayload/takeRoundPayload` | `test_ui_reliability.RefreshRoundRaceTests` |
 | 「unknown 明说请勿重复启动」（无查询期限） | 每次对账 5 秒期限 + 查询代次 | `local/ui/app.js` `reconcileStart` | `StartReconcileQueryTests`；QA `reconcile-hang` |
 | 「没抢到」覆盖全部失败 | 待核对/未提交单列，含未知不得全失败断言 | `local/ui/app.js` `planOutcome/unknownLabel` | `UnknownOutcomeUITests`；QA `unknown-outcomes` |
-| 「窗口最小 980×700」只测两种视口 | 五视口 + 压力视口 + 键盘 + 顶栏矩阵 | `tools/qa_runtime_reliability.py` | 返修轮 `qa-report.json` 39 场景 / 51 图（历史轮 15 场景 / 22 图只作历史证据） |
+| 「窗口最小 980×700」只测两种视口 | 五视口 + 压力视口 + 键盘 + 顶栏矩阵 | `tools/qa/qa_runtime_reliability.py` | 返修轮 `qa-report.json` 39 场景 / 51 图（历史轮 15 场景 / 22 图只作历史证据） |
 | 「界面不显示 3/10 这种总数」 | 有限次数显示「已提交 N/M 次」，0 写「不限次数」 | `local/ui/app.js` `submittingDetail` | `AttemptsDisplayTests`；`test_retry_policy` |
 | 「worker 一创建就取得所有权」（实为 Popen 后才 Assign，且失败静默降级） | 挂起创建 → 建 Job → 归属 → 恢复；失败即启动失败 | `local/app.py` `spawn_owned_worker` | `WorkerOwnershipTests`（红 10 → 绿） |
 | 「停止即取消」（实为取消分支先返回、次数回落 0） | 已获得证据优先：成功/已报名 > 确定失败 > 待核对 > 取消 | `local/app.py` `_run_plan_task` | `StopPreservesFactsTests`（红 4 → 绿） |
 | 「旧轮迟到事件丢弃」（无跨轮恢复） | 幂等键含消费代次；同 owner 可收口新轮，副作用按请求幂等 | `local/ui/app.js` `markRoundApplied/firstNotice` | `CrossRoundConsumptionTests`（红 3 → 绿） |
 | 「F5 只恢复 tasks/status」 | 终态走同一呈现入口：结果框/LED/边框/次数/动作/选择签名 | `local/ui/app.js` `presentPlanDone/ingestBootstrapPlan` | `BootstrapTerminalViewTests`（红 2 → 绿） |
 | 「含未知仍用 failed 红色边框」「待核对=unknown 总数」 | 展示状态 `attention` 中性色；待核对与未提交分列 | `local/ui/app.js` `boardPlanState/unknownLabel` | `BoardStateSemanticsTests`（红 3 → 绿） |
-| 「压力视口只查按钮 is_visible」 | 真实指针 + 可见带/可达性几何 + `elementFromPoint` 命中 | `tools/qa_runtime_reliability.py` `_narrow` | `narrow-680/746`（红：可见带 11px、点击被表头拦截 → 绿） |
+| 「压力视口只查按钮 is_visible」 | 真实指针 + 可见带/可达性几何 + `elementFromPoint` 命中 | `tools/qa/qa_runtime_reliability.py` `_narrow` | `narrow-680/746`（红：可见带 11px、点击被表头拦截 → 绿） |
 | 「旧计划的 plan_done 仍转发给界面」「槽为空即归属最新计划」 | 接纳代次归属：旧事件只留历史对账不广播；`_last_plan` 只由最近接纳计划写 | `local/app.py` `start_plan` emit 闭包 / `local/ui/app.js` `planEventOwns` | `PlanDoneCommitOrderTests`（红 5 → 绿）+ `PlanEventOwnershipTests`（红 6 → 绿）；QA `stale-plan-events`/`stale-after-done`/`early-events-before-ack` |
 | 「ack 整表替换已收任务」 | ack 快照按 plan_id 合并，提交次数只增不减 | `local/ui/app.js` `adoptPlan` | `test_new_plan_events_before_ack_are_adopted_and_ack_keeps_telemetry`；QA `early-events-before-ack` |
 | 「已接纳 = 此刻仍在运行」（终态早于 ack 时置忙复活已结束计划） | 终态先到则 ack 只清开始请求，保持 busy=false 与终态呈现 | `local/ui/app.js` `startPlan` 成功回执 / `adoptPlan` | `TerminalBeforeAckTests`（红 5 → 绿）；QA `early-terminal-before-ack` |
-| 「顶栏显示本机时间」「按本机时间执行/建议同步系统时间」 | 独立北京时间：NTP 锚点 + 经过时长；粗测只作诊断；现在线每秒重绘也只认业务时钟 | `local/business_clock.py` / `local/ui/app.js` `businessNowMs`、`tick` | 返修轮 `test_business_clock` 全绿 + `test_business_clock_wiring`；QA `clock-skew-boot-8h`（先红：现在线显示本机时刻 → 修 `tick` 后绿）/ `clock-skew-boot-30d` / `wall-jump-during-plan` / `clock-skew-runtime-minus8h` / `clock-unavailable-start` / `clock-holdover-expiry` / `clock-first-sync-delay` / `clock-status-after-reload` / `clock-sync-failure-feedback` |
+| 「顶栏显示本机时间」「按本机时间执行/建议同步系统时间」 | 独立北京时间：NTP 锚点 + 经过时长；粗测只作诊断；现在线每秒重绘也只认业务时钟 | `local/infrastructure/clock/business_clock.py` / `local/ui/app.js` `businessNowMs`、`tick` | 返修轮 `test_business_clock` 全绿 + `test_business_clock_wiring`；QA `clock-skew-boot-8h`（先红：现在线显示本机时刻 → 修 `tick` 后绿）/ `clock-skew-boot-30d` / `wall-jump-during-plan` / `clock-skew-runtime-minus8h` / `clock-unavailable-start` / `clock-holdover-expiry` / `clock-first-sync-delay` / `clock-status-after-reload` / `clock-sync-failure-feedback` |
 | 「登录剩余按 saved_at 墙钟估算」「关闭时长按本机文本」 | v2 可信锚点才报数；未知不判失效不诱导重登 | `local/app.py` `token_hours_left` / `compute_lifecycle_v2` | `test_session_persistence` v2 用例（红 → 绿）；QA `legacy-session-valid-no-estimate` |
 
 ### 10.2 本轮边界缺陷（CB01–CB06）验收映射（2026-10-26 最终边界轮）
 
 | 编号 | 根因（复审） | 现行口径 | 代码位置 | 本轮证据（红 → 绿） |
 |---|---|---|---|---|
-| CB01 | 星形邻接把「A-B、B-C 成立但 A-C 矛盾」合并成三源支持 | 两两一致子集 + 去真子集 + 极大组；同支持矛盾组拒绝 | `local/business_clock.py` `_accept_cluster` | `test_business_clock.ConsistentClusterTests`（0/0.20/0.40、三源 6 置换：红 `ready` → 绿拒绝；正对照三源全一致/唯一 AB/两源） |
-| CB02 | `epoch = T3 + RTT/2` 把服务器处理耗时重复算进网络半程 | `T3 + (RTT − (T3−T2))/2`；容差内负网络夹 0，超容差拒绝；误差界不缩小 | `local/business_clock.py` `_one_source` | `NetworkRoundFenceTests`（20ms 处理：红多算 10ms → 绿 1ms 容差；0/近 RTT/负网络/超容差） |
+| CB01 | 星形邻接把「A-B、B-C 成立但 A-C 矛盾」合并成三源支持 | 两两一致子集 + 去真子集 + 极大组；同支持矛盾组拒绝 | `local/infrastructure/clock/business_clock.py` `_accept_cluster` | `test_business_clock.ConsistentClusterTests`（0/0.20/0.40、三源 6 置换：红 `ready` → 绿拒绝；正对照三源全一致/唯一 AB/两源） |
+| CB02 | `epoch = T3 + RTT/2` 把服务器处理耗时重复算进网络半程 | `T3 + (RTT − (T3−T2))/2`；容差内负网络夹 0，超容差拒绝；误差界不缩小 | `local/infrastructure/clock/business_clock.py` `_one_source` | `NetworkRoundFenceTests`（20ms 处理：红多算 10ms → 绿 1ms 容差；0/近 RTT/负网络/超容差） |
 | CB03 | 本次取时失败仍写 quality=ready；外来 run_id 先清空再写成自己；旧文本被当精确值 | 缺本次可信 epoch 即 unknown；初始化/迟到校准缺 v2 一律 unknown；读核验+写回同一跨进程事务 | `local/app.py` `AppLifecycle` / `_prefs_transaction` | `LifecycleTransactionTests`（心跳/关闭失效、旧文本、迟到校准：红 2 → 绿；真实双进程 A/B 接管与 0.4 秒持锁交错：红确认 A 覆盖 B → 绿整份让位） |
 | CB04 | UI 把 `uncertainty_s` 与整段 `age_s` 的漂移相加；F5 用接入时刻冒充「最近校准」 | 只补采样后单调漂移；年龄只做 300/900 门禁；最近校准 = 权威 age + 接入后经过时长 | `local/ui/app.js` `clockReading/clockAgeMs/clockLastSyncText` | `ClockModelReliabilityTests`（age400/unc0.47：红判不可用 → 绿可用；F5 600s：红「刚刚」→ 绿「10 分钟前」） |
 | CB05 | `stateOf=unknown` 同时承载「缺 sign_start」与「无可信 now」，统一说「待公布」 | 有 sign_start 保留绝对时间标「待校准」；大屏「时间待校准」+ 单一入口；计数「待确认」；已报名事实保留 | `local/ui/app.js` `signStartKnown/leftTextOf/groupTimetable/paintSelected/paintRail` | `UnknownClockDisplayTests`（红 3 → 绿）；QA `clock-unknown-known-open-time`（17 断言，含恢复后选择/策略保持） |

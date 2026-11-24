@@ -59,26 +59,26 @@
 
 | 文件 | 职责 | 谁调用 |
 |------|------|--------|
-| `server/scripts/common.py` | 学校地址唯一来源、会话读写、原子写、跨进程锁、业务北京时间、动态监测配置 | 所有脚本 |
-| `server/scripts/fetch.py` | 取 token → 分页拉活动 → 归一化（含公开字段白名单）→ 公开状态分类 | run/scan/query/activity_watch |
-| `server/scripts/activity_watch.py` | 公共活动动态发现：指纹、首次发现、状态转移、改期事件、固定节奏轮询、单飞锁、退避；首轮只建静默基线 | cron（每分钟唤醒） |
-| `server/scripts/run.py` | 一轮推送：抓取 → 卡片 → 群推送 → 私聊预报名卡；动态事件聚合通知入口 | cron / activity_watch |
-| `server/scripts/scan.py` | 每 5 分钟：开放前 10 分钟的临近提醒（只报时间） | cron |
-| `server/scripts/remind.py` | 07:05 当天活动私聊提醒 | cron |
-| `server/scripts/card.py` | 飞书卡片 JSON 构造：公共只读卡片 + 私聊预报名卡片，状态词唯一来源 | run/scan/remind/query/bot |
-| `server/scripts/render.py` | 文案排版（纯文本与卡片共用） | card/run/scan |
-| `server/scripts/notify.py` | 推送通道：webhook / 飞书应用、卡片、私聊、更新卡片 | 全部发送方 |
-| `server/scripts/token_probe.py` | token 有效性探针 + 连续失败告警 | cron |
-| `server/scripts/token_report.py` | token 寿命汇总 | cron |
-| `server/scripts/net_probe.py` | 出网自检（静态页，不带 token） | cron |
-| `server/scripts/grab_card.py` | 预报名卡片的发送快照与整卡刷新 | run / bot / watchlist |
-| `server/scripts/watchlist.py` | 预报名清单状态机（queued/running/done/failed/missed） | bot / runner |
-| `server/scripts/watchlist_runner.py` | 每分钟对齐清单，到点 `systemd-run` 拉起抓取 | cron |
-| `server/scripts/trigger_server.py` | HTTP 一键触发（`/run/<token>`） | 手机浏览器 |
-| `server/deploy/server_refresh.js` | 常驻守护：每 2h 校验并回写会话 | systemd |
-| `server/deploy/auto_login.py` | 失效时无人值守重登：验证码 OCR + 页面提交 + 原子写会话 | timer（5 分钟） |
-| `server/deploy/grab_signup.py` | 到点进详情页点「立即报名」，结果私聊回报 | watchlist_runner |
-| `server/deploy/set_credentials.py` | 交互写入 `credentials.json`（唯一放账号密码的地方） | 人工一次 |
+| `server/scripts/lib/common.py` | 学校地址唯一来源、会话读写、原子写、跨进程锁、业务北京时间、动态监测配置 | 所有脚本 |
+| `server/scripts/lib/fetch.py` | 取 token → 分页拉活动 → 归一化（含公开字段白名单）→ 公开状态分类 | run/scan/query/activity_watch |
+| `server/scripts/push/activity_watch.py` | 公共活动动态发现：指纹、首次发现、状态转移、改期事件、固定节奏轮询、单飞锁、退避；首轮只建静默基线 | cron（每分钟唤醒） |
+| `server/scripts/push/run.py` | 一轮推送：抓取 → 卡片 → 群推送 → 私聊预报名卡；动态事件聚合通知入口 | cron / activity_watch |
+| `server/scripts/push/scan.py` | 每 5 分钟：开放前 10 分钟的临近提醒（只报时间） | cron |
+| `server/scripts/push/remind.py` | 07:05 当天活动私聊提醒 | cron |
+| `server/scripts/lib/card.py` | 飞书卡片 JSON 构造：公共只读卡片 + 私聊预报名卡片，状态词唯一来源 | run/scan/remind/query/bot |
+| `server/scripts/lib/render.py` | 文案排版（纯文本与卡片共用） | card/run/scan |
+| `server/scripts/lib/notify.py` | 推送通道：webhook / 飞书应用、卡片、私聊、更新卡片 | 全部发送方 |
+| `server/scripts/login/token_probe.py` | token 有效性探针 + 连续失败告警 | cron |
+| `server/scripts/login/token_report.py` | token 寿命汇总 | cron |
+| `server/scripts/ops/net_probe.py` | 出网自检（静态页，不带 token） | cron |
+| `server/scripts/signup/grab_card.py` | 预报名卡片的发送快照与整卡刷新 | run / bot / watchlist |
+| `server/scripts/signup/watchlist.py` | 预报名清单状态机（queued/running/done/failed/missed） | bot / runner |
+| `server/scripts/signup/watchlist_runner.py` | 每分钟对齐清单，到点 `systemd-run` 拉起抓取 | cron |
+| `server/scripts/ops/trigger_server.py` | HTTP 一键触发（`/run/<token>`） | 手机浏览器 |
+| `server/deploy/login/server_refresh.js` | 常驻守护：每 2h 校验并回写会话 | systemd |
+| `server/deploy/login/auto_login.py` | 失效时无人值守重登：验证码 OCR + 页面提交 + 原子写会话 | timer（5 分钟） |
+| `server/deploy/signup/grab_signup.py` | 到点进详情页点「立即报名」，结果私聊回报 | watchlist_runner |
+| `server/deploy/install/set_credentials.py` | 交互写入 `credentials.json`（唯一放账号密码的地方） | 人工一次 |
 | `server/bot/bot.js` | 飞书长连接：`BOT_ROLE=combined` 单进程按 `chat_type` 分流——群 @ 只读查询 / owner p2p 个人动作 | systemd（一个实例） |
 
 ## 接口清单
@@ -155,7 +155,7 @@
 
 ## 本机工具（local/）分层
 
-本机版按 Clean/Hexagonal 方向分层，依赖只准向下：
+本机版按 Clean/Hexagonal 方向分层，依赖只准向下；各层按功能分子目录，三层用同一套功能名：
 
 ```
 ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（用例）→ domain/（纯规则）
@@ -164,25 +164,25 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 
 | 层 | 模块 | 做什么 | 谁调用 | 依赖什么 |
 |----|------|--------|--------|----------|
-| domain | `login_rules` | 登录三态快照分类、check 四态结论、来源行归因、重登入口的四类判断（自动重登资格、迟到窗口、手工分流、静默恢复态） | app 外观、application | 无（纯函数） |
-| domain | `retry_rules` | `[retry]` 行解析、次数归并、telemetry 载荷、策略归一 | application | 无 |
-| domain | `plan_rules` | 计划项归一化/截止门禁、列表合并、任务终态分类 | app 外观、application | 无（classify_mode/validate_fn/epoch_of 由 app.py 注入） |
-| domain | `cancel_rules` | 取消报名回包的清洗（去控制字符、截 80 字）与 worker 输出归一化；grab 与 app 共用一份 | grab、app 外观 | 无（纯函数） |
-| domain | `lifecycle_rules` | 跨关闭时长/质量记账（v1 文本 / v2 epoch） | infrastructure | 无 |
-| domain | `time_text` / `worker_lines` / `demo_data` / `errors` | 时间文本换算、worker 行解析、演示样例、语义类型 | 各层 | 无（换算/格式化函数由 app.py 注入；不读墙钟，此刻值由调用方传入） |
+| domain | `login/login_rules` | 登录三态快照分类、check 四态结论、来源行归因、重登入口的四类判断（自动重登资格、迟到窗口、手工分流、静默恢复态） | app 外观、application | 无（纯函数） |
+| domain | `signup/retry_rules` | `[retry]` 行解析、次数归并、telemetry 载荷、策略归一 | application | 无 |
+| domain | `plan/plan_rules` | 计划项归一化/截止门禁、列表合并、任务终态分类 | app 外观、application | 无（classify_mode/validate_fn/epoch_of 由 app.py 注入） |
+| domain | `signup/cancel_rules` | 取消报名回包的清洗（去控制字符、截 80 字）与 worker 输出归一化；grab 与 app 共用一份 | grab、app 外观 | 无（纯函数） |
+| domain | `desktop/lifecycle_rules` | 跨关闭时长/质量记账（v1 文本 / v2 epoch） | infrastructure | 无 |
+| domain | `common/time_text` / `worker/worker_lines` / `common/demo_data` / `common/errors` | 时间文本换算、worker 行解析、演示样例、语义类型 | 各层 | 无（换算/格式化函数由 app.py 注入；不读墙钟，此刻值由调用方传入） |
 | application | `coordination` | 持有协调锁、关闭屏障、忙碌槽位和进程登记表 | app 与各用例 | 无锁的已发布计划状态端口 |
-| application | `plan_service` / `plan_admission` | 单场 worker 监督；计划接纳、请求对账、代次与终态发布 | app.Api 计划方法 | domain + 注入端口 |
-| application | `signup_cancellation` | 单场取消的占位、worker 调用与活动缓存回写 | app.Api.cancel_signup | 协调状态、活动缓存 + 注入端口 |
-| application | `worker_service` / `clock_service` / `desktop_lifecycle` | worker 受管创建及回收、业务时钟校准、关停屏障与资源收尾 | app.Api 桥接方法 | 协调状态 + 注入端口 |
-| application | `update_service` | 更新的状态与用例（UpdateService），端口由 Api 在调用时注入 | app.Api 更新方法 | 注入端口 |
-| application | `login_service` | check 事件载荷与 done 结论整理 | 登录恢复与 worker 用例 | domain |
-| application | `login_recovery` | check 的单飞与补查、最近一次校验结论、登录失效推送（同一次失效只推一次） | app.Api.check、重登入口 | 协调锁 + 注入端口 |
-| application | `relogin_entry` | 重登入口与自动重登门：四道前置门、自动发起与中继收敛、凭据的暂存与落盘时机；判断全在 `domain.login_rules` | app.Api 的重登方法（同名转发） | 协调锁、LoginRecovery 状态 + 注入端口 |
-| application | `desktop_window` | 窗口外壳：关窗三选与偏好、隐藏与唤回、托盘、二次打开、计划结束通知；`_window` 等旧字段名由 `DesktopWindowFields` 代理 | app.Api 的窗口方法（同名转发）、`main()` 的 closing/minimized/restored 接线 | 协调锁 + 注入端口 |
-| infrastructure | `prefs_store` | ui.json 跨进程锁 + 原子读-合并-写 | app 外观、lifecycle_store | 无 |
-| infrastructure | `process_tree` | Windows Job Object 进程树所有权、taskkill 整树终止 | app 外观（spawn 端口） | 无 |
-| infrastructure | `lifecycle_store` | 启动冻结/心跳/正常关闭的 ui.json 记账 | app.get_lifecycle | prefs_store + domain |
-| infrastructure | `webview_mime` | 把 .js 显式登记为 text/javascript（标准库 mimetypes），压过 Windows 注册表可能记下的 text/plain——模块脚本严格要求 JavaScript 类型，类型不对整张模块图都不加载 | infrastructure 包导入时调用一次（拆 Api、起窗代码搬出 app.py 后改为起窗前显式调用） | 无 |
+| application | `plan/plan_service` / `plan/plan_admission` | 单场 worker 监督；计划接纳、请求对账、代次与终态发布 | app.Api 计划方法 | domain + 注入端口 |
+| application | `signup/signup_cancellation` | 单场取消的占位、worker 调用与活动缓存回写 | app.Api.cancel_signup | 协调状态、活动缓存 + 注入端口 |
+| application | `worker/worker_service` / `desktop/clock_service` / `desktop/desktop_lifecycle` | worker 受管创建及回收、业务时钟校准、关停屏障与资源收尾 | app.Api 桥接方法 | 协调状态 + 注入端口 |
+| application | `desktop/update_service` | 更新的状态与用例（UpdateService），端口由 Api 在调用时注入 | app.Api 更新方法 | 注入端口 |
+| application | `login/login_service` | check 事件载荷与 done 结论整理 | 登录恢复与 worker 用例 | domain |
+| application | `login/login_recovery` | check 的单飞与补查、最近一次校验结论、登录失效推送（同一次失效只推一次） | app.Api.check、重登入口 | 协调锁 + 注入端口 |
+| application | `login/relogin_entry` | 重登入口与自动重登门：四道前置门、自动发起与中继收敛、凭据的暂存与落盘时机；判断全在 `domain.login.login_rules` | app.Api 的重登方法（同名转发） | 协调锁、LoginRecovery 状态 + 注入端口 |
+| application | `desktop/desktop_window` | 窗口外壳：关窗三选与偏好、隐藏与唤回、托盘、二次打开、计划结束通知；`_window` 等旧字段名由 `DesktopWindowFields` 代理 | app.Api 的窗口方法（同名转发）、`main()` 的 closing/minimized/restored 接线 | 协调锁 + 注入端口 |
+| infrastructure | `stores/prefs_store` | ui.json 跨进程锁 + 原子读-合并-写 | app 外观、lifecycle_store | 无 |
+| infrastructure | `desktop/process_tree` | Windows Job Object 进程树所有权、taskkill 整树终止 | app 外观（spawn 端口） | 无 |
+| infrastructure | `stores/lifecycle_store` | 启动冻结/心跳/正常关闭的 ui.json 记账 | app.get_lifecycle | prefs_store + domain |
+| infrastructure | `desktop/webview_mime` | 把 .js 显式登记为 text/javascript（标准库 mimetypes），压过 Windows 注册表可能记下的 text/plain——模块脚本严格要求 JavaScript 类型，类型不对整张模块图都不加载 | infrastructure 包导入时调用一次（拆 Api、起窗代码搬出 app.py 后改为起窗前显式调用） | 无 |
 | interface | `app.py` | Api 的公开方法、条款门禁、事件发射、worker 命令装配、main；composition root：向 domain/application 注入 signup_plan 纯函数、time_contract 换算、business_clock 异常类型 | pywebview / 测试 | 全部下层（裸名注入缝保持 app.X 可替换） |
 | interface | `ui/state/**` | 状态仓库 S 与纯投影（clock/plan/login/filters/labels/time/task-display/terms） | controllers/views | 仍引用上层名字的存量例外记在 `tools/code_shape/ui_layer_allow.json`，只减不增（如 state/clock.js 调 views/list.js 的 `render`）；过渡期起，迁成模块的状态文件在 `ui/features/<功能>/state*.js`（首个是 features/terms/state.js），模块的层规则与检查见 `tools/code_shape/README.md` 的 ui_modules.mjs |
 | interface | `ui/controllers/**` | 用例编排与桥接（bridge/refresh/terms/prefs/tick） | app.js 事件绑定 | state + api()；terms controller 与 `ui/features/update/actions.js` 零 DOM（结构契约测试守护）；时钟手动校准与本机快照轮询位于 `ui/features/clock/actions.js`；计划栏与浏览器登录的编排已迁成模块，见 `ui/features/plan/actions*.js` 与 `ui/features/login/actions-browser.js`，入口 `main.js` 与过渡名单 `legacy-globals.js` 不限层；模块的层规则与检查见 `tools/code_shape/README.md` |
@@ -204,7 +204,7 @@ controller/view DOM 分离不在本轮范围。
 
 ### 锁的先后（2026-11-17）
 
-本机版的锁按固定等级获取，嵌套越深，等级只许变大。静态守卫：`local/tests/test_concurrency_guards.py`
+本机版的锁按固定等级获取，嵌套越深，等级只许变大。静态守卫：`local/tests/architecture/test_concurrency_guards.py`
 （ast 只读源码，不 import 产品代码）；等级表与存量例外以该测试里的冻结表为唯一真源。
 
 | 等级 | 锁 |
@@ -238,7 +238,7 @@ controller/view DOM 分离不在本轮范围。
 
 ### 启动与单实例（GL01）
 
-图形界面启动（`local/app.py` 的 `main`）先过单实例守卫（`infrastructure/single_instance.py`）。`--demo` 与 worker 子命令不经过它。
+图形界面启动（`local/app.py` 的 `main`）先过单实例守卫（`infrastructure/desktop/single_instance.py`）。`--demo` 与 worker 子命令不经过它。
 - 判定：Windows 用具名互斥量（名字只含产品标识）。拿到的是第一份；发现已存在的是第二份。
 - 第一份在 `127.0.0.1` 的随机端口开一个只收「唤回」的监听，端口、进程号与随机口令写进数据目录下的 `instance.json`，口令不进日志。口令错、格式不对的请求一律不回应。
 - 第二份读 `instance.json`、发出唤回后退出，不建时钟、不建 Api、不起窗口。唤回失败（文件缺失、连不上、超时、被拒）时弹出原生消息框「工具已经开着」再退出。
@@ -248,8 +248,8 @@ controller/view DOM 分离不在本轮范围。
 
 ### 网络与发布物下载（G1）
 
-- **学校请求直连**：`local/grab.py` 的学校请求故意绕开系统代理（实测代理会把校内域名当外网转发，出现「浏览器能进、脚本 401」）；这一条写死，不开放配置。直连 opener、网关签名与 HTTP Date 粗校时实现在 `local/infrastructure/school_http.py`，`grab.py` 只在调用时注入端口作薄转发。
-- **更新与组件下载只走 Release 资产直链**：`local/update_check.py` 读
+- **学校请求直连**：`local/grab.py` 的学校请求故意绕开系统代理（实测代理会把校内域名当外网转发，出现「浏览器能进、脚本 401」）；这一条写死，不开放配置。直连 opener、网关签名与 HTTP Date 粗校时实现在 `local/infrastructure/school/school_http.py`，`grab.py` 只在调用时注入端口作薄转发。
+- **更新与组件下载只走 Release 资产直链**：`local/infrastructure/update/update_check.py` 读
   `releases/latest/download/manifest.json`（检查更新）与
   `releases/download/v<版本>/manifest.json`（已知版本下载组件），不再请求 `api.github.com`。
   未登录接口按出口 IP 限 60 次/小时，共享代理出口很容易打满并返回 403。
@@ -260,8 +260,8 @@ controller/view DOM 分离不在本轮范围。
 ### 高级组件的资产、缓存、指针与锁（2026-11-12）
 
 适用于冻结态的 `phone_control`（手机控制）与 `relogin_ocr`（验证码识别）。实现在
-`local/infrastructure/component_packages.py`，界面状态由 `advanced_features.feature_state` 整理。
-下面的 `<数据目录>` 是运行时数据目录（见 `runtime_paths`），不写具体路径。
+`local/infrastructure/components/component_packages.py`，界面状态由 `infrastructure.components.advanced_features.feature_state` 整理。
+下面的 `<数据目录>` 是运行时数据目录（见 `infrastructure/stores/runtime_paths.py`），不写具体路径。
 
 **资产与组**
 
@@ -320,7 +320,7 @@ controller/view DOM 分离不在本轮范围。
   `status=checking`、`error=""`、`busy=true`。缓存只存组件状态，启用开关按本次偏好重算，进程退出即丢。
 - 组件状态行还带三个「这一次查询的事实」字段，只在发生时出现，前端按缺字段判断：等组件事务锁时给
   `lock_wait_s`（这一轮连续等锁的秒数，用单调时钟累计、读成功或读错即清零，改系统时间不能让它跳）与
-  `check_timed_out`（连续等满 30 秒为真，阈值在 `domain/component_rules.py` 的 `COMPONENT_CHECK_TIMEOUT_S`）；
+  `check_timed_out`（连续等满 30 秒为真，阈值在 `domain/components/component_rules.py` 的 `COMPONENT_CHECK_TIMEOUT_S`）；
   读状态出错（PackageError、OSError、ValueError）时不冒异常，退回上一次成功的结果（一次都没成功过就按检查中，
   不误画成「没装」），并带 `read_error=true`。
 - `stored_cloudflared` 的版本探测要起子进程，结果按（路径、大小、mtime_ns）缓存在进程内存；
@@ -328,12 +328,12 @@ controller/view DOM 分离不在本轮范围。
 
 ### 报名链路（决策 015）
 
-- **模块分工与调用时端口装配**：`grab.cmd_grab` 只做 Playwright 导入与端口装配，流程分在 `local/application/` 的六个模块——`signup_run.py`（入口 `run_signup`、准备阶段与外层异常映射）、`signup_outcome.py`（唯一 `kind=done` 终态、各停止原因结论与通知、退出码与收口辅助）、`signup_ledger.py`（同一调度账本、回包分类下结论、页面与直发事件结算、在途同步与扩窗重建预算）、`signup_direct.py`（直发路径选择、单向退回点击、重取密钥、现算签名发一笔与开放前预检）、`signup_browser.py`（开页、dry-run、已报名前置核对、等待开放、监听注册与解除、主调度循环与点击兜底、关浏览器）、`signup_finalize.py`（发射闸门、短事件泵、1 秒尾窗与成功粘性的统一有界收尾、单次最终核对与异常退路），以及配套的 `signup_policy.py`（提交节奏状态机 `BurstPolicy` 与 13 个节奏常量，经可覆盖钩子在调用时绑定日志与时钟异常）和 `signup_target.py`（活动候选筛选、按序号或名称选取与已开放场次时刻替换）；端口在每次调用 `cmd_grab` 时从 `grab` 模块当前全局取出，因此测试替换 `grab.X` 仍生效。
+- **模块分工与调用时端口装配**：`grab.cmd_grab` 只做 Playwright 导入与端口装配，流程分在 `local/application/signup/` 的六个模块——`signup_run.py`（入口 `run_signup`、准备阶段与外层异常映射）、`signup_outcome.py`（唯一 `kind=done` 终态、各停止原因结论与通知、退出码与收口辅助）、`signup_ledger.py`（同一调度账本、回包分类下结论、页面与直发事件结算、在途同步与扩窗重建预算）、`signup_direct.py`（直发路径选择、单向退回点击、重取密钥、现算签名发一笔与开放前预检）、`signup_browser.py`（开页、dry-run、已报名前置核对、等待开放、监听注册与解除、主调度循环与点击兜底、关浏览器）、`signup_finalize.py`（发射闸门、短事件泵、1 秒尾窗与成功粘性的统一有界收尾、单次最终核对与异常退路），以及配套的 `signup_policy.py`（提交节奏状态机 `BurstPolicy` 与 13 个节奏常量，经可覆盖钩子在调用时绑定日志与时钟异常）和 `signup_target.py`（活动候选筛选、按序号或名称选取与已开放场次时刻替换）；端口在每次调用 `cmd_grab` 时从 `grab` 模块当前全局取出，因此测试替换 `grab.X` 仍生效。
 - **直发为主、点击兜底**：开抢前调 `runtime/profile` 取运行时密钥（`fetch_runtime_key`），
   经 `parse_runtime_key` 校验形状后交给 `build_signup_hash` 现算签名；只有三种情况退回点击
   ——取不到密钥、重取后仍「版本不兼容」、同一条未识别回包连续 3 次。每场写
   「报名路径：直发 / 点击（原因）」并发出 `kind=path` 事件。
-- **回包分类**：`local/domain/signup_reply.py` 的 `classify_signup_reply` 把 `code` 与 `message`
+- **回包分类**：`local/domain/signup/signup_reply.py` 的 `classify_signup_reply` 把 `code` 与 `message`
   关键短语归一成一种 kind；日志记学校完整原文，界面只看 `stop_reason_label` 给出的短结论。
 - **终态核对**：每场结束都用 `getJoinInfo` 查一次，单独 3 秒预算（`FINAL_CHECK_S`）；
   原预算用完、报名截止之后也查，核对失败不重发。
@@ -343,9 +343,9 @@ controller/view DOM 分离不在本轮范围。
   期间发 `kind=login_wait`，换到新 token 且复查有效后发 `kind=login_resumed`，
   重取运行时密钥继续；等待不计提交次数。
 - **登录态单一写入口**：`grab.py` 的 `save_session` 用进程内锁 + `session.json.lock`
-  跨进程锁；命令行登录、手机重登中继、`storage_state.json` 双文件事务都走它（命令行登录与中继登录的编排在 `application` 的 `worker_login`）。
+  跨进程锁；命令行登录、手机重登中继、`storage_state.json` 双文件事务都走它（命令行登录与中继登录的编排在 `application/worker/` 的 `worker_login.py`）。
 - **日志**：`log_event` 每行带北京时间、级别、来源、活动 ID、事件名；`grab.log`
-  超过 5 MB 轮转成 `grab.log.1…5`；界面进程的自动登录事件也追加到同一份日志。文件锁、轮转、降级输出与追加写入实现在 `local/infrastructure/worker_log.py`，`grab.py` 经调用时转发注入路径、上限与业务时钟。
+  超过 5 MB 轮转成 `grab.log.1…5`；界面进程的自动登录事件也追加到同一份日志。文件锁、轮转、降级输出与追加写入实现在 `local/infrastructure/worker/worker_log.py`，`grab.py` 经调用时转发注入路径、上限与业务时钟。
 
 ### 登录失效与静默自动登录（2026-11-11）
 
@@ -377,9 +377,9 @@ controller/view DOM 分离不在本轮范围。
 - **列表筛选的时间来源（2026-11-09，决策 012 修订）**：业务时钟可用时仍用北京时间筛选与排序。时钟不可用时，`cmd_list` 用本次列表回包的 HTTP `Date` 头（只取最近一页、每轮列表前清空，解析要求带时区）作为筛选与排序时刻，**状态仍显示「待确认」**；`Date` 只服务列表筛选，不进报名开放判定、计划启动或倒计时。没有 `Date` 或解析失败时退回旧行为：保留全部、详情全补。判定的筛选时间来源写进 `[timing] list` 行的 `filter_time_source`（`clock` / `school_date` / `none`）。`--all` 不受影响。
 - **界面等时钟（L1，2026-11-09）**：`app.Api` 拉列表前最多等约 8 秒北京时间（`LIST_CLOCK_WAIT_S`，0.25 秒轮询，关闭中立即退出），期间向界面发一次「北京时间校准中，稍后加载活动」。等不到也照常拉列表，由上面的 `Date` 兜底；列表用时行同时给等待秒数与筛选时间来源。
 - **详情映射（R2）**：`parse_attendance_detail` 追加 `cancel_allowed`（`qxbm`：1 为真、0 为假、缺失为 null）和 `can_sign`（`sfkybm`，同样三态，只映射不展示）。`list --json` 每行输出这两个键。
-- **取消子命令（X2）**：`python local/grab.py cancel --id <id> --json`，由 `cmd_cancel` 调 `run_cancel`（编排在 `application` 的 `worker_cancel`）。stdout 恰好一行 JSON，日志走 stderr；退出码为 0 仅表示 `cancelled`，其余为 2。
+- **取消子命令（X2）**：`python local/grab.py cancel --id <id> --json`，由 `cmd_cancel` 调 `run_cancel`（编排在 `application/worker/` 的 `worker_cancel.py`）。stdout 恰好一行 JSON，日志走 stderr；退出码为 0 仅表示 `cancelled`，其余为 2。
   - 流程：登录（只有学校明确说失效才报 `login_expired`）→ 北京时间可用 → 是否已报名（三态，只有真才往下走）→ 详情 `qxbm` 为 1 且业务北京时间在 `[报名开始, 报名截止]` 内 → 调 `GET /dr/api/rjyHdCyr/cancel/<id>` 一次，不重试 → 用 `getJoinInfo` 复查。
   - 前置不满足或查不到时不调取消接口，结果为 `precheck_failed` 并带原因。
 - **界面进程（X1、X3、X4）**：`app.Api.cancel_signup(activity_id)`。先过条款门，id 必须在当前列表缓存里且为已报名；与计划、刷新、登录、另一场取消互斥（`_cancelling` 并入忙碌判定）。成功后发一次 `activities` 事件刷新列表。
 - **手机端不做取消**：`phone_rules.ACTION_PARAMS` 不含 `cancel_signup`，手机页不得调用。
-- 结果句与清洗规则在 `local/domain/cancel_rules.py`，worker 与界面进程共用一份，学校原话只回给界面、不写运行记录。
+- 结果句与清洗规则在 `local/domain/signup/cancel_rules.py`，worker 与界面进程共用一份，学校原话只回给界面、不写运行记录。

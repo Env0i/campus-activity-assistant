@@ -134,7 +134,7 @@ function rememberUser(openId, chatType, chatId) {
  */
 function runQuery(view, type, format) {
   return new Promise((resolve) => {
-    const args = ['scripts/query.py', view];
+    const args = ['scripts/push/query.py', view];
     if (type) args.push('--type', type);
     if (format) args.push('--format', format);
 
@@ -190,7 +190,7 @@ function runWatchlist(args) {
   return new Promise((resolve) => {
     execFile(
       PY,
-      ['scripts/watchlist.py'].concat(args),
+      ['scripts/signup/watchlist.py'].concat(args),
       { cwd: APP_DIR, timeout: 30000, maxBuffer: 1024 * 1024 },
       (err, stdout, stderr) => {
         resolve({
@@ -211,7 +211,7 @@ function runGrabCard() {
   return new Promise((resolve) => {
     execFile(
       PY,
-      ['scripts/grab_card.py', 'card'],
+      ['scripts/signup/grab_card.py', 'card'],
       { cwd: APP_DIR, timeout: 30000, maxBuffer: 1024 * 1024 },
       (err, stdout) => {
         if (err) return resolve(null);

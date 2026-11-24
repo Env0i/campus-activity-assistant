@@ -265,7 +265,7 @@ python local/app.py --demo
 python -m unittest discover -s local/tests -p "test_*.py"
 ```
 
-真实站点地址只从环境变量 `SCHOOL_ORIGIN` 读，不写进仓库。打包和发版用 `tools/release.py`：不带参数只做只读检查，`--prepare` 在本地构建全部资产，`--publish` 才对外发布。
+真实站点地址只从环境变量 `SCHOOL_ORIGIN` 读，不写进仓库。打包和发版用 `tools/release/release.py`：不带参数只做只读检查，`--prepare` 在本地构建全部资产，`--publish` 才对外发布。
 
 参与开发前请先读 [AGENTS.md](AGENTS.md)（授权边界、提交规范、测试注意事项），架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 

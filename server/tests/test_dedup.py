@@ -24,7 +24,8 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+for _sub in ("lib", "push"):
+    sys.path.insert(0, str(ROOT / "scripts" / _sub))
 
 STATE = ROOT / "data" / "state.json"
 BACKUP = ROOT / "data" / ".state.json.deduptest"
@@ -33,7 +34,7 @@ BACKUP = ROOT / "data" / ".state.json.deduptest"
 def fetch_pending():
     """跑一次真实抓取，返回待开放列表（含 is_new 标记）。"""
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "fetch.py")],
+        [sys.executable, str(ROOT / "scripts" / "lib" / "fetch.py")],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         universal_newlines=True, encoding="utf-8", cwd=str(ROOT),
         env={**os.environ, "PYTHONIOENCODING": "utf-8"})

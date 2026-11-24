@@ -33,15 +33,15 @@ except Exception:
 ROOT = Path(__file__).resolve().parent.parent
 DEPLOY = ROOT / "deploy"
 SCRIPTS = ROOT / "scripts"
-for extra in (str(SCRIPTS),):
+for extra in (str(SCRIPTS / "lib"),):
     if extra not in sys.path:
         sys.path.insert(0, extra)
 
 
 def _load_grab():
-    """按文件路径加载 server/deploy/grab_signup.py（不跑 main）。"""
+    """按文件路径加载 server/deploy/signup/grab_signup.py（不跑 main）。"""
     spec = importlib.util.spec_from_file_location(
-        "grab_signup_under_test", DEPLOY / "grab_signup.py")
+        "grab_signup_under_test", DEPLOY / "signup" / "grab_signup.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

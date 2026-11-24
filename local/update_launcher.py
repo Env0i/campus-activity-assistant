@@ -146,7 +146,7 @@ def _atomic_current(path: Path, payload: dict) -> None:
     磁盘上只可能是旧 current.json 加一个会被清掉的临时文件，不会出现半份内容。
     """
     try:
-        from . import updater
+        from .infrastructure.update import updater
     except ImportError:
         updater = None
     writer = getattr(updater, "_atomic_write_json", None)

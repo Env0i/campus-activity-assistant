@@ -21,7 +21,7 @@ LOCAL = Path(__file__).resolve().parent.parent
 if str(LOCAL) not in sys.path:
     sys.path.insert(0, str(LOCAL))
 
-from infrastructure import component_packages as cp  # noqa: E402
+from infrastructure.components import component_packages as cp  # noqa: E402
 
 
 ARTIFACTS = {

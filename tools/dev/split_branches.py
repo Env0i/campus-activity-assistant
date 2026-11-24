@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""把服务器版 / 本机版拆成两条「分发分支」。
+
+main 上是两版并存（server/ 与 local/），这里生成两条根目录即成品的分支：
+
+    local   —— 根目录就是本机版（舍友点 Code → Download ZIP 直接能用）
+    server  —— 根目录就是服务器版（含 docs/，部署时对着它 rsync 即可）
+
+这两条分支是**只读快照**，每次发布时由脚本重建并强推，不要在上面直接改代码：
+改了下次发布就被覆盖。改代码永远在 main。
+
+用法：
+
+    python tools/dev/split_branches.py            # 重建并推送
+    python tools/dev/split_branches.py --dry-run  # 只在本地建，不推送
+
+@author Author
+"""
+from __future__ import annotations
+
+import argparse
+import shutil
+import subprocess
+import sys
+import tempfile
+from datetime import datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+
+# 根 README.md 特意不放进来：两条分支各有自己的首页（local/README.md、server/README.md），
+# 拷根 README 会把它们覆盖成同一份总览。
+SHARED = ["CHANGELOG.md", ".gitattributes", "LICENSE"]
+SNAPSHOTS = {
+    # 分支名: (要铺到根目录的源目录, 额外单文件)
+    "local": ("local", SHARED),
+    "server": ("server", SHARED + ["docs"]),
+}
+
+
+def run(cmd: list[str], cwd: Path) -> str:
+    # Windows 上 git 的输出是 UTF-8，默认按 GBK 解会抛 UnicodeDecodeError（线程里静默丢掉输出），
+    # 所以显式指定编码并容错——我们要的只是退出码。
+    res = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True,
+                         encoding="utf-8", errors="replace")
+    if res.returncode != 0:
+        raise SystemExit("命令失败：%s\n%s\n%s"
+                         % (" ".join(cmd), res.stdout[-1200:], res.stderr[-1200:]))
+    return res.stdout
+
+
+def copy_contents(src: Path, dst: Path) -> None:
+    """把 src 里的东西铺到 dst 根上（成品分支要让内容落在根目录，而不是 src/ 子目录）。"""
+    shutil.copytree(src, dst, dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns(
+                        "config.json", "data", "dist", "reports",
+                        "__pycache__", "node_modules", "*.pyc"))
+
+
+def copy_tree(src: Path, dst: Path) -> None:
+    if src.is_dir():
+        shutil.copytree(src, dst / src.name,
+                        ignore=shutil.ignore_patterns(
+                            "config.json", "data", "dist", "reports",
+                            "__pycache__", "node_modules", "*.pyc"))
+    elif src.exists():
+        shutil.copy2(src, dst / src.name)
+
+
+def flatten_doc_links(dst: Path) -> None:
+    """把分支首页里的 `../docs/` 改成 `docs/`。
+
+    main 上 docs/ 在仓库根，server/README.md 想链到它只能写 `../docs/x.md`；
+    但 server 分支是「server/ 的内容铺到根 + docs/ 铺到根」，同一个链接会多跳一级变成死链。
+    这条分支是自动生成的，所以在生成时改一次，main 上保持正确路径。
+    """
+    readme = dst / "README.md"
+    if not readme.exists():
+        return
+    text = readme.read_text(encoding="utf-8")
+    fixed = text.replace("](../docs/", "](docs/")
+    if fixed != text:
+        readme.write_text(fixed, encoding="utf-8", newline="")
+
+
+def build_branch(name: str, subdir: str, extras: list[str], dry: bool) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp) / "repo"
+        run(["git", "clone", "--no-hardlinks", "--quiet", str(ROOT), str(tmp)], ROOT)
+        run(["git", "checkout", "--orphan", name, "--quiet"], tmp)
+        # 清空索引与工作区（orphan 分支会保留原文件的未跟踪状态）
+        for entry in tmp.iterdir():
+            if entry.name == ".git":
+                continue
+            shutil.rmtree(entry, ignore_errors=True) if entry.is_dir() else entry.unlink()
+        run(["git", "rm", "-rf", "--quiet", "."], tmp)
+
+        copy_contents(ROOT / subdir, tmp)
+        for extra in extras:
+            copy_tree(ROOT / extra, tmp)
+        flatten_doc_links(tmp)
+
+        # 本机版分支补一句「这是分发快照」的说明，避免有人直接在分支上提 PR
+        note = tmp / "SNAPSHOT.md"
+        note.write_text(
+            "# 这是自动生成的分发快照\n\n"
+            "内容由 main 分支的 `%s/` 目录拆出，每次发布重建一次并强制推送。\n"
+            "来源：main@%s；生成时间：%s。\n"
+            "**不要在这条分支上改代码**——改动会在下次发布时被覆盖。\n"
+            "改代码请提到 main，再运行 `python tools/dev/split_branches.py`。\n"
+            % (subdir, SOURCE_COMMIT, datetime.now().isoformat(timespec="seconds")), encoding="utf-8")
+
+        run(["git", "add", "-A"], tmp)
+        if run(["git", "status", "--porcelain"], tmp).strip():
+            run(["git", "commit", "--quiet", "-m",
+                 "chore(dist): 由 main 的 %s/ 生成的快照" % subdir], tmp)
+        head = run(["git", "rev-parse", "--short", "HEAD"], tmp).strip()
+        print("[%s] 本地快照 "%name + head)
+        if dry:
+            print("   dry-run，不推送")
+            return
+        # 临时克隆的 origin 指向本地仓库（快、不用网络），但分支要推到 GitHub，
+        # 所以这里显式用真实远端地址，而不是 "origin"。
+        run(["git", "push", "--quiet", "--force", REMOTE,
+             "HEAD:refs/heads/%s" % name], tmp)
+        print("   已推送 origin/%s" % name)
+
+
+def remote_url() -> str:
+    url = run(["git", "remote", "get-url", "origin"], ROOT).strip()
+    if not url:
+        raise SystemExit("取不到 origin 地址")
+    return url
+
+
+REMOTE = ""
+SOURCE_COMMIT = ""
+
+
+def source_state() -> str:
+    """分发快照只能从干净 main 生成，避免覆盖远端快照为半成品。"""
+    branch = run(["git", "branch", "--show-current"], ROOT).strip()
+    dirty = run(["git", "status", "--porcelain"], ROOT).strip()
+    if branch != "main":
+        raise SystemExit("分发快照必须从 main 生成，当前分支是 %s" % (branch or "（分离 HEAD）"))
+    if dirty:
+        raise SystemExit("分发快照要求工作区干净，请先提交或清理改动：\n%s" % dirty)
+    return run(["git", "rev-parse", "--short", "HEAD"], ROOT).strip()
+
+
+def main() -> int:
+    global REMOTE, SOURCE_COMMIT
+    REMOTE = remote_url()
+    SOURCE_COMMIT = source_state()
+    ap = argparse.ArgumentParser(description="生成服务器版/本机版分发分支")
+    ap.add_argument("--dry-run", action="store_true", help="只建不推")
+    ap.add_argument("--only", choices=sorted(SNAPSHOTS), help="只处理一条分支")
+    args = ap.parse_args()
+
+    names = [args.only] if args.only else list(SNAPSHOTS)
+    for name in names:
+        subdir, extras = SNAPSHOTS[name]
+        build_branch(name, subdir, extras, args.dry_run)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

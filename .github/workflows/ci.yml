@@ -41,7 +41,7 @@ jobs:
       - run: python -m unittest discover -s local/tests -p "test_*.py" -v
       - run: node server/bot/test_bot_runtime.js
       - run: node server/bot/test_handled_messages.js
-      - run: node server/deploy/test_atomic_json.js
+      - run: node server/deploy/login/test_atomic_json.js
 
   # 服务器版：pytest server/tests；不装浏览器、不联学校
   server-linux:

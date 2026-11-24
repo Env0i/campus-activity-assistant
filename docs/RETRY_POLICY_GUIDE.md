@@ -104,7 +104,7 @@ flowchart LR
 
 上面这张节奏表是本机工具和**服务器 owner 私聊预报名**共用的策略契约（阶段、
 字段一致；两边独立实现、互不导入，不是同一个进程）。服务器那一套的链路是：
-飞书卡片写入预报名清单 → `watchlist_runner` 到点拉起 `server/deploy/grab_signup.py`，
+飞书卡片写入预报名清单 → `watchlist_runner` 到点拉起 `server/deploy/signup/grab_signup.py`，
 其中 3×404 语义，服务器部署副本尚未同步本节修订（仍为旧版：连续 3 次 404
 即进退避相位），同步前以本表描述的本地实现为准。每笔请求同样唯一编号、如实
 计数。除此之外，差异只在运行外壳：
@@ -122,7 +122,7 @@ flowchart LR
 
 学校把业务结果放在 HTTP 200 的 `code` 与 `message` 里。工具按 `code` 加 `message` 里的
 关键短语归类，不要求整句相等；**日志记学校完整原文**，界面只显示短结论。
-分类函数是 `local/domain/signup_reply.py` 的 `classify_signup_reply`，规则出处见
+分类函数是 `local/domain/signup/signup_reply.py` 的 `classify_signup_reply`，规则出处见
 [决策 015](../design/decisions/015-signup-path-and-replies.md) 与
 [架构修订设计](superpowers/specs/2026-11-03-architecture-revision-design.md) 3.3 节。
 

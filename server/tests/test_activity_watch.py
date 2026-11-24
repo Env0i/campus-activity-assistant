@@ -27,7 +27,8 @@ except Exception:
     pass
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+for _sub in ("lib", "push"):
+    sys.path.insert(0, str(ROOT / "scripts" / _sub))
 
 import activity_watch as aw   # noqa: E402
 import fetch as fetch_mod     # noqa: E402
@@ -433,7 +434,7 @@ class BoundaryTests(WatchTestCase):
         self.assertEqual(public["id"], "evt-1")
 
     def test_source_has_no_personal_coupling(self):
-        source = (ROOT / "scripts" / "activity_watch.py").read_text(encoding="utf-8")
+        source = (ROOT / "scripts" / "push" / "activity_watch.py").read_text(encoding="utf-8")
         # 动态监测必须对个人清单与报名入口零引用：有引用就意味着某条分支可能去报名
         self.assertNotIn("watchlist", source)
         self.assertNotIn("grab_signup", source)

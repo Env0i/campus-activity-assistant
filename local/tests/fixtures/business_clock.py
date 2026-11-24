@@ -22,7 +22,7 @@ for _path in (LOCAL, _TESTS):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
-from business_clock import BusinessClock, ClockClient, ClockUnavailable  # noqa: E402,F401
+from infrastructure.clock.business_clock import BusinessClock, ClockClient, ClockUnavailable  # noqa: E402,F401
 
 
 class FakeBusinessClock:

@@ -29,7 +29,8 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+for _sub in ("lib", "push"):
+    sys.path.insert(0, str(ROOT / "scripts" / _sub))
 
 import card  # noqa: E402
 import notify  # noqa: E402

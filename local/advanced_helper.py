@@ -90,13 +90,13 @@ def run(feature, *, probe=False, stream=None):
             if not isinstance(payload, dict):
                 raise ValueError("bad_input")
             if feature == "phone_control" and set(payload) == {"op", "url"} and payload["op"] == "qr":
-                from infrastructure.phone_qr import png_data_uri
+                from infrastructure.phone.phone_qr import png_data_uri
                 qr = png_data_uri(payload["url"], frozen=False)
                 if not qr:
                     raise ValueError("qr_failed")
                 result.update(ok=True, qr=qr)
             elif feature == "relogin_ocr" and set(payload) == {"op", "image"} and payload["op"] == "ocr":
-                from infrastructure.advanced_features import classify_captcha
+                from infrastructure.components.advanced_features import classify_captcha
                 image = str(payload["image"] or "")
                 prefix = "data:image/png;base64,"
                 code = ""

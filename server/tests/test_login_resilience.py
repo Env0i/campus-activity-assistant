@@ -36,8 +36,8 @@ except Exception:
 ROOT = Path(__file__).resolve().parent.parent
 DEPLOY = ROOT / "deploy"
 SCRIPTS = ROOT / "scripts"
-if str(SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS))
+if str(SCRIPTS / "lib") not in sys.path:
+    sys.path.insert(0, str(SCRIPTS / "lib"))
 
 import fetch  # noqa: E402
 
@@ -61,7 +61,7 @@ def _stub_heavy_deps():
 def _load_auto_login():
     _stub_heavy_deps()
     spec = importlib.util.spec_from_file_location(
-        "auto_login_under_test", DEPLOY / "auto_login.py")
+        "auto_login_under_test", DEPLOY / "login" / "auto_login.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

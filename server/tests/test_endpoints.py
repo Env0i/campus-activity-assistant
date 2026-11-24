@@ -45,10 +45,10 @@ COMMON_PROBE = (
 # （登录入口在 scripts/，一次性排查脚本挪到了 scripts/dev/，
 #  部署侧的 auto_login.py 曾经是唯一漏网者——P2-2 已纳入扫描）
 NO_HARDCODE_FILES = [
-    (SCRIPTS / "login.py", "HOME_URL"),
+    (SCRIPTS / "login" / "login.py", "HOME_URL"),
     (DEV_SCRIPTS / "explore.py", "HOME_URL"),
     (DEV_SCRIPTS / "probe_login.py", "HOME_URL"),
-    (ROOT / "deploy" / "auto_login.py", "SCHOOL_ORIGIN"),
+    (ROOT / "deploy" / "login" / "auto_login.py", "SCHOOL_ORIGIN"),
 ]
 
 # (说明, 子进程里的 SCHOOL_ORIGIN, 期望的 origin)
@@ -77,7 +77,7 @@ def run_probe(code: str, origin):
         env["SCHOOL_ORIGIN"] = origin
     out = subprocess.check_output(
         [sys.executable, "-c", code],
-        cwd=str(SCRIPTS), env=env, text=True,
+        cwd=str(SCRIPTS / "lib"), env=env, text=True,
         encoding="utf-8", errors="replace",
     )
     return json.loads(out.strip().splitlines()[-1])
@@ -109,7 +109,7 @@ def static_checks() -> None:
         check(f"{name} 无硬编码域名", DEFAULT_ORIGIN in src, False)
         check(f"{name} 引用 {marker}", marker in src, True)
 
-    refresh = (ROOT / "deploy" / "server_refresh.js").read_text(encoding="utf-8")
+    refresh = (ROOT / "deploy" / "login" / "server_refresh.js").read_text(encoding="utf-8")
     # 只有默认值那一处允许出现学院域名，其余都应从 SCHOOL_ORIGIN 派生
     check("server_refresh.js 域名只作默认值出现一次",
           refresh.count(DEFAULT_ORIGIN), 1)

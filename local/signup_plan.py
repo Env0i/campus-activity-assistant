@@ -19,15 +19,15 @@ from typing import Callable, Iterable
 # 源码态 local/ 在 sys.path 上时用裸导入（与 grab.py 一致）；作为
 # local.signup_plan 包导入（测试/工具）时退回相对导入。
 try:
-    from time_contract import TIME_FORMAT, parse_school_time, school_epoch, default_now
+    from infrastructure.clock.time_contract import TIME_FORMAT, parse_school_time, school_epoch, default_now
 except ImportError:  # pragma: no cover - 取决于导入方式
-    from .time_contract import (TIME_FORMAT, parse_school_time, school_epoch,
+    from .infrastructure.clock.time_contract import (TIME_FORMAT, parse_school_time, school_epoch,
                                 default_now)
 # 校时失效由 business_clock 定义；协调器只捕获这一种，不吞其它异常
 try:
-    from business_clock import ClockUnavailable
+    from infrastructure.clock.business_clock import ClockUnavailable
 except ImportError:  # pragma: no cover
-    from .business_clock import ClockUnavailable
+    from .infrastructure.clock.business_clock import ClockUnavailable
 
 
 TERMINAL_TASK_STATES = {"success", "already_signed", "failed", "canceled"}

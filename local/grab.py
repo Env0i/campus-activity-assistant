@@ -47,8 +47,8 @@ from types import SimpleNamespace
 
 # 站点根地址来自 site_target：本机从 config.json 的 site.base 读真实域名，
 # 仓库里只留占位值（公开树不含真实域名）
-from site_target import BASE_URL as BASE, CONFIGURED as SITE_CONFIGURED
-from site_target import CONFIG_MESSAGE as SITE_CONFIG_MESSAGE
+from infrastructure.school.site_target import BASE_URL as BASE, CONFIGURED as SITE_CONFIGURED
+from infrastructure.school.site_target import CONFIG_MESSAGE as SITE_CONFIG_MESSAGE
 
 API = BASE + "/dr/api"
 REFERER = BASE + "/stu/"
@@ -65,36 +65,39 @@ REQUEST_SECURITY_CLIENT_KEY = "Pq3Zk2A9xML7"
 HERE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 # 登录态/偏好统一走 runtime_paths：开发与绿色版仍是脚本旁 data，
 # 冻结 worker 默认 %LOCALAPPDATA%（CAMPUS_DATA_DIR 可覆盖），与主程序同一根
-from runtime_paths import DATA_DIR as DATA
-from runtime_paths import LOG_FILE, LOG_LOCK_FILE, SESSION_FILE, STATE_FILE, ensure_data_dir
+from infrastructure.stores.runtime_paths import DATA_DIR as DATA
+from infrastructure.stores.runtime_paths import LOG_FILE, LOG_LOCK_FILE, SESSION_FILE, STATE_FILE, ensure_data_dir
 # 登录态写入的跨进程锁：沿用 ui.json.lock 用的同一对加解锁函数（标准库实现，S5）
-from infrastructure.prefs_store import (PrefsLockTimeout, acquire_file_lock,
+from infrastructure.stores.prefs_store import (PrefsLockTimeout, acquire_file_lock,
                                         release_file_lock)
 # 登录态落盘（S5）：共用写锁、单写、双文件事务、暂存清理与字节回滚都在这个模块，
 # 下面的 save_* 只保留旧签名并接线；静态 import 也是冻结分析发现该模块的入口
-from infrastructure import login_session_store
+from infrastructure.stores import login_session_store
 # 列表命令的用例编排（20261119 计划）：登录探测、列表查询、时间选择、筛选排序、
-# 详情和输出都在 application/worker_activity_list.py；下面的 cmd_list 只做转发
-from application import (
+# 详情和输出都在 application/worker/worker_activity_list.py；下面的 cmd_list 只做转发
+from application.signup import (
     signup_outcome,
     signup_policy,
     signup_run,
     signup_target,
+)
+from application.worker import (
     worker_activity_list,
     worker_cancel,
     worker_login,
 )
 # 活动读取实现（决策 005 / 016）：静态 import 也是冻结分析发现该模块的唯一入口，
 # 动态替换的请求函数与学校时间解析由下面的薄转发在调用时注入
-from infrastructure import activity_queries, school_http, worker_log
+from infrastructure.school import activity_queries, school_http
+from infrastructure.worker import worker_log
 # 学校时间与重试预算只有一份实现（time_contract）：这里不再自己 strptime，
 # 否则同一串学校时间在 CLI、GUI、JS 三处会解析成不同 epoch
-from time_contract import (BudgetExhausted, RetryBudget, parse_school_time,
+from infrastructure.clock.time_contract import (BudgetExhausted, RetryBudget, parse_school_time,
                            school_epoch, school_time_text, default_now,
                            configure_time_source)
 # 独立北京时间（决策 012）：worker 读父进程快照，CLI 有界自校时；
 # 任何失败都不回退系统墙钟，也不把校时失败说成登录失效
-from business_clock import BusinessClock, ClockClient, ClockUnavailable
+from infrastructure.clock.business_clock import BusinessClock, ClockClient, ClockUnavailable
 # 测试会把 grab.time 换成假时钟：计时段只能用导入时取好的别名，不能现取 grab.time
 _perf_counter = time.perf_counter
 CONFIG_FILE = HERE / "config.json"
@@ -182,7 +185,7 @@ def setup_console():
 
 
 def _school_open(request, timeout=None):
-    """学校请求统一走「不走代理」的 opener；实现在 infrastructure.school_http。
+    """学校请求统一走「不走代理」的 opener；实现在 infrastructure.school.school_http。
 
     每次在调用时传入 grab.urllib，测试替换 grab.urllib 成替身时仍生效。
     """
@@ -197,7 +200,7 @@ _LOG_THREAD_LOCK = worker_log._LOG_THREAD_LOCK
 
 @contextlib.contextmanager
 def _log_file_lock(timeout_s=LOG_LOCK_TIMEOUT_S):
-    """grab.log 的轮转与追加共用的跨进程锁（实现在 infrastructure.worker_log）。"""
+    """grab.log 的轮转与追加共用的跨进程锁（实现在 infrastructure.worker.worker_log）。"""
     # timeout_s 保持定义时绑定 LOG_LOCK_TIMEOUT_S：log() 不传超时，兼容既有用例口径
     with worker_log.log_file_lock(
         timeout_s=timeout_s,
@@ -258,7 +261,7 @@ def log_event(event, source, level="INFO", activity_id="", **fields):
     """关键动作写一行结构化日志：北京时间（log() 补）、级别、来源、活动 ID、事件名。
 
     source 取 cli / gui / auto_relogin / worker。字段名含 token、密码、验证码、
-    密钥等字样的一律丢掉（domain.log_events 里的黑名单），调用方不用自己记着过滤。
+    密钥等字样的一律丢掉（domain.worker.log_events 里的黑名单），调用方不用自己记着过滤。
     """
     log(format_event_line(event, source, level=level,
                           activity_id=activity_id or _EVENT_CONTEXT["activity_id"],
@@ -282,7 +285,7 @@ def read_json(path, default=None):
 # ---- 登录态写入（S5）---------------------------------------------------------
 # 界面进程和命令行/子进程共用 data 下的登录态文件。单文件写入、双文件事务、
 # 线程锁 + 跨进程区域锁（session.json.lock）、暂存清理和字节回滚都归
-# infrastructure.login_session_store 一处持有；下面只保留旧入口与旧签名，
+# infrastructure.stores.login_session_store 一处持有；下面只保留旧入口与旧签名，
 # 调用时把数据根解析出来的路径和 log 端口传进去（测试仍按名字替换 grab.log）。
 # 读取 token() 不加锁：读到的要么是旧文件要么是新文件，不会是半截。
 SESSION_LOCK_TIMEOUT_S = login_session_store.SESSION_LOCK_TIMEOUT_S
@@ -344,7 +347,7 @@ def _encode_x_token(signature_hex: str, path: str, nonce: str) -> str:
 
 def sign_request_headers(path: str, body: bytes, timestamp_ms: int,
                          nonce: str) -> dict:
-    """按官网登录页 Z0 算法生成四个网关请求头（实现在 infrastructure.school_http）。"""
+    """按官网登录页 Z0 算法生成四个网关请求头（实现在 infrastructure.school.school_http）。"""
     return school_http.sign_request_headers(
         path,
         body,
@@ -452,7 +455,7 @@ def clock_skew():
 
 
 # ---------------------------------------------------------------- 活动查询
-# 实现已整体迁到 infrastructure/activity_queries.py（20261119 计划）：字段常量、
+# 实现已整体迁到 infrastructure/school/activity_queries.py（20261119 计划）：字段常量、
 # 三态与时间解析、列表映射与分页、详情缓存与并发补全、getJoinInfo 只读核对。
 # 这里只保留原入口名称与签名，经薄转发注入 grab 的请求函数、学校时间解析和当前
 # 详情读取函数——测试替换 grab._post / grab._get / grab.fetch_activity_detail 仍生效。
@@ -599,7 +602,7 @@ def _start_login_playwright():
 
 def _cmd_login_relay(args):
     """手机重登中继模式转发：调用时导入 login_relay 并取本模块最新边界，编排在 worker_login。"""
-    import login_relay
+    from infrastructure.login import login_relay
 
     return worker_login.run_login_relay(
         args,
@@ -658,7 +661,7 @@ def cmd_check(args):
 
 
 def cmd_list(args):
-    """列表命令的薄转发：编排在 application/worker_activity_list。
+    """列表命令的薄转发：编排在 application/worker/worker_activity_list。
 
     下面每个实参都在本次调用时取当前函数，测试替换 grab._post / check_token /
     fetch_activity_detail / log 仍然生效。
@@ -691,7 +694,7 @@ CANCEL_PATH = "/rjyHdCyr/cancel/"
 CANCEL_PRECHECK_BUDGET_S = 20.0    # 前置核对（登录、是否已报名）共用的预算
 CANCEL_RECHECK_BUDGET_S = 10.0     # 取消之后复查单独给一份：前面再慢也要查得到
 # 学校原话回给界面前的清洗与截断（≤80 字、去控制字符）与界面进程共用一份实现
-from domain.cancel_rules import sanitize_message as sanitize_school_message  # noqa: E402
+from domain.signup.cancel_rules import sanitize_message as sanitize_school_message  # noqa: E402
 
 
 def _cancel_facts(act_id):
@@ -854,15 +857,15 @@ def retry_anchor(at_ts, now=None):
 
 
 # 「直到报名截止」缺 sign_end 时的兜底窗口：绝不无限运行。
-# 数值口径统一在 domain.retry_window（父监督/桌面投影同源），此处保留旧名。
-from domain.retry_window import (  # noqa: E402
+# 数值口径统一在 domain.signup.retry_window（父监督/桌面投影同源），此处保留旧名。
+from domain.signup.retry_window import (  # noqa: E402
     ADAPTIVE_SECONDS, ADAPTIVE_RETRY, DEFAULT_RETRY_SECONDS,
     initial_deadline, resolve_window,
 )
 # 关键动作的结构化日志行（S2）：格式与黑名单字段是纯函数，界面进程写同一份日志时共用
-from domain.log_events import format_event_line  # noqa: E402
+from domain.worker.log_events import format_event_line  # noqa: E402
 # 报名回包分类表（决策 015）：click 与直发共用同一套判据
-from domain.signup_reply import (  # noqa: E402
+from domain.signup.signup_reply import (  # noqa: E402
     STALE_TS_LIMIT, TERMINAL_STOP_REASONS, UNKNOWN_REPLY_LIMIT,
     classify_signup_reply, stop_reason_label,
 )
@@ -921,9 +924,9 @@ def wait_before_next_submit(budget, gap: float) -> float:
     return next_submit_gap(gap)
 
 
-# 黄金风暴 / 常规全速 / 404 自适应常量与 BurstPolicy 真源在 application.signup_policy，
+# 黄金风暴 / 常规全速 / 404 自适应常量与 BurstPolicy 真源在 application.signup.signup_policy，
 # 此处以原名再导出，并用子类钩子在调用时解析本模块最新 log 与 ClockUnavailable。
-from application.signup_policy import (  # noqa: E402
+from application.signup.signup_policy import (  # noqa: E402
     ADAPTIVE_IN_GOLDEN,
     ADAPTIVE_WINDOW_S,
     BACKOFF_FACTOR,
@@ -1081,7 +1084,7 @@ def fetch_runtime_key(budget=None):
     不写盘、不写日志、不进事件；原因里只有 code/message，不含 data。
     预算耗尽与校时失效照常上抛，交给统一收尾。
     """
-    from signup_signing import parse_runtime_key
+    from infrastructure.signup.signup_signing import parse_runtime_key
     try:
         data = _post(RUNTIME_PROFILE_PATH, {}, token(), budget=budget)
     except (BudgetExhausted, ClockUnavailable):
@@ -1176,15 +1179,15 @@ _SIGNUP_PORT_NAMES = (
 def _load_direct_modules():
     """拿到运行时密钥后才延迟导入签名与传输模块；导入失败退回点击兜底。"""
     try:
-        from signup_signing import build_signup_hash
-        from signup_transport import DirectTransport
+        from infrastructure.signup.signup_signing import build_signup_hash
+        from infrastructure.signup.signup_transport import DirectTransport
     except Exception:  # noqa: BLE001 - 模块缺失只影响直发，点击照常
         return None, None
     return build_signup_hash, DirectTransport
 
 
 def cmd_grab(args):
-    """报名命令的薄转发：在调用时导入 Playwright 并从当前模块全局装配端口，交由 application.signup_run 执行。"""
+    """报名命令的薄转发：在调用时导入 Playwright 并从当前模块全局装配端口，交由 application.signup.signup_run 执行。"""
     from playwright.sync_api import sync_playwright
     from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 

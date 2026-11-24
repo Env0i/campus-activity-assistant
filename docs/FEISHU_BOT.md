@@ -52,12 +52,12 @@
 6. 验证（在 `server/` 目录下）：
 
 ```bash
-python3 scripts/notify.py "机器人连通测试"
+python3 scripts/lib/notify.py "机器人连通测试"
 ```
 
 群消息到了就说明 A 完成。**注意：自定义机器人收不到任何消息**，所以它做不了 @ 查询，也发不了私聊。
 
-> 动态监测（`scripts/activity_watch.py`）产生的「活动动态」卡片也走这条 Webhook，和日报、临近提醒同一条通道。
+> 动态监测（`scripts/push/activity_watch.py`）产生的「活动动态」卡片也走这条 Webhook，和日报、临近提醒同一条通道。
 
 ---
 
@@ -208,11 +208,11 @@ systemctl status campus-bot --no-pager
 journalctl -u campus-bot -n 20 --no-pager   # 应看到「长连接已启动 ... ｜角色 combined」
 
 # 2) 应用凭据对吗
-cd /root/campus-activity-watch && python3 scripts/selfcheck.py
+cd /root/campus-activity-watch && python3 scripts/ops/selfcheck.py
 
 # 3) 私聊能发出去吗
 PRIVATE_OWNER_OPEN_ID=ou_xxx python3 -c "
-import sys; sys.path.insert(0,'scripts'); import notify
+import sys; sys.path.insert(0,'scripts/lib'); import notify
 print(notify.send_private('私聊通道测试'))"
 
 # 4) 群里 @ 一下，看日志有没有 'query: ... | group |'；私聊查询是 'p2p owner'

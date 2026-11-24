@@ -1,0 +1,214 @@
+"""每分钟跑一次：把到点的预报名交给 grab_signup.py。
+
+为什么不用一次性 systemd timer（以前是那样）：每场活动都要人工 systemd-run，
+人一忘就漏，而且「谁排了这一场」散落在 systemd 的状态里。现在清单是唯一入口，
+runner 每分钟对齐一次，漏跑顶多晚一分钟。
+
+为什么用 systemd-run 而不是直接 Popen：抓取进程要脱离 runner 的生命周期。
+runner 是 cron 拉起的、一分钟就退出，如果它直接起子进程，cron 收尾或 bot 重启
+都可能把正在等的抓取连带杀掉；交给 systemd 之后，谁重启都不影响那一场。
+
+用法：
+    python3 scripts/signup/watchlist_runner.py            # 正常跑（cron 每分钟）
+    python3 scripts/signup/watchlist_runner.py --dry-run  # 只说会做什么，不拉起
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import os
+import re
+import shlex
+import subprocess
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+
+_SCRIPTS = Path(__file__).resolve().parent.parent
+for _sub in ("signup", "lib"):
+    _p = str(_SCRIPTS / _sub)
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+import watchlist as wl  # noqa: E402
+from common import file_lock  # noqa: E402
+
+ROOT = wl.ROOT
+# 抓取脚本在登录目录（要能用那边的 playwright 环境），可用环境变量覆盖
+GRAB = os.environ.get("GRAB_SCRIPT") or "/root/campus-login/grab_signup.py"
+STATUS_DIR = Path(os.environ.get("GRAB_STATUS_DIR") or (ROOT / "data"))
+EARLY = 20          # 允许比「开放前 lead 秒」晚多少秒拉起（留给 cron 抖动）
+LATE = 300          # 开放后还允许拉起多久：迟一点也可能挤进名额
+# runner 自己的「一轮只跑一个」锁：与清单锁分开，避免同进程重入死锁。
+# 清单的并发读改写由 watchlist 的 watchlist.lock 事务负责。
+RUNNER_LOCK = ROOT / "data" / "watchlist-runner.lock"
+PYTHON = sys.executable or "/usr/bin/python3"
+
+
+def unit_token(activity_id) -> str:
+    """完整 id 的稳定安全编码 + 短哈希：同前缀 id 不再串 unit/状态文件（P2-4）。
+
+    只保留可读的安全字符，哈希覆盖完整 id，任何两场不同活动都不会得到同名；
+    长度远低于 systemd unit 255 字符上限。
+    """
+    raw = str(activity_id or "")
+    safe = re.sub(r"[^A-Za-z0-9_.-]", "_", raw)[:40].strip("._-") or "activity"
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:8]
+    return "%s-%s" % (safe, digest)
+
+
+def unit_name(entry: dict) -> str:
+    return "campus-grab-" + unit_token(entry["id"])
+
+
+def status_file(entry: dict) -> Path:
+    return STATUS_DIR / ("grab-%s.status" % unit_token(entry["id"]))
+
+
+def unit_active(unit: str) -> bool:
+    try:
+        return subprocess.run(["systemctl", "is-active", "--quiet", unit],
+                              timeout=10).returncode == 0
+    except Exception:
+        return False
+
+
+def launch(entry: dict, dry: bool) -> bool:
+    """把这一场交给 systemd；退出码写进状态文件，供下一轮判定成败。
+
+    启动参数是清单里冻结的策略字段（open_at/lead/window/sign_end），
+    原样传给 grab_signup；黄金风暴 / 404 退避的自适应扩窗（retry_deadline
+    最长到起点起 25 分钟）发生在抓取进程内部，不回写清单、也不会让 runner
+    再拉起同一个 activity-id。
+    """
+    unit = unit_name(entry)
+    code_path = status_file(entry)
+    log_path = STATUS_DIR / "grab_signup.log"
+    try:
+        code_path.unlink()
+    except FileNotFoundError:
+        pass
+
+    sign_end = str(entry.get("sign_end") or "").strip()
+    inner = ("%s %s --activity-id %s --at %s --name %s --lead %s --window %s "
+             "%s>> %s 2>&1; echo $? > %s"
+             % (shlex.quote(PYTHON), shlex.quote(GRAB), shlex.quote(str(entry["id"])),
+                shlex.quote(str(entry.get("open_at") or "")),
+                shlex.quote(str(entry.get("name") or "活动")),
+                shlex.quote(str(entry.get("lead") or wl.DEFAULT_LEAD)),
+                shlex.quote(str(entry.get("window") or wl.DEFAULT_WINDOW)),
+                ("--sign-end %s " % shlex.quote(sign_end)) if sign_end else "",
+                shlex.quote(str(log_path)), shlex.quote(str(code_path))))
+
+    if dry:
+        print("[dry] 会拉起 %s：%s" % (unit, entry.get("name") or entry["id"]))
+        return True
+
+    try:
+        proc = subprocess.run(
+            ["systemd-run", "--unit=" + unit, "--collect",
+             "--description=预报名 %s" % (entry.get("name") or entry["id"]),
+             "/bin/bash", "-lc", inner],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            universal_newlines=True, timeout=30)
+    except Exception as exc:
+        print("[x] %s 拉起异常：%s" % (unit, exc))
+        return False
+
+    if proc.returncode != 0:
+        print("[x] %s systemd-run 失败：%s"
+              % (unit, (proc.stdout or "").strip()[:200]))
+        return False
+    print("[✓] 已拉起 %s（%s，开放 %s）"
+          % (unit, entry.get("name") or entry["id"], entry.get("open_at")))
+    return True
+
+
+def read_code(entry: dict) -> str:
+    try:
+        return status_file(entry).read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return ""
+    except Exception:
+        return ""
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="预报名 runner")
+    ap.add_argument("--dry-run", action="store_true")
+    args = ap.parse_args(argv)
+
+    with file_lock(RUNNER_LOCK):
+        now = datetime.now()
+        entries = wl.load()
+        changed = False          # 有状态变化才刷新卡片，别每分钟 PATCH 一次
+        seen_ids = set()         # 同一 activity-id 一轮只执行一次（单飞）
+        for e in entries:
+            if e["id"] in seen_ids:
+                # 清单损坏/手改才会出现重复 id：跳过而不是再拉起一个同名 unit
+                print("[!] 清单里 activity-id 重复，跳过重复条目：%s" % e["id"])
+                continue
+            seen_ids.add(e["id"])
+            status = e.get("status")
+            if status == "queued":
+                try:
+                    open_at = wl.parse_at(e.get("open_at"))
+                except ValueError:
+                    wl.mark(e["id"], status="failed", result="开放时间无法解析",
+                            finished_at=wl.now_str())
+                    changed = True
+                    print("[x] %s 开放时间无法解析，已标记失败" % (e.get("name") or e["id"]))
+                    continue
+                lead = float(e.get("lead") or wl.DEFAULT_LEAD)
+                window = float(e.get("window") or wl.DEFAULT_WINDOW)
+                start = open_at - timedelta(seconds=lead)
+
+                if now < start - timedelta(seconds=EARLY):
+                    continue
+                if now > open_at + timedelta(seconds=window + LATE):
+                    wl.mark(e["id"], status="missed", result="runner 没来得及拉起",
+                            finished_at=wl.now_str())
+                    changed = True
+                    print("[!] %s 已过报名窗口，标记错过" % (e.get("name") or e["id"]))
+                    continue
+
+                if args.dry_run:
+                    launch(e, True)
+                    continue
+
+                # 单飞：同名 unit 还活着就绝不重复拉起（runner 重启后清单
+                # 可能还停在 queued）。收编为 running，等它自己写退出码。
+                if unit_active(unit_name(e)):
+                    wl.mark(e["id"], status="running", started_at=wl.now_str(),
+                            attempts=int(e.get("attempts") or 0) + 1)
+                    print("[i] %s 已有存活抓取进程，跳过重复拉起"
+                          % (e.get("name") or e["id"]))
+                    continue
+
+                wl.mark(e["id"], status="running", started_at=wl.now_str(),
+                        attempts=int(e.get("attempts") or 0) + 1)
+                if not launch(e, False):
+                    wl.mark(e["id"], status="failed", result="拉起失败",
+                            finished_at=wl.now_str())
+                    changed = True
+
+            elif status == "running":
+                if unit_active(unit_name(e)):
+                    continue
+                code = read_code(e)
+                changed = True
+                ok = code == "0"
+                wl.mark(e["id"],
+                        status="done" if ok else "failed",
+                        result=("exit=%s" % code) if code else "没有留下退出码",
+                        finished_at=wl.now_str())
+                print("[%s] %s %s"
+                      % ("✓" if ok else "x", e.get("name") or e["id"],
+                         "报名成功" if ok else "未成功（详见私聊/抓取日志）"))
+
+        if changed and not args.dry_run:
+            wl._refresh_card()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
