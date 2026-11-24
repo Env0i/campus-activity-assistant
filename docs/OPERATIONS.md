@@ -201,7 +201,7 @@ ssh root@<你的服务器IP> 'systemctl restart campus-bot && systemctl is-activ
 1. **安装新依赖**：在服务器 Python 环境安装 `cryptography`（`python3 -m pip install -r server/requirements.txt` 或单独装 `cryptography>=41.0`）；缺失或加载失败时脚本会自动退回点击兜底，不自造加密。
 2. **同步登录目录全部同目录模块**：`grab_signup.py` 按文件路径运行并从同目录导入子模块，务必把 `server/deploy/signup/grab_signup.py` 与所有 `signup_*.py` 一起同步到 `<LOGIN_DIR>`，把 `server/deploy/login/auto_login.py` 与 `preempt_guard.py` 一起同步到 `<LOGIN_DIR>`（同目录，不要只拷入口文件）。
 3. **补全 `campus-autologin.service` drop-in**：补充 `Environment=GRAB_UNIT_PREFIX=<你的前缀>`（与 `watchlist_runner.py` 一致），并确认线上 `ExecStart` 带 `--preempt`。
-4. **上线前先跑一次只读演练**（不发 `signUp`、不发私聊，需在服务器上由操作人手动执行）：
+4. **上线前先跑一次只读演练**（不发 `signUp`、不发私聊，需在服务器上由操作人手动执行；核对输出的报名路径行以及带签名已报名查询那一行的 `code`）：
 
 ```bash
 APP_DIR=/root/campus-activity-watch LOGIN_DIR=/root/campus-login \

@@ -118,6 +118,24 @@
 
 日志只写结论（`token fp=xxxxxxxx`、`saved_at`、耗时、错误类型），**不写**账号、密码、验证码、token 全文、姓名。
 
+#### 无人值守重登的实测事实与边界
+
+以下为从 `auto_login.py` 原始说明与注释整理留档的工程实测与边界（2026-10 实测）：
+
+1. **登录流程六步**：
+   1) Playwright Chromium（headless）打开真实登录页，页面自带请求签名，不逆向接口；
+   2) 拦截页面发出的 `/dr/api/auth/captcha` 响应，取 base64 验证码图；
+   3) 识别 4 位验证码：`ddddocr`（beta 模型）为主，长度不是 4 位时依次回退默认模型、Tesseract 多变体投票（**20 张标注样本实测 95% / 80% / 70%，三源串联 20/20**）；
+   4) 填账号、密码、验证码，勾选隐私协议，点「立即登录」；
+   5) 拦截 `/dr/api/auth/login` 响应判断结果，成功后从 `localStorage` 读 `xgUniToken`；
+   6) 调 `listActivity` 校验 token 真被接口接受，再原子写入状态文件。
+2. **尝试次数、间隔与降质窗口**：默认最多尝试 `MAX_ATTEMPTS = 5` 次，每次重新加载页面换一张验证码；两次尝试之间等待 `RETRY_DELAY_SEC = 30` 秒（背靠背连打容易撞同一段降质窗口，间隔后换到的是新图）。
+3. **告警冷却**：全失败才私聊 owner 告警；告警 `ALERT_COOLDOWN_SEC = 30` 分钟内只发一次，避免 cron 反复刷屏；5 分钟后下一轮会继续试，避免一次验证码运气不好就断一整晚。
+4. **只写的两个文件与不碰的状态**：仅原子写入 `/root/campus-login/storage_state.json`（Playwright 完整 state，含 cookies 与 `localStorage`）与 `/root/campus-activity-watch/data/session.json`（`token` / `saved_at` / `name` / `student_no` / `gender`）；**不写** `state.json`、**不动** `token_probe.log`、**不触发**推送，因此不影响业务去重状态。
+5. **凭据读取边界**：账号密码只从 `credentials.json`（文件权限必须 `600`）读取；日志与告警只写结果分类与时间，绝不写账号、密码、验证码、token、姓名、学号。
+6. **token 寿命样本与 8 小时主动换新的由来**：token 寿命不稳定——早期样本存活约 **17.5 小时**，**2026-10-22** 这次只活了 **10 小时 40 分**。等到 `token_probe` 报失效才登录，中间有 **15–20 分钟**推送必挂的盲窗（`21:30` 那条推送就是这么丢的）。`--preempt` 在 token 用满 **8 小时**（最短寿命的约七成）时主动换新，每天多登录一次换掉该盲窗。
+7. **整点齐发偶发一次 4001 与连续两次才重登的由来**：单次 probe 失败不足以断言登录失效——整点 cron 齐发时学校接口会偶发一次 `4001`，同一 token 前后两个请求会一个 `ok` 一个 `fail`（**2026-10-30 07:00 实测**：`probe 07:00:01 ok`、`fetch 07:00:02 4001`）。因此配置连续失败 `PROBE_FAIL_STREAK = 2` 次才直接重登；只失败一次时现查接口确认。判错的代价是立刻换掉 token，把所有正在用旧 token 的进程一起打成 `4001`（那才是真正的失效）。
+
 ## 3. 验证码 OCR
 
 服务器：`ddddocr 1.6.1`（主）+ `tesseract 4.1.1`（兜底）+ `pillow` + `numpy`。

@@ -3,7 +3,7 @@
 """无人值守重新登录：xgUniToken 失效时的兜底登录。
 
 cron / systemd timer 定时跑，先校验 token，失效才触发 Playwright 登录与 OCR；
-成功原子写 storage_state.json 与 data/session.json，日志不记凭据与个人信息。
+成功原子写 storage_state.json 与 data/session.json；设计边界与实测事实详见 docs/LOGIN.md「无人值守重登的实测事实与边界」。
 
 用法：--check / --trigger log|api / --preempt / --force / --self-test / --dry-run N
 @author Author

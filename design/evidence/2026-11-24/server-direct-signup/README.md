@@ -75,3 +75,33 @@ node server/deploy/login/test_atomic_json.js
 python tools/code_shape/check.py
 python -m ruff check server
 ```
+
+## 6. 返修记录（2026-11-24）
+
+### 五处返修改动
+
+- **R1 页面打不开也走直发**（`server/deploy/signup/grab_signup.py`）：`--dry-run` 仍要求页面加载；正式报名时详情页加载失败仅记日志，照样走直发；直发触发退回点击且页面未打开时，直接以「页面没打开，没法点击兜底」结束并写进私聊结果卡，不调用点击循环。
+- **R2 重登只试一次，超时结束整个进程组**（`server/deploy/signup/signup_relogin.py`）：限时重登最大尝试改为 `1` 次；子进程以 `start_new_session=True` 独立进程组拉起，超过 60 秒用 `_kill_process_group` 结束整个进程组（含拉起的浏览器）并按失败收口；锁被占用时等 token 变化逻辑不变。
+- **R3 已报名查询带网关签名，网络异常不算失效**（`server/deploy/signup/grab_signup.py`、`signup_io.py`、`signup_direct.py`）：开抢前 `is_joined`、等开放 4001 后复查、冲突回包核对、收尾核对四处 `getJoinInfo` 全部切到 `school_detail.get_join_info`；4001 复查（`recheck_not_4001`）只认明确 `code=4001` 为仍失效，网络/HTTP/解码异常不重登并继续；`--rehearse` 增打一行带签名查询回包 `code`（不打 `data`），顺便修复 `max_attempts`/截止停循环时直发跳过收尾 `is_joined_fn` 的漏洞。
+- **R4 找回登录实测事实**（`docs/LOGIN.md`、`server/deploy/login/auto_login.py`）：将上一批删除的 6 步流程、20 样本 OCR 实测（95%/80%/70%、三源 20/20）、5 次/30 秒降质窗口、30 分钟冷却、仅写双文件、600 权限凭据、17.5h / 2026-10-22 10h40m 与 8h 换新、`2026-10-30 07:00` 偶发 4001 实测整理进 `docs/LOGIN.md`，`auto_login.py` 保持 `811` 行不变（`main` `117` 行）。
+- **R5 补整块填充对拍样例**（`server/tests/test_grab_direct.py`）：新增 32 字节（两整块）明文 `abcdefghijklmnopqr,1767225600000` 对拍样例。
+
+### 返修新增用例（`server/tests/test_grab_direct.py`，+10 项，共 34 项）
+
+- **R1（`PageOpenFallbackTests`，3 项）**：`test_page_goto_timeout_still_runs_direct_and_succeeds`、`test_page_not_open_when_downgrade_needed_ends_with_reason_without_click_loop`、`test_page_open_normally_still_falls_back_to_click_loop`。
+- **R2（`ReloginProcessGroupTests`，2 项）**：`test_relogin_passes_max_attempts_one_and_new_session`、`test_relogin_timeout_kills_process_group_and_returns_false`。
+- **R3（`SignedJoinInfoTests`，4 项）**：`test_all_four_join_info_call_sites_send_gateway_sign_headers`、`test_recheck_only_explicit_4001_triggers_relogin_network_and_http_continue`、`test_is_joined_semantics_unchanged`、`test_rehearse_logs_signed_join_info_code_without_data`。
+- **R5（`SigningTests`，1 项）**：`test_full_block_32_byte_cng_parity_vector`。
+
+### 返修临时副本回退试验（6 项全部变红）
+
+- `R1_revert_page_open_fail_aborts`：页面失败重新抛出 → `2 failed`（`test_page_goto_timeout_still_runs_direct_and_succeeds`、`test_page_not_open_when_downgrade_needed_ends_with_reason_without_click_loop`）。
+- `R2a_revert_attempts_to_two`：限时重登尝试改回 2 次 → `1 failed`（`test_relogin_passes_max_attempts_one_and_new_session`）。
+- `R2b_kill_only_child_not_pg`：超时仅 `proc.kill()` 不杀进程组 → `1 failed`（`test_relogin_timeout_kills_process_group_and_returns_false`）。
+- `R3a_revert_is_joined_unsigned`：`is_joined` 改回不带签名 `_post` → `1 failed`（`test_all_four_join_info_call_sites_send_gateway_sign_headers`）。
+- `R3b_recheck_treats_network_error_as_invalid`：复查网络异常返 `False` 当仍失效 → `1 failed`（`test_recheck_only_explicit_4001_triggers_relogin_network_and_http_continue`）。
+- `R5_skip_padding_on_exact_block`：整块时 PKCS7 少补一块 → `1 failed`（`test_full_block_32_byte_cng_parity_vector`）。
+
+### 返修回归结论
+
+- `2026-11-24`：本机离线全量回归通过（`server/tests` `208 passed`、Node `46+8+6`、`code_shape`、`ruff` 零告警、`compileall` 通过、`test_grab_signup_retry.py` 未改）。
