@@ -24,42 +24,54 @@ from __future__ import annotations
 import json
 import os
 import socket
-import struct
 import sys
 import tempfile
 import threading
 import time
 import uuid
 
-__all__ = ["ClockUnavailable", "BusinessClock", "ClockClient", "SNTPPacketError"]
+if not __package__:  # pragma: no cover - 直接以脚本模式跑 --probe 时按包导入同级模块
+    _local_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if _local_root not in sys.path:
+        sys.path.insert(0, _local_root)
+    import infrastructure.clock  # noqa: F401
+    __package__ = "infrastructure.clock"
 
-SNTP_PORT = 123
-NTP_UNIX_DELTA = 2208988800          # 1900-1970 秒
-ERA_CANDIDATES = 4                   # 2^32 秒 ≈ 136 年，取 4 个候选足够覆盖
-ERA_MIN_YEAR, ERA_MAX_YEAR = 2020, 2099
-MAX_ROOT_DELAY_S = 0.5               # 服务器根延迟上限（秒）
+from .clock_client import (
+    HOLDOVER_DRIFT_PPM, READY_UNCERTAINTY_S, ClockClient, ClockUnavailable,
+    _elapsed_tick as _elapsed_tick,
+)
+from .sntp_packet import (
+    ERA_CANDIDATES, ERA_MAX_YEAR, ERA_MIN_YEAR,
+    FAILURE_BAD_PACKET, FAILURE_DNS, FAILURE_PEER, FAILURE_REASONS,
+    FAILURE_TIMEOUT, FAILURE_TRANSPORT, MAX_ROOT_DELAY_S, NTP_UNIX_DELTA,
+    SNTP_PORT, SNTPPacketError,
+    _beijing_year_candidates as _beijing_year_candidates,
+    _new_nonce as _new_nonce,
+    _ntp_timestamp as _ntp_timestamp,
+    build_client_packet, classify_failure, parse_server_packet,
+)
+
+__all__ = [
+    "ClockUnavailable", "BusinessClock", "ClockClient", "SNTPPacketError",
+    "SNTP_PORT", "NTP_UNIX_DELTA", "ERA_CANDIDATES", "ERA_MIN_YEAR", "ERA_MAX_YEAR",
+    "MAX_ROOT_DELAY_S", "CLUSTER_TOLERANCE_S", "READY_UNCERTAINTY_S",
+    "HOLDOVER_DRIFT_PPM", "TICK_RESOLUTION_S", "RETRY_DELAYS_S", "RETRY_MAX_DELAY_S",
+    "FAILURE_TIMEOUT", "FAILURE_DNS", "FAILURE_BAD_PACKET", "FAILURE_PEER",
+    "FAILURE_TRANSPORT", "FAILURE_REASONS",
+    "retry_delay_s", "classify_failure", "build_client_packet", "parse_server_packet",
+]
+
 CLUSTER_TOLERANCE_S = 0.25           # 簇内允许差异 = 双方误差和 + 0.25
-READY_UNCERTAINTY_S = 0.5            # 应用策略阈值（非网络精度保证）
-HOLDOVER_DRIFT_PPM = 100             # holdover 保守漂移
 # GetTickCount64 文档说明分辨率通常 10–16ms（默认计时器周期 15.625ms）。
 # 固定 1ms 会低报误差；取一个完整周期覆盖「发包」「收包」两次取样。
 TICK_RESOLUTION_S = 0.015625
-
 
 # 首轮校时失败后的重试节奏（秒）：5、10、20，之后每 30 秒一次。
 # 网络抖动通常几十秒内恢复，指数退避既不会打爆时间服务器，也不会让界面
 # 停在「待校准」太久；退避只影响后台自动重试，手动重校永远立即执行。
 RETRY_DELAYS_S = (5.0, 10.0, 20.0)
 RETRY_MAX_DELAY_S = 30.0
-
-# 失败原因白名单：对外只给这些粗分类，不带异常原文、地址或请求内容。
-FAILURE_TIMEOUT = "timeout"
-FAILURE_DNS = "dns_error"
-FAILURE_BAD_PACKET = "bad_packet"
-FAILURE_PEER = "peer_mismatch"
-FAILURE_TRANSPORT = "transport_error"
-FAILURE_REASONS = (FAILURE_TIMEOUT, FAILURE_DNS, FAILURE_BAD_PACKET,
-                   FAILURE_PEER, FAILURE_TRANSPORT)
 
 
 def retry_delay_s(failure_count: int) -> float:
@@ -71,140 +83,63 @@ def retry_delay_s(failure_count: int) -> float:
     return RETRY_MAX_DELAY_S
 
 
-def classify_failure(exc: BaseException) -> str:
-    """把传输异常收敛成白名单原因；拿不准就报 transport_error。"""
-    if isinstance(exc, SNTPPacketError):
-        return FAILURE_BAD_PACKET
-    if isinstance(exc, (socket.timeout, TimeoutError)):
-        return FAILURE_TIMEOUT
-    if isinstance(exc, socket.gaierror):
-        return FAILURE_DNS
-    if isinstance(exc, ValueError):
-        return FAILURE_BAD_PACKET
-    text = str(exc or "")
-    if "解析不到" in text:
-        return FAILURE_DNS
-    return FAILURE_TRANSPORT
-
-
-class ClockUnavailable(Exception):
-    """业务时钟不可信：无锚点/快照缺失/过期/损坏。调用方必须显式处理。"""
-
-
-class SNTPPacketError(Exception):
-    """NTP 响应未通过校验：畸形、重放、未同步、来源不符等。"""
-
-
-def _elapsed_tick() -> float:
-    """系统级经过毫秒→秒：Windows 用 GetTickCount64（正确声明 restype），
-    其余平台用 time.monotonic；两者都是系统级单调时钟，跨进程同源。"""
-    if sys.platform == "win32":
-        import ctypes
-
-        kernel32 = ctypes.windll.kernel32
-        kernel32.GetTickCount64.restype = ctypes.c_ulonglong   # ULONGLONG，不是默认 int
-        kernel32.GetTickCount64.argtypes = []
-        return float(kernel32.GetTickCount64()) / 1000.0
-    return time.monotonic()
-
-
 def _default_owner_id() -> str:
     return uuid.uuid4().hex[:16]
 
 
-def _beijing_year_candidates(seconds_u32: int):
-    """NTP 秒是 32 位模数：枚举 era 候选，落在 2020..2099 年的必须唯一。
-    发包与解码都不依赖系统年份，避免错误 OS 日期选错 era。"""
-    out = []
-    for era in range(-1, ERA_CANDIDATES):
-        value = seconds_u32 + era * (1 << 32)
-        ntp_epoch = value - NTP_UNIX_DELTA
-        year = time.gmtime(ntp_epoch).tm_year if ntp_epoch > 0 else -1
-        if ERA_MIN_YEAR <= year <= ERA_MAX_YEAR:
-            out.append(ntp_epoch)
-    return out
+def _call_elapsed_tick() -> float:
+    """调用时解析 _elapsed_tick，保留测试对 business_clock._elapsed_tick 的打桩生效。"""
+    return float(_elapsed_tick())
 
 
-def _new_nonce() -> bytes:
-    """每轮每源一个完整 64 位标识：冷启动也不得用全零（全零会被当成重放）。"""
-    while True:
-        raw = os.urandom(8)
-        if raw != b"\x00" * 8:
-            return raw
+def _maximal_consistent_groups(aligned: list) -> list[frozenset[int]]:
+    """找出所有两两一致（成员 >= 2）的极大时间样本组。"""
+    size = len(aligned)
+    consistent = [[False] * size for _ in range(size)]
+    for i in range(size):
+        for j in range(i + 1, size):
+            ok = abs(aligned[i]["epoch_at"] - aligned[j]["epoch_at"]) <= \
+                aligned[i]["err"] + aligned[j]["err"] + CLUSTER_TOLERANCE_S
+            consistent[i][j] = consistent[j][i] = ok
+    groups = []
+    for mask in range(1, 1 << size):
+        members = [k for k in range(size) if mask & (1 << k)]
+        if len(members) < 2:
+            continue
+        if all(consistent[a][b] for idx, a in enumerate(members)
+               for b in members[idx + 1:]):
+            groups.append(frozenset(members))
+    return [group for group in groups
+            if not any(group < other for other in groups)]
 
 
-def build_client_packet(nonce: bytes | None = None) -> tuple[bytes, bytes]:
-    """48 字节客户端请求 + 本轮完整 64 位标识（放在 transmit 位置，服务器回显到 originate）。
-
-    LI=0/VN=4/Mode=3；标识用密码学随机数，同一秒内的两个请求也互不相同，
-    不再用业务时钟估计值（同秒重发会得到相同高位，无法区分本轮）。
-    布局：0 头部 | 4 根延迟 | 8 根分散 | 12 参考ID | 16/24/32/40 四个 64 位时间戳。
-    """
-    nonce = _new_nonce() if nonce is None else bytes(nonce)
-    if len(nonce) != 8 or nonce == b"\x00" * 8:
-        raise ValueError("时钟请求标识必须是 8 字节且非全零")
-    secs, frac = struct.unpack("!II", nonce)
-    li_vn_mode = (0 << 6) | (4 << 3) | 3
-    packet = struct.pack("!BBBb9I2I", li_vn_mode, 0, 6, -21,
-                         0, 0, 0,        # 根延迟/分散/参考ID
-                         0, 0,           # 参考时间戳
-                         0, 0,           # originate 由客户端置零
-                         0, 0,           # receive 时间戳（客户端为零）
-                         secs, frac)     # transmit（本轮标识）
-    return packet, nonce
-
-
-def _ntp_timestamp(data: bytes, offset: int, what: str) -> float:
-    """64 位 NTP 时间戳（32 秒 + 32 小数）→ 业务 UTC epoch 秒。
-    era 以整数秒唯一落在 2020..2099 判定；小数部分保留，不引入 1 秒量化误差。"""
-    secs, frac = struct.unpack("!II", data[offset:offset + 8])
-    if secs == 0 and frac == 0:
-        raise SNTPPacketError("%s 时间戳为零" % what)
-    cands = _beijing_year_candidates(secs)
-    if len(cands) != 1:
-        raise SNTPPacketError("%s era 候选不唯一，无法确定日期" % what)
-    return cands[0] + frac / (1 << 32)
-
-
-def parse_server_packet(data: bytes, nonce, source: str) -> dict:
-    """校验并解析服务器响应；返回
-    {source, server_recv, server_xmit, root_delay, root_delay_raw, dispersion}。
-
-    originate 必须 8 字节全等：只比秒的高 32 位会把「同一秒的另一个请求」
-    当成自己的响应。任何不符合都抛 SNTPPacketError，不作为样本。
-    """
-    if not isinstance(data, (bytes, bytearray)) or len(data) < 48:
-        raise SNTPPacketError("响应长度不足 48 字节")
-    li_vn_mode = data[0]
-    li, vn, mode = li_vn_mode >> 6, (li_vn_mode >> 3) & 0x7, li_vn_mode & 0x7
-    if vn != 4:
-        raise SNTPPacketError("版本不是 4")
-    if mode != 4:
-        raise SNTPPacketError("不是服务器模式响应")
-    if li == 3:
-        raise SNTPPacketError("服务器报告未同步（LI=3）")
-    stratum = data[1]
-    if not 1 <= stratum <= 15:
-        raise SNTPPacketError("stratum 越界（0/KoD 或 >15）")
-    # 根延迟是有符号 16.16 定点数；负值不能用来抵消误差，只按绝对值计入
-    root_delay_raw = struct.unpack("!i", data[4:8])[0] / 65536.0
-    if abs(root_delay_raw) > MAX_ROOT_DELAY_S:
-        raise SNTPPacketError("根延迟越界")
-    root_delay = abs(root_delay_raw)
-    dispersion = struct.unpack("!I", data[8:12])[0] / 65536.0
-    expected = (struct.pack("!II", int(nonce) & 0xFFFFFFFF, 0)
-                if isinstance(nonce, int) else bytes(nonce))
-    if len(expected) != 8:
-        raise SNTPPacketError("本轮请求标识长度不对")
-    if bytes(data[24:32]) != expected:
-        raise SNTPPacketError("originate 与本次请求不符（重放或错配）")
-    server_recv = _ntp_timestamp(data, 32, "接收")
-    server_xmit = _ntp_timestamp(data, 40, "发送")
-    if server_xmit < server_recv:
-        raise SNTPPacketError("服务器处理时间为负")
-    return {"source": source, "server_recv": server_recv, "server_xmit": server_xmit,
-            "root_delay": root_delay, "root_delay_raw": root_delay_raw,
-            "dispersion": dispersion}
+def _select_cluster_candidate(results: list) -> tuple[dict | None, float | None, str]:
+    """对齐本轮样本到同一时刻并挑出唯一最高支持度簇；无唯一解时返回失败原因。"""
+    if not results:
+        return None, None, "本轮没有可用的时间源响应"
+    ref_tick = max(item["tick"] for item in results)
+    # 把各样本推进到同一比较时刻，消除收包先后差
+    aligned = [dict(item, epoch_at=item["epoch"] + (ref_tick - item["tick"]))
+               for item in results]
+    candidates = []
+    for group in _maximal_consistent_groups(aligned):
+        members = sorted(group)
+        best = min((aligned[k] for k in members), key=lambda x: x["rtt"])
+        spread = max(abs(aligned[k]["epoch_at"] - best["epoch_at"]) for k in members)
+        uncertainty = best["err"] + spread
+        if uncertainty > READY_UNCERTAINTY_S:
+            continue
+        candidates.append({"sample": best, "support": len(members),
+                           "uncertainty": uncertainty})
+    if not candidates:
+        return None, ref_tick, "未能形成一致时间簇"
+    top = max(c["support"] for c in candidates)
+    highest = [c for c in candidates if c["support"] == top]
+    if len(highest) > 1:
+        # 两个同等支持数、成员不同的极大组（如 A-B 与 B-C 各自成立但 A-C 矛盾）：
+        # 没有唯一答案，不能按枚举顺序任选第一个。
+        return None, ref_tick, "存在互相矛盾且支持数相同的时间组"
+    return min(highest, key=lambda c: c["sample"]["rtt"]), ref_tick, ""
 
 
 class _SourceSlot:
@@ -231,7 +166,7 @@ class BusinessClock:
                  background: bool = False) -> None:
         self._sources = list(sources or ("ntp.aliyun.com", "ntp1.aliyun.com",
                                          "time.cloudflare.com"))
-        self._tick = tick_fn or _elapsed_tick
+        self._tick = tick_fn or _call_elapsed_tick
         self._transport = transport          # 测试注入；生产为 _udp_transport 闭包
         self._sync_timeout_s = float(sync_timeout_s)
         self._resync_interval_s = float(resync_interval_s)
@@ -540,65 +475,13 @@ class BusinessClock:
         return data, send_tick, recv_tick, peer == sockaddr
 
     def _accept_cluster(self, results: list, round_id: int) -> bool:
-        """枚举两两一致的子集，仅比较极大组；同支持数的矛盾组一律拒绝。
-
-        旧实现按「与某样本接近」收集星形邻接：A-B、B-C 成立但 A-C 矛盾时，
-        中间人 B 会把三方合并成支持数 3，等于把不同意见算成共同支持。
-        这里显式检查组内任意两两一致（最多三源，子集枚举开销可忽略），
-        再去掉真子集，只比较极大一致组；若最高支持数对应多个不同组，
-        说明存在彼此矛盾且证据等量的结论，不能按 RTT 或枚举顺序任选。
-        """
-        aligned = []
-        if results:
-            ref_tick = max(item["tick"] for item in results)
-        for item in results:
-            # 把各样本推进到同一比较时刻，消除收包先后差
-            aligned.append(dict(item,
-                                epoch_at=item["epoch"] + (ref_tick - item["tick"])))
-        size = len(aligned)
-        consistent = [[False] * size for _ in range(size)]
-        for i in range(size):
-            for j in range(i + 1, size):
-                ok = abs(aligned[i]["epoch_at"] - aligned[j]["epoch_at"]) <= \
-                    aligned[i]["err"] + aligned[j]["err"] + CLUSTER_TOLERANCE_S
-                consistent[i][j] = consistent[j][i] = ok
-        groups = []
-        for mask in range(1, 1 << size):
-            members = [k for k in range(size) if mask & (1 << k)]
-            if len(members) < 2:
-                continue
-            if all(consistent[a][b] for idx, a in enumerate(members)
-                   for b in members[idx + 1:]):
-                groups.append(frozenset(members))
-        maximal = [group for group in groups
-                   if not any(group < other for other in groups)]
-
-        candidates = []
-        for group in maximal:
-            members = sorted(group)
-            best = min((aligned[k] for k in members), key=lambda x: x["rtt"])
-            spread = max(abs(aligned[k]["epoch_at"] - best["epoch_at"]) for k in members)
-            uncertainty = best["err"] + spread
-            if uncertainty > READY_UNCERTAINTY_S:
-                continue
-            candidates.append({"sample": best, "support": len(members),
-                               "uncertainty": uncertainty})
-        if not candidates:
+        """枚举两两一致的子集，仅比较极大组；同支持数的矛盾组一律拒绝。"""
+        best, ref_tick, reason = _select_cluster_candidate(results)
+        if best is None:
             with self._lock:
                 if self._anchor_epoch is None:
-                    self._reason = ("未能形成一致时间簇" if results
-                                    else "本轮没有可用的时间源响应")
+                    self._reason = reason
             return False
-        top = max(c["support"] for c in candidates)
-        highest = [c for c in candidates if c["support"] == top]
-        if len(highest) > 1:
-            # 两个同等支持数、成员不同的极大组（如 A-B 与 B-C 各自成立但 A-C 矛盾）：
-            # 没有唯一答案，不能按枚举顺序任选第一个。
-            with self._lock:
-                if self._anchor_epoch is None:
-                    self._reason = "存在互相矛盾且支持数相同的时间组"
-            return False
-        best = min(highest, key=lambda c: c["sample"]["rtt"])
         with self._lock:
             if self._closed:
                 return False
@@ -714,128 +597,6 @@ class BusinessClock:
                     os.remove(os.path.join(self._snapshot_dir, name))
                 except OSError:
                     pass
-
-
-class ClockClient:
-    """worker/只读端：按相同 tick 域消费父实例快照；无效一律 ClockUnavailable。
-
-    快照合同（与 BusinessClock.snapshot 同源，一次读取只认一份文档）：
-    - ``epoch_s`` 永远对应 ``tick_s``（授时锚点），不是快照生成时刻；
-    - ``sampled_tick_s`` 只是该文档生成时刻，用来补采样之后的漂移；
-    - 授时年龄按 ``current_tick - tick_s`` 判 900 秒上限，文件被重写不会续命；
-    - ``uncertainty_s`` 是采样时的误差，客户端只补采样后漂移，避免重复计入。
-    """
-
-    def __init__(self, *, snapshot_path=None, owner_id=None, tick_fn=None,
-                 holdover_max_s: float = 900.0,
-                 resync_interval_s: float = 300.0) -> None:
-        self._path = snapshot_path or os.environ.get("CAMPUS_CLOCK_SNAPSHOT") or ""
-        self._owner = owner_id or os.environ.get("CAMPUS_CLOCK_OWNER") or ""
-        self._tick = tick_fn or _elapsed_tick
-        self._holdover_max_s = float(holdover_max_s)
-        self._resync_interval_s = float(resync_interval_s)
-
-    # ---- 读取与校验 ----
-    def _load(self) -> dict:
-        """一次读取内完成全部校验并算出同一代的值；字段缺失/矛盾一律拒绝。"""
-        if not self._path:
-            raise ClockUnavailable("没有配置时钟快照路径")
-        try:
-            with open(self._path, "r", encoding="utf-8") as fh:
-                snap = json.load(fh)
-        except (OSError, ValueError) as exc:
-            raise ClockUnavailable("时钟快照不可读：%s" % exc)
-        if not isinstance(snap, dict) or snap.get("schema") != 1:
-            raise ClockUnavailable("时钟快照格式不符")
-        owner = snap.get("owner_id")
-        if not isinstance(owner, str) or not owner:
-            raise ClockUnavailable("时钟快照缺少实例归属")
-        if self._owner and owner != self._owner:
-            raise ClockUnavailable("时钟快照属于其他实例")
-
-        def number(name, value, *, minimum=None) -> float:
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise ClockUnavailable("时钟快照字段无效：%s" % name)
-            value = float(value)
-            if value != value or value in (float("inf"), float("-inf")):
-                raise ClockUnavailable("时钟快照字段无效：%s" % name)
-            if minimum is not None and value < minimum:
-                raise ClockUnavailable("时钟快照字段越界：%s" % name)
-            return value
-
-        epoch = number("epoch_s", snap.get("epoch_s"))
-        anchor_tick = number("tick_s", snap.get("tick_s"))
-        sampled_tick = number("sampled_tick_s", snap.get("sampled_tick_s"))
-        uncertainty = number("uncertainty_s", snap.get("uncertainty_s"), minimum=0.0)
-        state = snap.get("state")
-        if state not in ("ready", "holdover"):
-            raise ClockUnavailable("时钟快照状态不可用：%s" % state)
-
-        now_tick = self._tick()
-        age = now_tick - anchor_tick
-        sample_age = now_tick - sampled_tick
-        if age < 0 or sample_age < 0:
-            raise ClockUnavailable("时钟快照锚点晚于本机经过时长")
-        if age > self._holdover_max_s:
-            raise ClockUnavailable("时钟快照超过 %g 秒未更新" % self._holdover_max_s)
-        drift = HOLDOVER_DRIFT_PPM * 1e-6 * sample_age
-        total = uncertainty + drift
-        if total > READY_UNCERTAINTY_S:
-            raise ClockUnavailable("时钟快照误差超过 %g 秒" % READY_UNCERTAINTY_S)
-        effective = "holdover" if (state == "holdover"
-                                   or age > self._resync_interval_s) else "ready"
-        return {"snap": snap, "epoch": epoch, "anchor_tick": anchor_tick,
-                "sampled_tick": sampled_tick, "uncertainty": uncertainty,
-                "drift": drift, "total_uncertainty": total, "age": age,
-                "now_tick": now_tick, "state": effective,
-                "now": epoch + (now_tick - anchor_tick), "owner": owner}
-
-    # ---- 与 BusinessClock 相同的消费接口（RetryBudget 需要）----
-    def elapsed_s(self) -> float:
-        """应用内经过时长：与父实例同一 tick 域，含睡眠。"""
-        return float(self._tick())
-
-    def now(self) -> float:
-        """业务 UTC epoch 秒；锚点用 tick_s，不用 sampled_tick_s。"""
-        return self._load()["now"]
-
-    def bounds(self) -> tuple[float, float]:
-        """业务时刻区间：采样误差 + 采样后保守漂移，同一份快照内取值。"""
-        loaded = self._load()
-        return (loaded["now"] - loaded["total_uncertainty"],
-                loaded["now"] + loaded["total_uncertainty"])
-
-    def state(self) -> str:
-        return self._load()["state"]
-
-    @property
-    def reason(self) -> str:
-        loaded = self._load()
-        snap = loaded["snap"]
-        return str(snap.get("reason") or ("沿用上次校时" if loaded["state"] == "holdover"
-                                          else "北京时间已同步"))
-
-    @property
-    def owner_id(self) -> str:
-        return self._load()["owner"]
-
-    @property
-    def generation(self) -> int:
-        value = self._load()["snap"].get("generation")
-        return int(value) if isinstance(value, int) and not isinstance(value, bool) else 0
-
-    def snapshot(self) -> dict:
-        """把当前有效读数整理成快照形状（不写文件）。
-
-        ``uncertainty_s`` 保留采样时记录值，另给 ``uncertainty_now_s`` 表示
-        含采样后漂移的当前误差——调用方不该再从 sampled 时刻重算一次漂移。
-        """
-        loaded = self._load()
-        snap = dict(loaded["snap"])
-        snap["state"] = loaded["state"]
-        snap["age_s"] = loaded["age"]
-        snap["uncertainty_now_s"] = loaded["total_uncertainty"]
-        return snap
 
 
 def _probe_json() -> int:
