@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import json
 import urllib.parse
 
 
@@ -124,3 +125,42 @@ def run_cancel(act_id, progress=None, *, site_configured, probe_token,
         act_id, progress, get=get, cancel_path=cancel_path,
         cancel_joined=cancel_joined, recheck_budget_s=recheck_budget_s,
         sanitize_message=sanitize_message, log=log)
+
+
+def cancel_facts(act_id, *, get_fn, detail_timeout_s, detail_fields_fn,
+                 tri_state_fn, school_epoch_fn):
+    """取消前要看的详情：(cancel_allowed, sign_start, sign_end) 或 None（详情没拿到）。"""
+    data = get_fn("/rjyHd/getInfo/" + urllib.parse.quote(act_id, safe=""),
+                  timeout=detail_timeout_s)
+    if not isinstance(data, dict) or str(data.get("code")) not in {"1", "1.0"}:
+        return None
+    fields = detail_fields_fn(data)
+    allowed = tri_state_fn(fields.get("qxbm")) if "qxbm" in fields else None
+    return (allowed, school_epoch_fn(str(fields.get("bmkssj") or "").strip()),
+            school_epoch_fn(str(fields.get("bmjssj") or "").strip()))
+
+
+def cancel_joined(act_id, budget_s, *, business_now_fn, make_budget_fn,
+                  is_joined_fn, budget_exhausted_cls, clock_unavailable):
+    """取消前后用的三态查询：True / False / None（含预算用尽、校时失效）。"""
+    try:
+        budget = make_budget_fn(business_now_fn() + budget_s)
+        return is_joined_fn(act_id, budget=budget)
+    except (budget_exhausted_cls, clock_unavailable):
+        return None
+
+
+def run_cmd_cancel(args, *, stdout_to_stderr_fn, run_cancel_fn, log_fn):
+    """worker 子命令：取消一场已报名活动。stdout 恰好一行 JSON，日志与其他输出走 stderr。"""
+    progress = {"sent": False}
+    with stdout_to_stderr_fn(True):
+        try:
+            result = run_cancel_fn(getattr(args, "id", ""), progress)
+        except Exception as exc:  # noqa: BLE001 - 兜底：worker 不能不给结论
+            # 异常要分清「接口还没调」与「已经调了」：前者是前置失败，后者结果未知
+            log_fn("[cancel] 异常 %s" % type(exc).__name__)
+            result = ({"ok": False, "kind": "unknown"} if progress["sent"]
+                      else {"ok": False, "kind": "precheck_failed",
+                            "reason": "unknown_state"})
+    print(json.dumps(result, ensure_ascii=False), flush=True)
+    return 0 if result.get("kind") == "cancelled" else 2

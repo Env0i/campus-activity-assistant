@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+from email.utils import parsedate_to_datetime
 import json
 import re
 
@@ -75,3 +76,33 @@ def parse_clock_line(out: str) -> "dict | None":
         if isinstance(data, dict) and data.get("source") == "http_date":
             found = data
     return found
+
+
+def format_ts_text(ts, school_time_text_fn) -> str:
+    """秒级时间戳 → 学校时区的完整时间文本；None 显示 '-'（结构化日志用）。"""
+    if not ts:
+        return "-"
+    return school_time_text_fn(ts)
+
+
+def format_retry_event(**fields) -> str:
+    """格式化进度型 [retry] 行；值里的空格换成不换行空格，避免解析切碎。"""
+    body = " ".join("%s=%s" % (key, str(value).replace(" ", "\u00a0"))
+                    for key, value in fields.items())
+    return "[retry] " + body
+
+
+def parse_http_date_epoch(value) -> "tuple[str, float | None]":
+    """解析学校回包的 HTTP Date 头，返回 (原文, epoch 秒或 None)；空值返回 ("", None)。"""
+    text = str(value or "").strip()
+    if not text:
+        return "", None
+    epoch = None
+    try:
+        parsed = parsedate_to_datetime(text)
+        # RFC 7231 的 Date 必须带时区；不带时无法换算成唯一 epoch
+        if parsed is not None and parsed.tzinfo is not None:
+            epoch = parsed.timestamp()
+    except Exception:
+        epoch = None
+    return text, epoch

@@ -26,6 +26,11 @@ ADAPTIVE_SECONDS = 1500.0
 # retry_for_s 的自动延长标记：显式自动，区别于 0（直到截止）与正数（硬时长）
 ADAPTIVE_RETRY = -1
 
+# 提交失败后的下一轮节奏（RC-05）：2 秒起、1.5 倍退避、8 秒封顶
+SUBMIT_BACKOFF_START_S = 2.0
+SUBMIT_BACKOFF_MAX_S = 8.0
+SUBMIT_BACKOFF_FACTOR = 1.5
+
 
 def _as_finite(value):
     """把入参收敛成有限 float；None/非法/NaN/Inf 都返回 None（不猜）。"""
@@ -106,3 +111,41 @@ def extension_delta(current, candidate, cap, enabled):
     if cand <= cur or cand > limit:
         return 0.0
     return cand - cur
+
+
+def retry_anchor(at_ts, now):
+    """重试窗口起算点；未来场次归一到原定 sign_start，已开放场次固定为当前时刻。"""
+    return at_ts if at_ts and at_ts > now else now
+
+
+def compute_retry_window(at_ts, sign_end_ts, retry_for_s, now):
+    """计算重试起算点与有效截止（纯函数，跨层单测共用同一口径）。"""
+    retry_start = retry_anchor(at_ts, now)
+    deadline, binding = resolve_window(retry_start, retry_for_s, sign_end_ts)
+    return retry_start, deadline, binding
+
+
+def attempts_allowed(attempts: int, max_attempts: int) -> bool:
+    """max_attempts=0 表示不限；否则已发起的 signUp 次数必须小于上限才能再点。"""
+    return max_attempts <= 0 or attempts < max_attempts
+
+
+def next_submit_gap(current: float) -> float:
+    """返回下一次提交前的等待秒数；输入非法时从起点重新起算。"""
+    try:
+        value = float(current)
+    except (TypeError, ValueError):
+        value = SUBMIT_BACKOFF_START_S
+    if value < SUBMIT_BACKOFF_START_S:
+        value = SUBMIT_BACKOFF_START_S
+    return min(SUBMIT_BACKOFF_MAX_S, value * SUBMIT_BACKOFF_FACTOR)
+
+
+def known_policy_start(args):
+    """GUI 传入的冻结起点；没有则 None（CLI 需要先查目标）。"""
+    raw = getattr(args, "retry_start", 0) or 0
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None

@@ -433,3 +433,13 @@ class BurstPolicy:
     @property
     def stopped(self):
         return self._stopped
+
+
+def wait_before_next_submit(budget, gap: float, *, clock_unavailable, next_gap_fn) -> float:
+    """按剩余预算截断等待，返回下一轮间隔（不越过 sign_end / 时长上限）。"""
+    try:
+        remain = budget.remaining_s()
+    except clock_unavailable:
+        raise
+    budget.sleep(min(max(0.0, float(gap)), max(0.0, remain)))
+    return next_gap_fn(gap)

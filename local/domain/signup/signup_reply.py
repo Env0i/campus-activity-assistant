@@ -12,6 +12,8 @@ code 和 message 里的关键短语归成一种 kind，worker 据此决定继续
 """
 from __future__ import annotations
 
+import json
+import math
 from dataclasses import dataclass
 
 
@@ -94,3 +96,56 @@ def classify_signup_reply(code, message) -> SignupReply:
 def stop_reason_label(stop_reason) -> str:
     """新增终态的短结论；旧终态（success、max_attempts 等）返回空串。"""
     return STOP_REASON_LABELS.get(str(stop_reason or ""), "")
+
+
+def classify_http_response(response) -> str:
+    """把一次 signUp 响应归类为五档：404 / throttled / server_error / real / lost。"""
+    if response is None:
+        return "lost"
+    status = getattr(response, "status", 200)
+    try:
+        status_code = int(status)
+    except (TypeError, ValueError):
+        status_code = 200
+    if status_code == 404:
+        return "404"
+    if status_code == 429:
+        return "throttled"
+    if status_code >= 500:
+        return "server_error"
+    return "real"
+
+
+def decode_reply_body(raw) -> dict:
+    """字节响应体 → dict。先严格 utf-8，失败再 gb18030；解不出返回 {}。"""
+    if not raw:
+        return {}
+    for encoding in ("utf-8", "gb18030"):
+        try:
+            text = raw.decode(encoding) if isinstance(raw, (bytes, bytearray)) else str(raw)
+            data = json.loads(text)
+            return data if isinstance(data, dict) else {}
+        except (UnicodeDecodeError, ValueError):
+            continue
+    return {}
+
+
+def recognizable_code(value) -> bool:
+    """direct 响应业务 code 可识别性（A2 裁决）：仅接受非 bool 的有限整数或十进制整数串。"""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return True
+    if isinstance(value, float):
+        return math.isfinite(value) and value.is_integer()
+    if isinstance(value, str):
+        text = value.strip()
+        body = text[1:] if text[:1] in "+-" else text
+        return bool(body) and all("0" <= ch <= "9" for ch in body)
+    return False
+
+
+def direct_headers(tok: str, referer: str, ua: str) -> dict:
+    """直发 signUp 的请求头：只带这四项（决策 015）；正式提交与预检共用。"""
+    return {"Accept": "application/json, text/plain, */*",
+            "token": tok, "Referer": referer, "User-Agent": ua}
