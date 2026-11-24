@@ -21,12 +21,13 @@ proposed（原重构目标与工程终点保留。第 0 步和第 1 步已合入
 | 第 3 步 · 手机页拆分与会话收拢 | 分支已验证，待合入 | `app.js` 3,365 行按原逻辑拆成 12 份普通脚本（合计 3,421 行，单份 ≤500），加载顺序与静态白名单同步；请求与配对会话组三处重复收成 `adoptCookieCsrf`、`showAppView`、`showPairView`、`sessionVerdict`，72 条变异复跑仍为行为守 66、等价 6、无人守 0。见 `design/evidence/2026-11-21/phone-split/README.md` 与 `design/evidence/2026-11-23/phone-session-tidy/README.md`。 |
 | 第 3 步 · 手机页安全网 | 分支已验证，待合入 | 五组 67 个 DOM 函数共 665 条单点变异，补测后行为守 645、等价 20、无人守 0；同一分支另有 11 个修复提交（手机页 9、桌面 2），如举办时间待公布拦截、未校准时分组不读手机时钟、时间筛选全空与重登失败原因可见。见 `design/evidence/2026-11-22/phone-net/README.md` 与 `design/evidence/2026-11-23/` 下各组目录。 |
 | 第 3 步 · 手机页验收 | 分支已验证，待合入 | 真实 Chromium 与重打包 EXE 两环境冒烟通过，包内 `ui/m` 16 份资源与源码逐字节一致；iPhone Safari 真机逐项复测通过。见 `design/evidence/2026-11-23/real-env-smoke/README.md`。 |
+| 后端收尾 · 大文件与长函数拆分 | 分支已验证 | 收紧结构名单后拆解 `component_packages.py`（1,666→272 行）、`grab.py`（1,307→761 行）、`business_clock.py`（875→636 行）与 7 个超百行后端函数；`local/` 后端除 `app.py` 外已无 >800 行文件与 >100 行函数，测试文件数保持 39 个。见 `design/evidence/2026-11-24/backend-split/README.md`。 |
 
 当前工作区为 `refactor/api-coordinator`，本批开工 HEAD 是 `628a42d`。`app.py` 从 Step0 的 4,873 行降到主线的 4,732 行、第 1 步合入时的 3,846 行，本批从 3,112 行降到 **2,558 行**；`Api` 类 2,038 → **1,471 行**，167 个方法里 123 个是 4 行以内的转发，`__init__` 148 → 139 行。本批新增 `application/relogin_entry.py`（485 行）与 `application/desktop_window.py`（320 行），`login_recovery.py` 245 → 277 行（接走登录失效推送体）。
 
 本次源文件计数为 **39 个核心测试文件、477 个含测试方法的类、2,720 个测试方法**。首轮全量执行 2,720 项，2 项跳过；另有 2 项双进程文件锁用例在共享盘上偶发超时，开工基线与收尾两次一致，不是本批引入。
 
-接下来独立安排的长文件包括 `grab.py`（3,544 行；已拆出活动查询、列表命令、登录态保存三块，`cmd_grab` 仍是最大函数）、~~手机页 `local/ui/m/app.js`（3,365 行）~~（已拆为 12 份普通脚本）、`component_packages.py`（1,666 行）和 `business_clock.py`（875 行）。它们的具体交付见后续实施计划。
+接下来独立安排的长文件已完成拆分：~~`grab.py`（已拆至 761 行，剩余入口与薄转发）~~、~~手机页 `local/ui/m/app.js`（3,365 行，已拆为 12 份普通脚本）~~、~~`component_packages.py`（已拆至 272 行）~~ 与 ~~`business_clock.py`（已拆至 636 行）~~；后端仅余 `local/app.py` 留待发版后收口。
 
 手机页收口批的当前工作区是 `refactor/phone-page`（从 main 的 `7922aa2` 拉出），领先 main **67** 个提交、落后 **0** 个，合回主干是快进。合回前的全量离线回归通过：本机版 2,877 项、0 失败、2 跳过；服务器版 123 项通过；三个 Node 离线测试、`compileall`、99 份前端脚本 `node --check`、代码形状与 ruff 均通过。明细与仍未验项见 `design/evidence/2026-11-23/phone-page-closeout/README.md`。
 

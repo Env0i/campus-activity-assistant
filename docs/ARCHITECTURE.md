@@ -166,22 +166,26 @@ ui/（WebView 界面）→ app.py（Api 外观/组合根）→ application/（�
 |----|------|--------|--------|----------|
 | domain | `login/login_rules` | 登录三态快照分类、check 四态结论、来源行归因、重登入口的四类判断（自动重登资格、迟到窗口、手工分流、静默恢复态） | app 外观、application | 无（纯函数） |
 | domain | `signup/retry_rules` | `[retry]` 行解析、次数归并、telemetry 载荷、策略归一 | application | 无 |
-| domain | `plan/plan_rules` | 计划项归一化/截止门禁、列表合并、任务终态分类 | app 外观、application | 无（classify_mode/validate_fn/epoch_of 由 app.py 注入） |
+| domain | `plan/plan_rules` / `plan/plan_validation` | 计划项归一化/截止门禁、列表合并、任务终态分类、计划纯校验（条目与时段冲突） | app 外观、application、signup_plan | 无（classify_mode/validate_fn/epoch_of 由 app.py 注入） |
 | domain | `signup/cancel_rules` | 取消报名回包的清洗（去控制字符、截 80 字）与 worker 输出归一化；grab 与 app 共用一份 | grab、app 外观 | 无（纯函数） |
 | domain | `desktop/lifecycle_rules` | 跨关闭时长/质量记账（v1 文本 / v2 epoch） | infrastructure | 无 |
-| domain | `common/time_text` / `worker/worker_lines` / `common/demo_data` / `common/errors` | 时间文本换算、worker 行解析、演示样例、语义类型 | 各层 | 无（换算/格式化函数由 app.py 注入；不读墙钟，此刻值由调用方传入） |
+| domain | `common/time_text` / `worker/worker_lines` / `common/demo_data` / `common/errors` | 时间文本换算、worker 行解析/格式化、演示样例、语义类型 | 各层 | 无（换算/格式化函数由 app.py 注入；不读墙钟，此刻值由调用方传入） |
 | application | `coordination` | 持有协调锁、关闭屏障、忙碌槽位和进程登记表 | app 与各用例 | 无锁的已发布计划状态端口 |
-| application | `plan/plan_service` / `plan/plan_admission` | 单场 worker 监督；计划接纳、请求对账、代次与终态发布 | app.Api 计划方法 | domain + 注入端口 |
+| application | `plan/plan_service` / `plan/plan_task_monitor` / `plan/plan_admission` | 单场 worker 启动与监督（`plan_task_monitor` 承接看门狗与行解析）；计划接纳、请求对账、代次与终态发布 | app.Api 计划方法 | domain + 注入端口 |
 | application | `signup/signup_cancellation` | 单场取消的占位、worker 调用与活动缓存回写 | app.Api.cancel_signup | 协调状态、活动缓存 + 注入端口 |
-| application | `worker/worker_service` / `desktop/clock_service` / `desktop/desktop_lifecycle` | worker 受管创建及回收、业务时钟校准、关停屏障与资源收尾 | app.Api 桥接方法 | 协调状态 + 注入端口 |
-| application | `desktop/update_service` | 更新的状态与用例（UpdateService），端口由 Api 在调用时注入 | app.Api 更新方法 | 注入端口 |
+| application | `worker/worker_service` / `worker/worker_clock` / `worker/worker_auth` / `worker/worker_runtime` / `desktop/clock_service` / `desktop/desktop_lifecycle` | worker 受管创建及回收、worker 时钟/鉴权探测/运行期封装、业务时钟校准、关停屏障与资源收尾 | app.Api、grab 入口 | 协调状态/grab 端口 + 注入端口 |
+| application | `desktop/update_service` / `desktop/update_version_download` | 更新的状态与用例（UpdateService）及版本目录下载辅助，端口由 Api 在调用时注入 | app.Api 更新方法 | 注入端口 |
+| application | `components/advanced_component_service` / `components/split_asset_flow` | 高级组件下载/校验/安装状态机及分片资产组无锁编排 | app.Api 组件方法 | 注入端口 |
 | application | `login/login_service` | check 事件载荷与 done 结论整理 | 登录恢复与 worker 用例 | domain |
 | application | `login/login_recovery` | check 的单飞与补查、最近一次校验结论、登录失效推送（同一次失效只推一次） | app.Api.check、重登入口 | 协调锁 + 注入端口 |
+| application | `login/login_relay_service` / `login/login_relay_protocol` | 手机重登中继会话管理与协议行事件解析状态投影 | app.Api、手机访问 | domain + 注入端口 |
 | application | `login/relogin_entry` | 重登入口与自动重登门：四道前置门、自动发起与中继收敛、凭据的暂存与落盘时机；判断全在 `domain.login.login_rules` | app.Api 的重登方法（同名转发） | 协调锁、LoginRecovery 状态 + 注入端口 |
 | application | `desktop/desktop_window` | 窗口外壳：关窗三选与偏好、隐藏与唤回、托盘、二次打开、计划结束通知；`_window` 等旧字段名由 `DesktopWindowFields` 代理 | app.Api 的窗口方法（同名转发）、`main()` 的 closing/minimized/restored 接线 | 协调锁 + 注入端口 |
 | infrastructure | `stores/prefs_store` | ui.json 跨进程锁 + 原子读-合并-写 | app 外观、lifecycle_store | 无 |
 | infrastructure | `desktop/process_tree` | Windows Job Object 进程树所有权、taskkill 整树终止 | app 外观（spawn 端口） | 无 |
 | infrastructure | `stores/lifecycle_store` | 启动冻结/心跳/正常关闭的 ui.json 记账 | app.get_lifecycle | prefs_store + domain |
+| infrastructure | `clock/business_clock` / `clock/sntp_packet` / `clock/clock_client` | 独立业务时钟（BusinessClock）、SNTP 报文编解码、只读快照客户端（ClockClient） | app 外观、grab、signup_plan | 标准库 |
+| infrastructure | `components/component_packages`（及 `component_manifest`/`component_storage`/`component_transactions`/`component_artifacts`/`component_cloudflared`） | 高级组件清单校验、事务锁与回收、旧单体换位、schema2 资产缓存与组提交、`cloudflared` 自检与存储；`component_packages` 为对外门面 | app、advanced_features、tunnel_manager、发版脚本 | domain + infrastructure |
 | infrastructure | `desktop/webview_mime` | 把 .js 显式登记为 text/javascript（标准库 mimetypes），压过 Windows 注册表可能记下的 text/plain——模块脚本严格要求 JavaScript 类型，类型不对整张模块图都不加载 | infrastructure 包导入时调用一次（拆 Api、起窗代码搬出 app.py 后改为起窗前显式调用） | 无 |
 | interface | `app.py` | Api 的公开方法、条款门禁、事件发射、worker 命令装配、main；composition root：向 domain/application 注入 signup_plan 纯函数、time_contract 换算、business_clock 异常类型 | pywebview / 测试 | 全部下层（裸名注入缝保持 app.X 可替换） |
 | interface | `ui/state/**` | 状态仓库 S 与纯投影（clock/plan/login/filters/labels/time/task-display/terms） | controllers/views | 仍引用上层名字的存量例外记在 `tools/code_shape/ui_layer_allow.json`，只减不增（如 state/clock.js 调 views/list.js 的 `render`）；过渡期起，迁成模块的状态文件在 `ui/features/<功能>/state*.js`（首个是 features/terms/state.js），模块的层规则与检查见 `tools/code_shape/README.md` 的 ui_modules.mjs |
@@ -259,8 +263,8 @@ controller/view DOM 分离不在本轮范围。
 
 ### 高级组件的资产、缓存、指针与锁（2026-11-12）
 
-适用于冻结态的 `phone_control`（手机控制）与 `relogin_ocr`（验证码识别）。实现在
-`local/infrastructure/components/component_packages.py`，界面状态由 `infrastructure.components.advanced_features.feature_state` 整理。
+适用于冻结态的 `phone_control`（手机控制）与 `relogin_ocr`（验证码识别）。对外入口在
+`local/infrastructure/components/component_packages.py`（内部按清单校验、存储锁与回收、旧版换位、分片资产与组提交、`cloudflared` 存储拆为同目录子模块），界面状态由 `infrastructure.components.advanced_features.feature_state` 整理。
 下面的 `<数据目录>` 是运行时数据目录（见 `infrastructure/stores/runtime_paths.py`），不写具体路径。
 
 **资产与组**
@@ -328,7 +332,7 @@ controller/view DOM 分离不在本轮范围。
 
 ### 报名链路（决策 015）
 
-- **模块分工与调用时端口装配**：`grab.cmd_grab` 只做 Playwright 导入与端口装配，流程分在 `local/application/signup/` 的六个模块——`signup_run.py`（入口 `run_signup`、准备阶段与外层异常映射）、`signup_outcome.py`（唯一 `kind=done` 终态、各停止原因结论与通知、退出码与收口辅助）、`signup_ledger.py`（同一调度账本、回包分类下结论、页面与直发事件结算、在途同步与扩窗重建预算）、`signup_direct.py`（直发路径选择、单向退回点击、重取密钥、现算签名发一笔与开放前预检）、`signup_browser.py`（开页、dry-run、已报名前置核对、等待开放、监听注册与解除、主调度循环与点击兜底、关浏览器）、`signup_finalize.py`（发射闸门、短事件泵、1 秒尾窗与成功粘性的统一有界收尾、单次最终核对与异常退路），以及配套的 `signup_policy.py`（提交节奏状态机 `BurstPolicy` 与 13 个节奏常量，经可覆盖钩子在调用时绑定日志与时钟异常）和 `signup_target.py`（活动候选筛选、按序号或名称选取与已开放场次时刻替换）；端口在每次调用 `cmd_grab` 时从 `grab` 模块当前全局取出，因此测试替换 `grab.X` 仍生效。
+- **模块分工与调用时端口装配**：`grab.py` 作为 CLI/worker 入口与端口装配薄壳，报名主流程分在 `local/application/signup/` 的六个模块——`signup_run.py`（入口 `run_signup`、准备阶段与外层异常映射）、`signup_outcome.py`（唯一 `kind=done` 终态、各停止原因结论与通知、退出码与收口辅助）、`signup_ledger.py`（同一调度账本、回包分类下结论、页面与直发事件结算、在途同步与扩窗重建预算）、`signup_direct.py`（直发路径选择、单向退回点击、重取密钥、现算签名发一笔与开放前预检）、`signup_browser.py`（开页、dry-run、已报名前置核对、等待开放、监听注册与解除、主调度循环与点击兜底、关浏览器）、`signup_finalize.py`（发射闸门、短事件泵、1 秒尾窗与成功粘性的统一有界收尾、单次最终核对与异常退路），以及配套的 `signup_policy.py`（提交节奏状态机 `BurstPolicy`、13 个节奏常量与 `wait_before_next_submit`）、`signup_target.py`（活动候选筛选、按序号或名称选取与已开放场次时刻替换），其余子命令（时钟/检查/取消/运行时）编排在 `application/worker/` 的 `worker_clock.py`、`worker_auth.py`、`worker_cancel.py`、`worker_runtime.py`；端口在每次调用时从 `grab` 模块当前全局取出，因此测试替换 `grab.X` 仍生效。
 - **直发为主、点击兜底**：开抢前调 `runtime/profile` 取运行时密钥（`fetch_runtime_key`），
   经 `parse_runtime_key` 校验形状后交给 `build_signup_hash` 现算签名；只有三种情况退回点击
   ——取不到密钥、重取后仍「版本不兼容」、同一条未识别回包连续 3 次。每场写
