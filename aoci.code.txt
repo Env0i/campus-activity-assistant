@@ -1134,14 +1134,15 @@ mixed-plan-runtime.md[SB4T]: F:说明混合计划独立准备调度、提交重�
 stop-and-result.md[SB4T]: F:说明计划停止确认、进程树收尾、单场取消、终态分类及用户后续动作 | R:code:design/decisions/003-retry-policy.md | A:停止取消及终态流程 | S:停止不抹已提交结果，静默复查不改已展示结论
 
 ===/<repository>/design/proposals/===
-README.md[SW3T]: F:索引引导、提醒、界面与私聊自助等提案并规定确认、实现验收后迁入决策的生命周期 | R:code:design/proposals/replayable-product-tour.md,code:design/proposals/owner-chat-self-service.md | A:提案索引 | S:引导未实现的索引描述与提案accepted记录不一致
-activity-description-info-button.md[SU3T]: F:提出活动简介纯文本浮层与已有详情缓存复用，列出字段长文本和失败反馈确认条件 | R:code:contracts/school-api/README.md | A:- | S:字段语义未核对不得实施，回包与懒加载描述待协调
+README.md[SW3T]: F:索引引导、提醒、界面翻新、简介、文案与私聊自助等提案并规定确认、实现验收后迁入决策的生命周期 | R:code:design/proposals/workbench-ui-polish.md,code:design/proposals/owner-chat-self-service.md | A:提案索引 | S:界面三份提案待看截图定稿，仍是proposed
+activity-description-info-button.md[SU3T]: F:提出活动名旁问号打开简介浮层，关键事实在前，复用已有详情缓存，并记下已核对的简介与面向范围字段语义 | R:code:contracts/school-api/README.md,code:design/prototype/workbench-2026-11/Main.dc.html | A:hdms/hdmxfw/mxfw映射 | S:范围代码0到3是样本归纳非官方字典，未知代码原样显示文字；真实取值不进仓库
 auto-relogin-failure-notice.md[SU3T]: F:提出自动登录失败与验证码转人工通知需求，保留渠道合并频次及紧迫性待决 | R:code:design/proposals/workbench-ui-polish.md | A:- | S:渠道和频次未定，不可当作现有通知行为
 engineering-refactor.md[SW4M]: F:汇总重构已落地底座、Api与手机页拆分、安全网、后端大文件拆分与验收进度，规划app.py收口、前端与长文件治理 | R:code:docs/ARCHITECTURE.md,code:design/evidence/2026-11-24/backend-split/README.md | A:重构状态及工程终点 | S:1200行仅参考；离线回归通过不等于真窗口验收，合入前须过清单
 replayable-product-tour.md[SU3T]: F:保留可重播引导历史提案与遮罩版本跳过暂停方案，将正式规则指向决策009 | R:code:design/decisions/009-replayable-product-tour.md | A:- | S:方案确认并记实现落地，真机用户验收仍待
-workbench-ui-polish.md[SU4S]: F:记录工作台时间轴设置加载及状态过渡打磨方向，区分确认规则、前置缺陷与原型门槛 | R:code:docs/UI_SPEC.md | A:打磨方向及实施门槛 | S:方向已定不等于实现，窄档布局和通知渠道仍待定
+workbench-ui-polish.md[SU4M]: F:记录工作台时间轴、设置、加载与状态过渡打磨方向，以及界面翻新第一批原型的已定口径、画板与同日复核调整 | R:code:docs/UI_SPEC.md,code:design/evidence/2026-11-24/ui-refresh/README.md | A:打磨方向、已定口径与实施门槛 | S:看截图定稿前不改规范和产品代码；四格按列表宽度切换
 owner-chat-self-service.md[SU6T]: F:提案owner私聊与本机自助功能：我的报名补全、预报名查冲突、私聊取消、开始与签退提醒、变动通知、本机飞书提醒设置 | R:code:design/decisions/016-conflict-visibility-and-cancel.md,code:server/bot/bot.js,code:server/scripts/signup/watchlist.py | A:A到F口径、拆分、验收 | S:取消入口须修订决策016；直发签名不在本批
 server-direct-signup.md[SB7T]: F:提案服务器报名改为直发签名为主、点击兜底，并让主动换新避开正在进行的报名 | R:code:design/decisions/015-signup-path-and-replies.md,code:design/proposals/owner-chat-self-service.md | A:S1签名/S2直发/S3登录与换新/S4先拆再加/已定四条 | S:对拍样例用假密钥由本机CNG算出；真机验收前保持proposed
+copy-simplification.md[SU3T]: F:按六块界面逐条对照全工具文案的现行与精简写法，列出精简原则与文案规范修订建议 | R:code:design/specs/copywriting.md,code:docs/UI_SPEC.md | A:逐条对照表 | S:只应用到原型；短句不用公文字，防误会的否定句保留
 
 ===/<repository>/design/prototype/workbench-2026-11/===
 .gitignore[FV3T]: F:排除许可未明的本地画布运行时support.js，避免其进入版本库 | R:- | A:support.js | S:画布运行依赖该本地文件，但仓库不提供
@@ -1197,7 +1198,7 @@ LoginCap.dc.html[SU3T]: F:展示账号密码登录后的验证码步骤原型 | 
 LoginShort.dc.html[SU3T]: F:展示现有登录可能撑不到报名开放的提醒原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=loginshort;tier=wide;frozen=true | S:-
 LoginWait.dc.html[SU3T]: F:展示等待用户完成浏览器登录的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=loginwait;tier=wide;frozen=true | S:-
 LongName.dc.html[SU3T]: F:展示超长活动名称及地点的宽屏排版原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=longname;tier=wide;frozen=true | S:-
-Main.dc.html[SU5L]: F:实现活动筛选、报名计划、登录、条款、时间、手机访问、组件更新、飞书提醒设置及退出的共享交互原型 | R:code:design/prototype/workbench-2026-11/support.js | A:DCLogic组件；scene初态；tier布局；height/short容器；frozen停止计时与全局快捷键；fsView飞书提醒 | S:固定演示数据不能当作真实学校请求证据；frozen不禁用全部按钮；提交结果不明不自动重发；停止不撤销已提交结果；飞书提醒只演示校验反馈不发真请求
+Main.dc.html[SU5L]: F:实现时间轴活动列表、类型筛选、简介浮层、报名计划、登录、条款、时间、手机访问、组件更新、飞书提醒设置及退出的共享交互原型 | R:code:design/prototype/workbench-2026-11/support.js,code:design/proposals/activity-description-info-button.md | A:DCLogic组件；scene初态；tier布局；height/short容器；frozen停止计时与全局快捷键；scopeView面向范围拆行 | S:固定演示数据和范围文字是假值，不能当真实学校请求证据；第三层四格按列表容器宽度切换；提交结果不明不自动重发；停止不撤销已提交结果；飞书提醒不发真请求
 Medium.dc.html[SU3T]: F:展示中等窗口下报名计划草稿布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=draft;tier=medium;frozen=true | S:-
 MediumRun.dc.html[SU3T]: F:展示中等窗口下报名计划运行布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=running;tier=medium;frozen=true | S:-
 MigrateFail.dc.html[SU3T]: F:展示旧版登录迁移失败后重新登录的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=migratefail;tier=wide;frozen=true | S:-
@@ -1221,7 +1222,7 @@ PhStarting.dc.html[SU3T]: F:展示手机访问正在开启的原型 | R:code:des
 PhStartingTop.dc.html[SU3T]: F:展示顶栏手机访问正在开启的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phstartingtop;tier=wide;frozen=true | S:-
 PhStopAsk.dc.html[SU3T]: F:展示关闭手机访问前的确认对话框 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phstopask;宽屏冻结画板 | S:-
 PhStopping.dc.html[SU3T]: F:展示手机访问正在停止与顶栏等待状态 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=phstopping;宽屏冻结画板 | S:-
-Phone.dc.html[SU5L]: F:实现配对、活动筛选、冲突解释、报名计划、离线与重新登录的手机交互原型，含登录四态、未校准按开放日分组与举办时间待公布拦截 | R:code:design/prototype/workbench-2026-11/support.js | A:Phone组件；scene/frozen/height；配对、计划确认、停止取消与验证码交互 | S:活动时钟和结果均为演示；配对错三次锁60秒；提交中及开放前100秒禁人工重登；未知结果不重发；冲突页不撤回报名；没登录说登录，失效才说重新登录；转人工引导句不写次数
+Phone.dc.html[SU5L]: F:实现配对、时间轴活动列表、冲突解释、报名计划、离线与重新登录的手机交互原型，含登录四态、未校准按开放日分组与举办时间待公布拦截 | R:code:design/prototype/workbench-2026-11/support.js | A:Phone组件；scene/frozen/height；配对、计划确认、停止取消与验证码交互 | S:活动时钟和结果均为演示；配对错三次锁60秒；提交中及开放前100秒禁人工重登；未知结果不重发；冲突页不撤回报名；没登录说登录，失效才说重新登录
 PhoneApp.dc.html[SU3T]: F:提供从配对页开始的可操作手机原型入口 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=pair;390×844 | S:-
 PhoneAuto.dc.html[SU3T]: F:展示电脑正在自动登录的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=auto;390×844;frozen=true | S:-
 PhoneCancel.dc.html[SU3T]: F:展示手机取消计划中单场任务的确认原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=cancelsheet;390×844;frozen=true | S:-
@@ -1256,7 +1257,7 @@ PopDown.dc.html[SU3T]: F:展示北京时间未校准详情卡的原型 | R:code:
 PopLogin.dc.html[SU3T]: F:展示登录详情卡原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=poplogin;tier=wide;frozen=true | S:-
 PopPhone.dc.html[SU3T]: F:展示手机访问详情卡原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=popphone;tier=wide;frozen=true | S:-
 PreWarn.dc.html[SU3T]: F:展示开始计划前只提醒不阻止的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=prewarn;tier=wide;frozen=true | S:-
-README.md[SU4M]: F:说明工作台原型用途、启动方式、源码阅读、画板场景目录与设置抽屉飞书提醒节 | R:code:design/prototype/workbench-2026-11/index.html,code:design/prototype/workbench-2026-11/ImplNotes.dc.html | A:本机静态服务器与画板映射表 | S:必须通过HTTP访问；仅用假数据不连学校；许可不明的support.js仅本机保留，不入库或公开发布；演示控件不移植为功能
+README.md[SU4M]: F:说明工作台原型用途、启动方式、源码阅读、画板场景目录与设置抽屉飞书提醒节 | R:code:design/prototype/workbench-2026-11/index.html,code:design/prototype/workbench-2026-11/canvas.json | A:本机静态服务器与画板映射表 | S:必须通过HTTP访问；仅用假数据不连学校；许可不明的support.js仅本机保留，不入库或公开发布；演示控件不移植为功能
 Relogin.dc.html[SU3T]: F:提供已保存账号但缺少识别组件的重登交互原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=relogin;tier=wide | S:-
 Result.dc.html[SU3T]: F:展示计划部分成功与待核对的结果原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=result;tier=wide;frozen=true | S:-
 RlBad.dc.html[SU3T]: F:展示重登时保存密码错误的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=rlbad;tier=wide;frozen=true | S:-
@@ -1291,13 +1292,40 @@ UpdateLive.dc.html[SU3T]: F:提供检查、下载与安装新版本的交互原�
 UpdateReady.dc.html[SU3T]: F:展示新版本校验通过但计划仍运行的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=upready;tier=wide;frozen=true | S:-
 Waiting.dc.html[SU3T]: F:展示等开放且允许修改计划的宽屏冻结画板 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:scene=waiting | S:-
 ZeroAct.dc.html[SU3T]: F:展示学校返回零活动的宽屏冻结画板 | R:code:design/prototype/workbench-2026-11/Main.dc.html | A:scene=zeroact | S:-
-canvas.json[FU5L]: F:登记工作台各状态画板的位置尺寸、交互标志及展示次序 | R:code:design/prototype/workbench-2026-11/index.html | A:boards,order | S:查看器按坐标重排；order仍决定纳入的画板集合
+canvas.json[FU5L]: F:登记工作台各状态画板含时间轴、简介浮层、登录步骤与横幅画板的位置尺寸、交互标志及展示次序 | R:code:design/prototype/workbench-2026-11/index.html | A:boards,order | S:查看器按坐标重排；order仍决定纳入的画板集合；新画板要同时登记boards与order
 index.html[EU5T]: F:按画布配置分组浏览原尺寸工作台画板，支持缩放与哈希定位 | R:code:design/prototype/workbench-2026-11/canvas.json | A:show,fit | S:需HTTP读取canvas.json，file协议打开会显示失败提示
 打开原型.bat[XU4T]: F:启动仅本机监听的静态服务并用浏览器打开工作台原型 | R:code:design/prototype/workbench-2026-11/index.html | A:- | S:缺support.js时拒绝启动；关闭服务器窗口才停止服务
 PhoneLoginUnknown.dc.html[SU3T]: F:展示电脑登录状态待确认的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=loginunknown;390×844;frozen=true | S:-
 PhoneNever.dc.html[SU3T]: F:展示电脑上还没有登录的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=never;390×844;frozen=true | S:-
 PhoneActPending.dc.html[SU3T]: F:展示已选场次举办时间待公布、底栏提示先取消勾选的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=actpending;390×844;frozen=true | S:-
 PhoneSignedActPending.dc.html[SU3T]: F:展示已报名活动缺举办时间、底栏提示暂时开始不了的手机原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=signedactpending;390×844;frozen=true | S:-
+BannerCollapse.dc.html[SU3T]: F:展示持续告警横幅收起后顶栏留提示点的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=bcollapse;tier=wide;frozen=true | S:-
+BannerInlineClose.dc.html[SU3T]: F:展示设置内联反馈带关闭按钮的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=binline;tier=wide;frozen=true | S:-
+BannerNotice.dc.html[SU3T]: F:展示一次性提示横幅点知道了关闭的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=bnotice;tier=wide;frozen=true | S:-
+DescEmpty.dc.html[SU3T]: F:展示学校未提供简介时的活动简介浮层原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=descempty;tier=wide;frozen=true | S:-
+DescFail.dc.html[SU3T]: F:展示简介同步失败可重新获取的活动简介浮层原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=descfail;tier=wide;frozen=true | S:-
+DescLong.dc.html[SU3T]: F:展示长简介限高并可展开全文的活动简介浮层原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=desclong;tier=wide;frozen=true | S:-
+DescNormal.dc.html[SU3T]: F:展示关键事实在前、面向范围拆行折叠的活动简介浮层原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=descnorm;tier=wide;frozen=true | S:-
+DescScope.dc.html[SU3T]: F:展示面向范围代码未识别时原样显示文字的简介浮层原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=descscope;tier=wide;frozen=true | S:-
+ListRefreshFail.dc.html[SU3T]: F:展示刷新失败保留旧列表并在列表上方提示重试的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=listreffail;tier=wide;frozen=true | S:-
+ListRefreshing.dc.html[SU3T]: F:展示有数据时刷新保留旧行的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=listrefresh;tier=wide;frozen=true | S:-
+ListSkel.dc.html[SU3T]: F:展示首次加载活动列表骨架屏的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=listskel;tier=wide;frozen=true | S:-
+LoginStepBadPwd.dc.html[SU3T]: F:展示失效后自动登录清单中保存密码已失效的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=lstepbadpwd;tier=wide;frozen=true | S:-
+LoginStepCred.dc.html[SU3T]: F:展示失效后自动登录清单还差账号密码的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=lstepcred;tier=wide;frozen=true | S:-
+LoginStepEnable.dc.html[SU3T]: F:展示验证码识别已安装待启用的自动登录清单原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=lstepenable;tier=wide;frozen=true | S:-
+LoginStepOcr.dc.html[SU3T]: F:展示自动登录清单还差安装验证码识别的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=lstepocr;tier=wide;frozen=true | S:-
+LoginStepReady.dc.html[SU3T]: F:展示失效后自动登录两步均就绪的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=lstepready;tier=wide;frozen=true | S:-
+LoginStepTwo.dc.html[SU3T]: F:展示失效后自动登录还差两步的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=lsteptwo;tier=wide;frozen=true | S:-
+NarrowDesc.dc.html[SU3T]: F:展示窄窗口下活动简介浮层的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=descnorm;tier=narrow;frozen=true | S:-
+PhoneTimeline.dc.html[SU3T]: F:展示手机页时间轴活动列表与类型标签的原型 | R:code:design/prototype/workbench-2026-11/Phone.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=picked;frozen=true | S:-
+ProgCard.dc.html[SU3T]: F:展示设置程序组统一为一张卡片的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=progcard;tier=wide;frozen=true | S:-
+TimelineCompact.dc.html[SU3T]: F:展示1040宽边界下时间轴列表第三层两行两格的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=tlwide;tier=wide;frozen=true | S:-
+TimelineFilters.dc.html[SU3T]: F:展示更多筛选内活动类型多选的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=tlfilters;tier=wide;frozen=true | S:-
+TimelineMed.dc.html[SU3T]: F:展示中档时间轴列表与底部停靠条的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=tlwide;tier=medium;frozen=true | S:-
+TimelineNarrow.dc.html[SU3T]: F:展示窄档时刻在节点上方、竖线贴左的时间轴列表原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=tlwide;tier=narrow;frozen=true | S:-
+TimelineShort.dc.html[SU3T]: F:展示矮窗口时间轴列表与短点阵盘的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=tlwide;tier=wide;short=true;frozen=true | S:-
+TimelineWide.dc.html[SU3T]: F:展示宽档竖线时间轴与四层活动卡片的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=tlwide;tier=wide;frozen=true | S:-
+TopTransitions.dc.html[SU3T]: F:展示顶栏四类状态切换规则的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=topmatrix;tier=wide;frozen=true | S:-
 
 ===/<repository>/design/specs/===
 README.md[SU6T]: F:索引交互规格并区分规则决策、组件行为和技术验收文档职责 | R:- | A:辅助面板/文案/版本发布入口 | S:规则变化先修决策，不在规格复制业务规则
@@ -2111,3 +2139,6 @@ README.md[SQ4S]: F:记录服务器直发签名两步与返修的改动、拆分�
 
 ===/<repository>/design/evidence/2026-11-24/server-direct-signup/scripts/===
 trace_submit_loop.py[XQ4S]: F:录制并逐字段比对test_grab_signup_retry里全部run_submit_loop调用的停止原因、状态、日志与私聊通知 | R:code:server/tests/test_grab_signup_retry.py,code:server/deploy/signup/grab_signup.py | A:--repo/--out录制,--compare比对 | S:只跑测试替身，不写目标仓库；报名时间行先规范化再比
+
+===/<repository>/design/evidence/2026-11-24/ui-refresh/===
+README.md[SQ3T]: F:记录界面翻新原型59张无头Edge截图的复现命令、新增与重截画板清单及同日复核调整 | R:code:design/prototype/workbench-2026-11/README.md,code:design/proposals/workbench-ui-polish.md | A:截图清单与复核调整节 | S:截图只证原型，不证产品代码
