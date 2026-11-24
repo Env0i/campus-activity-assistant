@@ -675,11 +675,17 @@ test('combined 提交取消不等脚本返回即回正在取消卡，结束后�
   await withHarness({ cancelStdout: JSON.stringify(result), hangCancel: true }, async (state) => {
     await deliver(state, messagePayload({ message: { message_id: 'om_owner_learn' } }));
     const beforeCards = state.cards.length;
-    const res = await cardAction(state, {
-      action: { value: cancelValue('x') },
-      context: { chat_type: 'p2p', open_chat_id: OWNER_CHAT },
-      operator: { open_id: OWNER },
-    });
+    let quickTimer;
+    const res = await Promise.race([
+      cardAction(state, {
+        action: { value: cancelValue('x') },
+        context: { chat_type: 'p2p', open_chat_id: OWNER_CHAT },
+        operator: { open_id: OWNER },
+      }).finally(() => clearTimeout(quickTimer)),
+      new Promise((_, reject) => {
+        quickTimer = setTimeout(() => reject(new Error('提交取消回调未在 300ms 内立即返回')), 300);
+      }),
+    ]);
     assert.equal(res.toast.type, 'info');
     assert.ok(res.card && res.card.data.header, '应当立即回正在取消卡片');
     assert.equal(res.card.data.header.title.content, '正在取消');
@@ -778,7 +784,7 @@ test('combined 取消被学校拒绝时如实回结果', async () => {
   });
 });
 
-test('combined 取消脚本输出读不懂时不假装成功', async () => {
+test('combined 取消脚本输出读不懂时私聊发待确认卡片且不重试', async () => {
   await withHarness({ cancelStdout: '{not-json' }, async (state) => {
     await deliver(state, messagePayload({ message: { message_id: 'om_owner_learn' } }));
     const beforeCards = state.cards.length;
@@ -789,9 +795,33 @@ test('combined 取消脚本输出读不懂时不假装成功', async () => {
     });
     assert.equal(res.card.data.header.title.content, '正在取消');
     await new Promise((r) => setTimeout(r, 20));
-    assert.equal(state.cards.length - beforeCards, 0, '输出读不懂不发结果卡');
+    assert.equal(state.cards.length - beforeCards, 1, '输出读不懂时应发一张待确认卡片');
+    assert.equal(state.cards[beforeCards].chatId, OWNER_CHAT);
+    assert.match(state.cards[beforeCards].card, /不会自动重试/);
+    assert.equal(state.execCalls.filter((c) => c.args[0] === CANCEL_SCRIPT).length, 1, '绝不重试取消脚本');
     assert.ok(state.logs.some((l) => l.includes('cancel result unreadable')));
   });
+});
+
+test('combined 取消脚本报错或结果没带卡片时均私聊发待确认卡片', async () => {
+  for (const cancelStdout of ['', JSON.stringify({ kind: 'unknown', ok: false })]) {
+    await withHarness({ cancelStdout }, async (state) => {
+      await deliver(state, messagePayload({ message: { message_id: 'om_owner_learn' } }));
+      const beforeCards = state.cards.length;
+      const res = await cardAction(state, {
+        action: { value: cancelValue('x') },
+        context: { chat_type: 'p2p', open_chat_id: OWNER_CHAT },
+        operator: { open_id: OWNER },
+      });
+      assert.equal(res.card.data.header.title.content, '正在取消');
+      await new Promise((r) => setTimeout(r, 20));
+      assert.equal(state.cards.length - beforeCards, 1);
+      assert.equal(state.cards[beforeCards].chatId, OWNER_CHAT);
+      assert.match(state.cards[beforeCards].card, /取消结果待确认/);
+      assert.match(state.cards[beforeCards].card, /不会自动重试/);
+      assert.equal(state.execCalls.filter((c) => c.args[0] === CANCEL_SCRIPT).length, 1);
+    });
+  }
 });
 
 test('combined 里群查询不会覆盖 owner 私聊记录', async () => {
@@ -1020,18 +1050,42 @@ test('已有缓存正常读取后照常启动并去重', async () => {
   }
 });
 
+const CASE_TIMEOUT_MS = 5000;
+
+function runWithTimeout(fn, name) {
+  let timer;
+  return Promise.race([
+    Promise.resolve().then(fn),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`用例超时（>${CASE_TIMEOUT_MS}ms）：${name}`)), CASE_TIMEOUT_MS);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 (async () => {
   let failed = 0;
+  let completed = 0;
+  let currentName = '';
+  process.on('exit', () => {
+    if (completed < tests.length) {
+      console.error(`运行器提前退出：仅完成 ${completed}/${tests.length} 项，未跑完项：${currentName || '未知'}`);
+      process.exitCode = 1;
+    }
+  });
   for (const item of tests) {
+    currentName = item.name;
     try {
-      await item.fn();
+      await runWithTimeout(item.fn, item.name);
       console.log('  ✓ ' + item.name);
     } catch (error) {
       failed += 1;
       console.log('  ✗ ' + item.name);
       console.log('    ' + (error && error.message ? error.message : error));
+    } finally {
+      completed += 1;
     }
   }
+  currentName = '';
   console.log(`\n共 ${tests.length} 项，失败 ${failed} 项`);
   process.exitCode = failed === 0 ? 0 : 1;
 })();

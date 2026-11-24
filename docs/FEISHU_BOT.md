@@ -260,7 +260,7 @@ BOT_ROLE=combined node bot.js --selftest
 | 点了按钮没反应 | 无任何日志 | 没订阅 `card.action.trigger` | 回 2.4 的回调配置 |
 | 按钮点了提示「只对私聊里的本人有效」 | — | 点击人不是 `PRIVATE_OWNER_OPEN_ID`，或卡片被转发到别的会话 | 正常保护，不是 bug |
 | 点确认取消回「确认卡已过期，请重新点「取消报名」」 | 日志 `cancel confirm expired` | 确认卡超过 10 分钟，或从旧卡片点的 | 正常保护；重新点「取消报名」生成新卡 |
-| 点确认取消后只看到「正在取消」，没收到结果卡 | 日志 `cancel result unreadable` 或 `cancel result private send failed` | 取消脚本输出读不懂，或结果私聊没发出去（不重试取消） | 去「我的报名」核对实际状态 |
+| 点确认取消后私聊收到「取消结果待确认」卡片 | 日志 `cancel result unreadable` | 取消脚本报错、超时、输出读不出或没带卡片（不会自动重试） | 去「我的报名」核对实际状态；只有私聊发送失败（`cancel result private send failed`）时才会完全收不到 |
 | 点确认取消后私聊收到「正在处理」卡片 | — | 同一场上一单还没跑完（文件锁单飞） | 等上一单结果卡发到私聊，别连点 |
 | 「我的报名」里某场写「未知」 | 日志没有该场的详情 | 这一场的 `getInfo` 超时或失败，只影响这一场 | 稍后再查询；卡片不会因此整张失败 |
 | 私聊取消后结果「学校没让取消」 | `journalctl` 里 `cancel script stderr` | 复查仍是已报名：学校拒绝，或已过报名截止 | 看结果卡里的学校原话；仍要退只能去学校网站 |

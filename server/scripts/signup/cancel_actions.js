@@ -100,22 +100,21 @@ class CancelActions {
     };
   }
 
-  /** 后台跑取消脚本：结束后把结果卡发到 owner 私聊，出错只留日志、不重试取消。 */
+  /** 后台跑取消脚本：拿到结果卡就私聊，拿不到也发待确认卡片，绝不重试取消。 */
   runInBackground(id, name) {
     const { log, replyCard, ownerP2pChatId } = this.deps;
     this.run(['run', '--id', id, '--name', name]).then(async (res) => {
       if (res.err) log('cancel script stderr:', res.err.slice(0, 200));
       const result = this.lastJsonLine(res.out);
-      if (!result || !result.kind || !result.card) {
-        log('cancel result unreadable:', res.out.slice(0, 200));
-        return;
-      }
+      const hasCard = !!(result && result.kind && result.card);
+      if (!hasCard) log('cancel result unreadable:', res.out.slice(0, 200));
+      const card = hasCard ? result.card : unconfirmedCard(name);
       const chatId = ownerP2pChatId ? ownerP2pChatId() : '';
       if (!chatId || !replyCard) {
         log('cancel result skipped: missing owner chatId or replyCard');
         return;
       }
-      const sent = await replyCard(chatId, result.card);
+      const sent = await replyCard(chatId, card);
       if (!sent) log('cancel result private send failed');
     }).catch((err) => {
       log('cancel background error:', err && err.message ? err.message : err);
@@ -146,6 +145,22 @@ function submittingCard(name) {
     elements: [
       { tag: 'div', text: { tag: 'lark_md',
         content: `**${name || '活动'}**\n正在提交取消，结果马上发到你的私聊。` } },
+      { tag: 'note', elements: [{ tag: 'plain_text', content: '只对本人生效' }] },
+    ],
+  };
+}
+
+function unconfirmedCard(name) {
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      template: 'grey',
+      title: { tag: 'plain_text', content: '取消结果待确认' },
+      subtitle: { tag: 'plain_text', content: '没有自动重试' },
+    },
+    elements: [
+      { tag: 'div', text: { tag: 'lark_md',
+        content: `**${name || '活动'}**\n这次取消的结果没能确认，请到「我的报名」核对，不会自动重试。` } },
       { tag: 'note', elements: [{ tag: 'plain_text', content: '只对本人生效' }] },
     ],
   };
