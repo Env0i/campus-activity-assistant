@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
 """发布审核发现的并发与故障边界；全程离线、数据只在临时目录。"""
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str((Path(__file__).resolve().parents[3] / "local")))
+_LOCAL_DIR = Path(__file__).resolve().parents[3] / "local"
+sys.path.insert(0, str(_LOCAL_DIR / "tests"))
+sys.path.insert(0, str(_LOCAL_DIR))
+from fixtures.api_threads import stop_auto_relogin_on_cleanup
 from infrastructure.components import component_packages as cp
 from domain.phone import phone_rules
 
@@ -21,13 +26,18 @@ class ApiComponentCoordinationTests(unittest.TestCase):
     def setUp(self):
         import app
         self.app = app
-        self.api = app.Api.__new__(app.Api)
-        self.api._lock = threading.Lock()
-        self.api._phone_access_lock = threading.RLock()
-        self.api._credential_lock = threading.RLock()
-        self.api._closing = False
-        self.api._advanced_busy = False
-        self.api._is_busy_locked = lambda: False
+        tmp = Path(tempfile.mkdtemp(prefix="release-audit-"))
+        self.addCleanup(shutil.rmtree, tmp, True)
+        for name, value in (
+            ("DATA_DIR", tmp),
+            ("PREFS", tmp / "ui.json"),
+            ("DEVICE_FILE", tmp / "phone-devices.dpapi.json"),
+            ("CREDENTIAL_FILE", tmp / "relogin-credentials.dpapi.json"),
+        ):
+            patch = mock.patch.object(app, name, value)
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.api = stop_auto_relogin_on_cleanup(self, app.Api())
         self.api._emit = mock.Mock()
         self.api._component_service = mock.Mock()
         self.api._component_service.start.return_value = {"ok": True}
