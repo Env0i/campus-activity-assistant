@@ -2,36 +2,10 @@
 # -*- coding: utf-8 -*-
 """无人值守重新登录：xgUniToken 失效时的兜底登录。
 
-调用方式：cron / systemd timer 定时跑；脚本自己先校验 token，只有失效才真正登录，
-正常时段不写任何状态文件。
+cron / systemd timer 定时跑，先校验 token，失效才触发 Playwright 登录与 OCR；
+成功原子写 storage_state.json 与 data/session.json，日志不记凭据与个人信息。
 
-登录流程：
-1. Playwright Chromium（headless）打开真实登录页，页面自己带请求签名，不逆向接口；
-2. 拦截页面自身发出的 /dr/api/auth/captcha 响应，取 base64 验证码图；
-3. 识别 4 位验证码：ddddocr（beta 模型）为主，长度不是 4 位时依次回退默认模型、
-   Tesseract 多变体投票（20 张标注样本实测 95% / 80% / 70%，三源串联 20/20）；
-4. 填账号、密码、验证码，勾选隐私协议，点「立即登录」；
-5. 拦截 /dr/api/auth/login 响应判断结果，成功后从 localStorage 读 xgUniToken；
-6. 调 listActivity 校验 token 真被接口接受，再原子写入：
-   - /root/campus-login/storage_state.json（Playwright 完整 state，含 cookies 与 localStorage）
-   - /root/campus-activity-watch/data/session.json（token/saved_at/name/student_no/gender）
-
-边界与安全：
-- 最多尝试 MAX_ATTEMPTS 次，每次重新加载页面换一张验证码，两次之间隔 RETRY_DELAY_SEC
-  秒（背靠背连打容易撞同一段降质窗口）；全失败才私聊 owner 告警；
-- 告警 30 分钟内只发一次，避免 cron 反复刷屏；5 分钟后下一轮会继续试，
-  避免一次验证码运气不好就断一整晚；
-- 日志与告警只写结果分类和时间，绝不写账号、密码、验证码、token、姓名、学号；
-- 不写 state.json、不动 token_probe 日志、不触发推送，因此不影响业务去重状态；
-- 账号密码只从 credentials.json（权限必须 600）读取。
-
-用法：
-  python3 auto_login.py --check        # 只读：当前 token 是否有效
-  python3 auto_login.py               # 默认：读 token_probe.log，失败才登录（零额外请求）
-  python3 auto_login.py --self-test   # 假账号跑通整条链路，不落盘
-  python3 auto_login.py --force       # 不论 token 状态都登录（联调用）
-  python3 auto_login.py --dry-run 10  # 取 10 张验证码验识别率，不提交登录
-
+用法：--check / --trigger log|api / --preempt / --force / --self-test / --dry-run N
 @author Author
 """
 import argparse
@@ -51,6 +25,11 @@ import numpy as np
 from PIL import Image
 from playwright.sync_api import sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+_LOGIN_HERE = os.path.dirname(os.path.abspath(__file__))
+if _LOGIN_HERE not in sys.path:
+    sys.path.insert(0, _LOGIN_HERE)
+import preempt_guard  # noqa: E402
 
 LOGIN_DIR = os.environ.get("LOGIN_DIR", "").strip() or "/root/campus-login"
 APP_DIR = os.environ.get("APP_DIR", "").strip() or "/root/campus-activity-watch"
@@ -89,11 +68,7 @@ PROBE_LOG = os.path.join(APP_DIR, "data", "token_probe.log")
 MAX_ATTEMPTS = 5
 ALERT_COOLDOWN_SEC = 30 * 60
 PROBE_STALE_SEC = 3600
-# 单次 probe 失败不足以断言登录失效：整点 cron 齐发时学校接口会偶发一次 4001，
-# 同一 token 前后两个请求会一个 ok 一个 fail（2026-10-30 07:00 实测：
-# probe 07:00:01 ok、fetch 07:00:02 4001）。连续失败这个次数才直接重登；
-# 只失败一次时现查接口确认。判错的代价是立刻换掉 token，把所有正在用
-# 旧 token 的进程一起打成 4001 —— 那才是真正的失效。
+# 整点 cron 齐发时接口会偶发一次 4001，连续失败该次数才直接重登；只失败一次现查确认。
 PROBE_FAIL_STREAK = 2
 # 两次尝试之间等一会儿：连着打容易撞同一段降质窗口，间隔后换到的是新图
 RETRY_DELAY_SEC = 30
@@ -101,10 +76,7 @@ RETRY_DELAY_SEC = 30
 CAPTCHA_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 # ddddocr 模型按优先级排列：beta（common.onnx）明显强于默认（common_old.onnx）
 DDDDOCR_MODELS = ("beta", "old")
-# token 寿命不稳定：早期样本 17.5 小时，2026-10-22 这次只活了 10 小时 40 分。
-# 等到 probe 报失效才登录，中间有 15–20 分钟推送必挂的盲窗（21:30 那条推送就是
-# 这么丢的）。--preempt 在用到 8 小时时主动换新（最短寿命的约七成），每天多登录
-# 一次，换掉这个盲窗。
+# --preempt 在用到 8 小时主动换新，消掉失效前盲窗。
 PREEMPT_HOURS = 8.0
 
 UA = (
@@ -141,6 +113,11 @@ def log(msg):
     except Exception:
         pass
     print(line, flush=True)
+
+
+def _max_attempts():
+    raw = os.environ.get("AUTO_LOGIN_MAX_ATTEMPTS", "").strip()
+    return int(raw) if raw.isdigit() and int(raw) > 0 else MAX_ATTEMPTS
 
 
 def _read_json(path):
@@ -695,6 +672,22 @@ def _load_credentials():
     return {"username": str(data["username"]), "password": str(data["password"])}
 
 
+def _preempt_due(token):
+    age = _fp_age_hours(token)
+    if age is None or age < PREEMPT_HOURS:
+        return False
+    skip, reason = preempt_guard.should_skip_preempt(app_dir=APP_DIR)
+    if skip:
+        log("[i] 跳过本轮主动换新：%s" % reason)
+        return False
+    ok, detail = token_valid(token)
+    if detail.startswith(("http-error", "bad-json")):
+        log("[i] 探测不到学校接口（%s），本轮跳过，等下一轮" % detail[:40])
+        return None
+    log("[i] token 已用 %.1f 小时（阈值 %.0f），主动换新" % (age, PREEMPT_HOURS))
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description="xgUniToken 无人值守重新登录")
     parser.add_argument("--check", action="store_true", help="只读校验当前 token")
@@ -727,15 +720,9 @@ def main():
         # 该换新，白试一轮验证码。
         preempt_due = False
         if args.preempt:
-            age = _fp_age_hours(token)
-            if age is not None and age >= PREEMPT_HOURS:
-                ok, detail = token_valid(token)
-                if detail.startswith(("http-error", "bad-json")):
-                    log("[i] 探测不到学校接口（%s），本轮跳过，等下一轮" % detail[:40])
-                    return 0
-                log("[i] token 已用 %.1f 小时（阈值 %.0f），主动换新"
-                    % (age, PREEMPT_HOURS))
-                preempt_due = True
+            preempt_due = _preempt_due(token)
+            if preempt_due is None:
+                return 0
 
         if not preempt_due and args.trigger == "log":
             streak = _probe_fail_streak()
@@ -789,13 +776,13 @@ def main():
             log("[i] 已有另一个自动登录进程在跑，本次跳过")
             return 0
 
-        reason = "unknown"
+        reason, max_attempts = "unknown", _max_attempts()
         with sync_playwright() as p:
             browser = p.chromium.launch(
                 headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"]
             )
             try:
-                for attempt in range(1, MAX_ATTEMPTS + 1):
+                for attempt in range(1, max_attempts + 1):
                     ctx = browser.new_context(
                         locale="zh-CN", viewport={"width": 1366, "height": 900}
                     )
@@ -809,8 +796,8 @@ def main():
                     if ok:
                         atomic_write_json(ALERT_STATE_FILE, {"last_alert_ts": 0}, 0o600)
                         return 0
-                    log("[i] 第 %d/%d 次自动登录失败：%s" % (attempt, MAX_ATTEMPTS, reason))
-                    if attempt < MAX_ATTEMPTS:
+                    log("[i] 第 %d/%d 次自动登录失败：%s" % (attempt, max_attempts, reason))
+                    if attempt < max_attempts:
                         log("[i] %d 秒后换一张验证码重试" % RETRY_DELAY_SEC)
                         time.sleep(RETRY_DELAY_SEC)
             finally:

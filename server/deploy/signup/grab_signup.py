@@ -38,8 +38,10 @@ _SIGNUP_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SIGNUP_DIR not in sys.path:
     sys.path.insert(0, _SIGNUP_DIR)
 
+import signup_direct as _signup_direct  # noqa: E402
 import signup_io as _signup_io  # noqa: E402
 import signup_loop as _signup_loop  # noqa: E402
+import signup_relogin as _signup_relogin  # noqa: E402
 from signup_io import UA, wait_until  # noqa: E402
 from signup_policy import (  # noqa: E402
     ADAPTIVE_WINDOW_S,
@@ -64,6 +66,7 @@ sys.path.insert(0, os.path.join(APP_DIR, "scripts", "lib"))
 from site_target import BASE_URL as SCHOOL_ORIGIN  # noqa: E402
 from site_target import CONFIGURED as SITE_CONFIGURED  # noqa: E402
 from site_target import CONFIG_MESSAGE as SITE_CONFIG_MESSAGE  # noqa: E402
+from school_detail import sign_headers as _school_sign_headers  # noqa: E402
 
 API = SCHOOL_ORIGIN + "/dr/api"
 REFERER = SCHOOL_ORIGIN + "/stu/"
@@ -107,14 +110,15 @@ def detail_url(act_id):
 
 def run_submit_loop(page, *, activity_id, at_ts, window_s, sign_end_ts=None,
                     max_attempts=0, is_joined_fn=None, notify_fn=None,
-                    clock=None, log_fn=None, name="活动"):
+                    clock=None, log_fn=None, name="活动",
+                    burst=None, state=None):
     return _signup_loop.run_submit_loop(
         page, activity_id=activity_id, at_ts=at_ts, window_s=window_s,
         sign_end_ts=sign_end_ts, max_attempts=max_attempts,
         is_joined_fn=is_joined_fn, notify_fn=notify_fn, clock=clock,
         log_fn=log_fn, name=name,
         default_log_fn=log, default_notify_fn=notify,
-        classify_fn=_classify_response,
+        classify_fn=_classify_response, burst=burst, state=state,
     )
 
 
@@ -127,7 +131,48 @@ def _parse_args():
     ap.add_argument("--window", type=float, default=120, help="开放后最多尝试多少秒")
     ap.add_argument("--sign-end", default="", help="报名截止时间（硬上限），如 2026-10-23 23:59:59")
     ap.add_argument("--dry-run", action="store_true", help="只检查页面与按钮，不点击")
+    ap.add_argument("--rehearse", action="store_true", help="直发只读演练：取密钥试算签名，不发 signUp、不发私聊")
     return ap.parse_args()
+
+
+def _fetch_key():
+    return _signup_direct.fetch_runtime_key(
+        api_base=API, referer=REFERER, ua=UA,
+        token_fn=_token, sign_headers_fn=_school_sign_headers,
+    )
+
+
+def _recover_session_bounded():
+    return _signup_relogin.recover_session(
+        old_token=_token(), login_dir=LOGIN_DIR,
+        lock_file=os.path.join(LOGIN_DIR, ".auto_login.lock"),
+        token_fn=_token, log_fn=log,
+    )
+
+
+def _prepare_runtime_key(activity_id, name):
+    key, reason = _fetch_key()
+    if reason != "4001":
+        return key, reason, False
+    outcome, next_key, next_reason = _signup_relogin.handle_pre_open_4001(
+        check_fn=lambda: _post("/rjyHdCyr/getJoinInfo/" + activity_id, {}, _token()).get("code") == 1,
+        recover_fn=_recover_session_bounded,
+        fetch_key_fn=_fetch_key,
+        log_fn=log,
+    )
+    if outcome == "login_invalid":
+        notify("⚠️ 自动报名失败", ["**%s**" % name, "等待开放期间登录失效且自动重登失败。"], "red")
+        return None, "4001", True
+    return next_key, next_reason, False
+
+
+def _in_submit_relogin(ctx):
+    return _signup_relogin.handle_in_submit_4001(
+        already_tried=ctx.get("relogin_tried", False),
+        recover_fn=_recover_session_bounded,
+        fetch_key_fn=_fetch_key,
+        log_fn=log,
+    )
 
 
 def _run_browser_signup(args, at, sign_end_ts):
@@ -154,13 +199,25 @@ def _run_browser_signup(args, at, sign_end_ts):
                 notify("已报名", ["**%s**" % args.name, "此前已报名，本次未重复提交"], "blue")
                 return 0
 
+            initial_key, key_reason, aborted = _prepare_runtime_key(args.activity_id, args.name)
+            if aborted:
+                return 3
             wait_until(at - POLL_LEAD)
 
             # 终态收口（含 owner 私聊结论）统一在循环内完成，这里只映射退出码
-            stop_reason, state = run_submit_loop(
-                page, activity_id=args.activity_id, at_ts=at,
-                window_s=args.window, sign_end_ts=sign_end_ts,
-                is_joined_fn=is_joined, notify_fn=notify, name=args.name)
+            stop_reason, state = _signup_direct.run_direct_submit_loop(
+                activity_id=args.activity_id, at_ts=at, window_s=args.window,
+                sign_end_ts=sign_end_ts, api_base=API, referer=REFERER, ua=UA,
+                token_fn=_token, sign_headers_fn=_school_sign_headers,
+                initial_key=initial_key, initial_key_reason=key_reason,
+                is_joined_fn=is_joined, notify_fn=notify, log_fn=log, name=args.name,
+                relogin_fn=_in_submit_relogin,
+                click_fallback_fn=lambda burst, state: run_submit_loop(
+                    page, activity_id=args.activity_id, at_ts=at,
+                    window_s=args.window, sign_end_ts=sign_end_ts,
+                    is_joined_fn=is_joined, notify_fn=notify, name=args.name,
+                    burst=burst, state=state),
+            )
 
             if stop_reason in ("success", "already_signed"):
                 return 0
@@ -176,6 +233,13 @@ def main():
     if not SITE_CONFIGURED:
         print("[x] %s" % SITE_CONFIG_MESSAGE)
         return 2
+
+    if args.rehearse:
+        _signup_direct.rehearse_direct(
+            activity_id=args.activity_id, api_base=API, referer=REFERER,
+            ua=UA, token_fn=_token, sign_headers_fn=_school_sign_headers, log_fn=log,
+        )
+        return 0
 
     at = datetime.strptime(args.at, "%Y-%m-%d %H:%M:%S").timestamp()
     start = at - args.lead

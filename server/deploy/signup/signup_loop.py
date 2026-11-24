@@ -11,6 +11,7 @@ from datetime import datetime
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from signup_policy import BurstPolicy, FULL_SPEED_INTERVAL_S, classify_response
+from signup_reply import stop_reason_label
 
 
 def _is_signup_url(url_text):
@@ -127,6 +128,45 @@ def _pump_wait(page, seconds, *, burst, state, clock, drain_fn):
             return
 
 
+def _path_card_line(state):
+    path = state.get("path")
+    if path == "direct":
+        return "报名路径：直发"
+    if path == "click":
+        reason = state.get("path_reason") or "退回兜底"
+        return "报名路径：点击（原因：%s）" % reason
+    return ""
+
+
+def _build_finish_card(stop_reason, name, attempts, pending, state):
+    extra = _path_card_line(state)
+    if stop_reason == "success":
+        lines = ["**%s**" % name,
+                 "报名时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                 "如不想参加，请尽快在活动页取消，别占着名额。"]
+        out = ("🎟 报名成功", lines, "green")
+    elif stop_reason == "already_signed":
+        out = ("已报名", ["**%s**" % name, "此前已报名，本次未重复提交"], "blue")
+    elif stop_reason == "login_invalid":
+        out = ("⚠️ 自动报名失败",
+               ["**%s**" % name, "登录已失效，重试没有意义，请重新登录后再试。"], "red")
+    elif stop_reason == "unconfirmed":
+        out = ("⚠️ 自动报名结果未确认",
+               ["**%s**" % name,
+                "已提交 %d 次（未决 %d 笔），没有拿到确定回应。" % (attempts, pending),
+                "结果未确认，请到活动页核对。"], "orange")
+    else:
+        label = stop_reason_label(stop_reason)
+        detail = label or ("可能名额已满或页面未放开")
+        out = ("⚠️ 自动报名失败",
+               ["**%s**" % name,
+                "窗口内未成功（尝试 %d 次，stop_reason=%s，%s）。" % (attempts, stop_reason, detail),
+                "建议手动打开活动页确认。"], "orange")
+    if extra:
+        out[1].append(extra)
+    return out
+
+
 def finish_submit_loop(stop_reason, *, burst, state, name, log_fn, notify_owner):
     """唯一结构化终态：一条 [retry] kind=done + 一条 owner 私聊结论。"""
     _sync_state(burst, state)
@@ -136,37 +176,15 @@ def finish_submit_loop(stop_reason, *, burst, state, name, log_fn, notify_owner)
     attempts, pending = state["attempts"], state["pending"]
     if stop_reason == "success":
         log_fn("[OK] 报名成功（尝试 %d 次）" % attempts)
-        notify_owner("🎟 报名成功", [
-            "**%s**" % name,
-            "报名时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "如不想参加，请尽快在活动页取消，别占着名额。",
-        ])
-    elif stop_reason == "already_signed":
-        notify_owner("已报名", ["**%s**" % name,
-                                "此前已报名，本次未重复提交"], "blue")
     elif stop_reason == "login_invalid":
         log_fn("[x] 登录失效（尝试 %d 次）" % attempts)
-        notify_owner("⚠️ 自动报名失败", [
-            "**%s**" % name,
-            "登录已失效，重试没有意义，请重新登录后再试。",
-        ], "red")
     elif stop_reason == "unconfirmed":
-        # 未决不伪造成失败：如实报「待核对」，退出码沿用服务器旧语义
         log_fn("[x] 结果未确认（尝试 %d 次，未决 %d 笔）" % (attempts, pending))
-        notify_owner("⚠️ 自动报名结果未确认", [
-            "**%s**" % name,
-            "已提交 %d 次（未决 %d 笔），没有拿到确定回应。" % (attempts, pending),
-            "结果未确认，请到活动页核对。",
-        ], "orange")
-    else:
+    elif stop_reason != "already_signed":
         log_fn("[x] 报名失败（尝试 %d 次，stop_reason=%s，最近异常 %s）"
                % (attempts, stop_reason, (state["last_reason"] or "名额已满/未开放")))
-        notify_owner("⚠️ 自动报名失败", [
-            "**%s**" % name,
-            "窗口内未成功（尝试 %d 次，stop_reason=%s），可能名额已满或页面未放开。"
-            % (attempts, stop_reason),
-            "建议手动打开活动页确认。",
-        ], "orange")
+    title, lines, template = _build_finish_card(stop_reason, name, attempts, pending, state)
+    notify_owner(title, lines, template)
     return stop_reason, state
 
 
@@ -351,10 +369,21 @@ def _detach_listeners(page, armed, listeners):
             pass
 
 
+def _ensure_loop_context(burst, state, at_ts, window_s, sign_end_ts, max_attempts, clock):
+    if burst is None:
+        burst = BurstPolicy(open_ts=at_ts, base_deadline=float(at_ts) + float(window_s),
+                            sign_end_ts=sign_end_ts, max_attempts=max_attempts,
+                            clock=clock, retry_start=at_ts)
+    if state is None:
+        state = _initial_loop_state(burst)
+    return burst, state
+
+
 def run_submit_loop(page, *, activity_id, at_ts, window_s, sign_end_ts=None,
                     max_attempts=0, is_joined_fn=None, notify_fn=None,
                     clock=None, log_fn=None, name="活动",
-                    default_log_fn=None, default_notify_fn=None, classify_fn=None):
+                    default_log_fn=None, default_notify_fn=None, classify_fn=None,
+                    burst=None, state=None):
     """事件驱动非阻塞提交循环（黄金风暴/全速/404 自适应）。
 
     只做「盯按钮 → 点击 → 记账 → 收口」，不做登录和浏览器生命周期：
@@ -365,10 +394,9 @@ def run_submit_loop(page, *, activity_id, at_ts, window_s, sign_end_ts=None,
     log = log_fn or default_log_fn
     notify_owner = notify_fn or default_notify_fn
     classify = classify_fn or classify_response
-    burst = BurstPolicy(open_ts=at_ts, base_deadline=float(at_ts) + float(window_s),
-                        sign_end_ts=sign_end_ts, max_attempts=max_attempts,
-                        clock=clock, retry_start=at_ts)
-    state, request_to_bid, response_queue = _initial_loop_state(burst), {}, []
+    burst, state = _ensure_loop_context(burst, state, at_ts, window_s,
+                                        sign_end_ts, max_attempts, clock)
+    request_to_bid, response_queue = {}, []
     armed = {"on": False, "dead": False}
 
     def _drain():
