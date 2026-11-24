@@ -24,6 +24,7 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -575,6 +576,36 @@ class NotifyOwnerBoundaryTests(unittest.TestCase):
         os.environ.pop("PRIVATE_OWNER_OPEN_ID", None)
         self.assertFalse(grab.notify("标题", ["正文"], "green"))
         self.assertEqual(self.sent, [], "没有任何收件人时不得发送")
+
+
+class GrabSignupEnvPathTests(unittest.TestCase):
+    """APP_DIR / LOGIN_DIR 环境变量覆盖与默认值保持。"""
+
+    def test_env_paths_override_and_defaults(self):
+        with mock.patch.dict(os.environ, {"APP_DIR": "", "LOGIN_DIR": "   "}, clear=False):
+            mod_default = _load_grab()
+        self.assertEqual(mod_default.LOGIN_DIR, "/root/campus-login")
+        self.assertEqual(mod_default.APP_DIR, "/root/campus-activity-watch")
+        self.assertEqual(mod_default.STATE_FILE,
+                         os.path.join("/root/campus-login", "storage_state.json"))
+        self.assertEqual(mod_default.SESSION_FILE,
+                         os.path.join("/root/campus-activity-watch", "data", "session.json"))
+        self.assertEqual(mod_default.LOG_FILE,
+                         os.path.join("/root/campus-login", "grab_signup.log"))
+
+        with mock.patch.dict(os.environ, {
+            "APP_DIR": "/opt/custom-app",
+            "LOGIN_DIR": " /opt/custom-login ",
+        }, clear=False):
+            mod_custom = _load_grab()
+        self.assertEqual(mod_custom.LOGIN_DIR, "/opt/custom-login")
+        self.assertEqual(mod_custom.APP_DIR, "/opt/custom-app")
+        self.assertEqual(mod_custom.STATE_FILE,
+                         os.path.join("/opt/custom-login", "storage_state.json"))
+        self.assertEqual(mod_custom.SESSION_FILE,
+                         os.path.join("/opt/custom-app", "data", "session.json"))
+        self.assertEqual(mod_custom.LOG_FILE,
+                         os.path.join("/opt/custom-login", "grab_signup.log"))
 
 
 def _test_root() -> Path:

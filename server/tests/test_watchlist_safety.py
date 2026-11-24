@@ -293,6 +293,51 @@ class WatchlistRunnerLaunchTests(unittest.TestCase):
         self.assertNotIn("--sign-end", inner)
         self.assertIn("--window 120.0", inner)
 
+    def test_unit_prefix_override_and_invalid_prefix(self):
+        old_prefix = os.environ.get("GRAB_UNIT_PREFIX")
+        try:
+            os.environ["GRAB_UNIT_PREFIX"] = "srv2-grab-"
+            importlib.reload(runner)
+            self.assertTrue(runner.unit_name({"id": "act-a"}).startswith("srv2-grab-"))
+
+            for bad in ("srv2-grab", "Srv2-Grab-", "srv2_grab-", "-"):
+                os.environ["GRAB_UNIT_PREFIX"] = bad
+                with self.assertRaises(SystemExit, msg="不合规前缀应报错退出: %r" % bad):
+                    importlib.reload(runner)
+        finally:
+            if old_prefix is None:
+                os.environ.pop("GRAB_UNIT_PREFIX", None)
+            else:
+                os.environ["GRAB_UNIT_PREFIX"] = old_prefix
+            importlib.reload(runner)
+
+    def test_launch_passes_set_env_vars_and_omits_unset(self):
+        entry = self._entry(open_at="2099-01-01 09:00:00")
+        captured = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["cmd"] = cmd
+            result = mock.Mock()
+            result.returncode = 0
+            result.stdout = ""
+            return result
+
+        env_updates = {
+            "APP_DIR": "/opt/custom-app",
+            "LOGIN_DIR": "/opt/custom-login",
+            "PRIVATE_OWNER_OPEN_ID": "ou_test_owner",
+        }
+        with mock.patch.dict(os.environ, env_updates, clear=False):
+            os.environ.pop("GRAB_LOG_FILE", None)
+            with mock.patch.object(runner.subprocess, "run", side_effect=fake_run):
+                self.assertTrue(runner.launch(entry, dry=False))
+
+        cmd = captured["cmd"]
+        self.assertIn("--setenv=APP_DIR=/opt/custom-app", cmd)
+        self.assertIn("--setenv=LOGIN_DIR=/opt/custom-login", cmd)
+        self.assertIn("--setenv=PRIVATE_OWNER_OPEN_ID=ou_test_owner", cmd)
+        self.assertFalse(any(arg.startswith("--setenv=GRAB_LOG_FILE=") for arg in cmd))
+
 
 if __name__ == "__main__":
     unittest.main()

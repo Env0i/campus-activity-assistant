@@ -33,8 +33,15 @@ import watchlist as wl  # noqa: E402
 from common import file_lock  # noqa: E402
 
 ROOT = wl.ROOT
+LOGIN_DIR = os.environ.get("LOGIN_DIR", "").strip() or "/root/campus-login"
 # 抓取脚本在登录目录（要能用那边的 playwright 环境），可用环境变量覆盖
-GRAB = os.environ.get("GRAB_SCRIPT") or "/root/campus-login/grab_signup.py"
+GRAB = os.environ.get("GRAB_SCRIPT", "").strip() or os.path.join(LOGIN_DIR, "grab_signup.py")
+GRAB_UNIT_PREFIX = os.environ.get("GRAB_UNIT_PREFIX", "").strip() or "campus-grab-"
+if not re.fullmatch(r"[a-z0-9][a-z0-9-]*-", GRAB_UNIT_PREFIX):
+    raise SystemExit(
+        "[x] GRAB_UNIT_PREFIX 不合规（只允许小写字母、数字和短横线且以短横线结尾）：%r"
+        % GRAB_UNIT_PREFIX
+    )
 STATUS_DIR = Path(os.environ.get("GRAB_STATUS_DIR") or (ROOT / "data"))
 EARLY = 20          # 允许比「开放前 lead 秒」晚多少秒拉起（留给 cron 抖动）
 LATE = 300          # 开放后还允许拉起多久：迟一点也可能挤进名额
@@ -57,7 +64,7 @@ def unit_token(activity_id) -> str:
 
 
 def unit_name(entry: dict) -> str:
-    return "campus-grab-" + unit_token(entry["id"])
+    return GRAB_UNIT_PREFIX + unit_token(entry["id"])
 
 
 def status_file(entry: dict) -> Path:
@@ -104,10 +111,18 @@ def launch(entry: dict, dry: bool) -> bool:
         return True
 
     try:
+        cmd = [
+            "systemd-run", "--unit=" + unit, "--collect",
+            "--description=预报名 %s" % (entry.get("name") or entry["id"]),
+        ]
+        # systemd-run 起的临时单元不继承调用方环境变量，路径变量必须显式透传
+        for env_key in ("APP_DIR", "LOGIN_DIR", "GRAB_LOG_FILE", "PRIVATE_OWNER_OPEN_ID"):
+            env_val = os.environ.get(env_key)
+            if env_val:
+                cmd.append("--setenv=%s=%s" % (env_key, env_val))
+        cmd.extend(["/bin/bash", "-lc", inner])
         proc = subprocess.run(
-            ["systemd-run", "--unit=" + unit, "--collect",
-             "--description=预报名 %s" % (entry.get("name") or entry["id"]),
-             "/bin/bash", "-lc", inner],
+            cmd,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             universal_newlines=True, timeout=30)
     except Exception as exc:

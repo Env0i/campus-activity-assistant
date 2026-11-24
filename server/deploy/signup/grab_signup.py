@@ -37,8 +37,8 @@ from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-LOGIN_DIR = "/root/campus-login"
-APP_DIR = "/root/campus-activity-watch"
+LOGIN_DIR = os.environ.get("LOGIN_DIR", "").strip() or "/root/campus-login"
+APP_DIR = os.environ.get("APP_DIR", "").strip() or "/root/campus-activity-watch"
 STATE_FILE = os.path.join(LOGIN_DIR, "storage_state.json")
 SESSION_FILE = os.path.join(APP_DIR, "data", "session.json")
 # 测试用 GRAB_LOG_FILE 重定向日志落点，绝不写真实 /root/campus-login

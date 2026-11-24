@@ -165,5 +165,39 @@ class ProbeStreakTests(unittest.TestCase):
         self.assertEqual(auto_login._probe_fail_streak(), -1)
 
 
+class AutoLoginEnvPathTests(unittest.TestCase):
+    """APP_DIR / LOGIN_DIR 环境变量覆盖与默认值保持。"""
+
+    def test_env_paths_override_and_defaults(self):
+        with mock.patch.dict(os.environ, {"APP_DIR": "", "LOGIN_DIR": "   "}, clear=False):
+            mod_default = _load_auto_login()
+        self.assertEqual(mod_default.LOGIN_DIR, "/root/campus-login")
+        self.assertEqual(mod_default.APP_DIR, "/root/campus-activity-watch")
+        self.assertEqual(mod_default.STATE_FILE,
+                         os.path.join("/root/campus-login", "storage_state.json"))
+        self.assertEqual(mod_default.SESSION_FILE,
+                         os.path.join("/root/campus-activity-watch", "data", "session.json"))
+        self.assertEqual(mod_default.PROBE_LOG,
+                         os.path.join("/root/campus-activity-watch", "data", "token_probe.log"))
+
+        with mock.patch.dict(os.environ, {
+            "APP_DIR": " /opt/custom-app ",
+            "LOGIN_DIR": "/opt/custom-login",
+        }, clear=False):
+            mod_custom = _load_auto_login()
+        self.assertEqual(mod_custom.LOGIN_DIR, "/opt/custom-login")
+        self.assertEqual(mod_custom.APP_DIR, "/opt/custom-app")
+        self.assertEqual(mod_custom.CREDENTIALS_FILE,
+                         os.path.join("/opt/custom-login", "credentials.json"))
+        self.assertEqual(mod_custom.STATE_FILE,
+                         os.path.join("/opt/custom-login", "storage_state.json"))
+        self.assertEqual(mod_custom.LOG_FILE,
+                         os.path.join("/opt/custom-login", "auto_login.log"))
+        self.assertEqual(mod_custom.SESSION_FILE,
+                         os.path.join("/opt/custom-app", "data", "session.json"))
+        self.assertEqual(mod_custom.PROBE_LOG,
+                         os.path.join("/opt/custom-app", "data", "token_probe.log"))
+
+
 if __name__ == "__main__":
     unittest.main()

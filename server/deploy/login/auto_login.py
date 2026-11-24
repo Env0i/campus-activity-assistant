@@ -52,8 +52,8 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-LOGIN_DIR = "/root/campus-login"
-APP_DIR = "/root/campus-activity-watch"
+LOGIN_DIR = os.environ.get("LOGIN_DIR", "").strip() or "/root/campus-login"
+APP_DIR = os.environ.get("APP_DIR", "").strip() or "/root/campus-activity-watch"
 # 学校地址唯一真源在 server/scripts/lib/common.py：部署侧不再各写一份域名，
 # 换学校只改 SCHOOL_ORIGIN（环境变量或 common 默认值）。缺失时明确失败，
 # 不静默回退到写死的旧域名。

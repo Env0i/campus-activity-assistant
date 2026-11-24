@@ -230,7 +230,7 @@ def main() -> int:
         elif proc.returncode == 3:
             if not dry:
                 alert("【学生活动速递·异常】\n接口返回异常，抓取失败。\n"
-                      "请在服务器上看： tail -20 ~/campus-activity-watch/data/cron.log")
+                      "请在服务器上看： tail -20 %s" % (ROOT / "data" / "cron.log"))
         return proc.returncode
 
     summary = None
