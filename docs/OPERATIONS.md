@@ -25,7 +25,7 @@
 ├── data/                        运行数据（session.json、state.json、日志）
 └── reports/                     推送产物
 
-/root/campus-bot/                 机器人进程目录（bot.js 软链自应用目录）+ data/users.json
+/root/campus-bot/                 机器人进程目录（从 2026-11-24 起改为软链：bot.js 软链自应用目录，data/ 与 node_modules/ 软链保留原数据与依赖）
 /root/campus-login/               登录态守护：server_refresh.js、storage_state.json、
                                  credentials.json、auto_login.py、grab_signup.py、refresh.log
 ```
