@@ -17,9 +17,9 @@ MAX_RESPONSE_BYTES = 4096
 DEFAULT_TIMEOUT_S = 10.0
 
 
-def post_json(url: str, body: bytes, timeout: float = DEFAULT_TIMEOUT_S) -> None:
-    """向 url POST 一段已编码的 JSON；任何失败（DNS、超时、HTTP 错误）都抛异常。"""
+def post_json(url: str, body: bytes, timeout: float = DEFAULT_TIMEOUT_S) -> str:
+    """向 url POST 一段已编码的 JSON；返回读到的回包文本，失败抛异常。"""
     request = urllib.request.Request(url, data=body,
                                      headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        response.read(MAX_RESPONSE_BYTES)
+        return response.read(MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")

@@ -2326,11 +2326,42 @@ class FeishuWebhookSettingsTests(unittest.TestCase):
 
         def post(url, body):
             seen.append((url, body.decode("utf-8")))
+            return '{"code": 0, "msg": "success"}'
 
         got = feishu_settings.test_message("https://example.test/hook/5", post=post)
         self.assertTrue(got["ok"], got)
         self.assertEqual(seen[0][0], "https://example.test/hook/5")
         self.assertIn("测试消息", seen[0][1])
+
+    def test_test_message_accepts_status_code_zero(self):
+        got = feishu_settings.test_message(
+            "https://example.test/hook/5b",
+            post=lambda _url, _body: '{"StatusCode": 0, "StatusMessage": "success"}',
+        )
+        self.assertTrue(got["ok"], got)
+
+    def test_test_message_rejects_nonzero_business_code_without_url(self):
+        long_msg = "Key Words Not Found\n\x00" + "字" * 120
+        reply = json.dumps({"code": 19024, "msg": long_msg}, ensure_ascii=False)
+        got = feishu_settings.test_message(
+            "https://example.test/hook/5c",
+            post=lambda _url, _body: reply,
+        )
+        self.assertFalse(got["ok"])
+        self.assertEqual(got["error"], "rejected")
+        self.assertIn("19024", got["text"])
+        self.assertNotIn("\n", got["text"])
+        self.assertNotIn("example.test", got["text"])
+        self.assertLessEqual(len(got["text"].split("：", 1)[1]), 80)
+
+    def test_test_message_rejects_non_json_reply(self):
+        got = feishu_settings.test_message(
+            "https://example.test/hook/5d",
+            post=lambda _url, _body: "<html>502 Bad Gateway</html>",
+        )
+        self.assertFalse(got["ok"])
+        self.assertEqual(got["error"], "bad_reply")
+        self.assertNotIn("example.test", got["text"])
 
     def test_test_message_failure_explains_without_echoing_the_address(self):
         def post(_url, _body):
@@ -2373,8 +2404,12 @@ class FeishuWebhookApiTests(unittest.TestCase):
         import types
         calls = []
         dummy = types.SimpleNamespace()
+        def fake_post(url, body, timeout=10.0):
+            calls.append((url, body))
+            return '{"code": 0}'
+
         with mock.patch.object(self.local_app._feishu_webhook_post, "post_json",
-                               lambda url, body, timeout=10.0: calls.append((url, body))):
+                               fake_post):
             got = self.local_app.Api.test_feishu_webhook(dummy, "https://example.test/hook/8")
         self.assertTrue(got["ok"], got)
         self.assertEqual(calls[0][0], "https://example.test/hook/8")

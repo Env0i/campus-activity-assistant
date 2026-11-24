@@ -75,8 +75,37 @@ def save(path, raw_url, *, read, write) -> dict:
     return {"ok": True, "url": url, "text": text}
 
 
+def _clean_reply_msg(value) -> str:
+    """清洗飞书原话：去掉控制字符、首尾空白，截不超过 80 字。"""
+    text = "".join(ch for ch in str(value if value is not None else "")
+                   if ord(ch) >= 32 and ord(ch) != 127)
+    return text.strip()[:80]
+
+
+def _parse_feishu_reply(raw_reply) -> dict:
+    """核对飞书 webhook 回包的业务码：code 或 StatusCode 为 0 才算发出。"""
+    if not isinstance(raw_reply, str) or not raw_reply.strip():
+        return {"ok": False, "error": "bad_reply",
+                "text": "测试消息没发出去：飞书没有返回有效的 JSON 响应。"}
+    try:
+        data = json.loads(raw_reply)
+    except ValueError:
+        return {"ok": False, "error": "bad_reply",
+                "text": "测试消息没发出去：飞书返回了看不懂的响应。"}
+    if not isinstance(data, dict):
+        return {"ok": False, "error": "bad_reply",
+                "text": "测试消息没发出去：飞书返回了看不懂的响应。"}
+    code = data["code"] if data.get("code") is not None else data.get("StatusCode")
+    if isinstance(code, bool) or code != 0:
+        msg = _clean_reply_msg(data.get("msg") or data.get("StatusMessage"))
+        detail = f"：{msg}" if msg else ""
+        return {"ok": False, "error": "rejected",
+                "text": f"测试消息被飞书拒收（错误码 {code}）{detail}"}
+    return {"ok": True, "text": "测试消息已发出，去群里看看。"}
+
+
 def test_message(raw_url, *, post) -> dict:
-    """发一条测试消息：失败只说异常类别，不回显地址。"""
+    """发一条测试消息：只有飞书业务码为 0 才算已发出，失败不回显地址。"""
     try:
         url = normalize_url(raw_url)
     except ValueError as exc:
@@ -86,10 +115,10 @@ def test_message(raw_url, *, post) -> dict:
     body = json.dumps({"msg_type": "text", "content": {"text": TEST_TEXT}},
                       ensure_ascii=False).encode("utf-8")
     try:
-        post(url, body)
+        raw_reply = post(url, body)
     except Exception as exc:                       # noqa: BLE001 - 网络失败种类多，只报类别
         return {"ok": False, "error": "send_failed",
                 "text": "测试消息没发出去（%s）：检查网络，或确认地址是从群里复制的。"
                         % type(exc).__name__}
-    return {"ok": True, "text": "测试消息已发出，去群里看看。"}
+    return _parse_feishu_reply(raw_reply)
 

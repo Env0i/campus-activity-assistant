@@ -207,7 +207,7 @@
 | `open_data()` | — | `{ok:true}` | 直接返回 |
 | `save_prefs(patch)` | 对象，浅合并写入统一数据根下的 `ui.json`（先确保数据目录存在） | `{ok:true}` | 直接返回 |
 | `save_feishu_webhook(url)` | 机器人地址字符串；空串表示清空 | `{ok:true, url, text}` 或 `{ok:false, error, text}`，`error` ∈ `bad_url` / `config_unreadable` / `write_failed` | 直接返回；只写 `config.json` 的 `feishu_webhook`，其他键原样保留 |
-| `test_feishu_webhook(url)` | 同上 | `{ok:true, text}` 或 `{ok:false, error, text}`，`error` ∈ `empty_url` / `bad_url` / `send_failed` | 直接返回；走既有 webhook 适配器发一条测试消息，失败原因只写异常类别、不回显地址 |
+| `test_feishu_webhook(url)` | 同上 | `{ok:true, text}` 或 `{ok:false, error, text}`，`error` ∈ `empty_url` / `bad_url` / `send_failed` / `rejected` / `bad_reply` | 直接返回；走既有 webhook 适配器发测试消息，核对飞书业务码（`code`/`StatusCode` 为 0 才算发出），失败原因不回显地址 |
 | `accept_terms(document_version)` | `document_version` = 用户实际读到的内嵌全文版本（`#dlg-terms-document-version`，如 `2026-11-03-r4`） | `{ok:true, terms:{version, accepted_version, accepted_at}}` 或 `{ok:false, error:"terms_version_mismatch", text, terms}` / `{ok:false, text}`（如 prefs 锁竞争） | 直接返回（本机桥接，不进学校 API） |
 | `withdraw_terms()` | — | `{ok:true, terms:{version, accepted_version:null, accepted_at:null, withdrawn_at}}` 或 `{ok:false, text}` | 直接返回；后端会检查 `terms_withdrawn_eligible()`（计划 running/ready 时拒绝） |
 | `relogin_begin(source)` | `source ∈ {"manual", "auto", "phone"}` | `{ok:true}` / `{ok:false, text}` | `onBackend.done`（`kind:"login"`），`source` 会附在 done 事件里 |
@@ -951,7 +951,7 @@
 1. **控件**：地址输入 `#feishu-url`（`aria-label="飞书机器人地址"`，占位 `https://…`）、两个按钮 `#btn-feishu-test`「发测试消息」与 `#btn-feishu-save`「保存」、一行就地反馈 `#feishu-note`（`role="status"`，平时 `hidden`）。
 2. **校验**：只认 `https://` 且带主机名的地址；`http://`、含空白、认不出主机的都不保存。空串是「清空」，不是非法地址。
 3. **保存**：写回 `config.json` 的 `feishu_webhook`，其他键原样保留；现有 `config.json` 读不出来（权限、占用、不是合法 JSON）时拒绝保存、不覆盖原文件，提示「这次没有保存」。成功写「已保存，飞书提醒会发到这个群。」，清空写「地址已清空，不再发飞书提醒。」。
-4. **测试消息**：走既有 `feishu_webhook` 适配器；成功写「测试消息已发出，去群里看看。」，失败写「测试消息没发出去（<异常类别>）：检查网络，或确认地址是从群里复制的。」——不回显地址。
+4. **测试消息**：走既有 `feishu_webhook` 适配器并核对飞书回包的业务码（`code` 或 `StatusCode` 为 0 才算发出）；成功写「测试消息已发出，去群里看看。」，网络失败写「测试消息没发出去（<异常类别>）：检查网络，或确认地址是从群里复制的。」，业务码非零或响应非 JSON 也算没发出去并给出原因——均不回显地址。
 5. **反馈样式**：成功与提示用 `ph-note`，失败用 `ph-note ph-err`；只在保存或发测试之后出现，不写大屏、不进运行记录。输入框只在打开抽屉时对齐已保存的地址，之后的输入不被重画覆盖。
 6. **推送口径不变**：报名结果与登录失效沿用现有通道（`grab.py` 结果卡片 + 基础设施里的 webhook 适配器），本设置只改地址，不另写发送。
 7. **原型**：`design/prototype/workbench-2026-11/Main.dc.html` 的设置画板同节（地址、两个按钮、说明文字），实现与它同布局；交互是本地演示，不发真请求。
