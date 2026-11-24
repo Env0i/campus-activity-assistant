@@ -12,6 +12,8 @@ import importlib.util
 import json
 import os
 import queue
+import signal
+import subprocess
 import sys
 import tempfile
 import threading
@@ -52,7 +54,9 @@ def _load_auto_login(app_dir: str, login_dir: str):
 
 
 import preempt_guard
+import school_detail
 import signup_direct
+import signup_io
 import signup_policy
 import signup_relogin
 import signup_reply
@@ -134,6 +138,17 @@ class SigningTests(unittest.TestCase):
         plain = bytes.fromhex("3243f6a8885a308d313198a2e0370734")
         expected = bytes.fromhex("3925841d02dc09fbdc118597196a0b32")
         self.assertEqual(signup_signing.encrypt_aes_ecb(plain, key), expected)
+
+    def test_full_block_32_byte_cng_parity_vector(self):
+        key = b"Abcdefgh12345678"
+        # 明文 "abcdefghijklmnopqr,1767225600000" 恰好 32 字节（两整块），PKCS7 必须额外补满 16 字节
+        got = signup_signing.build_signup_hash("abcdefghijklmnopqr", 1767225600000, key)
+        self.assertEqual(
+            got,
+            "fb492d0431de8ae69e0ebd7a4f2a0658"
+            "f70c6d87ccedad072c90366fa28724e9"
+            "fd9bc72a0d101f61b4580230619e6962",
+        )
 
     def test_parse_runtime_key_valid_and_invalid(self):
         self.assertEqual(
@@ -597,6 +612,262 @@ class CrossSideParityTests(unittest.TestCase):
         )
         for attr in names:
             self.assertEqual(getattr(signup_policy, attr), getattr(local_policy, attr), attr)
+
+
+class PageOpenFallbackTests(unittest.TestCase):
+    def _fake_playwright(self, *, page_error=None):
+        fake_page = mock.MagicMock()
+        if page_error is not None:
+            fake_page.goto.side_effect = page_error
+        fake_ctx = mock.MagicMock()
+        fake_ctx.new_page.return_value = fake_page
+        fake_browser = mock.MagicMock()
+        fake_browser.new_context.return_value = fake_ctx
+        fake_pw = mock.MagicMock()
+        fake_pw.chromium.launch.return_value = fake_browser
+        cm = mock.MagicMock()
+        cm.__enter__.return_value = fake_pw
+        cm.__exit__.return_value = False
+        return (lambda: cm), fake_page
+
+    def _run_grab_browser(self, *, page_error, key_result, direct_result=("success", {})):
+        grab = _load_module("server_grab_signup_r1", DEPLOY / "signup" / "grab_signup.py")
+        pw_factory, fake_page = self._fake_playwright(page_error=page_error)
+        args = types.SimpleNamespace(
+            activity_id="act-1", at="2026-11-24 12:00:00", name="音乐节",
+            lead=100.0, window=60.0, sign_end="", dry_run=False, rehearse=False,
+        )
+        cards, logs, click_calls = [], [], []
+
+        def fake_direct(**kwargs):
+            if direct_result == "call_fallback":
+                st = {"attempts": 0, "pending": 0, "last_reason": "", "resp_ok": False,
+                      "login_invalid": False, "retry_deadline": 1060.0, "streak_404": 0,
+                      "backoff_s": 0.18, "phase": "golden", "round": 0,
+                      "path": "click", "path_reason": "取不到运行时密钥"}
+                burst = signup_policy.BurstPolicy(1000.0, 1060.0, clock=FakeClock(1000.0))
+                return kwargs["click_fallback_fn"](burst, st)
+            return direct_result
+
+        with mock.patch.object(grab, "sync_playwright", pw_factory), \
+             mock.patch.object(grab, "wait_until"), \
+             mock.patch.object(grab, "is_joined", return_value=False), \
+             mock.patch.object(grab, "log", side_effect=logs.append), \
+             mock.patch.object(grab, "notify", side_effect=lambda t, l, tpl="green": cards.append((t, l, tpl)) or True), \
+             mock.patch.object(grab, "_prepare_runtime_key", return_value=key_result), \
+             mock.patch.object(grab._signup_direct, "run_direct_submit_loop", side_effect=fake_direct), \
+             mock.patch.object(grab, "run_submit_loop", side_effect=lambda pg, **kw: (click_calls.append(pg), ("click_ok", kw["state"]))[1]):
+            rc = grab._run_browser_signup(args, 1000.0, None)
+        return rc, cards, logs, click_calls, fake_page
+
+    def test_page_goto_timeout_still_runs_direct_and_succeeds(self):
+        rc, _, logs, click_calls, _ = self._run_grab_browser(
+            page_error=TimeoutError("page timeout"),
+            key_result=(b"Abcdefgh12345678", "ok", False),
+            direct_result=("success", {"path": "direct"}),
+        )
+        self.assertEqual(rc, 0)
+        self.assertEqual(click_calls, [])
+        self.assertTrue(any("详情页加载失败" in line for line in logs))
+
+    def test_page_not_open_when_downgrade_needed_ends_with_reason_without_click_loop(self):
+        rc, cards, _, click_calls, _ = self._run_grab_browser(
+            page_error=TimeoutError("page timeout"),
+            key_result=(None, "http_500", False),
+            direct_result="call_fallback",
+        )
+        self.assertEqual(rc, 2)
+        self.assertEqual(click_calls, [])
+        self.assertIn("页面没打开，没法点击兜底", "\n".join(cards[-1][1]))
+
+    def test_page_open_normally_still_falls_back_to_click_loop(self):
+        rc, _, _, click_calls, fake_page = self._run_grab_browser(
+            page_error=None,
+            key_result=(None, "http_500", False),
+            direct_result="call_fallback",
+        )
+        self.assertEqual(rc, 2)
+        self.assertEqual(click_calls, [fake_page])
+
+
+class ReloginProcessGroupTests(unittest.TestCase):
+    def test_relogin_passes_max_attempts_one_and_new_session(self):
+        captured = {}
+
+        class FakeProc:
+            pid = 43210
+            returncode = 0
+
+            def communicate(self, timeout=None):
+                captured["timeout"] = timeout
+                return ("ok", "")
+
+        def fake_popen(cmd, **kwargs):
+            captured["cmd"] = cmd
+            captured["env"] = kwargs.get("env")
+            captured["start_new_session"] = kwargs.get("start_new_session")
+            return FakeProc()
+
+        ok = signup_relogin.recover_session(
+            old_token="tok-old", login_dir="/tmp/login", lock_file="/tmp/lock",
+            token_fn=lambda: "tok-old", timeout_s=60.0,
+            lock_busy_fn=lambda _p: False, popen_fn=fake_popen,
+        )
+        self.assertTrue(ok)
+        self.assertEqual(captured["env"]["AUTO_LOGIN_MAX_ATTEMPTS"], "1")
+        self.assertTrue(captured["start_new_session"])
+        self.assertEqual(captured["timeout"], 60.0)
+
+    def test_relogin_timeout_kills_process_group_and_returns_false(self):
+        killed_pg, child_kills = [], []
+
+        class SlowProc:
+            pid = 54321
+            returncode = None
+            calls = 0
+
+            def communicate(self, timeout=None):
+                self.calls += 1
+                if self.calls == 1:
+                    raise subprocess.TimeoutExpired("auto_login.py", timeout)
+                return ("", "")
+
+            def kill(self):
+                child_kills.append(self.pid)
+
+        ok = signup_relogin.recover_session(
+            old_token="tok-old", login_dir="/tmp/login", lock_file="/tmp/lock",
+            token_fn=lambda: "tok-old", timeout_s=60.0,
+            lock_busy_fn=lambda _p: False,
+            popen_fn=lambda *a, **kw: SlowProc(),
+            getpgid_fn=lambda pid: pid + 100,
+            killpg_fn=lambda pgid, sig: killed_pg.append((pgid, sig)),
+        )
+        self.assertFalse(ok)
+        expected_sig = getattr(signal, "SIGKILL", signal.SIGTERM)
+        self.assertEqual(killed_pg, [(54421, expected_sig)])
+        self.assertEqual(child_kills, [])
+
+
+class SignedJoinInfoTests(unittest.TestCase):
+    def test_all_four_join_info_call_sites_send_gateway_sign_headers(self):
+        grab = _load_module("server_grab_signup_r3", DEPLOY / "signup" / "grab_signup.py")
+        captured_headers, sign_req_urls = [], []
+        open_replies = iter([
+            json.dumps({"code": 1, "data": None}),              # 1) pre-open is_joined -> False
+            json.dumps({"code": 1, "data": None}),              # 2) pre-open 4001 recheck -> ok (not 4001)
+            json.dumps({"code": 1, "data": {"id": "joined"}}),  # 3) conflict核对 -> True
+            json.dumps({"code": 1, "data": {"id": "joined"}}),  # 4) closeout核对 -> True
+        ])
+
+        def fake_open(req, timeout):
+            sign_req_urls.append(req.full_url)
+            captured_headers.append({k.lower(): v for k, v in req.header_items()})
+            return next(open_replies)
+
+        clock = FakeClock(1000.0)
+        with mock.patch.object(school_detail, "SITE_CONFIGURED", True), \
+             mock.patch.object(school_detail, "_open", side_effect=fake_open), \
+             mock.patch.object(grab, "_token", return_value="tok-r3"), \
+             mock.patch.object(grab, "_fetch_key", side_effect=[(None, "4001"), (b"Abcdefgh12345678", "ok")]), \
+             mock.patch.object(grab, "log"):
+            self.assertFalse(grab.is_joined("act-1"))
+            key, reason, aborted = grab._prepare_runtime_key("act-1", "音乐节")
+            self.assertFalse(aborted)
+            self.assertEqual(key, b"Abcdefgh12345678")
+            opener_conflict = _SequenceOpener(lambda i, r: _FakeResponse({"code": 500, "message": "时间冲突"}))
+            r_conf, _ = signup_direct.run_direct_submit_loop(
+                activity_id="act-1", at_ts=1000.0, window_s=5.0, max_attempts=3,
+                api_base="https://portal.school.example.edu/dr/api",
+                referer="https://portal.school.example.edu/stu/", ua="UA",
+                token_fn=lambda: "tok-r3", sign_headers_fn=lambda p, b: {},
+                initial_key=key, is_joined_fn=grab.is_joined, log_fn=lambda m: None,
+                clock=clock, opener=opener_conflict, sleep_fn=clock.sleep,
+            )
+            self.assertEqual(r_conf, "success")
+            opener_closeout = _SequenceOpener(lambda i, r: _FakeResponse({"code": 500, "message": "报名未开始"}))
+            r_close, _ = signup_direct.run_direct_submit_loop(
+                activity_id="act-1", at_ts=1000.0, window_s=5.0, max_attempts=1,
+                api_base="https://portal.school.example.edu/dr/api",
+                referer="https://portal.school.example.edu/stu/", ua="UA",
+                token_fn=lambda: "tok-r3", sign_headers_fn=lambda p, b: {},
+                initial_key=key, is_joined_fn=grab.is_joined, log_fn=lambda m: None,
+                clock=clock, opener=opener_closeout, sleep_fn=clock.sleep,
+            )
+            self.assertEqual(r_close, "success")
+
+        self.assertEqual(len(captured_headers), 4)
+        for url, hdrs in zip(sign_req_urls, captured_headers):
+            self.assertIn("/rjyHdCyr/getJoinInfo/act-1", url)
+            for key_name in ("x-page-ticket", "x-timestamp", "x-nonce", "x-token"):
+                self.assertIn(key_name, hdrs)
+
+    def test_recheck_only_explicit_4001_triggers_relogin_network_and_http_continue(self):
+        logs, relogin_calls = [], []
+        out_4001 = signup_relogin.handle_pre_open_4001(
+            check_fn=lambda: signup_io.recheck_not_4001(
+                "act-1", join_info_fn=lambda a, t: {"code": 4001},
+                token_fn=lambda: "tok", log_fn=logs.append,
+            ),
+            recover_fn=lambda: (relogin_calls.append(1), True)[1],
+            fetch_key_fn=lambda: (b"NewKey1234567890", "ok"),
+            log_fn=logs.append, sleep_fn=lambda _s: None,
+        )
+        self.assertEqual(out_4001[0], "relogged")
+        self.assertEqual(len(relogin_calls), 1)
+        for err in (
+            school_detail.SchoolNetworkError("Timeout"),
+            school_detail.SchoolHTTPError(502, "bad gateway"),
+            school_detail.SchoolPayloadError("not json"),
+        ):
+            out = signup_relogin.handle_pre_open_4001(
+                check_fn=lambda e=err: signup_io.recheck_not_4001(
+                    "act-1", join_info_fn=mock.Mock(side_effect=e),
+                    token_fn=lambda: "tok", log_fn=logs.append,
+                ),
+                recover_fn=lambda: (relogin_calls.append(99), True)[1],
+                fetch_key_fn=lambda: (b"Abcdefgh12345678", "ok"),
+                log_fn=logs.append, sleep_fn=lambda _s: None,
+            )
+            self.assertEqual(out[0], "recovered")
+        self.assertEqual(len(relogin_calls), 1)
+
+    def test_is_joined_semantics_unchanged(self):
+        self.assertTrue(signup_io.check_joined(
+            "act-1", join_info_fn=lambda a, t: {"code": 1, "data": {"id": 1}}, token_fn=lambda: "t",
+        ))
+        for bad in (
+            {"code": 1, "data": None},
+            {"code": 1, "data": {}},
+            {"code": 1, "data": []},
+            {"code": 500, "data": {"id": 1}},
+        ):
+            self.assertFalse(signup_io.check_joined(
+                "act-1", join_info_fn=lambda a, t, p=bad: p, token_fn=lambda: "t",
+            ))
+        self.assertFalse(signup_io.check_joined(
+            "act-1", join_info_fn=mock.Mock(side_effect=RuntimeError("boom")), token_fn=lambda: "t",
+        ))
+
+    def test_rehearse_logs_signed_join_info_code_without_data(self):
+        opener = _SequenceOpener(lambda i, r: _FakeResponse({"code": 1, "data": "Abcdefgh12345678"}))
+        logs = []
+        with mock.patch.object(school_detail, "SITE_CONFIGURED", True), \
+             mock.patch.object(school_detail, "_open", return_value=json.dumps({
+                 "code": 1, "data": {"secret_name": "SHOULD_NOT_APPEAR"},
+             })):
+            info = signup_direct.rehearse_direct(
+                activity_id="act-1", api_base="https://portal.school.example.edu/dr/api",
+                referer="https://portal.school.example.edu/stu/", ua="UA",
+                token_fn=lambda: "tok-1", sign_headers_fn=lambda p, b: {"X-Test": "1"},
+                join_info_fn=school_detail.get_join_info,
+                now_fn=lambda: 1767225600.0, log_fn=logs.append, opener=opener,
+            )
+        joined_text = "\n".join(logs)
+        self.assertEqual(info["join_info_code"], 1)
+        self.assertIn("已报名查询：code=1", joined_text)
+        self.assertNotIn("SHOULD_NOT_APPEAR", joined_text)
+        self.assertFalse(any("signUp" in r["url"] for r in opener.requests))
 
 
 if __name__ == "__main__":

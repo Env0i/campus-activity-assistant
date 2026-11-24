@@ -66,25 +66,36 @@ def fetch_runtime_key(*, api_base, referer, ua, token_fn, sign_headers_fn,
 
 
 def rehearse_direct(*, activity_id, api_base, referer, ua, token_fn,
-                    sign_headers_fn, now_fn=None, log_fn=print, opener=None):
-    """只读直发演练（--rehearse）：取密钥并试算签名，不发 signUp、不发私聊。"""
+                    sign_headers_fn, join_info_fn=None, now_fn=None,
+                    log_fn=print, opener=None):
+    """只读直发演练（--rehearse）：取密钥试算签名，可选带签名查询 code，不发 signUp。"""
+    out = {"path": "click", "reason": "", "signed": False, "join_info_code": None}
+    if join_info_fn is not None:
+        try:
+            joined_payload = join_info_fn(str(activity_id), str(token_fn() or "").strip())
+            code = joined_payload.get("code") if isinstance(joined_payload, dict) else "?"
+            out["join_info_code"] = code
+            log_fn("[rehearse] 已报名查询：code=%s" % code)
+        except Exception as exc:
+            log_fn("[rehearse] 已报名查询：error=%s" % type(exc).__name__)
     key, reason = fetch_runtime_key(
         api_base=api_base, referer=referer, ua=ua,
         token_fn=token_fn, sign_headers_fn=sign_headers_fn, opener=opener,
     )
     if key is None:
-        msg = "取不到运行时密钥（%s）" % reason
-        log_fn("[rehearse] 路径：点击（原因：%s）" % msg)
-        return {"path": "click", "reason": msg, "signed": False}
+        out["reason"] = "取不到运行时密钥（%s）" % reason
+        log_fn("[rehearse] 路径：点击（原因：%s）" % out["reason"])
+        return out
     now_s = (now_fn or time.time)()
     try:
         build_signup_hash(str(activity_id), int(now_s * 1000), key)
     except SignerUnavailable as exc:
-        msg = str(exc) or "签名不可用"
-        log_fn("[rehearse] 路径：点击（原因：%s）" % msg)
-        return {"path": "click", "reason": msg, "signed": False}
+        out["reason"] = str(exc) or "签名不可用"
+        log_fn("[rehearse] 路径：点击（原因：%s）" % out["reason"])
+        return out
+    out.update(path="direct", reason="运行时密钥与签名可用", signed=True)
     log_fn("[rehearse] 路径：直发（运行时密钥可用，签名自检通过）")
-    return {"path": "direct", "reason": "运行时密钥与签名可用", "signed": True}
+    return out
 
 
 def _rekey_on_version(ctx):
@@ -278,7 +289,8 @@ def _closeout_direct(ctx, notify_owner):
     if state["resp_ok"]:
         return finish_submit_loop("success", burst=burst, state=state,
                                   name=ctx["name"], log_fn=ctx["log"], notify_owner=notify_owner)
-    if not ctx["stop_reason"] and burst.attempts and ctx["is_joined_fn"] is not None:
+    if (ctx["stop_reason"] in ("", "max_attempts", "retry_duration", "sign_end")
+            and burst.attempts and ctx["is_joined_fn"] is not None):
         try:
             if ctx["is_joined_fn"](ctx["activity_id"]) is True:
                 return finish_submit_loop("success", burst=burst, state=state,

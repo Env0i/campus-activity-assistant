@@ -66,6 +66,7 @@ sys.path.insert(0, os.path.join(APP_DIR, "scripts", "lib"))
 from site_target import BASE_URL as SCHOOL_ORIGIN  # noqa: E402
 from site_target import CONFIGURED as SITE_CONFIGURED  # noqa: E402
 from site_target import CONFIG_MESSAGE as SITE_CONFIG_MESSAGE  # noqa: E402
+from school_detail import get_join_info as _school_get_join_info  # noqa: E402
 from school_detail import sign_headers as _school_sign_headers  # noqa: E402
 
 API = SCHOOL_ORIGIN + "/dr/api"
@@ -89,8 +90,9 @@ def _post(path, payload=None, token=""):
 
 
 def is_joined(act_id):
-    """getJoinInfo：未报名时 data 为 null，报名后 data 是对象。"""
-    return _signup_io.check_joined(act_id, post_fn=_post, token_fn=_token)
+    """getJoinInfo（带网关签名）：未报名时 data 为 null，报名后 data 是对象。"""
+    return _signup_io.check_joined(act_id, join_info_fn=_school_get_join_info,
+                                   token_fn=_token)
 
 
 def ensure_token():
@@ -155,7 +157,9 @@ def _prepare_runtime_key(activity_id, name):
     if reason != "4001":
         return key, reason, False
     outcome, next_key, next_reason = _signup_relogin.handle_pre_open_4001(
-        check_fn=lambda: _post("/rjyHdCyr/getJoinInfo/" + activity_id, {}, _token()).get("code") == 1,
+        check_fn=lambda: _signup_io.recheck_not_4001(
+            activity_id, join_info_fn=_school_get_join_info,
+            token_fn=_token, log_fn=log),
         recover_fn=_recover_session_bounded,
         fetch_key_fn=_fetch_key,
         log_fn=log,
@@ -175,18 +179,42 @@ def _in_submit_relogin(ctx):
     )
 
 
+def _open_detail_page(browser, activity_id, at_text, dry_run):
+    ctx = browser.new_context(locale="zh-CN",
+                              viewport={"width": 1366, "height": 900},
+                              storage_state=STATE_FILE)
+    page = ctx.new_page()
+    if dry_run:
+        page.goto(detail_url(activity_id), wait_until="domcontentloaded", timeout=45000)
+        page.wait_for_timeout(1500)
+        log("[i] 详情页已加载，等待 %s 开放报名" % at_text)
+        return page
+    try:
+        page.goto(detail_url(activity_id), wait_until="domcontentloaded", timeout=45000)
+        page.wait_for_timeout(1500)
+        log("[i] 详情页已加载，等待 %s 开放报名" % at_text)
+        return page
+    except Exception as exc:
+        log("[!] 详情页加载失败（%s），本场仍走直发，无点击兜底" % type(exc).__name__)
+        return None
+
+
+def _no_page_fallback(burst, state, *, name):
+    trigger = str(state.get("path_reason") or "").strip()
+    reason = "页面没打开，没法点击兜底" if not trigger else ("页面没打开，没法点击兜底（%s）" % trigger)
+    state["path"], state["path_reason"], state["last_reason"] = "click", reason, reason
+    return _signup_loop.finish_submit_loop(
+        "process_error", burst=burst, state=state,
+        name=name, log_fn=log, notify_owner=notify,
+    )
+
+
 def _run_browser_signup(args, at, sign_end_ts):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True,
                                     args=["--no-sandbox", "--disable-dev-shm-usage"])
         try:
-            ctx = browser.new_context(locale="zh-CN",
-                                      viewport={"width": 1366, "height": 900},
-                                      storage_state=STATE_FILE)
-            page = ctx.new_page()
-            page.goto(detail_url(args.activity_id), wait_until="domcontentloaded", timeout=45000)
-            page.wait_for_timeout(1500)
-            log("[i] 详情页已加载，等待 %s 开放报名" % args.at)
+            page = _open_detail_page(browser, args.activity_id, args.at, args.dry_run)
 
             if args.dry_run:
                 btns = page.eval_on_selector_all(
@@ -204,19 +232,23 @@ def _run_browser_signup(args, at, sign_end_ts):
                 return 3
             wait_until(at - POLL_LEAD)
 
-            # 终态收口（含 owner 私聊结论）统一在循环内完成，这里只映射退出码
+            def _fallback(burst, state):
+                if page is None:
+                    return _no_page_fallback(burst, state, name=args.name)
+                return run_submit_loop(
+                    page, activity_id=args.activity_id, at_ts=at,
+                    window_s=args.window, sign_end_ts=sign_end_ts,
+                    is_joined_fn=is_joined, notify_fn=notify, name=args.name,
+                    burst=burst, state=state,
+                )
+
             stop_reason, state = _signup_direct.run_direct_submit_loop(
                 activity_id=args.activity_id, at_ts=at, window_s=args.window,
                 sign_end_ts=sign_end_ts, api_base=API, referer=REFERER, ua=UA,
                 token_fn=_token, sign_headers_fn=_school_sign_headers,
                 initial_key=initial_key, initial_key_reason=key_reason,
                 is_joined_fn=is_joined, notify_fn=notify, log_fn=log, name=args.name,
-                relogin_fn=_in_submit_relogin,
-                click_fallback_fn=lambda burst, state: run_submit_loop(
-                    page, activity_id=args.activity_id, at_ts=at,
-                    window_s=args.window, sign_end_ts=sign_end_ts,
-                    is_joined_fn=is_joined, notify_fn=notify, name=args.name,
-                    burst=burst, state=state),
+                relogin_fn=_in_submit_relogin, click_fallback_fn=_fallback,
             )
 
             if stop_reason in ("success", "already_signed"):
@@ -237,7 +269,8 @@ def main():
     if args.rehearse:
         _signup_direct.rehearse_direct(
             activity_id=args.activity_id, api_base=API, referer=REFERER,
-            ua=UA, token_fn=_token, sign_headers_fn=_school_sign_headers, log_fn=log,
+            ua=UA, token_fn=_token, sign_headers_fn=_school_sign_headers,
+            join_info_fn=_school_get_join_info, log_fn=log,
         )
         return 0
 

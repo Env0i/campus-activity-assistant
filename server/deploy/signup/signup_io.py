@@ -55,12 +55,32 @@ def post_json(api_base, path, payload=None, token="", referer="", ua=UA):
         return {"code": -1, "message": type(exc).__name__}
 
 
-def check_joined(act_id, *, post_fn, token_fn):
+def check_joined(act_id, *, join_info_fn=None, post_fn=None, token_fn):
     """getJoinInfo：未报名时 data 为 null，报名后 data 是对象。"""
-    data = post_fn("/rjyHdCyr/getJoinInfo/" + act_id, {}, token_fn())
+    try:
+        if join_info_fn is not None:
+            data = join_info_fn(act_id, token_fn())
+        else:
+            data = post_fn("/rjyHdCyr/getJoinInfo/" + act_id, {}, token_fn())
+    except Exception:
+        return False
     if not isinstance(data, dict) or data.get("code") != 1:
         return False
     return data.get("data") not in (None, {}, [])
+
+
+def recheck_not_4001(act_id, *, join_info_fn, token_fn, log_fn=None) -> bool:
+    """4001 复查：只认明确 code=4001 为仍失效；网络/HTTP/解码异常不算失效。"""
+    try:
+        data = join_info_fn(act_id, token_fn())
+    except Exception as exc:
+        if log_fn is not None:
+            log_fn("[i] 4001 复查遇到网络或接口异常（%s），不判登录失效，继续本场"
+                   % type(exc).__name__)
+        return True
+    if isinstance(data, dict) and str(data.get("code") or "").strip() == "4001":
+        return False
+    return True
 
 
 def ensure_valid_token(login_dir, log_fn):

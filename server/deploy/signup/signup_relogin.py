@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import time
 
@@ -17,7 +18,7 @@ except ImportError:  # pragma: no cover - Windows 离线测试走替身
 
 PRE_OPEN_RECHECK_DELAY_S = 1.5
 IN_SUBMIT_RELOGIN_TIMEOUT_S = 60.0
-IN_SUBMIT_MAX_ATTEMPTS = 2
+IN_SUBMIT_MAX_ATTEMPTS = 1
 RELOGIN_POLL_INTERVAL_S = 0.5
 
 
@@ -56,26 +57,61 @@ def wait_token_change(old_token, *, token_fn, timeout_s=IN_SUBMIT_RELOGIN_TIMEOU
     return bool(cur and cur != prev)
 
 
+def _kill_process_group(proc, *, killpg_fn=None, getpgid_fn=None) -> bool:
+    """超时后结束整个独立进程组（含其拉起的无头浏览器），避免留下孤儿进程。"""
+    kpg = killpg_fn if killpg_fn is not None else getattr(os, "killpg", None)
+    gpg = getpgid_fn if getpgid_fn is not None else getattr(os, "getpgid", None)
+    sig = getattr(signal, "SIGKILL", signal.SIGTERM)
+    if kpg is not None:
+        try:
+            pgid = gpg(proc.pid) if gpg is not None else proc.pid
+            kpg(pgid, sig)
+            return True
+        except Exception:
+            pass
+    try:
+        proc.kill()
+    except Exception:
+        pass
+    return False
+
+
 def run_auto_login_force(*, login_dir, timeout_s=IN_SUBMIT_RELOGIN_TIMEOUT_S,
                          max_attempts=IN_SUBMIT_MAX_ATTEMPTS,
-                         runner_fn=subprocess.run) -> bool:
-    """限时子进程执行 auto_login.py --force，限制本次最大重试次数。"""
+                         popen_fn=subprocess.Popen,
+                         killpg_fn=None, getpgid_fn=None) -> bool:
+    """限时子进程执行 auto_login.py --force（独立进程组，默认只试 1 次）。"""
     env = dict(os.environ)
     env["AUTO_LOGIN_MAX_ATTEMPTS"] = str(int(max_attempts))
     cmd = ["/usr/bin/python3", os.path.join(login_dir, "auto_login.py"), "--force"]
     try:
-        proc = runner_fn(cmd, env=env, capture_output=True, text=True,
-                         timeout=float(timeout_s))
-        return getattr(proc, "returncode", 1) == 0
+        proc = popen_fn(
+            cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, start_new_session=True,
+        )
     except Exception:
+        return False
+    try:
+        proc.communicate(timeout=float(timeout_s))
+        return getattr(proc, "returncode", 1) == 0
+    except subprocess.TimeoutExpired:
+        _kill_process_group(proc, killpg_fn=killpg_fn, getpgid_fn=getpgid_fn)
+        try:
+            proc.communicate(timeout=2)
+        except Exception:
+            pass
+        return False
+    except Exception:
+        _kill_process_group(proc, killpg_fn=killpg_fn, getpgid_fn=getpgid_fn)
         return False
 
 
 def recover_session(*, old_token, login_dir, lock_file, token_fn,
                     timeout_s=IN_SUBMIT_RELOGIN_TIMEOUT_S,
                     max_attempts=IN_SUBMIT_MAX_ATTEMPTS, log_fn=None,
-                    lock_busy_fn=None, runner_fn=subprocess.run,
-                    clock=None, sleep_fn=time.sleep) -> bool:
+                    lock_busy_fn=None, runner_fn=None,
+                    popen_fn=subprocess.Popen, killpg_fn=None,
+                    getpgid_fn=None, clock=None, sleep_fn=time.sleep) -> bool:
     """锁空闲时拉重登子进程；锁忙时改为等 token 变化，总时长均受 timeout_s 约束。"""
     log = log_fn or (lambda _m: None)
     busy = (lock_busy_fn or is_lock_busy)(lock_file)
@@ -83,9 +119,13 @@ def recover_session(*, old_token, login_dir, lock_file, token_fn,
         log("[i] auto_login 锁已被占用，等待登录态 token 更新（限时 %ds）" % int(timeout_s))
         return wait_token_change(old_token, token_fn=token_fn, timeout_s=timeout_s,
                                  clock=clock, sleep_fn=sleep_fn)
-    log("[i] 执行限时自动重登（上限 %ds）" % int(timeout_s))
-    return run_auto_login_force(login_dir=login_dir, timeout_s=timeout_s,
-                                max_attempts=max_attempts, runner_fn=runner_fn)
+    log("[i] 执行限时自动重登（上限 %ds，尝试 %d 次）" % (int(timeout_s), int(max_attempts)))
+    if runner_fn is not None:
+        return runner_fn()
+    return run_auto_login_force(
+        login_dir=login_dir, timeout_s=timeout_s, max_attempts=max_attempts,
+        popen_fn=popen_fn, killpg_fn=killpg_fn, getpgid_fn=getpgid_fn,
+    )
 
 
 def handle_pre_open_4001(*, check_fn, recover_fn, fetch_key_fn, log_fn,
