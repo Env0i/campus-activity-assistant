@@ -13,3 +13,6 @@ playwright>=1.40
 # 纯 CPU 可跑，服务器实测 ddddocr 1.6.1 + onnxruntime 占约 200MB 内存。
 #   python -m pip install ddddocr
 ddddocr>=1.6.1
+
+# 服务器直发报名（deploy/signup/signup_signing.py）AES-128-ECB 签名，仅用于报名签名
+cryptography>=41.0
