@@ -193,3 +193,21 @@ proposed（2026-11-11 与用户讨论定方向，效果稿已看过；原型和�
 2. 更新原型，用户看截图确认。
 3. 组件升级那批改动提交后，改规格和决策 014。
 4. 实现，真窗口验收：宽、中、窄、矮四档，150% 缩放，托盘隐藏后恢复。
+
+## 2026-11-24 原型补齐与已拍板口径（界面翻新第一批）
+
+本轮已按以下三项确认结论补齐 [design/prototype/workbench-2026-11/](../prototype/workbench-2026-11/README.md) 全部 26 张新画板，并留下 58 张无头 Edge 截图（见 [design/evidence/2026-11-24/ui-refresh/](../evidence/2026-11-24/ui-refresh/README.md)）：
+
+1. **三项已定口径**：
+   - 活动列表改为竖线时间轴 + 固定四层卡片，宽档（`>= 1040px`）第三层一行四格并排（`举办 · 地点 · 签到 · 签退`），中档（`720–1039px`）、窄档（`< 720px`）及手机页固定拆成两行（`举办 · 地点` / `签到 · 签退`）；卡片第一层与「更多筛选」补齐「活动类型」标签及多选（缺失归「其他」）。
+   - 活动简介入口放到每张卡片活动名旁的 `?` 按钮（点开不触发整行勾选），浮层字段按「名称、简介、地点、活动时间、报名时间、活动类型、面向范围」展示，纯文本保留换行并覆盖正常、长简介、未提供、同步失败四态。
+   - 全工具文案压短先写入新提案 [copy-simplification.md](copy-simplification.md)（本轮只应用到原型，不改动产品代码与 [copywriting.md](../specs/copywriting.md) 正文，规范修订意见单列待定）。
+2. **本批已画出的内容**：
+   - 时间轴与活动类型：宽档（`TimelineWide`、`TimelineFilters`）、1040 边界（`TimelineCompact`）、中档（`TimelineMed`）、窄档（`TimelineNarrow`）、矮档（`TimelineShort`）及手机页（`PhoneTimeline`）。
+   - 活动简介浮层：`DescNormal`、`DescLong`、`DescEmpty`、`DescFail`、`NarrowDesc`。
+   - 设置抽屉重组：`Login` 组「失效后自动登录 · 还差 N 步」六态（`LoginStepTwo`、`LoginStepCred`、`LoginStepOcr`、`LoginStepEnable`、`LoginStepReady`、`LoginStepBadPwd`）与 `Program` 组统一一张卡（`ProgCard`）。
+   - 加载、顶栏过渡与横幅：`ListSkel`、`ListRefreshing`、`ListRefreshFail`、`TopTransitions`（180ms 淡入 / 1.5s 钩号回退）、`BannerNotice`（知道了）、`BannerCollapse`（收起后顶栏留状态提示点）、`BannerInlineClose`（设置内联提示 `×` 关闭）。
+3. **同日复核调整**（审阅方直接改原型并重截，共 59 张，细节见截图说明「同日复核调整」节）：
+   - 简介浮层改为标题用活动名、关键事实在简介正文前，字段顺序以 [activity-description-info-button.md](activity-description-info-button.md) 为准；新增 `DescScope` 画板。
+   - 第三层四格按列表实际宽度切换：列表宽于 45rem 一行四格，否则两行两格（不再按窗口档位判断）。
+4. **待用户看截图定稿**：待确认无误后，再统一修改 `docs/UI_SPEC.md`、决策 `014`、`design/specs/copywriting.md` 并拆实现计划。

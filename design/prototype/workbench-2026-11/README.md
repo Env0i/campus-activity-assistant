@@ -3,7 +3,7 @@
 这是 [新工作台设计](../../../docs/superpowers/specs/2026-11-02-workbench-ui-redesign-design.md) 的原型源码快照（2026-11-02 已批准，待实现），给写代码的人对照状态规则和文案用。上一层目录是 2026-10-22 的旧原型，和这里无关。
 
 - 只用假数据，不连学校、不连网；活动、账号打码、版本号、条款版本号都是编的。
-- 原有 83 张画板和 claude.ai 上的私有原型一致，可以在本机打开、点击操作。2026-11-06 在本机分三轮补了 37 张（见下三条），再加 2026-11-07 补的 9 张（见下面一条），画布现有 129 张；私有原型暂不同步（用户 2026-11-06 定）。
+- 原有 83 张画板和 claude.ai 上的私有原型一致，可以在本机打开、点击操作。2026-11-06 在本机分三轮补了 37 张、2026-11-07 补了 9 张、2026-11-15 补了 13 张、2026-11-24 界面翻新补了 26 张，连同补充说明与子状态画板画布现有 174 张；私有原型暂不同步（用户 2026-11-06 定）。
 - 2026-11-06 补画板（困难计划 prototype-backfill）：给已有场景补画板（列表加载失败、北京时间没校准、登录已失效、还没选活动）；停止计划前确认、停止后的逐场结果；组件安装位置（下载前写会装到哪，装好后写装在哪并能打开所在文件夹）；组件大小按发布页实际大小、读不到时写以发布页为准；验证码识别“本机已装、还没启用”这一态，以及登录恢复里对应的说明。截图在 [design/evidence/2026-11-06/prototype-backfill/](../../evidence/2026-11-06/prototype-backfill/)。
 - 2026-11-06 第二轮补画板：已有交互里够得着、但没单独成画板的状态（更多筛选、搜索没结果、时间重叠、修改尝试时长、运行记录展开、关闭手机访问前确认、再配对一台、清除已保存账号前确认、组件下载失败、验证码认错）；新状态（条款状态没能确认、又打开了一次、旧数据搬迁成功与失败）；窄窗口的结果和设置；手机页的搜索、停止与取消确认、配对码输错、电脑上列表没加载、电脑上北京时间没校准。同时活动列表每场加了两项奖励：实践分和虚拟工资（宽、中窗口在活动名右侧两枚标签，窄窗口和手机页合成一枚放进说明行；详情没回来写“奖励同步中”，没公布写“未公布”）。不做活动详情页。
 - 2026-11-06 登录框：点“登录”先弹登录框，“在这里输入”和“用学校登录页”两种方式并列，由用户选自己放心的那种。在这里输入时，表单下面直接写明密码只发给学校、不勾保存就不留；用学校登录页时写明工具看不到密码、代价是不能自动登录。代码里已有工具内登录，但样式不照搬，按这组画板重做。
@@ -11,7 +11,8 @@
 - 2026-11-09 登录详情卡「别处登录」改为「可能让这里失效…；以实际登录状态为准」：别处登录不一定让本机下线（用户实测）。
 - 2026-11-09 登录详情卡「有效多久」改为「预计有效」：按登录后 10 小时估，只作提示，以学校为准（决策 006 修订）；画板本身不变。
 - 2026-11-08 冲突气泡改为鼠标停在“不可加入”上约 140ms 才弹（键盘聚焦照旧立即弹），扫过整行不再弹，和代码与决策 016 一致；画板本身不变。
-- 2026-11-15 设置抽屉「高级功能」组改成一项一行（图标、圆点加一句状态、一个主按钮、展开看详情），补组件检查中、检查超时、读不到、需要更新、坏了与重新安装失败，手机已断开、正在开启、正在停止，顶栏手机标识的转圈与慢闪；取消下载不再留话。新画板 13 张（AdvCheck 到 PhDownload），截图在 [design/evidence/2026-11-15/adv-visual/](../../evidence/2026-11-15/adv-visual/)。登录组、程序组还是旧排版。
+- 2026-11-15 设置抽屉「高级功能」组改成一项一行（图标、圆点加一句状态、一个主按钮、展开看详情），补组件检查中、检查超时、读不到、需要更新、坏了与重新安装失败，手机已断开、正在开启、正在停止，顶栏手机标识的转圈与慢闪；取消下载不再留话。新画板 13 张（AdvCheck 到 PhDownload），截图在 [design/evidence/2026-11-15/adv-visual/](../../evidence/2026-11-15/adv-visual/)。
+- 2026-11-24 界面翻新原型第一批（见 [workbench-ui-polish.md](../../proposals/workbench-ui-polish.md)、[activity-description-info-button.md](../../proposals/activity-description-info-button.md)、[copy-simplification.md](../../proposals/copy-simplification.md)）：① 桌面与手机活动列表改成竖线时间轴 + 固定四层卡片（`>=1040px` 第三层四格并排，中/窄档及手机页两行两格；「已报名」「已截止」排在时间轴下方）；② 第一层加活动类型标签，「更多筛选」加动态提取的活动类型多选（缺字段归「其他」）；③ 活动名旁加 `?` 按钮打开七字段详情浮层（点击不影响勾选，涵盖正常/长文/空/失败/窄屏）；④ 设置抽屉「登录」组改为「失效后自动登录 · 还差 N 步」步骤清单，「程序」组合成统一一张卡，设置内联反馈带关闭钮；⑤ 补齐 6 种列表加载/刷新形态、顶栏四类状态切换规则（180ms 淡入 / 1.5s 回退）和横幅「知道了 / 收起」规则；⑥ 按精简清单压短桌面与手机原型文案。本轮新增 26 张画板（`TimelineWide` 到 `BannerInlineClose`），截图在 [design/evidence/2026-11-24/ui-refresh/](../../evidence/2026-11-24/ui-refresh/)。
 - 2026-11-24 设置抽屉「程序」组新增「飞书提醒」一节（机器人地址、保存、发测试消息，说明写“建一个只有你自己的群”）：地址只存本机 config.json 的 feishu_webhook，报名结果和登录失效都发到这个群；画板仍是 Settings 一张，交互是本地演示，不发真请求。
 - 2026-11-03 按[架构方案](../../../docs/superpowers/specs/2026-11-03-architecture-revision-design.md)回填：登录只显示上次校验时刻、计划等开放时原地重新登录、每场写明直接提交还是页面点击、名额已满单列、条款草案升到 r4。标志换成入场券（见 [design/brand/](../../brand/README.md)）。
 
@@ -208,4 +209,31 @@ python -m http.server 8790 --bind 127.0.0.1 --directory design/prototype/workben
 | PhoneConflict | 手机页：时间重叠，点按看原因 | Phone.dc.html | conflict | 390×844 |
 | PhoneActPending | 手机页：举办时间待公布 | Phone.dc.html | actpending | 390×844 |
 | PhoneSignedActPending | 手机页：已报名活动缺举办时间 | Phone.dc.html | signedactpending | 390×844 |
+| TimelineWide | 时间轴活动列表（宽档） | Main.dc.html | tlwide | 1280×800 |
+| TimelineFilters | 时间轴筛选（含活动类型多选） | Main.dc.html | tlfilters | 1280×800 |
+| TimelineCompact | 时间轴活动列表（1040 宽边界） | Main.dc.html | tlwide | 1040×800 |
+| TimelineMed | 时间轴活动列表（中档） | Main.dc.html | tlwide | 900×800（medium） |
+| TimelineNarrow | 时间轴活动列表（窄档） | Main.dc.html | tlwide | 430×900（narrow） |
+| TimelineShort | 时间轴活动列表（矮档） | Main.dc.html | tlwide | 1280×600（short） |
+| PhoneTimeline | 手机页：时间轴列表 | Phone.dc.html | picked | 390×844 |
+| DescNormal | 活动简介浮层：正常 | Main.dc.html | descnorm | 1280×800 |
+| DescLong | 活动简介浮层：长简介 | Main.dc.html | desclong | 1280×800 |
+| DescEmpty | 活动简介浮层：未提供 | Main.dc.html | descempty | 1280×800 |
+| DescFail | 活动简介浮层：同步失败 | Main.dc.html | descfail | 1280×800 |
+| NarrowDesc | 窄窗口：活动简介浮层 | Main.dc.html | descnorm | 430×900（narrow） |
+| DescScope | 活动简介浮层：面向范围未识别 | Main.dc.html | descscope | 1280×800 |
+| LoginStepTwo | 自动登录步骤：还差 2 步 | Main.dc.html | lsteptwo | 1280×800 |
+| LoginStepCred | 自动登录步骤：还差账号密码 | Main.dc.html | lstepcred | 1280×800 |
+| LoginStepOcr | 自动登录步骤：还差安装验证码识别 | Main.dc.html | lstepocr | 1280×800 |
+| LoginStepEnable | 自动登录步骤：已安装等启用 | Main.dc.html | lstepenable | 1280×800 |
+| LoginStepReady | 自动登录步骤：已就绪 | Main.dc.html | lstepready | 1280×800 |
+| LoginStepBadPwd | 自动登录步骤：密码已失效 | Main.dc.html | lstepbadpwd | 1280×800 |
+| ProgCard | 程序组统一卡片 | Main.dc.html | progcard | 1280×800 |
+| ListSkel | 列表加载：首次加载骨架屏 | Main.dc.html | listskel | 1280×800 |
+| ListRefreshing | 列表加载：有数据时正在刷新 | Main.dc.html | listrefresh | 1280×800 |
+| ListRefreshFail | 列表加载：刷新失败保留旧列表 | Main.dc.html | listreffail | 1280×800 |
+| TopTransitions | 顶栏四类状态切换规则 | Main.dc.html | topmatrix | 1280×800 |
+| BannerNotice | 横幅：一次性提示（知道了） | Main.dc.html | bnotice | 1280×800 |
+| BannerCollapse | 横幅：持续告警收起留顶栏提示点 | Main.dc.html | bcollapse | 1280×800 |
+| BannerInlineClose | 横幅：设置内联反馈带关闭按钮 | Main.dc.html | binline | 1280×800 |
 | ImplNotes | 实现备注 | ImplNotes.dc.html | — | 1280×2120 |

@@ -1058,6 +1058,195 @@
       "w": 1280,
       "h": 800,
       "title": "手机访问：组件下载中"
+    },
+    "TimelineWide.dc.html": {
+      "x": 0,
+      "y": 29380,
+      "w": 1280,
+      "h": 800,
+      "title": "时间轴活动列表（宽档）"
+    },
+    "TimelineFilters.dc.html": {
+      "x": 1360,
+      "y": 29380,
+      "w": 1280,
+      "h": 800,
+      "title": "时间轴筛选（含活动类型多选）"
+    },
+    "TimelineCompact.dc.html": {
+      "x": 2720,
+      "y": 29380,
+      "w": 1040,
+      "h": 800,
+      "title": "时间轴活动列表（1040 宽边界）"
+    },
+    "TimelineMed.dc.html": {
+      "x": 3840,
+      "y": 29380,
+      "w": 900,
+      "h": 800,
+      "title": "时间轴活动列表（中档）"
+    },
+    "TimelineNarrow.dc.html": {
+      "x": 4820,
+      "y": 29380,
+      "w": 430,
+      "h": 900,
+      "title": "时间轴活动列表（窄档）"
+    },
+    "TimelineShort.dc.html": {
+      "x": 0,
+      "y": 30360,
+      "w": 1280,
+      "h": 600,
+      "title": "时间轴活动列表（矮档）"
+    },
+    "PhoneTimeline.dc.html": {
+      "x": 1360,
+      "y": 30360,
+      "w": 390,
+      "h": 844,
+      "title": "手机页：时间轴列表"
+    },
+    "DescNormal.dc.html": {
+      "x": 0,
+      "y": 31340,
+      "w": 1280,
+      "h": 800,
+      "title": "活动简介浮层：正常"
+    },
+    "DescLong.dc.html": {
+      "x": 1360,
+      "y": 31340,
+      "w": 1280,
+      "h": 800,
+      "title": "活动简介浮层：长简介"
+    },
+    "DescEmpty.dc.html": {
+      "x": 2720,
+      "y": 31340,
+      "w": 1280,
+      "h": 800,
+      "title": "活动简介浮层：未提供"
+    },
+    "DescFail.dc.html": {
+      "x": 4080,
+      "y": 31340,
+      "w": 1280,
+      "h": 800,
+      "title": "活动简介浮层：同步失败"
+    },
+    "NarrowDesc.dc.html": {
+      "x": 5440,
+      "y": 31340,
+      "w": 430,
+      "h": 900,
+      "title": "窄窗口：活动简介浮层"
+    },
+    "DescScope.dc.html": {
+      "x": 5950,
+      "y": 31340,
+      "w": 1280,
+      "h": 800,
+      "title": "活动简介浮层：面向范围未识别"
+    },
+    "LoginStepTwo.dc.html": {
+      "x": 0,
+      "y": 32380,
+      "w": 1280,
+      "h": 800,
+      "title": "自动登录步骤：还差 2 步"
+    },
+    "LoginStepCred.dc.html": {
+      "x": 1360,
+      "y": 32380,
+      "w": 1280,
+      "h": 800,
+      "title": "自动登录步骤：还差账号密码"
+    },
+    "LoginStepOcr.dc.html": {
+      "x": 2720,
+      "y": 32380,
+      "w": 1280,
+      "h": 800,
+      "title": "自动登录步骤：还差安装验证码识别"
+    },
+    "LoginStepEnable.dc.html": {
+      "x": 4080,
+      "y": 32380,
+      "w": 1280,
+      "h": 800,
+      "title": "自动登录步骤：已安装等启用"
+    },
+    "LoginStepReady.dc.html": {
+      "x": 5440,
+      "y": 32380,
+      "w": 1280,
+      "h": 800,
+      "title": "自动登录步骤：已就绪"
+    },
+    "LoginStepBadPwd.dc.html": {
+      "x": 0,
+      "y": 33340,
+      "w": 1280,
+      "h": 800,
+      "title": "自动登录步骤：密码已失效"
+    },
+    "ProgCard.dc.html": {
+      "x": 1360,
+      "y": 33340,
+      "w": 1280,
+      "h": 800,
+      "title": "程序组统一卡片"
+    },
+    "ListSkel.dc.html": {
+      "x": 2720,
+      "y": 33340,
+      "w": 1280,
+      "h": 800,
+      "title": "列表加载：首次加载骨架屏"
+    },
+    "ListRefreshing.dc.html": {
+      "x": 4080,
+      "y": 33340,
+      "w": 1280,
+      "h": 800,
+      "title": "列表加载：有数据时正在刷新"
+    },
+    "ListRefreshFail.dc.html": {
+      "x": 5440,
+      "y": 33340,
+      "w": 1280,
+      "h": 800,
+      "title": "列表加载：刷新失败保留旧列表"
+    },
+    "TopTransitions.dc.html": {
+      "x": 0,
+      "y": 34300,
+      "w": 1280,
+      "h": 800,
+      "title": "顶栏四类状态切换规则"
+    },
+    "BannerNotice.dc.html": {
+      "x": 1360,
+      "y": 34300,
+      "w": 1280,
+      "h": 800,
+      "title": "横幅：一次性提示（知道了）"
+    },
+    "BannerCollapse.dc.html": {
+      "x": 2720,
+      "y": 34300,
+      "w": 1280,
+      "h": 800,
+      "title": "横幅：持续告警收起留顶栏提示点"
+    },
+    "BannerInlineClose.dc.html": {
+      "x": 4080,
+      "y": 34300,
+      "w": 1280,
+      "h": 800,
+      "title": "横幅：设置内联反馈带关闭按钮"
     }
   },
   "order": [
@@ -1208,7 +1397,34 @@
     "AdvVerify.dc.html",
     "AdvUpdFail.dc.html",
     "PhStartFail.dc.html",
-    "PhDownload.dc.html"
+    "PhDownload.dc.html",
+    "TimelineWide.dc.html",
+    "TimelineFilters.dc.html",
+    "TimelineCompact.dc.html",
+    "TimelineMed.dc.html",
+    "TimelineNarrow.dc.html",
+    "TimelineShort.dc.html",
+    "PhoneTimeline.dc.html",
+    "DescNormal.dc.html",
+    "DescLong.dc.html",
+    "DescEmpty.dc.html",
+    "DescFail.dc.html",
+    "NarrowDesc.dc.html",
+    "DescScope.dc.html",
+    "LoginStepTwo.dc.html",
+    "LoginStepCred.dc.html",
+    "LoginStepOcr.dc.html",
+    "LoginStepEnable.dc.html",
+    "LoginStepReady.dc.html",
+    "LoginStepBadPwd.dc.html",
+    "ProgCard.dc.html",
+    "ListSkel.dc.html",
+    "ListRefreshing.dc.html",
+    "ListRefreshFail.dc.html",
+    "TopTransitions.dc.html",
+    "BannerNotice.dc.html",
+    "BannerCollapse.dc.html",
+    "BannerInlineClose.dc.html"
   ],
   "notes": {},
   "designSystems": []

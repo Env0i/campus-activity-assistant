@@ -25,14 +25,17 @@ body{margin:0}
 .mark{width:1.75rem;height:1.75rem;flex:none}
 .brand-name{font-size:1.125rem;font-weight:800;letter-spacing:.04em;white-space:nowrap}
 .brand-desc{color:var(--ink-2);font-size:.75rem;white-space:nowrap}
-.clock{display:inline-flex;align-items:center;gap:.4375rem;height:2rem;padding:0 .5rem;border:1px solid transparent;border-radius:8px;background:transparent;white-space:nowrap}
+.clock{display:inline-flex;align-items:center;gap:.4375rem;height:2rem;padding:0 .5rem;border:1px solid transparent;border-radius:8px;background:transparent;white-space:nowrap;transition:opacity .18s ease,background-color .18s ease,color .18s ease,box-shadow .18s ease,border-color .18s ease}
+.clock.collapsed-warn{background:var(--warn-tint);border-color:#e9c98a}
+.clock.collapsed-warn small,.clock.collapsed-warn b{color:var(--warn);font-weight:700}
 .clock:hover{background:rgba(26,31,36,.06);border-color:var(--line-2)}
 .clock small{color:var(--ink-3);font-size:.6875rem}
 .clock b{min-width:4.25rem;text-align:center;font:400 1rem var(--n);font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .clock.cal b{min-width:3.25rem;font:400 .75rem var(--ui)}
 .clock-ic{width:.875rem;height:.875rem;flex:none;fill:none;stroke:var(--ok);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .clock.cal .clock-ic{stroke:var(--warn)}
-.pill{display:inline-flex;align-items:center;gap:.5rem;height:2rem;padding:0 .75rem 0 .625rem;border:0;border-radius:999px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:.5rem;height:2rem;padding:0 .75rem 0 .625rem;border:0;border-radius:999px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);white-space:nowrap;transition:opacity .18s ease,background-color .18s ease,color .18s ease,box-shadow .18s ease}
+.pill.collapsed-warn{box-shadow:inset 0 0 0 1.5px var(--bad)}
 .pill i{width:.5rem;height:.5rem;border-radius:50%;background:var(--ink-3);flex:none}
 .pill b{font-weight:700}
 .pill small{color:inherit;font:.75rem var(--n)}
@@ -67,49 +70,106 @@ body{margin:0}
 .fbtn{display:inline-flex;align-items:center;gap:.3125rem;height:2rem;padding:0 .5625rem;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--ink-2);font-size:.75rem;white-space:nowrap}
 .fbtn:hover,.fbtn.on{border-color:var(--line-2);color:var(--ink)}
 .meta{margin-left:auto;color:var(--ink-3);font-size:.75rem;white-space:nowrap}
-.more{flex:none;display:flex;flex-wrap:wrap;gap:.5rem;padding:.5rem .75rem;background:var(--paper-2);border-bottom:1px solid var(--line)}
+.more{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--paper-2);border-bottom:1px solid var(--line)}
 .fsel{display:inline-flex;align-items:center;gap:.25rem;height:2rem;padding:0 .4375rem;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--ink-3);font-size:.6875rem}
 .fsel select{border:0;background:transparent;color:var(--ink-2);font-size:.75rem;cursor:pointer}
+.more-types{flex:1 0 100%;display:flex;align-items:center;flex-wrap:wrap;gap:.375rem;padding-top:.375rem;border-top:1px dashed var(--line)}
+.more-lbl{color:var(--ink-3);font-size:.6875rem;margin-right:.125rem;white-space:nowrap}
+.tchip{height:1.625rem;padding:0 .5625rem;border:1px solid var(--line);border-radius:999px;background:var(--paper);color:var(--ink-2);font-size:.75rem;white-space:nowrap}
+.tchip:hover{border-color:var(--line-2);color:var(--ink)}
+.tchip.on{border-color:var(--blue);background:var(--blue-tint);color:var(--blue);font-weight:700}
+.tchip.clear{border-style:dashed;color:var(--ink-3)}
 .list{position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
 .colhead{position:sticky;top:0;z-index:4;display:grid;column-gap:.875rem;align-items:center;height:1.875rem;padding:0 .75rem;background:var(--paper);border-bottom:1px solid var(--line);color:var(--ink-3);font-size:.75rem}
 .colhead .r{justify-self:end}
-.grp{position:sticky;top:1.875rem;z-index:3;display:flex;align-items:baseline;gap:.625rem;min-height:1.875rem;padding:.375rem .75rem 0;background:var(--paper-2);border-bottom:1px solid var(--line);color:var(--ink-2);font-size:.75rem}
+.grp{position:sticky;top:0;z-index:3;display:flex;align-items:baseline;gap:.625rem;min-height:1.875rem;padding:.375rem .75rem 0;background:var(--paper-2);border-bottom:1px solid var(--line);color:var(--ink-2);font-size:.75rem}
 .grp b{color:var(--ink);font-size:.8125rem;font-weight:700}
 .grp.open b{color:var(--warn)}.grp.signed b{color:var(--ok)}
 .grp .count{margin-left:auto;color:var(--ink-3);font-family:var(--n)}
-.list.nohead .grp{top:0}
-.nowline{position:relative;display:flex;align-items:center;height:1.625rem;padding:0 .75rem;background:var(--paper)}
-.nowline::before{content:"";position:absolute;right:0;left:0;top:50%;border-top:1px solid var(--ink)}
-.nowchip{position:relative;display:inline-flex;align-items:center;gap:.375rem;height:1.25rem;padding:0 .5rem;border-radius:4px;background:var(--ink);color:#fff;font-size:.75rem}
-.nowchip::before{content:"";width:.375rem;height:.375rem;border-radius:50%;background:var(--amber)}
+.nowline{position:relative;display:flex;align-items:center;height:1.75rem;padding:0 .75rem;background:var(--paper);border-bottom:1px solid var(--line)}
+.nowline::before{content:"";position:absolute;right:.75rem;left:4.9375rem;top:50%;border-top:1.5px solid #e07b12}
+.nowline::after{content:"";position:absolute;left:4.9375rem;top:50%;width:.5rem;height:.5rem;margin:-.25rem 0 0 -.25rem;border-radius:50%;background:#e07b12;box-shadow:0 0 0 3px rgba(224,123,18,.2)}
+.list.narrow .nowline::after{left:.6875rem}.list.narrow .nowline::before{left:.6875rem}
+.nowchip{position:relative;z-index:1;display:inline-flex;align-items:center;gap:.375rem;height:1.25rem;padding:0 .5rem;border-radius:4px;background:#fff4e6;color:#8f4a00;box-shadow:inset 0 0 0 1px #f2c58f;font-size:.75rem}
+.nowchip::before{content:"";width:.375rem;height:.375rem;border-radius:50%;background:#e07b12}
 .nowchip b{font-family:var(--n);font-variant-numeric:tabular-nums;font-weight:600}
-.row{position:relative;display:grid;column-gap:.875rem;align-items:center;min-height:3.5rem;padding:.375rem .75rem;border-bottom:1px solid var(--line);cursor:pointer}
-.row:hover{background:#f5f8fa}
-.row.sel,.row.sel:hover{background:var(--blue-tint)}
-.row.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--blue)}
-.row.armed::before{background:var(--board)}
-.row.off{cursor:default}.row.off:hover{background:transparent}
-.row.dim .name{font-weight:400;color:var(--ink-2)}.row.dim .ct-t{color:var(--ink-3)}
-.c-sel{display:flex;justify-content:center}
+.tl-node{position:relative;display:grid;grid-template-columns:4.25rem minmax(0,1fr);gap:0 .875rem;padding:.5rem .75rem;border-bottom:1px solid var(--line);background:var(--paper)}
+.tl-node::before{content:"";position:absolute;left:4.9375rem;top:0;bottom:0;width:2px;background:var(--line-2)}
+.list.narrow .tl-node{grid-template-columns:minmax(0,1fr);gap:.375rem 0;padding:.5rem .5rem .625rem 1.5rem}.list.narrow .tl-axis{position:static;justify-content:flex-start;padding-top:0}.list.narrow .tl-time{flex-direction:row;align-items:center;gap:.4375rem}.list.narrow .tl-t{font-size:1rem}.list.narrow .tl-batch{margin-top:0}.list.narrow .tl-dot{position:absolute;left:.375rem;top:.75rem;margin:0}
+.list.narrow .tl-node::before{left:.6875rem}
+.tl-axis{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:.25rem;padding-top:.4375rem}
+.tl-time{min-width:0;display:flex;flex-direction:column;gap:.125rem;line-height:1.1}
+.tl-t{font:600 1.25rem/1.05 var(--n);font-stretch:85%;font-variant-numeric:tabular-nums;color:var(--ink)}
+.tl-t.txt{font:500 .75rem/1.3 var(--ui);color:var(--ink-3)}
+.tl-d{color:var(--ink-3);font-size:.6875rem;white-space:nowrap}
+.tl-batch{display:inline-block;width:fit-content;margin-top:.125rem;padding:0 .3125rem;border-radius:4px;background:var(--amber-tint,var(--warn-tint));color:var(--warn);font-size:.625rem;font-weight:700;line-height:1.35;white-space:nowrap}
+.tl-dot{width:.75rem;height:.75rem;margin:.25rem -.3125rem 0 0;border-radius:50%;flex:none;background:var(--paper);border:2px solid var(--ink-3)}
+.tl-dot.open{background:#d96b00;border-color:#d96b00}
+.tl-dot.next{background:var(--amber);border-color:var(--amber);box-shadow:0 0 0 4px rgba(255,176,32,.28)}
+.tl-dot.wait{background:var(--paper);border:2px solid var(--ink-3)}
+.tl-dot.unknown{background:var(--paper);border:1.5px dashed var(--ink-3)}
+.tl-cards{display:flex;flex-direction:column;gap:.5rem;min-width:0}
+.tl-below{display:flex;flex-direction:column;gap:.5rem;padding:.5rem .75rem;background:var(--paper);border-bottom:1px solid var(--line)}
+.list.narrow .tl-below{padding:.5rem}
+.card-4l{position:relative;display:flex;flex-direction:column;gap:.3125rem;padding:.5625rem .75rem;border:1px solid var(--line);border-radius:8px;background:var(--paper);cursor:pointer;transition:background-color .12s,border-color .12s}
+.card-4l:hover{background:#f5f8fa;border-color:var(--line-2)}
+.card-4l.sel,.card-4l.sel:hover{background:#f6f9fc;border-color:#a9c6df}
+.card-4l.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:8px 0 0 8px;background:var(--blue)}
+.card-4l.armed::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:8px 0 0 8px;background:var(--board)}
+.card-4l.off{cursor:default}.card-4l.off:hover{background:var(--paper);border-color:var(--line)}
+.card-4l.dim{background:#fafbfc}.card-4l.dim .name{font-weight:500;color:var(--ink-2)}
+.card-4l.clash:hover,.card-4l.tipon,.card-4l.tipon:hover{background:#f5f8fa}
+.card-4l.flash{animation:cxflash 1.8s ease-out}
+.l1{display:flex;align-items:flex-start;gap:.5rem;min-width:0}
+.c-sel{display:flex;align-items:center;height:1.25rem;flex:none}
 .c-sel input{width:.9375rem;height:.9375rem;margin:0;accent-color:var(--blue)}
-.c-time{display:flex;flex-direction:column;gap:.1875rem;line-height:1}
-.ct-t{font:600 1.5rem var(--n);font-stretch:85%;font-variant-numeric:tabular-nums}
-.ct-t.txt{font:400 .8125rem var(--ui);color:var(--ink-3)}
-.ct-d{color:var(--ink-3);font-size:.75rem}
-.c-main{min-width:0}.nl{display:flex;align-items:flex-start;gap:.5rem;min-width:0}.nl .name{flex:1;min-width:0}.rw{display:flex;flex:none;gap:.25rem;margin-top:.0625rem}.rw-c{padding:0 .375rem;border-radius:4px;background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2);font-size:.6875rem;line-height:1.25rem;white-space:nowrap}.rw-c b{margin:0 .125rem;color:var(--ink);font:600 .75rem var(--n);font-variant-numeric:tabular-nums}.rw-c b:empty{display:none}.rw-c.pt{min-width:3.125rem;text-align:center}.rw-c.wg{min-width:3.75rem;text-align:center}.rw-c b:first-child{margin-left:0}.rw-c.pt b{margin-right:.1875rem}.rw-c.wg b{margin-left:.1875rem}.rw-c.na{color:var(--ink-3);box-shadow:none}.rw-p{color:var(--warn);font-size:.6875rem;line-height:1.25rem;white-space:nowrap}.rw-i{padding:0 .3125rem;border-radius:4px;background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);font-size:.6875rem;line-height:1.25rem;white-space:nowrap;font-variant-numeric:tabular-nums}.rw-i.p{background:transparent;box-shadow:none;color:var(--warn)}.row.sel .rw-c,.row.sel .rw-i:not(.p){background:var(--paper)}.row.dim .rw-c{opacity:.72}
+.nl{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:.25rem .5rem}
+.nl-title{flex:1 1 12rem;min-width:0;display:flex;align-items:flex-start;gap:.3125rem}
+.nl-title .name{flex:0 1 auto;min-width:0}
+.desc-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:1.1875rem;height:1.1875rem;margin-top:.0625rem;padding:0;border:1px solid var(--line-2);border-radius:50%;background:var(--paper-2);color:var(--ink-2);font:700 .6875rem/1 var(--ui)}
+.desc-btn:hover{border-color:var(--blue);background:var(--blue-tint);color:var(--blue)}
+.card-4l.sel .desc-btn{background:var(--paper)}
+.desc-dlg{width:min(32rem,calc(100vw - 1.5rem));max-height:calc(100vh - 2rem)}
+.desc-dl{display:grid;grid-template-columns:4.5rem minmax(0,1fr);gap:.5625rem .75rem;margin:0;font-size:.8125rem;line-height:1.55}
+.desc-dl dt{color:var(--ink-3);font-size:.75rem;padding-top:.0625rem}
+.desc-dl dd{margin:0;color:var(--ink);min-width:0;overflow-wrap:anywhere}
+.desc-body{padding:.5rem .625rem;border-radius:8px;background:var(--paper-2);border:1px solid var(--line);color:var(--ink);font-size:.8125rem;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.desc-body.clamp{max-height:9.5rem;overflow:hidden}
+.desc-body.empty{color:var(--ink-3)}
+.desc-body.fail{background:var(--warn-tint);border-color:#e9c98a;color:#6b4100}
+.desc-more{margin-top:.375rem}
+.desc-facts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.625rem 1.25rem;margin:0 0 1rem}.desc-facts>div{min-width:0}.desc-facts .wide{grid-column:1/-1}.desc-facts dt{color:var(--ink-3);font-size:.75rem;line-height:1.4}.desc-facts dd{margin:.125rem 0 0;color:var(--ink);font-size:.8125rem;line-height:1.5;overflow-wrap:anywhere}.scope-l{display:block}.scope-l em{font-style:normal;color:var(--ink-3);margin-right:.375rem}.scope-l em.none{display:none}.desc-h{margin:0 0 .375rem;color:var(--ink-3);font-size:.75rem;font-weight:400}
+.l1-r{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:.25rem;flex:none}
+.type-tag{display:inline-flex;align-items:center;gap:.3125rem;color:var(--ink-2);font-size:.75rem;white-space:nowrap}.type-tag::before{content:"";width:.4375rem;height:.4375rem;border-radius:2px;background:#8a96a1}
+.card-4l.sel .type-tag,.card-4l.sel .rw-c,.card-4l.sel .rw-i:not(.p),.card-4l.sel .flag{background:var(--paper)}
+.rw{display:flex;flex:none;gap:.25rem}.rw-c{padding:0 .375rem;border-radius:4px;background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2);font-size:.6875rem;line-height:1.25rem;white-space:nowrap}.rw-c b{margin:0 .125rem;color:var(--ink);font:600 .75rem var(--n);font-variant-numeric:tabular-nums}.rw-c b:empty{display:none}.rw-c.pt{min-width:3.125rem;text-align:center}.rw-c.wg{min-width:3.75rem;text-align:center}.rw-c b:first-child{margin-left:0}.rw-c.pt b{margin-right:.1875rem}.rw-c.wg b{margin-left:.1875rem}.rw-c.na{color:var(--ink-3);box-shadow:none}.rw-p{color:var(--warn);font-size:.6875rem;line-height:1.25rem;white-space:nowrap}.rw-i{padding:0 .3125rem;border-radius:4px;background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);font-size:.6875rem;line-height:1.25rem;white-space:nowrap;font-variant-numeric:tabular-nums}.rw-i.p{background:transparent;box-shadow:none;color:var(--warn)}.card-4l.dim .rw-c{opacity:.72}
 .name{display:-webkit-box;overflow:hidden;font-size:.875rem;font-weight:600;line-height:1.4;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.sub{display:flex;flex-wrap:wrap;align-items:center;gap:.125rem .5rem;margin-top:.125rem;color:var(--ink-2);font-size:.75rem}
-.it{font:600 .8125rem var(--n);color:var(--ink)}
+.l2{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.25rem .5rem;padding-left:1.4375rem;font-size:.75rem;color:var(--ink-2)}
+.l2-l{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem .5rem;min-width:0}
+.l2-r{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:.25rem .5rem;margin-left:auto}
+.sign-end{color:var(--ink-3);white-space:nowrap}
+.l3{margin-left:1.4375rem;padding:.3125rem .5rem;border-radius:6px;background:var(--paper-2);color:var(--ink-2);font-size:.75rem;line-height:1.35}
+.card-4l.sel .l3{background:#edf2f7}
+.l3.l3-4{display:grid;grid-template-columns:9.5rem minmax(0,1fr) 7.5rem 7.5rem;gap:.25rem .75rem}.list{container:list / inline-size}@container list (max-width: 45rem){.l3.l3-4{grid-template-columns:9.5rem minmax(0,1fr)}}
+.l3.l3-2{display:flex;flex-direction:column;gap:.1875rem}
+.l3-r{display:flex;align-items:baseline;gap:.125rem .625rem;min-width:0}
+.l3-r .l3-c:first-child{flex:none}
+.l3-r .l3-c:last-child{flex:1;min-width:0}
+.l3-c{display:flex;align-items:baseline;gap:.25rem;min-width:0;overflow:hidden}
+.l3-c em{font-style:normal;color:var(--ink-3);flex:none}
+.l3-c span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)}
+.l3-c.na span{color:var(--ink-3)}
+.l3-c.pend span{color:var(--warn)}
+.l4{padding-left:1.4375rem}
+.list.narrow .l2,.list.narrow .l4{padding-left:0}.list.narrow .l2{flex-wrap:nowrap}.list.narrow .l2-l{flex-wrap:nowrap;overflow:hidden;min-width:0}.list.narrow .l2-l>*{flex:none;white-space:nowrap}.list.narrow .l2-l>.sign-end{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}.list.narrow .nowline{padding-left:1.5rem}.list.narrow .l2-r .t-next{display:none}
+.list.narrow .l3{margin-left:0}
+.list.compact .l3.l3-4{gap:.25rem .4375rem;font-size:.6875rem}
 .flag{padding:1px .3125rem;border-radius:4px;background:var(--blue-tint);color:var(--blue);font-size:.6875rem;line-height:1.35;white-space:nowrap}
-.row.sel .flag{background:#fff}
 .flag.un{background:var(--paper-2);color:var(--ink-3)}
 .flag.warn{background:var(--warn-tint);color:var(--warn)}
-.att.un{color:var(--warn)}
-.note-w{margin-top:.125rem;color:var(--warn);font-size:.75rem}
+.note-w{margin-top:.125rem;padding:.25rem .5rem;border-radius:6px;background:var(--warn-tint);color:var(--warn);font-size:.75rem}.note-m{margin-top:.125rem;padding:.25rem .5rem;border-radius:6px;background:var(--bad-tint);color:#7e2119;font-size:.75rem}
 .note-s{margin-top:.125rem;color:var(--ok);font-size:.75rem}
-.c-place{overflow:hidden;color:var(--ink-2);font-size:.8125rem;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.c-state{display:flex;flex-direction:column;align-items:flex-end;gap:.25rem;text-align:right}
-.left{color:var(--blue);font:.9375rem var(--n);font-variant-numeric:tabular-nums;white-space:nowrap}
+.left{color:var(--ink-2);font:.875rem var(--n);font-variant-numeric:tabular-nums;white-space:nowrap}
 .left.soon{color:var(--warn);font-weight:700}
 .small{color:var(--ink-2);font-size:.75rem;white-space:nowrap}
 .tag{display:inline-flex;align-items:center;gap:.3125rem;height:1.25rem;padding:0 .4375rem;border-radius:4px;font-size:.75rem;font-weight:700;white-space:nowrap}
@@ -128,6 +188,7 @@ body{margin:0}
 .row.flash{animation:cxflash 1.8s ease-out}
 @keyframes cxflash{0%,40%{background:#ffe7ad}100%{background:transparent}}
 .rf{color:var(--ink-2)}.rf.no{color:var(--warn);font-weight:600}
+.rw{gap:0;border-radius:4px;background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line)}.rw .rw-c{background:none;box-shadow:none;min-width:0;padding:0 .4375rem}.rw .rw-c.wg{position:relative}.rw .rw-c.wg::before{content:"";position:absolute;left:0;top:.3125rem;bottom:.3125rem;width:1px;background:var(--line-2)}.rw:has(.rw-p){background:none;box-shadow:none}.card-4l.sel .rw{background:#fff}
 .cx-until{color:var(--ink-2);font-size:.6875rem;line-height:1.3;white-space:nowrap}
 .cx-btn{height:1.5rem;padding:0 .5rem;border-radius:6px;font-size:.75rem}
 .rx{padding:.125rem .75rem .625rem;border-bottom:1px solid var(--line);background:var(--paper)}
@@ -158,9 +219,27 @@ body{margin:0}
 .empty svg .f{fill:currentColor;stroke:none}
 .empty h3{margin:.25rem 0 0;font-size:1rem;font-weight:700}
 .empty p{max-width:21rem;margin:0 0 .375rem;color:var(--ink-2);font-size:.75rem;text-wrap:balance}
-.skel{display:grid;column-gap:.875rem;align-items:center;height:3.5rem;padding:0 .75rem;border-bottom:1px solid var(--line)}
-.skel i{display:block;height:.75rem;border-radius:4px;background:linear-gradient(90deg,#edf0f3,#f6f8fa,#edf0f3) 0 0/200% 100%;animation:shimmer 1.4s linear infinite}
-.skel i:nth-child(2){height:1.125rem;width:3rem}.skel i:nth-child(3){width:70%}.skel i:last-child{width:3.75rem;justify-self:end}
+.skel-card{display:flex;flex-direction:column;gap:.4375rem;padding:.5625rem .75rem;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+.skel-bar{display:block;height:.75rem;border-radius:4px;background:linear-gradient(90deg,#edf0f3,#f6f8fa,#edf0f3) 0 0/200% 100%;animation:shimmer 1.4s linear infinite}
+.rf-bar{height:2px;flex:none;background:linear-gradient(90deg,transparent,var(--blue),transparent);background-size:40% 100%;animation:rfbar 1.1s linear infinite}
+@keyframes rfbar{from{background-position:-60% 0}to{background-position:160% 0}}
+.spin-ic{animation:advspin .9s linear infinite}
+.fresh.busy{color:var(--blue);font-weight:600}
+.fresh.ok{color:var(--ok);font-weight:600}
+.note-inline{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.note-x{flex:none;width:1.375rem;height:1.375rem;padding:0;border:0;border-radius:4px;background:transparent;color:var(--ink-3);font-size:.875rem;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.note-x:hover{background:rgba(26,31,36,.08);color:var(--ink)}
+.tmat{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 1rem .75rem}
+.tmat-card{max-width:64rem;margin:0 auto;border-radius:12px;background:var(--paper);box-shadow:0 0 0 1px var(--line);overflow:hidden}
+.tmat-h{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.875rem 1.125rem;background:var(--dots),var(--board);color:var(--on)}
+.tmat-h h2{margin:0;padding-left:.625rem;border-left:3px solid var(--amber);font-size:1rem}
+.tmat-h span{color:var(--on-2);font-size:.75rem}
+.tmat-row{display:grid;grid-template-columns:9.5rem minmax(0,1fr);gap:.5rem 1rem;align-items:center;padding:.875rem 1.125rem;border-bottom:1px solid var(--line)}
+.tmat-row:last-child{border-bottom:0}
+.tmat-name b{display:block;font-size:.8125rem}
+.tmat-name small{color:var(--ink-2);font-size:.75rem}
+.tmat-flow{display:flex;flex-wrap:wrap;align-items:center;gap:.4375rem .5rem}
+.tmat-arw{color:var(--ink-3);font-size:.75rem}
 .board{position:relative;display:flex;flex-direction:column;min-width:0;overflow:hidden;border-radius:14px;background:var(--dots),var(--board);color:var(--on);box-shadow:inset 0 0 0 1px var(--board-line)}
 .board.st-ok{box-shadow:inset 0 0 0 2px var(--green)}.board.st-bad{box-shadow:inset 0 0 0 2px var(--red)}.board.st-warn{box-shadow:inset 0 0 0 2px var(--amber-dim)}
 .board :focus-visible{outline-color:var(--amber)}
@@ -411,7 +490,7 @@ body{margin:0}
 .top.narrow{gap:.125rem;padding:.25rem .5rem}.top.narrow .clock{padding:0 .25rem}.top.narrow .clock-ic{display:none}.top.narrow .btn{padding:0 .5rem}.top.narrow .pill{padding:0 .625rem 0 .5rem}
 .top.narrow .status,.top.narrow .st-item{position:static}.top.narrow .sc{left:.5rem;right:.5rem;width:auto}.top.narrow .sc-caret{display:none}
 @media (max-width:720px){.lg-opt{grid-template-columns:minmax(0,1fr)}.lg-opt .lg-ic{display:none}.td-b{grid-template-columns:1fr}.td-nav{display:none}.td-tabs{flex-wrap:wrap;padding:.375rem 1rem 0}.td-tabs button{padding:0 .625rem;white-space:nowrap}.td-newnote{order:-1;flex-basis:100%;margin:0 0 .25rem}}
-.lnote{margin:0;padding:.4375rem .75rem;border-bottom:1px solid var(--line);background:var(--warn-tint);color:#6b4100;font-size:.75rem}
+.lnote{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin:0;padding:.4375rem .75rem;border-bottom:1px solid var(--line);background:var(--warn-tint);color:#6b4100;font-size:.75rem}
 .status{position:relative;display:flex;align-items:center;gap:.375rem}
 .st-item{position:relative;display:inline-flex}
 .sc-caret{position:absolute;top:calc(100% + .1875rem);z-index:7;width:.75rem;height:.75rem;background:var(--board);transform:rotate(45deg)}
@@ -534,6 +613,26 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
 .set p.adv-n{margin:-.375rem 1rem .875rem 4.25rem;color:var(--ink-2)}.set p.adv-n.red{color:#8a2a20}.set p.adv-n.green{color:var(--ok)}.set p.adv-n.amber{color:var(--warn)}
 .set p.adv-e{margin:-.25rem 1rem .875rem 4.25rem}
 .adv-d{padding:0 1rem 1rem 4.25rem}.adv-d>p:first-child{margin-top:0}
+.login-steps{border-top:1px solid var(--line)}
+.lstep{padding:.75rem 1rem;border-bottom:1px solid var(--line)}
+.lstep:last-of-type{border-bottom:0}
+.lstep-h{display:flex;align-items:center;gap:.625rem}
+.lstep-no{width:1.375rem;height:1.375rem;flex:none;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 .75rem/1 var(--n);background:var(--paper-2);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line-2)}
+.lstep-no.done{background:var(--ok-tint);color:var(--ok);box-shadow:none}
+.lstep-no.bad{background:var(--bad-tint);color:var(--bad);box-shadow:none}
+.lstep-no.warn{background:var(--warn-tint);color:var(--warn);box-shadow:none}
+.lstep-t{flex:1;min-width:0}
+.lstep-t b{display:block;font-size:.8125rem;font-weight:700}
+.lstep-t span{display:block;color:var(--ink-2);font-size:.75rem;line-height:1.45}
+.lstep-t span.ok{color:var(--ok)}.lstep-t span.warn{color:var(--warn)}.lstep-t span.bad{color:var(--bad)}
+.lstep-acts{display:flex;flex:none;gap:.375rem}
+.lstep-b{margin-top:.625rem;padding-left:2rem}
+.lstep-foot{padding:.5625rem 1rem .6875rem;background:var(--paper-2);border-top:1px solid var(--line);color:var(--ink-2);font-size:.75rem;line-height:1.45}
+.prog-row{border-bottom:1px solid var(--line)}
+.prog-row:last-child{border-bottom:0}
+.prog-row .adv-h select{height:2rem;padding:0 .5rem;border:0;border-radius:8px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2);font-size:.75rem;font-weight:600}
+.prog-d{padding:0 1rem .875rem 4rem}
+.prog-d>p:first-child{margin-top:0}
 .pill.blink svg{animation:pulse 1.4s ease-in-out infinite}
 .pill .pill-spin{width:.75rem;height:.75rem;flex:none;border-radius:50%;background:transparent;border:2px solid var(--line-2);border-top-color:var(--ink-2);animation:advspin .9s linear infinite}
 @keyframes advspin{to{transform:rotate(360deg)}}
@@ -566,9 +665,9 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
         <dl class="sc-rows"><sc-for list="{{pc.rows}}" as="r" hint-placeholder-count="4"><dt>{{r.k}}</dt><dd>{{r.v}}</dd></sc-for></dl>
         <p class="sc-note">{{pc.note}}</p>
         <div class="sc-f"><span class="sc-hint">{{popHint}}</span><button class="btn btn-line" type="button" onClick="{{phoneManage}}">管理手机访问</button></div>
-      </div></sc-if></span></sc-if></div>
+      </div></sc-if></span></sc-if><sc-if value="{{hasAlertPill}}" hint-placeholder-val="{{false}}"><button class="pill {{alertPill.tone}}" type="button" onClick="{{alertPill.fn}}" title="展开顶部提示"><i></i><b>{{alertPill.text}}</b></button></sc-if></div>
     <sc-if value="{{labels}}" hint-placeholder-val="{{true}}"><span class="sep" aria-hidden="true"></span></sc-if>
-    <button class="btn" type="button" disabled="{{refreshOff}}" onClick="{{refresh}}" aria-label="刷新登录状态和活动列表" aria-keyshortcuts="F5" title="刷新（F5）"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path></svg><sc-if value="{{btnLabels}}" hint-placeholder-val="{{true}}"><span>刷新</span></sc-if></button>
+    <button class="btn" type="button" disabled="{{refreshOff}}" onClick="{{refresh}}" aria-label="刷新登录状态和活动列表" aria-keyshortcuts="F5" title="刷新（F5）"><sc-if value="{{refreshDone}}" hint-placeholder-val="{{false}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--ok)"><path d="M5 12.5l4.2 4.2L19 7"></path></svg></sc-if><sc-if value="{{refreshIcon}}" hint-placeholder-val="{{true}}"><svg class="i {{refreshSpinCls}}" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path></svg></sc-if><sc-if value="{{btnLabels}}" hint-placeholder-val="{{true}}"><span>{{refreshText}}</span></sc-if></button>
     <button class="btn" type="button" onClick="{{openSettings}}" aria-label="设置" title="设置"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg><sc-if value="{{btnLabels}}" hint-placeholder-val="{{true}}"><span>设置</span></sc-if></button>
     <button class="btn" type="button" onClick="{{openHelp}}" aria-label="帮助" title="帮助"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.7.3-1.2.9-1.2 1.6v.5"></path><path d="M12 17h.01"></path></svg><sc-if value="{{btnLabels}}" hint-placeholder-val="{{true}}"><span>帮助</span></sc-if></button>
   </header>
@@ -588,7 +687,19 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
   </sc-if>
 
   <sc-if value="{{hasAttn}}" hint-placeholder-val="{{false}}">
-    <div class="banner {{attn.tone}}" role="status"><span class="grow"><b>{{attn.title}}</b>{{attn.detail}}</span><button class="btn btn-line" type="button" onClick="{{attn.fn}}">{{attn.action}}</button></div>
+    <div class="banner {{attn.tone}}" role="status"><span class="grow"><b>{{attn.title}}</b>{{attn.detail}}</span><button class="btn btn-line" type="button" onClick="{{attn.fn}}">{{attn.action}}</button><sc-if value="{{attn.canCollapse}}" hint-placeholder-val="{{false}}"><button class="btn" type="button" onClick="{{attn.collapse}}">收起</button></sc-if></div>
+  </sc-if>
+
+  <sc-if value="{{topMatrix}}" hint-placeholder-val="{{false}}">
+    <div class="tmat" aria-label="顶栏四类状态切换规则">
+      <div class="tmat-card">
+        <div class="tmat-h"><h2>顶栏四类状态切换</h2><span>文字切换 180ms 淡入；刷新成功钩号保持 1.5s 后淡回刷新图标；高优先级告警收起后在顶栏留红/琥珀提示点</span></div>
+        <div class="tmat-row"><div class="tmat-name"><b>1. 北京时间</b><small>校准 / 沿用 / 校准中 / 待校准</small></div><div class="tmat-flow"><span class="clock"><small>北京时间</small><b>14:20:05</b><svg class="clock-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 12.5l2.4 2.4 4.6-5"></path></svg></span><span class="tmat-arw">→</span><span class="clock cal"><small>北京时间</small><b>校准中…</b></span><span class="tmat-arw">→</span><span class="clock cal collapsed-warn"><small>北京时间</small><b>待校准</b></span></div></div>
+        <div class="tmat-row"><div class="tmat-name"><b>2. 登录状态</b><small>有效 / 自动登录 / 待确认 / 已失效</small></div><div class="tmat-flow"><span class="pill ok"><i></i><b>已登录</b><small>14:20 校验</small></span><span class="tmat-arw">→</span><span class="pill busy"><i></i><b>自动登录中…</b></span><span class="tmat-arw">→</span><span class="pill warn"><i></i><b>登录待确认</b></span><span class="tmat-arw">→</span><span class="pill bad collapsed-warn"><i></i><b>登录已失效</b></span></div></div>
+        <div class="tmat-row"><div class="tmat-name"><b>3. 刷新按钮</b><small>待命 → 旋转 → ✓ 已更新 1.5s 淡回</small></div><div class="tmat-flow"><span class="btn btn-line"><svg class="i" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path></svg><span>刷新</span></span><span class="tmat-arw">→</span><span class="btn btn-line"><svg class="i spin-ic" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path></svg><span>刷新中</span></span><span class="tmat-arw">→（180ms 淡入，1.5s 回退）</span><span class="btn btn-line"><svg class="i" viewBox="0 0 24 24" style="color: var(--ok)"><path d="M5 12.5l4.2 4.2L19 7"></path></svg><span style="color: var(--ok)">已更新</span></span></div></div>
+        <div class="tmat-row"><div class="tmat-name"><b>4. 手机访问</b><small>已连接 / 已断开 / 开启中</small></div><div class="tmat-flow"><span class="pill ok"><i></i><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg><b>手机已连接</b></span><span class="tmat-arw">→</span><span class="pill"><i></i><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg><b>手机已断开</b></span><span class="tmat-arw">→</span><span class="pill busy"><span class="pill-spin"></span><b>手机开启中…</b></span></div></div>
+      </div>
+    </div>
   </sc-if>
 
   <div class="main">
@@ -606,29 +717,112 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
             <label class="fsel">排序<select value="{{fSort}}" onChange="{{onSort}}" aria-label="排序方式"><option value="open">按开放时间</option><option value="name">按活动名</option></select></label>
             <label class="fsel">签到<select value="{{fIn}}" onChange="{{onIn}}" aria-label="签到要求"><option value="all">全部</option><option value="yes">需要</option><option value="no">无需</option></select></label>
             <label class="fsel">签退<select value="{{fOut}}" onChange="{{onOut}}" aria-label="签退要求"><option value="all">全部</option><option value="yes">需要</option><option value="no">无需</option></select></label>
+            <div class="more-types" role="group" aria-label="活动类型">
+              <span class="more-lbl">活动类型</span>
+              <sc-for list="{{typeOpts}}" as="tp" hint-placeholder-count="4"><button class="tchip {{tp.cls}}" type="button" aria-pressed="{{tp.on}}" onClick="{{tp.toggle}}">{{tp.label}}</button></sc-for>
+              <sc-if value="{{hasTypeSel}}" hint-placeholder-val="{{false}}"><button class="tchip clear" type="button" onClick="{{clearTypes}}">不限</button></sc-if>
+            </div>
           </div>
         </sc-if>
-        <sc-if value="{{hasListNote}}" hint-placeholder-val="{{false}}"><p class="lnote" role="status">{{listNote}}</p></sc-if>
+        <sc-if value="{{isRefreshing}}" hint-placeholder-val="{{false}}"><div class="rf-bar" role="progressbar" aria-label="正在刷新活动列表"></div></sc-if>
+        <sc-if value="{{hasListNote}}" hint-placeholder-val="{{false}}"><p class="lnote" role="status"><span>{{listNote}}</span><sc-if value="{{listNoteRetry}}" hint-placeholder-val="{{false}}"><button class="ph-link" type="button" onClick="{{refresh}}">重试</button></sc-if></p></sc-if>
         <sc-if value="{{listRows}}" hint-placeholder-val="{{true}}">
           <div class="list {{listCls}}" tabindex="0" aria-label="活动列表">
-            <sc-if value="{{showHead}}" hint-placeholder-val="{{true}}"><div class="colhead" aria-hidden="true" style="grid-template-columns: {{cols}}"><span>选</span><span>开放时间</span><span>活动</span><sc-if value="{{showPlace}}" hint-placeholder-val="{{true}}"><span>地点</span></sc-if><span class="r">距开放</span></div></sc-if>
             <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
               <sc-if value="{{g.nowBefore}}" hint-placeholder-val="{{false}}"><div class="nowline"><span class="nowchip">现在 <b>{{g.now}}</b></span></div></sc-if>
               <div class="grp {{g.cls}}"><b>{{g.title}}</b><span>{{g.note}}</span><span class="count">{{g.n}} 场</span></div>
-              <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
-                <label class="row {{r.cls}}" data-tour="{{r.tourAttr}}" data-row="{{r.id}}" style="grid-template-columns: {{r.cols}}">
-                  <span class="c-sel"><input type="checkbox" checked="{{r.selected}}" disabled="{{r.disabled}}" onChange="{{r.toggle}}" aria-label="{{r.aria}}"></span>
-                  <sc-if value="{{r.showTime}}" hint-placeholder-val="{{true}}"><span class="c-time"><span class="ct-t {{r.timeCls}}">{{r.time}}</span><sc-if value="{{r.hasDay}}" hint-placeholder-val="{{false}}"><span class="ct-d">{{r.day}}</span></sc-if></span></sc-if>
-                  <span class="c-main"><span class="nl"><span class="name" title="{{r.name}}">{{r.name}}</span><sc-if value="{{r.rwSide}}" hint-placeholder-val="{{true}}"><span class="rw" title="{{r.rw.title}}"><sc-if value="{{r.rw.pend}}" hint-placeholder-val="{{false}}"><span class="rw-p">奖励同步中</span></sc-if><sc-if value="{{r.rw.ready}}" hint-placeholder-val="{{true}}"><span class="rw-c pt {{r.rw.ptsCls}}"><b>{{r.rw.ptsN}}</b>{{r.rw.ptsU}}</span><span class="rw-c wg {{r.rw.wageCls}}">{{r.rw.wageL}}<b>{{r.rw.wageN}}</b></span></sc-if></span></sc-if></span><span class="sub"><sc-if value="{{r.inlineTime}}" hint-placeholder-val="{{false}}"><span class="it">{{r.time}}</span></sc-if><sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1"><span class="flag {{f.cls}}">{{f.text}}</span></sc-for><span>{{r.act}}</span><sc-if value="{{r.hasRf}}" hint-placeholder-val="{{false}}"><span class="{{r.rfCls}}">{{r.rf}}</span></sc-if><sc-if value="{{r.rwInline}}" hint-placeholder-val="{{false}}"><span class="{{r.rw.iCls}}" title="{{r.rw.title}}">{{r.rw.iText}}</span></sc-if><sc-if value="{{r.hasAtt}}" hint-placeholder-val="{{true}}"><span class="{{r.attCls}}">{{r.att}}</span></sc-if></span><sc-if value="{{r.hasWarn}}" hint-placeholder-val="{{false}}"><span class="note-w" style="display: block">{{r.warn}}</span></sc-if><sc-if value="{{r.hasSync}}" hint-placeholder-val="{{false}}"><span class="note-s" style="display: block">报名已确认，学校列表正在同步</span></sc-if></span>
-                  <sc-if value="{{r.showPlace}}" hint-placeholder-val="{{true}}"><span class="c-place" title="{{r.place}}">{{r.place}}</span></sc-if>
-                  <span class="c-state"><sc-if value="{{r.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag {{r.tagCls}}">{{r.tag}}</span></sc-if><sc-if value="{{r.hasClash}}" hint-placeholder-val="{{false}}"><span class="tag t-clash" tabindex="0" aria-describedby="cx-tip" onMouseEnter="{{r.tipHover}}" onMouseLeave="{{tipLeave}}" onFocus="{{r.tipEnter}}" onBlur="{{tipLeave}}" onKeyDown="{{r.tipKey}}">不可加入<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5.5"></path><path d="M12 7.6h.01"></path></svg></span></sc-if><sc-if value="{{r.hasLeft}}" hint-placeholder-val="{{true}}"><span class="left {{r.leftCls}}">{{r.left}}</span></sc-if><sc-if value="{{r.hasSmall}}" hint-placeholder-val="{{false}}"><span class="small">{{r.small}}</span></sc-if><sc-if value="{{r.hasUntil}}" hint-placeholder-val="{{false}}"><span class="cx-until">{{r.until}}</span></sc-if><sc-if value="{{r.hasCancel}}" hint-placeholder-val="{{false}}"><button class="btn btn-line cx-btn" type="button" disabled="{{r.cancelOff}}" title="{{r.cancelTitle}}" onClick="{{r.cancelAsk}}">{{r.cancelLabel}}</button></sc-if></span>
-                </label>
-                <sc-if value="{{r.hasAfter}}" hint-placeholder-val="{{false}}"><div class="rx" style="padding-left: {{r.rxPad}}"><sc-if value="{{r.hasAsk}}" hint-placeholder-val="{{false}}"><div class="ph-confirm" role="alert">取消「{{r.name}}」的报名？取消后名额可能被别人报走，不能撤回。<div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{r.askNo}}">不取消</button><button class="btn btn-stop" type="button" onClick="{{r.askYes}}">确认取消报名</button></div></div></sc-if><sc-if value="{{r.hasRes}}" hint-placeholder-val="{{false}}"><p class="cx-res {{r.resCls}}" role="status">{{r.res}}</p></sc-if></div></sc-if>
-              </sc-for>
+              <sc-if value="{{g.hasRail}}" hint-placeholder-val="{{true}}">
+                <sc-for list="{{g.nodes}}" as="nd" hint-placeholder-count="3">
+                  <div class="tl-node">
+                    <div class="tl-axis">
+                      <div class="tl-time"><span class="tl-t {{nd.timeCls}}">{{nd.time}}</span><sc-if value="{{nd.hasDay}}" hint-placeholder-val="{{false}}"><span class="tl-d">{{nd.day}}</span></sc-if><sc-if value="{{nd.hasBatch}}" hint-placeholder-val="{{false}}"><span class="tl-batch">同抢 {{nd.batchN}} 场</span></sc-if></div>
+                      <span class="tl-dot {{nd.dotCls}}" aria-hidden="true"></span>
+                    </div>
+                    <div class="tl-cards">
+                      <sc-for list="{{nd.rows}}" as="r" hint-placeholder-count="1">
+                        <div class="card-4l row {{r.cls}}" data-tour="{{r.tourAttr}}" data-row="{{r.id}}" onClick="{{r.cardClick}}">
+                          <div class="l1">
+                            <span class="c-sel"><input type="checkbox" checked="{{r.selected}}" disabled="{{r.disabled}}" onClick="{{r.chkClick}}" onChange="{{r.toggle}}" aria-label="{{r.aria}}"></span>
+                            <div class="nl">
+                              <div class="nl-title"><span class="name" title="{{r.name}}">{{r.name}}</span><button class="desc-btn" type="button" aria-label="查看活动简介" title="查看活动简介" onClick="{{r.openDesc}}">?</button></div>
+                              <span class="l1-r"><span class="rw" title="{{r.rw.title}}"><sc-if value="{{r.rw.pend}}" hint-placeholder-val="{{false}}"><span class="rw-p">奖励同步中</span></sc-if><sc-if value="{{r.rw.ready}}" hint-placeholder-val="{{true}}"><span class="rw-c pt {{r.rw.ptsCls}}"><b>{{r.rw.ptsN}}</b>{{r.rw.ptsU}}</span><span class="rw-c wg {{r.rw.wageCls}}">{{r.rw.wageL}}<b>{{r.rw.wageN}}</b></span></sc-if></span></span>
+                            </div>
+                          </div>
+                          <div class="l2">
+                            <div class="l2-l"><span class="type-tag">{{r.typeLabel}}</span><sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1"><span class="flag {{f.cls}}">{{f.text}}</span></sc-for><sc-if value="{{r.hasRf}}" hint-placeholder-val="{{false}}"><span class="{{r.rfCls}}">{{r.rf}}</span></sc-if><sc-if value="{{r.hasSignEnd}}" hint-placeholder-val="{{false}}"><span class="sign-end">{{r.signEndText}}</span></sc-if></div>
+                            <div class="l2-r"><sc-if value="{{r.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag {{r.tagCls}}">{{r.tag}}</span></sc-if><sc-if value="{{r.hasClash}}" hint-placeholder-val="{{false}}"><span class="tag t-clash" tabindex="0" aria-describedby="cx-tip" onMouseEnter="{{r.tipHover}}" onMouseLeave="{{tipLeave}}" onFocus="{{r.tipEnter}}" onBlur="{{tipLeave}}" onKeyDown="{{r.tipKey}}">不可加入<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5.5"></path><path d="M12 7.6h.01"></path></svg></span></sc-if><sc-if value="{{r.hasLeft}}" hint-placeholder-val="{{true}}"><span class="left {{r.leftCls}}">{{r.left}}</span></sc-if><sc-if value="{{r.hasSmall}}" hint-placeholder-val="{{false}}"><span class="small">{{r.small}}</span></sc-if><sc-if value="{{r.hasUntil}}" hint-placeholder-val="{{false}}"><span class="cx-until">{{r.until}}</span></sc-if><sc-if value="{{r.hasCancel}}" hint-placeholder-val="{{false}}"><button class="btn btn-line cx-btn" type="button" disabled="{{r.cancelOff}}" title="{{r.cancelTitle}}" onClick="{{r.cancelAsk}}">{{r.cancelLabel}}</button></sc-if></div>
+                          </div>
+                          <sc-if value="{{r.l3Grid}}" hint-placeholder-val="{{true}}">
+                            <div class="l3 l3-4">
+                              <span class="l3-c {{r.actCls}}" title="{{r.actCell}}"><em>举办</em><span>{{r.actCell}}</span></span>
+                              <span class="l3-c {{r.placeCls}}" title="{{r.placeCell}}"><em>地点</em><span>{{r.placeCell}}</span></span>
+                              <span class="l3-c {{r.inCls}}" title="{{r.inCell}}"><em>签到</em><span>{{r.inCell}}</span></span>
+                              <span class="l3-c {{r.outCls}}" title="{{r.outCell}}"><em>签退</em><span>{{r.outCell}}</span></span>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{r.l3Two}}" hint-placeholder-val="{{false}}">
+                            <div class="l3 l3-2">
+                              <div class="l3-r"><span class="l3-c {{r.actCls}}" title="{{r.actCell}}"><em>举办</em><span>{{r.actCell}}</span></span><span class="l3-c {{r.placeCls}}" title="{{r.placeCell}}"><em>地点</em><span>{{r.placeCell}}</span></span></div>
+                              <div class="l3-r"><span class="l3-c {{r.inCls}}" title="{{r.inCell}}"><em>签到</em><span>{{r.inCell}}</span></span><span class="l3-c {{r.outCls}}" title="{{r.outCell}}"><em>签退</em><span>{{r.outCell}}</span></span></div>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{r.hasL4}}" hint-placeholder-val="{{false}}">
+                            <div class="l4">
+                              <sc-if value="{{r.hasWarn}}" hint-placeholder-val="{{false}}"><span class="note-w" style="display: block">{{r.warn}}</span></sc-if><sc-if value="{{r.hasMiss}}" hint-placeholder-val="{{false}}"><span class="note-m" style="display: block">{{r.miss}}</span></sc-if>
+                              <sc-if value="{{r.hasSync}}" hint-placeholder-val="{{false}}"><span class="note-s" style="display: block">报名已确认，学校列表正在同步</span></sc-if>
+                              <sc-if value="{{r.hasAfter}}" hint-placeholder-val="{{false}}"><div class="rx" style="padding: .25rem 0 0; border-bottom: 0"><sc-if value="{{r.hasAsk}}" hint-placeholder-val="{{false}}"><div class="ph-confirm" role="alert">取消「{{r.name}}」的报名？取消后名额可能被别人报走，不能撤回。<div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{r.askNo}}">不取消</button><button class="btn btn-stop" type="button" onClick="{{r.askYes}}">确认取消报名</button></div></div></sc-if><sc-if value="{{r.hasRes}}" hint-placeholder-val="{{false}}"><p class="cx-res {{r.resCls}}" role="status">{{r.res}}</p></sc-if></div></sc-if>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </sc-if>
+              <sc-if value="{{g.noRail}}" hint-placeholder-val="{{false}}">
+                <div class="tl-below">
+                  <sc-for list="{{g.belowRows}}" as="r" hint-placeholder-count="1">
+                    <div class="card-4l row {{r.cls}}" data-tour="{{r.tourAttr}}" data-row="{{r.id}}" onClick="{{r.cardClick}}">
+                      <div class="l1">
+                        <span class="c-sel"><input type="checkbox" checked="{{r.selected}}" disabled="{{r.disabled}}" onClick="{{r.chkClick}}" onChange="{{r.toggle}}" aria-label="{{r.aria}}"></span>
+                        <div class="nl">
+                          <div class="nl-title"><span class="name" title="{{r.name}}">{{r.name}}</span><button class="desc-btn" type="button" aria-label="查看活动简介" title="查看活动简介" onClick="{{r.openDesc}}">?</button></div>
+                          <span class="l1-r"><span class="rw" title="{{r.rw.title}}"><sc-if value="{{r.rw.pend}}" hint-placeholder-val="{{false}}"><span class="rw-p">奖励同步中</span></sc-if><sc-if value="{{r.rw.ready}}" hint-placeholder-val="{{true}}"><span class="rw-c pt {{r.rw.ptsCls}}"><b>{{r.rw.ptsN}}</b>{{r.rw.ptsU}}</span><span class="rw-c wg {{r.rw.wageCls}}">{{r.rw.wageL}}<b>{{r.rw.wageN}}</b></span></sc-if></span></span>
+                        </div>
+                      </div>
+                      <div class="l2">
+                        <div class="l2-l"><span class="type-tag">{{r.typeLabel}}</span><sc-for list="{{r.flags}}" as="f" hint-placeholder-count="1"><span class="flag {{f.cls}}">{{f.text}}</span></sc-for><sc-if value="{{r.hasRf}}" hint-placeholder-val="{{false}}"><span class="{{r.rfCls}}">{{r.rf}}</span></sc-if><sc-if value="{{r.hasSignEnd}}" hint-placeholder-val="{{false}}"><span class="sign-end">{{r.signEndText}}</span></sc-if></div>
+                        <div class="l2-r"><sc-if value="{{r.hasTag}}" hint-placeholder-val="{{false}}"><span class="tag {{r.tagCls}}">{{r.tag}}</span></sc-if><sc-if value="{{r.hasUntil}}" hint-placeholder-val="{{false}}"><span class="cx-until">{{r.until}}</span></sc-if><sc-if value="{{r.hasCancel}}" hint-placeholder-val="{{false}}"><button class="btn btn-line cx-btn" type="button" disabled="{{r.cancelOff}}" title="{{r.cancelTitle}}" onClick="{{r.cancelAsk}}">{{r.cancelLabel}}</button></sc-if></div>
+                      </div>
+                      <sc-if value="{{r.l3Grid}}" hint-placeholder-val="{{true}}">
+                        <div class="l3 l3-4">
+                          <span class="l3-c {{r.actCls}}" title="{{r.actCell}}"><em>举办</em><span>{{r.actCell}}</span></span>
+                          <span class="l3-c {{r.placeCls}}" title="{{r.placeCell}}"><em>地点</em><span>{{r.placeCell}}</span></span>
+                          <span class="l3-c {{r.inCls}}" title="{{r.inCell}}"><em>签到</em><span>{{r.inCell}}</span></span>
+                          <span class="l3-c {{r.outCls}}" title="{{r.outCell}}"><em>签退</em><span>{{r.outCell}}</span></span>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{r.l3Two}}" hint-placeholder-val="{{false}}">
+                        <div class="l3 l3-2">
+                          <div class="l3-r"><span class="l3-c {{r.actCls}}" title="{{r.actCell}}"><em>举办</em><span>{{r.actCell}}</span></span><span class="l3-c {{r.placeCls}}" title="{{r.placeCell}}"><em>地点</em><span>{{r.placeCell}}</span></span></div>
+                          <div class="l3-r"><span class="l3-c {{r.inCls}}" title="{{r.inCell}}"><em>签到</em><span>{{r.inCell}}</span></span><span class="l3-c {{r.outCls}}" title="{{r.outCell}}"><em>签退</em><span>{{r.outCell}}</span></span></div>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{r.hasL4}}" hint-placeholder-val="{{false}}">
+                        <div class="l4">
+                          <sc-if value="{{r.hasWarn}}" hint-placeholder-val="{{false}}"><span class="note-w" style="display: block">{{r.warn}}</span></sc-if><sc-if value="{{r.hasMiss}}" hint-placeholder-val="{{false}}"><span class="note-m" style="display: block">{{r.miss}}</span></sc-if>
+                          <sc-if value="{{r.hasSync}}" hint-placeholder-val="{{false}}"><span class="note-s" style="display: block">报名已确认，学校列表正在同步</span></sc-if>
+                          <sc-if value="{{r.hasAfter}}" hint-placeholder-val="{{false}}"><div class="rx" style="padding: .25rem 0 0; border-bottom: 0"><sc-if value="{{r.hasAsk}}" hint-placeholder-val="{{false}}"><div class="ph-confirm" role="alert">取消「{{r.name}}」的报名？取消后名额可能被别人报走，不能撤回。<div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{r.askNo}}">不取消</button><button class="btn btn-stop" type="button" onClick="{{r.askYes}}">确认取消报名</button></div></div></sc-if><sc-if value="{{r.hasRes}}" hint-placeholder-val="{{false}}"><p class="cx-res {{r.resCls}}" role="status">{{r.res}}</p></sc-if></div></sc-if>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
             </sc-for>
           </div>
         </sc-if>
-        <sc-if value="{{listLoading}}" hint-placeholder-val="{{false}}"><div class="list" aria-label="正在加载活动列表"><sc-for list="{{skels}}" as="sk" hint-placeholder-count="6"><div class="skel" style="grid-template-columns: {{sk.cols}}"><i></i><i></i><i></i><i></i></div></sc-for></div></sc-if>
+        <sc-if value="{{listLoading}}" hint-placeholder-val="{{false}}"><div class="list" aria-label="正在加载活动列表"><div class="grp"><b>正在加载活动…</b><span></span><span class="count"></span></div><sc-for list="{{skels}}" as="sk" hint-placeholder-count="4"><div class="tl-node"><div class="tl-axis"><div class="tl-time"><span class="skel-bar" style="width: 2.75rem; height: 1.125rem"></span><span class="skel-bar" style="width: 2rem; height: .625rem; margin-top: .25rem"></span></div><span class="tl-dot wait"></span></div><div class="tl-cards"><div class="skel-card"><span class="skel-bar" style="width: {{sk.w1}}; height: .875rem"></span><span class="skel-bar" style="width: {{sk.w2}}"></span><span class="skel-bar" style="width: 100%; height: 1.625rem"></span></div></div></div></sc-for></div></sc-if>
         <sc-if value="{{hasEmpty}}" hint-placeholder-val="{{false}}"><div class="empty"><svg viewBox="0 0 76 52" aria-hidden="true"><rect x="2" y="2" width="72" height="36" rx="6"></rect><circle class="f" cx="16" cy="20" r="2.2"></circle><circle class="f" cx="23" cy="20" r="2.2"></circle><circle class="f" cx="34" cy="16" r="2"></circle><circle class="f" cx="34" cy="24" r="2"></circle><circle class="f" cx="45" cy="20" r="2.2"></circle><circle class="f" cx="52" cy="20" r="2.2"></circle><circle class="f" cx="60" cy="20" r="2.2"></circle><path d="M38 38v10M26 49h24" stroke-linecap="round"></path></svg><h3>{{empty.title}}</h3><p>{{empty.text}}</p><sc-if value="{{empty.hasAction}}" hint-placeholder-val="{{true}}"><button class="btn btn-line" type="button" onClick="{{empty.fn}}">{{empty.action}}</button></sc-if></div></sc-if>
       </section>
     </sc-if>
@@ -753,7 +947,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
         <section class="set adv-sec" data-sec="ocr" aria-label="验证码识别">
           <div class="adv-h"><span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M7 14l2-4 2 4M14 10h3M14 14h3"></path></svg></span><div class="adv-t"><b>验证码识别</b><span class="adv-s {{ocH.tone}}" role="status"><i></i>{{ocH.text}}</span></div><sc-if value="{{ocH.hasBtn}}" hint-placeholder-val="{{true}}"><button class="btn {{ocH.btnCls}}" type="button" disabled="{{ocH.btnOff}}" onClick="{{ocH.btnFn}}">{{ocH.btnLabel}}</button></sc-if><button class="adv-x" type="button" aria-expanded="{{ocH.open}}" aria-label="{{ocH.xAria}}" onClick="{{ocToggle}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="{{ocH.xPath}}"></path></svg></button></div>
           <sc-if value="{{ocH.hasBar}}" hint-placeholder-val="{{false}}"><div class="adv-bar" role="progressbar" aria-label="验证码识别组件安装进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ocH.pct}}"><i style="width: {{ocH.pct}}%"></i></div></sc-if>
-          <sc-if value="{{ocH.hasNote}}" hint-placeholder-val="{{false}}"><p class="adv-n {{ocH.noteCls}}">{{ocH.note}}</p></sc-if>
+          <sc-if value="{{ocH.hasNote}}" hint-placeholder-val="{{false}}"><div class="adv-n {{ocH.noteCls}} note-inline" style="margin: -.375rem 1rem .875rem 4.25rem; font-size: .75rem"><span>{{ocH.note}}</span><button class="note-x" type="button" aria-label="收起提示" onClick="{{ocDismissNote}}">×</button></div></sc-if>
           <sc-if value="{{ocH.hasErr}}" hint-placeholder-val="{{false}}"><p class="ph-err adv-e" role="alert">{{ocH.err}}</p></sc-if>
           <sc-if value="{{ocH.open}}" hint-placeholder-val="{{false}}"><div class="adv-d">
           <p>{{ocV.lead}}</p>
@@ -765,60 +959,142 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
           </div></sc-if>
         </section>
         <div class="set-g">登录</div>
-        <section class="set" data-sec="login">
-          <div class="set-h"><b>登录恢复</b><sc-if value="{{crV.hasSlot}}" hint-placeholder-val="{{true}}"><button class="btn btn-line" type="button" data-cred="slot" onClick="{{crV.slotFn}}">{{crV.slotLabel}}</button></sc-if></div>
-          <p>{{crV.lead}}</p>
-          <sc-if value="{{crV.hasSaved}}" hint-placeholder-val="{{false}}"><p>{{crV.saved}}</p></sc-if>
-          <p class="{{crV.autoCls}}">{{crV.auto}}</p>
-          <sc-if value="{{crV.formOn}}" hint-placeholder-val="{{false}}">
-            <div class="credf">
-              <label class="fl"><span>账号</span><input type="text" autocomplete="username" spellcheck="false" value="{{credUser}}" onChange="{{onCredUser}}" aria-label="账号"></label>
-              <label class="fl"><span>密码</span><input type="password" autocomplete="new-password" value="{{credPass}}" onChange="{{onCredPass}}" aria-label="密码"></label>
-              <label class="agree"><input type="checkbox" checked="{{credOnce}}" onChange="{{onCredOnce}}">只在这次运行中用，不保存到本机</label>
-              <p class="ph-note" style="margin: 0">登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。</p>
-              <div class="ph-acts"><button class="btn btn-solid" type="button" disabled="{{crV.cantSave}}" onClick="{{credSave}}">{{crV.saveLabel}}</button><button class="btn btn-line" type="button" onClick="{{credCancel}}">取消</button></div>
+        <section class="set adv-sec" data-sec="login">
+          <div class="adv-h">
+            <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg></span>
+            <div class="adv-t"><b>失效后自动登录</b><span class="adv-s {{crV.headCls}}"><i></i>{{crV.headStatus}}</span></div>
+          </div>
+          <div class="login-steps">
+            <div class="lstep">
+              <div class="lstep-h">
+                <span class="lstep-no {{crV.s1Cls}}" aria-hidden="true">{{crV.s1Mark}}</span>
+                <div class="lstep-t"><b>1. 保存本机账号密码</b><span class="{{crV.s1SubCls}}">{{crV.s1Sub}}</span></div>
+                <div class="lstep-acts">
+                  <sc-if value="{{crV.hasSlot}}" hint-placeholder-val="{{true}}"><button class="btn {{crV.slotCls}}" type="button" data-cred="slot" onClick="{{crV.slotFn}}">{{crV.slotLabel}}</button></sc-if>
+                  <sc-if value="{{crV.canClear}}" hint-placeholder-val="{{false}}"><button class="btn btn-line" type="button" onClick="{{credClearAskFn}}">清除</button></sc-if>
+                </div>
+              </div>
+              <sc-if value="{{crV.formOn}}" hint-placeholder-val="{{false}}">
+                <div class="lstep-b">
+                  <div class="credf" style="margin-top: 0">
+                    <label class="fl"><span>账号</span><input type="text" autocomplete="username" spellcheck="false" value="{{credUser}}" onChange="{{onCredUser}}" aria-label="账号"></label>
+                    <label class="fl"><span>密码</span><input type="password" autocomplete="new-password" value="{{credPass}}" onChange="{{onCredPass}}" aria-label="密码"></label>
+                    <label class="agree"><input type="checkbox" checked="{{credOnce}}" onChange="{{onCredOnce}}">只在这次运行中用，不保存到本机</label>
+                    <p class="ph-note" style="margin: 0">登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。</p>
+                    <div class="ph-acts"><button class="btn btn-solid" type="button" disabled="{{crV.cantSave}}" onClick="{{credSave}}">{{crV.saveLabel}}</button><button class="btn btn-line" type="button" onClick="{{credCancel}}">取消</button></div>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{crV.clearAsk}}" hint-placeholder-val="{{false}}"><div class="lstep-b"><div class="ph-confirm" role="alert">清除后，电脑不会再自动登录，手机上重新登录也要重新输入账号密码。<div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{credClearNo}}">先不清除</button><button class="btn btn-stop" type="button" onClick="{{credClearYes}}">确认清除</button></div></div></div></sc-if>
+              <sc-if value="{{crV.hasBad}}" hint-placeholder-val="{{false}}"><div class="lstep-b"><p class="ph-err" role="alert" style="margin: 0">保存的密码学校不认，自动登录已暂停。点“更换”输入新密码。</p></div></sc-if>
+              <sc-if value="{{crV.hasNote}}" hint-placeholder-val="{{false}}"><div class="lstep-b"><div class="ph-note note-inline" role="status" style="margin: 0; font-size: .75rem; color: var(--ink-2)"><span>{{crV.note}}</span><button class="note-x" type="button" aria-label="收起提示" onClick="{{credDismissNote}}">×</button></div></div></sc-if>
             </div>
-          </sc-if>
-          <sc-if value="{{crV.clearAsk}}" hint-placeholder-val="{{false}}"><div class="ph-confirm" role="alert">清除后，电脑不会再自动登录，手机上重新登录也要重新输入账号密码。<div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{credClearNo}}">先不清除</button><button class="btn btn-stop" type="button" onClick="{{credClearYes}}">确认清除</button></div></div></sc-if>
-          <sc-if value="{{crV.canClear}}" hint-placeholder-val="{{false}}"><div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{credClearAskFn}}">清除已保存</button></div></sc-if>
-          <sc-if value="{{crV.hasBad}}" hint-placeholder-val="{{false}}"><p class="ph-err" role="alert">保存的密码学校不认，自动登录已暂停。点“更换”输入新密码。</p></sc-if>
-          <sc-if value="{{crV.hasNote}}" hint-placeholder-val="{{false}}"><p class="ph-note" role="status">{{crV.note}}</p></sc-if>
+            <div class="lstep">
+              <div class="lstep-h">
+                <span class="lstep-no {{crV.s2Cls}}" aria-hidden="true">{{crV.s2Mark}}</span>
+                <div class="lstep-t"><b>2. 验证码识别组件</b><span class="{{crV.s2SubCls}}">{{crV.s2Sub}}</span></div>
+                <div class="lstep-acts"><button class="btn {{crV.s2BtnCls}}" type="button" onClick="{{crV.s2Fn}}">{{crV.s2BtnLabel}}</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="lstep-foot">{{crV.foot}}</div>
         </section>
 
         <div class="set-g" data-sec="prog">程序</div>
-        <section class="set"><div class="set-h"><b>关闭窗口时</b><select aria-label="关闭窗口时" value="{{closePref}}" onChange="{{onClosePref}}"><option value="ask">每次询问</option><option value="hide">隐藏到后台</option><option value="min">最小化到任务栏</option><option value="exit">直接退出</option></select></div><p>选了直接退出也一样：报名计划运行中，关窗口前会先问你。</p></section>
-        <section class="set" data-sec="update">
-          <div class="set-h"><b>版本与更新 <span class="num" style="font-weight: 400">1.2.0</span></b><sc-if value="{{upV.hasSlot}}" hint-placeholder-val="{{true}}"><button class="btn {{upV.slotCls}}" type="button" disabled="{{upV.slotOff}}" onClick="{{upV.slotFn}}">{{upV.slotLabel}}</button></sc-if></div>
-          <p class="{{upV.cls}}" role="status">{{upV.status}}<sc-if value="{{upV.hasAt}}" hint-placeholder-val="{{false}}"><span class="up-at">检查时间 {{upV.at}}</span></sc-if></p>
-          <sc-if value="{{upV.hasErr}}" hint-placeholder-val="{{false}}"><p class="ph-err" role="alert">{{upV.err}}</p></sc-if>
-          <sc-if value="{{upV.isAvail}}" hint-placeholder-val="{{false}}"><div class="up-v" style="margin-top: .5rem"><b>1.3.0</b><span>完整安装包 92.4 MB，下载后先校验，再由你决定什么时候安装</span></div></sc-if>
-          <sc-if value="{{upV.isConfirm}}" hint-placeholder-val="{{false}}"><div class="upbox"><p>下载 1.3.0 安装包（92.4 MB）？只写临时目录，不动现在的程序和你的数据。校验通过后，什么时候安装由你决定。</p><div class="ph-acts"><button class="btn btn-solid" type="button" onClick="{{upConfirm}}">确认下载</button><button class="btn btn-line" type="button" onClick="{{upBack}}">取消</button></div></div></sc-if>
-          <sc-if value="{{upV.isLoading}}" hint-placeholder-val="{{false}}">
-            <div class="ph-prog"><div class="ph-prog-t"><span>{{upV.loadText}}</span><b>{{upV.loadNum}}</b></div><div class="ph-bar" role="progressbar" aria-label="安装包下载进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{upV.pct}}"><i style="width: {{upV.pct}}%"></i></div></div>
-            <p class="ph-note">下载不影响报名计划，可以关掉设置继续用。</p>
-          </sc-if>
-          <sc-if value="{{upV.isReady}}" hint-placeholder-val="{{false}}"><div class="upbox"><sc-if value="{{upV.hasPlanWarn}}" hint-placeholder-val="{{false}}"><p class="ph-warn" style="margin: 0 0 .25rem">报名计划还在运行。安装时要先关闭本工具，计划会停止，建议等这次计划结束再装。</p></sc-if><p>启动后按安装向导操作。工具不会自己退出或重启。</p></div></sc-if>
-          <sc-if value="{{upV.isLaunched}}" hint-placeholder-val="{{false}}"><p class="ph-ok">先关闭本工具，再按向导完成安装。旧版本和你的数据在安装完成前都不会变。</p></sc-if>
-          <sc-if value="{{upV.hasNote}}" hint-placeholder-val="{{false}}"><p class="ph-note" role="status">{{upV.note}}</p></sc-if>
-          <p class="ph-note"><button class="ph-link" type="button" onClick="{{upRelease}}">打开发布页</button>，看更新说明，或者手动下载完整包。</p>
-          <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><label class="ph-demo-sel">演示：下一次检查的结果<select value="{{upNext}}" onChange="{{onUpNext}}" aria-label="演示：下一次检查的结果"><option value="available">有新版本</option><option value="current">已是最新</option><option value="no_installer">有新版本但没有安装包</option><option value="preview">当前是预览版</option><option value="unavailable">还没有正式发布</option><option value="error">连接超时</option></select></label><sc-if value="{{upV.canDemoFail}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{upDemoFail}}">演示：校验失败</button></sc-if></sc-if>
-        </section>
-        <section class="set" data-sec="feishu"><div class="set-h"><b>飞书提醒</b></div><p>建一个只有你自己的群，加一个自定义机器人，把地址贴在这里。报名结果和登录失效都发到这个群。</p>
-          <div class="credf"><label class="fl"><span>地址</span><input aria-label="飞书机器人地址" placeholder="https://…" value="{{fsV.url}}" onChange="{{fsV.onUrl}}"></label>
-            <div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{fsV.test}}">发测试消息</button><button class="btn btn-solid" type="button" onClick="{{fsV.save}}">保存</button></div>
-            <sc-if value="{{fsV.hasNote}}" hint-placeholder-val="{{false}}"><p class="{{fsV.noteCls}}" role="status">{{fsV.note}}</p></sc-if>
+        <section class="set adv-sec">
+          <div class="prog-row">
+            <div class="adv-h">
+              <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"></rect><path d="M3 9h18M15 13l4 4M19 13l-4 4"></path></svg></span>
+              <div class="adv-t"><b>关闭窗口时</b><span class="adv-s"><i></i>计划运行时关窗口总会先问你</span></div>
+              <select aria-label="关闭窗口时" value="{{closePref}}" onChange="{{onClosePref}}"><option value="ask">每次询问</option><option value="hide">隐藏到后台</option><option value="min">最小化到任务栏</option><option value="exit">直接退出</option></select>
+            </div>
+          </div>
+
+          <div class="prog-row" data-sec="update">
+            <div class="adv-h">
+              <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg></span>
+              <div class="adv-t"><b>版本与更新 <span class="num" style="font-weight: 400">1.2.0</span></b><span class="adv-s {{upV.dotCls}}"><i></i>{{upV.status}}<sc-if value="{{upV.hasAt}}" hint-placeholder-val="{{false}}"><span class="up-at">检查 {{upV.at}}</span></sc-if></span></div>
+              <sc-if value="{{upV.hasSlot}}" hint-placeholder-val="{{true}}"><button class="btn {{upV.slotCls}}" type="button" disabled="{{upV.slotOff}}" onClick="{{upV.slotFn}}">{{upV.slotLabel}}</button></sc-if>
+            </div>
+            <sc-if value="{{upV.hasDetail}}" hint-placeholder-val="{{false}}">
+              <div class="prog-d">
+                <sc-if value="{{upV.hasErr}}" hint-placeholder-val="{{false}}"><p class="ph-err" role="alert">{{upV.err}}</p></sc-if>
+                <sc-if value="{{upV.isAvail}}" hint-placeholder-val="{{false}}"><div class="up-v"><b>1.3.0</b><span>完整安装包 92.4 MB，下载后先校验，再由你决定什么时候安装</span></div></sc-if>
+                <sc-if value="{{upV.isConfirm}}" hint-placeholder-val="{{false}}"><div class="upbox"><p>下载 1.3.0 安装包（92.4 MB）？只写临时目录，不动现在的程序和你的数据。校验通过后，什么时候安装由你决定。</p><div class="ph-acts"><button class="btn btn-solid" type="button" onClick="{{upConfirm}}">确认下载</button><button class="btn btn-line" type="button" onClick="{{upBack}}">取消</button></div></div></sc-if>
+                <sc-if value="{{upV.isLoading}}" hint-placeholder-val="{{false}}">
+                  <div class="ph-prog"><div class="ph-prog-t"><span>{{upV.loadText}}</span><b>{{upV.loadNum}}</b></div><div class="ph-bar" role="progressbar" aria-label="安装包下载进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{upV.pct}}"><i style="width: {{upV.pct}}%"></i></div></div>
+                  <p class="ph-note">下载不影响报名计划，可以关掉设置继续用。</p>
+                </sc-if>
+                <sc-if value="{{upV.isReady}}" hint-placeholder-val="{{false}}"><div class="upbox"><sc-if value="{{upV.hasPlanWarn}}" hint-placeholder-val="{{false}}"><p class="ph-warn" style="margin: 0 0 .25rem">报名计划还在运行。安装时要先关闭本工具，计划会停止，建议等这次计划结束再装。</p></sc-if><p>启动后按安装向导操作。工具不会自己退出或重启。</p></div></sc-if>
+                <sc-if value="{{upV.isLaunched}}" hint-placeholder-val="{{false}}"><p class="ph-ok">先关闭本工具，再按向导完成安装。旧版本和你的数据在安装完成前都不会变。</p></sc-if>
+                <sc-if value="{{upV.hasNote}}" hint-placeholder-val="{{false}}"><p class="ph-note" role="status">{{upV.note}}</p></sc-if>
+                <p class="ph-note"><button class="ph-link" type="button" onClick="{{upRelease}}">打开发布页</button>，看更新说明，或者手动下载完整包。</p>
+                <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><label class="ph-demo-sel">演示：下一次检查的结果<select value="{{upNext}}" onChange="{{onUpNext}}" aria-label="演示：下一次检查的结果"><option value="available">有新版本</option><option value="current">已是最新</option><option value="no_installer">有新版本但没有安装包</option><option value="preview">当前是预览版</option><option value="unavailable">还没有正式发布</option><option value="error">连接超时</option></select></label><sc-if value="{{upV.canDemoFail}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{upDemoFail}}">演示：校验失败</button></sc-if></sc-if>
+              </div>
+            </sc-if>
+          </div>
+
+          <div class="prog-row" data-sec="feishu">
+            <div class="adv-h">
+              <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></span>
+              <div class="adv-t"><b>飞书提醒</b><span class="adv-s {{fsV.dotCls}}"><i></i>{{fsV.status}}</span></div>
+              <button class="adv-x" type="button" aria-expanded="{{fsV.open}}" aria-label="展开或收起飞书提醒" onClick="{{fsV.toggle}}"><svg viewBox="0 0 24 24" aria-hidden="true"><sc-if value="{{fsV.open}}" hint-placeholder-val="{{false}}"><path d="M18 15l-6-6-6 6"></path></sc-if><sc-if value="{{fsV.closed}}" hint-placeholder-val="{{true}}"><path d="M6 9l6 6 6-6"></path></sc-if></svg></button>
+            </div>
+            <sc-if value="{{fsV.open}}" hint-placeholder-val="{{false}}">
+              <div class="prog-d">
+                <p>建一个只有你的群，加个自定义机器人，把地址贴在下面。报名结果和登录失效都发到这个群。</p>
+                <div class="credf"><label class="fl"><span>地址</span><input aria-label="飞书机器人地址" placeholder="https://…" value="{{fsV.url}}" onChange="{{fsV.onUrl}}"></label>
+                  <div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{fsV.test}}">发测试消息</button><button class="btn btn-solid" type="button" onClick="{{fsV.save}}">保存</button></div>
+                  <sc-if value="{{fsV.hasNote}}" hint-placeholder-val="{{false}}"><div class="{{fsV.noteCls}} note-inline" role="status" style="margin-top: .5rem; font-size: .75rem"><span>{{fsV.note}}</span><button class="note-x" type="button" aria-label="收起提示" onClick="{{fsV.dismiss}}">×</button></div></sc-if>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <div class="prog-row">
+            <div class="adv-h">
+              <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"></path></svg></span>
+              <div class="adv-t"><b>本机数据</b><span class="adv-s"><i></i>登录、设置、记录和组件只存在这台电脑</span></div>
+              <button class="btn btn-line" type="button">打开数据目录</button>
+            </div>
+          </div>
+
+          <div class="prog-row">
+            <div class="adv-h">
+              <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.8-3 8.8-7 10-4-1.2-7-5.2-7-10V6l7-3z"></path></svg></span>
+              <div class="adv-t"><b>条款与隐私</b><span class="adv-s {{termsDotCls}}"><i></i>{{termsSummary}}</span></div>
+              <button class="btn btn-line" type="button" onClick="{{openTermsView}}">查看条款</button>
+            </div>
+            <div class="prog-d" style="padding-top: 0">
+              <p>{{termsLine}}<sc-if value="{{canWithdraw}}" hint-placeholder-val="{{false}}"> <button class="ph-link" type="button" onClick="{{withdrawAsk}}">撤回同意</button></sc-if></p>
+              <sc-if value="{{withdrawBlocked}}" hint-placeholder-val="{{false}}"><p class="ph-note">报名计划运行中不能撤回同意，先停止计划。</p></sc-if>
+              <sc-if value="{{termsWAsk}}" hint-placeholder-val="{{false}}"><div class="ph-confirm" role="alert">撤回后，登录、自动登录、活动列表和报名计划会停用。已保存的账号密码和登录信息不会删除。要删除账号密码，在“失效后自动登录”里清除。<div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{withdrawNo}}">先不撤回</button><button class="btn btn-stop" type="button" onClick="{{termsWithdraw}}">确认撤回</button></div></div></sc-if>
+            </div>
           </div>
         </section>
-        <section class="set"><div class="set-h"><b>本机数据</b><button class="btn btn-line" type="button">打开数据目录</button></div><p>登录信息、设置、运行记录和下载的组件，都只保存在这台电脑。</p></section>
-        <section class="set"><div class="set-h"><b>条款与隐私</b><button class="btn btn-line" type="button" onClick="{{openTermsView}}">查看条款</button></div><p>{{termsLine}}<sc-if value="{{canWithdraw}}" hint-placeholder-val="{{false}}"> <button class="ph-link" type="button" onClick="{{withdrawAsk}}">撤回同意</button></sc-if></p>
-          <sc-if value="{{withdrawBlocked}}" hint-placeholder-val="{{false}}"><p class="ph-note">报名计划运行中不能撤回同意，先停止计划。</p></sc-if>
-          <sc-if value="{{termsWAsk}}" hint-placeholder-val="{{false}}"><div class="ph-confirm" role="alert">撤回后，登录、自动登录、活动列表和报名计划会停用。已保存的账号密码和登录信息不会删除。要删除账号密码，在“登录恢复”里清除。<div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{withdrawNo}}">先不撤回</button><button class="btn btn-stop" type="button" onClick="{{termsWithdraw}}">确认撤回</button></div></div></sc-if></section>
       </div>
     </div>
   </sc-if>
 
   <sc-if value="{{help}}" hint-placeholder-val="{{false}}">
-    <div class="scrim" role="dialog" aria-modal="true" aria-label="使用帮助"><div class="dlg"><div class="dlg-h"><h2>使用帮助</h2><p>三步完成一次报名</p></div><div class="dlg-b"><ol class="steps"><li><span class="no">1</span><div><b>确认登录</b><span>顶部显示“已登录”就可以继续。只有提示失效时才需要重新登录。</span></div></li><li><span class="no">2</span><div><b>选活动并开始</b><span>在时刻表勾选活动，核对右边的计划，再点“开始报名计划”。勾选不会自动开始。</span></div></li><li><span class="no">3</span><div><b>看结果</b><span>每场结果单独显示。看到“待核对”时，到学校活动页确认。</span></div></li></ol><div class="keys"><h3>键盘快捷键</h3><dl><dt><kbd>F5</kbd></dt><dd>刷新登录状态和活动列表</dd><dt><kbd>Ctrl</kbd> + <kbd>F</kbd></dt><dd>跳到搜索框</dd><dt><kbd>Esc</kbd></dt><dd>关闭弹窗和详情卡</dd><dt><kbd>Tab</kbd></dt><dd>在按钮和活动之间移动</dd><dt><kbd>空格</kbd></dt><dd>勾选或取消当前活动</dd></dl></div></div><div class="dlg-f"><button class="btn btn-line" type="button" disabled="{{replayOff}}" onClick="{{replay}}">{{replayLabel}}</button><button class="btn btn-solid" type="button" onClick="{{closeHelp}}">知道了</button></div></div></div>
+    <div class="scrim" role="dialog" aria-modal="true" aria-label="使用帮助"><div class="dlg"><div class="dlg-h"><h2>使用帮助</h2><p>三步完成一次报名</p></div><div class="dlg-b"><ol class="steps"><li><span class="no">1</span><div><b>确认登录</b><span>顶部显示“已登录”就行；提示失效再重新登录。</span></div></li><li><span class="no">2</span><div><b>选活动并开始</b><span>勾选活动、核对右侧计划，再点“开始报名计划”。勾选不会自动开始。</span></div></li><li><span class="no">3</span><div><b>看结果</b><span>每场单独出结果；看到“待核对”，到学校活动页确认。</span></div></li></ol><div class="keys"><h3>键盘快捷键</h3><dl><dt><kbd>F5</kbd></dt><dd>刷新登录状态和活动列表</dd><dt><kbd>Ctrl</kbd> + <kbd>F</kbd></dt><dd>跳到搜索框</dd><dt><kbd>Esc</kbd></dt><dd>关闭弹窗和详情卡</dd><dt><kbd>Tab</kbd></dt><dd>在按钮和活动之间移动</dd><dt><kbd>空格</kbd></dt><dd>勾选或取消当前活动</dd></dl></div></div><div class="dlg-f"><button class="btn btn-line" type="button" disabled="{{replayOff}}" onClick="{{replay}}">{{replayLabel}}</button><button class="btn btn-solid" type="button" onClick="{{closeHelp}}">知道了</button></div></div></div>
+  </sc-if>
+
+  <sc-if value="{{descOn}}" hint-placeholder-val="{{false}}">
+    <div class="scrim" role="dialog" aria-modal="true" aria-labelledby="desc-title" onClick="{{descScrim}}" onKeyDown="{{descKey}}"><div class="dlg desc-dlg">
+      <div class="dlg-h"><h2 id="desc-title">{{descV.name}}</h2><p>{{descV.sub}}</p></div>
+      <div class="dlg-b">
+        <dl class="desc-facts">
+          <div><dt>活动时间</dt><dd>{{descV.actTime}}</dd></div>
+          <div><dt>地点</dt><dd>{{descV.place}}</dd></div>
+          <div class="wide"><dt>报名时间</dt><dd>{{descV.signTime}}</dd></div>
+          <div class="wide"><dt>面向范围</dt><dd><sc-for list="{{descV.scope}}" as="sl" hint-placeholder-count="1"><span class="scope-l"><em class="{{sl.kCls}}">{{sl.k}}</em>{{sl.v}}</span></sc-for><sc-if value="{{descV.scopeCanMore}}" hint-placeholder-val="{{false}}"><button class="ph-link" type="button" onClick="{{scopeToggle}}">{{descV.scopeMoreLabel}}</button></sc-if></dd></div>
+        </dl>
+        <h3 class="desc-h">简介</h3>
+        <div class="desc-body {{descV.bodyCls}}">{{descV.body}}</div><sc-if value="{{descV.canToggle}}" hint-placeholder-val="{{false}}"><div class="desc-more"><button class="ph-link" type="button" onClick="{{descToggle}}">{{descV.toggleLabel}}</button></div></sc-if>
+      </div>
+      <div class="dlg-f"><sc-if value="{{descV.isFail}}" hint-placeholder-val="{{false}}"><button class="btn btn-line" type="button" onClick="{{descRetry}}">重新获取</button></sc-if><button class="btn btn-solid" type="button" onClick="{{descClose}}">关闭</button></div>
+    </div></div>
   </sc-if>
 
   <sc-if value="{{termsOpen}}" hint-placeholder-val="{{false}}">
@@ -880,7 +1156,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
 
   <sc-if value="{{impOn}}" hint-placeholder-val="{{false}}">
     <div class="scrim" role="dialog" aria-modal="true" aria-labelledby="imp-title" onKeyDown="{{impKey}}"><div class="dlg" style="width: min(32rem, 100%)">
-      <div class="dlg-h"><h2 id="imp-title">{{impV.title}}</h2><p>选一个已经下好的组件包 ZIP。选完会立刻自检，选错了会当场说清是什么。</p></div>
+      <div class="dlg-h"><h2 id="imp-title">{{impV.title}}</h2><p>选一个下好的组件包 ZIP，选完马上自检。</p></div>
       <div class="dlg-b">
         <div class="imp-pick"><span class="imp-path {{impV.pathCls}}">{{impV.path}}</span><button class="btn btn-line" type="button" data-imp="pick" aria-expanded="{{impV.picking}}" onClick="{{impPickToggle}}">选择文件…</button></div>
         <sc-if value="{{impV.picking}}" hint-placeholder-val="{{false}}"><div class="fpick" role="listbox" aria-label="原型演示：模拟选择文件"><div class="fpick-h">原型演示：模拟系统的选择文件窗口</div><sc-for list="{{impV.files}}" as="f" hint-placeholder-count="5"><button class="fpick-i" type="button" role="option" onClick="{{f.pick}}"><span>{{f.name}}</span><small>{{f.size}}</small></button></sc-for></div></sc-if>
@@ -939,7 +1215,7 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"draft","options":["draft","normal","waiting","editing","running","result","unknown","expired","clock","listerr","first","settings","tour","tour2","tour4","phonesetup","phonets","phonewait","phonelinked","closerun","closeask","closeexit","closeidle","closehidden","update","upavail","updown","upready","upfail","comp","compwrong","compok","compfail","credform","credsaved","relogin","rlcap","rlconfirm","rlbad","loginshort","termsupdate","termsdoc","termsprivacy","termsoff","termswithdraw","popclock","poplogin","popdown","popphone","prewarn","netoff","slept","broken","helpkeys","longname","zeroact","clockhold","runexpired","runauto","runclick","toastmin","runphone","stopask","stopped","compafter","compnosize","credocroff","filters","noresult","conflict","conflicttip","conflictnocancel","conflictpast","conflictunknown","crossday","cancelask","cancelbusy","canceldone","cancelrefused","cancelunknown","cancelprecheck","policy","logopen","phstopask","phaddpair","credclear","phfail","advcheck","advtimeout","advbroken","advrefail","phgone","phstarting","phstopping","phgonetop","phstartingtop","advverify","advupdfail","phstartfail","phdownload","rlcapbad","termsunknown","secondrun","migrated","migratefail","login","loginbrowser","loginwait","loginbad","logincap"]},"tier":{"editor":"enum","default":"auto","options":["auto","wide","medium","narrow"]},"frozen":{"editor":null},"short":{"editor":null},"height":{"editor":null},"$preview":{"width":1280,"height":800}}'>
+<script type="text/x-dc" data-dc-script data-props='{"scene":{"editor":"enum","default":"draft","options":["draft","normal","waiting","editing","running","result","unknown","expired","clock","listerr","first","settings","tour","tour2","tour4","phonesetup","phonets","phonewait","phonelinked","closerun","closeask","closeexit","closeidle","closehidden","update","upavail","updown","upready","upfail","comp","compwrong","compok","compfail","credform","credsaved","relogin","rlcap","rlconfirm","rlbad","loginshort","termsupdate","termsdoc","termsprivacy","termsoff","termswithdraw","popclock","poplogin","popdown","popphone","prewarn","netoff","slept","broken","helpkeys","longname","zeroact","clockhold","runexpired","runauto","runclick","toastmin","runphone","stopask","stopped","compafter","compnosize","credocroff","filters","tlwide","tlfilters","descnorm","desclong","descempty","descfail","descscope","lsteptwo","lstepcred","lstepocr","lstepenable","lstepready","lstepbadpwd","progcard","listskel","listrefresh","listreffail","topmatrix","bnotice","bcollapse","binline","noresult","conflict","conflicttip","conflictnocancel","conflictpast","conflictunknown","crossday","cancelask","cancelbusy","canceldone","cancelrefused","cancelunknown","cancelprecheck","policy","logopen","phstopask","phaddpair","credclear","phfail","advcheck","advtimeout","advbroken","advrefail","phgone","phstarting","phstopping","phgonetop","phstartingtop","advverify","advupdfail","phstartfail","phdownload","rlcapbad","termsunknown","secondrun","migrated","migratefail","login","loginbrowser","loginwait","loginbad","logincap"]},"tier":{"editor":"enum","default":"auto","options":["auto","wide","medium","narrow"]},"frozen":{"editor":null},"short":{"editor":null},"height":{"editor":null},"$preview":{"width":1280,"height":800}}'>
 class Component extends DCLogic {
   state = this.init((this.props || {}).scene || 'draft');
 
@@ -1000,19 +1276,61 @@ class Component extends DCLogic {
   }
   _base() {
     if (!this._it) this._it = [
-      { id: 'o1', pts: 2, wage: 20, name: '创新创业经验分享会', place: '大学生活动中心二楼', st: 'open', open: 32400, group: '正在开放', act: '活动 11月3日 19:00–20:30', actShort: '11月3日 19:00–20:30', d: 3, s: 1140, e: 1230, inV: 'yes', inT: '签到 18:40–19:00', outV: 'no', outT: '无需签退' },
-      { id: 'o2', pts: null, wage: null, name: '校园安全主题讲座', place: '一号教学楼 301', st: 'open', open: 37800, group: '正在开放', act: '活动 11月4日 14:00–15:30', actShort: '11月4日 14:00–15:30', d: 4, s: 840, e: 930, inV: 'null', inT: '签到信息同步中', outV: 'null', outT: '' },
-      { id: 't1', pts: 2, wage: 20, name: '人工智能与未来职业', place: '图书馆报告厅', st: 'pre', open: 52200, group: '今天', act: '活动 11月5日 19:00–20:30', actShort: '11月5日 19:00–20:30', d: 5, s: 1140, e: 1230, inV: 'yes', inT: '签到 18:40–19:00', outV: 'yes', outT: '签退 20:30–20:50' },
-      { id: 't2', pts: 4, wage: 40, name: '志愿服务培训', place: '二号楼多功能厅', st: 'pre', open: 52200, group: '今天', noEnd: true, act: '活动 11月6日 15:00–16:30', actShort: '11月6日 15:00–16:30', d: 6, s: 900, e: 990, inV: 'no', inT: '无需签到', outV: 'no', outT: '无需签退' },
-      { id: 't3', pts: 1, wage: 10, name: '心理健康工作坊', place: '学生事务中心', st: 'pre', open: 64800, group: '今天', act: '活动 11月5日 20:00–21:00', actShort: '11月5日 20:00–21:00', d: 5, s: 1200, e: 1260, inV: 'no', inT: '无需签到', outV: 'yes', outT: '签退 21:00–21:10' },
-      { id: 'm1', pts: 3, wage: 30, name: '“书香校园”经典诵读展演暨第十二届校园朗诵大赛决赛', place: '大学生活动中心一楼多功能报告厅（东侧入口，凭学生证入场）', st: 'pre', open: 118800, group: '明天', act: '活动 11月7日 19:00–21:00', actShort: '11月7日 19:00–21:00', d: 7, s: 1140, e: 1260, inV: 'yes', inT: '签到 18:30–19:00', outV: 'no', outT: '无需签退' },
-      { id: 'm2', pts: 0.5, wage: 5, name: '就业指导午间沙龙', place: '二号楼 204', st: 'pre', open: 129600, group: '明天', act: '活动 11月8日 14:30–15:30', actShort: '11月8日 14:30–15:30', d: 8, s: 870, e: 930, inV: 'no', inT: '无需签到', outV: 'no', outT: '无需签退' },
-      { id: 'u1', pts: null, wage: null, name: '年度社团风采展', place: '地点待定', st: 'unknown', open: 0, group: '待公布', act: '举办时间待公布', actShort: '举办时间待公布', inV: 'null', inT: '', outV: 'null', outT: '' },
-      { id: 's1', pts: 1, wage: 10, name: '学术诚信专题报告', place: '图书馆报告厅', st: 'signed', open: 28800, group: '已报名', act: '活动 11月8日 14:00–15:30', actShort: '11月8日 14:00–15:30', d: 8, s: 840, e: 930, inV: 'yes', inT: '签到 13:40–14:00', outV: 'no', outT: '无需签退' },
-      { id: 'w1', pts: 8, wage: 80, name: '毕业生双选会志愿者招募', place: '体育馆', st: 'pre', open: 205200, group: '后天', act: '活动 11月10日 09:00–17:00', actShort: '11月10日 09:00–17:00', d: 10, s: 540, e: 1020, inV: 'yes', inT: '签到 08:30–09:00', outV: 'yes', outT: '签退 17:00–17:30' },
-      { id: 'c1', pts: 2, wage: null, name: '秋季运动会志愿者招募', place: '体育馆', st: 'closed', open: 28800, group: '已截止', act: '报名已于今天 12:00 截止', actShort: '报名已截止', inV: 'no', inT: '', outV: 'no', outT: '' }
+      { id: 'o1', type: '讲座报告', pts: 2, wage: 20, name: '创新创业经验分享会', place: '大学生活动中心二楼', st: 'open', open: 32400, signEndText: '11月3日 18:00 截止', group: '正在开放', act: '活动 11月3日 19:00–20:30', actShort: '11月3日 19:00–20:30', d: 3, s: 1140, e: 1230, inV: 'yes', inT: '签到 18:40–19:00', outV: 'no', outT: '无需签退', scopeCode: 0, scope: '全校', cancel: true, desc: '邀请往届优秀创业校友分享项目孵化、团队协作与比赛备赛经验。\n\n现场设互动答疑环节，请提前 10 分钟入场就座。' },
+      { id: 'o2', type: '讲座报告', pts: null, wage: null, name: '校园安全主题讲座', place: '一号教学楼 301', st: 'open', open: 37800, signEndText: '11月4日 12:00 截止', group: '正在开放', act: '活动 11月4日 14:00–15:30', actShort: '11月4日 14:00–15:30', d: 4, s: 840, e: 930, inV: 'null', inT: '签到信息同步中', outV: 'null', outT: '', scopeCode: 0, scope: '全校', cancel: false, desc: '讲解宿舍用电、防诈骗与实验室安全常识。' },
+      { id: 't1', type: '学术科技', pts: 2, wage: 20, name: '人工智能与未来职业', place: '图书馆报告厅', st: 'pre', open: 52200, signEndText: '11月5日 18:00 截止', group: '今天', act: '活动 11月5日 19:00–20:30', actShort: '11月5日 19:00–20:30', d: 5, s: 1140, e: 1230, inV: 'yes', inT: '签到 18:40–19:00', outV: 'yes', outT: '签退 20:30–20:50', scopeCode: 3, scope: '年级：2026; 分公司：示例第一分公司、示例第二分公司、示例第三分公司、示例第四分公司、示例第五分公司;', cancel: true, desc: '介绍生成式人工智能在实际工程岗位中的应用场景、技能栈变化以及毕业设计选题方向。\n\n主讲人：信息学院张教授。\n温馨提示：需全程签到与签退，早退不计实践分。' },
+      { id: 't2', type: '志愿服务', pts: 4, wage: 40, name: '志愿服务培训', place: '二号楼多功能厅', st: 'pre', open: 52200, signEndText: '11月6日 12:00 截止', group: '今天', noEnd: true, act: '活动 11月6日 15:00–16:30', actShort: '11月6日 15:00–16:30', d: 6, s: 900, e: 990, inV: 'no', inT: '无需签到', outV: 'no', outT: '无需签退', scopeCode: 1, scope: '示例第三分公司', cancel: false, desc: '面向本学期大型校内外志愿活动开展通识礼仪、应急处置与分组对接培训。' },
+      { id: 't3', type: '', pts: 1, wage: 10, name: '心理健康工作坊', place: '学生事务中心', st: 'pre', open: 64800, signEndText: '11月5日 19:30 截止', group: '今天', act: '活动 11月5日 20:00–21:00', actShort: '11月5日 20:00–21:00', d: 5, s: 1200, e: 1260, inV: 'no', inT: '无需签到', outV: 'yes', outT: '签退 21:00–21:10', scopeCode: 0, scope: '全校', cancel: true, desc: '' },
+      { id: 'm1', type: '文体活动', pts: 3, wage: 30, name: '“书香校园”经典诵读展演暨第十二届校园朗诵大赛决赛', place: '大学生活动中心一楼多功能报告厅（东侧入口，凭学生证入场）', st: 'pre', open: 118800, signEndText: '11月7日 17:00 截止', group: '明天', act: '活动 11月7日 19:00–21:00', actShort: '11月7日 19:00–21:00', d: 7, s: 1140, e: 1260, inV: 'yes', inT: '签到 18:30–19:00', outV: 'no', outT: '无需签退', scopeCode: 0, scope: '全校', cancel: true, desc: '一、活动宗旨\n为深入推进书香校园建设，引导同学们亲近中华经典诗文，提升语言文字应用能力与人文素养，校团委联合教务处举办第十二届校园朗诵大赛决赛。\n\n二、现场安排\n1. 18:30–19:00：观众凭学生证从大学生活动中心东侧入口核验签到入场，前排设为评审席与亲友观摩区。\n2. 19:00–20:20：来自各学院的 16 组决赛选手分篇章进行经典篇目诵读展演，每组时长 4–5 分钟。\n3. 20:20–20:45：现场评委点评并公布本学期“阅读之星”评选结果与获奖名单。\n4. 20:45–21:00：颁发证书及实践学分认定登记。\n\n三、注意事项\n请报名观众全程保持会场安静，手机调至静音状态；活动无需签退，现场签到记录将于次日同步至系统。' },
+      { id: 'm2', type: '就业指导', pts: 0.5, wage: 5, name: '就业指导午间沙龙', place: '二号楼 204', st: 'pre', open: 129600, signEndText: '11月8日 12:00 截止', group: '明天', act: '活动 11月8日 14:30–15:30', actShort: '11月8日 14:30–15:30', d: 8, s: 870, e: 930, inV: 'no', inT: '无需签到', outV: 'no', outT: '无需签退', scopeCode: 2, scope: '2026', cancel: false, desc: '围绕简历结构、春招投递节奏与面试常见问题进行小班交流。' },
+      { id: 'u1', type: '文体活动', pts: null, wage: null, name: '年度社团风采展', place: '地点待定', st: 'unknown', open: 0, signEndText: '报名截止待公布', group: '待公布', act: '举办时间待公布', actShort: '举办时间待公布', inV: 'null', inT: '', outV: 'null', outT: '', audience: '全校学生', desc: '全校 40 余个学生社团集中展示纳新成果与游园集章活动，具体场地和时间待通知。' },
+      { id: 's1', type: '讲座报告', pts: 1, wage: 10, name: '学术诚信专题报告', place: '图书馆报告厅', st: 'signed', open: 28800, signEndText: '11月8日 12:00 截止', group: '已报名', act: '活动 11月8日 14:00–15:30', actShort: '11月8日 14:00–15:30', d: 8, s: 840, e: 930, inV: 'yes', inT: '签到 13:40–14:00', outV: 'no', outT: '无需签退', audience: '全校本科及专升本学生', desc: '结合毕业论文写作规范讲解文献引用、查重要求与常见学术不端案例。' },
+      { id: 'w1', type: '志愿服务', pts: 8, wage: 80, name: '毕业生双选会志愿者招募', place: '体育馆', st: 'pre', open: 205200, signEndText: '11月9日 22:00 截止', group: '后天', act: '活动 11月10日 09:00–17:00', actShort: '11月10日 09:00–17:00', d: 10, s: 540, e: 1020, inV: 'yes', inT: '签到 08:30–09:00', outV: 'yes', outT: '签退 17:00–17:30', scopeCode: 2, scope: '2025', cancel: true, desc: '负责用人单位报到引导、展位物料分发及现场秩序维护，提供午餐与志愿时长证明。' },
+      { id: 'c1', type: '志愿服务', pts: 2, wage: null, name: '秋季运动会志愿者招募', place: '体育馆', st: 'closed', open: 28800, signEndText: '已于今天 12:00 截止', group: '已截止', act: '报名已于今天 12:00 截止', actShort: '报名已截止', inV: 'no', inT: '', outV: 'no', outT: '', audience: '全校学生', desc: '田径赛场检录、计时辅助与医疗点引导服务。' }
     ];
     return this._it;
+  }
+  typeOf(it) { return it && it.type && String(it.type).trim() ? String(it.type).trim() : '其他'; }
+  scopeView(code, text, exp) {
+    var t = String(text || '').trim();
+    var shorten = function (list) {
+      if (list.length <= 3 || exp) return { v: list.join('、'), more: list.length > 3 };
+      return { v: list.slice(0, 3).join('、') + ' 等 ' + list.length + ' 个', more: true };
+    };
+    var split = function (v) { return String(v || '').split(/[、,，]/).map(function (x) { return x.trim(); }).filter(Boolean); };
+    if (code === 0) return { lines: [{ k: '', v: t || '全校' }], more: false };
+    if (code === 1) { var b = shorten(split(t)); return { lines: [{ k: '分公司', v: b.v }], more: b.more }; }
+    if (code === 2) return { lines: [{ k: '年级', v: t }], more: false };
+    if (code === 3) {
+      var g = (t.match(/年级[：:]\s*([^;；]*)/) || [])[1] || '';
+      var c = shorten(split((t.match(/分公司[：:]\s*([^;；]*)/) || [])[1] || ''));
+      return { lines: [{ k: '年级', v: g.trim() || '未写明' }, { k: '分公司', v: c.v || '未写明' }], more: c.more };
+    }
+    return { lines: [{ k: '', v: t || '学校未公布' }], more: false };
+  }
+  scopeLines(r) { return { more: r.more, lines: r.lines.map(function (l) { return { k: l.k, v: l.v, kCls: l.k ? '' : 'none' }; }) }; }
+  descView(s) {
+    var it = s.descId ? this.find(s.descId) : null;
+    if (!it) return { sub: '', name: '', body: '', bodyCls: '', canToggle: false, toggleLabel: '', isFail: false, place: '', actTime: '', signTime: '', scope: [], scopeCanMore: false, scopeMoreLabel: '' };
+    var desc = (it.desc || '').trim();
+    var isLong = !s.descFail && desc.length > 160;
+    var body = s.descFail ? '活动简介暂时没同步下来' : (desc || '学校未提供活动简介');
+    var bodyCls = s.descFail ? 'fail' : (!desc ? 'empty' : (isLong && !s.descExp ? 'clamp' : ''));
+    var openDay = it.group === '明天' ? '11月6日 ' : (it.group === '后天' ? '11月7日 ' : (it.open === 32400 ? '11月3日 ' : (it.open === 37800 ? '11月4日 ' : '11月5日 ')));
+    var signTime = it.st === 'unknown' ? '待公布' : (openDay + this.hhmmss(it.open % 86400).slice(0, 5) + ' 开放，' + (it.signEndText || '截止未知'));
+    var ov = s.descScopeOv || null;
+    var sv = this.scopeLines(this.scopeView(ov ? ov.code : it.scopeCode, ov ? ov.text : it.scope, !!s.descScopeExp));
+    return {
+      sub: this.typeOf(it) + ' · ' + (it.group || '活动'),
+      name: it.name,
+      body: body, bodyCls: bodyCls,
+      canToggle: isLong, toggleLabel: s.descExp ? '收起' : '展开全文',
+      isFail: !!s.descFail,
+      place: it.place || '地点待定',
+      actTime: it.act ? it.act.replace(/^活动 /, '') : '时间待公布',
+      signTime: signTime,
+      scope: sv.lines, scopeCanMore: sv.more, scopeMoreLabel: s.descScopeExp ? '收起' : '展开全部'
+    };
   }
   find(id) { return this.items().filter(function (i) { return i.id === id; })[0]; }
   // ---- 冲突与取消（plan 20261107-conflict-cancel）的演示数据与时间换算 ----
@@ -1049,12 +1367,12 @@ class Component extends DCLogic {
       return it;
     };
     var list = [
-      mk({ id: 'cxc', name: '社区志愿服务日', place: '南门广场', st: 'pre', open: 28800, group: '今天', d: 6, s: 540, e: 690, cancel: true, pts: 2, wage: 20 }),
-      mk({ id: 'cxn', name: '职业规划讲座', place: '图书馆报告厅', st: 'pre', open: 57600, group: '今天', d: 6, s: 840, e: 930, cancel: false }),
-      mk({ id: 'cxm', name: '模拟面试', place: '就业指导中心', st: 'pre', open: 122400, group: '明天', d: 9, s: 480, e: 1020, cancel: null, pts: 3, wage: 30 }),
+      mk({ id: 'cxc', type: '志愿服务', name: '社区志愿服务日', place: '南门广场', st: 'pre', open: 28800, group: '今天', d: 6, s: 540, e: 690, cancel: true, pts: 2, wage: 20 }),
+      mk({ id: 'cxn', type: '就业指导', name: '职业规划讲座', place: '图书馆报告厅', st: 'pre', open: 57600, group: '今天', d: 6, s: 840, e: 930, cancel: false }),
+      mk({ id: 'cxm', type: '就业指导', name: '模拟面试', place: '就业指导中心', st: 'pre', open: 122400, group: '明天', d: 9, s: 480, e: 1020, cancel: null, pts: 3, wage: 30 }),
       this.find0('w1'),
       this.find0('s1'),
-      mk({ id: 'cxd', name: '宿舍查寝', place: '学生公寓', st: 'signed', open: 28800, group: '已报名', d: 8, s: 1360, d2: 10, e: 1400, cancel: v === 'b' ? false : (v === 'd' ? null : true), signEnd: v === 'c' ? 4 * 1440 + 18 * 60 : 8 * 1440 + 14 * 60 })
+      mk({ id: 'cxd', type: '校内事务', name: '宿舍查寝', place: '学生公寓', st: 'signed', open: 28800, group: '已报名', d: 8, s: 1360, d2: 10, e: 1400, cancel: v === 'b' ? false : (v === 'd' ? null : true), signEnd: v === 'c' ? 4 * 1440 + 18 * 60 : 8 * 1440 + 14 * 60 })
     ];
     return (this._cxi[v] = list);
   }
@@ -1080,7 +1398,7 @@ class Component extends DCLogic {
   isEnd(st) { return ['success', 'full', 'failed', 'unconfirmed', 'canceled', 'missed'].indexOf(st) >= 0; }
 
   init(scene) {
-    var s = { scene: scene, q: '', seg: 'all', fOpen: false, fTime: 'all', fSort: 'open', fIn: 'all', fOut: 'all', selected: [], notice: '', phase: 'draft', tasks: [], now: 51605, login: 'valid', clock: 'ready', list: 'ready', terms: true, retry: 120, maxA: 0, headed: false, editPolicy: false, pop: '', settings: false, help: false, termsOpen: false, agree: false, logOpen: false, stopAsk: false, planOpen: false, ph: 'off', phCh: 'tailscale', phTs: 'ok', phPct: 0, phErr: '', phNote: '', phStarting: false, phPaired: false, phAddPair: false, phCode: 0, phLeft: 300, phStopAsk: false, phCopied: false, chrome: false, win: 'open', closeAsk: false, closeStep: '', closeRemember: false, closePref: 'ask', closeWhy: '', tray: true, exitNote: '', up: 'idle', upNext: 'available', upPct: 0, upAt: '', upErr: '', upNote: '', upFocus: false, cred: 'none', credMask: '', credForm: false, credOnce: false, credUser: '', credPass: '', credClearAsk: false, credNote: '', ocr: 'missing', ocrNote: '', ocrPct: 0, ocrErr: '', advOpen: { ph: true, ocr: false }, phWait: false, phUnread: false, phGone: false, phStopping: false, phBase: '', ocrWait: false, ocrUnread: false, ocrBase: '', credBad: false, rl: '', rlCode: '', rlIdx: 0, rlErr: '', loginAt: 51603, popPin: false, clockJust: false, net: 'ok', broken: false, slept: 0, sleepMissed: [], zero: false, sizeKnown: true, termsUnknown: false, info: '', toast: false, planSource: '', listAtS: 51604, termsAgreed: '2026-11-03-r4', termsAt: '11-03 09:12', lgWay: 'here', lgUser: '', lgPass: '', lgSave: false, lgShow: false, rlFrom: '', termsPrev: '', termsWithdrawn: false, termsWAsk: false, td: null, tuOpen: false, imp: null, loginFocus: false, advFocus: false, signedLocal: [], stopped: false, editing: null, tourOpen: false, tourStep: 0, tourRect: null, tourRowId: '', tourDone: true, cx: '', tip: '', tipPos: null, flash: '', cxAsk: '', cxBusy: '', cxRes: null, w: 1280, h: 800, fsUrl: '', fsNote: '', fsTone: 'ph-note', lines: ['14:20:03  [OK] 已复用本机登录，学校校验通过', '14:20:04  活动列表已更新，共 11 场'] };
+    var s = { scene: scene, q: '', seg: 'all', fOpen: false, fTime: 'all', fSort: 'open', fIn: 'all', fOut: 'all', fTypes: [], descId: '', descExp: false, descFail: false, descScopeExp: false, descScopeOv: null, selected: [], notice: '', phase: 'draft', tasks: [], now: 51605, login: 'valid', clock: 'ready', list: 'ready', terms: true, retry: 120, maxA: 0, headed: false, editPolicy: false, pop: '', settings: false, help: false, termsOpen: false, agree: false, logOpen: false, stopAsk: false, planOpen: false, ph: 'off', phCh: 'tailscale', phTs: 'ok', phPct: 0, phErr: '', phNote: '', phStarting: false, phPaired: false, phAddPair: false, phCode: 0, phLeft: 300, phStopAsk: false, phCopied: false, chrome: false, win: 'open', closeAsk: false, closeStep: '', closeRemember: false, closePref: 'ask', closeWhy: '', tray: true, exitNote: '', up: 'idle', upNext: 'available', upPct: 0, upAt: '', upErr: '', upNote: '', upFocus: false, cred: 'none', credMask: '', credForm: false, credOnce: false, credUser: '', credPass: '', credClearAsk: false, credNote: '', ocr: 'missing', ocrNote: '', ocrPct: 0, ocrErr: '', advOpen: { ph: true, ocr: false }, phWait: false, phUnread: false, phGone: false, phStopping: false, phBase: '', ocrWait: false, ocrUnread: false, ocrBase: '', credBad: false, rl: '', rlCode: '', rlIdx: 0, rlErr: '', loginAt: 51603, popPin: false, clockJust: false, net: 'ok', broken: false, slept: 0, sleepMissed: [], zero: false, sizeKnown: true, termsUnknown: false, info: '', toast: false, planSource: '', listAtS: 51604, termsAgreed: '2026-11-03-r4', termsAt: '11-03 09:12', lgWay: 'here', lgUser: '', lgPass: '', lgSave: false, lgShow: false, rlFrom: '', termsPrev: '', termsWithdrawn: false, termsWAsk: false, td: null, tuOpen: false, imp: null, loginFocus: false, advFocus: false, signedLocal: [], stopped: false, editing: null, tourOpen: false, tourStep: 0, tourRect: null, tourRowId: '', tourDone: true, cx: '', tip: '', tipPos: null, flash: '', cxAsk: '', cxBusy: '', cxRes: null, w: 1280, h: 800, fsUrl: '', fsNote: '', fsTone: 'ph-note', fsOpen: false, listRefreshing: false, listRefreshFail: false, refreshDone: false, bannerCollapsed: {}, topMatrix: false, lines: ['14:20:03  [OK] 已复用本机登录，学校校验通过', '14:20:04  活动列表已更新，共 11 场'] };
     var pick = ['o1', 't1', 't2'];
     if (scene === 'draft') { s.selected = pick; s.ph = 'on'; s.phPaired = true; s.phCode = 1; }
     if (scene === 'unknown') { s.login = 'unknown'; s.selected = ['t1']; }
@@ -1197,6 +1515,27 @@ class Component extends DCLogic {
     if (scene === 'credocroff') { s.cred = 'saved'; s.credMask = 'st****01'; s.ocr = 'off'; }
     // 2026-11-06 第二轮补画板：能点出来但没画的子状态、条款状态没能确认、多开与搬旧数据提示
     if (scene === 'filters') s.fOpen = true;
+    if (scene === 'tlwide') { s.selected = pick; s.ph = 'on'; s.phPaired = true; s.phCode = 1; }
+    if (scene === 'tlfilters') { s.fOpen = true; s.fTypes = ['讲座报告', '志愿服务']; s.selected = ['o1', 't2']; }
+    if (scene === 'descnorm') s.descId = 't1';
+    if (scene === 'desclong') s.descId = 'm1';
+    if (scene === 'descempty') s.descId = 't3';
+    if (scene === 'descfail') { s.descId = 't1'; s.descFail = true; }
+    if (scene === 'descscope') { s.descId = 'm2'; s.descScopeOv = { code: 5, text: '仅限示例社团在册成员' }; }
+    if (scene === 'lsteptwo') { s.settings = true; s.advOpen = { ph: false, ocr: false }; s.cred = 'none'; s.ocr = 'missing'; }
+    if (scene === 'lstepcred') { s.settings = true; s.advOpen = { ph: false, ocr: false }; s.cred = 'none'; s.ocr = 'on'; }
+    if (scene === 'lstepocr') { s.settings = true; s.advOpen = { ph: false, ocr: false }; s.cred = 'saved'; s.credMask = 'st****01'; s.ocr = 'missing'; }
+    if (scene === 'lstepenable') { s.settings = true; s.advOpen = { ph: false, ocr: false }; s.cred = 'saved'; s.credMask = 'st****01'; s.ocr = 'off'; }
+    if (scene === 'lstepready') { s.settings = true; s.advOpen = { ph: false, ocr: false }; s.cred = 'saved'; s.credMask = 'st****01'; s.ocr = 'on'; }
+    if (scene === 'lstepbadpwd') { s.settings = true; s.advOpen = { ph: false, ocr: false }; s.cred = 'saved'; s.credMask = 'st****01'; s.credBad = true; s.ocr = 'on'; }
+    if (scene === 'progcard') { s.settings = true; s.advOpen = { ph: false, ocr: false }; s.cred = 'saved'; s.credMask = 'st****01'; s.ocr = 'on'; s.fsOpen = true; s.fsUrl = 'https://open.feishu.cn/open-apis/bot/v2/hook/demo-token'; s.progFocus = true; }
+    if (scene === 'listskel') s.list = 'loading';
+    if (scene === 'listrefresh') { s.list = 'ready'; s.listRefreshing = true; s.selected = pick; }
+    if (scene === 'listreffail') { s.list = 'ready'; s.listRefreshFail = true; s.selected = pick; s.listAtS = 50800; }
+    if (scene === 'topmatrix') s.topMatrix = true;
+    if (scene === 'bnotice') { s.info = 'second'; s.selected = pick; }
+    if (scene === 'bcollapse') { s.clock = 'down'; s.bannerCollapsed = { clock: true }; }
+    if (scene === 'binline') { s.settings = true; s.advOpen = { ph: false, ocr: false }; s.cred = 'saved'; s.credMask = 'st****01'; s.credNote = '已加密保存到本机。'; s.fsOpen = true; s.fsUrl = 'https://open.feishu.cn/open-apis/bot/v2/hook/demo-token'; s.fsNote = '测试消息已发出，去群里看看。'; s.ocr = 'on'; s.ocrNote = '验证码识别已启用。'; }
     if (scene === 'noresult') s.q = '篮球';
     if (scene === 'conflict') { s.selected = ['t1']; s.notice = '「心理健康工作坊」与「人工智能与未来职业」的活动时间重叠，同一计划只能选其中一场。已保留原选择。'; }
     if (['conflicttip', 'conflictnocancel', 'conflictpast', 'conflictunknown', 'crossday', 'cancelask', 'cancelbusy', 'canceldone', 'cancelrefused', 'cancelunknown', 'cancelprecheck'].indexOf(scene) >= 0) s.cx = { conflictnocancel: 'b', conflictpast: 'c', conflictunknown: 'd' }[scene] || 'a';
@@ -1455,11 +1794,11 @@ class Component extends DCLogic {
     v.slotOff = s.ph === 'verifying';
     v.slotFn = s.ph === 'missing' ? this.phInstall : (s.ph === 'downloading' ? this.phCancel : function () {});
     v.canImport = (s.ph === 'missing' || s.ph === 'outdated' || s.ph === 'broken') && !!s.phErr;
-    if (['checking', 'timeout', 'outdated', 'broken', 'disabled'].indexOf(s.ph) >= 0) v.lead = '从手机查看活动、开始和停止计划。手机只是遥控器，真正报名的还是这台电脑，所以电脑要开着、不能睡眠。';
-    if (s.ph === 'missing') { v.status = '未安装'; v.lead = '从手机查看活动、开始和停止计划。手机只是遥控器，真正报名的还是这台电脑，所以电脑要开着、不能睡眠。'; }
-    if (loading) { v.status = s.ph === 'verifying' ? '校验中' : '下载中'; v.lead = '可以关掉设置继续用，下载和报名计划互不影响。'; }
+    if (['checking', 'timeout', 'outdated', 'broken', 'disabled'].indexOf(s.ph) >= 0) v.lead = '用手机查活动、开始或停止计划；报名还是这台电脑在做，电脑别睡眠。';
+    if (s.ph === 'missing') { v.status = '未安装'; v.lead = '用手机查活动、开始或停止计划；报名还是这台电脑在做，电脑别睡眠。'; }
+    if (loading) { v.status = s.ph === 'verifying' ? '校验中' : '下载中'; v.lead = '可先关掉设置，下载与报名计划互不影响。'; }
     if (s.ph === 'off') {
-      v.lead = s.phStarting ? '正在开启，先不要切换通道。' : '选一条通道再开启。没开启时不监听端口，手机连不上电脑。';
+      v.lead = s.phStarting ? '正在开启，先不要切换通道。' : '先选通道再开启；关闭时不监听端口。';
       var ts = { ok: ['已连接', 'ok', '地址固定，重启程序和电脑后不用重新配对。电脑和手机要登录同一个账号。'], nologin: ['已安装，未登录', 'warn', '在电脑上打开 Tailscale 登录，手机用同一个账号。'], missing: ['未安装', 'warn', '电脑和手机都要装好并登录同一个账号；工具不会替你安装。'] }[s.phTs];
       v.channels = [
         { key: 'tailscale', name: 'Tailscale，长期地址', status: ts[0], tone: ts[1], text: ts[2] },
@@ -1512,7 +1851,7 @@ class Component extends DCLogic {
   upView(s) {
     var run = s.phase === 'running', mb = (s.upPct * 0.924).toFixed(1);
     var copy = {
-      idle: ['只有点“检查更新”时才联网，下载前还会再确认。', ''],
+      idle: ['点“检查更新”时才联网；下载前先确认。', ''],
       checking: ['正在检查…', ''],
       current: ['已是最新正式版。', 'up-ok'],
       preview: ['当前是预览版本，最新正式版是 1.1.0，不建议换回旧版本。', ''],
@@ -1538,10 +1877,13 @@ class Component extends DCLogic {
       ready: [run ? '仍然启动安装程序' : '启动安装程序', 'btn-solid', false, this.upLaunch], launching: ['启动中…', 'btn-line', true, noop],
       launched: ['关闭本工具…', 'btn-line', false, this.upExit], failed: ['重新下载', 'btn-solid', false, this.upInstall]
     }[s.up];
+    var dotCls = s.up === 'error' || s.up === 'failed' ? 'red' : (s.up === 'no_installer' ? 'amber' : (['current', 'available', 'confirm', 'ready', 'launched'].indexOf(s.up) >= 0 ? 'green' : (s.up === 'checking' || s.up === 'downloading' || s.up === 'verifying' || s.up === 'launching' ? 'blue blink' : '')));
+    var hasDetail = s.up !== 'idle' && s.up !== 'checking';
     return {
-      status: copy[0], cls: copy[1], hasAt: !!s.upAt && s.up !== 'checking', at: s.upAt,
+      status: copy[0], cls: copy[1], dotCls: dotCls, hasAt: !!s.upAt && s.up !== 'checking', at: s.upAt,
       hasSlot: !!slot, slotLabel: slot ? slot[0] : '', slotCls: slot ? slot[1] : '', slotOff: slot ? slot[2] || !!s.upGuard : true, slotFn: slot ? slot[3] : noop,
       hasErr: !!s.upErr && (s.up === 'error' || s.up === 'failed'), err: s.upErr,
+      hasDetail: hasDetail || !!s.upNote || !(this.props && this.props.frozen),
       isAvail: s.up === 'available', isConfirm: s.up === 'confirm',
       isLoading: s.up === 'downloading' || s.up === 'verifying', pct: s.upPct,
       loadText: s.up === 'verifying' ? '下载完成，正在校验' : '已下载', loadNum: s.up === 'verifying' ? '' : mb + ' / 92.4 MB（' + s.upPct + '%）',
@@ -1584,9 +1926,15 @@ class Component extends DCLogic {
   fsView(s) {
     var self = this, bad = '地址要以 https:// 开头，从群机器人的设置里整条复制过来。';
     function typed() { return String(self.state.fsUrl || '').trim(); }
+    var fsSet = !!String(s.fsUrl || '').trim();
     return {
-      url: s.fsUrl || '', hasNote: !!s.fsNote, note: s.fsNote, noteCls: s.fsTone || 'ph-note',
+      url: s.fsUrl || '', open: !!s.fsOpen, closed: !s.fsOpen,
+      status: fsSet ? '已配置，报名结果和登录失效会发到这个群' : '未配置',
+      dotCls: fsSet ? 'green' : '',
+      toggle: function () { self.setState({ fsOpen: !self.state.fsOpen }); },
+      hasNote: !!s.fsNote, note: s.fsNote, noteCls: s.fsTone || 'ph-note',
       onUrl: function (e) { self.setState({ fsUrl: e.target.value, fsNote: '', fsTone: 'ph-note' }); },
+      dismiss: function () { self.setState({ fsNote: '' }); },
       save: function () {
         var url = typed();
         if (url && !self.fsLookOk(url)) { self.setState({ fsNote: bad, fsTone: 'ph-err' }); return; }
@@ -1602,12 +1950,41 @@ class Component extends DCLogic {
   }
   credView(s) {
     var self = this, has = s.cred === 'saved' || s.cred === 'once', ocrOn = s.ocr === 'on';
-    var auto = !has ? ['失效后自动登录：未启用，还没有账号密码。登录失效后要手动重新登录；报名计划开放前 100 秒内失效的场次会直接结束。', ''] : (ocrOn ? ['失效后自动登录：已启用。登录失效时电脑自己重新登录，报名计划等开放或提交时也一样，不用你动手。', 'up-ok'] : s.ocr === 'off' ? ['失效后自动登录：验证码识别本机已装，还没启用（在上面“高级功能”里点“启用”）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。', 'up-warn'] : s.ocr === 'checking' || s.ocr === 'timeout' ? ['失效后自动登录：正在检查验证码识别组件。', ''] : s.ocr === 'outdated' ? ['失效后自动登录：验证码识别组件需要随新版本更新（在上面“高级功能”里点“更新组件”）。更新前登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。', 'up-warn'] : ['失效后自动登录：还缺验证码识别组件（在上面的“高级功能”里一键安装）。现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。', 'up-warn']);
+    var credOk = has && !s.credBad;
+    var leftN = (credOk ? 0 : 1) + (ocrOn ? 0 : 1);
+    var headStatus = !leftN ? '已就绪' : '还差 ' + leftN + ' 步';
+    var headCls = !leftN ? 'green' : (s.credBad ? 'red' : 'amber');
+    var goAdvOcr = function () {
+      self.setState({ advOpen: Object.assign({}, self.state.advOpen, { ocr: true }) });
+      setTimeout(function () { var el = document.querySelector('[data-sec="adv"]'); if (el) el.scrollIntoView({ block: 'start' }); }, 60);
+    };
+    var s1Cls = credOk ? 'done' : (has && s.credBad ? 'bad' : ''), s1Mark = credOk ? '✓' : (has && s.credBad ? '!' : '1');
+    var s1Sub = !has ? '未保存（只加密存在这台电脑）' : (s.credBad ? '学校不认账号 ' + s.credMask + ' 的密码，需要更换' : (s.cred === 'saved' ? '已加密保存 ' + s.credMask : '这次运行会用 ' + s.credMask + '，退出后清除'));
+    var s1SubCls = s.credBad && has ? 'bad' : (credOk ? 'ok' : '');
+    var s2Cls = ocrOn ? 'done' : (s.ocr === 'off' || s.ocr === 'outdated' || s.ocr === 'broken' ? 'warn' : ''), s2Mark = ocrOn ? '✓' : (s.ocr === 'off' || s.ocr === 'outdated' || s.ocr === 'broken' ? '!' : '2');
+    var s2Sub = ocrOn ? '已启用（连续 3 次认错转手动）'
+      : s.ocr === 'off' ? '本机已安装，还没启用'
+      : s.ocr === 'downloading' ? '正在下载（' + s.ocrPct + '%）'
+      : s.ocr === 'verifying' ? '下载完成，正在校验…'
+      : s.ocr === 'outdated' ? '需要随新版本更新'
+      : s.ocr === 'broken' ? '组件损坏，需要修复'
+      : s.ocr === 'checking' ? '正在检查组件…'
+      : s.ocr === 'timeout' ? '状态暂未读到'
+      : '未安装（可选，约 31.6 MB）';
+    var s2SubCls = ocrOn ? 'ok' : (s.ocr === 'off' || s.ocr === 'outdated' || s.ocr === 'broken' ? 'warn' : '');
+    var s2BtnLabel = ocrOn ? '查看组件' : (s.ocr === 'off' ? '启用' : (s.ocr === 'missing' ? '去安装' : (s.ocr === 'outdated' ? '去更新' : (s.ocr === 'broken' ? '去修复' : (s.ocr === 'downloading' || s.ocr === 'verifying' ? '查看进度' : '去检查')))));
+    var s2BtnCls = 'btn-line';
+    var s2Fn = s.ocr === 'off' ? this.ocEnable : (s.ocr === 'missing' ? this.ocInstall : goAdvOcr);
+    var foot = !leftN ? '两步都完成了：计划期间登录失效会全自动恢复，不用人守着。'
+      : (!credOk && ocrOn) ? '保存账号密码后就能自动登录，否则失效后要手动重新登录。'
+      : '装好并启用验证码识别后，失效才能无人值守恢复；目前需要手动输验证码。';
     return {
-      hasSlot: !s.credForm && !s.credClearAsk, slotLabel: has ? '更换' : '填写账号密码', slotFn: function () { self.setState({ credForm: true, credNote: '', credUser: '', credPass: '', credOnce: false }); },
-      lead: '登录失效时用账号密码自动登录。账号密码只用 Windows 当前用户加密保存在本机，手机页看不到。',
-      hasSaved: has, saved: s.cred === 'saved' ? '已保存账号 ' + s.credMask + '。' : '这次运行可以用账号 ' + s.credMask + ' 重新登录，关闭工具后自动清除。',
-      auto: auto[0], autoCls: auto[1], formOn: s.credForm, cantSave: !s.credUser.trim() || !s.credPass, saveLabel: s.credOnce ? '只用这一次' : '保存到本机',
+      headStatus: headStatus, headCls: headCls,
+      s1Cls: s1Cls, s1Mark: s1Mark, s1Sub: s1Sub, s1SubCls: s1SubCls,
+      s2Cls: s2Cls, s2Mark: s2Mark, s2Sub: s2Sub, s2SubCls: s2SubCls,
+      s2BtnLabel: s2BtnLabel, s2BtnCls: s2BtnCls, s2Fn: s2Fn, foot: foot,
+      hasSlot: !s.credForm && !s.credClearAsk, slotLabel: has ? '更换' : '填写账号密码', slotCls: !has || s.credBad ? 'btn-solid' : 'btn-line', slotFn: function () { self.setState({ credForm: true, credNote: '', credUser: '', credPass: '', credOnce: false }); },
+      formOn: s.credForm, cantSave: !s.credUser.trim() || !s.credPass, saveLabel: s.credOnce ? '只用这一次' : '保存到本机',
       clearAsk: s.credClearAsk, canClear: s.cred === 'saved' && !s.credForm && !s.credClearAsk, hasNote: !!s.credNote, note: s.credNote, hasBad: !!s.credBad && has && !s.credForm
     };
   }
@@ -1616,7 +1993,7 @@ class Component extends DCLogic {
     var slot = s.ocr === 'missing' ? [s.ocrErr ? '重新下载' : '下载并安装', 'btn-solid', false, this.ocInstall] : s.ocr === 'off' ? ['启用', 'btn-solid', false, this.ocEnable] : (s.ocr === 'downloading' ? ['取消下载', 'btn-line', false, this.ocCancel] : (s.ocr === 'verifying' ? ['校验中…', 'btn-line', true, function () {}] : null));
     return {
       hasSlot: !!slot, slotLabel: slot ? slot[0] : '', slotCls: slot ? slot[1] : '', slotOff: slot ? slot[2] : true, slotFn: slot ? slot[3] : function () {}, hasChip: on,
-      lead: on ? '版本 1.2.0。电脑会自己认验证码，连续认错 3 次再转给手机手动输入。' : s.ocr === 'off' ? '已装好（版本 1.2.0），还没启用。启用后，登录失效时电脑会自己认验证码；配合“登录恢复”里的账号密码，就能无人值守自动登录。' : '登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。没装或认不出来时，由你在手机上手动输入。',
+      lead: on ? '版本 1.2.0。自动识别验证码，连续错 3 次转手动。' : s.ocr === 'off' ? '已装（1.2.0），尚未启用。启用后可配合自动登录自动认验证码。' : '启用后自动认验证码，配合保存的账号密码可无人值守重登。',
       isMissing: s.ocr === 'missing', isOff: s.ocr === 'off', hasLoc: on || s.ocr === 'off', loc: 'C:\\Users\\同学\\AppData\\Local\\TianSoftActivityPreRegistration\\data\\advanced\\relogin_ocr', locShort: 'C:\\Users\\同学\\AppData\\Local\\…\\advanced\\relogin_ocr',
       sizeNote: s.sizeKnown ? '可选组件，约 31.6 MB。下载后自动校验并启用，不会自动升级。' : '可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。',
       hasErr: s.ocr === 'missing' && !!s.ocrErr, err: s.ocrErr, canImport: (s.ocr === 'missing' || s.ocr === 'outdated' || s.ocr === 'broken') && !!s.ocrErr,
@@ -1695,7 +2072,7 @@ class Component extends DCLogic {
       led: ready ? this.ledOf(this.hhmmss(s.now % 86400), 'amber', '北京时间', '') : this.ledOf('--:--:--', syncing ? 'dim' : 'off', '北京时间', ''),
       rows: ready ? [{ k: '最近校准', v: s.clockJust ? '刚刚' : '1 分钟前（14:19:02）' }, { k: '估计误差', v: '±0.08 秒' }, { k: '电脑时钟', v: '比北京时间快 1.6 秒' }, { k: '时间来源', v: '公共授时服务' }]
         : [{ k: '最近校准', v: syncing ? '正在校准…' : '失败（14:19:02）' }, { k: '估计误差', v: '未知' }, { k: '电脑时钟', v: '暂时没法比较' }, { k: '时间来源', v: '公共授时服务' }],
-      note: ready ? '报名按这个时间执行，运行中会定时自动校准。工具不会改电脑的时间。' : '还没校准成功，多半是连不上授时服务。校准之前不能开始报名，不影响查看活动。',
+      note: ready ? '报名按这个时间执行，工具不改电脑的时间。' : '暂时连不上授时服务；校准前可查看活动，不能开始计划。',
       action: syncing ? '校准中…' : '重新校准'
     };
   }
@@ -1709,7 +2086,7 @@ class Component extends DCLogic {
       valid: { chip: '已登录', tone: 'ok', cap: '学校已确认', big: '登录有效', sub: '上次校验 ' + this.hhmmss(s.loginAt % 86400) + '，学校确认有效', rows: [{ k: '预计有效', v: (function (self) { var end = s.loginAt + 36000, day = Math.floor(end / 86400) > Math.floor(s.now / 86400); return '约到' + (day ? '明天 ' : ' ') + self.hhmmss(end % 86400).slice(0, 5) + '（按登录后 10 小时估，以学校为准）'; })(this) }, { k: '别处登录', v: '可能让这里失效，比如手机上的学校页面；以实际登录状态为准' }, { k: '失效以后', v: after }], note: '报名前还会再确认一次登录。', acts: [act('刷新', 'btn-line', this.refresh), act('重新登录', 'btn-line', this.reLogin)] },
       none: { chip: '未登录', tone: '', cap: '还没登录', big: '还没有登录', sub: '在这里输入账号密码，或用学校登录页', rows: [{ k: '登录方式', v: '两种都行，点登录后选' }], note: '', acts: [act('登录', 'btn-solid', this.askLogin)] },
       unknown: { chip: '待确认', tone: 'warn', cap: '没拿到学校的结果', big: '暂时无法确认', sub: '多半是网络问题', rows: [{ k: '最近校验', v: '14:20:03，没有结果' }, { k: '已保存的登录', v: '还在，先不用重新登录' }], note: '', acts: [act('刷新', 'btn-solid', this.refresh)] },
-      expired: { chip: '已失效', tone: 'bad', cap: '学校明确返回失效', big: '需要重新登录', sub: has ? (ocrOn ? '可以自动登录一次' : '只需要输验证码') : '要在浏览器里登录', rows: [{ k: '发现失效', v: '14:20:03' }, { k: '重新登录', v: has ? (ocrOn ? '确认后自动登录' : '电脑填账号密码，你输验证码') : '打开浏览器自己输' }], note: '', acts: [act('重新登录', 'btn-solid', this.reLogin)] },
+      expired: { chip: '已失效', tone: 'bad', cap: '学校明确返回失效', big: '需要重新登录', sub: has ? (ocrOn ? '可自动重登一次' : '需输入验证码') : '请在浏览器登录', rows: [{ k: '发现失效', v: '14:20:03' }, { k: '重新登录', v: has ? (ocrOn ? '确认后自动登录' : '电脑填账号密码，你输验证码') : '打开浏览器自己输' }], note: '', acts: [act('重新登录', 'btn-solid', this.reLogin)] },
       pending: { chip: '登录中', tone: 'warn', cap: '浏览器已打开', big: '正在登录', sub: '在浏览器里登完再回来', rows: [], note: '中途关掉浏览器，会保留原来的登录状态。', acts: [act('刷新', 'btn-line', this.refresh)] },
       auto: { chip: '自动登录中', tone: 'warn', cap: '复查后确认失效', big: '正在自动登录', sub: '用保存的账号 ' + (s.credMask || '') + '，验证码由电脑识别', rows: [{ k: '发现失效', v: '14:20:07' }, { k: '报名计划', v: '照常等开放，不受影响' }], note: '电脑连续 3 次没认对验证码，才会请你手动输入。', acts: [] }
     }[s.login];
@@ -1756,7 +2133,7 @@ class Component extends DCLogic {
     }
     var pre = sel.filter(function (i) { return self.stOf(i, s) === 'pre'; }).map(function (i) { return i.open; });
     // 按最晚一场算：计划要一直跑到它开放，电脑得撑到那时
-    if (pre.length && Math.max.apply(null, pre) - s.now > 86400) w.push({ tone: '', text: '有场次在 24 小时以后才开放，计划要一直运行到那时。这段时⁠间电⁠脑不能关机或睡眠。' });
+    if (pre.length && Math.max.apply(null, pre) - s.now > 86400) w.push({ tone: '', text: '有场次 24 小时后才开放，这段时间电脑别关机、别睡眠。' });
     return w.map(function (x) { return { tone: x.tone, text: x.text, label: x.label || '', hasFn: !!x.fn, fn: x.fn || function () {} }; });
   }
   onKey(e) {
@@ -1821,10 +2198,10 @@ class Component extends DCLogic {
   canHide(s) { return s.tray || (s.ph === 'on' && s.phPaired); }
   closeView(s) {
     var self = this, k = this.closeStake(s), busy = k.run || k.phoneOn, hideOk = this.canHide(s);
-    var hideText = hideOk ? '窗口不见了，工具在后台继续运行。从右下角托盘图标' + (s.ph === 'on' && s.phPaired ? '或手机页' : '') + '叫回来。' : '现在叫不回来：托盘图标没建起来，手机也没连着，所以不能隐藏。';
-    var exitText = k.run ? '报名计划会停止，还没提交的 ' + k.waitN + ' 场不会再报名。' + (k.phoneOn ? '手机也会断开。' : '') : (k.phoneOn ? '手机会断开。登录状态会保留。' : '登录状态会保留，下次打开不用重新登录。');
+    var hideText = hideOk ? '转入后台运行，可从托盘图标' + (s.ph === 'on' && s.phPaired ? '或手机页' : '') + '叫回。' : '托盘图标与手机均未就绪，暂不能隐藏。';
+    var exitText = k.run ? '报名计划会停止，还没提交的 ' + k.waitN + ' 场不会再报名。' + (k.phoneOn ? '手机也会断开。' : '') : (k.phoneOn ? '手机会断开，登录状态仍保留。' : '保留登录状态，下次打开免重登。');
     var choices = [
-      { key: 'min', title: '最小化到任务栏', text: busy ? '窗口缩到任务栏，计划和手机访问都照常。' : '窗口缩到任务栏，点一下就回来。', cls: busy ? 'rec' : '', off: false },
+      { key: 'min', title: '最小化到任务栏', text: busy ? '缩到任务栏，计划和手机访问照常。' : '缩到任务栏，点任务栏图标即可回到窗口。', cls: busy ? 'rec' : '', off: false },
       { key: 'hide', title: '隐藏到后台', text: hideText, cls: '', off: !hideOk },
       { key: 'exit', title: '退出程序', text: exitText, cls: 'danger', off: false }
     ].map(function (c) { return Object.assign(c, { fn: function () { self.closePick(c.key); } }); });
@@ -1890,9 +2267,10 @@ class Component extends DCLogic {
     this._mt = setTimeout(() => this.measureTour(), 60);
     setTimeout(() => { this.placeTip(); this.cxReveal(); }, 80);
     if (this.state.advFocus) setTimeout(() => { var el = document.querySelector('[data-sec="adv"]'); if (el) el.scrollIntoView({ block: 'start' }); }, 120);
-    if (this.state.termsFocus) setTimeout(() => { var el = [].slice.call(document.querySelectorAll('.set')).filter(function (x) { return x.textContent.indexOf('条款与隐私') === 0; })[0]; if (el) el.scrollIntoView({ block: 'center' }); }, 120);
+    if (this.state.termsFocus) setTimeout(() => { var el = [].slice.call(document.querySelectorAll('.prog-row')).filter(function (x) { return x.textContent.indexOf('条款与隐私') >= 0; })[0]; if (el) el.scrollIntoView({ block: 'center' }); }, 120);
     if (this.state.loginFocus) setTimeout(() => { var el = document.querySelector('[data-sec="login"]'); if (el) el.scrollIntoView({ block: 'start' }); }, 120);
     if (this.state.upFocus) setTimeout(() => { var el = document.querySelector('[data-sec="update"]'); if (el) el.scrollIntoView({ block: 'center' }); }, 120);
+    if (this.state.progFocus) setTimeout(() => { var el = document.querySelector('[data-sec="prog"]'); if (el) el.scrollIntoView({ block: 'start' }); }, 120);
     if (!p.frozen && this.state.login === 'auto') setTimeout(() => this.autoDone(), 2500);
     if (!p.frozen) this._t = setInterval(() => {
       var s = this.state;
@@ -2141,8 +2519,13 @@ class Component extends DCLogic {
     var s = this.state;
     if (!s.terms) { this.askTerms(); return; }
     if (s.login === 'none' || s.cxBusy) return;
-    this.setState({ list: 'loading', pop: '', tip: '', tipPos: null, cxAsk: '', cxRes: null });
-    setTimeout(() => this.setState({ list: 'ready', login: this.state.login === 'unknown' ? 'valid' : this.state.login, loginAt: this.state.login === 'valid' || this.state.login === 'unknown' ? this.state.now : this.state.loginAt, lines: this.log(this.state, '已刷新登录状态和活动列表'), listAtS: this.state.now }), 800);
+    var keepRows = s.list === 'ready';
+    this.setState(Object.assign({ pop: '', tip: '', tipPos: null, cxAsk: '', cxRes: null, refreshDone: false, listRefreshFail: false }, keepRows ? { listRefreshing: true } : { list: 'loading' }));
+    setTimeout(() => {
+      clearTimeout(this._rd);
+      this.setState({ list: 'ready', listRefreshing: false, refreshDone: true, login: this.state.login === 'unknown' ? 'valid' : this.state.login, loginAt: this.state.login === 'valid' || this.state.login === 'unknown' ? this.state.now : this.state.loginAt, lines: this.log(this.state, '已刷新登录状态和活动列表'), listAtS: this.state.now });
+      this._rd = setTimeout(() => this.setState({ refreshDone: false }), 1500);
+    }, 800);
   };
   syncClock = () => {
     this.setState({ clock: 'syncing' });
@@ -2250,17 +2633,22 @@ class Component extends DCLogic {
     return b;
   }
   attention(s) {
-    if (s.broken) return { tone: 'bad', title: '程序组件缺失。', detail: '重新下载完整版本，下载页在设置的“版本与更新”里。', action: '重新检查', fn: this.recheck };
-    if (!s.terms && !s.termsOpen && !s.tuOpen && !s.td) return { tone: '', title: s.termsUnknown ? '条款状态没能确认。' : (s.termsWithdrawn ? '你撤回了条款同意。' : (s.termsPrev ? '使用条款更新了，还没有同意新版。' : '还没有同意使用条款。')), detail: s.termsUnknown ? '读不到你同意过哪一版。登录、活动列表和报名计划暂时停用，打开条款重新确认后恢复。' : '同意后才能登录、查看活动和开始报名计划。', action: '查看条款', fn: this.askTerms };
-    if (s.net === 'off') return { tone: 'bad', title: '网络断开了。', detail: s.phase === 'running' ? '到点时还没恢复，这次报名会失败。恢复以后看一眼计划结果。' : '恢复以后点“刷新”。', action: '重新检测', fn: this.netRecheck };
-    if (s.slept) return { tone: '', title: '电脑刚才睡眠了约 ' + s.slept + ' 分钟。', detail: s.sleepMissed.length ? '期间' + s.sleepMissed.map((id) => '「' + this.find(id).name + '」').join('') + '到了开放时间，没有提交。' : '期间没有场次到开放时间。', action: '知道了', fn: () => this.setState({ slept: 0 }) };
-    if (s.login === 'unknown') return { tone: '', title: '暂时无法确认登录状态。', detail: '检查网络后点“刷新”，先不用重新登录。', action: '刷新', fn: this.refresh };
-    if (s.login === 'expired') return { tone: 'bad', title: '登录已失效。', detail: s.phase === 'running' ? '报名计划还在等，开放前 100 秒以前重新登录就照常继续。' : '重新登录后可以继续。', action: '重新登录', fn: this.reLogin };
-    if (s.clock === 'down') return { tone: '', title: '北京时间还没校准。', detail: '校准后才能开始报名计划，不影响查看活动。', action: '重新校准', fn: this.syncClock };
+    var self = this, bc = s.bannerCollapsed || {};
+    var mk = function (key, obj) {
+      if (bc[key]) return null;
+      return Object.assign({ key: key, canCollapse: true, collapse: function () { var next = Object.assign({}, self.state.bannerCollapsed || {}); next[key] = true; self.setState({ bannerCollapsed: next }); } }, obj);
+    };
+    if (s.broken) return { key: 'broken', canCollapse: false, tone: 'bad', title: '程序组件缺失。', detail: '重新下载完整版本，下载页在设置的“版本与更新”里。', action: '重新检查', fn: this.recheck };
+    if (!s.terms && !s.termsOpen && !s.tuOpen && !s.td) return { key: 'terms', canCollapse: false, tone: '', title: s.termsUnknown ? '条款状态没能确认。' : (s.termsWithdrawn ? '你撤回了条款同意。' : (s.termsPrev ? '使用条款更新了，还没有同意新版。' : '还没有同意使用条款。')), detail: s.termsUnknown ? '读不到你同意过哪一版。登录、活动列表和报名计划暂时停用，打开条款重新确认后恢复。' : '同意后才能登录、查看活动和开始报名计划。', action: '查看条款', fn: this.askTerms };
+    if (s.net === 'off') return mk('net', { tone: 'bad', title: '网络已断开。', detail: s.phase === 'running' ? '到点前未恢复则本次失败，恢复后看结果。' : '恢复后点“刷新”。', action: '重新检测', fn: this.netRecheck });
+    if (s.slept) return { key: 'slept', canCollapse: false, tone: '', title: '电脑刚才睡眠了约 ' + s.slept + ' 分钟。', detail: s.sleepMissed.length ? '期间' + s.sleepMissed.map((id) => '「' + this.find(id).name + '」').join('') + '到了开放时间，没有提交。' : '期间没有场次到开放时间。', action: '知道了', fn: () => this.setState({ slept: 0 }) };
+    if (s.login === 'unknown') return mk('login_unknown', { tone: '', title: '暂时无法确认登录状态。', detail: '检查网络后点“刷新”，先不用重新登录。', action: '刷新', fn: this.refresh });
+    if (s.login === 'expired') return mk('login_expired', { tone: 'bad', title: '登录已失效。', detail: s.phase === 'running' ? '报名计划还在等，开放前 100 秒以前重新登录就照常继续。' : '重新登录后可以继续。', action: '重新登录', fn: this.reLogin });
+    if (s.clock === 'down') return mk('clock', { tone: '', title: '北京时间待校准。', detail: '校准前可查看活动，不能开始计划。', action: '重新校准', fn: this.syncClock });
     var seen = () => this.setState({ info: '' });
-    if (s.info === 'second') return { tone: 'note', title: '工具已经开着。', detail: '刚才又打开了一次，已切回这个窗口。同一台电脑只运行一份，免得同一场被提交两遍。', action: '知道了', fn: seen };
-    if (s.info === 'migrated') return { tone: 'note', title: '已把旧版本的数据搬到新位置。', detail: '登录、设置和运行记录都在，不用重新登录。位置在设置的“本机数据”里。', action: '知道了', fn: seen };
-    if (s.info === 'migratefail') return { tone: '', title: '旧版本的登录信息没能搬过来。', detail: '设置和运行记录已经搬好；重新登录一次就行，旧文件还留在原来的位置。', action: '登录', fn: this.askLogin };
+    if (s.info === 'second') return { key: 'second', canCollapse: false, tone: 'note', title: '工具已在运行。', detail: '已切回当前窗口，同一电脑只运行一份。', action: '知道了', fn: seen };
+    if (s.info === 'migrated') return { key: 'migrated', canCollapse: false, tone: 'note', title: '旧版数据已迁移。', detail: '登录、设置和记录已移至“本机数据”，无需重登。', action: '知道了', fn: seen };
+    if (s.info === 'migratefail') return mk('migratefail', { tone: '', title: '旧登录态未能迁移。', detail: '设置和记录已迁移；重登一次即可，旧文件未删。', action: '登录', fn: this.askLogin });
     return null;
   }
 
@@ -2301,6 +2689,14 @@ class Component extends DCLogic {
     var taskById = {};
     s.tasks.forEach(function (t) { taskById[t.id] = t; });
 
+    var allTypes = [];
+    this.items().forEach(function (i) {
+      var tp = self.typeOf(i);
+      if (allTypes.indexOf(tp) < 0) allTypes.push(tp);
+    });
+    var othIdx = allTypes.indexOf('其他');
+    if (othIdx >= 0) { allTypes.splice(othIdx, 1); allTypes.push('其他'); }
+
     var count = { free: 0, signed: 0, all: 0 };
     var visible = this.items().filter(function (i) {
       var st = self.stOf(i, s);
@@ -2313,8 +2709,86 @@ class Component extends DCLogic {
       if (s.fTime === 'today' && i.group !== '今天' && i.group !== '正在开放') return false;
       if (s.fIn !== 'all' && i.inV !== s.fIn) return false;
       if (s.fOut !== 'all' && i.outV !== s.fOut) return false;
+      if (s.fTypes.length && s.fTypes.indexOf(self.typeOf(i)) < 0) return false;
       return true;
     });
+    var mkRow = function (i) {
+      var st = self.stOf(i, s), selected = s.selected.indexOf(i.id) >= 0, task = taskById[i.id];
+      var hitSigned = st !== 'signed' ? signedIts.filter(function (o) { return self.overlap(o, i); })[0] : null;
+      var hitSel = !selected && (st === 'open' || st === 'pre') ? sel.filter(function (o) { return self.overlap(o, i); })[0] : null;
+      var off = busy || !s.terms || st === 'signed' || st === 'closed' || st === 'unknown' || !!hitSigned;
+      var warn = hitSel ? '与已选的「' + hitSel.name + '」时间重叠' : '';
+      var flags = [];
+      if (st === 'open') flags.push({ text: '立即报名', cls: 'warn' });
+      if (st === 'pre') flags.push({ text: '预报名', cls: '' });
+      var tag = '', tagCls = '';
+      if (st === 'pre' && i.id === nextPreId) { tag = '下一场'; tagCls = 't-next'; }
+      if (st === 'signed') { tag = '已报名'; tagCls = 't-signed'; }
+      if (st === 'closed') { tag = '已截止'; tagCls = 't-closed'; }
+      if (st === 'unknown') { tag = '待公布'; tagCls = 't-unknown'; }
+      if (task && !self.isEnd(task.status)) { tag = task.status === 'submitting' ? '提交中' : '等开放'; tagCls = 't-armed'; }
+      var gap = i.open - s.now;
+      var leftText = st === 'pre' ? (clockOk ? self.leftCn(gap) : '待校准') : '';
+      var small = st === 'open' ? (clockOk ? '已开放 ' + self.leftCn(s.now - i.open) : '已开放') : '';
+      var dim = st === 'signed' || st === 'closed' || st === 'unknown';
+      var clash = !!hitSigned && (st === 'open' || st === 'pre') && !(task && !self.isEnd(task.status));
+      if (clash) { tag = ''; tagCls = ''; }
+      var rf = '', rfCls = 'rf';
+      if (st === 'open' || st === 'pre') { if (i.cancel === false) { rf = '报后不可退'; rfCls = 'rf no'; } else if (i.cancel === true) rf = '报后可退'; }
+      var canCancel = st === 'signed' && i.cancel === true && i.signEnd != null && self.nowAbs(s) <= i.signEnd;
+      var cxHere = s.cxBusy === i.id;
+      var cxOff = cxHere || busy || !!s.cxBusy || s.list !== 'ready' || s.login === 'pending' || s.login === 'auto';
+      var cxWhy = cxHere ? '' : (busy ? '计划在运行，先停下来再取消' : (s.cxBusy ? '正在取消另一场' : (s.list !== 'ready' ? '正在刷新，等它结束再取消' : ((s.login === 'pending' || s.login === 'auto') ? '正在登录，等它结束再取消' : ''))));
+      var askHere = s.cxAsk === i.id && !s.cxBusy;
+      var rs = s.cxRes && s.cxRes.id === i.id ? s.cxRes : null;
+      var resText = '', resCls = '';
+      if (rs && rs.kind === 'cancelled') { resText = '已取消「' + i.name + '」的报名，学校记录已核对。'; resCls = 'ok'; }
+      if (rs && rs.kind === 'refused') { resText = '学校没有取消这场报名：' + rs.say; resCls = 'bad'; }
+      if (rs && rs.kind === 'unknown') { resText = '没能确认是否已取消，请到学校网站的活动详情里核对。'; resCls = 'warn'; }
+      if (rs && rs.kind === 'precheck') { resText = '现在不能取消：' + rs.reason; resCls = 'warn'; }
+      var compactAct = i.actShort ? i.actShort.replace(/(\d+)月(\d+)日/, function (_, m, d) { return self.p2(Number(m)) + '-' + self.p2(Number(d)); }) : (i.act || '时间待公布');
+      if (st === 'closed') compactAct = '报名已截止';
+      var inCell = i.inV === 'yes' ? i.inT.replace(/^签到 /, '') : (i.inV === 'null' ? '同步中' : '无需签到');
+      var outCell = i.outV === 'yes' ? i.outT.replace(/^签退 /, '') : (i.outV === 'null' ? '同步中' : '无需签退');
+      var inCls = i.inV === 'null' ? 'pend' : (i.inV === 'no' ? 'na' : '');
+      var outCls = i.outV === 'null' ? 'pend' : (i.outV === 'no' ? 'na' : '');
+      var shortMD = function (t) { return String(t || '').replace(/(\d+)月(\d+)日/g, function (_, m, d) { return self.p2(Number(m)) + '-' + self.p2(Number(d)); }); };
+      var signEndText = (st === 'open' || st === 'pre') ? shortMD(i.signEndText || '报名截止未知') : (st === 'unknown' ? '报名截止待公布' : '');
+      var hasSync = s.signedLocal.indexOf(i.id) >= 0 || !!(task && task.status === 'success');
+      var hasWarn = !!(warn && !busy);
+      var missed = (s.sleepMissed || []).indexOf(i.id) >= 0;
+      var missText = missed ? '电脑在 ' + self.hhmmss(i.open % 86400).slice(0, 5) + ' 开放时睡着了，没有提交 · ' + (st === 'closed' ? '已截止' : '还能报') : '';
+      var hasAfter = askHere || !!rs;
+      var cxRow = {
+        id: i.id, hasClash: clash, tipEnter: clash ? function () { self.cxTipOpen(i.id); } : function () {}, tipHover: clash ? function () { self.cxTipSoon(i.id); } : function () {},
+        tipKey: function (e) { self.cxTipKey(e); },
+        hasRf: !!rf, rf: rf, rfCls: rfCls,
+        hasSignEnd: !!signEndText, signEndText: signEndText,
+        hasUntil: canCancel, until: canCancel ? '可取消至 ' + shortMD(self.fmtAbs(i.signEnd)) : '',
+        hasCancel: canCancel, cancelOff: cxOff, cancelTitle: cxWhy, cancelLabel: cxHere ? '正在取消…' : '取消报名', cancelAsk: function () { self.setState({ cxAsk: i.id, cxRes: null }); },
+        hasAfter: hasAfter, hasAsk: askHere, askNo: function () { self.setState({ cxAsk: '' }); }, askYes: function () { self.cxYes(i.id); },
+        hasRes: !!rs, res: resText, resCls: resCls
+      };
+      var cxCls = (clash ? 'clash ' : '') + (s.tip === i.id ? 'tipon ' : '') + (s.flash === i.id ? 'flash ' : '');
+      return Object.assign({
+        name: i.name, typeLabel: self.typeOf(i), rw: self.rwOf(i),
+        actCell: compactAct, actCls: (st === 'unknown' || st === 'closed') ? 'na' : '',
+        placeCell: i.place || '地点待定', placeCls: (!i.place || i.place === '地点待定') ? 'na' : '',
+        inCell: inCell, inCls: inCls, outCell: outCell, outCls: outCls,
+        l3Grid: two, l3Two: !two,
+        flags: flags, selected: selected, disabled: off,
+        cls: cxCls + (selected ? 'sel ' : '') + (task && !self.isEnd(task.status) ? 'armed ' : '') + (off && !selected ? 'off ' : '') + (dim ? 'dim' : ''),
+        hasTag: !!tag, tag: tag, tagCls: tagCls,
+        hasLeft: !!leftText && !clash, left: leftText, leftCls: st === 'pre' && (gap < 600 || (futureEligible[0] && i.open === futureEligible[0].open)) ? 'soon' : '',
+        hasSmall: !!small && !clash, small: small,
+        hasL4: hasWarn || hasSync || hasAfter || missed, hasMiss: missed, miss: missText, hasWarn: hasWarn, warn: warn, hasSync: hasSync,
+        tourAttr: i.id === s.tourRowId ? 'row' : '', aria: '选择 ' + i.name,
+        cardClick: function (e) { if (e && e.target && e.target.closest && e.target.closest('button,input,a,.t-clash,.no-toggle')) return; if (!off) self.toggle(i.id, !selected); },
+        openDesc: function (e) { if (e) { e.stopPropagation(); e.preventDefault(); } self.setState({ descId: i.id, descExp: false, descFail: false }); },
+        chkClick: function (e) { e.stopPropagation(); },
+        toggle: function (e) { self.toggle(i.id, e.target.checked); }
+      }, cxRow);
+    };
     var order = ['正在开放', '今天', '明天', '后天', '待公布', '已报名', '已截止'];
     var nowPlaced = false;
     var groups = [];
@@ -2328,58 +2802,39 @@ class Component extends DCLogic {
       if (s.fSort === 'name') list = list.slice().sort(function (a, b) { return a.name.localeCompare(b.name, 'zh-CN'); });
       var nowBefore = false;
       if (!nowPlaced && g !== '正在开放') { nowBefore = true; nowPlaced = true; }
-      groups.push({
-        title: g, n: list.length, cls: g === '正在开放' ? 'open' : (g === '已报名' ? 'signed' : ''), note: g === '正在开放' ? '现在就能报' : (g === '已截止' ? '只能查看' : ''), nowBefore: nowBefore, now: self.hhmmss(s.now % 86400).slice(0, 5),
-        rows: list.map(function (i) {
-          var st = self.stOf(i, s), selected = s.selected.indexOf(i.id) >= 0, task = taskById[i.id];
-          var hitSigned = st !== 'signed' ? signedIts.filter(function (o) { return self.overlap(o, i); })[0] : null;
-          var hitSel = !selected && (st === 'open' || st === 'pre') ? sel.filter(function (o) { return self.overlap(o, i); })[0] : null;
-          var off = busy || !s.terms || st === 'signed' || st === 'closed' || st === 'unknown' || !!hitSigned;
-          var warn = hitSel ? '与已选的「' + hitSel.name + '」时间重叠' : '';
-          var flags = [];
-          if (st === 'open') flags.push({ text: '立即报名', cls: 'warn' });
-          if (st === 'pre') flags.push({ text: '预报名', cls: '' });
-          var att = narrow ? '' : [i.inT, i.outT].filter(Boolean).join('，');
-          var tag = '', tagCls = '';
-          if (st === 'pre' && i.id === nextPreId) { tag = '下一场'; tagCls = 't-next'; }
-          if (st === 'signed') { tag = '已报名'; tagCls = 't-signed'; }
-          if (st === 'closed') { tag = '已截止'; tagCls = 't-closed'; }
-          if (st === 'unknown') { tag = '待公布'; tagCls = 't-unknown'; }
-          if (task && !self.isEnd(task.status)) { tag = task.status === 'submitting' ? '提交中' : '等开放'; tagCls = 't-armed'; }
-          var gap = i.open - s.now;
-          var leftText = st === 'pre' ? (clockOk ? self.leftCn(gap) : '待校准') : '';
-          var small = st === 'open' ? (clockOk ? '已开放 ' + self.leftCn(s.now - i.open) : '已开放') : '';
+      var hasRail = g !== '已报名' && g !== '已截止';
+      var nodes = [], nodeMap = {};
+      if (hasRail) {
+        list.forEach(function (i) {
+          var st = self.stOf(i, s);
           var isKnown = st !== 'unknown';
-          var dim = st === 'signed' || st === 'closed' || st === 'unknown';
-          // 冲突与取消：不可加入 + 气泡；报后可退/不可退；可取消至；取消的确认与结果
-          var clash = !!hitSigned && (st === 'open' || st === 'pre') && !(task && !self.isEnd(task.status));
-          if (clash) { tag = ''; tagCls = ''; }
-          var rf = '', rfCls = 'rf';
-          if (st === 'open' || st === 'pre') { if (i.cancel === false) { rf = '报后不可退'; rfCls = 'rf no'; } else if (i.cancel === true) rf = '报后可退'; }
-          var canCancel = st === 'signed' && i.cancel === true && i.signEnd != null && self.nowAbs(s) <= i.signEnd;
-          var cxHere = s.cxBusy === i.id;
-          var cxOff = cxHere || busy || !!s.cxBusy || s.list !== 'ready' || s.login === 'pending' || s.login === 'auto';
-          var cxWhy = cxHere ? '' : (busy ? '计划在运行，先停下来再取消' : (s.cxBusy ? '正在取消另一场' : (s.list !== 'ready' ? '正在刷新，等它结束再取消' : ((s.login === 'pending' || s.login === 'auto') ? '正在登录，等它结束再取消' : ''))));
-          var askHere = s.cxAsk === i.id && !s.cxBusy;
-          var rs = s.cxRes && s.cxRes.id === i.id ? s.cxRes : null;
-          var resText = '', resCls = '';
-          if (rs && rs.kind === 'cancelled') { resText = '已取消「' + i.name + '」的报名，学校记录已核对。'; resCls = 'ok'; }
-          if (rs && rs.kind === 'refused') { resText = '学校没有取消这场报名：' + rs.say; resCls = 'bad'; }
-          if (rs && rs.kind === 'unknown') { resText = '没能确认是否已取消，请到学校网站的活动详情里核对。'; resCls = 'warn'; }
-          if (rs && rs.kind === 'precheck') { resText = '现在不能取消：' + rs.reason; resCls = 'warn'; }
-          var cxRow = {
-            id: i.id, hasClash: clash, tipEnter: clash ? function () { self.cxTipOpen(i.id); } : function () {}, tipHover: clash ? function () { self.cxTipSoon(i.id); } : function () {},
-            tipKey: function (e) { self.cxTipKey(e); },
-            hasRf: !!rf, rf: rf, rfCls: rfCls,
-            hasUntil: canCancel, until: canCancel ? '可取消至 ' + self.fmtAbs(i.signEnd) : '',
-            hasCancel: canCancel, cancelOff: cxOff, cancelTitle: cxWhy, cancelLabel: cxHere ? '正在取消…' : '取消报名', cancelAsk: function () { self.setState({ cxAsk: i.id, cxRes: null }); },
-            hasAfter: askHere || !!rs, rxPad: narrow ? '2.875rem' : '8rem',
-            hasAsk: askHere, askNo: function () { self.setState({ cxAsk: '' }); }, askYes: function () { self.cxYes(i.id); },
-            hasRes: !!rs, res: resText, resCls: resCls
-          };
-          var cxCls = (clash ? 'clash ' : '') + (s.tip === i.id ? 'tipon ' : '') + (s.flash === i.id ? 'flash ' : '');
-          return Object.assign({ name: i.name, rw: self.rwOf(i), rwSide: !narrow, rwInline: narrow, place: i.place, act: narrow ? i.actShort : i.act, flags: flags, time: isKnown ? self.hhmmss(i.open % 86400).slice(0, 5) : '待公布', timeCls: isKnown ? '' : 'txt', hasDay: (i.group === '明天' || i.group === '后天') && st === 'pre', day: i.group, cols: cols, showTime: !narrow, inlineTime: narrow && isKnown, showPlace: showPlace, selected: selected, disabled: off, cls: cxCls + (selected ? 'sel ' : '') + (task && !self.isEnd(task.status) ? 'armed ' : '') + (off && !selected ? 'off ' : '') + (dim ? 'dim' : ''), hasTag: !!tag, tag: tag, tagCls: tagCls, hasAtt: !!att, att: att, attCls: i.inV === 'null' ? 'att un' : 'att', hasLeft: !!leftText && !clash, left: leftText, leftCls: st === 'pre' && gap < 600 ? 'soon' : '', hasSmall: !!small, small: small, hasWarn: !!warn && !busy, warn: warn, hasSync: s.signedLocal.indexOf(i.id) >= 0 || !!(task && task.status === 'success'), tourAttr: i.id === s.tourRowId ? 'row' : '', aria: '选择 ' + i.name, toggle: function (e) { self.toggle(i.id, e.target.checked); } }, cxRow);
-        })
+          var nKey = s.fSort === 'name' ? ('item_' + i.id) : (isKnown ? st + '_' + i.open : 'unknown');
+          if (!nodeMap[nKey]) {
+            var nd = {
+              key: nKey,
+              time: isKnown ? self.hhmmss(i.open % 86400).slice(0, 5) : '待公布',
+              timeCls: isKnown ? '' : 'txt',
+              hasDay: isKnown && (i.group === '明天' || i.group === '后天') && st === 'pre',
+              day: i.group,
+              dotCls: st === 'unknown' ? 'unknown' : (st === 'open' ? 'open' : 'wait'),
+              hasBatch: false, batchN: 0, rows: []
+            };
+            nodeMap[nKey] = nd;
+            nodes.push(nd);
+          }
+          if (i.id === nextPreId && nodeMap[nKey].dotCls === 'wait') nodeMap[nKey].dotCls = 'next';
+          nodeMap[nKey].rows.push(mkRow(i));
+        });
+        nodes.forEach(function (nd) {
+          nd.batchN = nd.rows.length;
+          nd.hasBatch = nd.batchN > 1;
+        });
+      }
+      groups.push({
+        title: g, n: list.length, cls: g === '正在开放' ? 'open' : (g === '已报名' ? 'signed' : ''),
+        note: g === '正在开放' ? '现在就能报' : (g === '已截止' ? '只能查看' : ''),
+        nowBefore: nowBefore, now: self.hhmmss(s.now % 86400).slice(0, 5),
+        hasRail: hasRail, noRail: !hasRail, nodes: nodes, belowRows: hasRail ? [] : list.map(mkRow)
       });
     });
     if (!nowPlaced && groups.length) { groups[groups.length - 1].nowAfter = true; }
@@ -2414,7 +2869,7 @@ class Component extends DCLogic {
       if (t.status === 'waiting') detail = t.mode === 'pre' ? (prepped ? '已准备好，' + self.hms(t.open) + ' 开放时提交' : '提前准备，等到 ' + self.hms(t.open) + ' 开放') : '已开放，正在准备提交';
       if (t.status === 'submitting') detail = '已提交 ' + t.attempts + ' 次（' + (s.maxA ? '上限 ' + s.maxA + ' 次' : '不限次数') + '）。最近：' + t.last + '，重试到 ' + self.hms(t.deadline);
       // 每场都写明走的哪条路；退回页面点击时带原因（架构方案 3.1）
-      return { name: t.name, tone: map[0], label: map[1], detail: detail, hasVia: prepped && (s.phase === 'running' || t.via === 'click'), viaCls: t.via === 'click' ? 'warn' : '', viaText: t.via === 'click' ? '改用页面点击：' + t.viaWhy + '。活动页已提前打开' : '直接提交，不经过活动页', canVerify: s.phase === 'result' && t.status === 'unconfirmed',
+      return { name: t.name, tone: map[0], label: map[1], detail: detail, hasVia: prepped && (s.phase === 'running' || t.via === 'click'), viaCls: t.via === 'click' ? 'warn' : '', viaText: t.via === 'click' ? '改用页面点击（' + t.viaWhy + '），详情页已打开' : '直接提交', canVerify: s.phase === 'result' && t.status === 'unconfirmed',
         openPage: function () { self.setState({ lines: self.log(self.state, '已在浏览器打开「' + t.name + '」的活动页') }); },
         verify: function () { setTimeout(function () { var st = self.state; self.setState({ tasks: st.tasks.map(function (o) { return o.id === t.id ? Object.assign({}, o, { status: 'success', reason: '刷新核对：学校显示已报名' }) : o; }), signedLocal: st.signedLocal.concat(t.id), lines: self.log(st, '「' + t.name + '」核对完成：学校显示已报名') }); }, 700); },
         canCancel: t.status === 'waiting', cancel: function () {
@@ -2437,7 +2892,7 @@ class Component extends DCLogic {
         else led = this.ledOf(this.hhmmss(nextIt.open - s.now), 'amber', '最近开放', this.hms(nextIt.open));
       }
       if (!sel.length) {
-        if (s.list === 'idle') { head = { text: s.info === 'migratefail' ? '未登录' : '首次使用', tone: 'off' }; draft = { title: '登录后开始', sub: '活动会在登录完成后自动加载。' }; }
+        if (s.list === 'idle') { head = { text: s.info === 'migratefail' ? '未登录' : '首次使用', tone: 'off' }; draft = { title: '登录后开始', sub: '登录后自动加载。' }; }
         else if (s.list === 'error') { head = { text: '需重试', tone: 'red' }; draft = { title: '活动暂时没加载', sub: '具体原因看左边列表的提示。' }; }
         else if (s.list === 'broken') { head = { text: '不可用', tone: 'red' }; draft = { title: '暂时不能报名', sub: '程序组件缺失，处理办法在顶部提示里。' }; }
         else if (s.list === 'loading') { head = { text: '加载中', tone: 'off' }; draft = { title: '活动列表正在加载', sub: '先等这一次加载结束。' }; }
@@ -2503,12 +2958,12 @@ class Component extends DCLogic {
       res.counts = [{ tone: 'ok', n: ok, text: '已报名' }, { tone: 'wait', n: full, text: '名额已满' }, { tone: 'bad', n: bad, text: '报名未成功' }, { tone: 'bad', n: missed, text: '错过了' }, { tone: 'ask', n: ask, text: '待核对' }, { tone: 'wait', n: none, text: '已取消' }].filter(function (x) { return x.n > 0; });
       // 名额已满是结束结论，不算工具失败，也不放回“重新选择”
       res.canRetry = bad + none + missed > 0;
-      if (s.stopped) { head = { text: ask ? '已停止，需确认' : '已停止', tone: ask ? '' : 'off' }; res.title = '报名计划已停止'; res.text = '已提交的场次保留原状态，还没提交的场次已取消。'; if (ask) boardCls += 'st-warn'; }
+      if (s.stopped) { head = { text: ask ? '已停止，需确认' : '已停止', tone: ask ? '' : 'off' }; res.title = '报名计划已停止'; res.text = '已发出的保留结果，其余已取消。'; if (ask) boardCls += 'st-warn'; }
       else if (ok && !bad && !ask && !none && !full) { head = { text: '报名成功', tone: 'green' }; res.title = '报名计划完成'; res.text = '每场结束时都向学校核对过。'; res.hasLed = true; led = this.ledOf('✓', 'green', '', ''); boardCls += 'st-ok'; }
       else if (ok) { head = { text: '部分完成', tone: '' }; res.title = '报名计划部分完成'; res.text = ask ? '有 ' + ask + ' 场需要到活动页核对，结果以学校为准。' : (full ? '有 ' + full + ' 场名额已满，不是工具出错。' : '结果以学校活动页为准。'); boardCls += 'st-warn'; }
       else if (ask) { head = { text: '需确认', tone: '' }; res.title = '计划已结束，有 ' + ask + ' 场需确认'; res.text = '工具不会自动重发，到学校活动页核对。'; boardCls += 'st-warn'; }
-      else if (missed && !bad) { head = { text: '错过了', tone: 'red' }; res.title = '电脑睡眠，错过了开放'; res.text = '运行计划时别让电脑睡眠：在 Windows 电源设置里把睡眠改成“从不”，并保持插电。'; boardCls += 'st-bad'; }
-      else if (full && !bad && !missed) { head = { text: '名额已满', tone: '' }; res.title = '这次没报上：名额满了'; res.text = '学校的名额在开放后被报满了，不是工具出错。'; boardCls += 'st-warn'; }
+      else if (missed && !bad) { head = { text: '错过了', tone: 'red' }; res.title = '电脑睡眠，错过了开放'; res.text = '电脑睡眠过。计划运行时把电源设置里的睡眠改成“从不”，并保持插电。'; boardCls += 'st-bad'; }
+      else if (full && !bad && !missed) { head = { text: '名额已满', tone: '' }; res.title = '这次没报上：名额满了'; res.text = '名额满了，不是工具出错。'; boardCls += 'st-warn'; }
       else { head = { text: '未成功', tone: 'red' }; res.title = '报名计划没有成功'; res.text = '每场的原因都列在下面。'; res.hasLed = true; led = this.ledOf('✕', 'red', '', ''); boardCls += 'st-bad'; }
     }
 
@@ -2528,11 +2983,11 @@ class Component extends DCLogic {
     var attn = this.attention(s);
     var empty = null;
     if (s.list === 'broken') empty = { title: '活动列表没加载', text: '程序组件缺失，修好之前看不了活动。处理办法在顶部提示里。', action: '', fn: function () {} };
-    if (s.list === 'idle') empty = s.terms ? { title: '登录后查看活动', text: '在这里输入账号密码或用学校登录页，登录后活动会自动加载。', action: '登录', fn: this.askLogin } : { title: '先看一下使用条款', text: '同意后才能登录和查看活动。', action: '查看条款', fn: this.askTerms };
-    else if (s.list === 'error') empty = { title: '活动暂时没加载', text: '连不上学校站点，已保存的登录不受影响。检查网络后点“刷新”。', action: '刷新', fn: this.refresh };
-    else if (s.list === 'ready' && !count.all) empty = { title: '学校当前没有返回活动', text: '这不是登录问题。稍后点“刷新”再看，学校发布新活动后会出现在这里。', action: '刷新', fn: this.refresh };
-    else if (s.list === 'ready' && !groups.length) empty = { title: '没有符合筛选的活动', text: '一共 ' + count.all + ' 场。换个关键词，或清除筛选看完整列表。', action: '清除筛选', fn: function () { self.setState({ q: '', seg: 'all', fTime: 'all', fSort: 'open', fIn: 'all', fOut: 'all' }); } };
-    var fN = (s.fTime !== 'all' ? 1 : 0) + (s.fSort !== 'open' ? 1 : 0) + (s.fIn !== 'all' ? 1 : 0) + (s.fOut !== 'all' ? 1 : 0);
+    if (s.list === 'idle') empty = s.terms ? { title: '登录后查看活动', text: '登录后自动加载活动。', action: '登录', fn: this.askLogin } : { title: '先看一下使用条款', text: '同意后才能登录和查看活动。', action: '查看条款', fn: this.askTerms };
+    else if (s.list === 'error') empty = { title: '活动暂时没加载', text: '连不上学校站点，已存登录仍在。检查网络后点“刷新”。', action: '刷新', fn: this.refresh };
+    else if (s.list === 'ready' && !count.all) empty = { title: '学校当前没有活动', text: '这不是登录问题，学校发布新活动后会出现在这里。', action: '刷新', fn: this.refresh };
+    else if (s.list === 'ready' && !groups.length) empty = { title: '没有符合筛选的活动', text: '共 ' + count.all + ' 场，请换个关键词或清除筛选。', action: '清除筛选', fn: function () { self.setState({ q: '', seg: 'all', fTime: 'all', fSort: 'open', fIn: 'all', fOut: 'all', fTypes: [] }); } };
+    var fN = (s.fTime !== 'all' ? 1 : 0) + (s.fSort !== 'open' ? 1 : 0) + (s.fIn !== 'all' ? 1 : 0) + (s.fOut !== 'all' ? 1 : 0) + (s.fTypes.length ? 1 : 0);
 
     var pwN = this.preWarn(s).length;
     var dock = { title: sel.length ? '已选 ' + sel.length + ' 场' : '还没选活动', sub: why.text ? '还差一步：' + why.text : (pwN ? '有 ' + pwN + ' 条提醒，开始前先看一眼' : summary) };
@@ -2540,9 +2995,23 @@ class Component extends DCLogic {
     if (s.phase === 'running') { dock.title = head.text + '：' + ex.name; dock.sub = led.cap + ' ' + led.capB; }
     if (s.phase === 'result') { dock.title = res.title; dock.sub = res.text; }
 
+    var bc = s.bannerCollapsed || {};
+    var expandBanner = function (key) { var next = Object.assign({}, self.state.bannerCollapsed || {}); delete next[key]; self.setState({ bannerCollapsed: next }); };
+    var alertPill = (s.net === 'off' && bc.net) ? { tone: 'bad', text: '离线 · 点开详情', fn: function () { expandBanner('net'); } }
+      : (s.listRefreshFail && bc.refresh_fail) ? { tone: 'warn', text: '刷新失败 · 点开详情', fn: function () { expandBanner('refresh_fail'); } }
+      : (s.info === 'migratefail' && bc.migratefail) ? { tone: 'warn', text: '需重新登录', fn: function () { expandBanner('migratefail'); } }
+      : null;
+
     return {
       rootH: p.height || '100vh', brand: s.w <= 860 ? '校园预报名工具' : '校园活动预报名工具', showBrand: !narrow, labels: !narrow, btnLabels: two,
-      clockCls: s.clock === 'ready' ? '' : (s.clock === 'hold' ? 'cal hold' : 'cal'), clockText: (s.clock === 'ready' || s.clock === 'hold') ? this.hhmmss(s.now % 86400) : (s.clock === 'syncing' ? '校准中…' : '待校准'),
+      clockCls: (s.clock === 'ready' ? '' : (s.clock === 'hold' ? 'cal hold' : 'cal')) + (s.clock === 'down' && bc.clock ? ' collapsed-warn' : ''), clockText: (s.clock === 'ready' || s.clock === 'hold') ? this.hhmmss(s.now % 86400) : (s.clock === 'syncing' ? '校准中…' : (bc.clock ? '北京时间待校准' : '待校准')),
+      hasAlertPill: !!alertPill, alertPill: alertPill || { tone: '', text: '', fn: function () {} },
+      topMatrix: !!s.topMatrix,
+      isRefreshing: !!s.listRefreshing,
+      refreshDone: !!s.refreshDone && !s.listRefreshing,
+      refreshIcon: !s.refreshDone || !!s.listRefreshing,
+      refreshSpinCls: (s.listRefreshing || s.list === 'loading') ? 'spin-ic' : '',
+      refreshText: s.listRefreshing ? '刷新中' : (s.refreshDone ? '已更新' : '刷新'),
       clockState: s.clock === 'ready' ? '已校准' : (s.clock === 'syncing' ? '校准中' : '待校准'), clockAgo: s.clock === 'ready' ? '1 分钟前' : '校准失败', clockErr: s.clock === 'ready' ? '±0.08 秒' : '未知',
       toggleClock: function () { clearTimeout(self._pt); var st = self.state; self.setState(st.pop === 'clock' && st.popPin ? { pop: '', popPin: false } : { pop: 'clock', popPin: true }); }, toggleLogin: function () { clearTimeout(self._pt); var st = self.state; self.setState(st.pop === 'login' && st.popPin ? { pop: '', popPin: false } : { pop: 'login', popPin: true }); },
       clockEnter: function () { self.popOpen('clock'); }, phoneEnter: function () { self.popOpen('phone'); },
@@ -2551,13 +3020,13 @@ class Component extends DCLogic {
       phoneManage: function () { self.setState({ settings: true, pop: '', popPin: false }); setTimeout(function () { var el = document.querySelector('[data-sec="adv"]'); if (el) el.scrollIntoView({ block: 'start' }); }, 150); }, loginEnter: function () { self.popOpen('login'); }, popLeave: this.popLeave,
       popKey: function (e) { if (e.key === 'Escape' && self.state.pop) { e.preventDefault(); clearTimeout(self._pt); self.setState({ pop: '', popPin: false }); } },
       rw: this.runWarnV(s),
-      hasSource: s.phase === 'running' && s.planSource === 'phone', sourceText: '这个计划是从手机开始的，在电脑和手机上都能看进度、停止。',
-      hasFresh: s.list === 'ready', fresh: (function () { var d = s.now - s.listAtS; return d < 60 ? '刚刚更新' : (d < 3600 ? Math.floor(d / 60) + ' 分钟前更新' : self.hhmmss(s.listAtS % 86400).slice(0, 5) + ' 更新'); })(), freshCls: s.now - s.listAtS > 600 ? 'old' : '',
+      hasSource: s.phase === 'running' && s.planSource === 'phone', sourceText: '从手机启动的计划，电脑与手机都可查看进度或停止。',
+      hasFresh: s.list === 'ready', fresh: s.listRefreshing ? '正在刷新…' : (s.refreshDone ? '已更新 ✓' : (function () { var d = s.now - s.listAtS; return d < 60 ? '刚刚更新' : (d < 3600 ? Math.floor(d / 60) + ' 分钟前更新' : self.hhmmss(s.listAtS % 86400).slice(0, 5) + ' 更新'); })()), freshCls: s.listRefreshing ? 'busy' : (s.refreshDone ? 'ok' : ((s.now - s.listAtS > 600 || s.listRefreshFail) ? 'old' : '')),
       goAdv: function () { var el = document.querySelector('[data-sec="adv"]'); if (el) el.scrollIntoView({ block: 'start' }); }, goLogin: function () { var el = document.querySelector('[data-sec="login"]'); if (el) el.scrollIntoView({ block: 'start' }); }, goProg: function () { var el = document.querySelector('[data-sec="prog"]'); if (el) el.scrollIntoView({ block: 'start' }); },
       popHint: s.popPin ? 'Esc 关闭' : '点一下可以固定', ck: this.clockCard(s), lg: this.loginCard(s, termsHold),
       popClock: s.pop === 'clock', popLogin: s.pop === 'login', loginPop: loginPop, syncClock: this.syncClock,
-      loginText: loginText, loginTone: loginTone, hasLoginSub: s.login === 'valid' && !narrow && !termsHold, loginSub: this.hhmmss(s.loginAt % 86400).slice(0, 5) + ' 校验',
-      refresh: this.refresh, refreshOff: !!s.cxBusy, tipV: this.tipView(s), tipStay: this.cxTipStay, tipLeave: this.cxTipLeave, openSettings: function () { self.setState({ settings: true, pop: '' }); }, closeSettings: function () { self.setState({ settings: false }); }, openHelp: function () { self.setState({ help: true, pop: '' }); }, closeHelp: function () { self.setState({ help: false }); },
+      loginText: loginText, loginTone: loginTone + (bc['login_' + s.login] ? ' collapsed-warn' : ''), hasLoginSub: s.login === 'valid' && !narrow && !termsHold, loginSub: this.hhmmss(s.loginAt % 86400).slice(0, 5) + ' 校验',
+      refresh: this.refresh, refreshOff: !!s.cxBusy || !!s.listRefreshing, tipV: this.tipView(s), tipStay: this.cxTipStay, tipLeave: this.cxTipLeave, openSettings: function () { self.setState({ settings: true, pop: '' }); }, closeSettings: function () { self.setState({ settings: false }); }, openHelp: function () { self.setState({ help: true, pop: '' }); }, closeHelp: function () { self.setState({ help: false }); },
       settings: s.settings, help: s.help, chromeOn: !!s.chrome, winMin: this.winMin, winClose: this.winClose, winRestore: this.winRestore, closeAsk: s.closeAsk && s.win === 'open', cv: this.closeView(s), closeRemember: s.closeRemember, onRemember: function (e) { self.setState({ closeRemember: e.target.checked }); }, closeCancel: function () { self.setState({ closeAsk: false, closeStep: '', closeWhy: '' }); }, closeBack: function () { self.setState({ closeStep: '' }); }, closeExitYes: function () { self.closePick('exit'); },
       closeKey: function (e) { if (e.key !== 'Escape') return; e.preventDefault(); if (self.state.closeStep === 'confirm') self.setState({ closeStep: '' }); else self.setState({ closeAsk: false, closeWhy: '' }); },
       winGone: s.win !== 'open', wv: this.winView(s), upV: this.upView(s), crV: this.credView(s), rlOn: !!s.rl, rlV: this.rlView(s), rlCode: s.rlCode, onRlCode: function (e) { var v = String(e.target.value).replace(/[^0-9A-Za-z]/g, '').slice(0, 4); if (e.target.value !== v) e.target.value = v; self.setState({ rlCode: v, rlErr: '' }); }, rlCodeKey: function (e) { if (e.key === 'Enter') self.rlSubmit(); }, rlNext: function () { self.setState({ rlIdx: self.state.rlIdx + 1, rlCode: '', rlErr: '' }); }, rlBrowser: this.rlBrowser, rlDemoBad: this.rlDemoBad, lgUser: s.lgUser, lgPass: s.lgPass, lgSave: s.lgSave, lgShow: s.lgShow, onLgUser: function (e) { self.setState({ lgUser: e.target.value, rlErr: '' }); }, onLgPass: function (e) { self.setState({ lgPass: e.target.value, rlErr: '' }); }, onLgSave: function (e) { self.setState({ lgSave: e.target.checked }); }, lgHere: function () { self.setState({ lgWay: 'here' }); }, lgWeb: function () { self.setState({ lgWay: 'browser', rlErr: '' }); }, lgEye: function () { self.setState({ lgShow: !self.state.lgShow }); }, goSaveCred: this.goSaveCred,
@@ -2565,15 +3034,17 @@ class Component extends DCLogic {
       ocV: this.ocrView(s), impOn: !!s.imp, impV: this.impView(s),
       fsV: this.fsView(s),
       credUser: s.credUser, credPass: s.credPass, credOnce: s.credOnce, onCredUser: function (e) { self.setState({ credUser: e.target.value }); }, onCredPass: function (e) { self.setState({ credPass: e.target.value }); }, onCredOnce: function (e) { self.setState({ credOnce: e.target.checked }); },
+      credDismissNote: function () { self.setState({ credNote: '' }); }, ocDismissNote: function () { self.setState({ ocrNote: '' }); },
       credSave: this.credSave, credCancel: function () { self.setState({ credForm: false, credUser: '', credPass: '' }); }, credClearAskFn: function () { self.setState({ credClearAsk: true, credNote: '' }); }, credClearNo: function () { self.setState({ credClearAsk: false }); }, credClearYes: function () { self.setState({ cred: 'none', credMask: '', credClearAsk: false, credNote: '已清除本机保存的账号密码。', lines: self.log(self.state, '已清除本机保存的账号密码') }); },
       ocOpenLoc: this.ocOpenLoc, phOpenLoc: this.phOpenLoc, ocImport: function () { self.impOpen('relogin_ocr'); }, ocDemoFail: this.ocDemoFail, impPickToggle: function () { var m = self.state.imp; if (m && !m.installing) self.setState({ imp: Object.assign({}, m, { picking: !m.picking }) }); }, impCancel: function () { self.setState({ imp: null }); }, impInstall: this.impInstall,
       impKey: function (e) { if (e.key !== 'Escape') return; e.preventDefault(); var m = self.state.imp; if (!m || m.installing) return; if (m.picking) self.setState({ imp: Object.assign({}, m, { picking: false }) }); else self.setState({ imp: null }); }, upNext: s.upNext, onUpNext: function (e) { self.setState({ upNext: e.target.value }); }, upCheck: this.upCheck, upInstall: this.upInstall, upBack: this.upBack, upConfirm: this.upConfirm, upCancel: this.upCancel, upDemoFail: this.upDemoFail, upLaunch: this.upLaunch, upExit: this.upExit, upRelease: this.upRelease, closePref: s.closePref, onClosePref: function (e) { self.setState({ closePref: e.target.value }); }, phV: this.phView(s), canDemo: !p.frozen, phTop: this.phTopView(s), phH: this.advHead('ph', s), ocH: this.advHead('ocr', s), phToggle: function () { self.advToggle('ph'); }, ocToggle: function () { self.advToggle('ocr'); }, phDemoLeave: this.phDemoLeave, phInstall: this.phInstall, phImport: this.phImport, phCancel: this.phCancel, phDemoFail: this.phDemoFail, phStart: this.phStart, phRecheck: this.phRecheck, phDemoTs: this.phDemoTs, phStopAskFn: this.phStopAskFn, phStopNo: this.phStopNo, phStopYes: this.phStopYes, phAddPair: this.phAddPair, phCopy: this.phCopy, phDemoPair: this.phDemoPair, phDemoGone: this.phDemoGone, openTermsView: function () { self.setState({ td: { tab: 'agreement', mode: self.state.terms ? 'view' : 'consent' }, settings: false }); },
-      hasAttn: !!attn, attn: attn || { tone: '', title: '', detail: '', action: '', fn: function () {} },
-      showList: two || !s.planOpen, showPanel: two || s.planOpen, showDock: !two && !s.planOpen, showBack: !two && s.planOpen, panelFlex: two ? '0 0 25rem' : '1 1 auto', boardCls: boardCls, head: head, draft: draft, led: led, openPlan: function () { self.setState({ planOpen: true }); }, closePlan: function () { self.setState({ planOpen: false }); }, dock: dock,
+      hasAttn: !!attn, attn: attn || { tone: '', title: '', detail: '', action: '', canCollapse: false, fn: function () {}, collapse: function () {} },
+      showList: (two || !s.planOpen) && !s.topMatrix, showPanel: (two || s.planOpen) && !s.topMatrix, showDock: !two && !s.planOpen && !s.topMatrix, showBack: !two && s.planOpen, panelFlex: two ? '0 0 25rem' : '1 1 auto', boardCls: boardCls, head: head, draft: draft, led: led, openPlan: function () { self.setState({ planOpen: true }); }, closePlan: function () { self.setState({ planOpen: false }); }, dock: dock,
       q: s.q, onQ: function (e) { self.setState({ q: e.target.value }); },
       segs: [{ k: 'free', t: '可报名', n: count.free }, { k: 'signed', t: '已报名', n: count.signed }, { k: 'all', t: '全部', n: count.all }].map(function (g) { return { text: g.t, n: s.list === 'ready' ? g.n : '', on: s.seg === g.k, cls: s.seg === g.k ? 'on' : '', pick: function () { self.setState({ seg: g.k }); } }; }),
       countText: s.list === 'ready' ? visible.length + ' / ' + count.all + ' 场' : '列表未加载', fOpen: s.fOpen, fCls: s.fOpen || fN ? 'on' : '', fLabel: fN ? '更多筛选（' + fN + '）' : '更多筛选', toggleF: function () { self.setState({ fOpen: !s.fOpen }); }, fTime: s.fTime, fSort: s.fSort, fIn: s.fIn, fOut: s.fOut, onTime: function (e) { self.setState({ fTime: e.target.value }); }, onSort: function (e) { self.setState({ fSort: e.target.value }); }, onIn: function (e) { self.setState({ fIn: e.target.value }); }, onOut: function (e) { self.setState({ fOut: e.target.value }); },
-      listRows: s.list === 'ready' && groups.length > 0, groups: groups, listCls: narrow ? 'nohead' : '', showHead: !narrow, showPlace: showPlace, cols: cols, listLoading: s.list === 'loading', skels: [1, 2, 3, 4, 5, 6].map(function () { return { cols: narrow ? '1.25rem 3rem minmax(0,1fr) 3.75rem' : '1.25rem 4.25rem minmax(0,1fr) 6.75rem' }; }), hasEmpty: !!empty, empty: empty ? Object.assign({ hasAction: !!empty.action }, empty) : { title: '', text: '', action: '', hasAction: false, fn: function () {} }, preWarn: this.preWarn(s), hasPreWarn: this.preWarn(s).length > 0,
+      typeOpts: allTypes.map(function (tp) { var on = s.fTypes.indexOf(tp) >= 0; return { label: tp, on: on, cls: on ? 'on' : '', toggle: function () { var cur = self.state.fTypes.slice(), k = cur.indexOf(tp); if (k >= 0) cur.splice(k, 1); else cur.push(tp); self.setState({ fTypes: cur }); } }; }), hasTypeSel: s.fTypes.length > 0, clearTypes: function () { self.setState({ fTypes: [] }); },
+      listRows: s.list === 'ready' && groups.length > 0, groups: groups, listCls: (narrow ? 'nohead narrow ' : '') + (compact ? 'compact' : ''), showHead: !narrow, showPlace: showPlace, cols: cols, listLoading: s.list === 'loading', skels: [{ w1: '58%', w2: '42%' }, { w1: '72%', w2: '50%' }, { w1: '64%', w2: '38%' }, { w1: '52%', w2: '45%' }], hasEmpty: !!empty, empty: empty ? Object.assign({ hasAction: !!empty.action }, empty) : { title: '', text: '', action: '', hasAction: false, fn: function () {} }, preWarn: this.preWarn(s), hasPreWarn: this.preWarn(s).length > 0,
       isDraft: s.phase === 'draft', isRun: s.phase === 'running', isResult: s.phase === 'result', hasSel: sel.length > 0, showClear: sel.length > 0 && s.phase === 'draft', batches: batches, clear: function () { self.setState({ selected: [], notice: '' }); },
       hasPick: !sel.length && !!nextIt && s.list === 'ready' && s.terms, nextItem: nextIt ? { pick: function () { self.toggle(nextIt.id, true); } } : { pick: function () {} },
       hasNotice: !!s.notice, notice: s.notice,
@@ -2605,8 +3076,17 @@ class Component extends DCLogic {
       tdOn: !!s.td, tdV: this.tdView(s), tdClose: function () { self.setState({ td: null }); },
       tdKey: function (e) { if (e.key !== 'Escape') return; e.preventDefault(); self.setState({ td: null }); },
       canWithdraw: s.terms && s.phase !== 'running' && !s.termsWAsk, withdrawBlocked: s.terms && s.phase === 'running', termsWAsk: s.termsWAsk && s.terms, withdrawAsk: function () { self.setState({ termsWAsk: true }); }, withdrawNo: function () { self.setState({ termsWAsk: false }); }, termsWithdraw: this.termsWithdraw,
-      hasListNote: !s.terms && s.list === 'ready', listNote: '这是上次的活动缓存，可能已经过时。' + (s.termsUnknown ? '重新确认条款' : '同意条款') + '后才会刷新，现在不能勾选。',
-      termsLine: s.terms ? '你在 ' + s.termsAt + ' 同意了 ' + s.termsAgreed + ' 版。用户协议、隐私政策和开源许可的全文都可以在这里查看。' : s.termsUnknown ? '没能读到你同意过哪一版，打开条款重新确认后恢复。' : (s.termsPrev ? '条款更新了，你还没有同意新版 ' + this.termsNewVer() + '。' : '你还没有同意使用条款。')
+      hasListNote: (!s.terms || s.listRefreshFail) && s.list === 'ready', listNoteRetry: !!s.listRefreshFail && !!s.terms, listNote: s.terms && s.listRefreshFail ? '没连上学校，下面还是 ' + this.hhmmss(s.listAtS % 86400).slice(0, 5) + ' 的列表，勾选都还在。' : '这是上次的活动缓存，可能已经过时。' + (s.termsUnknown ? '重新确认条款' : '同意条款') + '后才会刷新，现在不能勾选。',
+      termsSummary: s.terms ? '已同意 ' + s.termsAgreed : (s.termsUnknown ? '待确认版本' : '还没同意条款'),
+      termsDotCls: s.terms ? 'green' : 'amber',
+      descOn: !!s.descId, descV: this.descView(s),
+      descClose: function () { self.setState({ descId: '', descExp: false, descFail: false }); },
+      descScrim: function (e) { if (e.target === e.currentTarget) self.setState({ descId: '', descExp: false, descFail: false }); },
+      descKey: function (e) { if (e.key === 'Escape') { e.preventDefault(); self.setState({ descId: '', descExp: false, descFail: false }); } },
+      descToggle: function () { self.setState({ descExp: !self.state.descExp }); },
+      scopeToggle: function () { self.setState({ descScopeExp: !self.state.descScopeExp }); },
+      descRetry: function () { self.setState({ descFail: false }); },
+      termsLine: s.terms ? '已在 ' + s.termsAt + ' 同意 ' + s.termsAgreed + ' 版。' : s.termsUnknown ? '没能读到你同意过哪一版，打开条款重新确认后恢复。' : (s.termsPrev ? '条款更新了，你还没有同意新版 ' + this.termsNewVer() + '。' : '你还没有同意使用条款。')
     };
   }
 }
