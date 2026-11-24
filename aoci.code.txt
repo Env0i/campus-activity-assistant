@@ -84,7 +84,7 @@ pngkit.js[LU4T]: F:以Node内置压缩库读写PNG、裁图并封装多尺寸ICO
 013-distribution-and-privacy.md[SS7S]: F:规定三种发行形态、稳定数据目录、卸载保护与用户同意边界 | R:code:docs/PRIVACY_POLICY.md | A:分发隐私决策 | S:静默卸载必须保留用户数据，抑制对话框的返回值不代表用户同意删除
 014-workbench-ui.md[SU7T]: F:确定新工作台布局、窗口分档、计划阶段、提醒及恢复入口 | R:code:design/prototype/workbench-2026-11/README.md | A:工作台设计决策 | S:选中不等于开始，停止计划不等于取消学校报名
 015-signup-path-and-replies.md[SB8T]: F:规定运行时密钥、直发降级、报名回包分类、终态核对和登录交接 | R:code:local/domain/signup_reply.py,code:local/grab.py | A:报名链路决策 | S:每场结束均独立核对报名状态；运行时密钥只存内存不记日志
-016-conflict-visibility-and-cancel.md[SB7T]: F:确定已报名冲突可见性、跨天显示与电脑端取消报名边界 | R:code:local/domain/cancel_rules.py | A:冲突取消决策 | S:取消回包仅作参考，getJoinInfo复查未报名才算成功；手机不开放取消动作
+016-conflict-visibility-and-cancel.md[SB7S]: F:确定已报名冲突可见性、跨天显示与取消报名边界，2026-11-24修订把取消入口扩到owner私聊 | R:code:local/domain/cancel_rules.py,code:server/scripts/signup/cancel_signup.py | A:冲突取消决策,2026-11-24私聊修订 | S:取消回包仅作参考，getJoinInfo复查未报名才算成功；手机页与群会话不做取消；原文保留，以文末修订覆盖读法
 README.md[SG5T]: F:索引产品决策并区分规则确认、实现和验收状态 | R:code:design/README.md | A:决策目录与记录格式 | S:-
 
 ===/<repository>/design/evidence/2026-10-30/===
@@ -1134,7 +1134,7 @@ mixed-plan-runtime.md[SB4T]: F:说明混合计划独立准备调度、提交重�
 stop-and-result.md[SB4T]: F:说明计划停止确认、进程树收尾、单场取消、终态分类及用户后续动作 | R:code:design/decisions/003-retry-policy.md | A:停止取消及终态流程 | S:停止不抹已提交结果，静默复查不改已展示结论
 
 ===/<repository>/design/proposals/===
-README.md[SW3T]: F:索引引导简介提醒界面与工程提案并规定确认、实现验收后迁入决策的生命周期 | R:code:design/proposals/replayable-product-tour.md | A:提案索引 | S:引导未实现的索引描述与提案accepted记录不一致
+README.md[SW3T]: F:索引引导、提醒、界面与私聊自助等提案并规定确认、实现验收后迁入决策的生命周期 | R:code:design/proposals/replayable-product-tour.md,code:design/proposals/owner-chat-self-service.md | A:提案索引 | S:引导未实现的索引描述与提案accepted记录不一致
 activity-description-info-button.md[SU3T]: F:提出活动简介纯文本浮层与已有详情缓存复用，列出字段长文本和失败反馈确认条件 | R:code:contracts/school-api/README.md | A:- | S:字段语义未核对不得实施，回包与懒加载描述待协调
 auto-relogin-failure-notice.md[SU3T]: F:提出自动登录失败与验证码转人工通知需求，保留渠道合并频次及紧迫性待决 | R:code:design/proposals/workbench-ui-polish.md | A:- | S:渠道和频次未定，不可当作现有通知行为
 engineering-refactor.md[SW4M]: F:汇总重构已落地底座、Api拆分与手机页拆分、安全网、验收进度，规划合入验收、前端worker及长文件治理 | R:code:docs/ARCHITECTURE.md | A:重构状态及工程终点 | S:1200行仅参考；离线回归通过不等于真窗口验收，合入前须过清单
@@ -1196,7 +1196,7 @@ LoginCap.dc.html[SU3T]: F:展示账号密码登录后的验证码步骤原型 | 
 LoginShort.dc.html[SU3T]: F:展示现有登录可能撑不到报名开放的提醒原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=loginshort;tier=wide;frozen=true | S:-
 LoginWait.dc.html[SU3T]: F:展示等待用户完成浏览器登录的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=loginwait;tier=wide;frozen=true | S:-
 LongName.dc.html[SU3T]: F:展示超长活动名称及地点的宽屏排版原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=longname;tier=wide;frozen=true | S:-
-Main.dc.html[SU5L]: F:实现活动筛选、报名计划、登录、条款、时间、手机访问、组件更新及退出的共享交互原型 | R:code:design/prototype/workbench-2026-11/support.js | A:DCLogic组件；scene初态；tier布局；height/short容器；frozen停止计时与全局快捷键 | S:固定演示数据不能当作真实学校请求证据；frozen不禁用全部按钮；提交结果不明不自动重发；停止不撤销已提交结果
+Main.dc.html[SU5L]: F:实现活动筛选、报名计划、登录、条款、时间、手机访问、组件更新、飞书提醒设置及退出的共享交互原型 | R:code:design/prototype/workbench-2026-11/support.js | A:DCLogic组件；scene初态；tier布局；height/short容器；frozen停止计时与全局快捷键；fsView飞书提醒 | S:固定演示数据不能当作真实学校请求证据；frozen不禁用全部按钮；提交结果不明不自动重发；停止不撤销已提交结果；飞书提醒只演示校验反馈不发真请求
 Medium.dc.html[SU3T]: F:展示中等窗口下报名计划草稿布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=draft;tier=medium;frozen=true | S:-
 MediumRun.dc.html[SU3T]: F:展示中等窗口下报名计划运行布局 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=running;tier=medium;frozen=true | S:-
 MigrateFail.dc.html[SU3T]: F:展示旧版登录迁移失败后重新登录的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=migratefail;tier=wide;frozen=true | S:-
@@ -1255,7 +1255,7 @@ PopDown.dc.html[SU3T]: F:展示北京时间未校准详情卡的原型 | R:code:
 PopLogin.dc.html[SU3T]: F:展示登录详情卡原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=poplogin;tier=wide;frozen=true | S:-
 PopPhone.dc.html[SU3T]: F:展示手机访问详情卡原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=popphone;tier=wide;frozen=true | S:-
 PreWarn.dc.html[SU3T]: F:展示开始计划前只提醒不阻止的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=prewarn;tier=wide;frozen=true | S:-
-README.md[SU4M]: F:说明工作台原型用途、启动方式、源码阅读与画板场景目录 | R:code:design/prototype/workbench-2026-11/index.html,code:design/prototype/workbench-2026-11/ImplNotes.dc.html | A:本机静态服务器与画板映射表 | S:必须通过HTTP访问；仅用假数据不连学校；许可不明的support.js仅本机保留，不入库或公开发布；演示控件不移植为功能
+README.md[SU4M]: F:说明工作台原型用途、启动方式、源码阅读、画板场景目录与设置抽屉飞书提醒节 | R:code:design/prototype/workbench-2026-11/index.html,code:design/prototype/workbench-2026-11/ImplNotes.dc.html | A:本机静态服务器与画板映射表 | S:必须通过HTTP访问；仅用假数据不连学校；许可不明的support.js仅本机保留，不入库或公开发布；演示控件不移植为功能
 Relogin.dc.html[SU3T]: F:提供已保存账号但缺少识别组件的重登交互原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=relogin;tier=wide | S:-
 Result.dc.html[SU3T]: F:展示计划部分成功与待核对的结果原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=result;tier=wide;frozen=true | S:-
 RlBad.dc.html[SU3T]: F:展示重登时保存密码错误的原型 | R:code:design/prototype/workbench-2026-11/Main.dc.html,code:design/prototype/workbench-2026-11/support.js | A:scene=rlbad;tier=wide;frozen=true | S:-
@@ -1307,17 +1307,17 @@ versioning-and-release.md[SV8S]: F:规定版本真源、升版、tag绑定、同
 
 ===/<repository>/docs/===
 ARCHITECTURE.md[SG9M]: F:描述双产品数据流、学校接口、分层与本机服务职责、并发、组件、报名模块分工和恢复契约 | R:code:local/app.py,code:local/grab.py,code:local/application/signup/signup_run.py,code:local/infrastructure/school/school_http.py,code:local/application/plan/plan_service.py,code:server/scripts/lib/common.py,code:server/bot/bot.js | A:combined分流/推送成功记账/锁等级/组件事务租约/直发点击核对/报名端口调用时装配/worker命令编排下沉应用层/请求与日志层下沉基础设施 | S:网络未知不等于4001；学校Date仅补列表筛选，不放行报名。状态发布在状态锁外；协调锁内不等待服务。app再导出仍是测试注入缝，组件读取失败不可误报未安装
-CONFIG.md[SC7M]: F:汇集本机与服务器配置字段、环境变量、运行状态文件及配置故障定位 | R:code:server/scripts/lib/common.py,code:server/bot/bot.js,code:local/infrastructure/school/site_target.py | A:watch控频/owner私聊门禁/配置与状态分离 | S:双实例角色示例已落后于combined，部署须核对ARCHITECTURE及源码
-FEISHU_BOT.md[SM8M]: F:说明Webhook推送、自建应用群查询和owner私聊的部署权限及故障排查 | R:code:server/bot/bot.js,code:server/scripts/lib/notify.py,code:server/scripts/signup/watchlist.py | A:combined单连接/群只读/owner私聊动作/权限事件配置 | S:同App双进程会抢事件；身份、点击人、会话须一致，转发卡不能授权；群查询仍使用部署者会话
+CONFIG.md[SC7M]: F:汇集本机与服务器配置字段、环境变量、运行状态文件、本机飞书提醒设置及配置故障定位 | R:code:server/scripts/lib/common.py,code:server/bot/bot.js,code:local/infrastructure/school/site_target.py,code:local/application/settings/feishu_settings.py | A:watch控频/owner私聊门禁/配置与状态分离/飞书提醒合并写 | S:双实例角色示例已落后于combined，部署须核对ARCHITECTURE及源码；测试消息按飞书业务码判成败
+FEISHU_BOT.md[SM8M]: F:说明Webhook推送、自建应用群查询和owner私聊查报名、取消报名的部署权限及故障排查 | R:code:server/bot/bot.js,code:server/scripts/lib/notify.py,code:server/scripts/signup/watchlist.py,code:server/scripts/signup/cancel_actions.js | A:combined单连接/群只读/owner私聊动作/取消两步确认/先回执后私聊 | S:同App双进程会抢事件；身份、点击人、会话须一致，转发卡不能授权；群查询仍使用部署者会话；卡片回调须约3秒内应答，取消与点按钮查我的报名先回执再以私聊新消息送达；群菜单无我的报名，c:/x:在群里一律拒绝
 GRAB.md[SB7T]: F:说明owner私聊预报名从卡片、清单到分钟runner和临近开放进程的链路 | R:code:server/scripts/signup/watchlist.py,code:server/scripts/signup/watchlist_runner.py,code:server/deploy/signup/grab_signup.py | A:queued/running活跃态/同id幂等/结束复查 | S:回调直接返回新卡不可额外PATCH，否则旧卡覆盖；群视角不得暴露本人结论
 LOGIN.md[SI8S]: F:说明双产品真实登录校验、会话生命周期、估算锚点及自动和人工恢复 | R:code:local/grab.py,code:server/deploy/login/server_refresh.js,code:server/deploy/login/auto_login.py | A:4001与网络未知分流/凭证绑定锚点/OCR有限重试/DPAPI存储 | S:十小时是估算下限，17.5小时仅历史单次样本，均不能判失效；刷新不续期，探针网络错不可盲试密码
-OPERATIONS.md[SI7S]: F:规定服务器布局、部署路径环境变量、combined机器人、cron、日志轮转、更新回滚及故障排查 | R:code:server/bot/bot.js,code:server/deploy/login/server_refresh.js,code:server/scripts/signup/watchlist_runner.py | A:自部署运维入口/部署路径环境变量 | S:只运行一个应用长连接；部署不覆盖运行状态；线上脚本在应用目录下直接是scripts/不带server/；分钟唤醒不等于每分钟请求学校
+OPERATIONS.md[SI7M]: F:规定服务器布局、部署路径环境变量、combined机器人、cron含开始签退提醒、日志轮转、更新回滚及故障排查 | R:code:server/bot/bot.js,code:server/deploy/login/server_refresh.js,code:server/scripts/signup/watchlist_runner.py,code:server/scripts/push/attend_remind.py | A:自部署运维入口/部署路径环境变量/私聊提醒cron | S:只运行一个应用长连接；部署不覆盖运行状态；线上脚本在应用目录下直接是scripts/不带server/；分钟唤醒不等于每分钟请求学校；activity_watch与attend_remind行须带owner环境，老机器要手补
 PHONE_ACCESS.md[SU8M]: F:定义手机控制启用、八项动作、重登、通道安全、组件安装事务及快照活动的四个时刻字段 | R:code:local/application/phone_service.py,code:local/infrastructure/phone_http.py,code:local/domain/phone_rules.py,code:local/app.py | A:手机操作与通道边界、组件事务、设备信任、快照时刻字段 | S:默认不监听；手动关闭撤销会话，Cloudflare不自恢复；未知写结果只对账不重发；公开投影不回传电脑已保存凭据，手机新输入的账号密码可经所选通道提交，默认只存内存、勾选保存且登录成功后才写盘
 PRIVACY_POLICY.md[SS7T]: F:披露本机数据处理、迁移删除、外部通信、手机配对及部署者责任 | R:code:local/ui/index.html,code:docs/PHONE_ACCESS.md | A:版本化内嵌隐私正文真源 | S:迁移只补缺不删源，自定义根与迁移副本卸载不删；Cloudflare转发手机新输入的凭据，不等于电脑已保存凭据向手机回传
 README.md[SG6T]: F:索引现行工程文档、批准设计、归档资料及路径迁移对照 | R:- | A:主契约与历史材料导航 | S:历史材料保留原貌，不替代现行文档
 RETRY_POLICY_GUIDE.md[SB8M]: F:解释报名窗口、真实提交计数、黄金风暴、回包、停止和三种预算策略 | R:code:local/grab.py,code:local/infrastructure/clock/business_clock.py,code:local/infrastructure/clock/time_contract.py | A:用户重试策略说明 | S:sign_end硬截止；显式时长不扩窗；无截止直到截止回退两分钟；停止不覆盖证据，服务器404语义待同步
 TIMING_AND_DEDUP_ANALYSIS.md[SB7L]: F:用历史活动分析推送时点、请求预算及独立动态监测状态机 | R:code:server/scripts/activity_watch.py,code:server/scripts/fetch.py | A:日报与动态监测推导/发现时刻语义 | S:推送成功才消耗消息；首轮只建基线，失败不清快照，空活动不等于未初始化
-UI_SPEC.md[SU9L]: F:定义本机工作台、桥接事件字段、计划、条款登录时间及运行可靠性验收，含手机页登录行四态、转人工与开始前举办时间检查 | R:code:local/app.py,code:local/grab.py,code:local/ui/index.html,code:local/infrastructure/clock/business_clock.py | A:前后端主契约/请求归属/终态/更新/自动刷新 | S:迟到事件按plan和request归属合并，终态早于ack不复活；未知登录不判过期；无可信钟不报名；取消报名桌面确认且以复查为准；条款版本不匹配零写入；条款门下登录详情卡收起学校动作按钮只留查看条款；登录未完成的说明遇有效检查自动收起
+UI_SPEC.md[SU9L]: F:定义本机工作台、桥接事件字段、计划、条款登录时间、飞书提醒设置及运行可靠性验收，含手机页登录行四态、转人工与开始前举办时间检查 | R:code:local/app.py,code:local/grab.py,code:local/ui/index.html,code:local/infrastructure/clock/business_clock.py | A:前后端主契约/请求归属/终态/更新/自动刷新/飞书提醒 | S:迟到事件按plan和request归属合并，终态早于ack不复活；未知登录不判过期；无可信钟不报名；取消报名桌面确认且以复查为准；条款版本不匹配零写入；条款门下登录详情卡收起学校动作按钮只留查看条款；登录未完成的说明遇有效检查自动收起；飞书地址只合并写一键，测试消息业务码为0才算发出
 USER_AGREEMENT.md[SS7S]: F:定义条款接受、个人使用边界、直发点击披露、责任及重新同意规则 | R:- | A:内嵌用户协议正文真源 | S:拒绝不退出但禁止学校动作；不承诺合规或报名成功，临时密钥仅内存
 
 ===/<repository>/docs/archive/===
@@ -1361,7 +1361,7 @@ README.md[SG3T]: F:说明历史讨论、发现、交接和计划的归档分类�
 ===/<repository>/local/===
 README.md[SG6L]: F:说明本机版安装、命令行与图形操作、报名计划、手机访问和常见故障 | R:code:local/app.py,code:local/grab.py,code:docs/UI_SPEC.md | A:安装/活动选择/重试策略/可选组件 | S:混有旧六步引导、寿命和运行中禁重登说明，当前行为以工程契约及代码为准
 advanced_helper.py[EI7S]: F:为固定可选组件提供一次性JSON探测、二维码与验证码识别入口 | R:code:local/infrastructure/components/advanced_features.py,code:local/infrastructure/phone/phone_qr.py | A:run/main/固定feature协议 | S:stdout必须单JSON；账号会话不进协议；外置模型只来自宿主注入目录，模型失败不偷偷改用库内模型
-app.py[EG9L]: F:组合本机业务服务、基础设施端口与WebView桥接，以同名转发保留Api对外入口并管理程序窗口及运行周期 | R:code:local/application/coordination.py,code:local/application/plan/plan_service.py,code:local/application/login/login_recovery.py,code:local/application/login/relogin_entry.py,code:local/application/desktop/desktop_window.py,code:local/application/phone/phone_access_session.py,code:local/application/desktop/update_service.py,code:local/grab.py | A:Api/bootstrap/条款门禁/服务装配/同名转发/update_prefs/main | S:demo数据根须在导入runtime_paths前隔离；条款版本不符零写入不启worker。锁外读计划后回锁确认归属；旧模块再导出是测试注入缝。update_prefs事务内经_load_prefs_for_update严格读，宽松load_prefs只供无锁显示，换回会让读失败冲掉整份偏好。重登与窗口方法是端口和矩阵的接线名，须保留同名转发。未注入时钟明确不可用；关窗后先收worker再结束生命周期，onefile资源不能留孤儿使用
+app.py[EG9L]: F:组合本机业务服务、基础设施端口与WebView桥接，以同名转发保留Api对外入口并管理程序窗口、飞书提醒设置及运行周期 | R:code:local/application/coordination.py,code:local/application/plan/plan_service.py,code:local/application/login/login_recovery.py,code:local/application/login/relogin_entry.py,code:local/application/desktop/desktop_window.py,code:local/application/phone/phone_access_session.py,code:local/application/desktop/update_service.py,code:local/grab.py | A:Api,bootstrap,条款门禁,服务装配与同名转发,update_prefs,save_feishu_webhook/test_feishu_webhook | S:demo数据根须在导入runtime_paths前隔离；条款版本不符零写入不启worker。锁外读计划后回锁确认归属；旧模块再导出是测试注入缝。update_prefs事务内经_load_prefs_for_update严格读，宽松load_prefs只供无锁显示，换回会让读失败冲掉整份偏好。重登与窗口方法是端口和矩阵的接线名，须保留同名转发。未注入时钟明确不可用；关窗后先收worker再结束生命周期，onefile资源不能留孤儿使用
 config.example.json[FC5T]: F:给出本机学校地址与飞书Webhook的脱敏可选配置结构 | R:code:local/site_target.py,code:local/grab.py | A:site.base/feishu_webhook | S:样例空值不能当已配置站点
 grab.py[EB9L]: F:提供本机worker命令与时钟边界，登录、取消、查目标与报名编排及学校请求、日志实现都经调用时端口转发到应用层与基础设施 | R:code:local/application/signup/signup_run.py,code:local/application/signup/signup_policy.py,code:local/application/worker/worker_login.py,code:local/application/worker/worker_cancel.py,code:local/infrastructure/school/school_http.py,code:local/infrastructure/worker/worker_log.py,code:local/infrastructure/stores/login_session_store.py | A:login/check/list/cancel/grab/selftest | S:stdout的JSON及retry行是协议。搬走的编排、请求层与日志层都在调用时从本模块全局取名字（含urllib、time），测试替换grab.X才生效，不能改成import时绑定；BurstPolicy是只覆盖告警与时钟异常钩子的子类。日志锁超时默认值在定义时取。双文件保存把本模块open交给事务，替身才打得到。运行时密钥仅存当前场次进程内存
 requirements-advanced-ocr.txt[FE5T]: F:声明可选验证码识别组件的构建依赖 | R:code:local/infrastructure/component_packages.py | A:- | S:-
@@ -1400,9 +1400,9 @@ install.bat[OV5T]: F:引导源码便携版安装依赖、浏览器和初始配�
 遇到问题先看我.txt[SU4S]: F:说明安装版与解压版排障、数据备份和卸载边界 | R:code:local/runtime_paths.py | A:- | S:静默卸载保留数据；自定义数据根与旧迁移源须分别确认
 
 ===/<repository>/local/ui/===
-app.js[EU9L]: F:初始化桌面工作台，分发后端事件并绑定窗口及用户操作 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/refresh.js,code:local/ui/controllers/terms.js,code:local/ui/controllers/tick.js | A:boot,window.onBackend,setRetryPolicy | S:bootstrap失败按条款未知关闭学校动作。启动和窗口恢复先记录计划上下文，有效空闲回复才立即补刷新；恢复仅回放显示。重试偏好仅影响后续计划
+app.js[EU9L]: F:初始化桌面工作台，回显已存飞书提醒地址，分发后端事件并绑定窗口及用户操作 | R:code:local/ui/controllers/bridge.js,code:local/ui/controllers/refresh.js,code:local/ui/controllers/terms.js,code:local/ui/controllers/tick.js | A:boot,window.onBackend,setRetryPolicy | S:bootstrap失败按条款未知关闭学校动作。启动和窗口恢复先记录计划上下文，有效空闲回复才立即补刷新；恢复仅回放显示。重试偏好仅影响后续计划
 boot-guard.js[RR7T]: F:暂存模块未就绪的后端事件，顺序重放并提供加载失败兜底 | R:code:local/ui/app.js,code:local/ui/main.js,code:local/ui/index.html | A:window.__replayBackendQueue | S:须在app后main前加载；重放前清队列，单条异常不阻断后续；10秒兜底不依赖模块
-index.html[EU9L]: F:定义工作台和对话框DOM契约、内嵌条款全文及脚本顺序 | R:code:local/ui/styles.css,code:local/ui/main.js,code:local/ui/boot-guard.js | A:DOM id,data-act,script清单 | S:普通脚本顺序构成依赖；boot-guard须在模块入口前；条款全文同步文档，许可懒读随包文件；登录卡的查看条款按钮默认隐藏
+index.html[EU9L]: F:定义工作台和对话框DOM契约、设置里的飞书提醒节、内嵌条款全文及脚本顺序 | R:code:local/ui/styles.css,code:local/ui/main.js,code:local/ui/boot-guard.js | A:DOM id,data-act,script清单 | S:普通脚本顺序构成依赖；boot-guard须在模块入口前；条款全文同步文档，许可懒读随包文件；登录卡的查看条款按钮默认隐藏
 led.js[CU5S]: F:用SVG点阵字库绘制倒计时和结果符号 | R:code:local/ui/features/plan/view-led.js | A:LED_UI.renderLed,clearLed,GLYPHS | S:未知字形为空格；同布局仅换点亮状态，不重建节点。
 legacy-globals.js[AU8S]: F:将仍被普通脚本使用的模块入口显式挂到window | R:code:local/ui/main.js,code:local/ui/app.js | A:installLegacyGlobals | S:只为普通脚本的实际消费者保留挂回项，首次绘制和绑定前先安装。任务合并与终态呈现已由模块直接导入
 main.js[EU9T]: F:组合模块启动、功能接线并释放排队后端事件 | R:code:local/ui/legacy-globals.js,code:local/ui/boot-guard.js,code:local/ui/app.js | A:模块顶层启动 | S:关窗先接线再放事件；首次分档等termsLocked挂回；boot失败标条款未知，不能放开学校动作；登录卡查看条款先收卡再走统一条款入口
@@ -1476,7 +1476,7 @@ view.js[IU7M]: F:按计划阶段绘制主栏、运行操作、结果和逐场卡
 actions-help.js[AU5T]: F:打开帮助并编排教程重播 | R:code:local/ui/features/shell/actions-tour.js,code:local/ui/features/shell/view-help.js | A:showHelp,wireHelp | S:运行计划时不重播引导；先关帮助模态再启动教程
 actions-log-panel.js[AU4T]: F:切换运行记录面板并保存展开偏好 | R:- | A:setLogOpen,wireLogPanel | S:恢复偏好用silent避免再次排队保存
 actions-render.js[AU8T]: F:统一工作台重绘并协调忙状态与教程暂停恢复 | R:code:local/ui/features/plan/view.js,code:local/ui/features/plan/view-led.js,code:local/ui/features/shell/actions-tour.js | A:render,setBusy | S:计划运行优先暂停教程，结束从原步骤恢复；列表重绘仅重新定位现有教程高亮
-actions-settings.js[AU7S]: F:编排设置抽屉、条款撤回及OCR启用和组件位置操作 | R:code:local/ui/features/components/state-ocr.js,code:local/ui/features/components/view-ocr.js | A:openSettings,openSettingsSection,closeSettings,wireSettings | S:撤回须二次确认，以后端条款快照立即关门禁且不删账号；撤回成功照原型关抽屉，失败才在抽屉提示位写原因；关抽屉清撤回确认条
+actions-settings.js[AU7M]: F:编排设置抽屉、条款撤回、OCR启用与组件位置及飞书提醒保存和测试消息 | R:code:local/ui/features/components/state-ocr.js,code:local/ui/features/components/view-ocr.js,code:local/ui/features/shell/view-feishu.js | A:openSettings,openSettingsSection,closeSettings,wireSettings | S:撤回须二次确认，以后端条款快照立即关门禁且不删账号；撤回成功照原型关抽屉，失败才在抽屉提示位写原因；关抽屉清撤回确认条；飞书地址只在打开抽屉时对齐，不覆盖正在输入的草稿
 actions-tour-exit.js[AU5T]: F:关闭、完成或跳过教程并恢复焦点和保存版本记录 | R:- | A:tourClose,tourSkip,wireTourExit | S:跳过仅抑制本内容版本自动弹出；恢复焦点前确认元素仍在页面
 actions-tour.js[AU6S]: F:编排教程自动开始、步进、焦点约束及暂停恢复 | R:code:local/ui/features/terms/state.js,code:local/ui/features/shell/view-tour.js,code:local/ui/features/shell/actions-tour-exit.js | A:tourShouldAutoStart,requestAutoTour,maybeStartTour,startTour,tourPauseNow,tourResumeNow | S:自动教程须条款已同意、登录有效且列表就绪；按教程内容版本抑制，与软件版本无关；互动步只放行目标行
 actions-window-close.js[AU8M]: F:编排关窗三选、运行中退出二次确认与偏好保存 | R:code:local/ui/index.html,code:local/ui/state/store.js | A:openWindowCloseDialog,wireWindowClose | S:计划运行时退出二次确认；托盘不可用且手机未连接禁隐藏；Esc不落入全局清空选择。
@@ -1486,6 +1486,7 @@ view-banners.js[IU7T]: F:按优先级投影顶部提示及恢复入口 | R:code:
 view-help.js[IU5T]: F:呈现三步帮助、局部反馈和引导重播入口 | R:code:local/ui/state/store.js | A:fillHelp,helpStatus,revealHelpStatus,paintReplayButtons | S:长地址或错误只作局部反馈，不触发WebView导航；提示位在设置抽屉里，抽屉显示或帮助弹窗打开时才滚入可见
 view-result.js[IU5T]: F:展示有色调结果条、动作和自动收起 | R:code:local/ui/state/store.js | A:setResult | S:先清旧计时器；到期计划忙则保留；文本转义后进入HTML；可选类别写到data-kind，收起或换成无类别结论时必须清掉
 view-tour.js[IU6T]: F:呈现五步引导进度、高亮及实际选择反馈 | R:code:local/ui/state/store.js | A:tourVisible,paintTour | S:只定位真实可勾行，不代用户勾选；目标不可见或窄窗时退为底部说明。
+view-feishu.js[IU4T]: F:绘制设置里飞书提醒地址输入框与保存或测试的就地反馈 | R:code:local/ui/features/shell/actions-settings.js,code:local/ui/state/store.js | A:paintFeishuRow | S:-
 
 ===/<repository>/local/ui/features/terms/===
 state.js[DD8T]: F:投影条款同意状态和学校动作锁定 | R:code:local/ui/state/store.js,code:local/ui/controllers/terms.js | A:termsAccepted,termsLocked | S:演示不锁；unknown必锁；尚无版本但非unknown时后端兜底，不冒充已确认结论。
@@ -1503,7 +1504,7 @@ conflict.js[DB8S]: F:投影跨天时段、已报名冲突时间线及取消资�
 filters.js[DB9M]: F:归一化活动详情并投影筛选、选择、冲突和下一场 | R:code:local/ui/state/store.js,code:local/ui/state/labels.js,code:local/ui/state/conflict.js | A:normalize,filtered,nextOpen,validateSelection,signedClash | S:筛选不改全局下一场与冲突集合；未知签到不写无需，奖励0不丢；冲突比举办半开区间，已报名时间缺失保守阻止。
 labels.js[DD8S]: F:按业务时间投影报名模式、活动任务状态及时间标签 | R:code:local/ui/state/clock.js,code:local/ui/state/time.js | A:modeOf,stateOf,taskLabel,taskClass,leftOf | S:时钟无效不拿OS判开放；截止那一刻即已截止，与modeOf一致；未确认结果警示中性色
 rounds.js[DD8T]: F:管理刷新标识、owner接续缓存和代次幂等落地 | R:code:local/ui/controllers/refresh.js,code:local/ui/state/store.js | A:newRoundId,cacheRoundPayload,takeRoundPayload,markRoundApplied,loginPresent | S:缓存16项130秒按单调时长；skipped接owner不增代次；状态可跨轮重放、提示跨轮去重；登录存在缺失不强转false。
-store.js[DD9S]: F:集中持有桌面状态S、帮助引导及重试选项 | R:code:local/ui/controllers/refresh.js,code:local/ui/features/terms/state.js | A:S,$,DEFAULT_HELP,TOUR_STEPS,FIRST_USE_POINTS | S:保留登录重试前完整快照和计划最大代次；组件故障同轮check/list都无故障才解除；条款交互仅内存。
+store.js[DD9M]: F:集中持有桌面状态S、帮助引导、重试选项及飞书提醒地址与反馈 | R:code:local/ui/controllers/refresh.js,code:local/ui/features/terms/state.js | A:S,$,DEFAULT_HELP,TOUR_STEPS,FIRST_USE_POINTS | S:保留登录重试前完整快照和计划最大代次；组件故障同轮check/list都无故障才解除；条款交互与飞书反馈仅内存。
 time.js[DG8S]: F:严格解析学校UTC+8时间并提供格式、跨天文本及转义 | R:code:local/ui/state/clock.js,code:local/ui/state/labels.js | A:toTs,schoolParts,fmt,durText,relDayText,dayLabel | S:非法日期回验拒绝自动滚月；相对日期取可信业务现在，未知时不猜跨日或年份，不用主机时区。
 
 ===/<repository>/local/ui/views/===
@@ -1524,10 +1525,10 @@ config.example.json[FC5T]: F:展示脱敏服务器通知、过滤和动态发现
 requirements.txt[FC6T]: F:声明服务器Python浏览器登录报名及验证码识别依赖 | R:code:server/scripts/login.py,code:server/deploy/auto_login.py | A:playwright,ddddocr | S:常规抓取推送用标准库；Node浏览器守护依赖不由此文件提供。
 
 ===/<repository>/server/bot/===
-bot.js[EM9L]: F:按群和owner私聊分流飞书消息卡片并编排查询预报名 | R:code:server/bot/handled_messages.js,code:server/scripts/push/query.py,code:server/scripts/signup/watchlist.py,code:server/scripts/signup/grab_card.py | A:BOT_ROLE=combined,im.message.receive_v1,card.action.trigger | S:角色非法拒启；群仅响应真人@且只读；私聊动作校验owner及记录会话；仅实际回复成功持久去重；缓存损坏或自身身份未知不建长连接。
+bot.js[EM9L]: F:按群和owner私聊分流飞书消息卡片并编排查询、预报名与取消报名 | R:code:server/bot/handled_messages.js,code:server/scripts/push/query.py,code:server/scripts/signup/watchlist.py,code:server/scripts/signup/grab_card.py,code:server/scripts/signup/cancel_actions.js | A:BOT_ROLE=combined,im.message.receive_v1,card.action.trigger | S:角色非法拒启；群仅响应真人@且只读；私聊动作校验owner及记录会话；仅实际回复成功持久去重；缓存损坏或自身身份未知不建长连接。g:/u:/c:/x:个人动作在非owner私聊一律拒绝；私聊菜单请求menu_p2p，点我的报名交后台私聊发卡；文件与handleCardAction已顶名单上限，新逻辑放取消模块
 handled_messages.js[ID8S]: F:持久化消息处理记录并抑制并发重投 | R:code:server/bot/bot.js,code:server/bot/test_handled_messages.js | A:HandledMessages,load,has,mark,processOnce | S:handler严格true才mark，异常及finally释放在途供重试；坏JSON或时间戳抛错不重建；48小时2000条上限。
 package.json[FM3T]: F:声明飞书机器人包入口和SDK运行依赖 | R:code:server/bot/bot.js | A:npm start | S:-
-test_bot_runtime.js[TM7L]: F:用VM假飞书及子进程覆盖combined权限、降级和持久去重 | R:code:server/bot/bot.js,code:server/bot/handled_messages.js | A:node server/bot/test_bot_runtime.js | S:用户表隔离临时目录；假WS不联网，等异步启动达到start或exit稳定点才断言。
+test_bot_runtime.js[TM7L]: F:用VM假飞书及子进程覆盖combined权限、私聊取消与菜单分流、降级和持久去重 | R:code:server/bot/bot.js,code:server/bot/handled_messages.js,code:server/scripts/signup/cancel_actions.js | A:node server/bot/test_bot_runtime.js | S:用户表隔离临时目录；假WS不联网，等异步启动达到start或exit稳定点才断言。每项5秒时限，进程提前退出时核对完成项数并置非0，卡住不再算通过
 test_handled_messages.js[TD6S]: F:离线检验持久去重、失败重试、并发、过期和坏文件 | R:code:server/bot/handled_messages.js | A:node server/bot/test_handled_messages.js | S:withStore等异步用例完成才finally清临时目录；不载bot、不跑子进程或网络。
 
 ===/<repository>/server/deploy/===
@@ -1948,7 +1949,7 @@ webview_mime.py[RU6T]: F:登记JavaScript MIME以确保本地服务加载ES模�
 login_relay.py[AI8L]: F:编排手机重登worker的验证码挑战、HTTP登录及浏览器兜底 | R:code:local/infrastructure/school/site_target.py,code:local/grab.py | A:run_http_relay,run_relay,ChallengeBook | S:仅首次验证码成功契约缺字段才切浏览器；网络或密码拒绝不切换。本场新凭证校验及双文件保存成功后才报成功
 
 ===/<repository>/local/infrastructure/notify/===
-feishu_webhook.py[IM5T]: F:向飞书webhook发送一次JSON POST并读取有限响应 | R:code:local/application/login/login_recovery.py,code:local/app.py | A:post_json | S:不重试不记日志，失败抛给调用方，避免一次失效变成多条重复推送
+feishu_webhook.py[IM5T]: F:向飞书webhook发送一次JSON POST并返回有限长度的回包文本 | R:code:local/application/login/login_recovery.py,code:local/app.py,code:local/application/settings/feishu_settings.py | A:post_json | S:不重试不记日志，失败抛给调用方，避免一次失效变成多条重复推送；HTTP成功不等于送达，业务码由调用方判
 
 ===/<repository>/local/infrastructure/phone/===
 phone_http.py[IN8M]: F:提供受限手机HTTP页面、配对、状态与动作路由 | R:code:local/domain/phone/phone_rules.py,code:local/application/phone/phone_service.py,code:local/ui/m/index.html | A:PhoneHttpServer,start,stop,set_public_host,PHONE_STATIC | S:公网通道切换后只认当前Host和Origin；动作须有效会话及CSRF。状态只读本机缓存，异常不回请求内容；拒绝前有界排空请求体。静态表须与页面脚本标签一一对应
@@ -2004,7 +2005,7 @@ ui-sync.js[AU7M]: F:摄入电脑状态快照与事件游标并按整秒局部刷
 ===/<repository>/server/deploy/install/===
 deploy.sh[OV7T]: F:通过SSH上传私有业务包与会话并调用远程安装 | R:code:server/deploy/install/remote_install.sh,code:server/deploy/install/sync_token.sh | A:deploy.sh user@host | S:先探SSH且要求已有会话；真实配置随部署包上传、会话独立0600，不可作脱敏发布打包器。
 make_template.sh[OV7S]: F:收集依赖并生成脱敏combined服务交付ZIP | R:code:server/bot/bot.js,code:server/bot/handled_messages.js,code:server/deploy/login/atomic_json.js | A:make_template.sh | S:机器人与去重、续期与原子写成对复制缺件失败；配置从占位生成；只一个combined连接，owner与机器人身份分开。
-remote_install.sh[OW8S]: F:校验环境并安装错峰cron及combined服务模板 | R:code:server/scripts/lib/fetch.py,code:server/scripts/signup/watchlist_runner.py,code:server/bot/bot.js | A:remote_install.sh | S:真实fetch成功才写cron；替换匹配旧任务后追加全清单；缺凭据或owner不生成服务，生成只提示启用不自动起连接。
+remote_install.sh[OW8S]: F:校验环境并安装错峰cron含开始签退提醒及combined服务模板 | R:code:server/scripts/lib/fetch.py,code:server/scripts/signup/watchlist_runner.py,code:server/bot/bot.js,code:server/scripts/push/attend_remind.py | A:remote_install.sh | S:真实fetch成功才写cron；替换匹配旧任务后追加全清单；缺凭据或owner不生成服务，生成只提示启用不自动起连接；会私聊的cron行含activity_watch与attend_remind都带OWNER_ENV。
 set_credentials.py[EI8T]: F:交互收集账号密码并原子替换部署凭据 | R:code:server/deploy/login/auto_login.py | A:main | S:密码不回显，中断空值不写；临时及结果0600，只输出权限字节数；需保留stdin键盘输入。
 sync_token.sh[OI7T]: F:校验后经SSH同步会话并在远端复验 | R:code:server/scripts/lib/fetch.py,code:server/scripts/login/login.py | A:sync_token.sh user@host | S:本机fetch失败不传，远端目录不存在拒绝；覆盖0600后真实复验；固定解释器路径须核环境。
 
@@ -2023,12 +2024,15 @@ campus-autologin.timer[OW6T]: F:每五分钟调度自动登录检查 | R:code:se
 campus-login.service[OI8T]: F:定义浏览器登录维持daemon及重启日志策略 | R:code:server/deploy/login/server_refresh.js | A:campus-login.service | S:失败30秒重启，可选外部EnvironmentFile覆盖站点，日志append。
 
 ===/<repository>/server/scripts/lib/===
-card.py[DU8L]: F:构造公开日报动态及owner预报名卡片 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/render.py | A:pending_card,digest_card,public_event_card,grab_pending_card,remind_card,status_label | S:公开卡无个人报名及写动作；预报名仅私聊；按钮value用字符串与base64url防SDK字典及名称分隔兼容问题。
+card.py[DU8L]: F:构造公开日报动态、菜单及owner预报名卡片 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/render.py | A:pending_card,digest_card,public_event_card,grab_pending_card,remind_card,menu_card | S:公开卡无个人报名及写动作；预报名仅私聊；按钮value用字符串与base64url防SDK字典及名称分隔兼容问题；菜单卡默认不带我的报名，只有私聊菜单带且排第一；已预报名但举办时间未公布在卡上注明没法查冲突。
 common.py[CG9M]: F:集中服务器配置、北京时间、状态会话和原子读写锁 | R:code:server/scripts/lib/site_target.py,code:server/scripts/lib/fetch.py | A:business_now,load_config,load_session,atomic_write_text,file_lock,update_state | S:坏状态JSON抛错不能清去重历史；写先权限后replace并fsync；OS锁外叠RLock及路径重入计数；监测、推送和私人意愿状态分开。
 fetch.py[IB9M]: F:完整分页拉取学校活动并归一化公开及本人报名投影 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/card.py,code:server/scripts/push/query.py | A:fetch_all,classify,classify_public,public_item,item_status,main | S:4001短暂重试后才判失效；分页不完整抛错；公开白名单剔除signed且不因本人已报隐藏；抓取不能标推送成功。
 notify.py[IU9L]: F:适配多平台推送、飞书限流及owner私聊卡片更新 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/card.py,code:server/scripts/signup/grab_card.py | A:send,send_card,send_private,send_private_card,update_card | S:HTTP2xx不代表业务成功，拒bool当0；仅限流码退避；私聊须环境owner、用户记录及显式会话一致，收件人未知不取token；None未配置与False失败分开。
 render.py[DU7S]: F:统一活动日报查询提醒的纯文本排版及总条数 | R:code:server/scripts/lib/card.py,code:server/scripts/push/query.py | A:pending_lines,open_lines,digest_items,digest_lines,trim | S:卡片文本共用限额；时间带日期避免历史消息相对时间失真；digest两类合计限额。
 site_target.py[CC8T]: F:解析服务器唯一学校根地址及配置状态 | R:code:server/scripts/lib/common.py,code:server/scripts/ops/net_probe.py | A:resolve_base,BASE_URL,CONFIGURED,CONFIG_MESSAGE | S:环境变量先于配置site.base；无配置占位且CONFIGURED=false；本机服务器不共享运行时代码。
+mine_cards.py[DU7M]: F:构造owner私聊的我的报名卡片、取消按钮、取消确认卡与结果卡 | R:code:server/scripts/lib/mine_rules.py,code:server/scripts/lib/card.py,code:server/scripts/signup/cancel_signup.py | A:mine_card,cancel_available,mine_detail_text,cancel_confirm_card,cancel_result_card,cancel_busy_card | S:签到签退只写需要/无需/未知，未知不说成无需；取消条件未知不给按钮；取消按钮值带id名称时段地点，确认卡只靠它生成；确认按钮带签发毫秒供10分钟过期
+mine_rules.py[DB8M]: F:提供签到签退三态、已报名判定、半开区间时段重叠、取消前置核对与跨天时段文本的纯函数 | R:code:local/infrastructure/school/activity_queries.py,code:local/application/worker/worker_cancel.py | A:parse_attendance,join_state,joined_from_response,overlaps,cancel_precheck,span_text | S:不读墙钟不联网；签到签退无法确认保持None；getJoinInfo的data为空、sfcx为1或sfbm为假才算未报名，认不出按已报名；取消前置依次查时钟、未知、未报名、qxbm、窗口，报名起止缺失即unknown_state；结束不晚于开始的时段视为不可用；口径须与本机两处同步
+school_detail.py[IN8M]: F:实现学校详情、报名状态与取消三个请求，POST按官网算法带网关签名头 | R:code:server/scripts/lib/common.py,code:local/infrastructure/school/school_http.py | A:get_detail,get_join_info,cancel_signup,sign_headers,session_token,SchoolRequestError | S:签名canonical方法写死POST，安全参数须与本机常量同步；学校请求绕开系统代理；站点未配置或无token不发请求；失败一律抛SchoolRequestError子类不伪装回包；cancel只发一次绝不重试
 
 ===/<repository>/server/scripts/login/===
 login.py[II8S]: F:静默同步浏览器会话或等待本人可见浏览器登录 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/fetch.py | A:build_session,try_silent_sync,interactive_login,main | S:静默只认localStorage出现token，没有额外API校验；交互最多15分钟；日志不输出敏感身份，保存走common。
@@ -2042,16 +2046,20 @@ selfcheck.py[TQ7M]: F:检查状态、并发扫描、飞书缓存及卡片文本�
 trigger_server.py[IW8S]: F:提供口令HTTP触发强制日报及健康检查 | R:code:server/scripts/push/run.py | A:Handler.do_GET,main | S:无TRIGGER_TOKEN拒启；精确路径锁内占60秒冷却；run --force绕防重且180秒超时；输出HTML转义，启动及默认请求日志会含口令路径。
 
 ===/<repository>/server/scripts/push/===
-activity_watch.py[AB9L]: F:按昼夜排期发现公开活动变化并持久化待发送事件 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/fetch.py,code:server/scripts/push/run.py | A:compute_events,merge_pending,initialize_baseline,main | S:首轮只建基线；失败不清快照或推断结束，连续缺三轮才移除；待发先落盘，发送严格True才清；非阻塞锁防堆积，dry仍联网取锁。
-query.py[AU7S]: F:为机器人实时生成公开或本人活动文本与卡片 | R:code:server/scripts/lib/fetch.py,code:server/scripts/lib/card.py,code:server/scripts/lib/render.py | A:main,render_pending,render_open,render_mine,render_types | S:仅生成不发送；本人视图必须由调用方守私聊；当前分类用datetime.now而非业务时钟。
+activity_watch.py[AB9L]: F:按昼夜排期发现公开活动变化并持久化待发送事件，同轮交给个人变动私聊 | R:code:server/scripts/lib/common.py,code:server/scripts/lib/fetch.py,code:server/scripts/push/run.py,code:server/scripts/push/personal_notice.py | A:compute_events,merge_pending,initialize_baseline,main | S:首轮只建基线；失败不清快照或推断结束，连续缺三轮才移除；待发先落盘，发送严格True才清；非阻塞锁防堆积，dry仍联网取锁。个人变动只在非首轮调用，出错只留日志不拖崩公共推送；私聊需cron行带PRIVATE_OWNER_OPEN_ID
+query.py[AU7M]: F:为机器人实时生成公开或本人活动文本与卡片，我的报名逐场补详情 | R:code:server/scripts/lib/fetch.py,code:server/scripts/lib/card.py,code:server/scripts/lib/render.py,code:server/scripts/lib/mine_cards.py,code:server/scripts/lib/school_detail.py | A:main,prepare_mine,enrich_mine,render_mine,render_pending,render_open | S:仅生成不发送；本人视图必须由调用方守私聊；当前分类用datetime.now而非业务时钟；我的报名详情总预算20秒，查不到写未知；menu_p2p才带我的报名
 remind.py[AB8T]: F:筛选当天未开始的本人已报名活动发私聊提醒 | R:code:server/scripts/lib/fetch.py,code:server/scripts/lib/notify.py,code:server/scripts/lib/card.py | A:main | S:个人状态不回退群；dry仍抓真实接口；成功可为message_id不能只认True；今日按datetime.now。
 run.py[AB9M]: F:编排抓取公共日报、成功去重及可选owner私聊卡 | R:code:server/scripts/lib/fetch.py,code:server/scripts/lib/common.py,code:server/scripts/lib/notify.py | A:main,build_message,build_watch_message,send_watch_events,send_grab_card | S:锁内占推送时刻后锁外发，失败仅仍属自身占位才回滚；严格True才成功且只记实际展示条目；私聊失败不回滚公共成功，dry仍真实抓取写报告。
 scan.py[AB8S]: F:分批提醒未来十分钟开放活动并按开放时刻去重 | R:code:server/scripts/lib/fetch.py,code:server/scripts/lib/notify.py | A:main,send_rush_card | S:查重发送落盘同锁防cron重叠；严格True才记，失败停后续批保重试；公开不按本人signed过滤。
+attend_remind.py[AB7M]: F:每5分钟给owner私聊临近已报名场次的开始与签退提醒 | R:code:server/scripts/lib/mine_rules.py,code:server/scripts/lib/school_detail.py,code:server/scripts/lib/notify.py,code:server/scripts/lib/fetch.py | A:run,my_items,start_due,checkout_due,facts_for,deliver | S:开始前30分钟进窗口、已开始不补发；签退按时段起点或结束前10分钟；详情当天每场只查一次；场次+类型去重，send严格True才记；每轮仍取一次列表，无临近场次不调getInfo；状态读坏抛错不清空
+personal_notice.py[AB7M]: F:从公开变动里筛出本人已报名或排队场次的改期、下架与冲突，合并一条私聊owner | R:code:server/scripts/push/activity_watch.py,code:server/scripts/signup/watchlist.py,code:server/scripts/lib/mine_rules.py,code:server/scripts/lib/notify.py | A:announce,_relations,_collect,_merge | S:关系按轮重算，本轮出现但已无关即删，未出现保留供连续三轮下架提醒，7天过期；发不出留pending下轮再发；只读清单不触发报名；异常只留日志
 
 ===/<repository>/server/scripts/signup/===
 grab_card.py[AU8S]: F:保存私聊卡快照并按活动与清单重建刷新 | R:code:server/scripts/lib/card.py,code:server/scripts/lib/notify.py,code:server/scripts/signup/watchlist.py | A:save,load,live_items,refresh,card_json | S:快照白名单0600原子写；已开放不挂预报名；点击回调直接新卡，后台变化才PATCH，成功message_id作刷新依据。
-watchlist.py[AB9M]: F:持久化本人预报名意愿并冻结运行时序策略 | R:code:server/scripts/lib/common.py,code:server/scripts/signup/watchlist_runner.py | A:load,save,add,remove,mark,main | S:坏清单抛错不空覆盖；事务锁内本地改写0600；同ID再加重置queued；拒硬截止不晚于开放或已过窗口；个人意愿独立去重。
+watchlist.py[AB9M]: F:持久化本人预报名意愿、加入前查举办时段冲突并冻结运行时序策略 | R:code:server/scripts/lib/common.py,code:server/scripts/signup/watchlist_runner.py,code:server/scripts/lib/mine_rules.py,code:server/scripts/lib/fetch.py | A:load,save,add,remove,mark,main | S:坏清单抛错不空覆盖；事务锁内本地改写0600；同ID再加重置queued；拒硬截止不晚于开放或已过窗口；个人意愿独立去重。与已报名或排队场次重叠、已报名时间未知、列表失败均拒绝加入；新场次或排队场次时间未知照常加入并注明
 watchlist_runner.py[AW9M]: F:对齐预报名清单并交systemd执行及收编结算 | R:code:server/scripts/signup/watchlist.py,code:server/deploy/signup/grab_signup.py | A:main,launch,unit_token,unit_name,status_file,read_code | S:runner锁叠清单事务；unit用完整ID哈希防串场；先running再拉起，0码才done；冻结策略原样传，dry仍可写终态并删除旧状态文件。systemd-run不继承环境，已设的APP_DIR/LOGIN_DIR/GRAB_LOG_FILE/PRIVATE_OWNER_OPEN_ID须经--setenv传给报名进程；GRAB_UNIT_PREFIX不合规启动即退出。
+cancel_actions.js[AB7S]: F:处理owner私聊取消按钮的确认卡、10分钟过期、正在取消回执与后台结果私聊 | R:code:server/bot/bot.js,code:server/scripts/signup/cancel_signup.py | A:CancelActions,handle,confirm,submit,runInBackground,queryMine | S:只用注入依赖，owner与会话校验在bot.js；提交不等脚本先回无按钮卡；结果读不出也私聊发待确认卡，绝不重跑取消；确认一步不查学校
+cancel_signup.py[AB8S]: F:私聊取消一场报名：前置四条、cancel只调一次、getJoinInfo复查定结果，stdout一行JSON | R:code:server/scripts/lib/school_detail.py,code:server/scripts/lib/mine_rules.py,code:server/scripts/lib/mine_cards.py,code:server/scripts/signup/watchlist.py | A:run_cancel,precheck_reason,confirm_card,main | S:任一前置不满足或查不到就不发请求；复查为False才算已取消并移出清单，True为学校拒绝附不超80字原话，其余为未知；同场文件锁单飞返回busy；confirm子命令不查学校
 
 ===/<repository>/tools/dev/===
 split_branches.py[OV8S]: F:从干净main生成local/server根快照及可选推送 | R:code:local/README.md,code:server/README.md,code:docs/OPERATIONS.md | A:main,build_branch,--dry-run,--only | S:临时clone无硬链接并建orphan，排敏感产物；默认真实force推送；dry仍临时建分支提交仅免推送；分发快照非开发源。
@@ -2065,3 +2073,7 @@ verify_autologin_loop.py[TI9S]: F:故意破坏服务器会话并等待timer检�
 build_update_delta.py[OV7T]: F:离线封装版本差分ZIP及旁路清单生成 | R:code:local/infrastructure/update/update_delta.py | A:build_outputs,main | S:复用产品归档验证；清单去下划线内部字段，.part原子替换，失败清本次半成品。
 release.py[OV9L]: F:以VERSION分离只读检查、本地构建准备与正式发布 | R:code:VERSION,code:tools/release/release_guards.py,code:local/build/build_installer.py,code:local/infrastructure/update/update_delta.py | A:main,stage_local_assets,verify_release_assets,do_publish,zip_server,write_manifest | S:准备前后HEAD及dirty一致；站点仅环境注入并finally移除生成模块；ZIP与独立EXE同源；单资产300MiB/清单65536字节上限；发布干净main、来源指纹及人工确认后上传前重验，tag不强改。
 release_guards.py[OQ8S]: F:顺序执行发版结构分层静态及全量守卫并校验站点 | R:code:tools/release/release.py,code:tools/code_shape/check.py,code:requirements-dev.txt | A:run_guards,guard_steps,run_command,site_origin_for_build | S:每步有界且失败即停，超时124；当前解释器不自动装ruff；正式构建缺站点或非HTTPS拒绝，dirty预览可未注入。
+
+===/<repository>/local/application/settings/===
+__init__.py[AC2T]: F:声明设置类用例包只做校验编排，读写配置与联网由组合根注入 | R:code:local/app.py | A:- | S:-
+feishu_settings.py[AC6S]: F:校验并合并写回本机飞书提醒地址，发测试消息并按飞书回包业务码判定成败 | R:code:local/app.py,code:local/infrastructure/notify/feishu_webhook.py | A:normalize_url,save,test_message | S:只改feishu_webhook一键，现有配置读不出或非对象即拒绝保存不覆盖；只收https；code或StatusCode为0才算发出，失败文案不回显地址
