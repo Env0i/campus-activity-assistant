@@ -1310,7 +1310,7 @@ CONFIG.md[SC7M]: F:汇集本机与服务器配置字段、环境变量、运行�
 FEISHU_BOT.md[SM8M]: F:说明Webhook推送、自建应用群查询和owner私聊的部署权限及故障排查 | R:code:server/bot/bot.js,code:server/scripts/lib/notify.py,code:server/scripts/signup/watchlist.py | A:combined单连接/群只读/owner私聊动作/权限事件配置 | S:同App双进程会抢事件；身份、点击人、会话须一致，转发卡不能授权；群查询仍使用部署者会话
 GRAB.md[SB7T]: F:说明owner私聊预报名从卡片、清单到分钟runner和临近开放进程的链路 | R:code:server/scripts/signup/watchlist.py,code:server/scripts/signup/watchlist_runner.py,code:server/deploy/signup/grab_signup.py | A:queued/running活跃态/同id幂等/结束复查 | S:回调直接返回新卡不可额外PATCH，否则旧卡覆盖；群视角不得暴露本人结论
 LOGIN.md[SI8S]: F:说明双产品真实登录校验、会话生命周期、估算锚点及自动和人工恢复 | R:code:local/grab.py,code:server/deploy/login/server_refresh.js,code:server/deploy/login/auto_login.py | A:4001与网络未知分流/凭证绑定锚点/OCR有限重试/DPAPI存储 | S:十小时是估算下限，17.5小时仅历史单次样本，均不能判失效；刷新不续期，探针网络错不可盲试密码
-OPERATIONS.md[SI7S]: F:规定服务器布局、combined机器人、cron、日志轮转、更新回滚及故障排查 | R:code:server/bot/bot.js,code:server/deploy/login/server_refresh.js | A:自部署运维入口/线上待同步差异 | S:只运行一个应用长连接；部署不覆盖运行状态；分钟唤醒不等于每分钟请求学校
+OPERATIONS.md[SI7S]: F:规定服务器布局、部署路径环境变量、combined机器人、cron、日志轮转、更新回滚及故障排查 | R:code:server/bot/bot.js,code:server/deploy/login/server_refresh.js,code:server/scripts/signup/watchlist_runner.py | A:自部署运维入口/部署路径环境变量 | S:只运行一个应用长连接；部署不覆盖运行状态；线上脚本在应用目录下直接是scripts/不带server/；分钟唤醒不等于每分钟请求学校
 PHONE_ACCESS.md[SU8M]: F:定义手机控制启用、八项动作、重登、通道安全、组件安装事务及快照活动的四个时刻字段 | R:code:local/application/phone_service.py,code:local/infrastructure/phone_http.py,code:local/domain/phone_rules.py,code:local/app.py | A:手机操作与通道边界、组件事务、设备信任、快照时刻字段 | S:默认不监听；手动关闭撤销会话，Cloudflare不自恢复；未知写结果只对账不重发；公开投影不回传电脑已保存凭据，手机新输入的账号密码可经所选通道提交，默认只存内存、勾选保存且登录成功后才写盘
 PRIVACY_POLICY.md[SS7T]: F:披露本机数据处理、迁移删除、外部通信、手机配对及部署者责任 | R:code:local/ui/index.html,code:docs/PHONE_ACCESS.md | A:版本化内嵌隐私正文真源 | S:迁移只补缺不删源，自定义根与迁移副本卸载不删；Cloudflare转发手机新输入的凭据，不等于电脑已保存凭据向手机回传
 README.md[SG6T]: F:索引现行工程文档、批准设计、归档资料及路径迁移对照 | R:- | A:主契约与历史材料导航 | S:历史材料保留原貌，不替代现行文档
@@ -1848,6 +1848,7 @@ README.md[SQ4S]: F:手机页分支合回主干前的收口证据：全量离线�
 
 ===/<repository>/design/evidence/2026-11-24/layout/===
 README.md[SQ5M]: F:记录全仓库目录整理：三层、local根模块、手机页、测试、工具、服务器版共176处旧路径到新路径对照、守卫与期望值说明及验证汇总 | R:code:docs/ARCHITECTURE.md,code:tools/code_shape/baseline.json | A:旧新路径对照表 | S:历史证据里的旧路径不回改，复跑旧变异脚本须按表换路径；服务器未重新部署
+server-migration.md[SO5T]: F:记录2026-11-24服务器按新目录增量迁移的实测布局、site.base补齐、逐字节核对结论与备份，以及路径环境变量化后的上线步骤 | R:code:docs/OPERATIONS.md,code:server/scripts/signup/watchlist_runner.py | A:迁移记录、上线步骤 | S:不写线上真实前缀、IP与open_id
 
 ===/<repository>/local/application/activity/===
 activity_list_service.py[AB8S]: F:编排列表单飞拉取、缓存合并、错误记录及结构化结果发布 | R:code:local/application/coordination.py,code:local/domain/plan/plan_rules.py | A:门禁占位/重复请求对账/workerJSON/活动投影 | S:快照深复制；异常必须释放listing，失败不能把旧缓存置空；校时等候与worker、详情请求耗时分别诊断
@@ -2008,12 +2009,12 @@ sync_token.sh[OI7T]: F:校验后经SSH同步会话并在远端复验 | R:code:se
 
 ===/<repository>/server/deploy/login/===
 atomic_json.js[ID8T]: F:独占同目录临时文件原子写JSON | R:code:server/deploy/login/server_refresh.js | A:atomicWriteJson | S:先序列化，wx及0600建临时文件，fsync关闭后rename；失败仅清本次文件，新目录0700不改已有权限。
-auto_login.py[EI9L]: F:复核会话失效并驱动验证码登录及owner告警 | R:code:server/scripts/lib/common.py,code:server/scripts/login/token_probe.py | A:main,--check,--force,--trigger,--preempt,--dry-run | S:单次失败即时复核，网络未知不当失效；flock单实例，最多5次间隔30秒；凭据权限开放拒绝；登录及业务API双确认后原子保存；换新寿命取指纹首见非saved_at。
+auto_login.py[EI9L]: F:复核会话失效并驱动验证码登录及owner告警 | R:code:server/scripts/lib/common.py,code:server/scripts/login/token_probe.py | A:main,--check,--force,--trigger,--preempt,--dry-run | S:单次失败即时复核，网络未知不当失效；flock单实例，最多5次间隔30秒；凭据权限开放拒绝；登录及业务API双确认后原子保存；换新寿命取指纹首见非saved_at；LOGIN_DIR与APP_DIR可由环境变量覆盖，空串按默认。
 server_refresh.js[EI9M]: F:用一次性或常驻页面维持刷新机会并保存有效会话 | R:code:server/deploy/login/atomic_json.js,code:server/deploy/systemd/campus-login.service | A:server_refresh.js,--daemon | S:API验证后才写完整状态及业务会话，失败退出4；daemon检测外部状态重载但不主动登录；常驻仅给刷新机会不保证续期。
 test_atomic_json.js[TD6S]: F:离线检验原子JSON写入保旧清理和权限 | R:code:server/deploy/login/atomic_json.js | A:node server/deploy/login/test_atomic_json.js | S:不载Playwright；finally清独立目录；Windows跳POSIX权限，不能作Linux权限已验证。
 
 ===/<repository>/server/deploy/signup/===
-grab_signup.py[EB9L]: F:对指定活动预加载并按开放时序执行页面报名及最终通知 | R:code:server/scripts/signup/watchlist_runner.py,code:server/deploy/login/auto_login.py | A:main,BurstPolicy,run_submit_loop | S:只指定活动本人会话；sign_end硬截扩窗；计次绑定真实signUp请求并保留引用，乱序响应按请求结算；丢响应保留pending，查不到不等于失败；退出移除监听。
+grab_signup.py[EB9L]: F:对指定活动预加载并按开放时序执行页面报名及最终通知 | R:code:server/scripts/signup/watchlist_runner.py,code:server/deploy/login/auto_login.py | A:main,BurstPolicy,run_submit_loop | S:只指定活动本人会话；sign_end硬截扩窗；计次绑定真实signUp请求并保留引用，乱序响应按请求结算；丢响应保留pending，查不到不等于失败；退出移除监听；由systemd-run拉起，目录变量靠runner的--setenv传入。
 
 ===/<repository>/server/deploy/systemd/===
 campus-autologin.service[OI8T]: F:定义无人值守重登一次性systemd服务 | R:code:server/deploy/login/auto_login.py | A:campus-autologin.service | S:oneshot超时300秒；owner为部署占位须与机器人一致。
@@ -2049,7 +2050,7 @@ scan.py[AB8S]: F:分批提醒未来十分钟开放活动并按开放时刻去重
 ===/<repository>/server/scripts/signup/===
 grab_card.py[AU8S]: F:保存私聊卡快照并按活动与清单重建刷新 | R:code:server/scripts/lib/card.py,code:server/scripts/lib/notify.py,code:server/scripts/signup/watchlist.py | A:save,load,live_items,refresh,card_json | S:快照白名单0600原子写；已开放不挂预报名；点击回调直接新卡，后台变化才PATCH，成功message_id作刷新依据。
 watchlist.py[AB9M]: F:持久化本人预报名意愿并冻结运行时序策略 | R:code:server/scripts/lib/common.py,code:server/scripts/signup/watchlist_runner.py | A:load,save,add,remove,mark,main | S:坏清单抛错不空覆盖；事务锁内本地改写0600；同ID再加重置queued；拒硬截止不晚于开放或已过窗口；个人意愿独立去重。
-watchlist_runner.py[AW9M]: F:对齐预报名清单并交systemd执行及收编结算 | R:code:server/scripts/signup/watchlist.py,code:server/deploy/signup/grab_signup.py | A:main,launch,unit_token,unit_name,status_file,read_code | S:runner锁叠清单事务；unit用完整ID哈希防串场；先running再拉起，0码才done；冻结策略原样传，dry仍可写终态并删除旧状态文件。
+watchlist_runner.py[AW9M]: F:对齐预报名清单并交systemd执行及收编结算 | R:code:server/scripts/signup/watchlist.py,code:server/deploy/signup/grab_signup.py | A:main,launch,unit_token,unit_name,status_file,read_code | S:runner锁叠清单事务；unit用完整ID哈希防串场；先running再拉起，0码才done；冻结策略原样传，dry仍可写终态并删除旧状态文件。systemd-run不继承环境，已设的APP_DIR/LOGIN_DIR/GRAB_LOG_FILE/PRIVATE_OWNER_OPEN_ID须经--setenv传给报名进程；GRAB_UNIT_PREFIX不合规启动即退出。
 
 ===/<repository>/tools/dev/===
 split_branches.py[OV8S]: F:从干净main生成local/server根快照及可选推送 | R:code:local/README.md,code:server/README.md,code:docs/OPERATIONS.md | A:main,build_branch,--dry-run,--only | S:临时clone无硬链接并建orphan，排敏感产物；默认真实force推送；dry仍临时建分支提交仅免推送；分发快照非开发源。
