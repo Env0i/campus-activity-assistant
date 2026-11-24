@@ -26,8 +26,9 @@
 └── reports/                     推送产物
 
 /root/campus-bot/                 机器人进程目录（从 2026-11-24 起改为软链：bot.js 软链自应用目录，data/ 与 node_modules/ 软链保留原数据与依赖）
-/root/campus-login/               登录态守护：server_refresh.js、storage_state.json、
-                                 credentials.json、auto_login.py、grab_signup.py、refresh.log
+/root/campus-login/               登录态守护与自动报名：server_refresh.js、storage_state.json、
+                                 credentials.json、auto_login.py、preempt_guard.py、
+                                 grab_signup.py、signup_*.py（同目录报名子模块）、refresh.log
 ```
 
 权限约定：目录 700，`credentials.json` / `storage_state.json` / `data/session.json` 600。
@@ -72,7 +73,7 @@ journalctl -u campus-bot -n 100 --no-pager
 
 注入位置：
 
-- `campus-autologin.service`（或 drop-in）：配置 `APP_DIR`、`LOGIN_DIR`。
+- `campus-autologin.service`（或 drop-in）：配置 `APP_DIR`、`LOGIN_DIR`、`GRAB_UNIT_PREFIX`（线上单元实际带 `--preempt` 运行，仓库里的单元模板未写该参数；配置 `GRAB_UNIT_PREFIX` 后 `preempt_guard.py` 才会跳过正在运行的同名报名单元）。
 - `campus-bot.service`（或 drop-in）：配置 `APP_DIR`。
 - `watchlist_runner.py` 的 crontab 行：配置 `APP_DIR`、`LOGIN_DIR`、`GRAB_UNIT_PREFIX`（`systemd-run` 临时单元不继承调用方环境，`watchlist_runner.py` 会把已设置的 `APP_DIR`、`LOGIN_DIR`、`GRAB_LOG_FILE`、`PRIVATE_OWNER_OPEN_ID` 经 `--setenv` 传给报名进程）。
 
@@ -193,6 +194,18 @@ scp -i ~/.ssh/<私钥文件名> server/bot/bot.js        root@<你的服务器IP
 
 # 3) 重启（combined 只有一个进程）
 ssh root@<你的服务器IP> 'systemctl restart campus-bot && systemctl is-active campus-bot'
+```
+
+### 直发签名报名上线清单（2026-11-24）
+
+1. **安装新依赖**：在服务器 Python 环境安装 `cryptography`（`python3 -m pip install -r server/requirements.txt` 或单独装 `cryptography>=41.0`）；缺失或加载失败时脚本会自动退回点击兜底，不自造加密。
+2. **同步登录目录全部同目录模块**：`grab_signup.py` 按文件路径运行并从同目录导入子模块，务必把 `server/deploy/signup/grab_signup.py` 与所有 `signup_*.py` 一起同步到 `<LOGIN_DIR>`，把 `server/deploy/login/auto_login.py` 与 `preempt_guard.py` 一起同步到 `<LOGIN_DIR>`（同目录，不要只拷入口文件）。
+3. **补全 `campus-autologin.service` drop-in**：补充 `Environment=GRAB_UNIT_PREFIX=<你的前缀>`（与 `watchlist_runner.py` 一致），并确认线上 `ExecStart` 带 `--preempt`。
+4. **上线前先跑一次只读演练**（不发 `signUp`、不发私聊，需在服务器上由操作人手动执行）：
+
+```bash
+APP_DIR=/root/campus-activity-watch LOGIN_DIR=/root/campus-login \
+  python3 /root/campus-login/grab_signup.py --activity-id <活动id> --at "2026-11-24 12:00:00" --rehearse
 ```
 
 `data/` 与 `config.json` 属于线上状态，**不要**从本地覆盖。

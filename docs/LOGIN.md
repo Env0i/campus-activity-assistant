@@ -90,7 +90,17 @@
 | `token_probe.log` 最后一行 `ok` 且 token 首次见到未满 8h | 跳过（零请求） |
 | 最后一行 `fail` / `no-session` | 触发登录 |
 | 最后一行 `http-error` / `bad-json` | 判定「网络问题」，现查一次接口再决定，不盲试密码 |
-| token 用满 8h（即使探针仍 ok） | `--preempt` 主动换新，避开失效悬崖 |
+| token 用满 8h（即使探针仍 ok） | `--preempt` 主动换新，避开失效悬崖（先过 `preempt_guard` 避让） |
+
+#### `--preempt` 主动换新避让（2026-11-24）
+
+同一账号只保留一个有效登录，主动换新那一刻旧 token 会作废并顶掉正在进行的报名。`auto_login.py --preempt` 通过同目录 `preempt_guard.py` 在以下三种情况跳过本轮主动换新（记一行原因，等下一轮再判）：
+
+- 系统中有名字以 `GRAB_UNIT_PREFIX`（默认 `campus-grab-`）开头的报名 systemd unit 正在运行（或 `systemctl` 查询异常）；
+- `<APP_DIR>/data/watchlist.json` 里存在 `status == "queued"` 且开放时刻落在接下来 20 分钟内的场次（`done` / `failed` / `missed` / `cancelled` 不算）；
+- `watchlist.json` 存在但无法读取或结构/时间无法解析（宁可跳过可选的主动换新，也不冒打断报名的风险）。
+
+`token` 已失效的被动重登与 `--force` 不受此避让限制。提交中限时重登场景可通过环境变量 `AUTO_LOGIN_MAX_ATTEMPTS` 限制单次 `--force` 的最大验证码尝试次数。
 
 > 为什么要「探测不到就跳过」：2026-10-22 早间 ECS 断网，探针全是 `http-error`，
 > 旧逻辑把它当成「登录态失效」，白试了 3 次密码。现在网络类失败一律不试密码。

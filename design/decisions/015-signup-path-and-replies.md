@@ -92,3 +92,12 @@
 改密钥来源或取密钥时机：同步 3.1 节与计划栏文案；
 改终态核对接口：同步 3.5 节、`docs/UI_SPEC.md` 的「刷新核对」与 `docs/RETRY_POLICY_GUIDE.md`；
 「名额已满」语义改动要同时改决策 003 与本记录。
+
+## 2026-11-24 修订：服务器侧直发签名与主动换新避让
+
+在保留本机实现独立性的前提下，服务器 `server/deploy/signup/grab_signup.py` 与 `server/deploy/login/auto_login.py` 按本决策同等口径对齐：
+
+1. **签名实现**：服务器采用 Linux `cryptography` 包算 `AES-128-ECB(UTF-8("id,ms"), PKCS7)` 小写 hex（只作签名用途，记入 `server/requirements.txt`）。依赖缺失或加密调用失败抛 `SignerUnavailable`，本场退回点击，不自造加密算法。
+2. **直发为主、点击兜底**：开抢前带 `school_detail.sign_headers` POST `/upms/security/runtime/profile` 取 16 字节运行时密钥（仅放进程内存）；开放后直发 `GET /rjyHdCyr/signUp/<hash>`（物理并发 ≤ 2、禁自动重定向、每笔现读 `session.json` token），与点击兜底共用同一份 `BurstPolicy` 次数与截止。仅三种情况单向退回点击——取不到运行时密钥（含签名不可用）、收到「版本不兼容」重取一次密钥后仍不兼容、同一未识别回包文案连续 3 次。owner 私聊结果卡追加 `报名路径：直发` 或 `报名路径：点击（原因：…）`；另加只读 `--rehearse` 演练开关。
+3. **登录失效先复查再恢复**：等开放期间收到 `4001` 隔 1.5 秒复查，仍失效则调用 `auto_login.py --force` 重登一次并重取运行时密钥；提交中收到 `4001` 限时 60 秒单次重登并重取密钥（若 `.auto_login.lock` 被占用则改为限时等待 `session.json` token 变化），超时或失败以 `login_invalid` 结束。
+4. **主动换新避让**：`auto_login.py --preempt` 通过 `preempt_guard.py` 检查——存在运行中 `GRAB_UNIT_PREFIX` 报名单元、预报名清单有 `queued` 场次在接下来 20 分钟内开放、或清单读取/解析异常时，跳过本轮主动换新；token 已失效的被动重登与 `--force` 不受限制。
