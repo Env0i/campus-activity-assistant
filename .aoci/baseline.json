@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-24T12:09:01Z",
+  "updated_at": "2026-11-24T14:09:31Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "8899327d39ece892fe27184308d0441d5bac218507d958d1b284cfb619d0c886",
-      "size": 397549,
-      "normalized_sha256": "8899327d39ece892fe27184308d0441d5bac218507d958d1b284cfb619d0c886"
+      "sha256": "762569791772e7526d7b3857498906a55d69b01b2e47ee5f4c9039e90e3b004d",
+      "size": 397631,
+      "normalized_sha256": "762569791772e7526d7b3857498906a55d69b01b2e47ee5f4c9039e90e3b004d"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -9122,9 +9122,9 @@
     },
     "docs/OPERATIONS.md": {
       "role": "index",
-      "sha256": "2858ebbb78247809cb15b4f254662fdf44a35b784afaaca78bc74e00a20024fa",
-      "size": 18117,
-      "normalized_sha256": "2858ebbb78247809cb15b4f254662fdf44a35b784afaaca78bc74e00a20024fa"
+      "sha256": "397faeb39100c7e560cfa6504ca5513459a96a6aa73ed99de331405b94157d81",
+      "size": 18238,
+      "normalized_sha256": "397faeb39100c7e560cfa6504ca5513459a96a6aa73ed99de331405b94157d81"
     },
     "docs/PHONE_ACCESS.md": {
       "role": "index",
@@ -11788,9 +11788,9 @@
     },
     "server/requirements.txt": {
       "role": "index",
-      "sha256": "705efcd31ca25fcfdac453fe7372847a8e7512f2f8f255b4686508737159bf14",
-      "size": 938,
-      "normalized_sha256": "5b4d24caadc57ab6066eaaa809c0d22c3aa538bb7ad772635890f9bc70d24d84"
+      "sha256": "865347882f641f90b50b514308b931e08c6aa2259bee964dde03df0209e95fe0",
+      "size": 1066,
+      "normalized_sha256": "04d870a1f4cb9f20511be99622ba51b8ec139c845adfdcc7955453f8c2b1854d"
     },
     "server/scripts/activity_watch.py": {
       "role": "index",
@@ -12316,9 +12316,9 @@
     },
     "tools/release/tests/test_release_audit.py": {
       "role": "observe",
-      "sha256": "fe5ad30b92e32adeda04cfbe0200743769c234baf27772c97120806db7af9b5f",
-      "size": 6624,
-      "normalized_sha256": "fe5ad30b92e32adeda04cfbe0200743769c234baf27772c97120806db7af9b5f"
+      "sha256": "c1fb1d8ffa0a385df70d222b6f22e22f5e7802bc9ec13c5064b25678ecfe3782",
+      "size": 7011,
+      "normalized_sha256": "c1fb1d8ffa0a385df70d222b6f22e22f5e7802bc9ec13c5064b25678ecfe3782"
     },
     "tools/release/tests/test_release_guards.py": {
       "role": "observe",

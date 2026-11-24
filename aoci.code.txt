@@ -4,11 +4,11 @@
 .gitattributes[FC6T]: F:统一文本行尾为LF，保留Windows脚本和文本分发所需CRLF，AOCI索引单独固定LF | R:- | A:Git文本属性 | S:aoci索引必须是LF，切分支检出成CRLF会让索引服务读不出根清单
 .gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物、本地工具资料及本机MCP宿主配置 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查
 AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、测试与AOCI治理纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建测试与提交分别受授权边界约束
-CHANGELOG.md[SV4L]: F:按版本和日期保留发布能力、事故修复及验证边界的历史变更 | R:code:VERSION | A:变更记录 | S:-
+CHANGELOG.md[SV4L]: F:按版本和日期保留发布能力、事故修复及验证边界的历史变更，顶部是未发布一段 | R:code:VERSION | A:变更记录 | S:-
 CLAUDE.md[SG5T]: F:导入共同规则并补充Claude原型预览、尾注与测试边界 | R:code:AGENTS.md | A:Claude宿主指引 | S:-
 LICENSE[SG4T]: F:声明MIT授权、保留版权许可条件及免责条款 | R:- | A:MIT许可 | S:-
 README.md[SG6M]: F:介绍个人活动预报名工具的下载、功能、隐私与本机及服务器入口 | R:code:local/README.md,code:server/README.md | A:使用与文档导航 | S:-
-VERSION[FV7T]: F:提供发行和运行版本号的唯一文本来源 | R:- | A:版本字符串 | S:不能只修改界面显示版本，构建和发布也从该文件取值
+VERSION[FV7T]: F:提供发行和运行版本号的唯一文本来源 | R:code:tools/release/release.py | A:版本字符串 | S:不能只修改界面显示版本，构建和发布也从该文件取值；已发布的tag不重用
 requirements-dev.txt[FQ3T]: F:固定开发静态检查器版本 | R:code:ruff.toml | A:开发依赖安装 | S:开发检查依赖不进入运行包。
 ruff.toml[FQ5T]: F:配置Python静态检查范围及存量例外 | R:code:requirements-dev.txt | A:ruff check local server tools | S:仅E9及F；例外只减不增，不能新增忽略来消告警。
 
@@ -1312,7 +1312,7 @@ CONFIG.md[SC7M]: F:汇集本机与服务器配置字段、环境变量、运行�
 FEISHU_BOT.md[SM8M]: F:说明Webhook推送、自建应用群查询和owner私聊查报名、取消报名、报名结果卡的部署权限及故障排查 | R:code:server/bot/bot.js,code:server/scripts/lib/notify.py,code:server/scripts/signup/watchlist.py,code:server/scripts/signup/cancel_actions.js | A:combined单连接/群只读/owner私聊动作/取消两步确认/先回执后私聊/结果卡报名路径 | S:同App双进程会抢事件；身份、点击人、会话须一致，转发卡不能授权；群查询仍使用部署者会话；卡片回调须约3秒内应答，取消与点按钮查我的报名先回执再以私聊新消息送达；群菜单无我的报名，c:/x:在群里一律拒绝
 GRAB.md[SB7T]: F:说明owner私聊预报名从卡片、清单到分钟runner和临近开放进程的链路 | R:code:server/scripts/signup/watchlist.py,code:server/scripts/signup/watchlist_runner.py,code:server/deploy/signup/grab_signup.py | A:queued/running活跃态/同id幂等/结束复查 | S:回调直接返回新卡不可额外PATCH，否则旧卡覆盖；群视角不得暴露本人结论
 LOGIN.md[SI8M]: F:说明双产品真实登录校验、会话生命周期、估算锚点、自动与人工恢复、无人值守重登实测事实及主动换新避让 | R:code:local/grab.py,code:server/deploy/login/server_refresh.js,code:server/deploy/login/auto_login.py,code:server/deploy/login/preempt_guard.py | A:4001与网络未知分流/凭证绑定锚点/OCR有限重试/DPAPI存储/重登实测事实/换新避让 | S:十小时是估算下限，17.5小时与10小时40分只是单次样本，均不能判失效；刷新不续期，探针网络错不可盲试密码；整点齐发会偶发一次4001，连续两次才重登
-OPERATIONS.md[SI7M]: F:规定服务器布局、部署路径环境变量、combined机器人、cron含开始签退提醒、直发签名上线清单、日志轮转、更新回滚及故障排查 | R:code:server/bot/bot.js,code:server/deploy/login/server_refresh.js,code:server/scripts/signup/watchlist_runner.py,code:server/scripts/push/attend_remind.py,code:server/deploy/signup/grab_signup.py | A:自部署运维入口/部署路径环境变量/私聊提醒cron/直发签名上线 | S:只运行一个应用长连接；部署不覆盖运行状态；线上脚本在应用目录下直接是scripts/不带server/；分钟唤醒不等于每分钟请求学校；activity_watch与attend_remind行须带owner环境；机器人目录的bot.js须软链到应用目录；报名与重登的同目录模块必须一起同步到登录目录，autologin单元要补GRAB_UNIT_PREFIX
+OPERATIONS.md[SI7M]: F:规定服务器布局、部署路径环境变量、combined机器人、cron含开始签退提醒、直发签名上线清单、日志轮转、更新回滚及故障排查 | R:code:server/bot/bot.js,code:server/deploy/login/server_refresh.js,code:server/scripts/signup/watchlist_runner.py,code:server/scripts/push/attend_remind.py,code:server/deploy/signup/grab_signup.py | A:自部署运维入口/部署路径环境变量/私聊提醒cron/直发签名上线 | S:只运行一个应用长连接；部署不覆盖运行状态；线上脚本在应用目录下直接是scripts/；私聊提醒cron行须带owner环境；机器人bot.js须软链到应用目录；报名与重登的同目录模块要一起同步到登录目录，autologin单元补GRAB_UNIT_PREFIX；apt自带cryptography 3.4.8已验证可用
 PHONE_ACCESS.md[SU8M]: F:定义手机控制启用、八项动作、重登、通道安全、组件安装事务及快照活动的四个时刻字段 | R:code:local/application/phone_service.py,code:local/infrastructure/phone_http.py,code:local/domain/phone_rules.py,code:local/app.py | A:手机操作与通道边界、组件事务、设备信任、快照时刻字段 | S:默认不监听；手动关闭撤销会话，Cloudflare不自恢复；未知写结果只对账不重发；公开投影不回传电脑已保存凭据，手机新输入的账号密码可经所选通道提交，默认只存内存、勾选保存且登录成功后才写盘
 PRIVACY_POLICY.md[SS7T]: F:披露本机数据处理、迁移删除、外部通信、手机配对及部署者责任 | R:code:local/ui/index.html,code:docs/PHONE_ACCESS.md | A:版本化内嵌隐私正文真源 | S:迁移只补缺不删源，自定义根与迁移副本卸载不删；Cloudflare转发手机新输入的凭据，不等于电脑已保存凭据向手机回传
 README.md[SG6T]: F:索引现行工程文档、批准设计、归档资料及路径迁移对照 | R:- | A:主契约与历史材料导航 | S:历史材料保留原貌，不替代现行文档
@@ -1523,7 +1523,7 @@ update.js[AU7S]: F:呈现手动更新各阶段、下载进度和安装动作 | R
 ===/<repository>/server/===
 README.md[SG5S]: F:说明服务器能力、部署入口和权限边界 | R:code:docs/OPERATIONS.md,code:docs/FEISHU_BOT.md,code:docs/CONFIG.md | A:服务器能力表,常用命令,文档导航 | S:群无个人状态或动作；仅本人清单自动报名；旧server分支不作开发源。
 config.example.json[FC5T]: F:展示脱敏服务器通知、过滤和动态发现配置 | R:code:docs/CONFIG.md,code:server/README.md | A:site,notify,filter,watch | S:站点留空且通知字段占位；填入真实凭据后不能入库。
-requirements.txt[FC6T]: F:声明服务器Python浏览器登录、验证码识别与直发报名签名依赖 | R:code:server/deploy/login/auto_login.py,code:server/deploy/signup/signup_signing.py | A:playwright,ddddocr,cryptography | S:常规抓取推送用标准库；Node浏览器守护依赖不由此文件提供；cryptography只用于报名签名，不进本机安装包。
+requirements.txt[FC6T]: F:声明服务器Python浏览器登录、验证码识别与直发报名签名依赖 | R:code:server/deploy/login/auto_login.py,code:server/deploy/signup/signup_signing.py | A:playwright,ddddocr,cryptography | S:常规抓取推送用标准库；Node浏览器守护依赖不由此文件提供；cryptography只用于报名签名，下限3.4按线上apt版本对拍实测，不进本机安装包。
 
 ===/<repository>/server/bot/===
 bot.js[EM9L]: F:按群和owner私聊分流飞书消息卡片并编排查询、预报名与取消报名 | R:code:server/bot/handled_messages.js,code:server/scripts/push/query.py,code:server/scripts/signup/watchlist.py,code:server/scripts/signup/grab_card.py,code:server/scripts/signup/cancel_actions.js | A:BOT_ROLE=combined,im.message.receive_v1,card.action.trigger | S:角色非法拒启；群仅响应真人@且只读；私聊动作校验owner及记录会话；仅实际回复成功持久去重；缓存损坏或自身身份未知不建长连接。g:/u:/c:/x:个人动作在非owner私聊一律拒绝；私聊菜单请求menu_p2p，点我的报名交后台私聊发卡；文件与handleCardAction已顶名单上限，新逻辑放取消模块
