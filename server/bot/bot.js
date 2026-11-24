@@ -541,6 +541,7 @@ async function handleCardAction(data) {
     const clickChatId = String(ctx.open_chat_id || ctx.chat_id || data.open_chat_id || '');
     const ownerP2p = ownerP2pChatId();
     const isOwnerP2p = chatType === 'p2p' || (!!ownerP2p && clickChatId === ownerP2p);
+    // 解析出的会话类型用于视图集：命中 owner 私聊就按 p2p 处理，其余保持原样
     const viewChatType = isOwnerP2p ? 'p2p' : chatType;
 
     if (isPersonal && !isOwnerP2p) {
@@ -550,6 +551,7 @@ async function handleCardAction(data) {
     }
 
     if (isOwnerP2p && !ownerCardActionAllowed(data)) {
+      // 卡片可以被转发，别人点到「报名中」也不该拿到 owner 的会话上下文
       log('card action denied: operator or chat is not the configured owner');
       return { toast: { type: 'error', content: GRAB_DENIED } };
     }
@@ -655,6 +657,7 @@ async function handleMessage(data) {
     return await reply(chatId, HELP_TEXT, { title: '帮助', template: 'blue' });
   }
 
+  // 个人数据（我的报名等）只有 owner 私聊才有；群入口在上面的分支已经拦掉了
   const effectiveView = view === 'private' ? 'mine' : (view === 'menu' ? 'menu_p2p' : view);
   if (effectiveView === 'mine') log('private query allowed for owner');
 
