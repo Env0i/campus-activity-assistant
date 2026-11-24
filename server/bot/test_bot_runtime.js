@@ -84,6 +84,8 @@ function createHarness(options = {}) {
     clientRequests: 0,
     execMode: options.execMode || 'ok',
     cancelStdout: options.cancelStdout || '',
+    hangCancel: Boolean(options.hangCancel),
+    pendingCancel: [],
     sendMode: options.sendMode || 'ok',
     botInfoFails: Boolean(options.botInfoFails),
     startThrows: Boolean(options.startThrows),
@@ -119,6 +121,13 @@ function createHarness(options = {}) {
 
     // 取消脚本：确认卡和结果都由用例指定，别和 query.py 的假输出混在一起
     if (args[0] === CANCEL_SCRIPT) {
+      if (state.hangCancel && args[1] === 'run') {
+        state.pendingCancel.push(() => {
+          if (state.cancelStdout) ok(state.cancelStdout, '');
+          else fail('cancel script fixture missing');
+        });
+        return;
+      }
       if (state.cancelStdout) {
         ok(state.cancelStdout, '');
         return;
@@ -585,12 +594,18 @@ test('combined 卡片回调缺 chat_type 时按点击会话识别 owner 私聊',
   // 兜底，否则 owner 在私聊里点「我的报名」会被误判成群会话。
   await withHarness({}, async (state) => {
     await deliver(state, messagePayload({ message: { message_id: 'om_owner_learn' } }));
+    const beforeCards = state.cards.length;
     const res = await cardAction(state, {
       action: { value: 'v:mine' },
       context: { open_chat_id: OWNER_CHAT },
       operator: { open_id: OWNER },
     });
-    assert.ok(res.card && res.card.data, 'owner 私聊应能刷新 mine 卡片');
+    assert.equal(res.toast.type, 'info');
+    assert.match(res.toast.content, /正在查/);
+    assert.equal(res.card, undefined, '私聊点我的报名只先回执，不原地等待');
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(state.cards.length - beforeCards, 1, '后台应当发一条我的报名新卡片');
+    assert.equal(state.cards[beforeCards].chatId, OWNER_CHAT);
     const last = state.execCalls[state.execCalls.length - 1];
     assert.equal(last.args[1], 'mine');
   });
@@ -635,11 +650,14 @@ function cancelValue(prefix = 'c', id = 'evt_cancel', issued = Date.now()) {
 
 const CONFIRM_CARD = { header: { template: 'red', title: { tag: 'plain_text', content: '确认取消报名' } }, elements: [] };
 
-test('combined 私聊点取消报名只出确认卡', async () => {
+test('combined 私聊点取消报名只出确认卡且不跑 run', async () => {
+  const val = 'c:' + Buffer.from(JSON.stringify({
+    i: 'evt_cancel', n: '测试活动', s: '2026-12-01 18:00:00', e: '2026-12-01 20:00:00', p: '礼堂',
+  }), 'utf8').toString('base64').replace(/=+$/, '');
   await withHarness({ cancelStdout: JSON.stringify(CONFIRM_CARD) }, async (state) => {
     await deliver(state, messagePayload({ message: { message_id: 'om_owner_learn' } }));
     const res = await cardAction(state, {
-      action: { value: cancelValue('c') },
+      action: { value: val },
       context: { chat_type: 'p2p', open_chat_id: OWNER_CHAT },
       operator: { open_id: OWNER },
     });
@@ -647,24 +665,52 @@ test('combined 私聊点取消报名只出确认卡', async () => {
     const calls = state.execCalls.filter((c) => c.args[0] === CANCEL_SCRIPT);
     assert.equal(calls.length, 1, '只跑一次确认卡脚本');
     assert.equal(calls[0].args[1], 'confirm');
-    assert.ok(calls[0].args.includes('evt_cancel'), '确认卡按活动 id 生成');
+    assert.ok(calls[0].args.includes('礼堂'));
+    assert.equal(calls.filter((c) => c.args[1] === 'run').length, 0, '确认一步绝不跑 run');
   });
 });
 
-test('combined 确认取消跑一次脚本并回结果卡', async () => {
+test('combined 提交取消不等脚本返回即回正在取消卡，结束后发结果到私聊', async () => {
   const result = { kind: 'cancelled', ok: true, card: CONFIRM_CARD };
-  await withHarness({ cancelStdout: JSON.stringify(result) }, async (state) => {
+  await withHarness({ cancelStdout: JSON.stringify(result), hangCancel: true }, async (state) => {
     await deliver(state, messagePayload({ message: { message_id: 'om_owner_learn' } }));
+    const beforeCards = state.cards.length;
     const res = await cardAction(state, {
       action: { value: cancelValue('x') },
       context: { chat_type: 'p2p', open_chat_id: OWNER_CHAT },
       operator: { open_id: OWNER },
     });
-    assert.equal(res.toast.type, 'success');
-    assert.ok(res.card && res.card.data, '结果卡应当带上');
-    const calls = state.execCalls.filter((c) => c.args[0] === CANCEL_SCRIPT);
-    assert.equal(calls.length, 1, '取消只能提交一次');
-    assert.equal(calls[0].args[1], 'run');
+    assert.equal(res.toast.type, 'info');
+    assert.ok(res.card && res.card.data.header, '应当立即回正在取消卡片');
+    assert.equal(res.card.data.header.title.content, '正在取消');
+    const actions = (res.card.data.elements || []).filter((e) => e.tag === 'action');
+    assert.equal(actions.length, 0, '正在取消卡片不能带按钮，防止连点');
+    assert.equal(state.cards.length - beforeCards, 0, '脚本未结束前不能发结果私聊');
+    assert.equal(state.pendingCancel.length, 1, '后台应当已拉起一次取消脚本');
+
+    state.pendingCancel[0]();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(state.cards.length - beforeCards, 1, '脚本结束后应当私聊发一次结果卡');
+    assert.equal(state.cards[beforeCards].chatId, OWNER_CHAT);
+    assert.deepEqual(JSON.parse(state.cards[beforeCards].card), CONFIRM_CARD);
+  });
+});
+
+test('combined 群与私聊菜单卡分别请求 menu 与 menu_p2p', async () => {
+  await withHarness({}, async (state) => {
+    await deliver(state, messagePayload({ message: { message_id: 'om_owner_learn' } }));
+    await cardAction(state, {
+      action: { value: 'v:menu' },
+      context: { chat_type: 'group', open_chat_id: GROUP_CHAT },
+      operator: { open_id: STRANGER },
+    });
+    assert.equal(state.execCalls[state.execCalls.length - 1].args[1], 'menu');
+    await cardAction(state, {
+      action: { value: 'v:menu' },
+      context: { chat_type: 'p2p', open_chat_id: OWNER_CHAT },
+      operator: { open_id: OWNER },
+    });
+    assert.equal(state.execCalls[state.execCalls.length - 1].args[1], 'menu_p2p');
   });
 });
 
@@ -719,26 +765,32 @@ test('combined 取消被学校拒绝时如实回结果', async () => {
   };
   await withHarness({ cancelStdout: JSON.stringify(result) }, async (state) => {
     await deliver(state, messagePayload({ message: { message_id: 'om_owner_learn' } }));
+    const beforeCards = state.cards.length;
     const res = await cardAction(state, {
       action: { value: cancelValue('x') },
       context: { chat_type: 'p2p', open_chat_id: OWNER_CHAT },
       operator: { open_id: OWNER },
     });
-    assert.equal(res.toast.type, 'error', '没取消成不能报成功');
-    assert.ok(res.card && res.card.data.header, '失败也要给结果卡');
+    assert.equal(res.card.data.header.title.content, '正在取消');
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(state.cards.length - beforeCards, 1, '失败也要给结果卡');
+    assert.match(state.cards[beforeCards].card, /没有取消/);
   });
 });
 
 test('combined 取消脚本输出读不懂时不假装成功', async () => {
   await withHarness({ cancelStdout: '{not-json' }, async (state) => {
     await deliver(state, messagePayload({ message: { message_id: 'om_owner_learn' } }));
+    const beforeCards = state.cards.length;
     const res = await cardAction(state, {
       action: { value: cancelValue('x') },
       context: { chat_type: 'p2p', open_chat_id: OWNER_CHAT },
       operator: { open_id: OWNER },
     });
-    assert.equal(res.toast.type, 'error');
-    assert.match(res.toast.content, /结果没能确认/);
+    assert.equal(res.card.data.header.title.content, '正在取消');
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(state.cards.length - beforeCards, 0, '输出读不懂不发结果卡');
+    assert.ok(state.logs.some((l) => l.includes('cancel result unreadable')));
   });
 });
 

@@ -91,21 +91,33 @@ def _entries() -> list:
 
 
 def _relations(items: list, known: dict, now: datetime) -> dict:
-    """这一轮「和我有关」的场次：已报名看接口，预报名看清单。
+    """按轮重算「和我有关」的场次：本轮列表里出现的按本轮重算，不再相关就删。
 
-    关系表跨轮保留：活动连续三轮没抓到时它已经不在列表里了，只能靠这张表
-    认出「那是我报过名的场次」。超过 KEEP_DAYS 没再出现的关系自动丢掉。
+    本轮列表里没出现的保留上一轮关系，供连续三轮缺失的下架提醒使用；
+    超过 KEEP_DAYS 没再出现的关系自动丢掉。
     """
     table = {key: dict(value) for key, value in (known or {}).items()
              if isinstance(value, dict)}
     stamp = now.strftime(FMT)
+    seen_ids = set()
+    signed_ids = set()
     for item in items or []:
         aid = str(item.get("id") or "")
-        if aid and item.get("signed"):
+        if not aid:
+            continue
+        seen_ids.add(aid)
+        if item.get("signed"):
+            signed_ids.add(aid)
+    queued_ids = {str(entry.get("id") or "") for entry in _entries() if entry.get("id")}
+    for aid in seen_ids:
+        if aid in signed_ids:
             table[aid] = {"relation": "signed", "last_seen": stamp}
-    for entry in _entries():
-        aid = str(entry.get("id") or "")
-        if aid and aid not in table:
+        elif aid in queued_ids:
+            table[aid] = {"relation": "queued", "last_seen": stamp}
+        else:
+            table.pop(aid, None)
+    for aid in queued_ids - seen_ids:
+        if aid not in table:
             table[aid] = {"relation": "queued", "last_seen": stamp}
     cutoff = now - timedelta(days=KEEP_DAYS)
     return {aid: rec for aid, rec in table.items()

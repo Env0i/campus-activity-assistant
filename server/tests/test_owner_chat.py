@@ -30,6 +30,7 @@ import attend_remind as ar     # noqa: E402
 import activity_watch as aw    # noqa: E402
 import personal_notice as pn  # noqa: E402
 import card                    # noqa: E402
+import mine_cards as mc        # noqa: E402
 import mine_rules as mr        # noqa: E402
 import school_detail as sd     # noqa: E402
 import watchlist as wl         # noqa: E402
@@ -310,15 +311,56 @@ class CancelFlowTests(unittest.TestCase):
         self.assertEqual(result["kind"], "busy")
         self.assertEqual(self.cancelled, [])
 
-    def test_confirm_card_survives_detail_failure(self):
-        def boom(activity_id, token, timeout=0):
-            raise sd.SchoolNetworkError("boom")
+    def test_confirm_card_never_calls_school_requests(self):
+        def forbid(*args, **kwargs):
+            raise AssertionError("confirm 不能发任何学校请求")
 
-        patcher = mock.patch.object(sd, "get_detail", boom)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-        card = cs.confirm_card("evt-1", "测试活动", "tok")
-        self.assertTrue(card["header"])
+        for fn in ("get_detail", "get_join_info", "cancel_signup"):
+            patcher = mock.patch.object(sd, fn, forbid)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = cs.main([
+                "confirm", "--id", "evt-1", "--name", "测试活动",
+                "--start", "2026-12-01 18:00:00",
+                "--end", "2026-12-01 20:00:00", "--place", "礼堂",
+            ])
+        self.assertEqual(code, 0)
+        card_obj = json.loads(out.getvalue().strip())
+        self.assertTrue(card_obj["header"])
+        body = json.dumps(card_obj, ensure_ascii=False)
+        self.assertIn("礼堂", body)
+        self.assertIn("18:00", body)
+
+    def test_mine_card_cancel_button_carries_schedule_and_place(self):
+        import base64
+        item = {
+            "id": "evt-9", "name": "讲座", "signed": True,
+            "act_start": "2026-12-01 18:00:00",
+            "act_end": "2026-12-01 20:00:00",
+            "place": "礼堂", "cancel_allowed": True,
+            "sign_start": "2026-11-20 08:00:00",
+            "sign_end": "2026-11-28 22:00:00",
+        }
+        got = mc.mine_card([item], self.NOW)
+        actions = [e for e in got["elements"] if e.get("tag") == "action"]
+        val = actions[0]["actions"][0]["value"]
+        self.assertTrue(val.startswith("c:"))
+        raw = val[2:] + "=" * ((4 - len(val[2:]) % 4) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(raw).decode("utf-8"))
+        self.assertEqual(payload["s"], "2026-12-01 18:00:00")
+        self.assertEqual(payload["e"], "2026-12-01 20:00:00")
+        self.assertEqual(payload["p"], "礼堂")
+
+    def test_menu_card_separates_group_and_private_buttons(self):
+        group_menu = card.menu_card(self.NOW, with_mine=False)
+        group_btns = [e for e in group_menu["elements"] if e.get("tag") == "action"][0]["actions"]
+        self.assertNotIn("v:mine", [b["value"] for b in group_btns])
+
+        p2p_menu = card.menu_card(self.NOW, with_mine=True)
+        p2p_btns = [e for e in p2p_menu["elements"] if e.get("tag") == "action"][0]["actions"]
+        self.assertEqual(p2p_btns[0]["value"], "v:mine")
 
 class WatchlistConflictTests(unittest.TestCase):
     """预报名冲突：写清单前比举办时段，撞车或查不清一律拒绝且不动清单。"""
@@ -390,6 +432,27 @@ class WatchlistConflictTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("排队", out)
         self.assertEqual([e["id"] for e in wl.load()], ["evt-queued"])
+
+    def test_queued_entry_with_unpublished_time_is_allowed_with_note(self):
+        queued = {"id": "evt-queued", "name": "排队的", "status": "queued",
+                  "open_at": "2026-12-01 08:00:00"}
+        wl.FILE.write_text(json.dumps({"entries": [queued]}, ensure_ascii=False),
+                           encoding="utf-8")
+        code, out = self._add_with_items(self._items(
+            {"id": "evt-queued", "name": "排队的"}))
+        self.assertEqual(code, 0)
+        self.assertIn("没法比对", out)
+        self.assertEqual([e["id"] for e in wl.load()], ["evt-queued", "evt-new"])
+
+    def test_queued_entry_missing_from_list_is_allowed_with_note(self):
+        queued = {"id": "evt-gone", "name": "已下架", "status": "queued",
+                  "open_at": "2026-12-01 08:00:00"}
+        wl.FILE.write_text(json.dumps({"entries": [queued]}, ensure_ascii=False),
+                           encoding="utf-8")
+        code, out = self._add_with_items(self._items())
+        self.assertEqual(code, 0)
+        self.assertIn("没法比对", out)
+        self.assertEqual([e["id"] for e in wl.load()], ["evt-gone", "evt-new"])
 
     def test_list_failure_refuses_instead_of_letting_through(self):
         def boom(*args, **kwargs):
@@ -597,8 +660,29 @@ class PersonalNoticeTests(unittest.TestCase):
         self.assertEqual(len(self.sent), 1)
         self.assertEqual(pn.load_state()["pending"], [])
 
+    def test_cancelled_activity_stops_receiving_change_notice(self):
+        self._send([self._item(signed=True)], [])
+        self.assertTrue(self._send([self._item(signed=False)], [self._event()]))
+        self.assertEqual(self.sent, [], "取消报名后不再收到变动私聊")
+
+    def test_removed_watchlist_entry_stops_receiving_change_notice(self):
+        wl.save([{"id": "evt-1", "name": "讲座", "open_at": "2026-11-24 09:00:00"}])
+        self._send([self._item(signed=False)], [])
+        wl.save([])
+        self.assertTrue(self._send([self._item(signed=False)], [self._event()]))
+        self.assertEqual(self.sent, [], "移出预报名清单后不再收到变动私聊")
+
     def test_field_labels_match_public_events(self):
         self.assertEqual(pn.FIELD_LABELS, aw.FIELD_LABELS, "两处字段说法必须一致")
+
+    def test_install_script_passes_owner_env_to_private_cron_jobs(self):
+        text = (ROOT / "deploy" / "install" / "remote_install.sh").read_text(encoding="utf-8")
+        lines = text.splitlines()
+        for script in ("attend_remind.py", "activity_watch.py"):
+            matched = [line for line in lines
+                       if script in line and not line.lstrip().startswith("#")]
+            self.assertEqual(len(matched), 1, f"应当有一条 {script} cron 行")
+            self.assertIn("${OWNER_ENV}$PY", matched[0], f"{script} 必须带 owner 环境变量前缀")
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

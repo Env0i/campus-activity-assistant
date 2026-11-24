@@ -100,7 +100,8 @@ journalctl -u campus-bot -n 100 --no-pager
   `next_poll_at` 自己控频（白天 3 分钟 / 夜间 10 分钟；**没有**临近开放加密这一档）。
   这样「刚开放那一分钟」能被赶上，又不会变成全天每分钟打接口。
 - `activity_watch.py` 那一行现在**必须带 `PRIVATE_OWNER_OPEN_ID`**：本人已报名或排队场次的改期、
-  下架与冲突复核对内私聊 owner；没配时只记日志，公共群消息不受影响。
+  下架与冲突复核对内私聊 owner；没配时只记日志，公共群消息不受影响。`remote_install.sh`
+  已给这一行带上该环境变量，老机器升级时如 crontab 里还没有，按需手动补齐。
 - `attend_remind.py` 每 5 分钟唤醒（`7-59/5` 错开整点），只有落进提醒窗口的场次才查 `getInfo`，
   同一场当天只查一次；没有临近场次时一次 `getInfo` 都不调。去重状态在 `data/attend_remind.json`，
   发送成功才记，错过窗口不补发。

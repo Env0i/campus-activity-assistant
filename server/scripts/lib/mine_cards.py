@@ -104,7 +104,13 @@ def mine_card(items, now):
             "tag": "button",
             "text": {"tag": "plain_text", "content": "取消报名"},
             "type": "danger",
-            "value": "c:" + _btn_value({"i": vid, "n": it.get("name") or ""}),
+            "value": "c:" + _btn_value({
+                "i": vid,
+                "n": it.get("name") or "",
+                "s": it.get("act_start") or "",
+                "e": it.get("act_end") or "",
+                "p": it.get("place") or "",
+            }),
         }]})
     if not items:
         elements = [{"tag": "div", "text": {"tag": "lark_md",

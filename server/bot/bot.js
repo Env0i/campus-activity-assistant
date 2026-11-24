@@ -26,7 +26,7 @@ const APP_DIR = process.env.APP_DIR || '/root/campus-activity-watch';
 const PY = process.env.PY_BIN || '/usr/bin/python3';
 const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 const { CancelActions, CANCEL_GROUP_DENIED } = require('../scripts/signup/cancel_actions');
-const cancelActions = new CancelActions({ execFile, py: PY, appDir: APP_DIR, log, decodeBtnValue });
+const cancelActions = new CancelActions({ execFile, py: PY, appDir: APP_DIR, log, decodeBtnValue, replyCard, ownerP2pChatId, answer });
 
 // 唯一有效角色。名字会写进文档与 systemd 单元，改动要同步 docs/FEISHU_BOT.md。
 const ROLE_COMBINED = 'combined';
@@ -541,23 +541,19 @@ async function handleCardAction(data) {
     const clickChatId = String(ctx.open_chat_id || ctx.chat_id || data.open_chat_id || '');
     const ownerP2p = ownerP2pChatId();
     const isOwnerP2p = chatType === 'p2p' || (!!ownerP2p && clickChatId === ownerP2p);
-    // 解析出的会话类型用于视图集：命中 owner 私聊就按 p2p 处理，其余保持原样
     const viewChatType = isOwnerP2p ? 'p2p' : chatType;
 
     if (isPersonal && !isOwnerP2p) {
-      // 群（会话类型未知）永远不进个人动作：取消更不可逆，连确认卡都不给。
       log('personal action denied: requires owner p2p chat');
       const denied = /^[cx]/.test(text) ? CANCEL_GROUP_DENIED : GRAB_GROUP_DENIED;
       return { toast: { type: 'error', content: denied } };
     }
 
     if (isOwnerP2p && !ownerCardActionAllowed(data)) {
-      // 卡片可以被转发，别人点到「报名中」也不该拿到 owner 的会话上下文
       log('card action denied: operator or chat is not the configured owner');
       return { toast: { type: 'error', content: GRAB_DENIED } };
     }
 
-    // 个人动作都只来自 owner 私聊：g:/u: 是预报名增删，c:/x: 是取消已报名。
     if (isPersonal) return await (/^[cx]:/.test(text) ? cancelActions.handle(data, text) : handleGrabAction(data, text));
 
     const m = text.match(/v:([A-Za-z]+)/);
@@ -568,8 +564,9 @@ async function handleCardAction(data) {
     if (!allowedViews(viewChatType).includes(view)) {
       return { toast: { type: 'info', content: '这个按钮暂时没做' } };
     }
+    if (view === 'mine') return cancelActions.queryMine(clickChatId);
 
-    const cardRaw = await runQuery(view, '', 'card');
+    const cardRaw = await runQuery(view === 'menu' && isOwnerP2p ? 'menu_p2p' : view, '', 'card');
     if (!cardRaw.ok) {
       log('card action query failed:', cardRaw.diagnostic);
       return { toast: { type: 'error', content: '刷新失败，稍后再试' } };
@@ -658,8 +655,7 @@ async function handleMessage(data) {
     return await reply(chatId, HELP_TEXT, { title: '帮助', template: 'blue' });
   }
 
-  // 个人数据（我的报名等）只有 owner 私聊才有；群入口在上面的分支已经拦掉了
-  const effectiveView = view === 'private' ? 'mine' : view;
+  const effectiveView = view === 'private' ? 'mine' : (view === 'menu' ? 'menu_p2p' : view);
   if (effectiveView === 'mine') log('private query allowed for owner');
 
   return await answer(chatId, effectiveView, type);

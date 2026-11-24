@@ -190,8 +190,8 @@ def main() -> int:
             payload = all_card(pending, open_now, now, type_filter)
         elif view in ("mine", "我的"):
             payload = mine_card(mine, now)
-        elif view in ("menu", "菜单"):
-            payload = menu_card(now)
+        elif view in ("menu", "菜单", "menu_p2p"):
+            payload = menu_card(now, with_mine=(view == "menu_p2p"))
         else:
             payload = pending_card(pending, now, type_filter)
         print(json.dumps(payload, ensure_ascii=False))

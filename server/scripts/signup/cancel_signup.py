@@ -155,18 +155,15 @@ def run_cancel(activity_id, name, token, now=None, join=school_detail.get_join_i
         return _send_and_recheck(activity_id, name, token, join, cancel, remove)
 
 
-def confirm_card(activity_id, name, token):
-    """确认卡要场次时段：详情查不到就给「时间待确认」，不阻止用户确认。"""
-    activity = {"id": activity_id, "name": str(name or "").strip() or "活动"}
-    try:
-        response = school_detail.get_detail(activity_id, token, DETAIL_TIMEOUT_S)
-        data = rules.detail_fields(response)
-        if str(response.get("code")) in {"1", "1.0"} and data:
-            activity["act_start"] = str(data.get("hdkssj") or "")
-            activity["act_end"] = str(data.get("hdjssj") or "")
-            activity["place"] = str(data.get("hddd") or "")
-    except school_detail.SchoolRequestError:
-        pass
+def confirm_card(activity_id, name, act_start="", act_end="", place=""):
+    """确认卡只用按钮带的信息生成：不查学校，确保回调 3 秒内返回。"""
+    activity = {
+        "id": activity_id,
+        "name": str(name or "").strip() or "活动",
+        "act_start": str(act_start or "").strip(),
+        "act_end": str(act_end or "").strip(),
+        "place": str(place or "").strip(),
+    }
     return cancel_confirm_card(activity, int(time.time() * 1000))
 
 
@@ -175,11 +172,15 @@ def main(argv=None):
     parser.add_argument("cmd", choices=("confirm", "run"))
     parser.add_argument("--id", default="")
     parser.add_argument("--name", default="")
+    parser.add_argument("--start", default="")
+    parser.add_argument("--end", default="")
+    parser.add_argument("--place", default="")
     args = parser.parse_args(argv)
-    token = school_detail.session_token()
     if args.cmd == "confirm":
-        print(json.dumps(confirm_card(args.id, args.name, token), ensure_ascii=False))
+        print(json.dumps(confirm_card(args.id, args.name, args.start, args.end,
+                                      args.place), ensure_ascii=False))
         return 0
+    token = school_detail.session_token()
     result = run_cancel(args.id, args.name, token)
     print(json.dumps(result, ensure_ascii=False), flush=True)
     return 0

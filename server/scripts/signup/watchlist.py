@@ -161,17 +161,20 @@ def _conflict_note(activity_id: str, items: list, entries: list) -> str:
         if rules.overlaps(mine, other):
             raise RuntimeError("和已报名的「%s」时段重叠：%s"
                                % (item.get("name") or "活动", _span_text(item)))
+    queued_unknown = False
     for entry in entries:
         if entry.get("id") == activity_id or entry.get("status") not in ACTIVE:
             continue
         queued = next((it for it in items if it.get("id") == entry.get("id")), None)
         other = _span(queued) if queued else None
         if other is None:
-            raise RuntimeError("清单里排着「%s」，但查不到它的举办时间，可能和这场撞上，先不加入"
-                               % (entry.get("name") or "活动"))
+            queued_unknown = True
+            continue
         if rules.overlaps(mine, other):
             raise RuntimeError("和清单里排队的「%s」时段重叠：%s"
                                % (entry.get("name") or "活动", _span_text(queued)))
+    if queued_unknown:
+        return "清单里的某场举办时间未知，没法比对"
     return ""
 
 

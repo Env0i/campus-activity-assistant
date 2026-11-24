@@ -66,9 +66,14 @@ class CancelActions {
       : await this.submit(payload, name);
   }
 
-  /** 第一次点只出确认卡：这一步绝不提交任何东西。 */
+  /** 第一次点只出确认卡：用按钮自带信息生成，不查学校、不提交任何东西。 */
   async confirm(payload, name) {
-    const res = await this.run(['confirm', '--id', String(payload.i), '--name', name]);
+    const res = await this.run([
+      'confirm', '--id', String(payload.i), '--name', name,
+      '--start', String(payload.s || ''),
+      '--end', String(payload.e || ''),
+      '--place', String(payload.p || ''),
+    ]);
     const card = this.lastJsonLine(res.out);
     if (!card || !card.header) {
       this.deps.log('cancel confirm card failed:', res.err.slice(0, 200));
@@ -80,28 +85,70 @@ class CancelActions {
     };
   }
 
-  /** 确认卡带签发时刻：过期卡不再生效，避免一张旧卡转来转去还能触发取消。 */
-  async submit(payload, name) {
+  /** 点确认后立即换上无按钮「正在取消」卡，脚本在后台跑，结果发新私聊。 */
+  submit(payload, name) {
     const { log } = this.deps;
     const issued = Number(payload.t);
     if (!issued || Date.now() - issued > CANCEL_CONFIRM_TTL_MS) {
       log('cancel confirm expired:', issued);
       return { toast: { type: 'info', content: '确认卡已过期，请重新点「取消报名」' } };
     }
-    const res = await this.run(['run', '--id', String(payload.i), '--name', name]);
-    if (res.err) log('cancel script stderr:', res.err.slice(0, 200));
-    const result = this.lastJsonLine(res.out);
-    if (!result || !result.kind) {
-      log('cancel result unreadable:', res.out.slice(0, 200));
-      return { toast: { type: 'error', content: '结果没能确认，稍后看「我的报名」' } };
-    }
-    const toast = {
-      cancelled: { type: 'success', content: '已取消报名' },
-      refused: { type: 'error', content: '学校没让取消' },
-      busy: { type: 'info', content: '正在处理，稍等再看' },
-    }[result.kind] || { type: 'info', content: '没有取消' };
-    return result.card ? { toast, card: { type: 'raw', data: result.card } } : { toast };
+    this.runInBackground(String(payload.i), name);
+    return {
+      toast: { type: 'info', content: '正在取消，结果稍后私聊发你' },
+      card: { type: 'raw', data: submittingCard(name) },
+    };
   }
+
+  /** 后台跑取消脚本：结束后把结果卡发到 owner 私聊，出错只留日志、不重试取消。 */
+  runInBackground(id, name) {
+    const { log, replyCard, ownerP2pChatId } = this.deps;
+    this.run(['run', '--id', id, '--name', name]).then(async (res) => {
+      if (res.err) log('cancel script stderr:', res.err.slice(0, 200));
+      const result = this.lastJsonLine(res.out);
+      if (!result || !result.kind || !result.card) {
+        log('cancel result unreadable:', res.out.slice(0, 200));
+        return;
+      }
+      const chatId = ownerP2pChatId ? ownerP2pChatId() : '';
+      if (!chatId || !replyCard) {
+        log('cancel result skipped: missing owner chatId or replyCard');
+        return;
+      }
+      const sent = await replyCard(chatId, result.card);
+      if (!sent) log('cancel result private send failed');
+    }).catch((err) => {
+      log('cancel background error:', err && err.message ? err.message : err);
+    });
+  }
+
+  /** 私聊点「我的报名」按钮：先回执，再在后台按文字查询路径发新私聊。 */
+  queryMine(chatId) {
+    const { log, answer, ownerP2pChatId } = this.deps;
+    const target = (ownerP2pChatId && ownerP2pChatId()) || chatId;
+    if (target && answer) {
+      Promise.resolve().then(() => answer(target, 'mine', '')).catch((err) => {
+        log('mine button background error:', err && err.message ? err.message : err);
+      });
+    }
+    return { toast: { type: 'info', content: '正在查「我的报名」，稍后私聊发你' } };
+  }
+}
+
+function submittingCard(name) {
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      template: 'grey',
+      title: { tag: 'plain_text', content: '正在取消' },
+      subtitle: { tag: 'plain_text', content: '稍后私聊发你结果' },
+    },
+    elements: [
+      { tag: 'div', text: { tag: 'lark_md',
+        content: `**${name || '活动'}**\n正在提交取消，结果马上发到你的私聊。` } },
+      { tag: 'note', elements: [{ tag: 'plain_text', content: '只对本人生效' }] },
+    ],
+  };
 }
 
 module.exports = { CancelActions, CANCEL_GROUP_DENIED, CANCEL_CONFIRM_TTL_MS };

@@ -296,14 +296,15 @@ def _buttons(current="", with_mine=False):
     return {"tag": "action", "actions": actions}
 
 
-def menu_card(now):
-    """群里用的「菜单」：官方机器人菜单只在单聊显示，群里只能靠按钮。"""
+def menu_card(now, with_mine=False):
+    """菜单卡：群里只有公开视图，owner 私聊把「我的报名」放第一位。"""
     elements = [
         {"tag": "div", "text": {"tag": "lark_md", "content":
             "我能查这些，点下面的按钮，或者直接 @我 说关键词。"}},
-        _buttons("", with_mine=True),
+        _buttons("", with_mine=with_mine),
     ]
-    return _card("学生活动助手", "群聊菜单", "blue", elements,
+    subtitle = "私聊菜单" if with_mine else "群聊菜单"
+    return _card("学生活动助手", subtitle, "blue", elements,
                  "点按钮切换，或直接 @我 说关键词")
 
 
