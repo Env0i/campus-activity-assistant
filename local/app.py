@@ -98,6 +98,7 @@ from application.desktop import desktop_lifecycle as _desktop_lifecycle
 from application.desktop import desktop_window as _desktop_window
 from application.desktop import clock_service as _clock_service
 from application.desktop import update_service as _update_service
+from application.settings import feishu_settings as _feishu_settings
 
 HERE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 RESOURCE_ROOT = Path(getattr(sys, "_MEIPASS", HERE))
@@ -278,6 +279,11 @@ def _feishu_webhook() -> str:
         return ""
     hook = str(data.get("feishu_webhook") or "").strip()
     return hook if hook.startswith("https://") else ""
+
+
+def _read_config_text(path) -> str:
+    """读配置文件全文：缺失抛 FileNotFoundError，其余读失败原样抛，由调用方拒绝保存。"""
+    return Path(path).read_text(encoding="utf-8")
 
 
 def _component_title(feature: str) -> str:
@@ -1428,6 +1434,7 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
             "migration": migration_record(),
             # demo 标记：界面据此放行演示计划（真实模式仍要求登录校验 valid）
             "demo": DEMO,
+            "feishu_webhook": _feishu_webhook(),   # 设置里回显；没配或不是 https 为空串
             # 三种重试模式的权威选项与默认值：桌面/手机共用这一份口径
             "retry_options": _retry_options_payload(),
         }
@@ -1444,9 +1451,8 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         # 搬家前后都不存在「两个字段必须同一瞬间」的读法。
         payload["update_check"] = self._updates.snapshot()
         if snapshot is not None:
-            # 页面重载会丢掉 plan/task 事件：把计划快照一并交给 bootstrap，
-            # 界面才能恢复任务列表和「停止」按钮；计划本身不会重复提交。
-            # 复制一份再补归属字段，不改写共享的 _last_plan。
+            # 页面重载会丢掉 plan/task 事件：把计划快照一并交给 bootstrap，界面
+            # 才能恢复任务列表和「停止」按钮；复制一份再补归属，不改写共享快照。
             boot_plan = dict(snapshot)
             boot_plan["plan_generation"] = generation
             boot_plan.setdefault("source", self._plan_source_of(boot_plan.get("plan_id")))
@@ -2207,6 +2213,15 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
             return {"ok": False, "error": "prefs_busy",
                     "text": "设置暂未保存，另一个窗口正在保存数据。"}
         return {"ok": True}
+
+    def save_feishu_webhook(self, url: str = "") -> dict:
+        """飞书提醒地址：校验与合并写回在 application 层，这里只薄转发读写端口。"""
+        return _feishu_settings.save(CONFIG_FILE, url, read=_read_config_text,
+                                     write=_prefs_store.atomic_write)
+
+    def test_feishu_webhook(self, url: str = "") -> dict:
+        """发一条测试消息：走现有 webhook 适配器，结果交给设置里就地显示。"""
+        return _feishu_settings.test_message(url, post=_feishu_webhook_post.post_json)
 
     def accept_terms(self, document_version: str = "") -> dict:
         """同意使用条款：先核验界面实际读到的文档版本，再经 ui.json 原子偏好事务落盘。

@@ -28,6 +28,7 @@ for _p in (str(LOCAL), str(TESTS)):
 
 from application.login import login_service  # noqa: E402
 from application.desktop import update_service  # noqa: E402
+from application.settings import feishu_settings  # noqa: E402
 from domain.plan import plan_rules  # noqa: E402
 from fixtures.api_threads import stop_auto_relogin_on_cleanup  # noqa: E402
 from signup_plan import TaskSpec  # noqa: E402
@@ -2235,6 +2236,148 @@ class SavePrefsWriteFailureTests(unittest.TestCase):
                          "读不到当前偏好时绝不拿空字典合并写回，条款同意与筛选都不能丢")
 
 
+
+class FeishuWebhookSettingsTests(unittest.TestCase):
+    """飞书提醒地址：合并写 config.json 只动 feishu_webhook；读不出就拒绝保存，绝不覆盖。"""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix="campus-feishu-hook-")
+        self.addCleanup(tmp.cleanup)
+        self.config = Path(tmp.name) / "config.json"
+        self.other = {"site": {"base": "https://example.test"}, "window": {"w": 1280}}
+
+    @staticmethod
+    def _read(path):
+        return Path(path).read_text(encoding="utf-8")
+
+    @staticmethod
+    def _write(path, data):
+        Path(path).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    def _seed(self, hook):
+        data = dict(self.other)
+        if hook is not None:
+            data["feishu_webhook"] = hook
+        self.config.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    def test_save_keeps_every_other_key(self):
+        self._seed("https://example.test/old")
+        got = feishu_settings.save(self.config, "  https://example.test/hook/1  ",
+                                   read=self._read, write=self._write)
+        self.assertTrue(got["ok"], got)
+        self.assertEqual(got["url"], "https://example.test/hook/1", "两端空白不能带进配置")
+        data = json.loads(self.config.read_text(encoding="utf-8"))
+        self.assertEqual(data["feishu_webhook"], "https://example.test/hook/1")
+        for key, value in self.other.items():
+            self.assertEqual(data[key], value, "保存飞书地址不能动 %s" % key)
+
+    def test_empty_address_clears_only_the_webhook(self):
+        self._seed("https://example.test/old")
+        got = feishu_settings.save(self.config, "   ", read=self._read, write=self._write)
+        self.assertTrue(got["ok"], got)
+        self.assertEqual(got["url"], "")
+        data = json.loads(self.config.read_text(encoding="utf-8"))
+        self.assertNotIn("feishu_webhook", data, "清空地址等于关掉提醒")
+        for key, value in self.other.items():
+            self.assertEqual(data[key], value)
+
+    def test_http_address_is_refused_without_touching_the_file(self):
+        self._seed("https://example.test/old")
+        before = self.config.read_bytes()
+        got = feishu_settings.save(self.config, "http://example.test/hook",
+                                   read=self._read, write=self._write)
+        self.assertFalse(got["ok"])
+        self.assertEqual(got["error"], "bad_url")
+        self.assertIn("https://", got["text"])
+        self.assertEqual(self.config.read_bytes(), before, "地址不合法时一个字节都不写")
+
+    def test_unreadable_config_is_refused_and_left_alone(self):
+        self._seed("https://example.test/old")
+        before = self.config.read_bytes()
+
+        def denied(_path):
+            raise PermissionError(5, "拒绝访问")
+
+        got = feishu_settings.save(self.config, "https://example.test/hook/2",
+                                   read=denied, write=self._write)
+        self.assertFalse(got["ok"])
+        self.assertEqual(got["error"], "config_unreadable")
+        self.assertEqual(self.config.read_bytes(), before,
+                         "读不出配置时绝不拿空字典合并写回，站点地址不能丢")
+
+    def test_broken_json_is_refused_and_left_alone(self):
+        self.config.write_text("{not json", encoding="utf-8")
+        before = self.config.read_bytes()
+        got = feishu_settings.save(self.config, "https://example.test/hook/3",
+                                   read=self._read, write=self._write)
+        self.assertFalse(got["ok"])
+        self.assertEqual(got["error"], "config_unreadable")
+        self.assertEqual(self.config.read_bytes(), before)
+
+    def test_missing_config_is_created_with_only_the_webhook(self):
+        got = feishu_settings.save(self.config, "https://example.test/hook/4",
+                                   read=self._read, write=self._write)
+        self.assertTrue(got["ok"], got)
+        data = json.loads(self.config.read_text(encoding="utf-8"))
+        self.assertEqual(data, {"feishu_webhook": "https://example.test/hook/4"})
+
+    def test_test_message_posts_to_the_webhook_adapter(self):
+        seen = []
+
+        def post(url, body):
+            seen.append((url, body.decode("utf-8")))
+
+        got = feishu_settings.test_message("https://example.test/hook/5", post=post)
+        self.assertTrue(got["ok"], got)
+        self.assertEqual(seen[0][0], "https://example.test/hook/5")
+        self.assertIn("测试消息", seen[0][1])
+
+    def test_test_message_failure_explains_without_echoing_the_address(self):
+        def post(_url, _body):
+            raise OSError("连接被重置")
+
+        got = feishu_settings.test_message("https://example.test/hook/6", post=post)
+        self.assertFalse(got["ok"])
+        self.assertEqual(got["error"], "send_failed")
+        self.assertIn("OSError", got["text"], "说清失败类别，才查得下去")
+        self.assertNotIn("example.test", got["text"], "失败文案不回显地址")
+
+
+class FeishuWebhookApiTests(unittest.TestCase):
+    """两个薄 Api：前端只认 {ok, url/text} 这一份返回结构。"""
+
+    def setUp(self):
+        try:
+            import app as local_app
+        except Exception as exc:   # pragma: no cover - 环境缺依赖时跳过
+            self.skipTest("无法导入 local/app.py：%s" % exc)
+        self.local_app = local_app
+        tmp = tempfile.TemporaryDirectory(prefix="campus-feishu-api-")
+        self.addCleanup(tmp.cleanup)
+        self.config = Path(tmp.name) / "config.json"
+
+    def test_save_api_returns_url_and_keeps_other_keys(self):
+        import types
+        self.config.write_text(json.dumps({"site": {"base": "https://example.test"}},
+                                          ensure_ascii=False), encoding="utf-8")
+        dummy = types.SimpleNamespace()
+        with mock.patch.object(self.local_app, "CONFIG_FILE", self.config):
+            got = self.local_app.Api.save_feishu_webhook(dummy, "https://example.test/hook/7")
+        self.assertTrue(got["ok"], got)
+        self.assertEqual(got["url"], "https://example.test/hook/7")
+        self.assertIn("已保存", got["text"])
+        data = json.loads(self.config.read_text(encoding="utf-8"))
+        self.assertEqual(data["site"], {"base": "https://example.test"})
+
+    def test_test_api_forwards_to_the_injected_adapter(self):
+        import types
+        calls = []
+        dummy = types.SimpleNamespace()
+        with mock.patch.object(self.local_app._feishu_webhook_post, "post_json",
+                               lambda url, body, timeout=10.0: calls.append((url, body))):
+            got = self.local_app.Api.test_feishu_webhook(dummy, "https://example.test/hook/8")
+        self.assertTrue(got["ok"], got)
+        self.assertEqual(calls[0][0], "https://example.test/hook/8")
 class LoginExpiredPushTransportTests(unittest.TestCase):
     """失效推送经注入端口发送：应用层不自己联网，端口失败只记一行日志。"""
 

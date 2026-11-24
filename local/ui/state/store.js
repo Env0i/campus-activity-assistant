@@ -101,6 +101,10 @@ const S = {
   stopping: false,
   /* 后端 bootstrap 的 demo 标记：演示模式不要求登录校验 valid 即可开始计划 */
   demo: false,
+  /* 设置「程序」组飞书提醒：feishuWebhook 是 bootstrap 回显的已保存地址（空=没配）；
+   * feishuNote 是上一次保存/发测试消息的就地反馈 {text, tone: "ok"|"warn"}，只存内存 */
+  feishuWebhook: "",
+  feishuNote: null,
   /* 计划事件归属（P1）：后端每次最终接纳新计划递增 plan_generation，
    * 事件/快照据此判定归属；这里记录已见过的最大代次，旧代次事件不得改写当前计划 */
   maxPlanGen: 0,

@@ -9803,5 +9803,41 @@ out.push({ f5: eF5.defaultPrevented, enter: eEnter.defaultPrevented,
         self.assertFalse(r["ctrlF"], "Ctrl+F 不抢搜索框")
         self.assertFalse(r["slash"], "斜杠不抢搜索框")
 
+
+# ==================== 飞书提醒设置（本机） ====================
+"""界面契约：设置「程序」组里的飞书提醒一节（S7）。"""
+
+
+class FeishuReminderSettingContractTests(unittest.TestCase):
+    """地址与测试消息各走一个薄 Api；结果就地显示，不弹新窗口。"""
+
+    def setUp(self):
+        self.html = read("ui/index.html")
+        self.actions = read("ui/features/shell/actions-settings.js")
+        self.view = read("ui/features/shell/view-feishu.js")
+        self.store = read("ui/state/store.js")
+        self.app = read("ui/app.js")
+
+    def test_section_has_address_input_and_two_buttons_before_local_data(self):
+        for needle in ('id="feishu-url"', 'id="btn-feishu-save"',
+                       'id="btn-feishu-test"', 'id="feishu-note"'):
+            self.assertIn(needle, self.html)
+        self.assertIn("建一个只有你自己的群，加一个自定义机器人，把地址贴在这里。", self.html)
+        self.assertLess(self.html.index('id="set-prog"'), self.html.index('id="feishu-url"'))
+        self.assertLess(self.html.index('id="feishu-url"'), self.html.index('id="btn-help-data"'),
+                        "飞书提醒排在「程序」组、本机数据之前")
+
+    def test_save_and_test_call_the_two_thin_api_methods(self):
+        self.assertIn('api("save_feishu_webhook", url)', self.actions)
+        self.assertIn('api("test_feishu_webhook", url)', self.actions)
+        self.assertIn('$("#btn-feishu-save")', self.actions)
+        self.assertIn('$("#btn-feishu-test")', self.actions)
+
+    def test_saved_address_comes_from_bootstrap_and_note_stays_on_screen(self):
+        self.assertIn("feishuWebhook", self.store)
+        self.assertIn("feishuNote", self.store)
+        self.assertIn("info.feishu_webhook", self.app)
+        self.assertIn("paintFeishuRow", self.view)
+        self.assertIn("paintFeishuRow(true)", self.actions, "打开抽屉时对齐已保存的地址")
 if __name__ == "__main__":
     unittest.main()

@@ -576,6 +576,20 @@
       return wait > 0 ? delay(wait).then(finish) : Promise.resolve(finish());
     },
     save_prefs: savePrefs,
+    /* 飞书提醒（S7）：保存只回写 feishu_webhook 一个键，测试消息走同一条 webhook 通道。
+     * QA 不连外网，回执按生产成功形状给；window.__QA_STATE.feishu 可换成失败回执。 */
+    save_feishu_webhook: (url) => {
+      const answer = state.feishu && typeof state.feishu === "object"
+        ? Object.assign({}, state.feishu) : { ok: true };
+      const saved = String(url || "").trim();
+      return Promise.resolve(Object.assign({ url: saved, text: saved ? "已保存，飞书提醒会发到这个群。"
+        : "地址已清空，不再发飞书提醒。" }, answer));
+    },
+    test_feishu_webhook: (url) => {
+      const answer = state.feishu && typeof state.feishu === "object"
+        ? Object.assign({}, state.feishu) : { ok: true };
+      return Promise.resolve(Object.assign({ text: "测试消息已发出，去群里看看。" }, answer));
+    },
     /* 生产 Api.accept_terms(document_version) 的回执形状：前端要求
      * version/accepted_version/accepted_at 三项齐全且 accepted_version===version
      * 才解锁，缺一项就只提示、不改状态——所以桥必须给出完整回执。 */

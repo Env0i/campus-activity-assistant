@@ -390,6 +390,17 @@
           <div class="help-tool-text"><h3>版本与更新 <span class="help-current">当前 <b id="help-version">—</b></span></h3><p id="update-status" role="status" aria-live="polite">只有点“检查更新”时才联网，下载前还会再确认。</p><p class="help-checked" id="update-checked-at" hidden></p><p class="ph-err" id="update-error-box" role="alert" hidden></p><div class="up-v" id="update-version-box" hidden><b id="update-version-num"></b><span id="update-version-note"></span></div><div class="upbox" id="update-confirm-box" hidden><p id="update-confirm-question"></p></div><div class="ph-prog" id="update-progress-box" hidden><div class="ph-prog-t"><span id="update-progress-label">已下载</span><b id="update-progress-num"></b></div><div class="ph-bar" id="update-progress-bar" role="progressbar" aria-label="安装包下载进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="update-progress-fill"></i></div></div><p class="help-checked" id="update-download-note" hidden>下载不影响报名计划，可以关掉设置继续用。</p><div class="upbox" id="update-ready-box" hidden><p class="ph-warn" id="update-plan-warn" hidden>报名计划还在运行。安装时要先关闭本工具，计划会停止，建⁠议等这次计划结束再装。</p><p>启动后按安装向导操作。工具不会自己退出或重启。</p></div><p class="ph-note"><button class="ph-link" id="btn-help-latest" type="button">打开发布页</button>，看更新说明，或者手动下载完整包。</p></div>
           <div class="help-actions update-actions"><span class="update-flow" id="update-flow" hidden><button class="btn btn-solid" id="btn-update-install" type="button" hidden>下载并安装</button><button class="btn btn-solid" id="btn-update-confirm" type="button" hidden>确认下载</button><button class="btn btn-solid" id="btn-update-launch" type="button" hidden>启动安装程序</button><button class="btn btn-line" id="btn-update-cancel" type="button" hidden>取消</button><button class="btn btn-line" id="btn-update-close" type="button" hidden>关闭本工具…</button></span><button class="btn btn-line" id="btn-update-check" type="button">检查更新</button></div>
         </div>
+        <!-- 飞书提醒（S7）：地址只写 config.json 的 feishu_webhook 一个键，保存走合并写；
+             发测试消息走现有 webhook 适配器，结果就在这一节下面就地显示。输入框只在打开抽屉时对齐
+             已保存的地址，不覆盖正在输入的草稿。 -->
+        <div class="help-tool-row set-feishu">
+          <div class="help-tool-text"><h3>飞书提醒</h3><p>建一个只有你自己的群，加一个自定义机器人，把地址贴在这里。报名结果和登录失效都发到这个群。</p>
+            <div class="credf"><label class="fl"><span>地址</span><input id="feishu-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://…" aria-label="飞书机器人地址"></label>
+              <div class="ph-acts"><button class="btn btn-line" id="btn-feishu-test" type="button">发测试消息</button><button class="btn btn-solid" id="btn-feishu-save" type="button">保存</button></div>
+              <p class="ph-note" id="feishu-note" role="status" hidden></p>
+            </div>
+          </div>
+        </div>
         <div class="help-tool-row">
           <div class="help-tool-text"><h3>本机数据</h3><p id="help-data-path">登录信息、设置、运行记录和下载的组件，都只保存在这台电脑。</p></div>
           <button class="btn btn-line" id="btn-help-data" type="button">打开数据目录</button>

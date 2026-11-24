@@ -21,6 +21,7 @@ async function boot() {
   if (info) {
     /* demo 标记由后端 bootstrap 带来：演示模式绕过「登录校验 valid」的开始门禁 */
     S.demo = !!info.demo;
+    S.feishuWebhook = String(info.feishu_webhook || "");   /* 设置里回显已保存的飞书提醒地址 */
     /* 生命周期快照（上次关闭时长/质量、登录估算）：只进时钟浮层当提示，
      * 不参与登录四态判定，也不影响开始门禁 */
     S.lifecycle = info.lifecycle || null;
@@ -38,8 +39,7 @@ async function boot() {
             ? "[!] 旧版本的设置或运行记录没能搬过来，登录信息已搬好"
             : "已把 " + (Number(mg.moved) || 0) + " 个旧数据文件搬到新的数据目录");
     }
-    /* 三种重试模式的权威选项与默认值：桌面/手机共用 bootstrap 口径，
-     * 覆盖 store.js 的离线兜底副本（两者由用例对照，不各写一套） */
+    /* 三种重试模式的权威选项：桌面/手机共用 bootstrap 口径，覆盖 store.js 的离线兜底 */
     if (info.retry_options && info.retry_options.choices) S.retryOptions = info.retry_options;
     /* 高级功能快照（含保存的账号、验证码识别）：开始前提醒据此判断「自动登录开没开」 */
     S.advanced = info.advanced_features || null;

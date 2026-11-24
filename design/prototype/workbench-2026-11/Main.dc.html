@@ -803,6 +803,12 @@ kbd{display:inline-block;min-width:1.5rem;padding:0 .375rem;border-radius:4px;ba
           <p class="ph-note"><button class="ph-link" type="button" onClick="{{upRelease}}">打开发布页</button>，看更新说明，或者手动下载完整包。</p>
           <sc-if value="{{canDemo}}" hint-placeholder-val="{{false}}"><label class="ph-demo-sel">演示：下一次检查的结果<select value="{{upNext}}" onChange="{{onUpNext}}" aria-label="演示：下一次检查的结果"><option value="available">有新版本</option><option value="current">已是最新</option><option value="no_installer">有新版本但没有安装包</option><option value="preview">当前是预览版</option><option value="unavailable">还没有正式发布</option><option value="error">连接超时</option></select></label><sc-if value="{{upV.canDemoFail}}" hint-placeholder-val="{{false}}"><button class="ph-demo" type="button" onClick="{{upDemoFail}}">演示：校验失败</button></sc-if></sc-if>
         </section>
+        <section class="set" data-sec="feishu"><div class="set-h"><b>飞书提醒</b></div><p>建一个只有你自己的群，加一个自定义机器人，把地址贴在这里。报名结果和登录失效都发到这个群。</p>
+          <div class="credf"><label class="fl"><span>地址</span><input aria-label="飞书机器人地址" placeholder="https://…" value="{{fsV.url}}" onChange="{{fsV.onUrl}}"></label>
+            <div class="ph-acts"><button class="btn btn-line" type="button" onClick="{{fsV.test}}">发测试消息</button><button class="btn btn-solid" type="button" onClick="{{fsV.save}}">保存</button></div>
+            <sc-if value="{{fsV.hasNote}}" hint-placeholder-val="{{false}}"><p class="{{fsV.noteCls}}" role="status">{{fsV.note}}</p></sc-if>
+          </div>
+        </section>
         <section class="set"><div class="set-h"><b>本机数据</b><button class="btn btn-line" type="button">打开数据目录</button></div><p>登录信息、设置、运行记录和下载的组件，都只保存在这台电脑。</p></section>
         <section class="set"><div class="set-h"><b>条款与隐私</b><button class="btn btn-line" type="button" onClick="{{openTermsView}}">查看条款</button></div><p>{{termsLine}}<sc-if value="{{canWithdraw}}" hint-placeholder-val="{{false}}"> <button class="ph-link" type="button" onClick="{{withdrawAsk}}">撤回同意</button></sc-if></p>
           <sc-if value="{{withdrawBlocked}}" hint-placeholder-val="{{false}}"><p class="ph-note">报名计划运行中不能撤回同意，先停止计划。</p></sc-if>
@@ -1074,7 +1080,7 @@ class Component extends DCLogic {
   isEnd(st) { return ['success', 'full', 'failed', 'unconfirmed', 'canceled', 'missed'].indexOf(st) >= 0; }
 
   init(scene) {
-    var s = { scene: scene, q: '', seg: 'all', fOpen: false, fTime: 'all', fSort: 'open', fIn: 'all', fOut: 'all', selected: [], notice: '', phase: 'draft', tasks: [], now: 51605, login: 'valid', clock: 'ready', list: 'ready', terms: true, retry: 120, maxA: 0, headed: false, editPolicy: false, pop: '', settings: false, help: false, termsOpen: false, agree: false, logOpen: false, stopAsk: false, planOpen: false, ph: 'off', phCh: 'tailscale', phTs: 'ok', phPct: 0, phErr: '', phNote: '', phStarting: false, phPaired: false, phAddPair: false, phCode: 0, phLeft: 300, phStopAsk: false, phCopied: false, chrome: false, win: 'open', closeAsk: false, closeStep: '', closeRemember: false, closePref: 'ask', closeWhy: '', tray: true, exitNote: '', up: 'idle', upNext: 'available', upPct: 0, upAt: '', upErr: '', upNote: '', upFocus: false, cred: 'none', credMask: '', credForm: false, credOnce: false, credUser: '', credPass: '', credClearAsk: false, credNote: '', ocr: 'missing', ocrNote: '', ocrPct: 0, ocrErr: '', advOpen: { ph: true, ocr: false }, phWait: false, phUnread: false, phGone: false, phStopping: false, phBase: '', ocrWait: false, ocrUnread: false, ocrBase: '', credBad: false, rl: '', rlCode: '', rlIdx: 0, rlErr: '', loginAt: 51603, popPin: false, clockJust: false, net: 'ok', broken: false, slept: 0, sleepMissed: [], zero: false, sizeKnown: true, termsUnknown: false, info: '', toast: false, planSource: '', listAtS: 51604, termsAgreed: '2026-11-03-r4', termsAt: '11-03 09:12', lgWay: 'here', lgUser: '', lgPass: '', lgSave: false, lgShow: false, rlFrom: '', termsPrev: '', termsWithdrawn: false, termsWAsk: false, td: null, tuOpen: false, imp: null, loginFocus: false, advFocus: false, signedLocal: [], stopped: false, editing: null, tourOpen: false, tourStep: 0, tourRect: null, tourRowId: '', tourDone: true, cx: '', tip: '', tipPos: null, flash: '', cxAsk: '', cxBusy: '', cxRes: null, w: 1280, h: 800, lines: ['14:20:03  [OK] 已复用本机登录，学校校验通过', '14:20:04  活动列表已更新，共 11 场'] };
+    var s = { scene: scene, q: '', seg: 'all', fOpen: false, fTime: 'all', fSort: 'open', fIn: 'all', fOut: 'all', selected: [], notice: '', phase: 'draft', tasks: [], now: 51605, login: 'valid', clock: 'ready', list: 'ready', terms: true, retry: 120, maxA: 0, headed: false, editPolicy: false, pop: '', settings: false, help: false, termsOpen: false, agree: false, logOpen: false, stopAsk: false, planOpen: false, ph: 'off', phCh: 'tailscale', phTs: 'ok', phPct: 0, phErr: '', phNote: '', phStarting: false, phPaired: false, phAddPair: false, phCode: 0, phLeft: 300, phStopAsk: false, phCopied: false, chrome: false, win: 'open', closeAsk: false, closeStep: '', closeRemember: false, closePref: 'ask', closeWhy: '', tray: true, exitNote: '', up: 'idle', upNext: 'available', upPct: 0, upAt: '', upErr: '', upNote: '', upFocus: false, cred: 'none', credMask: '', credForm: false, credOnce: false, credUser: '', credPass: '', credClearAsk: false, credNote: '', ocr: 'missing', ocrNote: '', ocrPct: 0, ocrErr: '', advOpen: { ph: true, ocr: false }, phWait: false, phUnread: false, phGone: false, phStopping: false, phBase: '', ocrWait: false, ocrUnread: false, ocrBase: '', credBad: false, rl: '', rlCode: '', rlIdx: 0, rlErr: '', loginAt: 51603, popPin: false, clockJust: false, net: 'ok', broken: false, slept: 0, sleepMissed: [], zero: false, sizeKnown: true, termsUnknown: false, info: '', toast: false, planSource: '', listAtS: 51604, termsAgreed: '2026-11-03-r4', termsAt: '11-03 09:12', lgWay: 'here', lgUser: '', lgPass: '', lgSave: false, lgShow: false, rlFrom: '', termsPrev: '', termsWithdrawn: false, termsWAsk: false, td: null, tuOpen: false, imp: null, loginFocus: false, advFocus: false, signedLocal: [], stopped: false, editing: null, tourOpen: false, tourStep: 0, tourRect: null, tourRowId: '', tourDone: true, cx: '', tip: '', tipPos: null, flash: '', cxAsk: '', cxBusy: '', cxRes: null, w: 1280, h: 800, fsUrl: '', fsNote: '', fsTone: 'ph-note', lines: ['14:20:03  [OK] 已复用本机登录，学校校验通过', '14:20:04  活动列表已更新，共 11 场'] };
     var pick = ['o1', 't1', 't2'];
     if (scene === 'draft') { s.selected = pick; s.ph = 'on'; s.phPaired = true; s.phCode = 1; }
     if (scene === 'unknown') { s.login = 'unknown'; s.selected = ['t1']; }
@@ -1571,6 +1577,27 @@ class Component extends DCLogic {
       hasCheck: !!m.check, checkCls: m.check && m.check.ok ? 'ok' : 'bad', checkMark: m.check && m.check.ok ? '✓' : '!', checkText: m.check ? m.check.text : '',
       need: m.key === 'relogin_ocr' ? '需要 relogin_ocr-版本号.zip，在发布页和程序一起发布，版本要和程序一致。' : '需要 phone_control-版本号.zip，里面已经带好 cloudflared，不用另外安装。',
       installing: !!m.installing, cantInstall: !m.check || !m.check.ok || !!m.installing, installLabel: m.installing ? '安装中…' : '安装这份'
+    };
+  }
+  // 飞书提醒：地址只写本机 config.json 的 feishu_webhook 一个键；这里只演示校验与反馈，不发真请求
+  fsLookOk(url) { return url.indexOf('https://') === 0 && url.length > 8 && url.indexOf(' ') < 0; }
+  fsView(s) {
+    var self = this, bad = '地址要以 https:// 开头，从群机器人的设置里整条复制过来。';
+    function typed() { return String(self.state.fsUrl || '').trim(); }
+    return {
+      url: s.fsUrl || '', hasNote: !!s.fsNote, note: s.fsNote, noteCls: s.fsTone || 'ph-note',
+      onUrl: function (e) { self.setState({ fsUrl: e.target.value, fsNote: '', fsTone: 'ph-note' }); },
+      save: function () {
+        var url = typed();
+        if (url && !self.fsLookOk(url)) { self.setState({ fsNote: bad, fsTone: 'ph-err' }); return; }
+        self.setState({ fsNote: url ? '已保存，飞书提醒会发到这个群。' : '地址已清空，不再发飞书提醒。', fsTone: 'ph-note' });
+      },
+      test: function () {
+        var url = typed();
+        if (!url) { self.setState({ fsNote: '先填上机器人地址，再发测试消息。', fsTone: 'ph-err' }); return; }
+        if (!self.fsLookOk(url)) { self.setState({ fsNote: bad, fsTone: 'ph-err' }); return; }
+        self.setState({ fsNote: '测试消息已发出，去群里看看。', fsTone: 'ph-note' });
+      }
     };
   }
   credView(s) {
@@ -2536,6 +2563,7 @@ class Component extends DCLogic {
       winGone: s.win !== 'open', wv: this.winView(s), upV: this.upView(s), crV: this.credView(s), rlOn: !!s.rl, rlV: this.rlView(s), rlCode: s.rlCode, onRlCode: function (e) { var v = String(e.target.value).replace(/[^0-9A-Za-z]/g, '').slice(0, 4); if (e.target.value !== v) e.target.value = v; self.setState({ rlCode: v, rlErr: '' }); }, rlCodeKey: function (e) { if (e.key === 'Enter') self.rlSubmit(); }, rlNext: function () { self.setState({ rlIdx: self.state.rlIdx + 1, rlCode: '', rlErr: '' }); }, rlBrowser: this.rlBrowser, rlDemoBad: this.rlDemoBad, lgUser: s.lgUser, lgPass: s.lgPass, lgSave: s.lgSave, lgShow: s.lgShow, onLgUser: function (e) { self.setState({ lgUser: e.target.value, rlErr: '' }); }, onLgPass: function (e) { self.setState({ lgPass: e.target.value, rlErr: '' }); }, onLgSave: function (e) { self.setState({ lgSave: e.target.checked }); }, lgHere: function () { self.setState({ lgWay: 'here' }); }, lgWeb: function () { self.setState({ lgWay: 'browser', rlErr: '' }); }, lgEye: function () { self.setState({ lgShow: !self.state.lgShow }); }, goSaveCred: this.goSaveCred,
       rlKey: function (e) { if (e.key !== 'Escape') return; e.preventDefault(); if (['auto', 'verifying'].indexOf(self.state.rl) < 0) self.setState({ rl: '', rlErr: '' }); },
       ocV: this.ocrView(s), impOn: !!s.imp, impV: this.impView(s),
+      fsV: this.fsView(s),
       credUser: s.credUser, credPass: s.credPass, credOnce: s.credOnce, onCredUser: function (e) { self.setState({ credUser: e.target.value }); }, onCredPass: function (e) { self.setState({ credPass: e.target.value }); }, onCredOnce: function (e) { self.setState({ credOnce: e.target.checked }); },
       credSave: this.credSave, credCancel: function () { self.setState({ credForm: false, credUser: '', credPass: '' }); }, credClearAskFn: function () { self.setState({ credClearAsk: true, credNote: '' }); }, credClearNo: function () { self.setState({ credClearAsk: false }); }, credClearYes: function () { self.setState({ cred: 'none', credMask: '', credClearAsk: false, credNote: '已清除本机保存的账号密码。', lines: self.log(self.state, '已清除本机保存的账号密码') }); },
       ocOpenLoc: this.ocOpenLoc, phOpenLoc: this.phOpenLoc, ocImport: function () { self.impOpen('relogin_ocr'); }, ocDemoFail: this.ocDemoFail, impPickToggle: function () { var m = self.state.imp; if (m && !m.installing) self.setState({ imp: Object.assign({}, m, { picking: !m.picking }) }); }, impCancel: function () { self.setState({ imp: null }); }, impInstall: this.impInstall,

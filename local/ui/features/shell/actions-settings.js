@@ -3,6 +3,7 @@ import { render } from "./actions-render.js";
 import { paintBanners } from "./view-banners.js";
 import { OcrPanel } from "../components/state-ocr.js";
 import { paintOcrDownload } from "../components/view-ocr.js";
+import { paintFeishuRow } from "./view-feishu.js";
 
 export function openSettings(section) {
   const drawer = $("#settings");
@@ -17,6 +18,7 @@ export function openSettings(section) {
     try { window.PhonePanel.refresh(); } catch (error) { /* 面板刷新失败不影响抽屉本身 */ }
   }
   refreshSettings();
+  paintFeishuRow(true);   /* 打开时对齐已保存的地址；之后的输入不被重画覆盖 */
   if (section) openSettingsSection(section);
   else if (!wasOpen) {
     const close = $("#btn-settings-close");
@@ -48,6 +50,7 @@ export function closeSettings(restoreFocus) {
 function refreshSettings() {
   paintClosePref();
   paintTermsRow();
+  paintFeishuRow(false);
   paintOcrDownload();
   if (!OcrPanel.location) void ocrLoadLocation().then(() => { if (OcrPanel.location) paintOcrDownload(); });
 }
@@ -129,6 +132,49 @@ async function openOcrDir() {
   paintOcrDownload();
 }
 
+
+/* 飞书提醒：保存只写 config.json 的 feishu_webhook（后端合并写，读不出就拒绝）；
+ * 发测试消息测的是输入框里这条地址，成功和失败原因都由后端给，这里只负责就地显示。 */
+async function saveFeishu() {
+  const input = $("#feishu-url");
+  const url = input ? String(input.value || "").trim() : "";
+  let result = null;
+  try {
+    result = await api("save_feishu_webhook", url);
+  } catch (err) {
+    result = { ok: false, text: "地址没有保存：" + msg(err) };
+  }
+  if (result && result.ok) S.feishuWebhook = String(result.url || "");
+  S.feishuNote = { text: String((result && result.text) || "地址没有保存。"),
+                   tone: result && result.ok ? "ok" : "warn" };
+  paintFeishuRow(false);
+  if (result && result.ok) addLog("飞书提醒地址已保存");
+}
+
+function wireFeishu() {
+  const save = $("#btn-feishu-save");
+  if (save) save.addEventListener("click", () => { void saveFeishu(); });
+  const test = $("#btn-feishu-test");
+  if (test) test.addEventListener("click", () => { void testFeishu(); });
+}
+
+async function testFeishu() {
+  const input = $("#feishu-url");
+  const url = input ? String(input.value || "").trim() : "";
+  S.feishuNote = { text: "正在发测试消息…", tone: "ok" };
+  paintFeishuRow(false);
+  let result = null;
+  try {
+    result = await api("test_feishu_webhook", url);
+  } catch (err) {
+    result = { ok: false, text: "测试消息没发出去：" + msg(err) };
+  }
+  S.feishuNote = { text: String((result && result.text) || "测试消息没发出去。"),
+                   tone: result && result.ok ? "ok" : "warn" };
+  paintFeishuRow(false);
+  if (result && result.ok) addLog("飞书提醒测试消息已发出");
+}
+
 export function wireSettings() {
   const manage = $("#btn-phone-manage");
   if (manage && manage.addEventListener) manage.addEventListener("click", () => {
@@ -187,4 +233,5 @@ export function wireSettings() {
   });
   const ocrOpenLoc = $("#btn-ocr-open-loc");
   if (ocrOpenLoc) ocrOpenLoc.addEventListener("click", () => void openOcrDir());
+  wireFeishu();
 }
