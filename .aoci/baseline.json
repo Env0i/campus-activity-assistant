@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-24T03:06:54Z",
+  "updated_at": "2026-11-24T03:20:03Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "93bbca54df267316d1ad65896f92dea29cb9941443fba404adc1112c558706cb",
-      "size": 373170,
-      "normalized_sha256": "93bbca54df267316d1ad65896f92dea29cb9941443fba404adc1112c558706cb"
+      "sha256": "5e8c674fbda4f64724625878378e90b93029b1d0468af3115779be7d7867f5f8",
+      "size": 373591,
+      "normalized_sha256": "5e8c674fbda4f64724625878378e90b93029b1d0468af3115779be7d7867f5f8"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -8093,6 +8093,12 @@
       "sha256": "9957dab651475c649aabfed89231328045e39a955e9b258eef07c941a9a1d9d1",
       "size": 26891,
       "normalized_sha256": "9957dab651475c649aabfed89231328045e39a955e9b258eef07c941a9a1d9d1"
+    },
+    "design/proposals/owner-chat-self-service.md": {
+      "role": "index",
+      "sha256": "44504a8525b2e20d845c7a7c92f21f53eeb2f955dbcd3e878010bc53cdb6f411",
+      "size": 8217,
+      "normalized_sha256": "44504a8525b2e20d845c7a7c92f21f53eeb2f955dbcd3e878010bc53cdb6f411"
     },
     "design/proposals/replayable-product-tour.md": {
       "role": "index",

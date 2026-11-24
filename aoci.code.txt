@@ -1140,6 +1140,7 @@ auto-relogin-failure-notice.md[SU3T]: F:提出自动登录失败与验证码转�
 engineering-refactor.md[SW4M]: F:汇总重构已落地底座、Api拆分与手机页拆分、安全网、验收进度，规划合入验收、前端worker及长文件治理 | R:code:docs/ARCHITECTURE.md | A:重构状态及工程终点 | S:1200行仅参考；离线回归通过不等于真窗口验收，合入前须过清单
 replayable-product-tour.md[SU3T]: F:保留可重播引导历史提案与遮罩版本跳过暂停方案，将正式规则指向决策009 | R:code:design/decisions/009-replayable-product-tour.md | A:- | S:方案确认并记实现落地，真机用户验收仍待
 workbench-ui-polish.md[SU4S]: F:记录工作台时间轴设置加载及状态过渡打磨方向，区分确认规则、前置缺陷与原型门槛 | R:code:docs/UI_SPEC.md | A:打磨方向及实施门槛 | S:方向已定不等于实现，窄档布局和通知渠道仍待定
+owner-chat-self-service.md[SU6T]: F:提案owner私聊与本机自助功能：我的报名补全、预报名查冲突、私聊取消、开始与签退提醒、变动通知、本机飞书提醒设置 | R:code:design/decisions/016-conflict-visibility-and-cancel.md,code:server/bot/bot.js,code:server/scripts/signup/watchlist.py | A:A到F口径、拆分、验收 | S:取消入口须修订决策016；直发签名不在本批
 
 ===/<repository>/design/prototype/workbench-2026-11/===
 .gitignore[FV3T]: F:排除许可未明的本地画布运行时support.js，避免其进入版本库 | R:- | A:support.js | S:画布运行依赖该本地文件，但仓库不提供
