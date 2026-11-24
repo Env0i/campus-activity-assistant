@@ -26,6 +26,8 @@ import uuid
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 
+from application.components import split_asset_flow
+
 FEATURE = "phone_control"
 # 校验失败时说「这是别的组件的包，不是 XX」用的名字
 _TITLES = {"phone_control": "手机控制", "relogin_ocr": "验证码识别"}
@@ -252,78 +254,12 @@ class AdvancedComponentService:
             if self._cancelled():
                 return
             if not resolved.get("ok"):
-                code = str(resolved.get("error") or "no_component")
-                if code == "no_component":
-                    # 发布页上没有这个版本，和「清单列了资产却没传」同一档：
-                    # 统一报 not_published，界面才说得出「发布页上还没有这个版本的组件包」
-                    self._fail("not_published", _NOT_PUBLISHED_TEXT)
-                else:
-                    self._fail(code, str(resolved.get("text") or "这个版本没有发布组件包。"))
+                self._fail_unresolved(resolved)
                 return
             if isinstance(resolved.get("assets"), list):
-                try:
-                    outcome = self._run_split_assets(resolved["assets"])
-                except Exception as exc:
-                    self._fail("artifact_install_failed",
-                               "拆分组件准备失败（%s），当前组件仍保留。" % type(exc).__name__)
-                    outcome = "integrity"
-                if outcome != "integrity":
+                if not self._try_split_then_fallback(resolved):
                     return
-                if self._cancelled() or not isinstance(resolved.get("asset"), dict):
-                    return
-                # 拆分组尚未提交，旧组继续可用；只有校验不过才改下完整单体包。
-                self._set(state="downloading", text="拆分资产校验不过，改下完整组件包。",
-                          error_code="")
-            asset = resolved["asset"]
-            self._set(total=int(asset.get("bytes") or 0))
-            last_progress = [0]
-
-            def progress(done, total):
-                if done - last_progress[0] < PROGRESS_STEP_BYTES and done < total:
-                    return
-                last_progress[0] = done
-                self._set(downloaded=int(done), total=int(total or 0))
-
-            got = self._download(
-                asset["url"], name=asset["name"], expect_bytes=asset["bytes"],
-                expect_sha256=asset["sha256"], root=self._root,
-                progress=progress, cancel=lambda: self._cancel_flag)
-            if not got.get("ok"):
-                code, text, _network = _classify_download_failure(got)
-                if code == "cancelled":
-                    self._set(state="cancelled", text="", error_code="")
-                else:
-                    self._fail(code, text)
-                return
-            archive = str(got.get("path") or "")
-            if self._cancelled():
-                return
-            self._set(state="verifying", text="正在校验组件包…")
-            problem = self._verify(archive)
-            if problem:
-                self._fail(problem[0], problem[1])
-                return
-            info = self._inspect(archive, self._feature)
-            # 与 cancel 共用锁确定提交点：此前取消不动旧包，此后明确拒绝取消。
-            with self._lock:
-                if self._cancel_flag:
-                    self._state = "cancelled"
-                    self._text = ""
-                    return
-                self._installing = True
-            self._install(archive, self._feature, root=self._root)
-            version = str((info or {}).get("version") or "")
-            with self._lock:
-                self._state = "installed"
-                self._installed = True
-                self._version_text = version
-                self._error_code = ""
-                self._text = ""
-            if self._on_installed is not None:
-                try:
-                    self._on_installed(version)
-                except Exception as exc:      # 偏好没写成不影响「已装好」这件事
-                    self._note("组件已安装，但启用状态没保存：%s" % type(exc).__name__)
+            archive = self._run_monolithic_asset(resolved["asset"])
         except Exception as exc:
             self._fail("unexpected", "下载或安装出现意外（%s），请重试。" % type(exc).__name__)
         finally:
@@ -338,81 +274,96 @@ class AdvancedComponentService:
                 self._installing = False
                 self._active = False
 
-    def _run_split_assets(self, assets) -> str:
-        """先复用或准备全部不可变资产，最后一次切换完整功能组。
+    def _fail_unresolved(self, resolved: dict) -> None:
+        code = str(resolved.get("error") or "no_component")
+        if code == "no_component":
+            # 发布页上没有这个版本，和「清单列了资产却没传」同一档：
+            # 统一报 not_published，界面才说得出「发布页上还没有这个版本的组件包」
+            self._fail("not_published", _NOT_PUBLISHED_TEXT)
+        else:
+            self._fail(code, str(resolved.get("text") or "这个版本没有发布组件包。"))
 
-        返回值告诉调用方能否改下完整单体包：installed / cancelled / failed 都
-        不再回退；只有 integrity（下载成功但校验、缓存或提交不通过）允许回退。
-        """
-        required = {key for key, spec in self._artifacts.items()
-                    if spec["feature"] == self._feature}
-        if (not assets or any(not isinstance(asset, dict) for asset in assets)
-                or {asset.get("artifact_id") for asset in assets} != required
-                or len(assets) != len(required)):
-            self._fail("bad_artifact", "拆分组件资产组不完整。")
-            return "failed"
-        prepared = {}
-        missing = []
-        for asset in assets:
-            cached = self._find_cached_artifact(asset, root=self._root)
-            if cached is None:
-                missing.append(asset)
+    def _try_split_then_fallback(self, resolved: dict) -> bool:
+        try:
+            outcome = self._run_split_assets(resolved["assets"])
+        except Exception as exc:
+            self._fail("artifact_install_failed",
+                       "拆分组件准备失败（%s），当前组件仍保留。" % type(exc).__name__)
+            outcome = "integrity"
+        if outcome != "integrity":
+            return False
+        if self._cancelled() or not isinstance(resolved.get("asset"), dict):
+            return False
+        # 拆分组尚未提交，旧组继续可用；只有校验不过才改下完整单体包。
+        self._set(state="downloading", text="拆分资产校验不过，改下完整组件包。", error_code="")
+        return True
+
+    def _run_monolithic_asset(self, asset: dict) -> str:
+        self._set(total=int(asset.get("bytes") or 0))
+        last_progress = [0]
+
+        def progress(done, total):
+            if done - last_progress[0] < PROGRESS_STEP_BYTES and done < total:
+                return
+            last_progress[0] = done
+            self._set(downloaded=int(done), total=int(total or 0))
+
+        got = self._download(
+            asset["url"], name=asset["name"], expect_bytes=asset["bytes"],
+            expect_sha256=asset["sha256"], root=self._root,
+            progress=progress, cancel=lambda: self._cancel_flag)
+        if not got.get("ok"):
+            code, text, _network = _classify_download_failure(got)
+            if code == "cancelled":
+                self._set(state="cancelled", text="", error_code="")
             else:
-                prepared[asset["artifact_id"]] = cached
-        total = sum(int(asset.get("bytes") or 0) for asset in missing)
-        self._set(total=total, downloaded=0)
-        offset = 0
-        for asset in missing:
-            if self._cancelled():
-                return "cancelled"
-            artifact_id = asset["artifact_id"]
-            self._set(total=total, state="downloading", text="")
-            last_progress = [offset]
-            def progress(done, _expect):
-                current = offset + int(done or 0)
-                if current - last_progress[0] < PROGRESS_STEP_BYTES and current < offset + int(asset.get("bytes") or 0):
-                    return
-                last_progress[0] = current
-                self._set(downloaded=current, total=total)
-            got = self._download(
-                asset["url"], name=asset["name"], expect_bytes=asset["bytes"],
-                expect_sha256=asset["sha256"], root=self._root,
-                progress=progress, cancel=lambda: self._cancel_flag)
-            if not got.get("ok"):
-                code, text, network = _classify_download_failure(got)
-                if code == "cancelled":
-                    self._set(state="cancelled", text="", error_code="")
-                    return "cancelled"
                 self._fail(code, text)
-                return "failed" if network else "integrity"
-            archive = str(got.get("path") or "")
-            try:
-                self._set(state="verifying", text="正在校验组件资产…")
-                info = self._inspect_artifact(archive, artifact_id)
-                if not (isinstance(info, dict) and info.get("ok") is True):
-                    self._fail(str((info or {}).get("kind") or "bad_artifact"),
-                               str((info or {}).get("text") or "拆分组件资产不合规。"))
-                    return "integrity"
-                with self._lock:
-                    if self._cancel_flag:
-                        self._state = "cancelled"
-                        self._text = ""
-                        return "cancelled"
-                prepared[artifact_id] = self._cache_artifact(
-                    archive, artifact_id, root=self._root,
-                    expect_content_sha256=asset.get("content_sha256"))
-            finally:
-                self._cleanup(archive)
-            offset += int(asset.get("bytes") or 0)
-        # 与取消/关闭共用锁确定唯一提交点，网络阶段始终允许取消。
+            return ""
+        archive = str(got.get("path") or "")
+        if self._cancelled():
+            return archive
+        self._set(state="verifying", text="正在校验组件包…")
+        problem = self._verify(archive)
+        if problem:
+            self._fail(problem[0], problem[1])
+            return archive
+        info = self._inspect(archive, self._feature)
+        if not self._enter_commit_phase():
+            return archive
+        self._install(archive, self._feature, root=self._root)
+        self._mark_installed(str((info or {}).get("version") or ""), "组件已安装，但启用状态没保存")
+        return archive
+
+    def _enter_commit_phase(self, *, verifying: bool = False, check_closed: bool = False) -> bool:
+        # 与 cancel/shutdown 共用锁确定唯一提交点：此前取消不动旧包，此后明确拒绝取消。
         with self._lock:
-            if self._cancel_flag or self._closed:
+            if self._cancel_flag or (check_closed and self._closed):
                 self._state = "cancelled"
                 self._text = ""
-                self._error_code = ""
-                return "cancelled"
-            self._state = "verifying"
+                if verifying:
+                    self._error_code = ""
+                return False
+            if verifying:
+                self._state = "verifying"
             self._installing = True
+            return True
+
+    def _mark_installed(self, version: str, note_prefix: str) -> None:
+        with self._lock:
+            self._state = "installed"
+            self._installed = True
+            self._version_text = version
+            self._error_code = ""
+            self._text = ""
+        if self._on_installed is not None:
+            try:
+                self._on_installed(version)
+            except Exception as exc:      # 偏好没写成不影响「已装好」这件事
+                self._note("%s：%s" % (note_prefix, type(exc).__name__))
+
+    def _commit_split_group(self, assets, prepared: dict) -> str:
+        if not self._enter_commit_phase(verifying=True, check_closed=True):
+            return "cancelled"
         try:
             committed = self._commit_artifact_group(
                 self._feature, [prepared[asset["artifact_id"]] for asset in assets],
@@ -427,18 +378,14 @@ class AdvancedComponentService:
                 self._installing = False
             raise
         runtime = prepared[self._feature + "_runtime"]
-        with self._lock:
-            self._state = "installed"
-            self._installed = True
-            self._version_text = str(runtime.get("version") or "")
-            self._error_code = ""
-            self._text = ""
-        if self._on_installed is not None:
-            try:
-                self._on_installed(self._version_text)
-            except Exception as exc:
-                self._note("拆分组件已安装，但启用状态没保存：%s" % type(exc).__name__)
+        self._mark_installed(str(runtime.get("version") or ""), "拆分组件已安装，但启用状态没保存")
         return "installed"
+
+    def _run_split_assets(self, assets) -> str:
+        """先复用或准备全部不可变资产，最后一次切换完整功能组。"""
+        return split_asset_flow.run_split_assets(
+            self, assets, step_bytes=PROGRESS_STEP_BYTES,
+            classify_failure=_classify_download_failure)
 
     def _cancelled(self) -> bool:
         with self._lock:
