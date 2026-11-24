@@ -14,5 +14,6 @@ playwright>=1.40
 #   python -m pip install ddddocr
 ddddocr>=1.6.1
 
-# 服务器直发报名（deploy/signup/signup_signing.py）AES-128-ECB 签名，仅用于报名签名
-cryptography>=41.0
+# 服务器直发报名（deploy/signup/signup_signing.py）AES-128-ECB 签名，仅用于报名签名。
+# 下限按线上实测：Ubuntu 22.04 apt 自带的 3.4.8 已用对拍样例验证可用，不必用 pip 升级系统包。
+cryptography>=3.4
