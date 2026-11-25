@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-25T02:26:16Z",
+  "updated_at": "2026-11-25T03:03:18Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "7fc0936a71d1a1779603df99c15795f426b2045a46a59fa3d4163f640432d38a",
-      "size": 44857,
-      "normalized_sha256": "7fc0936a71d1a1779603df99c15795f426b2045a46a59fa3d4163f640432d38a"
+      "sha256": "ebf85581b2ee965470fcba1a711ae9f4fdc64360673aa93b1798ef19abd4e552",
+      "size": 52340,
+      "normalized_sha256": "ebf85581b2ee965470fcba1a711ae9f4fdc64360673aa93b1798ef19abd4e552"
     },
     "CLAUDE.md": {
       "role": "index",
@@ -89,15 +89,15 @@
     },
     "VERSION": {
       "role": "index",
-      "sha256": "d82f34ae9aa41bc4a0cb529a1ac0898fed09d6b479fb1cc44cb66c34f15ee84d",
+      "sha256": "64d23f858ef51b0f996e4966d4e27c0371b437e2d2787890b1f7ad22d4ec5663",
       "size": 6,
-      "normalized_sha256": "d82f34ae9aa41bc4a0cb529a1ac0898fed09d6b479fb1cc44cb66c34f15ee84d"
+      "normalized_sha256": "64d23f858ef51b0f996e4966d4e27c0371b437e2d2787890b1f7ad22d4ec5663"
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "5c9c4deb85970b36eab981b137c53c454f14b47e7a9dd4a86c6a9fb17e44b2c4",
-      "size": 409470,
-      "normalized_sha256": "5c9c4deb85970b36eab981b137c53c454f14b47e7a9dd4a86c6a9fb17e44b2c4"
+      "sha256": "11b4e90ca8eda88966ee4ffa76e97378fc56cadf91a717cd43a20d55436a6e34",
+      "size": 409613,
+      "normalized_sha256": "11b4e90ca8eda88966ee4ffa76e97378fc56cadf91a717cd43a20d55436a6e34"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -12418,9 +12418,9 @@
     },
     "tools/code_shape/baseline.json": {
       "role": "index",
-      "sha256": "42ec5ad7054f0ac8f38a340ba9407414e6cf632e0a74ca2063c037145c9a2c2d",
-      "size": 12068,
-      "normalized_sha256": "42ec5ad7054f0ac8f38a340ba9407414e6cf632e0a74ca2063c037145c9a2c2d"
+      "sha256": "43037ec47538e227ef950b03b1c0e35148ddb38670e7fd68ee10f826efa8fd50",
+      "size": 11183,
+      "normalized_sha256": "43037ec47538e227ef950b03b1c0e35148ddb38670e7fd68ee10f826efa8fd50"
     },
     "tools/code_shape/check.py": {
       "role": "index",
