@@ -7,7 +7,7 @@ AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、�
 CHANGELOG.md[SV4L]: F:按版本倒序记录每个版本的用户可见变化与修复边界，顶部是最新正式版本 | R:code:VERSION,code:tools/release/release.py | A:变更记录 | S:发版说明直接取最新一节；旧版本段不追改，也不写内部编号与临时路径
 CLAUDE.md[SG5T]: F:导入共同规则并补充Claude原型预览、尾注与测试边界 | R:code:AGENTS.md | A:Claude宿主指引 | S:-
 LICENSE[SG4T]: F:声明MIT授权、保留版权许可条件及免责条款 | R:- | A:MIT许可 | S:-
-README.md[SG6M]: F:介绍个人活动预报名工具的下载、功能、隐私与本机及服务器入口 | R:code:local/README.md,code:server/README.md | A:使用与文档导航 | S:-
+README.md[SG6M]: F:介绍工具的下载、时间轴界面、手机遥控、隐私边界与常见问题，是发布页之外的总入口 | R:code:local/README.md,code:server/README.md | A:使用与文档导航 | S:截图必须是脱敏演示数据；下载表里的资产名必须与 Release 实际附件一致
 VERSION[FV7T]: F:提供发行和运行版本号的唯一文本来源 | R:code:tools/release/release.py | A:版本字符串 | S:不能只修改界面显示版本，构建和发布也从该文件取值；发布tag只由它推导，已发布的tag不重用
 requirements-dev.txt[FQ3T]: F:固定开发静态检查器版本 | R:code:ruff.toml | A:开发依赖安装 | S:开发检查依赖不进入运行包。
 ruff.toml[FQ5T]: F:配置Python静态检查范围及存量例外 | R:code:requirements-dev.txt | A:ruff check local server tools | S:仅E9及F；例外只减不增，不能新增忽略来消告警。
