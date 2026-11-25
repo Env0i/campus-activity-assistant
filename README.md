@@ -1,19 +1,26 @@
 <div align="center">
 
-<img src="design/brand/svg/logo.svg" width="88" alt="校园活动预报名工具的标志：一张琥珀色的入场券">
+<img src="design/brand/svg/logo.svg" width="84" alt="校园活动预报名工具的标志：一张琥珀色的入场券">
 
 # 校园活动预报名工具
 
-**把想报的校园活动排进一张时刻表，到开放那一刻自动提交。**
+**把想报的校园活动排进一条时间轴，到开放那一刻自动提交。**
 
-[![最新版本](https://img.shields.io/github/v/release/Env0i/campus-activity-assistant?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=e8a33d)](https://github.com/Env0i/campus-activity-assistant/releases/latest)
-[![下载次数](https://img.shields.io/github/downloads/Env0i/campus-activity-assistant/total?label=%E4%B8%8B%E8%BD%BD&color=2f3b45)](https://github.com/Env0i/campus-activity-assistant/releases)
-![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011-2f3b45?logo=windows&logoColor=white)
-[![License: MIT](https://img.shields.io/badge/License-MIT-2f3b45.svg)](LICENSE)
+<sub>Windows 桌面端 · 手机遥控 · 飞书提醒 · 服务器版</sub>
 
-[下载](#下载) · [三步上手](#三步上手) · [常见问题](#常见问题) · [用户协议](docs/USER_AGREEMENT.md) · [隐私政策](docs/PRIVACY_POLICY.md) · [变更记录](CHANGELOG.md)
+<p>
+<a href="https://github.com/Env0i/campus-activity-assistant/releases/latest"><img src="https://img.shields.io/github/v/release/Env0i/campus-activity-assistant?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=e8a33d&style=flat-square" alt="最新版本"></a>
+<a href="https://github.com/Env0i/campus-activity-assistant/releases"><img src="https://img.shields.io/github/downloads/Env0i/campus-activity-assistant/total?label=%E4%B8%8B%E8%BD%BD&color=2f3b45&style=flat-square" alt="下载次数"></a>
+<img src="https://img.shields.io/badge/Windows-10%20%2F%2011-2f3b45?style=flat-square&logo=windows&logoColor=white" alt="Windows 10/11">
+<img src="https://img.shields.io/badge/Python-3.10%2B-2f3b45?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+">
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2f3b45?style=flat-square" alt="License: MIT"></a>
+</p>
 
-<img src="docs/images/main-window.png" width="900" alt="主窗口：左边是按开放时间排好的活动时刻表，右边是点阵屏和报名计划">
+[下载](#下载) · [界面一览](#界面一览) · [三步上手](#三步上手) · [可选功能](#可选功能) · [常见问题](#常见问题) · [变更记录](CHANGELOG.md)
+
+<br>
+
+<img src="docs/images/main-window.png" width="900" alt="主窗口：左边是时间轴与四层活动卡片，右边是点阵屏和报名计划">
 
 </div>
 
@@ -21,105 +28,107 @@
 > 这是非官方的个人作品，只适用于一所目标学校的专升本学生端，与学校及其系统运营方没有隶属、合作或授权关系。
 > 它只服务你本人的账号：不代他人报名，不做多账号批量占位。学校接口随时可能调整，工具不保证报名成功。
 
-## 它能帮你做什么
+## 核心能力
 
-学生端的活动一开放就要抢，开放时间又分散在一天里的不同时刻。这个工具把要报的活动排进一张时刻表，到点替你提交，你只需要选好、开着电脑。
+学生端的活动开放时间分散在一天里的不同时刻。工具把要报的活动排进一条时间轴，在开放那一刻按计划为你提交，你只需要选好场次并让电脑保持开机。
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-### 🗓️ 一张时刻表
-活动按报名开放时间分组：正在开放、今天、明天、后天……每行写清举办时段、地点、签到签退要求、实践分和虚拟工资。可以搜索、按开放时间和签到要求筛选。只列还能报的，以及你已报名、活动还没结束的。
+### 🗓️ 时间轴与四层卡片
+活动按报名开放时刻排布成节点，同一时刻有多场未开放时标注「同抢 N 场」。每张卡片分四层展示活动名与奖励、类型标签与报名截止、举办/地点/签到/签退四格，以及冲突或漏报提示；支持搜索与「更多筛选」多选活动类型。
 
 </td>
 <td width="50%" valign="top">
+
+### 🔎 活动简介 `?` 浮层
+点开活动名旁的 `?` 按钮，即可查看活动时间、地点、报名窗口、面向年级与分公司范围及简介正文，不会误触勾选。简介与面向范围严格按纯文本渲染。
+
+</td>
+</tr>
+<tr>
+<td valign="top">
 
 ### ⏱️ 到点自动提交
-勾选几场，核对右边的计划，点「开始报名计划」。工具按开放时刻分批，到点直接向学校提交，开放瞬间会在短时间内多次尝试，页面点击只在直接提交不可用时兜底。每场结果单独显示。
+勾选几场、核对右边计划后点「开始报名计划」。工具按开放时刻自动分批，右侧点阵屏实时倒计时；到点优先直连提交并在短时间内重试，不可用时由页面点击兜底，每场结果单独显示。
+
+</td>
+<td valign="top">
+
+### 🚧 冲突拦住与独立北京时间
+与已选或已报名活动的举办时段重叠时提前标出并拦住，可取消的已报名场次支持二次确认取消。业务时间采用独立北京时间，由公共网络授时校准，不读不改本机时间；未校准时不让开始计划。
 
 </td>
 </tr>
 <tr>
 <td valign="top">
 
-### 🚧 冲突提前拦住
-和已选、已报名活动的举办时间重叠，会提前标出来。鼠标停在「不可加入」上，能看到双方时段的时间条和解决办法。还能取消的已报名场次，可以在电脑上取消：先二次确认，结果以向学校复查为准。
+### 📱 手机遥控与飞书提醒（可选）
+开启手机访问后，可经 Tailscale 或 Cloudflare 临时地址查看列表与计划进度、启停计划、输入验证码或重新登录。也可在设置中填入飞书群机器人地址，自动推送报名结果与登录失效提醒。
 
 </td>
 <td valign="top">
 
-### 🕰️ 独立北京时间
-用公共网络授时校准，不读也不改你电脑的时间设置。北京时间没校准好时不让开始报名，免得掐错点；登录和查看活动不受影响。
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-### 📱 手机遥控（可选）
-经 Tailscale 或 Cloudflare 临时地址，用手机看活动和计划进度、开始或停止计划、输入验证码、重新登录。默认关闭，不开就不监听任何端口。
-
-</td>
-<td valign="top">
-
-### 🔐 数据只在你的电脑上
-没有账号体系，没有遥测，不经过任何开发者的服务器。账号密码默认不保存；选择保存时用 Windows 当前用户加密，只有这台电脑能解开。
+### 🔐 本地存储，克制少打扰
+没有账号体系，不经过开发者服务器，也不含遥测。账号密码默认不保存，选择保存时仅用 Windows 当前用户加密；已有列表刷新时保留旧行与勾选，持续性提示条可收起并在顶栏留一个状态点。
 
 </td>
 </tr>
 </table>
+
+## 界面一览
 
 <table>
 <tr>
-<td width="62%" valign="top" align="center">
-<img src="docs/images/conflict-tip.png" alt="冲突提示：模拟面试与已报名的宿舍查寝时间重叠，气泡里画出双方时段和重叠部分"><br>
-<sub>和已报名活动时间重叠时，气泡里画出双方时段，并写清怎么解决</sub>
+<td width="64%" valign="top" align="center">
+<img src="docs/images/desc-modal.png" alt="活动简介浮层：展示活动时间、地点、报名时间、面向范围与纯文本简介"><br>
+<sub>活动简介 <code>?</code> 浮层：时间、地点、报名窗口、面向范围与正文一目了然</sub>
 </td>
-<td width="38%" valign="top" align="center">
-<img src="docs/images/phone.png" width="260" alt="手机页：顶部点阵屏，下面是按开放时间分组的活动列表"><br>
-<sub>手机页：和电脑同一份数据，配对后才能访问</sub>
+<td width="36%" valign="top" align="center">
+<img src="docs/images/phone.png" width="250" alt="手机页：顶部点阵屏，下面是时间轴与四层活动卡片"><br>
+<sub>手机页：同步采用时间轴布局，配对后才能访问</sub>
 </td>
 </tr>
 </table>
 
-<sub>截图里的活动、地点和时间都是演示数据。</sub>
+<sub>截图里的活动、地点、范围与时间均为脱敏演示数据。</sub>
 
 ## 下载
 
-到 [**Releases**](https://github.com/Env0i/campus-activity-assistant/releases/latest) 下载最新版。三种形态的程序本体是同一份 EXE，选一种就够：
+到 [**Releases**](https://github.com/Env0i/campus-activity-assistant/releases/latest) 下载最新版。三种形态的程序本体是同一份 EXE，按习惯选一种即可：
 
 | 文件 | 适合谁 |
 |---|---|
-| **安装版**<br>`campus-activity-watch-installer-vX.Y.Z-win-x64.exe` | 推荐。中文安装向导；卸载时会问要不要一并删除登录数据，默认保留 |
+| **安装版**<br>`campus-activity-watch-installer-vX.Y.Z-win-x64.exe` | **推荐**。中文安装向导；卸载时询问是否一并删除登录数据，默认保留 |
 | **单文件**<br>`campus-activity-watch-vX.Y.Z-win-x64.exe` | 不想安装：拷进任意文件夹，双击就能用 |
-| **完整 ZIP**<br>`campus-activity-watch-vX.Y.Z-win-x64.zip` | 单文件 EXE 加使用说明和协议，解压即用 |
+| **完整 ZIP**<br>`campus-activity-watch-vX.Y.Z-win-x64.zip` | 单文件 EXE 附带使用说明、启动说明和许可，解压即用 |
 
-两个可选组件，需要时再装：在「设置 → 高级功能」里一键下载，或者先从发布页下载，再点「导入已下载的组件包」。
+两个可选组件按需安装：可在「设置 → 高级功能」里一键下载，也可以先从发布页下载，再点「导入已下载的组件包」。
 
 | 组件 | 用来做什么 |
 |---|---|
-| `campus-activity-watch-phone-control-vX.Y.Z-win-x64.zip` | 手机遥控；内置 Cloudflare 通道用的 cloudflared |
+| `campus-activity-watch-phone-control-vX.Y.Z-win-x64.zip` | 手机遥控；内置 Cloudflare 通道所需的 `cloudflared` |
 | `campus-activity-watch-relogin-ocr-vX.Y.Z-win-x64.zip` | 验证码识别；保存账号后，登录失效时能自动登回来 |
 
 **系统要求**：Windows 10 或 11（64 位），需要 WebView2 运行时（Windows 11 自带，Windows 10 一般已随 Edge 装好）。
 
 > [!TIP]
-> 每个版本都附有 `manifest.json`，里面记着每个文件的大小和 SHA-256。下载后可以用 PowerShell 的 `Get-FileHash` 核对。
+> 每个版本都附有 `manifest.json`，记录各文件的大小和 SHA-256。下载后可用 PowerShell 的 `Get-FileHash` 核对。
 
 ## 三步上手
 
-1. **打开工具，读首次说明。** 勾选「我已阅读并同意」后才能登录和报名；不同意也能看帮助和设置。
-2. **登录。** 两种方式，选你放心的那种：
+1. **打开工具，阅读首次说明。** 勾选「我已阅读并同意」后才能登录和报名；不同意也能查看帮助和设置。
+2. **登录学校账号。** 两种方式选你放心的那种：
    - **在这里输入**：账号密码直接发给学校，默认不保存。
    - **用学校登录页**：在学校官方页面里输入。
-3. **勾选活动，开始报名计划。** 在时刻表里勾选想报的场次，核对右边的计划，点「开始报名计划」。到点会自动提交，右边的点阵屏显示倒计时，下面是每场的进度。
+3. **勾选活动，开始报名计划。** 在时间轴里勾选想报的场次，核对右边的计划，点「开始报名计划」。右侧点阵屏会显示倒计时，下面实时显示每场进度。
 
 > [!WARNING]
 > 计划由这台电脑执行。运行期间不要关机、睡眠或退出工具；可以最小化，也可以隐藏到右下角托盘。
-> 关窗口时工具会问你：最小化、隐藏到后台，还是退出。
+> 关闭窗口时工具会询问你的选择：最小化、隐藏到后台，还是退出。
 
-结果以学校为准。看到「待核对」时，到学校活动页确认一下。
+结果以学校为准。看到「待核对」时，请到学校活动页确认实际报名状态。
 
 ## 可选功能
 
@@ -128,46 +137,58 @@
 
 <br>
 
-1. 先装「手机控制」组件（见[下载](#下载)）。
-2. 在「设置 → 高级功能 → 手机访问」选一种通道，点「开启手机访问」，面板会显示二维码和 6 位配对码。
-3. 手机先扫二维码打开页面，再输入配对码。配对码 5 分钟内有效，只能用一次。
+1. 先安装「手机访问」组件（见[下载](#下载)）。
+2. 在「设置 → 高级功能 → 手机访问」选择通道并开启，面板会展示二维码和 6 位配对码。
+3. 手机扫码打开页面后输入配对码；配对码 5 分钟内有效，仅可使用一次。
 
 | 通道 | 特点 |
 |---|---|
-| **Tailscale** | 地址固定，重启后不用重新扫码；需要电脑和手机都装好、登录同一个 Tailscale 网络 |
-| **Cloudflare 临时地址** | 不用另装软件；每次重新开启都会换地址，要重新扫码配对 |
+| **Tailscale** | 地址固定，重启后无需重新扫码；需要电脑和手机登录同一个 Tailscale 网络 |
+| **Cloudflare 临时地址** | 无需另装软件；每次重新开启都会更换地址，需要重新扫码配对 |
 
 > [!NOTE]
-> 走 Cloudflare 通道时，手机和电脑之间的全部往来都经 Cloudflare 的服务器转发，包括你在手机上输入的验证码和账号密码。
-> 走 Tailscale 时数据在设备之间加密传输。发给手机的运行记录会隐去网址和本机路径。详见[隐私政策](docs/PRIVACY_POLICY.md)第 3 节。
+> 走 Cloudflare 通道时，手机与电脑之间的全部往来均经 Cloudflare 服务器转发，包括在手机上输入的验证码和账号密码。
+> 走 Tailscale 时数据在设备间加密传输；发给手机的运行记录会隐去网址与本机路径。详见[隐私政策](docs/PRIVACY_POLICY.md)第 3 节。
 
 更完整的说明见 [docs/PHONE_ACCESS.md](docs/PHONE_ACCESS.md)。
 
 </details>
 
 <details>
-<summary><b>🔁 登录失效后自动登回来</b></summary>
+<summary><b>🔁 失效后自动登录</b></summary>
 
 <br>
 
-学校不公布登录能保持多久，实测大约 10 到 17 小时。登录详情卡里的「预计有效」按登录后 10 小时估算，只作提醒，以学校的实际校验为准。
+学校未公开会话保活时长，实测大约 10 到 17 小时。登录详情卡里的「预计有效」按登录后 10 小时估算，仅作提醒，以学校实际校验为准。
 
-想在失效后自动登回来，需要两样：
+在「设置 → 登录」中可按「失效后自动登录 · 还差 N 步」两步清单启用：
 
-- 在「设置 → 登录」里保存账号密码（用 Windows 当前用户加密，随时可清除）；
-- 装好「验证码识别」组件。
+1. **保存本机账号密码**：使用 Windows 当前用户加密（DPAPI）保存在本机，随时可清除；
+2. **安装验证码识别组件**：用于无人值守识别验证码并恢复登录。
 
-没装验证码识别组件时，失效后会提示你重新登录，验证码由你在电脑或手机上手动输入。
+未安装验证码识别组件时，登录失效会提示你回到电脑或手机端手动输入验证码。
+
+</details>
+
+<details>
+<summary><b>🔔 飞书提醒（本机版）</b></summary>
+
+<br>
+
+在「设置 → 程序 → 飞书提醒」中填入飞书群自定义机器人 Webhook 地址，并可点击发送测试消息确认送达：
+
+- **自动推送**：报名结果与运行中登录失效时自动发到指定飞书群；
+- **完全可选**：不填写地址就不会向飞书发起任何请求，保存时只更新这一项配置。
 
 </details>
 
 ## 数据与隐私
 
-- **存在哪**：登录凭据、活动缓存、设置和运行记录都在 `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data`。换新版本、重新安装都不会丢，删掉这个文件夹就全部清除。
-- **连哪里**：只有四类对外通信——学校系统；网络授时服务；你点检查更新或下载时访问 GitHub；你开启手机访问时经你选的通道。没有遥测和统计。
-- **更新**：只在你点「检查更新」时联网查询。下载安装包后会先核对大小和 SHA-256，什么时候安装由你决定，工具不会自己升级。
+- **存在哪**：登录凭据、活动缓存、设置和运行记录都在 `%LOCALAPPDATA%\TianSoftActivityPreRegistration\data`。升级版本或重新安装不会丢失，删除该目录即可全部清除。
+- **连哪里**：常规对外通信仅四类——学校系统、公共网络授时服务、你主动点击检查更新或下载组件时访问 GitHub、你开启手机访问时经所选通道；如额外配置了本机飞书提醒，则仅在你配置后向你填写的飞书群机器人地址发送通知。不含开发者侧遥测或统计。
+- **更新**：只在你点击「检查更新」时联网查询；下载安装包后会先核对文件大小和 SHA-256，是否安装由你决定，不会静默自升级。
 
-完整内容见[用户协议](docs/USER_AGREEMENT.md)和[隐私政策](docs/PRIVACY_POLICY.md)。条款改版后，程序会请你重新同意一次。
+完整条款见[用户协议](docs/USER_AGREEMENT.md)和[隐私政策](docs/PRIVACY_POLICY.md)。条款修订后会请你重新确认。
 
 ## 常见问题
 
@@ -185,7 +206,7 @@
 
 <br>
 
-能。工具用的是独立的北京时间，不看也不改你电脑的时间。顶栏会显示北京时间是否已校准；校准不了时，登录和查看活动照常，只是暂时不能开始报名。
+能。工具用的是独立的北京时间，不读也不改你电脑的时间。顶栏会显示北京时间是否已校准；校准不了时，登录和查看活动照常，只是暂时不能开始报名。
 
 </details>
 
@@ -194,7 +215,7 @@
 
 <br>
 
-可能会，也可能不会，以实际登录状态为准。反过来，用本工具登录可能让同一账号在别处的登录失效。掉线了点「重新登录」即可；计划运行中登录失效，工具会提醒你。
+可能会，也可能不会，以实际登录状态为准。反过来，用本工具登录也可能让同一账号在别处的登录失效。掉线了点「重新登录」即可；计划运行中登录失效，工具会提醒你。
 
 </details>
 
@@ -203,7 +224,7 @@
 
 <br>
 
-说明提交后学校的回答不明确，工具没法确认。到学校活动页看一眼就知道报没报上。
+说明提交后学校的回答不明确，工具没法确认。到学校活动页看一眼就知道实际是否报上。
 
 </details>
 
@@ -228,29 +249,29 @@
 ## 服务器版（自行部署）
 
 <details>
-<summary>用飞书机器人定时推送活动、群里 @ 查询、私聊预报名</summary>
+<summary>用飞书机器人定时推送活动、群里 @ 查询、私聊预报名与查退选</summary>
 
 <br>
 
-仓库里的 `server/` 是另一个独立的版本：跑在一台常驻的 Linux 上，每天定时把「今天要参加的」「即将开放报名的」活动整理成卡片推到飞书群，可以在群里 @ 机器人查询，部署者本人还可以在私聊里点「预报名」，到点自动报名。
+仓库里的 `server/` 是另一个独立版本，运行在常驻 Linux 上：每天定时把「今天要参加的」「即将开放报名的」活动整理成卡片推到飞书群，支持在群里 `@` 机器人只读查询；部署者本人还可在私聊里预报名（自动校验举办时段冲突）、查询已报名场次、两步确认取消，以及接收活动临近开始、签退和关注场次变动提醒。
 
 | 需要 | 说明 |
 |---|---|
 | 一台 7×24 的 Linux | Ubuntu 22.04，Python 3、Node 20、cron、systemd |
-| 飞书应用 | 只推送用群机器人；要 @ 查询和私聊预报名，需要企业自建应用 |
+| 飞书应用 | 只推送可用群机器人；需 `@` 查询和私聊自助管理时使用企业自建应用 |
 
-按顺序看：[飞书机器人](docs/FEISHU_BOT.md) → [配置](docs/CONFIG.md) → [部署与运维](docs/OPERATIONS.md)。
+按顺序阅读：[飞书机器人](docs/FEISHU_BOT.md) → [配置](docs/CONFIG.md) → [部署与运维](docs/OPERATIONS.md)。
 
 </details>
 
-## 从源码运行
+## 从源码运行与项目结构
 
 <details>
 <summary>开发者看这里</summary>
 
 <br>
 
-需要 Windows 10/11 和 Python 3.10 或更高（测试统一用 3.12）。
+需要 Windows 10/11 与 Python 3.10 或更高版本（开发与测试统一使用 3.12）。
 
 ```bash
 git clone https://github.com/Env0i/campus-activity-assistant.git
@@ -258,34 +279,34 @@ cd campus-activity-assistant
 python -m pip install -r local/requirements.txt
 python -m playwright install chromium
 
-# 不登录，用演示数据看界面
+# 不登录，用脱敏演示数据启动界面
 python local/app.py --demo
 
 # 本机版全量测试（不联网）
 python -m unittest discover -s local/tests -p "test_*.py"
 ```
 
-真实站点地址只从环境变量 `SCHOOL_ORIGIN` 读，不写进仓库。打包和发版用 `tools/release/release.py`：不带参数只做只读检查，`--prepare` 在本地构建全部资产，`--publish` 才对外发布。
+真实站点地址仅从环境变量 `SCHOOL_ORIGIN` 读取，不写进仓库。打包与发版使用 `tools/release/release.py`：不带参数做只读检查，`--prepare` 在本地构建全部产物，`--publish` 需满足干净主分支与人工确认后才对外发布。
 
-参与开发前请先读 [AGENTS.md](AGENTS.md)（授权边界、提交规范、测试注意事项），架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+参与开发前请先阅读 [AGENTS.md](AGENTS.md)（授权边界、提交规范、测试注意事项），整体架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
 ```
-├── local/       本机版：图形界面（local/ui/）、报名 worker、打包脚本
-├── server/      服务器版：定时脚本、飞书机器人、部署文件
+├── local/       本机版：桌面界面（local/ui/features/ 与基础层）、报名 worker、打包脚本
+├── server/      服务器版：定时推送、飞书机器人、systemd/cron 部署文件
 ├── contracts/   学校接口的脱敏样例
-├── docs/        工程文档：架构、登录、报名、配置、运维、条款
+├── docs/        工程文档：架构、登录、报名、配置、运维与条款
 ├── design/      产品决策、规格、界面原型与验收截图
-└── tools/       发版与 QA 脚本
+└── tools/       发版脚本、代码结构门禁（tools/code_shape/）与 QA 检查
 ```
 
 | 文档 | 内容 |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 数据流、模块职责、接口清单 |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 数据流、分层职责、接口清单 |
 | [docs/LOGIN.md](docs/LOGIN.md) | 登录态、校验与自动重新登录 |
 | [docs/GRAB.md](docs/GRAB.md) | 报名链路与结果判定 |
-| [docs/PHONE_ACCESS.md](docs/PHONE_ACCESS.md) | 手机访问的通道、配对与安全边界 |
-| [docs/UI_SPEC.md](docs/UI_SPEC.md) | 界面与接口契约 |
-| [design/decisions/](design/decisions/) | 已拍板的产品决策 |
+| [docs/PHONE_ACCESS.md](docs/PHONE_ACCESS.md) | 手机访问通道、配对与安全边界 |
+| [docs/UI_SPEC.md](docs/UI_SPEC.md) | 界面与前后端契约 |
+| [design/decisions/](design/decisions/) | 已拍板的产品决策记录 |
 
 </details>
 
