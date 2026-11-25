@@ -1399,7 +1399,7 @@ coordination.py[AW9S]: F:持有唯一协调锁、关闭屏障、在途槽位和�
 
 ===/<repository>/local/build/===
 build_advanced.py[OV8M]: F:构建手机与OCR单体或四类复用资产并生成摘要清单、ZIP和构建报告 | R:code:local/infrastructure/components/component_packages.py,code:local/advanced_helper.py | A:组件资产生产/校验探针 | S:输出必须系统临时根独立绝对子目录且拒既有运行目录；手机OCR依赖互斥；cloudflared显式固定版本，OCR运行时模型分开；清单探针过才封包
-build_exe.py[OV8S]: F:先冻结worker再嵌入主程序，支持版本化目录及兼容单EXE | R:code:local/app.py,code:local/grab.py,code:local/update_launcher.py | A:冻结EXE/onedir/更新启动器 | S:worker作为数据落资源根，不能再次分析或成同名目录；失败不降级外置worker，图标缺失立即失败
+build_exe.py[OV8S]: F:先冻结worker再嵌入主程序，支持版本化目录及兼容单EXE | R:code:local/app.py,code:local/grab.py,code:local/update_launcher.py | A:冻结EXE/onedir/更新启动器 | S:worker作为数据落资源根，不能再次分析或成同名目录；失败不降级外置worker，图标缺失立即失败；component_packages 动态加载的五个同级模块必须逐个 hidden-import，否则冻结启动即缺模块
 build_installer.py[OV8L]: F:从指定冻结程序派生Inno安装包并管理白名单、版本载荷和卸载确认 | R:code:local/build/build_exe.py,code:local/update_launcher.py | A:安装器渲染/编译/产物核验 | S:AppId发布后固定；模板只替换占位键不format花括号；运行状态不得入包，静默卸载保留数据，交互删除默认否且仅默认根
 make_portable.py[OV6M]: F:组装嵌入式Python、应用依赖和启动器的历史绿色目录 | R:code:local/runtime_paths.py,code:local/requirements.txt | A:历史便携包构建 | S:复用输出按精确名单清会话偏好日志，避免运行态进包；浏览器用系统内核
 
