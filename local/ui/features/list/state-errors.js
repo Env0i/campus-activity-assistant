@@ -29,9 +29,9 @@ export function listErrorCopy(raw) {
       : { title: "登录已过期", text: failHint(raw), cause: "登录已过期" };
   }
   if (S.login.result === "unknown") return { title: "暂时无法加载", text: failHint(raw), cause: "登录状态还没确认" };
-  /* 已登录仍然拉不到列表：用原型 Main.dc.html 的 listerr 空态原话（LS12：先说已保存的登录不受影响，
+  /* 已登录仍然拉不到列表：用原型 Main.dc.html 的 listerr 空态原话（LS12：先说保存的登录没受影响，
    * 再给下一步，按钮叫「刷新」）。登录是有效的，重新登录修不好网络，所以不把失败归因成登录问题。 */
-  return { title: "活动暂时没加载", text: "连不上学校站点，已保存的登录不受影响。检查网络后点“刷⁠新”。", cause: "连不上学校站点" };
+  return { title: "活动暂时没加载", text: "连不上学校站点，保存的登录没受影响。检查网络后点“刷⁠新”。", cause: "连不上学校站点" };
 }
 
 function needLogin(text) { return /登录状态|登录状态|未登录|请先登录|session|401|403|token/i.test(String(text || "")); }

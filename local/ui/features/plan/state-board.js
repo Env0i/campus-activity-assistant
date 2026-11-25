@@ -145,7 +145,7 @@ export function resultView() {
   const c = resultCounts();
   if (String(S.plan.status) === "stopped") {
     return { tag: c.pending ? "已停止，需确认" : "已停止", tone: c.pending ? "amber" : "off",
-             title: "报名计划已停止", text: "已提交的场次保留原状态，还没提交的场次已取消。",
+             title: "报名计划已停止", text: "已经提交的场次结果不变，还没提交的已取消。",
              frame: c.pending ? "warn" : "", led: null };
   }
   /* 计划结束时仍有没出结论的场次（排队 / 等待 / 提交中）不算全部报上 */
@@ -167,12 +167,12 @@ export function resultView() {
   if (c.missed && !c.bad) {
     /* 原型 res 段：错过了排在待核对之后、名额已满之前；红框，不画 LED（hasLed 为假） */
     return { tag: "错过了", tone: "red", title: "电脑睡眠，错过了开放",
-             text: "运行计划时别让电脑睡眠：在 Windows 电源设置里把睡眠改成“从不”，并保持插电。",
+             text: "电脑睡眠过。计划运行时把电源设置里的睡眠改成“从不”，并保持插电。",
              frame: "bad", led: null };
   }
   if (c.full && !c.bad && !c.missed) {
     return { tag: "名额已满", tone: "amber", title: "这次没报上：名额满了",
-             text: "学校的名额在开放后被报满了，不是工具出错。", frame: "warn", led: null };
+             text: "名额满了，不是工具出错。", frame: "warn", led: null };
   }
   return { tag: "未成功", tone: "red", title: "报名计划没有成功", text: "每场的原因都列在下面。",
            frame: "bad", led: ["✕", "red"] };

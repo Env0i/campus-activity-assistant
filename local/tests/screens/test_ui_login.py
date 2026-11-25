@@ -1747,5 +1747,68 @@ out.push({ step: stepOf() });
         # 提交这一支进来就先写了「正在核对验证码…」，所以看它有没有被推到提示步
         self.assertEqual(data["step"], "wait", "关着时不该跳到提示步")
 
+
+class LoginChecklistTests(unittest.TestCase):
+    """D6：设置「登录」组二步清单状态、步数、文案与「去安装 / 启用」分流。"""
+
+    def test_login_checklist_model_covers_all_step_counts_and_bad_password(self):
+        """二步清单纯函数覆盖还差 2 步、还差 1 步、已就绪、密码被拒与各 OCR 状态。"""
+        cases = run_js(r"""
+const readyOcr = { ready: true, available: true, status: "ready" };
+const offOcr = { ready: false, available: true, status: "" };
+const missOcr = { ready: false, available: false, status: "" };
+out.push(
+  loginChecklistModel({ saved: false, staged: false }, missOcr),
+  loginChecklistModel({ saved: true, username: "20230089", paused: false }, missOcr),
+  loginChecklistModel({ saved: false, staged: true, staged_hint: "20****89" }, offOcr),
+  loginChecklistModel({ saved: true, username: "20230089", paused: false }, readyOcr),
+  loginChecklistModel({ saved: true, username: "20230089", paused: true }, readyOcr)
+);
+""")
+        self.assertEqual((cases[0]["headStatus"], cases[0]["s1Mark"], cases[0]["s2BtnLabel"], cases[0]["s2Action"]),
+                         ("还差 2 步", "1", "去安装", "go_ocr"))
+        self.assertEqual((cases[1]["headStatus"], cases[1]["s1Mark"], cases[1]["s2BtnLabel"]),
+                         ("还差 1 步", "✓", "去安装"))
+        self.assertEqual((cases[2]["headStatus"], cases[2]["s1Mark"], cases[2]["s2Mark"], cases[2]["s2Action"]),
+                         ("还差 1 步", "✓", "!", "enable"))
+        self.assertEqual((cases[3]["headStatus"], cases[3]["headCls"], cases[3]["s2BtnLabel"]),
+                         ("已就绪", "green", "查看组件"))
+        self.assertEqual((cases[4]["headStatus"], cases[4]["headCls"], cases[4]["s1Mark"], cases[4]["s1SubCls"]),
+                         ("还差 1 步", "red", "!", "bad"))
+
+    def test_ocr_step_button_jumps_when_missing_and_enables_when_off(self):
+        """未装时点第 2 步「去安装」展开高级 OCR；已装未启用点「启用」调启用接口。"""
+        res = run_js(r"""
+let enabledKey = "";
+const flush = async () => { for (let i = 0; i < 10; i += 1) await Promise.resolve(); };
+window.pywebview = { api: {
+  enable_advanced_feature: (k) => { enabledKey = k; return Promise.resolve({ ok: true }); },
+  phone_access_state: () => Promise.resolve({ ok: true, running: false, advanced: {
+    features: { relogin_ocr: { ready: true, available: true, status: "ready" } },
+    credential: { saved: true, username: "20230001" } } }),
+  advanced_component_location: () => Promise.resolve({ ok: false }),
+} };
+await flush();
+const miss = { ready: false, available: false, status: "" };
+PhonePanel.paintRelogin({ saved: false, staged: false }, miss);
+const missLabel = $("#btn-relogin-ocr-step").textContent;
+$("#btn-relogin-ocr-step").click();
+const expandedOnMissing = !$("#ocr-row-detail").hidden;
+const off = { ready: false, available: true, status: "" };
+PhonePanel.paintRelogin({ saved: true, username: "20230001" }, off);
+const headBeforeEnable = $("#relogin-head-status-text").textContent;
+const offLabel = $("#btn-relogin-ocr-step").textContent;
+$("#btn-relogin-ocr-step").click();
+await flush();
+out.push({ missLabel, expandedOnMissing, offLabel, enabledKey, headBeforeEnable,
+           headAfter: $("#relogin-head-status-text").textContent });
+""")[0]
+        self.assertEqual(res["missLabel"], "去安装")
+        self.assertTrue(res["expandedOnMissing"], "未装时点去安装应展开验证码识别行详情")
+        self.assertEqual(res["offLabel"], "启用")
+        self.assertEqual(res["enabledKey"], "relogin_ocr")
+        self.assertEqual(res["headBeforeEnable"], "还差 1 步")
+        self.assertEqual(res["headAfter"], "已就绪")
+
 if __name__ == "__main__":
     unittest.main()

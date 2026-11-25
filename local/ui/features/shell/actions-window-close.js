@@ -92,13 +92,13 @@ function paintCloseChoices(data) {
   const minText = document.getElementById("close-min-text");
   if (minText) {
     minText.textContent = data.plan_running
-      ? "窗口缩到任务栏，计划和手机访问都照常。"
+      ? "窗口缩到任务栏，计划和手机访问照常。"
       : "窗口缩到任务栏，点一下就回来。";
   }
   const hideText = document.getElementById("close-hide-text");
   if (hideText) {
-    hideText.textContent = "窗口不见了，工具在后台继续运行。从右下角托盘图标" +
-      (data.phone_live ? "或手机页" : "") + "叫回来。";
+    hideText.textContent = "窗口藏到后台，工具照常运行，可以从托盘图标" +
+      (data.phone_live ? "或手机页" : "") + "叫回。";
   }
   const hide = document.getElementById("btn-close-hide");
   const hideWhy = document.getElementById("close-hide-why");

@@ -1,5 +1,6 @@
 import { setResult } from "../shell/view-result.js";
 import { cancelAsk, cancelAskDismiss, cancelConfirm } from "./actions-cancel.js";
+import { openDescDialog } from "./actions-desc.js";
 import { togglePlace } from "../plan/view-draft.js";
 import { render } from "../shell/actions-render.js";
 import { termsLocked } from "../terms/state.js";
@@ -67,7 +68,7 @@ export function tipGoSigned() {
   const id = String(pair.sg.id);
   tipClose();
   if (!filtered().some((it) => String(it.id) === id)) {
-    S.filter = Object.assign({}, S.filter, { q: "", status: "all", time: "all", checkin: "all", checkout: "all" });
+    S.filter = Object.assign({}, S.filter, { q: "", status: "all", time: "all", checkin: "all", checkout: "all", types: [] });
     $("#q").value = "";
     $("#time").value = "all";
     $("#checkin").value = "all";
@@ -101,6 +102,8 @@ export function wireRowActions() {
     const cancelYes = event.target.closest("[data-cancel-yes]");
     if (cancelYes) { cancelConfirm(cancelYes.dataset.cancelYes); return; }
     if (event.target.closest(".rx")) return;
+    const descBtn = event.target.closest(".desc-btn");
+    if (descBtn) { event.stopPropagation(); openDescDialog(descBtn.dataset.desc, descBtn); return; }
     if (event.target.closest(".row-check")) return;
     /* 地点是独立可聚焦控件：点它只展开/收起完整文本，不改变选择 */
     const place = event.target.closest(".c-place");

@@ -73,7 +73,7 @@ function trackInstall(dlState, installing) {
 function leadOf(phase, version) {
   if (phase === "on") {
     return (version ? "版本 " + version + "。" : "")
-      + "电脑会自己认验证码，连续认错 3 次再转给手机手动输入。";
+      + "电脑会自己认验证码，连续认错 3 次转给手机手动输。";
   }
   if (phase === "off") {
     return "已装好" + (version ? "（版本 " + version + "）" : "")
@@ -126,6 +126,8 @@ export function paintOcrDownload() {
 
   const line = $("#ocr-download-state");
   if (line) line.textContent = leadOf(phase, version);
+  const dismissBtn = $("#btn-dismiss-ocr-note");
+  if (dismissBtn) dismissBtn.hidden = !OcrPanel.note;
   /* 识别行特有：装好未启用时的说明块 */
   ocrShow("#ocr-off-note", phase === "off");
 }

@@ -2,6 +2,7 @@ import { helpStatus } from "./view-help.js";
 import { render } from "./actions-render.js";
 import { paintBanners } from "./view-banners.js";
 import { OcrPanel } from "../components/state-ocr.js";
+import { setRowOpen } from "../components/state-row.js";
 import { paintOcrDownload } from "../components/view-ocr.js";
 import { paintFeishuRow } from "./view-feishu.js";
 
@@ -197,7 +198,7 @@ export function wireSettings() {
     withdraw.addEventListener("click", () => {
       if (S.busy) return;
       /* 只展开确认条，不发 withdraw_terms（TM10/TM11：点「确认撤回」才动手）；
-         展开时藏句内链接钮（TM10，原型 canWithdraw 含 !termsWAsk，Main:2491/2492） */
+       * 展开时藏句内链接钮（TM10，原型 canWithdraw 含 !termsWAsk，Main:2491/2492） */
       termsWithdrawAskOpen = true;
       $("#terms-withdraw-confirm").hidden = false;
       paintTermsRow();
@@ -211,6 +212,12 @@ export function wireSettings() {
   });
   const confirm = $("#btn-terms-withdraw-confirm");
   if (confirm) confirm.addEventListener("click", () => { void withdrawTerms(); });
+  wireOcrControls();
+  wireChecklistAndProgram();
+  wireFeishu();
+}
+
+function wireOcrControls() {
   const ocrDownload = $("#btn-ocr-download");
   if (ocrDownload) {
     /* 点击时检查手机面板是否可用；导入入口使用同样的判定。 */
@@ -233,5 +240,58 @@ export function wireSettings() {
   });
   const ocrOpenLoc = $("#btn-ocr-open-loc");
   if (ocrOpenLoc) ocrOpenLoc.addEventListener("click", () => void openOcrDir());
-  wireFeishu();
+}
+
+function wireChecklistAndProgram() {
+  const reloginOcrStep = $("#btn-relogin-ocr-step");
+  if (reloginOcrStep) {
+    reloginOcrStep.addEventListener("click", () => {
+      if (reloginOcrStep.dataset.action === "enable") {
+        void enableOcr();
+        return;
+      }
+      setRowOpen("ocr", true);
+      if (window.PhonePanel && typeof window.PhonePanel.paint === "function") window.PhonePanel.paint();
+      else paintOcrDownload();
+      const ocrSec = $("#set-ocr");
+      if (ocrSec && ocrSec.scrollIntoView) ocrSec.scrollIntoView({ block: "start" });
+      const dlBtn = $("#btn-ocr-download");
+      const target = (dlBtn && !dlBtn.hidden) ? dlBtn : $("#btn-ocr-row-toggle");
+      if (target && target.focus) target.focus();
+    });
+  }
+  const updateToggle = $("#btn-update-row-toggle");
+  if (updateToggle) {
+    updateToggle.addEventListener("click", () => {
+      S.updateOpen = !S.updateOpen;
+      if (typeof paintUpdate === "function") paintUpdate();
+    });
+  }
+  const feishuToggle = $("#btn-feishu-toggle");
+  if (feishuToggle) {
+    feishuToggle.addEventListener("click", () => {
+      S.feishuOpen = !S.feishuOpen;
+      paintFeishuRow(false);
+    });
+  }
+  [
+    ["#btn-dismiss-ocr-note", () => { OcrPanel.note = ""; paintOcrDownload(); }],
+    ["#btn-dismiss-credential-note", () => { if (window.PhonePanel) { window.PhonePanel.credNote = ""; window.PhonePanel.paint(); } }],
+    ["#btn-dismiss-feishu-note", () => { S.feishuNote = null; paintFeishuRow(false); }],
+    ["#btn-dismiss-help-status", () => helpStatus("")],
+  ].forEach((pair) => {
+    const btn = $(pair[0]);
+    if (btn) btn.addEventListener("click", pair[1]);
+  });
+  const retryBtn = $("#btn-list-refresh-retry");
+  if (retryBtn) retryBtn.addEventListener("click", () => refresh(false));
+  const banners = $("#banners");
+  if (banners) banners.addEventListener("click", (e) => {
+    if (e.target && e.target.closest && e.target.closest('[data-act="banner-collapse"]')) {
+      S.collapsedBanner = S.bannerTopKey || "";
+      paintBanners();
+      if (typeof paintClockStatus === "function") paintClockStatus();
+      if (typeof window.paintLogin === "function") window.paintLogin();
+    }
+  });
 }

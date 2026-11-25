@@ -13,7 +13,7 @@ export const BOARD_STYLE = Object.freeze({
   first_use: {
     tag: "首次使用", tone: "off", dot: true,
     title: "登录后开始",
-    text: "活动会在登录完成后自动加载。",
+    text: "登录后自动加载。",
   },
   logging_in: {
     /* 登录尝试期间 S.busy 也为真，但这不是报名计划：
@@ -272,7 +272,7 @@ export function paintRunPanel() {
   const fromPhone = String(S.plan.source || "") === "phone";
   hint.hidden = false;
   hint.textContent = "可以最小化窗口，但不要关闭工具或让电脑睡眠。"
-    + (fromPhone ? "这个计划是从手机开始的，在电脑和手机上都能看进度、停止。" : "");
+    + (fromPhone ? "这个计划是从手机开始的，电脑和手机都能看进度、停止。" : "");
   /* 原型 modifyInfo.ok：没有还没提交的场次时也不能修改（没有能放回草稿的） */
   if (modify) modify.disabled = late || S.stopping || !waitList.length;
   if (why) {

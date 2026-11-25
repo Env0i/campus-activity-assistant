@@ -783,7 +783,7 @@ out.push({
         self.assertEqual(board["tag"], "已停止")
         self.assertEqual(board["title"], "报名计划已停止")
         self.assertNotIn("待核对", _said(board) + board["stats"])
-        self.assertIn("保留原状态", board["text"])
+        self.assertIn("已经提交的场次结果不变", board["text"])
         self.assertEqual(_stats(board), {"已取消": 1})
         self.assertTrue(board["ledHidden"], "停止不显示结论 LED（原型 res.hasLed）")
         self.assertNotEqual(data["led"], ["✕", "red"])
@@ -2599,13 +2599,19 @@ S.selected.add("a1");
 refresh(false);
 const during = S.listState;
 __failList("连不上学校站点");
-out.push({ during: during, listState: S.listState, ids: __ids(), selected: Array.from(S.selected) });
+const kept = { listState: S.listState, ids: __ids(), selected: Array.from(S.selected), fail: S.listRefreshFail };
+S.items = []; S.byId = new Map(); S.selected.clear();
+refresh(false);
+__failList("连不上学校站点");
+out.push({ during, kept, emptyState: S.listState });
 """)
         data = res[0]
-        self.assertEqual(data["during"], "loading", "手动刷新仍然出骨架")
-        self.assertEqual(data["listState"], "error", "手动刷新失败的老行为不变")
-        self.assertEqual(data["ids"], [])
-        self.assertEqual(data["selected"], [])
+        self.assertEqual(data["during"], "loading")
+        self.assertEqual(data["kept"]["listState"], "ready", "D7：有旧列表时刷新失败保持 ready 与旧行")
+        self.assertEqual(data["kept"]["ids"], ["a1", "a2"])
+        self.assertEqual(data["kept"]["selected"], ["a1"])
+        self.assertTrue(data["kept"]["fail"])
+        self.assertEqual(data["emptyState"], "error", "无旧列表时刷新失败仍落 error 空态")
 
     def test_every_failure_channel_keeps_the_list_and_counts_toward_three(self):
         res = run_js(AUTO_REFRESH_PRELUDE + r"""

@@ -357,6 +357,25 @@ class DetailCancelFlagsTests(_ListHarness):
         self.assertIsNone(item["cancel_allowed"])
         self.assertIsNone(item["can_sign"])
 
+    def test_json_rows_carry_type_description_audience_and_distinguish_empty_vs_none(self):
+        r1 = raw_row("a1", sign_end=7200)
+        r1["hdlx"] = "讲座"
+        r2 = raw_row("a2", sign_end=7200)
+        r2["hdlx"] = ""
+        data, _ = self.run_list(
+            [r1, r2],
+            {"a1": detail_reply(hdms="", mxfw="全校", hdmxfw=0), "a2": None},
+        )
+        by_id = {r["id"]: r for r in data}
+        self.assertEqual(by_id["a1"]["type"], "讲座")
+        self.assertEqual(by_id["a1"]["description"], "", "学校没填是空串，区别于同步失败 None")
+        self.assertEqual(by_id["a1"]["audience"], "全校")
+        self.assertEqual(by_id["a1"]["audience_code"], 0)
+        self.assertEqual(by_id["a2"]["type"], "其他", "缺失类型归一化为其他")
+        self.assertIsNone(by_id["a2"]["description"], "详情失败为 None")
+        self.assertIsNone(by_id["a2"]["audience"])
+        self.assertIsNone(by_id["a2"]["audience_code"])
+
     def test_concurrency_and_timeout_constants_are_untouched(self):
         self.assertEqual(grab.DETAIL_CONCURRENCY, 4)
         self.assertEqual(grab.DETAIL_TIMEOUT_S, 12.0)
@@ -423,6 +442,16 @@ class DemoDataTests(unittest.TestCase):
             apart = (grab.parse_ts(row["act_end"]) <= grab.parse_ts(dorm["act_start"])
                      or grab.parse_ts(row["act_start"]) >= grab.parse_ts(dorm["act_end"]))
             self.assertTrue(apart, aid)
+
+    def test_demo_rows_cover_all_audience_codes_empty_and_none(self):
+        rows = self.items()
+        codes = {r["audience_code"] for r in rows.values()}
+        self.assertTrue({0, 1, 2, 3, 5}.issubset(codes))
+        self.assertEqual(rows["demo-workshop"]["description"], "")
+        self.assertIsNone(rows["demo-volunteer"]["description"])
+        self.assertIsNone(rows["demo-volunteer"]["audience_code"])
+        branches = [b for b in rows["demo-lab"]["audience"].split("、") if b]
+        self.assertGreaterEqual(len(branches), 4)
 
 
 if __name__ == "__main__":

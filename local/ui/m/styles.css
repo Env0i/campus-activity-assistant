@@ -497,39 +497,68 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .grp.open b { color: var(--warn); }
 .grp.signed b { color: var(--ok); }
 .grp .ct { margin-left: auto; color: var(--ink-3); font-family: var(--n); }
-.nowline { position: relative; display: flex; align-items: center; height: 1.625rem; padding: 0 .75rem; background: var(--paper); }
-.nowline::before { content: ""; position: absolute; right: 0; left: 0; top: 50%; border-top: 1px solid var(--ink); }
-.nowchip { position: relative; display: inline-flex; align-items: center; gap: .375rem; height: 1.25rem; padding: 0 .5rem; border-radius: 4px; background: var(--ink); color: #fff; font-size: .75rem; }
-.nowchip::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--amber); }
+.nowline { position: relative; display: flex; align-items: center; height: 1.75rem; padding: 0 .75rem 0 1.5rem; background: var(--paper); border-bottom: 1px solid var(--line); }
+.nowline::before { content: ""; position: absolute; right: .75rem; left: .6875rem; top: 50%; border-top: 1.5px solid #e07b12; }
+.nowline::after { content: ""; position: absolute; left: .6875rem; top: 50%; width: .5rem; height: .5rem; margin: -.25rem 0 0 -.25rem; border-radius: 50%; background: #e07b12; box-shadow: 0 0 0 3px rgba(224, 123, 18, .2); }
+.nowchip { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: .375rem; height: 1.25rem; padding: 0 .5rem; border-radius: 4px; background: #fff4e6; color: #8f4a00; box-shadow: inset 0 0 0 1px #f2c58f; font-size: .75rem; }
+.nowchip::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: #e07b12; }
 .nowchip b { font-family: var(--n); font-variant-numeric: tabular-nums; font-weight: 600; }
-/* ---- G05 列表行（数值照抄 Phone.dc.html 的 .row/.time/.main/.flag 系 98-121）----
-   原型 .row 是「勾选框 / 时刻大字 / 主体」的行内固定三列 grid（Phone:98），不是页面级
-   多栏布局；test_mobile_layout_statics 的 display:grid 剔除清单为此扩 .row 一条 */
-.row { position: relative; display: grid; grid-template-columns: 1.375rem 3.375rem minmax(0, 1fr); gap: 0 .5rem; padding: .625rem .75rem; border-bottom: 1px solid var(--line); cursor: pointer; }
-.row:last-child { border-bottom: 0; }
+/* ---- D9 手机页时间轴与四层卡片（源自 G05 Phone.dc.html .row 系，单列 flex 排布；.row .l2/.l3 已替代旧 .row .sub，SH05 已独立用 .sec）---- */
+.tl-node { position: relative; display: flex; flex-direction: column; gap: .375rem; padding: .5rem .5rem .625rem 1.5rem; border-bottom: 1px solid var(--line); background: var(--paper); }
+.tl-node::before { content: ""; position: absolute; left: .6875rem; top: 0; bottom: 0; width: 2px; background: var(--line-2); }
+.tl-axis { z-index: 1; display: flex; align-items: center; gap: .4375rem; }
+.tl-time { min-width: 0; display: flex; align-items: center; gap: .4375rem; line-height: 1.1; }
+.tl-t { font: 600 1rem/1.05 var(--n); font-stretch: 85%; font-variant-numeric: tabular-nums; color: var(--ink); }
+.tl-t.txt { font: 500 .75rem/1.25 var(--font-ui); color: var(--ink-3); }
+.tl-day { color: var(--ink-3); font-size: .6875rem; white-space: nowrap; }
+.tl-batch { display: inline-block; width: fit-content; padding: 0 .25rem; border-radius: 4px; background: var(--warn-tint); color: var(--warn); font-size: .625rem; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+.tl-dot { position: absolute; left: .375rem; top: .75rem; width: .6875rem; height: .6875rem; margin: 0; border-radius: 50%; flex: none; background: var(--paper); border: 2px solid var(--ink-3); }
+.tl-dot.open { background: #d96b00; border-color: #d96b00; }
+.tl-dot.next { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 0 3.5px rgba(255, 176, 32, .28); }
+.tl-dot.wait { background: var(--paper); border: 2px solid var(--ink-3); }
+.tl-dot.unknown { background: var(--paper); border: 1.5px dashed var(--ink-3); }
+.tl-cards, .tl-below { display: flex; flex-direction: column; gap: .4375rem; min-width: 0; }
+.tl-below { padding: .5rem; background: var(--paper); border-bottom: 1px solid var(--line); }
+#signed-items { display: flex; flex-direction: column; gap: .4375rem; }
+.row { position: relative; display: flex; flex-direction: column; gap: .3125rem; padding: .5rem .5625rem; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); cursor: pointer; }
 .row:active { background: #f5f8fa; }
-.row.sel, .row.sel:active { background: var(--blue-tint); }
-.row.sel::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--blue); }
+.row.sel, .row.sel:active { background: var(--blue-tint); border-color: #9dc0de; }
+.row.sel::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 8px 0 0 8px; background: var(--blue); }
 .row.off { cursor: default; }
-.row.off:active { background: transparent; }
-.row.dim .name { font-weight: 400; color: var(--ink-2); }
-.row.dim .time b { color: var(--ink-3); }
-.row input { width: 1.25rem; height: 1.25rem; margin: .1875rem 0 0; accent-color: var(--blue); }
+.row.off:active { background: var(--paper); }
+.row.dim { background: #fafbfc; }
+.row.dim .name { font-weight: 500; color: var(--ink-2); }
+.row input { width: 1.1875rem; height: 1.1875rem; margin: .125rem 0 0; flex: none; accent-color: var(--blue); }
 .row[data-id] { scroll-margin-top: 6.5rem; }
-.time { display: flex; flex-direction: column; line-height: 1.2; }
-.time b { font: 600 1.375rem var(--n); font-stretch: 85%; font-variant-numeric: tabular-nums; }
-.time b.txt { font: 400 .8125rem var(--font-ui); color: var(--ink-3); }
-.time small { margin-top: .125rem; color: var(--blue); font: .75rem var(--n); font-variant-numeric: tabular-nums; }
-.time small.soon { color: var(--warn); font-weight: 700; }
-.main { min-width: 0; }
-.name { display: block; font-size: .9375rem; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
-/* .row .sub 加作用域：.sub 曾被更多面板的分节占用（SH05 改用原型 .sec 后不再冲突），
-   作用域保留以免日后全局 .sub 再撞列表行 */
-.row .sub { display: flex; flex-wrap: wrap; align-items: center; gap: .125rem .375rem; margin-top: .125rem; color: var(--ink-2); font-size: .75rem; }
+.l1 { display: flex; align-items: flex-start; gap: .4375rem; min-width: 0; }
+.nl { flex: 1; min-width: 0; }
+.name { display: block; font-size: .875rem; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.l1-r { flex: none; margin-left: auto; }
+.l2 { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: .25rem .375rem; font-size: .75rem; color: var(--ink-2); min-width: 0; }
+.l2-l { flex: 1 1 auto; display: flex; flex-wrap: nowrap; align-items: center; gap: .25rem .375rem; min-width: 0; overflow: hidden; }
+.l2-l > * { flex: none; white-space: nowrap; }
+.l2-l > .sign-end { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.l2-r { display: flex; flex-wrap: nowrap; align-items: center; gap: .25rem; margin-left: auto; flex: none; white-space: nowrap; }
+.type-tag { display: inline-flex; align-items: center; gap: .3125rem; min-width: 0; max-width: 6.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font-size: .6875rem; line-height: 1.25rem; }
+.type-tag::before { content: ""; flex: none; width: .4375rem; height: .4375rem; border-radius: 2px; background: #8a96a1; }
+.sign-end { color: var(--ink-3); font-size: .6875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.left { color: var(--ink-2); font: .8125rem var(--n); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.left.soon { color: var(--warn); font-weight: 700; }
+.l3 { display: flex; flex-direction: column; gap: .1875rem; padding: .3125rem .4375rem; border-radius: 6px; background: var(--paper-2); color: var(--ink-2); font-size: .6875rem; line-height: 1.35; }
+.row.sel .l3 { background: rgba(255, 255, 255, .72); }
+.l3-r { display: flex; align-items: baseline; gap: .125rem .5625rem; min-width: 0; }
+.l3-c { flex: 1 1 0; display: flex; align-items: baseline; gap: .1875rem; min-width: 0; overflow: hidden; }
+.l3-c em { font-style: normal; color: var(--ink-3); flex: none; }
+.l3-c span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.l3-c.na span { color: var(--ink-3); }
+.l3-c.pend span { color: var(--warn); }
+.l4 { display: flex; flex-direction: column; gap: .1875rem; }
+.note-m { display: block; color: var(--bad); font-size: .75rem; overflow-wrap: anywhere; }
+.note-s { display: block; color: var(--ok); font-size: .75rem; overflow-wrap: anywhere; }
 .flag { padding: 1px .3125rem; border-radius: 4px; background: var(--blue-tint); color: var(--blue); font-size: .6875rem; line-height: 1.35; white-space: nowrap; }
 .row.sel .flag { background: #fff; }
 .flag.warn, .row.sel .flag.warn { background: var(--warn-tint); color: var(--warn); }
-.flag.next, .row.sel .flag.next { background: var(--ink); color: #fff; }
+.flag.next { display: none; }
 .flag.signed { background: var(--ok-tint); color: var(--ok); }
 .flag.mute { background: #eceff2; color: var(--ink-2); }
 /* G05 行警（与已选的「{名}」时间重叠，Phone:761）与 G09 无匹配空态（Phone:290，居中） */
@@ -605,16 +634,17 @@ details.card[open] > summary::before { content: "▾"; }
 .row.clash.open, .row.clash.open:active { background: #f5f8fa; }
 .row.flash { animation: cxflash 1.8s ease-out; }
 @keyframes cxflash { 0%, 40% { background: #ffe7ad; } 100% { background: transparent; } }
-.rf { color: var(--ink-2); }
+.rf { color: var(--ink-2); white-space: nowrap; }
 .rf.no { color: var(--warn); font-weight: 600; }
-/* 奖励徽标（实践分 · 虚拟工资，原型 Phone.dc.html 的 .sub .rw）：
+/* 奖励徽标（实践分 · 虚拟工资，D9 在第一层 .l1-r 右侧呈现，取代原型 Phone.dc.html 的 .sub .rw）：
  * 同步中只换色不画底，拿到详情才是纸色小标签；0 分也照实显示「0 分」 */
-.row .sub .rw { padding: 0 5px; border-radius: 4px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); font-size: 11px; line-height: 20px; white-space: nowrap; }
-.row .sub .rw.p { background: transparent; box-shadow: none; color: var(--warn); }
+.rw { display: inline-block; padding: 0 .3125rem; border-radius: 4px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); font-size: .6875rem; line-height: 1.25rem; white-space: nowrap; }
+.rw.p { background: transparent; box-shadow: none; color: var(--warn); }
+.row.sel .rw:not(.p) { background: #fff; }
 /* 已报名行注「可取消至 …」（原型 .cx-n 126） */
 .cx-n { display: block; margin-top: .125rem; color: var(--ink-2); font-size: .75rem; overflow-wrap: anywhere; }
-/* 原因面板在行内占满三列（原型 .why 127 的 grid-column: 1/-1） */
-.why { display: block; grid-column: 1 / -1; margin-top: 8px; padding: 10px 12px 12px; border-radius: 8px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); font-size: 12px; line-height: 1.5; cursor: default; }
+/* 原因面板在卡片内占满全宽（原型 .why 127 占满整行宽度） */
+.why { display: block; width: 100%; margin-top: 8px; padding: 10px 12px 12px; border-radius: 8px; background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); font-size: 12px; line-height: 1.5; cursor: default; }
 .why-t { display: block; margin: 0 0 6px; font-size: 13px; font-weight: 700; }
 .why-r { margin: 0; }
 .why-row { display: flex; gap: 10px; margin-bottom: 2px; }

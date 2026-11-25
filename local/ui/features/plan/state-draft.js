@@ -64,7 +64,7 @@ export function preStartWarnings() {
     }
   }
   if (now !== null && latest !== null && latest - now > 86400) {
-    list.push({ tone: "warn", text: "有场次在 24 小时以后才开放，计划要一直运行到那时。这段时⁠间电⁠脑不能关机或睡眠。" });
+    list.push({ tone: "warn", text: "有场次 24 小时后才开放，这段时间电脑别关机、别睡眠。" });
   }
   return list;
 }

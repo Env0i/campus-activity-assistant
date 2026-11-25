@@ -37,7 +37,7 @@ function syncOffline(stale) {
   $("offline-note-title").textContent =
     tries > 0 ? "连不上电脑，已重试 " + tries + " 次" : "连不上电脑";
   $("offline-note-text").textContent =
-    "确认电脑开着、程序没退出。如果只是手机断网，电脑上的计划不受影响。";
+    "确认电脑没睡眠、程序没退出；只是手机断网的话，电脑照常报名。";
   $("btn-offline-retry").textContent = model.flying ? "同步中…" : "重试";
   note.hidden = false;
 }
@@ -317,7 +317,7 @@ function renderStats(counts) {
 function renderPlan() {
   renderTasks();
   const tip = $("run-tip");
-  tip.textContent = "手机能锁屏，电脑不能关机或睡眠。要改，回电脑点“修改计划”，或者停止后重新选。";
+  tip.textContent = "手机可以锁屏，电脑别关机、别睡眠；要改计划回电脑，或先停止。";
   tip.hidden = !model.busy;
 }
 

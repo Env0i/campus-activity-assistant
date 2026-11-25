@@ -118,6 +118,7 @@ function filtered() {
       if (now != null && S.filter.time === "week" && (stamp < now - 7 * 86400 || stamp > now + 7 * 86400)) return false;
     }
     if (!matchesFlag(item.checkin_required, S.filter.checkin) || !matchesFlag(item.checkout_required, S.filter.checkout)) return false;
+    if (!matchesTypeFilter(item, S.filter.types)) return false;
     return true;
   });
   rows.sort((a, b) => {

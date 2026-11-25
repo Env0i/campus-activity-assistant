@@ -42,7 +42,7 @@ function paintUpdate() {
     "verifying", "applying", "launching"].indexOf(state) >= 0;
   button.disabled = inFlight;
   /* 文案照原型 Main.dc.html:1426-1442；版本号仍来自后端，不写死。 */
-  const copy = { idle: "只有点“检查更新”时才联网，下载前还会再确认。", checking: "正在检查…", current: "已是最新正式版。",
+  const copy = { idle: "只有点“检查更新”才联网，下载前会再问你。", checking: "正在检查…", current: "已是最新正式版。",
     available: "发现新版本 " + (result.latest_version || "") + "。",
     no_installer: "发现新版本 " + (result.latest_version || "") + "，但没有可校验的安装包，只能到发布页手动下载。",
     preview: "当前是预览版本，最新正式版是 " + (result.latest_version || "") + "，不建议换回旧版本。",
@@ -161,9 +161,9 @@ function paintUpdate() {
   }
   const pushing = showInstall || showConfirm || showLaunch || showClose;
   $("#update-flow").hidden = !(pushing || showCancel);
-  /* 标题行右侧每步只留一个推进动作：流程按钮或「取消下载/校验中…」出现时收起「检查更新」（UP01） */
-  button.hidden = pushing || showCancel;
+  button.hidden = pushing || showCancel;   /* 标题行右侧每步只留一个推进动作：流程按钮或「取消下载/校验中…」出现时收起「检查更新」（UP01） */
   button.textContent = state === "checking" ? "检查中…" : state === "error" ? "重试检查" : "检查更新";
+  paintUpdateChrome(state, errText);
   /* 状态自己变了（不是用户刚点的那一下）：新出现的推进按钮先停 0.8 秒，防止连点误触 */
   if (S.update.paintedState !== state) {
     S.update.paintedState = state;
@@ -180,6 +180,26 @@ function paintUpdate() {
 }
 
 const UPDATE_GUARD_MS = 800;
+
+function paintUpdateChrome(state, errText) {
+  const sumRow = $("#update-summary-row");
+  if (sumRow) {
+    const tone = (state === "error" || state === "failed") ? "red"
+      : (state === "available" || state === "confirm" || state === "no_installer" || state === "preview") ? "amber"
+      : (state === "current" || state === "ready_to_install" || state === "ready_to_restart") ? "green"
+      : (state === "checking" || state === "downloading" || state === "downloading_delta"
+        || state === "downloading_full" || state === "verifying" || state === "applying" || state === "launching") ? "blue"
+      : "";
+    sumRow.className = "adv-s" + (tone ? " " + tone : "");
+  }
+  const detail = $("#update-detail");
+  const hasActive = !!errText || ["available", "confirm", "no_installer", "downloading", "downloading_delta",
+    "downloading_full", "verifying", "applying", "ready_to_install", "ready_to_restart", "launching"].indexOf(state) >= 0;
+  const open = hasActive || !!S.updateOpen;
+  if (detail) detail.hidden = !open;
+  const toggle = $("#btn-update-row-toggle");
+  if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
+}
 
 /* 帮助面板里的更新状态单元格：新结论到达时展开（呈现入口由更新用例与 help 共用）。 */
 function revealUpdateStatus() {

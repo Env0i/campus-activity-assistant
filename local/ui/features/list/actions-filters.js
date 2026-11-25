@@ -1,4 +1,5 @@
 import { render } from "../shell/actions-render.js";
+import { toggleTypeValue } from "./state-types.js";
 /* 展开状态与筛选值一样记进偏好；记不下来不影响本次使用 */
 export function setFilterOpen(open) {
   S.filterOpen = !!open;
@@ -25,4 +26,12 @@ export function wireFilters() {
   $("#sort").addEventListener("change", (event) => setFilter("sort", event.target.value));
   $("#checkin").addEventListener("change", (event) => setFilter("checkin", event.target.value));
   $("#checkout").addEventListener("change", (event) => setFilter("checkout", event.target.value));
+  const typesBox = $("#more-types");
+  if (typesBox) {
+    typesBox.addEventListener("click", (event) => {
+      if (event.target.closest("[data-type-clear]")) { setFilter("types", []); return; }
+      const chip = event.target.closest(".tchip[data-type]");
+      if (chip) setFilter("types", toggleTypeValue(S.filter.types, chip.dataset.type));
+    });
+  }
 }

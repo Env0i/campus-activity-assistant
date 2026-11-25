@@ -452,7 +452,7 @@ class AdvancedComponentDialogContractTests(unittest.TestCase):
                 self.assertIn('id="btn-%s-%s"' % (prefix, action), self.html)
             self.assertNotIn('id="btn-%s-inspect"' % prefix, self.html, "自检随选文件自动做（IM01）")
             self.assertNotIn('id="%s-status"' % prefix, self.html)
-        self.assertIn("选一个已经下好的组件包 ZIP。选完会立刻自检，选错了会当场说清是什么。", self.html)
+        self.assertIn("选一个下好的组件包 ZIP，选完马上自检。", self.html)
         self.assertIn("需要 relogin_ocr-版本号.zip，在发布页和程序一起发布，版本要和程序一致。", self.html)
         self.assertIn("需要 phone_control-版本号.zip，里面已经带好 cloudflared，不用另外安装。", self.html)
 
@@ -1659,7 +1659,7 @@ out.push({ title: document.querySelector("#empty-title").textContent,
   boardText: document.querySelector("#board-text").textContent });
 """)
         case = res[0]
-        self.assertEqual(case["title"], "学校当前没有返回活动")
+        self.assertEqual(case["title"], "学校当前没有活动")
         self.assertNotIn("重新登录", case["text"])
         self.assertNotIn("点右上角", case["text"], "登录有效时不得再给登录下一步")
         self.assertEqual(case["total"], "0", "已知零条必须写 0，不是破折号")
@@ -1678,22 +1678,15 @@ out.push({ title: document.querySelector("#empty-title").textContent,
         取代旧的「副行说学校当前没有返回可报名活动」：标题已经是这句，副行不再重复，
         改为排除登录原因并给下一步；仍不得残留「学校这次」变体，也不再用「登录是有效的」开头。"""
         list_src = read("ui/views/list.js")
-        self.assertIn("这不是登录问题。", list_src)
-        self.assertIn("学校发布新活动后会出现在这里", list_src)
+        self.assertIn("这不是登录问题，学校发布新活动后会出现在这里。", list_src)
         self.assertNotIn("学校这次", list_src)
         self.assertNotIn("登录是有效的，学校当前没有返回", list_src)
 
     def test_board_and_list_share_one_empty_sentence(self):
-        """学校返回 0 场：计划栏与列表空态各用原型那一句，两处都钉住，防止再分叉成第三种说法。
-
-        旧口径是两处一字不差；现在的原型两处本来就不同：计划栏 draft 段写「学校当前没有活动」/「稍后刷新再看。」，
-        列表 empty 写「学校当前没有返回活动」（计划 20261106-plan-panel 的 draft-panel A，见 plan_amendments）。
-        """
         panel = read("ui/features/plan/view.js")
         self.assertIn('"学校当前没有活动"', panel)
         self.assertIn('"稍后刷新再看。"', panel)
-        self.assertNotIn("学校当前没有返回活动", panel, "计划栏照原型 draft 段，不用列表那一句")
-        self.assertIn("学校当前没有返回活动", read("ui/views/list.js"))
+        self.assertIn("学校当前没有活动", read("ui/views/list.js"))
 
     def test_login_states_get_their_own_next_step(self):
         """none→登录、expired→重新登录、unknown→刷新（且不得说成过期）。"""
@@ -1976,7 +1969,7 @@ out.push({ whileChecking, afterExpired, checkingAgain, afterUnknown, checkThenLi
         self.assertEqual(case["checkingAgain"]["title"], "正在检查登录状态")
         self.assertEqual(case["afterUnknown"]["title"], "暂时无法确认登录状态")
         self.assertNotIn("过期", case["afterUnknown"]["text"], "unknown 不说过期")
-        self.assertEqual(case["checkThenList"]["title"], "学校当前没有返回活动",
+        self.assertEqual(case["checkThenList"]["title"], "学校当前没有活动",
                          "check 先到、list 后到也要收敛到真实状态")
 
     def test_empty_action_dispatches_by_intent(self):
@@ -2159,37 +2152,47 @@ out.push({ opened: opened, closed: closed, prevented: event.defaultPrevented,
 class RefreshFeedbackTests(unittest.TestCase):
     """N2：点刷新立刻看得见加载，失败落原型失败态，断网时不发请求并给「重新检测」。"""
 
-    def test_loading_replaces_old_rows_with_skeleton(self):
-        """有旧列表时点刷新同样立刻进加载态：列表骨架、计划栏与点阵屏都改口。
-
-        取代「只有空列表才显示骨架」：请求挂着不回来时，旧行原样留着看起来就是没反应
-        （原型 Main.dc.html:2138 / :2006 / :1993）。"""
+    def test_loading_keeps_old_rows_with_bar_and_uses_timeline_skeleton_when_empty(self):
+        """D7：首次无旧列表时画时间轴骨架；有旧列表时保留旧行并在顶部挂进度条与「正在刷新…」。"""
+        # 桩的 textContent 不聚合子节点：paintLedLabel 把前缀写进文本节点，
+        # 读 firstChild 才拿得到「正在加载」，等价于真实 DOM 的 label.textContent。
         res = run_js(r"""
+S.items = []; S.byId = new Map(); S.listState = "loading";
+S.login.present = true; S.login.result = "valid"; S.login.ok = true; S.login.checking = false;
+S.selected = new Set();
+render();
+const emptyLoad = {
+  rows: document.querySelector("#rows").innerHTML,
+  loading: document.querySelector("#list").classList.contains("is-loading"),
+  planTitle: document.querySelector("#selected").textContent,
+  planText: document.querySelector("#board-text").textContent,
+  ledLabel: document.querySelector("#led-label").firstChild ? document.querySelector("#led-label").firstChild.textContent : "",
+};
 S.items = [{ id: "a1", name: "旧活动", sign_start: "2026-11-05 10:00:00",
   sign_end: "2026-11-05 12:00:00", act_start: "2026-11-06 10:00:00",
   act_end: "2026-11-06 12:00:00" }];
 S.byId = new Map(S.items.map((it) => [String(it.id), it]));
+S.selected = new Set(["a1"]);
 S.listState = "loading";
-S.login.present = true; S.login.result = "valid"; S.login.ok = true; S.login.checking = false;
-S.selected = new Set();
 render();
 out.push({
+  emptyLoad,
   rows: document.querySelector("#rows").innerHTML,
-  planTitle: document.querySelector("#selected").textContent,
-  planText: document.querySelector("#board-text").textContent,
-  /* 桩的 textContent 不聚合子节点：paintLedLabel 把前缀写进文本节点，
-   * 读 firstChild 才拿得到「正在加载」，等价于真实 DOM 的 label.textContent。 */
-  led: (document.querySelector("#led-label").firstChild || {}).textContent || "",
-  loading: document.querySelector("#list").classList.contains("is-loading"),
+  barHidden: document.querySelector("#list-refresh-bar").hidden,
+  fresh: document.querySelector("#fresh").textContent,
+  selected: S.selected.has("a1"),
 });
 """)
         row = res[0]
-        self.assertIn("skel-row", row["rows"], "加载态必须换成骨架行，旧行不能继续显示")
-        self.assertNotIn("旧活动", row["rows"], "旧行在加载期间先收起，避免看起来没反应")
-        self.assertTrue(row["loading"], "列表容器要带 is-loading，样式才进加载态")
-        self.assertEqual(row["planTitle"], "活动列表正在加载")
-        self.assertEqual(row["planText"], "先等这一次加载结束。")
-        self.assertIn("正在加载", row["led"], "点阵屏同步报「正在加载」（原型 :1993）")
+        self.assertIn("skel-card", row["emptyLoad"]["rows"], "空列表加载态必须画时间轴骨架卡片")
+        self.assertTrue(row["emptyLoad"]["loading"], "空列表加载态要带 is-loading")
+        self.assertEqual(row["emptyLoad"]["planTitle"], "活动列表正在加载")
+        self.assertEqual(row["emptyLoad"]["planText"], "先等这一次加载结束。")
+        self.assertIn("正在加载", row["emptyLoad"]["ledLabel"])
+        self.assertIn("旧活动", row["rows"], "有旧列表时刷新必须保留旧行")
+        self.assertFalse(row["barHidden"], "有旧列表刷新时顶部细进度条要出现")
+        self.assertEqual(row["fresh"], "正在刷新…")
+        self.assertTrue(row["selected"], "刷新中必须保留原勾选")
 
     def test_list_failure_uses_prototype_copy(self):
         """已登录仍拉不到列表：空态与计划栏用原型失败态原话，并给「重试」。"""
@@ -2213,7 +2216,7 @@ out.push({
         self.assertEqual(row["title"], "活动暂时没加载")
         # 20261108-main-window LS12：正文语序与按钮名照原型 listerr 画板
         # 评审修正：原型在这句里把「刷」「新」用 U+2060 连住，免得按钮名在 Edge 里被断成两行；句子本身没变。
-        self.assertEqual(row["text"], "连不上学校站点，已保存的登录不受影响。检查网络后点“刷⁠新”。")
+        self.assertEqual(row["text"], "连不上学校站点，保存的登录没受影响。检查网络后点“刷⁠新”。")
         self.assertEqual(row["action"], "刷新")
         self.assertEqual(row["planTitle"], "活动暂时没加载")
         self.assertEqual(row["planText"], "具体原因看左边列表的提示。")
@@ -2503,7 +2506,7 @@ class StateGapsContractTests(unittest.TestCase):
         js = read("ui/app.js")
         self.assertIn('addEventListener("online"', js, "必须监听 online 恢复")
         self.assertIn('addEventListener("offline"', js, "必须监听 offline 断网")
-        self.assertIn("网络断开", js, "断网横幅必须有文字说明")
+        self.assertIn("网络断开了", js, "断网横幅必须有文字说明")
 
     def test_sleep_gap_uses_real_interval(self):
         js = read("ui/app.js")
@@ -2516,8 +2519,8 @@ class StateGapsContractTests(unittest.TestCase):
         for width in ("1060px", "900px", "860px"):
             self.assertIn("max-width: %s" % width, css, "缺少 %s 宽度断点" % width)
         self.assertIn("max-height: 720px", css, "缺少 720px 高度断点（矮窗口档）")
-        self.assertIn(".c-place, .colhead .h-place { display: none; }", css,
-                      "860 断点必须收起地点列")
+        self.assertIn("@container list (max-width: 45rem)", css,
+                      "45rem 容器查询必须把四格收成两行两格")
         self.assertIn(".name-short { display: inline; }", css,
                       "860 断点必须切换为短品牌名")
 
@@ -4269,7 +4272,7 @@ const later = { refreshed, changed };
         done = r["done"]
         self.assertEqual(done["title"], "这次没报上：名额满了")
         self.assertEqual(done["tag"], "名额已满")
-        self.assertEqual(done["sub"], "学校的名额在开放后被报满了，不是工具出错。")
+        self.assertEqual(done["sub"], "名额满了，不是工具出错。")
         self.assertEqual(_pp_stats(done["stats"]), {"名额已满": 1})
         self.assertTrue(done["reselectHidden"], "名额已满不放回重新选择")
         self.assertFalse(done["resultActionsHidden"], "「完成，回到活动列表」还在")
@@ -4286,7 +4289,7 @@ const later = { refreshed, changed };
         self.assertEqual(_pp_stats(done["stats"]), {"已报名": 1, "已取消": 1})
         self.assertEqual(done["title"], "报名计划已停止")
         self.assertEqual(done["tag"], "已停止")
-        self.assertEqual(done["sub"], "已提交的场次保留原状态，还没提交的场次已取消。")
+        self.assertEqual(done["sub"], "已经提交的场次结果不变，还没提交的已取消。")
         self.assertIn("计划已停止，这一场没有提交", done["tasks"])
         self.assertIn("学校回“报名成功”，结束时向学校核对过：已报名", done["tasks"])
         self.assertFalse(done["reselectHidden"], "已取消的可以重新选")
@@ -4982,11 +4985,11 @@ class AssistanceBehaviorTests(unittest.TestCase):
         "subtitle": "三步完成一次报名",
         "steps": [
             (1, "确认登录",
-             "顶部显示“已登录”就可以继续。只有提示失效时才需要重新登录。"),
+             "顶部显示“已登录”就行；提示失效再重新登录。"),
             (2, "选活动并开始",
-             "在时刻表勾选活动，核对右边的计划，再点“开始报名计划”。勾选不会自动开始。"),
+             "勾选活动、核对右侧计划，再点“开始报名计划”。勾选不会自动开始。"),
             (3, "看结果",
-             "每场结果单独显示。看到“待核对”时，到学校活动页确认。"),
+             "每场单独出结果；看到“待核对”，到学校活动页确认。"),
         ],
     }
 
@@ -5303,6 +5306,17 @@ class DialogCloseButtonRuleTests(unittest.TestCase):
         html = read("ui/index.html")
         self.assertIn('id="btn-settings-close"', html, "设置抽屉（阅读型面板）必须保留 × 关闭按钮")
 
+    def test_desc_dialog_follows_prototype_board_header_without_x(self):
+        html = read("ui/index.html")
+        css = read("ui/styles.css")
+        block = self._dialog_block(html, '<dialog class="dlg desc-dlg" id="dlg-desc"')
+        self.assertNotIn("dlg-x", block, "活动简介浮层照原型无右上角 ×")
+        self.assertIn(".dlg.desc-dlg .desc-head", css)
+        head_css = css.split(".dlg.desc-dlg .desc-head", 1)[1][:650]
+        self.assertIn("border-left: 3px solid var(--amber)", head_css)
+        self.assertIn("outline: none", head_css)
+        self.assertIn(".filters { flex: none;", css)
+
 
 class BookmarkCopyContractTests(unittest.TestCase):
     """桌面帮助页与手机页必须给同一句话：扫码只当首次引导，长期入口是书签。"""
@@ -5578,8 +5592,8 @@ out.push({ listeners, beforeConfirm, sent });
                          "CW02 旧标题「要关闭这个窗口吗？」已按原型随状态切换")
         # CW04：三卡正文逐字照原型 Main:1715-1718（数字由 JS 按 BE1 载荷填；
         # 静态缺省写不带数字/手机在线的运行态，空闲态两卡在控制器里切换）
-        for needle in ("窗口缩到任务栏，计划和手机访问都照常。",
-                       "窗口不见了，工具在后台继续运行。从右下角托盘图标或手机页叫回来。",
+        for needle in ("窗口缩到任务栏，计划和手机访问照常。",
+                       "窗口藏到后台，工具照常运行，可以从托盘图标或手机页叫回。",
                        "报名计划会停止，还没提交的场次不会再报名。手机也会断开。"):
             self.assertIn(needle, self.html)
         for needle in ("窗口缩到任务栏，点一下就回来。",
@@ -5689,6 +5703,51 @@ out.push(seen);
             self.assertIn(title, got["text"], "这一层应该显示「%s」" % title)
         self.assertEqual(seen[-1]["count"], 0, "都正常时不显示横幅")
 
+    def test_hard_gate_banners_ignore_collapse_key_while_recoverable_ones_collapse(self):
+        """K4：组件缺失、条款未同意、条款未知三类硬门禁不提供收起且同 key 仍显示；断网与登录失效可收起并在 #pill 标点。"""
+        res = run_js(WB_STAMP_JS + r"""
+const probe = (collapseKey) => {
+  S.collapsedBanner = collapseKey;
+  paintLogin();
+  render();
+  paintLogin();
+  const h = document.querySelector("#banners").innerHTML;
+  return {
+    topKey: S.bannerTopKey,
+    hasHtml: h.trim().length > 0,
+    hasCollapseBtn: h.includes('data-act="banner-collapse"'),
+    pillDot: (document.querySelector("#pill").className || "").split(/\s+/).includes("collapsed-warn"),
+  };
+};
+S.runtime.error = "worker_missing";
+const rt = probe("runtime_error");
+S.runtime.error = null;
+S.terms.unknown = true;
+const tUnknown = probe("terms");
+S.terms.unknown = false;
+S.terms.version = "v1"; S.terms.acceptedVersion = ""; S.terms.declined = true;
+const tLocked = probe("terms");
+S.terms.acceptedVersion = "v1"; S.terms.declined = false;
+S.online = false;
+const netShow = probe("");
+const netHide = probe("net");
+S.online = true;
+S.login.present = true; S.login.result = "expired"; S.login.ok = false; S.login.checking = false;
+const loginShow = probe("");
+const loginHide = probe("login_expired");
+out.push({ rt, tUnknown, tLocked, netShow, netHide, loginShow, loginHide });
+""")
+        d = res[0]
+        for k in ("rt", "tUnknown", "tLocked"):
+            self.assertTrue(d[k]["hasHtml"], f"{k} 即使写入同 key 也不得被收起")
+            self.assertFalse(d[k]["hasCollapseBtn"], f"{k} 不得渲染收起按钮")
+        for k in ("netShow", "loginShow"):
+            self.assertTrue(d[k]["hasHtml"])
+            self.assertTrue(d[k]["hasCollapseBtn"], f"{k} 持续态横幅必须提供收起按钮")
+        self.assertFalse(d["netHide"]["hasHtml"], "断网横幅写入同 key 后应被收起")
+        self.assertFalse(d["loginHide"]["hasHtml"], "登录失效横幅写入同 key 后应被收起")
+        self.assertTrue(d["loginHide"]["pillDot"], "登录失效收起后 #pill 必须带 collapsed-warn 提醒点")
+
     def test_five_pre_start_warnings_only_remind(self):
         """开始前提醒五条（断网 / 沿用上次校准 / 等 1 小时以上没开全自动登录 / 直到截止缺截止时间 / 24 小时以后），只提醒不拦。"""
         res = run_js(WB_STAMP_JS + r"""
@@ -5745,7 +5804,7 @@ out.push({ quiet, offline, hold, wait, noEnd, day, fullAuto, label, quietLabel, 
         self.assertTrue(any(t.startswith("「两小时后没截止」没给报名截止时间") for t in r["noEnd"]))
         # 计划 20261108 fe-plan：原型这句在窄档会把「这段时间」拆成两行，原型用 U+2060 把「时」「间」连住，
         # 界面同句照抄；这里只是断言里补上同一个不可见连接符，句子本身没变。
-        self.assertIn("有场次在 24 小时以后才开放，计划要一直运行到那时。这段时⁠间电⁠脑不能关机或睡眠。", r["day"],
+        self.assertIn("有场次 24 小时后才开放，这段时间电脑别关机、别睡眠。", r["day"],
                       "第 5 条：最晚一场 24 小时以后（按最晚一场算）")
         self.assertFalse(any("中途登录失效" in t for t in r["fullAuto"]), "自动登录开全了就不提第 3 条")
         self.assertEqual(r["label"], "仍然开始报名计划", "有提醒时按钮改名，但不禁用")
@@ -5855,7 +5914,7 @@ out.push({ filtered, zero, terms, comp });
         r = res[0]
         self.assertEqual(r["filtered"]["title"], "没有符合筛选的活动")
         self.assertEqual(r["filtered"]["act"], "clear-filters", "只有筛选为空给「清除筛选」")
-        self.assertEqual(r["zero"]["title"], "学校当前没有返回活动")
+        self.assertEqual(r["zero"]["title"], "学校当前没有活动")
         self.assertIn("这不是登录问题", r["zero"]["text"])
         self.assertEqual(r["zero"]["act"], "refresh")
         self.assertIn("同意使用条款", r["terms"]["text"], "没加载要写原因")
@@ -6007,7 +6066,7 @@ out.push({ running, confirmStep, backToPick, pickEsc, afterYes, idle, legacy });
         self.assertTrue(running["hideDisabled"], "托盘不可用且手机没连：不能隐藏")
         self.assertIn("叫不回来", running["why"], "不能隐藏要写原因（CW05）")
         self.assertFalse(running["rec"], "计划运行时标「推荐」")
-        self.assertEqual(running["minText"], "窗口缩到任务栏，计划和手机访问都照常。")
+        self.assertEqual(running["minText"], "窗口缩到任务栏，计划和手机访问照常。")
         self.assertEqual(running["exitText"],
                          "报名计划会停止，还没提交的 2 场不会再报名。手机也会断开。")
         self.assertEqual(running["focus"], "#btn-close-minimize", "最小化默认获得焦点")
@@ -6051,7 +6110,7 @@ out.push({ running, confirmStep, backToPick, pickEsc, afterYes, idle, legacy });
                          "报名计划会停止，还没提交的场次不会再报名。手机也会断开。",
                          "waiting_count 缺失时去掉数字")
         self.assertEqual(legacy["hideText"],
-                         "窗口不见了，工具在后台继续运行。从右下角托盘图标或手机页叫回来。")
+                         "窗口藏到后台，工具照常运行，可以从托盘图标或手机页叫回。")
 
     def test_terms_unaccepted_disables_the_school_actions(self):
         """条款未同意停用清单：登录、登录检查、刷新、勾选、开始、重新登录对话框、自动引导；列表只读并标可能过时。"""
@@ -6237,19 +6296,19 @@ out.push({ ok, fail });
 """)
         ok, fail = res[0]["ok"], res[0]["fail"]
         self.assertIn('data-tone="note"', ok["html"], "MG01 照原型 .banner.note")
-        self.assertIn("已把旧版本的数据搬到新位置。", ok["text"])
-        self.assertIn("登录、设置和运行记录都在，不用重新登录。位置在设置的“本机数据”里。",
-                      ok["text"], "MG01 正文逐字照原型（含全角引号）")
+        self.assertIn("旧版本的数据已经搬过来。", ok["text"])
+        self.assertIn("登录、设置和记录都在，不用重新登录，位置在“本机数据”里。",
+                      ok["text"], "D8 精简文案")
         self.assertIn('data-act="migrated-ok"', ok["html"])
         self.assertIn("知道了", ok["text"])
-        self.assertNotIn("旧版本的登录信息没能搬过来", ok["text"], "成功时不出失败横幅")
+        self.assertNotIn("旧版本的登录没能搬过来", ok["text"], "成功时不出失败横幅")
         self.assertIn('data-tone="warn"', fail["html"], "MG02 是警示横幅")
-        self.assertIn("旧版本的登录信息没能搬过来。", fail["text"])
-        self.assertIn("设置和运行记录已经搬好；重新登录一次就行，旧文件还留在原来的位置。",
-                      fail["text"], "MG02 正文逐字照原型")
+        self.assertIn("旧版本的登录没能搬过来。", fail["text"])
+        self.assertIn("设置和记录已经搬好，重新登录一次就行，旧文件还在原处。",
+                      fail["text"], "D8 精简文案")
         self.assertIn('data-act="login"', fail["html"])
         self.assertIn("登录", fail["text"])
-        self.assertNotIn("已把旧版本的数据搬到新位置", fail["text"], "失败时不出成功横幅")
+        self.assertNotIn("旧版本的数据已经搬过来", fail["text"], "失败时不出成功横幅")
 
     def test_banner_copy_for_both_and_other_failures(self):
         """迁移横幅另两种结果：登录和其他都失败；只有其他失败（登录已搬好）。"""
@@ -6280,7 +6339,7 @@ out.push({ both, other, loginOnly });
         self.assertIn("登录信息已经搬好，不用重新登录；旧文件还留在原来的位置。", other["text"])
         self.assertIn('data-act="migrated-ok"', other["html"])
         self.assertNotIn('data-act="login"', other["html"], "登录已搬好，不再催登录")
-        self.assertIn("设置和运行记录已经搬好", login_only["text"], "只登录失败保持原 MG02")
+        self.assertIn("设置和记录已经搬好，重新登录一次就行，旧文件还在原处。", login_only["text"], "只登录失败走 D8 精简文案")
 
     def test_migration_banner_loses_to_login_and_runtime_banners(self):
         """迁移横幅低于组件缺失与登录失效：同一时刻仍只显示最高一条。"""
@@ -6297,10 +6356,10 @@ const alone = banner();
 out.push({ loginBad, runtimeBad, alone });
 """)
         self.assertIn("登录已失效。", res[0]["loginBad"])
-        self.assertNotIn("已把旧版本的数据搬到新位置", res[0]["loginBad"])
+        self.assertNotIn("旧版本的数据已经搬过来", res[0]["loginBad"])
         self.assertIn("程序组件缺失", res[0]["runtimeBad"])
-        self.assertNotIn("已把旧版本的数据搬到新位置", res[0]["runtimeBad"])
-        self.assertIn("已把旧版本的数据搬到新位置", res[0]["alone"])
+        self.assertNotIn("旧版本的数据已经搬过来", res[0]["runtimeBad"])
+        self.assertIn("旧版本的数据已经搬过来", res[0]["alone"])
 
     def test_ack_hides_migration_banner_for_this_run_only(self):
         """MG01「知道了」只收起本次运行内的横幅：S 置位，不调落盘接口。"""
@@ -6317,7 +6376,7 @@ const after = document.querySelector("#banners").innerHTML;
 out.push({ before, after, dismissed: S.migrationDismissed, saved: saved.length });
 """)
         case = res[0]
-        self.assertIn("已把旧版本的数据搬到新位置", case["before"])
+        self.assertIn("旧版本的数据已经搬过来", case["before"])
         self.assertEqual(case["after"], "", "知道了 只收起横幅")
         self.assertTrue(case["dismissed"], "收起状态进 S")
         self.assertEqual(case["saved"], 0, "收起状态不落盘")
@@ -8917,8 +8976,8 @@ out.push({ acceptedText, linkShown,
 """)
         row = res[0]
         self.assertEqual(row["acceptedText"],
-                         "你在 11-08 09:12 同意了 r9 版。用户协议、隐私政策和开源许可的全文都可以在这里查看。",
-                         "已同意句必须是原型句式：连字符时间＋真实版本（原型示意值 11-03 09:12 不写死）")
+                         "你在 11-08 09:12 同意了 r9 版，全文都能在这里看。",
+                         "D8 精简文案：连字符时间＋真实版本")
         self.assertTrue(row["linkShown"], "已同意且确认条未展开时显示句内「撤回同意」")
         self.assertEqual(row["deniedText"],
                          "还没有同意这一版：登录、登录检查、自动登录、刷新活动和开始计划都已停用。",
@@ -9127,7 +9186,7 @@ out.push({ calls, open: document.querySelector("#help").open,
   state: document.querySelector("#update-status").textContent });
 """)
         # 文案跟原型 Main.dc.html:1262 走：空闲态也要说清什么时候才联网
-        self.assertEqual(res[0], {"calls": 0, "open": True, "state": "只有点“检查更新”时才联网，下载前还会再确认。"})
+        self.assertEqual(res[0], {"calls": 0, "open": True, "state": "只有点“检查更新”才联网，下载前会再问你。"})
 
     def test_double_click_is_single_flight(self):
         res = run_js(r"""
@@ -9822,7 +9881,7 @@ class FeishuReminderSettingContractTests(unittest.TestCase):
         for needle in ('id="feishu-url"', 'id="btn-feishu-save"',
                        'id="btn-feishu-test"', 'id="feishu-note"'):
             self.assertIn(needle, self.html)
-        self.assertIn("建一个只有你自己的群，加一个自定义机器人，把地址贴在这里。", self.html)
+        self.assertIn("建一个只有你的群，加个自定义机器人，把地址贴在下面。", self.html)
         self.assertLess(self.html.index('id="set-prog"'), self.html.index('id="feishu-url"'))
         self.assertLess(self.html.index('id="feishu-url"'), self.html.index('id="btn-help-data"'),
                         "飞书提醒排在「程序」组、本机数据之前")

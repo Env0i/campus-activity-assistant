@@ -144,8 +144,148 @@ out.push({ s0, s1, s3, sQ, s2, sOpen, savedOpen, sClosed, savedClosed, sClear,
         self.assertEqual(out["sClear"]["label"], "更多筛选", "清除筛选后计数归零")
         self.assertEqual(out["sClear"]["expanded"], "true", "清除筛选不动展开状态")
         self.assertEqual(out["filter"], {"q": "", "status": "all", "time": "all", "sort": "open",
-                                         "checkin": "all", "checkout": "all"})
+                                         "checkin": "all", "checkout": "all", "types": []})
         self.assertEqual(out["savedFilter"]["sort"], "open")
+
+    def test_type_filter_options_multi_select_and_clear(self):
+        out = run_js(SETUP + r"""
+const origCreate = document.createElement;
+document.createElement = (tag) => ({
+  tagName: String(tag).toUpperCase(), className: "", type: "", dataset: {}, textContent: "",
+  _attrs: {}, setAttribute(k, v) { this._attrs[k] = v; }, getAttribute(k) { return this._attrs[k]; },
+});
+load([
+  mk("a1", "演讲活动", { type: "讲座" }),
+  mk("a2", "实验活动", { type: "实践" }),
+  mk("a3", "未标类活动", { type: "" }),
+  mk("a4", "缺类活动", {}),
+]);
+const opts = availableTypes(S.items);
+const emptyPick = filtered().map((x) => x.id);
+setFilter("types", toggleTypeValue(S.filter.types, "其他"));
+const onlyOther = filtered().map((x) => x.id);
+const cntOne = $("#more-label").textContent;
+setFilter("types", toggleTypeValue(S.filter.types, "讲座"));
+const twoPick = filtered().map((x) => x.id);
+const cntTwo = $("#more-label").textContent;
+clearFilters();
+document.createElement = origCreate;
+const chipLabels = $("#more-types")._children
+  .filter((c) => c.dataset && c.dataset.type)
+  .map((c) => c.textContent);
+out.push({ opts, emptyPick, onlyOther, cntOne, twoPick, cntTwo, cleared: S.filter.types,
+  afterClear: filtered().map((x) => x.id), chipLabels });
+""")[0]
+        self.assertEqual(out["opts"], ["讲座", "实践", "其他"], "按名称排序且其他置尾")
+        self.assertEqual(sorted(out["emptyPick"]), ["a1", "a2", "a3", "a4"])
+        self.assertEqual(sorted(out["onlyOther"]), ["a3", "a4"])
+        self.assertEqual(out["cntOne"], "更多筛选（1）")
+        self.assertEqual(sorted(out["twoPick"]), ["a1", "a3", "a4"])
+        self.assertEqual(out["cntTwo"], "更多筛选（1）")
+        self.assertEqual(out["cleared"], [])
+        self.assertEqual(sorted(out["afterClear"]), ["a1", "a2", "a3", "a4"])
+        self.assertEqual(out["chipLabels"], ["讲座", "实践", "其他"])
+
+    def test_selected_missing_type_stays_visible_and_unselectable(self):
+        out = run_js(SETUP + r"""
+const origCreate = document.createElement;
+document.createElement = (tag) => ({
+  tagName: String(tag).toUpperCase(), className: "", type: "", dataset: {}, textContent: "",
+  _attrs: {}, setAttribute(k, v) { this._attrs[k] = v; }, getAttribute(k) { return this._attrs[k]; },
+});
+load([mk("a1", "演讲", { type: "讲座" })]);
+setFilter("types", toggleTypeValue(S.filter.types, "讲座"));
+load([mk("b1", "球赛", { type: "体育" })]);
+const afterReload = $("#more-types")._children
+  .filter((c) => c.dataset && c.dataset.type)
+  .map((c) => ({ type: c.dataset.type, on: c.className.indexOf("on") >= 0, pressed: c.getAttribute("aria-pressed") }));
+setFilter("types", toggleTypeValue(S.filter.types, "讲座"));
+const afterUntoggle = $("#more-types")._children
+  .filter((c) => c.dataset && c.dataset.type)
+  .map((c) => c.dataset.type);
+document.createElement = origCreate;
+out.push({ afterReload, afterUntoggle, types: S.filter.types });
+""")[0]
+        self.assertEqual(out["afterReload"], [
+            {"type": "讲座", "on": True, "pressed": "true"},
+            {"type": "体育", "on": False, "pressed": "false"},
+        ], "刷新后不在新列表里的已选类型仍显选中态")
+        self.assertEqual(out["afterUntoggle"], ["体育"], "取消选中后从面板消失")
+        self.assertEqual(out["types"], [])
+
+    def test_parse_audience_covers_all_codes_and_fallbacks(self):
+        out = run_js(SETUP + r"""
+out.push({
+  c0: parseAudience(0, "全校学生", false),
+  c1Short: parseAudience(1, "示例一、示例二", false),
+  c1Fold: parseAudience(1, "一、二、三、四、五", false),
+  c1Exp: parseAudience(1, "一、二、三、四、五", true),
+  c2: parseAudience(2, "示例甲级", false),
+  c3Ok: parseAudience(3, "年级：示例甲级; 分公司：一、二、三、四;", false),
+  c3MissG: parseAudience(3, "分公司：一、二;", false),
+  cUnknown: parseAudience(5, "特殊范围", false),
+  cNone: parseAudience(null, "自定义范围", false),
+  cEmpty: parseAudience(null, "", false),
+});
+""")[0]
+        self.assertEqual(out["c0"], {"lines": [{"label": "", "text": "全校学生"}], "hasMore": False})
+        self.assertEqual(out["c1Short"], {"lines": [{"label": "分公司", "text": "示例一、示例二"}], "hasMore": False})
+        self.assertEqual(out["c1Fold"], {"lines": [{"label": "分公司", "text": "一、二、三 等 5 个"}], "hasMore": True})
+        self.assertEqual(out["c1Exp"], {"lines": [{"label": "分公司", "text": "一、二、三、四、五"}], "hasMore": True})
+        self.assertEqual(out["c2"], {"lines": [{"label": "年级", "text": "示例甲级"}], "hasMore": False})
+        self.assertEqual(out["c3Ok"]["lines"], [{"label": "年级", "text": "示例甲级"}, {"label": "分公司", "text": "一、二、三 等 4 个"}])
+        self.assertTrue(out["c3Ok"]["hasMore"])
+        self.assertEqual(out["c3MissG"]["lines"], [{"label": "年级", "text": "未写明"}, {"label": "分公司", "text": "一、二"}])
+        self.assertEqual(out["cUnknown"], {"lines": [{"label": "", "text": "特殊范围"}], "hasMore": False})
+        self.assertEqual(out["cNone"], {"lines": [{"label": "", "text": "自定义范围"}], "hasMore": False})
+        self.assertEqual(out["cEmpty"], {"lines": [{"label": "", "text": "学校未公布"}], "hasMore": False})
+
+    def test_desc_modal_states_safety_and_focus_restore(self):
+        out = run_js(SETUP + r"""
+let refreshes = 0;
+refresh = () => { refreshes += 1; };
+load([
+  mk("empty", "空简介", { description: "", audience: "<img src=x>", audience_code: 0 }),
+  mk("miss", "未同步", { description: null, audience: null, audience_code: null }),
+  mk("long", "长简介", { description: "甲".repeat(165), audience: "一、二、三、四", audience_code: 1 }),
+]);
+const opener = { isConnected: true, focused: 0, focus() { this.focused += 1; } };
+const qBtn = { dataset: { desc: "empty" }, focus() { opener.focus(); }, isConnected: true,
+  closest: (sel) => (sel === ".desc-btn" ? qBtn : (sel === ".row" ? { dataset: { id: "empty" }, querySelector: () => ({ disabled: false, checked: false }) } : null)) };
+$("#rows").listeners.click.forEach((fn) => fn({ target: qBtn, stopPropagation() {} }));
+const clickOpen = { open: $("#dlg-desc").open, sel: S.selected.size };
+openDescDialog("empty", opener);
+const emptyView = { open: $("#dlg-desc").open, body: $("#desc-body").textContent, bodyHtml: $("#desc-body").innerHTML,
+  retryHidden: $("#btn-desc-retry").hidden, scopeText: $("#desc-scope")._children[0]._children[0] ? "" : $("#desc-scope")._children[0].textContent };
+openDescDialog("miss", opener);
+const missView = { body: $("#desc-body").textContent, retryHidden: $("#btn-desc-retry").hidden };
+$("#btn-desc-retry").click();
+S.listState = "loading";
+paintDescIfOpen();
+const retryDisabled = $("#btn-desc-retry").disabled;
+S.listState = "ready";
+openDescDialog("long", opener);
+const clamp = { cls: $("#desc-body").className, btn: $("#btn-desc-more").textContent };
+$("#btn-desc-more").click();
+const expanded = { cls: $("#desc-body").className, btn: $("#btn-desc-more").textContent };
+closeDescDialog();
+out.push({ emptyView, missView, refreshes, retryDisabled, clamp, expanded,
+  closed: $("#dlg-desc").open, restored: opener.focused, selected: S.selected.size });
+""")[0]
+        self.assertEqual(out["emptyView"]["body"], "学校未提供活动简介")
+        self.assertEqual(out["emptyView"]["bodyHtml"], "", "不使用 innerHTML 写简介正文")
+        self.assertTrue(out["emptyView"]["retryHidden"])
+        self.assertEqual(out["missView"]["body"], "活动简介暂时没同步下来")
+        self.assertFalse(out["missView"]["retryHidden"])
+        self.assertEqual(out["refreshes"], 1)
+        self.assertTrue(out["retryDisabled"])
+        self.assertIn("clamp", out["clamp"]["cls"])
+        self.assertEqual(out["clamp"]["btn"], "展开全文")
+        self.assertNotIn("clamp", out["expanded"]["cls"])
+        self.assertEqual(out["expanded"]["btn"], "收起")
+        self.assertFalse(out["closed"])
+        self.assertGreaterEqual(out["restored"], 1)
+        self.assertEqual(out["selected"], 0, "点问号不改变勾选")
 
     def test_open_state_and_count_come_back_from_prefs(self):
         out = run_js(SETUP + r"""
@@ -199,7 +339,7 @@ out.push({ title: $("#empty-title").textContent, text: $("#empty-text").textCont
   action: $("#empty-action").textContent, intent: $("#empty-action").dataset.action });
 """)[0]
         self.assertEqual(out["title"], "没有符合筛选的活动")
-        self.assertEqual(out["text"], "一共 2 场。换个关键词，或清除筛选看完整列表。")
+        self.assertEqual(out["text"], "一共 2 场。换个关键词，或者清除筛选。")
         self.assertEqual(out["action"], "清除筛选")
         self.assertEqual(out["intent"], "clear-filters")
 
@@ -213,7 +353,7 @@ out.push({ title: $("#empty-title").textContent, text: $("#empty-text").textCont
 """)[0]
         self.assertEqual(out["title"], "活动暂时没加载")
         # 评审修正：原型在这句里把「刷」「新」用 U+2060 连住，免得按钮名在 Edge 里被断成两行；句子本身没变。
-        self.assertEqual(out["text"], "连不上学校站点，已保存的登录不受影响。检查网络后点“刷⁠新”。")
+        self.assertEqual(out["text"], "连不上学校站点，保存的登录没受影响。检查网络后点“刷⁠新”。")
         self.assertEqual(out["action"], "刷新")
         self.assertEqual(out["intent"], "refresh")
 
@@ -351,7 +491,7 @@ out.push({ unknown, draft, running });
         self.assertIn("检查网络后点“刷新”，先不用重新登录。", out["unknown"]["text"])
         self.assertNotIn("「刷新」，先不用", out["unknown"]["text"])
         self.assertIn('data-act="runtime-refresh">刷新</button>', out["unknown"]["html"])
-        self.assertEqual(out["draft"], "登录已失效。重新登录后可以继续。重新登录")
+        self.assertEqual(out["draft"], "登录已失效。重新登录后可以继续。重新登录收起")
         self.assertIn("报名计划还在等，开放前 100 秒以前重新登录就照常继续。", out["running"])
 
     def test_sleep_banner_names_the_missed_activities(self):
@@ -413,7 +553,7 @@ out.push({ html0, html1, lines1, shown, after: $("#banners").innerHTML, flag: S.
         html = out["html1"]
         self.assertIn('data-tone="note"', html)
         self.assertIn("<b>工具已经开着。</b>", html)
-        self.assertIn("刚才又打开了一次，已切回这个窗口。同一台电脑只运行一份，免得同一场被提交两遍。", html)
+        self.assertIn("刚才又打开了一次，已切回这个窗口。同一台电脑只开一份，免得同一场报两遍。", html)
         self.assertIn('data-act="second-ok">知道了</button>', html)
         self.assertEqual(out["lines1"], 1)
         self.assertEqual(out["shown"], ["又打开了一次，已切回这个窗口", "中间有别的记录", "又打开了一次，已切回这个窗口"])
@@ -664,9 +804,7 @@ out.push({ running, wideHidden: $("#plan-dock").hidden });
         self.assertTrue(out["wideHidden"], "宽档没有 dock")
 
     def test_long_wait_warning_glues_the_break_inside_this_period(self):
-        # 原型在窄档把「这段时间」「电脑」各拆成两行，用 U+2060 连住（时/间、电/脑）；界面同句同样处理
-        self.assertIn("这段时⁠间电⁠脑不能关机或睡眠。", read("features/plan/state-draft.js"))
-        self.assertNotIn("这段时间电脑不能关机或睡眠。", read("features/plan/state-draft.js"))
+        self.assertIn("有场次 24 小时后才开放，这段时间电脑别关机、别睡眠。", read("features/plan/state-draft.js"))
 
 
 class MissedResultTests(unittest.TestCase):
@@ -740,7 +878,7 @@ out.push({ tag: view.tag, tone: view.tone, title: view.title, text: view.text, f
            reselect: reselectableIds() });
 """)[0]
         self.assertEqual(out["title"], "电脑睡眠，错过了开放")
-        self.assertEqual(out["text"], "运行计划时别让电脑睡眠：在 Windows 电源设置里把睡眠改成“从不”，并保持插电。")
+        self.assertEqual(out["text"], "电脑睡眠过。计划运行时把电源设置里的睡眠改成“从不”，并保持插电。")
         self.assertEqual((out["tag"], out["tone"]), ("错过了", "red"))
         self.assertIsNone(out["led"], "原型这一支没有 LED")
         self.assertEqual(out["frame"], "bad")
@@ -1299,7 +1437,7 @@ const res = {};
 Object.keys(variants).forEach((k) => { load([variants[k]]); res[k] = rowHtml(findItem("s1")); });
 out.push(res);
 """)[0]
-        self.assertIn("可取消至 11月8日 14:00", out["ok"])
+        self.assertIn("可取消至 11-08 14:00", out["ok"])
         self.assertIn('data-cancel="s1"', out["ok"])
         self.assertIn(">取消报名</button>", out["ok"])
         for key in ("no", "nul", "late", "early"):
@@ -1603,12 +1741,11 @@ const item = mk({ reward_state: "ready", points: 2, wage: 20, cancel_allowed: tr
 window.onBackend.activities({ ok: true, items: [item] });
 out.push(rowHtml(findItem("r1")));
 """)[0]
-        self.assertEqual(out.count('class="rw" '), 1, "侧边块带 title，类名后面还有属性")
-        self.assertEqual(out.count('class="rw-i"'), 1)
-        self.assertLess(out.index('class="rw" '), out.index('class="sub"'), "侧边标签在名字行")
-        self.assertGreater(out.index('class="rw-i"'), out.index('class="sub"'), "内联块在 .sub 行")
-        self.assertGreater(out.index('class="rw-i"'), out.index('class="rf"'), "在报后可退之后")
-        self.assertGreater(out.index("无需签到"), out.index('class="rw-i"'), "在签到说明之前")
+        self.assertEqual(out.count('class="rw" '), 1, "第一层带奖励标签")
+        self.assertLess(out.index('class="l1"'), out.index('class="rw" '))
+        self.assertLess(out.index('class="rw" '), out.index('class="l2"'))
+        self.assertLess(out.index('class="rf"'), out.index('class="l3 '))
+        self.assertGreater(out.index("无需签到"), out.index('class="l3 '))
 
 
 class RewardCssTests(unittest.TestCase):
@@ -1620,23 +1757,122 @@ class RewardCssTests(unittest.TestCase):
         return m.group(1)
 
     def test_chip_rules_follow_the_prototype(self):
+        rw = self.rule(".c-main .rw")
+        rw_c = self.rule(".c-main .rw-c")
+        div = self.rule(".c-main .rw-c + .rw-c::before")
+        self.assertIn("gap: 0", rw)
+        self.assertIn("border-radius: 4px", rw)
+        self.assertIn("box-shadow: inset 0 0 0 1px var(--line)", rw)
+        self.assertIn("background: none", rw_c)
+        self.assertIn("box-shadow: none", rw_c)
+        self.assertIn("width: 1px", div)
+        self.assertIn("background: var(--line-2)", div)
+        self.assertIn("box-shadow: none", self.rule(".c-main .rw:has(.rw-p)"))
         self.assertIn("min-width: 3.125rem", self.rule(".c-main .rw-c.pt"))
         self.assertIn("min-width: 3.75rem", self.rule(".c-main .rw-c.wg"))
         self.assertIn("text-align: center", self.rule(".c-main .rw-c.pt"))
-        self.assertIn("box-shadow: none", self.rule(".c-main .rw-c.na"))
         self.assertIn("margin-left: 0", self.rule(".c-main .rw-c b:first-child"))
         self.assertIn("display: none", self.rule(".c-main .rw-c b:empty"))
 
     def test_narrow_tier_swaps_side_chips_for_the_inline_block(self):
-        self.assertIn("display: none", self.rule(".c-main .rw-i"), "宽档不显示内联块")
-        m = re.search(r"@media \(max-width: 719px\)\s*\{\s*\.c-main \.rw \{ display: none; \}\s*"
-                      r"\.c-main \.rw-i \{ display: inline; \}\s*\}", self.css)
-        self.assertIsNotNone(m, "窄档（< 720px）隐藏侧边、显示内联")
-        self.assertIn("color: var(--warn)", self.rule(".c-main .rw-i.p"))
+        self.assertIn(".l2-r .state-next { display: none; }", self.css)
+        self.assertIn(".tl-node { grid-template-columns: minmax(0, 1fr);", self.css)
+        self.assertIn(".l2-l > * { flex: none; white-space: nowrap; }", self.css)
+        self.assertIn(".rf { white-space: nowrap; }", self.css)
+        self.assertIn(".c-main .rw-p", self.css)
 
     def test_selected_and_dim_rows(self):
-        self.assertIn(".row.is-selected .rw-c, .row.is-selected .rw-i:not(.p)", self.css)
-        self.assertIn(".row.is-signed .rw-c, .row.is-closed .rw-c", self.css)
+        self.assertIn(".row.is-selected .rw", self.css)
+        self.assertIn(".row.is-signed .rw, .row.is-closed .rw", self.css)
+
+    def test_empty_mode_text_omits_activity_flag_capsule(self):
+        out = run_js(REWARDS_SETUP + r"""
+setBusinessNow(Date.UTC(2026, 10, 6, 6, 0, 0));
+const orig = modeText;
+modeText = () => "";
+const html = rowHtml(mk({ id: "em1", name: "空模式", sign_start: "2026-11-06 16:00:00", sign_end: "2026-11-06 18:00:00" }));
+modeText = orig;
+out.push(html);
+""")[0]
+        self.assertNotIn("activity-flag", out)
+        self.assertNotIn("activity-flags", out)
+
+    def test_sleep_missed_layer4_wording_known_and_unknown(self):
+        out = run_js(REWARDS_SETUP + r"""
+out.push({
+  kOpen: missedLayer4Text({ sign_start: "2026-11-06 14:30:00" }, "open"),
+  kClosed: missedLayer4Text({ sign_start: "2026-11-06 14:30:00" }, "closed"),
+  uOpen: missedLayer4Text({ sign_start: "" }, "waiting"),
+  uClosed: missedLayer4Text({}, "closed"),
+});
+""")[0]
+        self.assertEqual(out["kOpen"], "电脑在 14:30 开放时睡着了，没有提交 · 还能报")
+        self.assertEqual(out["kClosed"], "电脑在 14:30 开放时睡着了，没有提交 · 已截止")
+        self.assertEqual(out["uOpen"], "电脑睡着时错过了开放，没有提交 · 还能报")
+        self.assertEqual(out["uClosed"], "电脑睡着时错过了开放，没有提交 · 已截止")
+
+    def test_timeline_nodes_batch_dots_and_mm_dd_card_dates(self):
+        out = run_js(REWARDS_SETUP + r"""
+setBusinessNow(Date.UTC(2026, 10, 6, 6, 0, 0));
+window.onBackend.activities({ ok: true, items: [
+  mk({ id: "o1", name: "开放A", sign_start: "2026-11-06 10:00:00", sign_end: "2026-11-06 18:00:00", act_start: "2026-11-07 09:00:00", act_end: "2026-11-07 10:00:00" }),
+  mk({ id: "o2", name: "开放B", sign_start: "2026-11-06 10:00:00", sign_end: "2026-11-06 18:00:00", act_start: "2026-11-07 11:00:00", act_end: "2026-11-07 12:00:00" }),
+  mk({ id: "w1", name: "等待A", sign_start: "2026-11-06 15:00:00", sign_end: "2026-11-06 18:00:00", act_start: "2026-11-08 09:00:00", act_end: "2026-11-08 11:00:00" }),
+  mk({ id: "w2", name: "等待B", sign_start: "2026-11-06 15:00:00", sign_end: "2026-11-06 18:00:00", act_start: "2026-11-08 13:00:00", act_end: "2026-11-08 14:00:00" }),
+  mk({ id: "u1", name: "未知C", sign_start: "", sign_end: "", act_start: "", act_end: "" }),
+  mk({ id: "s1", name: "已报D", signed: true, sign_start: "2026-11-06 08:00:00", sign_end: "2026-11-06 18:00:00" }),
+] });
+out.push({ html: $("#rows").innerHTML, leftSoon: /is-soon/.test(rowHtml(findItem("w2"))) });
+""")[0]
+        html = out["html"]
+        self.assertEqual(html.count("同抢 2 场"), 1, "只给未开放同批节点标同抢")
+        self.assertIn("tl-dot open", html)
+        self.assertIn("tl-dot next", html)
+        self.assertIn("tl-dot unknown", html)
+        self.assertIn("tl-below", html)
+        self.assertIn("11-08 09:00–11:00", html)
+        self.assertIn("11-06 18:00 截止", html)
+        self.assertTrue(out["leftSoon"], "同属下一批等待场次的倒计时亮琥珀")
+
+    def test_same_batch_tag_four_way_boundary(self):
+        out = run_js(REWARDS_SETUP + r"""
+setBusinessNow(Date.UTC(2026, 10, 6, 6, 0, 0));
+const w1 = mk({ id: "w1", name: "等待甲", sign_start: "2026-11-06 16:00:00", sign_end: "2026-11-06 18:00:00" });
+const w2 = mk({ id: "w2", name: "等待乙", sign_start: "2026-11-06 16:00:00", sign_end: "2026-11-06 18:00:00" });
+const o1 = mk({ id: "o1", name: "开放甲", sign_start: "2026-11-06 10:00:00", sign_end: "2026-11-06 18:00:00" });
+const o2 = mk({ id: "o2", name: "开放乙", sign_start: "2026-11-06 10:00:00", sign_end: "2026-11-06 18:00:00" });
+window.onBackend.activities({ ok: true, items: [w1, w2, o1, o2] });
+out.push({
+  dayPair: buildTimelineNodes([w1, w2], "day", false).map((n) => [n.hasBatch, n.batchN]),
+  daySingle: buildTimelineNodes([w1], "day", false).map((n) => [n.hasBatch, n.batchN]),
+  nonDayKinds: ["open", "signed", "closed"].map((k) => buildTimelineNodes([w1, w2], k, false)[0].hasBatch),
+  dayOpen: buildTimelineNodes([o1, o2], "day", false).map((n) => n.hasBatch),
+  byName: buildTimelineNodes([w1, w2], "day", true).map((n) => n.hasBatch),
+});
+""")[0]
+        self.assertEqual(out["dayPair"], [[True, 2]])
+        self.assertEqual(out["daySingle"], [[False, 1]])
+        self.assertEqual(out["nonDayKinds"], [False, False, False])
+        self.assertEqual(out["dayOpen"], [False])
+        self.assertEqual(out["byName"], [False, False])
+
+    def test_countdown_amber_threshold_and_next_batch(self):
+        out = run_js(REWARDS_SETUP + r"""
+setBusinessNow(Date.UTC(2026, 10, 6, 6, 0, 0));
+const nextIt = mk({ id: "n1", name: "下一批", sign_start: "2026-11-06 16:00:00", sign_end: "2026-11-06 18:00:00" });
+const farIt = mk({ id: "f1", name: "更晚场", sign_start: "2026-11-06 18:00:00", sign_end: "2026-11-06 20:00:00" });
+window.onBackend.activities({ ok: true, items: [nextIt, farIt] });
+out.push({
+  at600: isSoonCountdown(farIt, 600),
+  at601: isSoonCountdown(farIt, 601),
+  nextBatchFar: isSoonCountdown(nextIt, 7200),
+  atZero: isSoonCountdown(nextIt, 0),
+});
+""")[0]
+        self.assertTrue(out["at600"], "10 分钟以内倒计时必须亮琥珀")
+        self.assertFalse(out["at601"], "超过 10 分钟且非下一批应保持中性灰")
+        self.assertTrue(out["nextBatchFar"], "下一批即使超过 10 分钟也必须亮琥珀")
+        self.assertFalse(out["atZero"])
 
 
 class DemoRewardTests(unittest.TestCase):
@@ -2268,6 +2504,101 @@ class AutoReloginTermsGateTests(unittest.TestCase):
                          "撤回后不能自动登录")
         self.assertTrue(self._eligible({"terms_version": TEST_TERMS}),
                         "同意当前版且账号、识别都就绪才放行")
+
+
+class D7StatesAndBannerTests(unittest.TestCase):
+    """D7：有列表时刷新失败保留原列表与勾选、横幅收起与重现、设置行内提示关闭按钮。"""
+
+    def test_foreground_refresh_fail_keeps_items_and_selection_with_retry_bar(self):
+        res = run_js(r"""
+setBusinessNow(Date.UTC(2026, 10, 6, 6, 20, 0));
+S.login.present = true; S.login.result = "valid"; S.login.ok = true; S.online = true;
+S.round.background = false; S.listState = "loading";
+applyActivities({ ok: true, items: [
+  { id: "a1", name: "测试活动甲", sign_start: "2026-11-06 16:00:00", sign_end: "2026-11-06 18:00:00" },
+  { id: "a2", name: "测试活动乙", sign_start: "2026-11-06 17:00:00", sign_end: "2026-11-06 19:00:00" },
+] }, false);
+S.selected.add("a1");
+const doneClsBefore = $("#btn-refresh").classList.contains("is-done");
+applyActivities({ ok: false, text: "连接学校超时" }, false);
+const failHidden = $("#list-refresh-fail").hidden;
+const failText = $("#list-refresh-fail-text").textContent;
+const banners = $("#banners").innerHTML;
+let retries = 0;
+window.pywebview = { api: {
+  check: () => Promise.resolve({ ok: true }),
+  list_activities: () => { retries += 1; return Promise.resolve({ ok: true }); },
+} };
+$("#btn-list-refresh-retry").click();
+out.push({
+  doneClsBefore,
+  count: S.items.length,
+  selected: S.selected.has("a1"),
+  failHidden,
+  failText,
+  banners,
+  retries,
+});
+""")[0]
+        self.assertTrue(res["doneClsBefore"], "前台列表刷新成功时按钮进入 1.5s 已更新勾态")
+        self.assertEqual(res["count"], 2)
+        self.assertTrue(res["selected"], "失败后原勾选必须还在")
+        self.assertFalse(res["failHidden"])
+        self.assertEqual(res["failText"], "没连上学校，下面还是 14:20 的列表，勾选都还在。")
+        self.assertEqual(res["banners"], "", "有旧列表刷新失败不弹全局横幅")
+        self.assertEqual(res["retries"], 1)
+
+    def test_banner_collapse_reopen_and_non_collapsible_gates(self):
+        res = run_js(r"""
+S.demo = false; S.online = true;
+S.businessClock = { available: false, attempted: true, syncing: false };
+paintBanners();
+const clockHtml = $("#banners").innerHTML;
+const bannersEl = $("#banners");
+const clickCollapse = () => bannersEl.listeners.click.forEach((fn) => fn({
+  target: { closest: (sel) => (sel === '[data-act="banner-collapse"]' ? {} : null) },
+}));
+clickCollapse();
+const collapsed = { html: $("#banners").innerHTML, cls: $("#clock").classList.contains("collapsed-warn"),
+  label: $("#clock-label").textContent, val: $("#clock-time").textContent };
+S.online = false; paintBanners();
+const switchedHtml = $("#banners").innerHTML;
+S.online = true; S.collapsedBanner = "clock"; paintBanners();
+openStatusCard("clock", true);
+const reopenedHtml = $("#banners").innerHTML;
+S.terms = { required: true, version: "v2", acceptedVersion: "", declined: false, unknown: false };
+paintBanners();
+const termsHtml = $("#banners").innerHTML;
+S.runtime.error = "missing_worker"; paintBanners();
+const rtHtml = $("#banners").innerHTML;
+out.push({ clockHtml, collapsed, switchedHtml, reopenedHtml, termsHtml, rtHtml });
+""")[0]
+        self.assertIn('data-act="banner-collapse"', res["clockHtml"])
+        self.assertEqual(res["collapsed"]["html"], "")
+        self.assertTrue(res["collapsed"]["cls"])
+        self.assertEqual(res["collapsed"]["label"] + res["collapsed"]["val"], "北京时间待校准")
+        self.assertIn("网络断开了", res["switchedHtml"], "换成另一种问题时必须重新出现横幅")
+        self.assertIn("北京时间还没校准", res["reopenedHtml"], "点顶栏时钟胶囊可重新看到横幅")
+        self.assertNotIn('data-act="banner-collapse"', res["termsHtml"], "条款未同意绝不能收起")
+        self.assertNotIn('data-act="banner-collapse"', res["rtHtml"], "运行环境出错绝不能收起")
+
+    def test_settings_inline_note_dismiss_buttons(self):
+        res = run_js(r"""
+PhonePanel.state.advanced = { features: { relogin_ocr: { ready: true, available: true, status: "ready" } }, credential: { saved: true } };
+PhonePanel.credNote = "已加密保存到本机。";
+PhonePanel.paint();
+S.feishuNote = { text: "测试成功", tone: "ok" };
+paintFeishuRow(false);
+helpStatus("已复制到剪贴板", "info");
+const before = [!$("#btn-dismiss-credential-note").hidden, !$("#btn-dismiss-feishu-note").hidden, !$("#btn-dismiss-help-status").hidden];
+$("#btn-dismiss-credential-note").click();
+$("#btn-dismiss-feishu-note").click();
+$("#btn-dismiss-help-status").click();
+out.push({ before,
+  after: [$("#credential-note").hidden, $("#feishu-note").hidden, $("#help-status").hidden] });
+""")[0]
+        self.assertEqual(res["before"], [True, True, True])
+        self.assertEqual(res["after"], [True, True, True])
 
 if __name__ == "__main__":
     unittest.main()

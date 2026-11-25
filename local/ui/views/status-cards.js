@@ -18,6 +18,17 @@ function statusCardOpen() {
 function openStatusCard(kind, pinned) {
   const spec = STATUS_CARDS[kind];
   if (!spec) return;
+  if (pinned && S.collapsedBanner) {
+    const matchesClock = kind === "clock" && S.collapsedBanner === "clock";
+    const matchesLogin = kind === "login"
+      && ["net", "login_unknown", "login_needs_code", "login_expired", "migratefail"].indexOf(S.collapsedBanner) >= 0;
+    if (matchesClock || matchesLogin) {
+      S.collapsedBanner = "";
+      if (typeof paintBanners === "function") paintBanners();
+      if (typeof paintClockStatus === "function") paintClockStatus();
+      if (typeof paintLogin === "function") paintLogin();
+    }
+  }
   /* 手机访问正在开启或停止时只有标识在说话，详情卡没有可讲的（照原型：开启中、停止中不弹卡） */
   if (kind === "phone" && typeof PhonePanel !== "undefined"
     && (PhonePanel.pending === "starting" || PhonePanel.pending === "stopping")) return;

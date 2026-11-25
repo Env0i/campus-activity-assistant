@@ -23,7 +23,7 @@
         <span id="status-detail" class="sr-only"></span>
       </div>
       <span class="top-sep" aria-hidden="true"></span>
-      <button class="btn btn-ghost" id="btn-refresh" type="button" aria-keyshortcuts="F5" aria-label="刷新登录状态和活动列表" title="刷新（F5）"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span class="lbl">刷新</span></button>
+      <button class="btn btn-ghost" id="btn-refresh" type="button" aria-keyshortcuts="F5" aria-label="刷新登录状态和活动列表" title="刷新（F5）"><svg class="i i-refresh" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><svg class="i i-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg><span class="lbl">刷新</span></button>
       <button class="btn btn-ghost" id="btn-settings" type="button" aria-haspopup="dialog" aria-controls="settings" aria-label="设置：高级功能、登录、程序" title="设置"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span class="lbl">设置</span></button>
       <button class="btn btn-ghost" id="btn-help" type="button" aria-label="帮助：使用说明、快捷键、重看引导" title="帮助"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.7.3-1.2.9-1.2 1.6v.5"/><path d="M12 17h.01"/></svg><span class="lbl">帮助</span></button>
     </header>
@@ -44,9 +44,11 @@
           <label class="fsel">排序<select id="sort" aria-label="排序方式"><option value="open">按开放时间</option><option value="name">按活动名</option></select></label>
           <label class="fsel">签到<select id="checkin" aria-label="签到要求"><option value="all">全部</option><option value="yes">需要</option><option value="no">无需</option></select></label>
           <label class="fsel">签退<select id="checkout" aria-label="签退要求"><option value="all">全部</option><option value="yes">需要</option><option value="no">无需</option></select></label>
+          <div class="more-types" id="more-types" role="group" aria-label="活动类型" hidden></div>
         </div>
+        <div class="rf-bar" id="list-refresh-bar" role="progressbar" aria-label="正在刷新活动列表" hidden></div>
+        <p class="lnote" id="list-refresh-fail" role="status" hidden><span id="list-refresh-fail-text"></span><button class="ph-link" id="btn-list-refresh-retry" type="button">重试</button></p>
         <div class="list" id="list" tabindex="0" aria-label="活动列表">
-          <div class="colhead" aria-hidden="true"><span class="h-sel">选</span><span class="h-time">开放时间</span><span>活动</span><span class="h-place">地点</span><span class="h-left">距开放</span></div>
           <div id="rows"></div>
           <div id="empty" class="empty" hidden><svg class="empty-art" viewBox="0 0 76 52" aria-hidden="true"><rect x="2" y="2" width="72" height="36" rx="6" fill="none" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="16" cy="20" r="2.2"/><circle cx="23" cy="20" r="2.2"/><circle cx="34" cy="16" r="2"/><circle cx="34" cy="24" r="2"/><circle cx="45" cy="20" r="2.2"/><circle cx="52" cy="20" r="2.2"/><circle cx="60" cy="20" r="2.2"/></g><path d="M38 38v10M26 49h24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><p id="empty-title">这里还没有活动</p><p id="empty-text">点「刷新」加载活动；需要登录时，顶部会提示下一步。</p><button id="empty-action" class="btn btn-line btn-mini" type="button" hidden>刷新</button></div>
         </div>
@@ -281,7 +283,7 @@
         <!-- 红条放在标题行下：更新失败后状态回到「需要更新」，展开区那一块整块收着，原因仍要看得见 -->
         <p class="ph-err adv-e" id="phone-component-error" role="alert" hidden></p>
         <div class="adv-d" id="phone-row-detail">
-          <p id="phone-feature-note">从手机查看活动、开始和停止计划。手机只是遥控器，真正报名的还是这台电脑，所以电脑要开着、不能睡眠。</p>
+          <p id="phone-feature-note">用手机查活动、开始或停止计划；报名还是这台电脑在做，电脑别睡眠。</p>
           <p class="ph-err" id="phone-feature-error" role="alert" hidden></p>
           <p class="ph-note" id="phone-import-line" hidden>一直下载不了的话，可以到发布页手动下载组件包，再<button class="ph-link" id="btn-phone-import" type="button">导入已下载的组件包</button>。</p>
           <div class="ph-block" id="phone-missing">
@@ -339,7 +341,7 @@
           <button class="adv-x" id="btn-ocr-row-toggle" type="button" aria-expanded="false" aria-label="展开验证码识别详情"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
         </div>
         <div class="adv-bar" id="ocr-loading" role="progressbar" aria-label="验证码识别组件安装进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><i id="ocr-prog-fill"></i></div>
-        <p class="adv-n" id="ocr-note" role="status" hidden></p>
+        <div class="note-inline-wrap"><p class="adv-n" id="ocr-note" role="status" hidden></p><button class="note-x" id="btn-dismiss-ocr-note" type="button" data-dismiss-note="ocr" aria-label="收起提示" hidden>×</button></div>
         <p class="ph-err adv-e" id="ocr-download-error" role="alert" hidden></p>
         <div class="adv-d" id="ocr-row-detail" hidden>
           <p id="ocr-download-state">登录失效时，电脑能自己认验证码，配合“登录恢复”里的账号密码就能全自动登录。没装或认不出来时，由你在手机上手动输入。</p>
@@ -348,75 +350,117 @@
             <p class="ph-note" id="ocr-size-note">可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。</p>
             <div class="loc" id="ocr-loc-before" hidden><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg><span class="loc-t"><small>会装到</small><code id="ocr-loc-before-path"></code></span></div>
           </div>
-          <p class="ph-note" id="ocr-off-note" hidden>这一项关系到自动登录，所以装好了也不会自己打开。</p>
+          <p class="ph-note" id="ocr-off-note" hidden>关系到自动登录，装好后要手动启用。</p>
           <div class="loc" id="ocr-loc-after" hidden><svg class="loc-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg><span class="loc-t"><small>装在</small><code id="ocr-loc-after-path"></code></span><button class="ph-link" id="btn-ocr-open-loc" type="button">打开所在文件夹</button></div>
         </div>
       </section>
       <h3 class="set-g" id="set-login" tabindex="-1">登录</h3>
-      <!-- 登录恢复照原型 credView（settings-gap 三、CR01–CR22）：标题行右侧一个按钮（没账号「填写账号密码」，有账号「更换」），
-           下面依次是 lead、已保存账号行、自动登录结论行、表单、清除确认、坏密码红字、行内反馈；由 features/login/view-recovery.js paintRelogin 决定显隐。
-           「存储不可用」「最近一次登录」「手机上重新登录」三行原型没有、代码里有真实信号，保留（kept_not_in_prototype）。 -->
-      <section class="help-tools ph-sec" id="relogin-card" aria-label="登录恢复">
-        <div class="set-h"><b>登录恢复</b><span class="ph-slot"><button class="btn btn-line" id="btn-credentials-manage" type="button">填写账号密码</button></span></div>
-        <p id="relogin-lead">登录失效时用账号密码自动登录。账号密码只用 Windows 当前用户加密保存在本机，手机页看不到。</p>
-        <p id="relogin-credential-status" hidden></p>
-        <p id="relogin-auto-path">失效后自动登录：未启用，还没有账号密码。登录失效后要手动重新登录；报名计划开放前 100 秒内失效的场次会直接结束。</p>
-        <p id="relogin-store-note" hidden>账号：本机加密存储不可用，输入后只在本次运行期间有效。</p>
-        <p class="relogin-path" id="relogin-last-used">最近一次登录：暂无记录。</p>
-        <p class="relogin-path" id="relogin-phone-path">手机上重新登录：需要账号密码；没保存时只在本次运行的内存里用一次。</p>
-        <div class="credf" id="credential-editor" hidden>
-          <label class="fl"><span>账号</span><input id="credential-user" type="text" autocomplete="username" spellcheck="false" aria-label="账号"></label>
-          <label class="fl"><span>密码</span><input id="credential-pass" type="password" autocomplete="new-password" aria-label="密码"></label>
-          <label class="agree"><input type="checkbox" id="credential-once">只在这次运行中用，不保存到本机</label>
-          <p class="ph-note">登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。</p>
-          <div class="ph-acts"><button class="btn btn-solid" id="btn-credentials-save" type="button" disabled>保存到本机</button><button class="btn btn-line" id="btn-credentials-cancel" type="button">取消</button></div>
+      <!-- 登录恢复照原型 credView 改为「还差 N 步」二步清单（D6），与高级功能组同一套卡片行样式；
+           保留全部既有 id 供视图绘制与既有契约测试读取。 -->
+      <section class="help-tools adv-sec ph-sec" id="relogin-card" aria-label="登录恢复">
+        <div class="adv-h">
+          <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+          <div class="adv-t"><b>失效后自动登录</b><span class="adv-s amber" id="relogin-head-status" role="status"><i aria-hidden="true"></i><span id="relogin-head-status-text">还差 2 步</span></span></div>
         </div>
-        <div class="ph-confirm" id="relogin-clear-confirm" role="alert" hidden>清除后，电脑不会再自动登录，手机上重新登录也要重新输入账号密码。<div class="ph-acts"><button class="btn btn-line" id="btn-relogin-clear-cancel" type="button">先不清除</button><button class="btn btn-stop" id="btn-relogin-clear-confirm" type="button">确认清除</button></div></div>
-        <div class="ph-acts" id="relogin-clear-row" hidden><button class="btn btn-line" id="btn-credentials-clear" type="button">清除已保存</button></div>
-        <p class="ph-err" id="relogin-bad" role="alert" hidden>保存的密码学校不认，自动登录已暂停。点“更换”输入新密码。</p>
-        <p class="ph-note" id="credential-note" role="status" hidden></p>
+        <div class="login-steps">
+          <div class="lstep">
+            <div class="lstep-h">
+              <span class="lstep-no" id="cred-step1-no" aria-hidden="true">1</span>
+              <div class="lstep-t"><b>1. 保存本机账号密码</b><span id="relogin-credential-status">未保存（只加密存在这台电脑）</span></div>
+              <div class="lstep-acts">
+                <button class="btn btn-solid" id="btn-credentials-manage" type="button">填写账号密码</button>
+                <span id="relogin-clear-row" hidden><button class="btn btn-line" id="btn-credentials-clear" type="button">清除</button></span>
+              </div>
+            </div>
+            <div class="lstep-b">
+              <div class="credf" id="credential-editor" hidden>
+                <label class="fl"><span>账号</span><input id="credential-user" type="text" autocomplete="username" spellcheck="false" aria-label="账号"></label>
+                <label class="fl"><span>密码</span><input id="credential-pass" type="password" autocomplete="new-password" aria-label="密码"></label>
+                <label class="agree"><input type="checkbox" id="credential-once">只在这次运行中用，不保存到本机</label>
+                <p class="ph-note">登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。</p>
+                <div class="ph-acts"><button class="btn btn-solid" id="btn-credentials-save" type="button" disabled>保存到本机</button><button class="btn btn-line" id="btn-credentials-cancel" type="button">取消</button></div>
+              </div>
+              <div class="ph-confirm" id="relogin-clear-confirm" role="alert" hidden>清除后，电脑不会再自动登录，手机上重新登录也要重新输入账号密码。<div class="ph-acts"><button class="btn btn-line" id="btn-relogin-clear-cancel" type="button">先不清除</button><button class="btn btn-stop" id="btn-relogin-clear-confirm" type="button">确认清除</button></div></div>
+              <p class="ph-err" id="relogin-bad" role="alert" hidden>保存的密码学校不认，自动登录已暂停。点“更换”输入新密码。</p>
+              <p id="relogin-store-note" hidden>账号：本机加密存储不可用，输入后只在本次运行期间有效。</p>
+              <div class="note-inline-wrap"><p class="ph-note" id="credential-note" role="status" hidden></p><button class="note-x" id="btn-dismiss-credential-note" type="button" data-dismiss-note="cred" aria-label="收起提示" hidden>×</button></div>
+              <p class="relogin-meta relogin-path" id="relogin-last-used">最近一次登录：暂无记录。</p>
+              <p class="relogin-meta relogin-path" id="relogin-phone-path">手机上重新登录：需要账号密码；没保存时只在本次运行的内存里用一次。</p>
+            </div>
+          </div>
+          <div class="lstep">
+            <div class="lstep-h">
+              <span class="lstep-no" id="cred-step2-no" aria-hidden="true">2</span>
+              <div class="lstep-t"><b>2. 验证码识别组件</b><span id="relogin-ocr-sub">未安装（可选）</span></div>
+              <div class="lstep-acts"><button class="btn btn-line" id="btn-relogin-ocr-step" type="button">去安装</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="lstep-foot" id="relogin-auto-path">装好并启用验证码识别后，失效才能无人值守恢复；目前需要手动输验证码。</div>
       </section>
       <h3 class="set-g" id="set-prog" tabindex="-1">程序</h3>
-      <section class="help-tools" aria-label="程序">
-        <div class="help-tool-row">
-          <div class="help-tool-text"><h3>关闭窗口时</h3><p>选了直接退出也一样：报名计划运行中，关窗口前会先问你</p></div>
-          <label class="filter-select"><span class="sr-only">关闭窗口时</span><select id="close-pref" aria-label="关闭窗口时"><option value="ask">每次询问</option><option value="hide">隐藏到后台</option><option value="minimize">最小化到任务栏</option><option value="exit">直接退出</option></select></label>
+      <section class="help-tools adv-sec" aria-label="程序">
+        <div class="help-tool-row prog-row">
+          <div class="adv-h">
+            <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18M15 13l4 4M19 13l-4 4"/></svg></span>
+            <div class="adv-t"><b>关闭窗口时</b><span class="adv-s"><i></i><span>计划运行时关窗口总会先问你</span></span></div>
+            <label class="filter-select"><span class="sr-only">关闭窗口时</span><select id="close-pref" aria-label="关闭窗口时"><option value="ask">每次询问</option><option value="hide">隐藏到后台</option><option value="minimize">最小化到任务栏</option><option value="exit">直接退出</option></select></label>
+          </div>
         </div>
-        <!-- 版本与更新照原型 Main.dc.html:771-786 重排（UP01-UP12，c3-dialogs-gap 二）：
-             状态行下依次是错误框、新版本块、确认问句、进度块、下载注、就绪块（黄警示独立成块）、底注；
-             「打开发布页」沿用 #btn-help-latest 的既有 open_latest_release 绑定（UP10）；
-             按钮与容器 id 全部保留、显隐由 views/update.js paintUpdate 控制。 -->
+        <!-- 版本与更新照原型 Main.dc.html:1013-1035（D6）：一行标题+状态+主动作+展开箭头，细节进 .prog-d -->
         <div class="help-tool-row set-update">
-          <div class="help-tool-text"><h3>版本与更新 <span class="help-current">当前 <b id="help-version">—</b></span></h3><p id="update-status" role="status" aria-live="polite">只有点“检查更新”时才联网，下载前还会再确认。</p><p class="help-checked" id="update-checked-at" hidden></p><p class="ph-err" id="update-error-box" role="alert" hidden></p><div class="up-v" id="update-version-box" hidden><b id="update-version-num"></b><span id="update-version-note"></span></div><div class="upbox" id="update-confirm-box" hidden><p id="update-confirm-question"></p></div><div class="ph-prog" id="update-progress-box" hidden><div class="ph-prog-t"><span id="update-progress-label">已下载</span><b id="update-progress-num"></b></div><div class="ph-bar" id="update-progress-bar" role="progressbar" aria-label="安装包下载进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="update-progress-fill"></i></div></div><p class="help-checked" id="update-download-note" hidden>下载不影响报名计划，可以关掉设置继续用。</p><div class="upbox" id="update-ready-box" hidden><p class="ph-warn" id="update-plan-warn" hidden>报名计划还在运行。安装时要先关闭本工具，计划会停止，建⁠议等这次计划结束再装。</p><p>启动后按安装向导操作。工具不会自己退出或重启。</p></div><p class="ph-note"><button class="ph-link" id="btn-help-latest" type="button">打开发布页</button>，看更新说明，或者手动下载完整包。</p></div>
-          <div class="help-actions update-actions"><span class="update-flow" id="update-flow" hidden><button class="btn btn-solid" id="btn-update-install" type="button" hidden>下载并安装</button><button class="btn btn-solid" id="btn-update-confirm" type="button" hidden>确认下载</button><button class="btn btn-solid" id="btn-update-launch" type="button" hidden>启动安装程序</button><button class="btn btn-line" id="btn-update-cancel" type="button" hidden>取消</button><button class="btn btn-line" id="btn-update-close" type="button" hidden>关闭本工具…</button></span><button class="btn btn-line" id="btn-update-check" type="button">检查更新</button></div>
+          <div class="adv-h">
+            <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></span>
+            <div class="adv-t"><b>版本与更新 <span class="help-current">当前 <b id="help-version">—</b></span></b><span class="adv-s" id="update-summary-row"><i></i><span id="update-status" role="status" aria-live="polite">只有点“检查更新”才联网，下载前会再问你。</span><span class="help-checked up-at" id="update-checked-at" hidden></span></span></div>
+            <div class="help-actions update-actions"><span class="update-flow" id="update-flow" hidden><button class="btn btn-solid" id="btn-update-install" type="button" hidden>下载并安装</button><button class="btn btn-solid" id="btn-update-confirm" type="button" hidden>确认下载</button><button class="btn btn-solid" id="btn-update-launch" type="button" hidden>启动安装程序</button><button class="btn btn-line" id="btn-update-cancel" type="button" hidden>取消</button><button class="btn btn-line" id="btn-update-close" type="button" hidden>关闭本工具…</button></span><button class="btn btn-line" id="btn-update-check" type="button">检查更新</button></div>
+            <button class="adv-x" id="btn-update-row-toggle" type="button" aria-expanded="false" aria-label="展开或收起更新详情"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+          </div>
+          <div class="prog-d" id="update-detail" hidden>
+            <p class="ph-err" id="update-error-box" role="alert" hidden></p>
+            <div class="up-v" id="update-version-box" hidden><b id="update-version-num"></b><span id="update-version-note"></span></div>
+            <div class="upbox" id="update-confirm-box" hidden><p id="update-confirm-question"></p></div>
+            <div class="ph-prog" id="update-progress-box" hidden><div class="ph-prog-t"><span id="update-progress-label">已下载</span><b id="update-progress-num"></b></div><div class="ph-bar" id="update-progress-bar" role="progressbar" aria-label="安装包下载进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="update-progress-fill"></i></div></div>
+            <p class="help-checked" id="update-download-note" hidden>下载不影响报名计划，可以关掉设置继续用。</p>
+            <div class="upbox" id="update-ready-box" hidden><p class="ph-warn" id="update-plan-warn" hidden>报名计划还在运行。安装时要先关闭本工具，计划会停止，建⁠议等这次计划结束再装。</p><p>启动后按安装向导操作。工具不会自己退出或重启。</p></div>
+            <p class="ph-note"><button class="ph-link" id="btn-help-latest" type="button">打开发布页</button>，看更新说明，或者手动下载完整包。</p>
+          </div>
         </div>
-        <!-- 飞书提醒（S7）：地址只写 config.json 的 feishu_webhook 一个键，保存走合并写；
-             发测试消息走现有 webhook 适配器，结果就在这一节下面就地显示。输入框只在打开抽屉时对齐
-             已保存的地址，不覆盖正在输入的草稿。 -->
+        <!-- 飞书提醒（S7+D6）：校验与保存逻辑不变，输入框收进可展开细节区 -->
         <div class="help-tool-row set-feishu">
-          <div class="help-tool-text"><h3>飞书提醒</h3><p>建一个只有你自己的群，加一个自定义机器人，把地址贴在这里。报名结果和登录失效都发到这个群。</p>
+          <div class="adv-h">
+            <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+            <div class="adv-t"><b>飞书提醒</b><span class="adv-s" id="feishu-status"><i></i><span id="feishu-status-text">未配置</span></span></div>
+            <button class="adv-x" id="btn-feishu-toggle" type="button" aria-expanded="false" aria-label="展开或收起飞书提醒"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+          </div>
+          <div class="prog-d" id="feishu-detail" hidden>
+            <p>建一个只有你的群，加个自定义机器人，把地址贴在下面。报名结果和登录失效都发到这个群。</p>
             <div class="credf"><label class="fl"><span>地址</span><input id="feishu-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://…" aria-label="飞书机器人地址"></label>
               <div class="ph-acts"><button class="btn btn-line" id="btn-feishu-test" type="button">发测试消息</button><button class="btn btn-solid" id="btn-feishu-save" type="button">保存</button></div>
-              <p class="ph-note" id="feishu-note" role="status" hidden></p>
+              <div class="note-inline-wrap"><p class="ph-note" id="feishu-note" role="status" hidden></p><button class="note-x" id="btn-dismiss-feishu-note" type="button" data-dismiss-note="feishu" aria-label="收起提示" hidden>×</button></div>
             </div>
           </div>
         </div>
         <div class="help-tool-row">
-          <div class="help-tool-text"><h3>本机数据</h3><p id="help-data-path">登录信息、设置、运行记录和下载的组件，都只保存在这台电脑。</p></div>
-          <button class="btn btn-line" id="btn-help-data" type="button">打开数据目录</button>
+          <div class="adv-h">
+            <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4.4l2 2H19A1.5 1.5 0 0 1 20.5 9v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg></span>
+            <div class="adv-t"><b>本机数据</b><span class="adv-s"><i></i><span id="help-data-path">登录信息、设置、记录和组件只存在这台电脑</span></span></div>
+            <button class="btn btn-line" id="btn-help-data" type="button">打开数据目录</button>
+          </div>
         </div>
-        <div class="help-tool-row">
-          <div class="help-tool-text"><h3>条款与隐私</h3><p>当前条款版本 <b id="help-terms-version">—</b>；<span id="settings-terms-state">同意记录保存在本机设置里。</span> <button class="ph-link" id="btn-terms-withdraw" type="button" hidden>撤回同意</button></p></div>
-          <div class="help-actions"><button class="btn btn-line" id="btn-help-terms" type="button">查看条款</button></div>
+        <div class="help-tool-row prog-row">
+          <div class="adv-h">
+            <span class="adv-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.8-3 8.8-7 10-4-1.2-7-5.2-7-10V6l7-3z"/></svg></span>
+            <div class="adv-t"><b>条款与隐私</b><span class="adv-s" id="terms-summary-row"><i></i><span id="terms-summary-text">当前条款 <b id="help-terms-version">—</b></span></span></div>
+            <div class="help-actions"><button class="btn btn-line" id="btn-help-terms" type="button">查看条款</button></div>
+          </div>
+          <div class="prog-d">
+            <p><span id="settings-terms-state">同意记录保存在本机设置里。</span> <button class="ph-link" id="btn-terms-withdraw" type="button" hidden>撤回同意</button></p>
+            <p class="help-checked" id="terms-withdraw-why" hidden>报名计划运行中不能撤回同意，先停止计划。</p>
+            <div class="ph-confirm" id="terms-withdraw-confirm" role="alert" hidden>撤回后，登录、自动登录、活动列表和报名计划会停用。已保存的账号密码和登录信息不会删除。要删除账号密码，在“登录恢复”里清除。<div class="ph-acts"><button class="btn btn-line" id="btn-terms-withdraw-cancel" type="button">先不撤回</button><button class="btn btn-stop" id="btn-terms-withdraw-confirm" type="button">确认撤回</button></div></div>
+          </div>
         </div>
-        <!-- 计划运行中不能撤回：原因写在句子下方，不只放在悬停提示里（TM11，原型 Main:2490 withdrawBlocked 注） -->
-        <p class="help-checked" id="terms-withdraw-why" hidden>报名计划运行中不能撤回同意，先停止计划。</p>
-        <!-- 红色确认条照原型（TM11，Main:789 文案逐字三句；.ph-confirm bad-tint 见 Main:340）；
-             「确认撤回」是红色实心 btn-stop。点句内「撤回同意」（TM10，Main:2492）只展开这里，
-             点「确认撤回」才真正调 withdraw_terms；关抽屉强制收起（views/settings.js closeSettings）。 -->
-        <div class="ph-confirm" id="terms-withdraw-confirm" role="alert" hidden>撤回后，登录、自动登录、活动列表和报名计划会停用。已保存的账号密码和登录信息不会删除。要删除账号密码，在“登录恢复”里清除。<div class="ph-acts"><button class="btn btn-line" id="btn-terms-withdraw-cancel" type="button">先不撤回</button><button class="btn btn-stop" id="btn-terms-withdraw-confirm" type="button">确认撤回</button></div></div>
       </section>
-        <p class="help-status" id="help-status" role="status" hidden></p>
+        <div class="note-inline-wrap help-status-wrap"><p class="help-status" id="help-status" role="status" hidden></p><button class="note-x" id="btn-dismiss-help-status" type="button" data-dismiss-note="help" aria-label="收起提示" hidden>×</button></div>
     </div>
   </aside>
   <!-- 五步可重播引导：高亮框四周由 .tour-spot 的外扩阴影铺暗、目标区镂空（TR01，原型 Main:906-911）；
@@ -535,11 +579,11 @@
       <div class="cchoices" id="dlg-close-choices">
         <button class="cch" id="btn-close-minimize" type="button" autofocus>
           <b>最小化到任务栏 <em class="close-rec" id="close-rec" hidden>推荐</em></b>
-          <span id="close-min-text">窗口缩到任务栏，计划和手机访问都照常。</span>
+          <span id="close-min-text">窗口缩到任务栏，计划和手机访问照常。</span>
         </button>
         <button class="cch" id="btn-close-hide" type="button">
           <b>隐藏到后台</b>
-          <span id="close-hide-text">窗口不见了，工具在后台继续运行。从右下角托盘图标或手机页叫回来。</span>
+          <span id="close-hide-text">窗口藏到后台，工具照常运行，可以从托盘图标或手机页叫回。</span>
           <span class="close-why" id="close-hide-why" hidden>现在叫不回来：托盘图标没建起来，手机也没连着，所以不能隐藏。</span>
         </button>
         <button class="cch danger" id="btn-close-exit" type="button">
@@ -561,7 +605,7 @@
   <dialog class="dlg dlg-components" id="dlg-components" aria-labelledby="dlg-components-title">
     <div class="dlg-head">
       <h2 id="dlg-components-title">导入验证码识别组件</h2>
-      <p>选一个已经下好的组件包 ZIP。选完会立刻自检，选错了会当场说清是什么。</p>
+      <p>选一个下好的组件包 ZIP，选完马上自检。</p>
     </div>
     <div class="comp-rows">
       <section class="comp-row" id="comp-phone" hidden>
@@ -590,6 +634,28 @@
   </dialog>
   <!-- 「不可加入」原因气泡：挂在页面最外层、fixed 定位，不被列表滚动容器裁掉（内容由 views/conflict-tip.js 填） -->
   <div id="cx-tip" class="tipb" role="group" aria-label="和已报名的活动时间重叠的原因" hidden></div>
+  <!-- 活动简介浮层（2026-11-24，决策 014）：所有学校返回字段由脚本经 textContent/文本节点填入 -->
+  <dialog class="dlg desc-dlg" id="dlg-desc" aria-labelledby="desc-title" aria-describedby="desc-sub">
+    <div class="dlg-head desc-head">
+      <h2 id="desc-title" tabindex="-1"></h2>
+      <p id="desc-sub"></p>
+    </div>
+    <div class="dlg-body desc-body-wrap">
+      <dl class="desc-facts">
+        <div><dt>活动时间</dt><dd id="desc-act-time"></dd></div>
+        <div><dt>地点</dt><dd id="desc-place"></dd></div>
+        <div class="wide"><dt>报名时间</dt><dd id="desc-sign-time"></dd></div>
+        <div class="wide"><dt>面向范围</dt><dd><span id="desc-scope"></span><button class="ph-link" id="btn-desc-scope-more" type="button" hidden>展开全部</button></dd></div>
+      </dl>
+      <h3 class="desc-h">简介</h3>
+      <div class="desc-body" id="desc-body"></div>
+      <div class="desc-more"><button class="ph-link" id="btn-desc-more" type="button" hidden>展开全文</button></div>
+    </div>
+    <div class="dlg-foot">
+      <button class="btn btn-line" id="btn-desc-retry" type="button" hidden>重新获取</button>
+      <button class="btn btn-solid" id="btn-desc-close" type="button">关闭</button>
+    </div>
+  </dialog>
   <script src="led.js"></script>
   <!-- 分层脚本加载序保持原 app.js 的顶层初始化依赖（const 初始化跨文件引用）；
        模块归属按职责：state=状态与纯规则 / controllers=用例 / views=DOM 呈现 / app=入口 -->

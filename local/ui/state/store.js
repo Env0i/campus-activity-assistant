@@ -7,9 +7,9 @@ const DEFAULT_HELP = {
   /* 文案逐字照抄原型 Main.dc.html:745（1:1 基准）。原型帮助里没有适用范围说明，
    * 那两句在首次使用的条款摘要里（:750），不在这里重复。 */
   steps: [
-    { no: 1, title: "确认登录", text: "顶部显示“已登录”就可以继续。只有提示失效时才需要重新登录。" },
-    { no: 2, title: "选活动并开始", text: "在时刻表勾选活动，核对右边的计划，再点“开始报名计划”。勾选不会自动开始。" },
-    { no: 3, title: "看结果", text: "每场结果单独显示。看到“待核对”时，到学校活动页确认。" },
+    { no: 1, title: "确认登录", text: "顶部显示“已登录”就行；提示失效再重新登录。" },
+    { no: 2, title: "选活动并开始", text: "勾选活动、核对右侧计划，再点“开始报名计划”。勾选不会自动开始。" },
+    { no: 3, title: "看结果", text: "每场单独出结果；看到“待核对”，到学校活动页确认。" },
   ],
 };
 
@@ -67,8 +67,14 @@ const S = {
   rowStates: new Map(),
   selected: new Set(),
   selectionNotice: "",
-  filter: { q: "", status: "all", time: "all", sort: "open", checkin: "all", checkout: "all" },
+  desc: { id: "", bodyExpanded: false, scopeExpanded: false, opener: null },
+  filter: { q: "", status: "all", time: "all", sort: "open", checkin: "all", checkout: "all", types: [] },
   listState: "idle",
+  listRefreshFail: false,
+  listAtLabel: "",
+  refreshDoneUntil: 0,
+  collapsedBanner: "",
+  bannerTopKey: "",
   /* 最近一次列表失败的原话：完整失败说明只归列表空态，结果框不再复读 */
   listError: "",
   /* preLoginSnapshot：一次重新登录前的完整登录结论快照。取消/超时/失败时整份

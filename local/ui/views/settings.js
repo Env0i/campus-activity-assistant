@@ -37,9 +37,13 @@ function paintTermsRow() {
   if (!line || !withdraw) return;
   const terms = S.terms || {};
   const accepted = typeof termsAccepted === "function" ? termsAccepted() : false;
+  const sumRow = $("#terms-summary-row");
+  if (sumRow) sumRow.className = accepted ? "adv-s green" : "adv-s amber";
+  const sumText = $("#terms-summary-text");
+  if (sumText) sumText.textContent = accepted ? "已同意当前条款" : "还没有同意当前条款";
   line.textContent = accepted
     ? "你在 " + (formatAcceptedAt(terms.acceptedAt) || terms.acceptedAt || "之前")
-      + " 同意了 " + terms.version + " 版。用户协议、隐私政策和开源许可的全文都可以在这里查看。"
+      + " 同意了 " + terms.version + " 版，全文都能在这里看。"
     : "还没有同意这一版：登录、登录检查、自动登录、刷新活动和开始计划都已停用。";
   withdraw.hidden = !accepted || termsWithdrawAskOpen;
   withdraw.disabled = !!S.busy;

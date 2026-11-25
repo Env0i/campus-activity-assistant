@@ -259,7 +259,7 @@ CASES = [
 # 每个阶段在整页沙箱里画出来的现状（照改结构之前的实际输出抄）
 EXPECTED = {
     "first_use": {"tone": "off", "dot": "true", "tag": "首次使用", "title": "登录后开始",
-                  "text": "活动会在登录完成后自动加载。"},
+                  "text": "登录后自动加载。"},
     "logging_in": {"tone": "amber", "dot": "true", "tag": "登录中", "title": "正在打开登录窗口",
                    "text": "在浏览器里登完再回来；中途关掉窗口会保留原来的登录状态。"},
     "result": {"tone": "green", "dot": "true", "tag": "报名成功", "title": "报名计划完成",
@@ -884,7 +884,7 @@ out.push({ tag: $("#board-tag-text").textContent, title: $("#selected").textCont
 ''')[0]
         self.assertEqual(data["tag"], "首次使用")
         self.assertEqual(data["title"], "登录后开始")
-        self.assertEqual(data["text"], "活动会在登录完成后自动加载。")
+        self.assertEqual(data["text"], "登录后自动加载。")
 
     # 登录窗口还开着时大屏说「登录中」；组件缺失、列表失败、正在加载各有自己的短状态。
     def test_board_names_login_component_error_and_loading_states(self):
@@ -1388,7 +1388,7 @@ out.push({ autoSubmitting, autoWaiting, timely, late, phone });
         self.assertTrue(data["late"]["modify"])
         self.assertIn("正在提交，现在不能修改", data["late"]["why"])
         self.assertIn("可以最小化窗口", data["phone"]["hint"])
-        self.assertIn("从手机开始的", data["phone"]["hint"])
+        self.assertIn("这个计划是从手机开始的，电脑和手机都能看进度、停止。", data["phone"]["hint"])
 
     # 运行中只留「修改计划/停止计划」；草稿才摆检查条与开始按钮，修改中才给「放弃修改」。
     def test_board_actions_show_only_what_the_phase_allows(self):

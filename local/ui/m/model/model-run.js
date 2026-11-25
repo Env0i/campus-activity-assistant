@@ -233,7 +233,7 @@ Object.assign(PhoneModel, {
       head.text = ask ? "已停止，需确认" : "已停止";
       head.tone = ask ? "" : "off";
       title = "报名计划已停止";
-      text = "已提交的场次保留原状态，还没提交的场次已取消。";
+      text = "已经提交的场次结果不变，还没提交的已取消。";
       if (ask) boardCls = "st-warn";
     } else if (ok && !bad && !ask && !none && !full) {   // Phone:835
       head.text = "报名成功"; head.tone = "green";
@@ -255,7 +255,7 @@ Object.assign(PhoneModel, {
     } else if (full && !bad) {                           // Phone:838
       head.text = "名额已满";
       title = "这次没报上：名额满了";
-      text = "学校的名额在开放后被报满了，不是工具出错。";
+      text = "名额满了，不是工具出错。";
       boardCls = "st-warn";
     } else {                                             // Phone:839
       head.text = "未成功"; head.tone = "red";

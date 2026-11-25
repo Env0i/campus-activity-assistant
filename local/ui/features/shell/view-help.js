@@ -11,14 +11,17 @@ export function fillHelp(help) {
 export function helpStatus(text, tone) {
   const box = $("#help-status");
   if (!box) return;
+  const dismissBtn = $("#btn-dismiss-help-status");
   if (!text) {
     box.hidden = true;
     box.textContent = "";
+    if (dismissBtn) dismissBtn.hidden = true;
     return;
   }
   box.hidden = false;
   box.dataset.tone = tone || "warn";
   box.textContent = text;
+  if (dismissBtn) dismissBtn.hidden = false;
   revealHelpStatus(box);
 }
 

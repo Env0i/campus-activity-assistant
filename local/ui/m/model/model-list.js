@@ -142,8 +142,73 @@ Object.assign(PhoneModel, {
     return { nextPreId: eligible.length ? eligible[0].id : "", nextIt: nextIt,
              isOpen: !!nextIt && PhoneModel.stOf(nextIt, nowS) === "open" };
   },
+  /* D9 类型、四层卡片与时间轴节点纯规则（只读活动对象与业务时钟，不碰 DOM） */
+  activityTypeOf(item) {
+    const raw = item && item.type;
+    const text = raw === null || raw === undefined ? "" : String(raw).trim();
+    return text || "其他";
+  },
+  cardDateTime(sec) {
+    if (sec === null || sec === undefined || !Number.isFinite(sec)) return "";
+    const d = new Date((sec + 8 * 3600) * 1000);
+    return PhoneModel.pad2(d.getUTCMonth() + 1) + "-" + PhoneModel.pad2(d.getUTCDate())
+      + " " + PhoneModel.pad2(d.getUTCHours()) + ":" + PhoneModel.pad2(d.getUTCMinutes());
+  },
+  compactActText(item, st) {
+    const r = PhoneModel.actRange(item);
+    if (!r) return (st === "open" || st === "pre") ? "举办时间待公布" : "时间待公布";
+    const n = PhoneModel.spanDays(item);
+    if (n <= 1) {
+      const end = PhoneModel.endsAtMidnight(r.s, r.e)
+        ? "24:00" : PhoneModel.cardDateTime(r.e).split(" ")[1];
+      return PhoneModel.cardDateTime(r.s) + "–" + end;
+    }
+    const W = PhoneModel.WJ;
+    return PhoneModel.cardDateTime(r.s) + " – " + PhoneModel.cardDateTime(r.e)
+      + "（" + W + "跨" + W + n + W + "天" + W + "）";
+  },
+  attendanceCell(item, kind, noneLabel, verb) {
+    const pend = item && item.attendance_state === "pending";
+    const flag = item && item[kind + "_required"];
+    if (flag === false) return { text: noneLabel, cls: "na", full: noneLabel };
+    if (flag === true) {
+      const s = PhoneModel.tsOf(item, kind + "_start_ts", kind + "_start");
+      const e = PhoneModel.tsOf(item, kind + "_end_ts", kind + "_end");
+      const hmOf = (sec) => PhoneModel.hhmmss(PhoneModel.beijingSecOf(sec)).slice(0, 5);
+      const span = s !== null ? hmOf(s) + (e !== null && e > s ? "–" + hmOf(e) : "") : "";
+      const text = span || ("需要" + verb);
+      return { text: text, cls: "", full: span ? verb + " " + span : text };
+    }
+    return pend ? { text: "同步中", cls: "pend", full: verb + "信息同步中" }
+      : { text: "待确认", cls: "na", full: verb + "时间待确认" };
+  },
+  cardSignEndText(item, st) {
+    if (st !== "open" && st !== "pre") return "";
+    const end = PhoneModel.tsOf(item, "close_ts", "sign_end");
+    return end === null ? "" : PhoneModel.cardDateTime(end) + " 截止";
+  },
+  missedLayer4Text(item, st) {
+    if (!item || !item.missed_by_sleep) return "";
+    const open = PhoneModel.openEpochOf(item);
+    const head = open > 0
+      ? "电脑在 " + PhoneModel.hhmmss(PhoneModel.beijingSecOf(open)).slice(0, 5) + " 开放时睡着了"
+      : "电脑睡着时错过了开放";
+    return head + "，没有提交 · " + (st === "closed" ? "已截止" : "还能报");
+  },
+  rowFlags(st, clash, nextPreId, item) {
+    if (clash) return [];
+    const flags = [];
+    if (st === "open") flags.push({ text: "立即报名", cls: "warn" });
+    if (st === "pre") {
+      const isNext = item.id === nextPreId;
+      flags.push({ text: isNext ? "下一场" : "预报名", cls: isNext ? "next" : "" });
+    }
+    if (st === "signed") flags.push({ text: "已报名", cls: "signed" });
+    if (st === "closed") flags.push({ text: "已截止", cls: "mute" });
+    return flags;
+  },
   /* G05 行呈现（原型 rows.map 的行对象，Phone.dc.html:738-762）：时刻大字 + 距开放 +
-   * 旗标 + 时段/地点/奖励 + 行警；全部是纯数据，渲染层只建元素 */
+   * 旗标 + 时段/地点/奖励 + 行警；D9 升级为四层卡片纯数据，渲染层只建元素 */
   rowView(item, ctx) {
     const nowS = ctx.nowS;
     const st = PhoneModel.stOf(item, nowS);
@@ -154,49 +219,84 @@ Object.assign(PhoneModel, {
           .map((x) => (ctx.items || []).find((i) => i && i.id === x)).filter(Boolean))
       : null;
     const clash = !!hitSigned && (st === "open" || st === "pre");
-    /* TM01（原型 disabled 的 !s.termsOk 项，Phone.dc.html:742）：条款未同意列表行全禁用 */
     const termsOff = ctx.termsOk === false;
+    /* TM01（原型 disabled 的 !s.termsOk 项，Phone.dc.html:742）：条款未同意列表行全禁用 */
     const disabled = !!ctx.busy || termsOff || st === "signed" || st === "closed"
       || st === "unknown" || !!hitSigned;
     const dimmed = termsOff || st === "signed" || st === "closed" || st === "unknown";
-    const flags = [];
-    if (st === "open") flags.push({ text: "立即报名", cls: "warn" });            // Phone:744
-    if (st === "pre") flags.push({                                              // Phone:745
-      text: item.id === ctx.nextPreId ? "下一场" : "预报名",
-      cls: item.id === ctx.nextPreId ? "next" : "" });
-    if (st === "signed") flags.push({ text: "已报名", cls: "signed" });          // Phone:746
-    if (st === "closed") flags.push({ text: "已截止", cls: "mute" });            // Phone:747
-    if (clash) flags.length = 0;                                                // Phone:750 冲突行只留「不可加入」
     const refund = (st === "open" || st === "pre") ? PhoneModel.refundFlag(item) : null;
-    const reward = PhoneModel.rewardText(item);
     const open = PhoneModel.openEpochOf(item);
     const clockDown = nowS === null || nowS === undefined;
     const gap = open - (nowS || 0);
-    /* 距开放（原型 left，Phone:760）：pre 且时钟不可用写「待校准」；<10 分钟标 soon 橙色 */
+    /* 距开放（原型 left，Phone:760）：pre 且时钟不可用写「待校准」；10 分钟内与下一批标 soon 琥珀色，其余中性灰 */
     const left = st === "pre" ? (clockDown ? "待校准" : PhoneModel.leftCn(gap))
       : (st === "open" ? "已开放" : "");
-    const leftCls = st === "pre" && !clockDown && gap < 600 ? "soon" : "";
-    const warn = hitSel ? "与已选的「" + hitSel.name + "」时间重叠" : "";         // Phone:761
-    const act = PhoneModel.actSpan(item)
-      || ((st === "pre" || st === "open") ? "举办时间待公布"
-        : (st === "closed" || st === "unknown" ? PhoneModel.itemMeta(item) : ""));
+    const soon = st === "pre" && !clockDown && (gap <= 600 || (ctx.nextOpenTs > 0 && open === ctx.nextOpenTs));
+    const warn = hitSel ? "与已选的「" + hitSel.name + "」时间重叠" : "";
+    const placeRaw = String(item.place || item.location || "").trim();
+    const actCell = PhoneModel.compactActText(item, st);
+    const missedText = PhoneModel.missedLayer4Text(item, st);
+    const syncText = item.sync_pending && st === "signed" ? "报名已确认，学校列表正在同步" : "";
+    const note = PhoneModel.cancelNote(item, nowS);
+    const hasWarn = !!warn && !ctx.busy;
     return {
-      id: item.id, item: item, name: PhoneModel.itemTitle(item), st: st,
+      id: item.id, item: item, name: PhoneModel.itemTitle(item), st: st, openTs: open,
+      typeLabel: PhoneModel.activityTypeOf(item),
       selected: selected, disabled: disabled, clash: clash, signedItem: hitSigned || null,
-      flags: flags,
+      flags: PhoneModel.rowFlags(st, clash, ctx.nextPreId, item),
       rf: refund ? refund.text : "", rfNo: !!refund && refund.no, hasRf: !!refund,
-      rw: reward || { cls: "", text: "" },
+      signEndText: PhoneModel.cardSignEndText(item, st),
+      rw: PhoneModel.rewardText(item) || { cls: "", text: "" },
       time: st !== "unknown" ? PhoneModel.hhmmss(PhoneModel.beijingSecOf(open)).slice(0, 5) : "待公布",
       timeCls: st !== "unknown" ? "" : "txt",
-      hasLeft: !!left && !clash, left: left, leftCls: leftCls,
-      act: act, place: String(item.place || item.location || ""),
-      hasPlace: !!item.place && st !== "closed",        // 原型 hasPlace：已截止行不显示地点（Phone:762）
-      warn: warn, hasWarn: !!warn && !ctx.busy,         // busy 时不显（Phone:762 hasWarn）
-      note: PhoneModel.cancelNote(item, nowS),
+      hasLeft: !!left && !clash, left: left, leftCls: soon ? "soon" : "",
+      act: actCell, actCell: actCell, actInvalid: !PhoneModel.actRange(item),
+      place: placeRaw, hasPlace: !!placeRaw && st !== "closed",
+      placeCell: placeRaw || "地点待定", placeNa: !placeRaw,
+      inCell: PhoneModel.attendanceCell(item, "checkin", "无需签到", "签到"),
+      outCell: PhoneModel.attendanceCell(item, "checkout", "无需签退", "签退"),
+      warn: warn, hasWarn: hasWarn, missedText: missedText, syncText: syncText,
+      note: note, hasL4: hasWarn || !!missedText || !!syncText || !!note,
       aria: "选择 " + PhoneModel.itemTitle(item),
-      cls: (clash ? "clash " : "") + (selected ? "sel " : "")
+      cls: "card-4l " + (clash ? "clash " : "") + (selected ? "sel " : "")
         + (disabled && !selected ? "off " : "") + (dimmed ? "dim" : ""),
     };
+  },
+  timelineNodes(rows, title, nowS, nextPreId, nextOpenTs) {
+    const nodes = [];
+    const byKey = new Map();
+    const canBatchGroup = title !== "正在开放" && title !== "待公布" && title !== "已报名" && title !== "已截止";
+    (rows || []).forEach((row) => {
+      const open = row.st !== "unknown" ? Number(row.openTs || 0) : 0;
+      const key = row.st === "unknown" ? "unknown" : row.st + "_" + String(open);
+      if (!byKey.has(key)) {
+        const sec = open > 0 ? PhoneModel.beijingSecOf(open) : 0;
+        const secTail = sec % 60 ? ":" + PhoneModel.pad2(sec % 60) : "";
+        const day = row.st === "pre" && open > 0 && nowS !== null && nowS !== undefined
+          && PhoneModel.dayOf(open) !== PhoneModel.dayOf(nowS)
+          ? PhoneModel.openDayLabel(open) : "";
+        const nd = {
+          key: key,
+          time: row.st === "unknown" ? "待公布" : PhoneModel.hhmmss(sec).slice(0, 5) + secTail,
+          timeCls: row.st === "unknown" ? "txt" : "",
+          day: day, hasDay: !!day,
+          dotCls: row.st === "unknown" ? "unknown" : (row.st === "open" ? "open" : "wait"),
+          hasBatch: false, batchN: 0, rows: [],
+        };
+        byKey.set(key, nd);
+        nodes.push(nd);
+      }
+      const node = byKey.get(key);
+      if (node.dotCls === "wait" && (row.id === nextPreId || (nextOpenTs > 0 && open === nextOpenTs))) {
+        node.dotCls = "next";
+      }
+      node.rows.push(row);
+    });
+    nodes.forEach((nd) => {
+      nd.batchN = nd.rows.length;
+      nd.hasBatch = canBatchGroup && nd.rows.length >= 2 && nd.rows.every((r) => r.st === "pre");
+    });
+    return nodes;
   },
   /* LD01/LD02 草稿板（原型 draft 分支，Phone.dc.html:781-794）：
    * 已选＝「核对后再开始」确认页（LED 是下一批倒计时）；未选＝下一场详情卡 + 选这一场；
@@ -244,15 +344,17 @@ Object.assign(PhoneModel, {
       led: PhoneModel.ledOf("--:--:--", "off", "暂时没有目标", ""),
     };
   },
-  /* 列表总聚合：只读业务时钟 nowS（不接收手机墙钟），未校准时按开放日组序呈现 */
+  /* 列表总聚合：只读业务时钟 nowS（不接收手机墙钟），未校准时按开放日组序呈现，组内附 D9 时间轴节点 */
   listView(items, filter, opts) {
     const options = opts || {};
     const nowS = options.nowS !== undefined ? options.nowS : null;
     const list = items || [];
     const pick = PhoneModel.nextPick(list, nowS);
+    const nextOpenTs = pick.nextPreId
+      ? PhoneModel.openEpochOf(list.find((i) => i && i.id === pick.nextPreId)) : 0;
     /* termsOk 缺省＝已同意（undefined !== false）：条款门只在快照明确说 false 时收紧（TM01） */
     const ctx = { items: list, nowS: nowS, selected: options.selected || [],
-                  busy: !!options.busy, nextPreId: pick.nextPreId,
+                  busy: !!options.busy, nextPreId: pick.nextPreId, nextOpenTs: nextOpenTs,
                   termsOk: options.termsOk !== false };
     const count = { free: 0, signed: 0, all: 0 };
     list.forEach((item) => {
@@ -274,13 +376,15 @@ Object.assign(PhoneModel, {
         .filter((item) => PhoneModel.groupKeyOf(item, PhoneModel.stOf(item, nowS), nowS) === title)
         .map((item) => PhoneModel.rowView(item, ctx));
       if (!rows.length) return;
-      const nowBefore = !nowPlaced && title !== "正在开放";   // 原型 nowPlaced：首个非开放组前插「现在」
+      const nowBefore = !nowPlaced && title !== "正在开放";
       if (nowBefore) nowPlaced = true;
+      const hasRail = title !== "已报名" && title !== "已截止";
+      const nodes = hasRail ? PhoneModel.timelineNodes(rows, title, nowS, pick.nextPreId, nextOpenTs) : [];
       groups.push({
         title: title, n: rows.length,
         cls: title === "正在开放" ? "open" : (title === "已报名" ? "signed" : ""),
         note: title === "正在开放" ? "现在就能报" : (title === "已截止" ? "只能查看" : ""),
-        nowBefore: nowBefore, now: nowText, rows: rows,
+        nowBefore: nowBefore, now: nowText, rows: rows, hasRail: hasRail, nodes: nodes,
       });
     });
     return {

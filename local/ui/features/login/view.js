@@ -171,7 +171,9 @@ export function paintLogin() {
   let sub = appearance.sub(facts);
   let note = appearance.note(facts);
   S.login.view = { state: state, text: text, sub: sub, note: note, phase: phase };
-  pill.className = cls;
+  const pillCollapsed = !!(S.collapsedBanner && S.bannerTopKey === S.collapsedBanner
+    && ["net", "login_unknown", "login_needs_code", "login_expired", "migratefail"].indexOf(S.collapsedBanner) >= 0);
+  pill.className = cls + (pillCollapsed ? " collapsed-warn" : "");
   pill.dataset.state = state;
   pill.setAttribute("aria-label", text + (sub ? "，" + sub : ""));
   $("#pill-text").textContent = text;

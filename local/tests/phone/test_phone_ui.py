@@ -968,13 +968,13 @@ PhonePanel.state.advanced = {credential:{available:true, saved:true, username:"f
                 status:"outdated", package_version:"0.9.0"}
 }};
 PhonePanel.paint();
-out.push($("#relogin-auto-path").textContent);
-out.push($("#relogin-auto-path").className);
+out.push($("#relogin-ocr-sub").textContent);
+out.push($("#relogin-ocr-sub").className);
 ''', files=[PANEL_ENTRY, "views/settings.js"])
         text, cls = values
         self.assertIn("需要随新版本更新", text)
         self.assertNotIn("还缺验证码识别组件", text)
-        self.assertEqual(cls, "up-warn")
+        self.assertEqual(cls, "warn")
 
 
 class PhoneChannelUiTests(unittest.TestCase):
@@ -1076,13 +1076,16 @@ PhonePanel.state.advanced = {
   features:{relogin_ocr:{available:false, ready:false, status:"missing"}},
   credential:{available:true, store_available:true, saved:false, ocr_ready:false}};
 PhonePanel.paint();
-out.push({auto: $("#relogin-auto-path").textContent,
+out.push({cred: $("#relogin-credential-status").textContent,
+          head: $("#relogin-head-status-text").textContent,
           slot: $("#btn-credentials-manage").textContent});
 PhonePanel.state.advanced.credential = {available:true, store_available:true, saved:true,
   username:"20230001", ocr_ready:false};
 PhonePanel.paint();
 out.push({auto: $("#relogin-auto-path").textContent,
-          autoCls: $("#relogin-auto-path").className,
+          ocrSub: $("#relogin-ocr-sub").textContent,
+          ocrBtn: $("#btn-relogin-ocr-step").textContent,
+          headCls: $("#relogin-head-status").className,
           slot: $("#btn-credentials-manage").textContent});
 $("#credential-user").value = "20230001";
 $("#credential-pass").value = "secret";
@@ -1092,11 +1095,12 @@ out.push({calls: calls.slice()});
         # helpStatus 会往 out 里补提示，这里只取自己 push 的结构
         none, saved_row = values[0], values[1]
         second = [row for row in values if "calls" in row][-1]
-        self.assertIn("还没有账号密码", none["auto"])
+        self.assertIn("未保存", none["cred"])
+        self.assertEqual(none["head"], "还差 2 步")
         self.assertEqual(none["slot"], "填写账号密码")
-        self.assertIn("还缺验证码识别组件", saved_row["auto"], "没装验证码识别也要说清缺什么、会怎样")
-        self.assertIn("要你输验证码", saved_row["auto"])
-        self.assertEqual(saved_row["autoCls"], "up-warn")
+        self.assertIn("未安装", saved_row["ocrSub"])
+        self.assertEqual(saved_row["ocrBtn"], "去安装")
+        self.assertIn("amber", saved_row["headCls"])
         self.assertEqual(saved_row["slot"], "更换")
         self.assertIn("save_relogin_credentials", second["calls"])
         self.assertNotIn("prepare_phone_relogin", second["calls"],
@@ -1142,17 +1146,19 @@ out.push({cred: $("#relogin-credential-status").textContent,
           credHidden: $("#relogin-credential-status").hidden,
           last: $("#relogin-last-used").textContent,
           auto: $("#relogin-auto-path").textContent,
-          autoCls: $("#relogin-auto-path").className,
+          headText: $("#relogin-head-status-text").textContent,
+          headCls: $("#relogin-head-status").className,
           phone: $("#relogin-phone-path").textContent});
 """, files=[PANEL_ENTRY])
         row = values[0]
         self.assertFalse(row["credHidden"])
         # 旧断言「卡片写出完整账号」改为只露首尾各两位（设计 9.3：界面上的账号一律打码）
-        self.assertEqual(row["cred"], "已保存账号 20****01。")
+        self.assertEqual(row["cred"], "已加密保存 20****01")
         self.assertNotIn("20230001", row["cred"], "完整账号不得出现在界面上")
         self.assertIn("电脑自动恢复", row["last"])
-        self.assertEqual(row["auto"], "失效后自动登录：已启用。登录失效时电脑自己重新登录，报名计划等开放或提交时也一样，不用你动手。")
-        self.assertEqual(row["autoCls"], "up-ok")
+        self.assertEqual(row["headText"], "已就绪")
+        self.assertEqual(row["headCls"], "adv-s green")
+        self.assertEqual(row["auto"], "两步都完成了：计划期间登录失效会全自动恢复，不用人守着。")
         # 旧断言要求写出库名 ddddocr：界面统一叫「验证码识别」/「电脑自动识别」，不露技术名（设计第 12 节）
         self.assertIn("先由电脑自动识别", row["phone"])
         self.assertIn("再由你输入", row["phone"], "认不出来时的人工兜底要写清")
@@ -1934,13 +1940,13 @@ out.push({phase: ocrPhase(PhonePanel.feature("relogin_ocr")),
           probe: [$("#ocr-note").hidden, $("#ocr-note").textContent, $("#ocr-note").dataset.probe],
           retry: $("#btn-ocr-retry").hidden,
           cancel: $("#btn-ocr-cancel").hidden,
-          auto: $("#relogin-auto-path").textContent});
+          ocrSub: $("#relogin-ocr-sub").textContent});
 """)
         self.assertEqual(values[0], {"phase": "checking", "btn": True, "missing": True, "loading": True,
                                      "statusText": "正在确认组件状态…",
                                      "probe": [True, "", "waiting"],
                                      "retry": True, "cancel": True,
-                                     "auto": "失效后自动登录：正在检查验证码识别组件。"})
+                                     "ocrSub": "正在检查组件…"})
 
     def test_missing_is_one_click_and_the_import_link_only_follows_a_failure(self):
         """OC04、OC10–OC13：没装时「下载并安装」，失败后「重新下载」+ 红条 + 导入链接；取消后回到没装态。"""
@@ -2036,7 +2042,7 @@ out.push({opened: calls.filter((c) => c[0] === "open_advanced_component_dir")});
         self.assertTrue(located["after"])
         self.assertEqual(failed["err"], "现在连不上，稍后再试。")
         self.assertEqual(installed["chip"], [False, "已启用 · 版本 1.2.0"])
-        self.assertEqual(installed["lead"], "版本 1.2.0。电脑会自己认验证码，连续认错 3 次再转给手机手动输入。")
+        self.assertEqual(installed["lead"], "版本 1.2.0。电脑会自己认验证码，连续认错 3 次转给手机手动输。")
         self.assertEqual(installed["note"], "验证码识别组件已安装并启用。")
         self.assertEqual(installed["after"], [False, "…/advanced/relogin_ocr"])
         self.assertTrue(installed["before"])
@@ -2059,16 +2065,16 @@ out.push(show({available:true, store_available:true, saved:false, staged:false, 
 out.push(show({available:true, store_available:true, saved:false, staged:true, staged_hint:""}));
 """)
         once, saved, none, no_hint = values
-        self.assertEqual(once["line"], "这次运行可以用账号 st****01 重新登录，关闭工具后自动清除。")
+        self.assertEqual(once["line"], "这次运行会用 st****01，退出后清除")
         self.assertFalse(once["hidden"])
         self.assertEqual(once["slot"], "更换")
         self.assertTrue(once["clearRow"], "「清除已保存」只有保存过的账号才有，只用这一次没有")
-        self.assertEqual(saved["line"], "已保存账号 20****01。")
-        self.assertNotIn("关闭工具后自动清除", saved["line"], "已保存时即使暂存区也有，也不说「这次运行」")
+        self.assertEqual(saved["line"], "已加密保存 20****01")
+        self.assertNotIn("退出后清除", saved["line"], "已保存时即使暂存区也有，也不说「这次运行」")
         self.assertFalse(saved["clearRow"])
-        self.assertTrue(none["hidden"], "没有账号时不显示这一行")
+        self.assertEqual(none["line"], "未保存（只加密存在这台电脑）")
         self.assertEqual(none["slot"], "填写账号密码")
-        self.assertTrue(no_hint["hidden"], "拿不到打码账号就不显示，不自己编")
+        self.assertEqual(no_hint["line"], "已准备好，只在这次运行中使用")
 
     def test_auto_login_line_counts_this_run_account_when_ocr_is_enabled(self):
         """CR07、CR20（冲突 5）：只用这一次的账号加识别已启用，结论行写「已启用」；识别没启用 / 没装各有各的说法。"""
@@ -2076,7 +2082,7 @@ out.push(show({available:true, store_available:true, saved:false, staged:true, s
 const line = (cred, ocr) => {
   PhonePanel.state.advanced = {features:{relogin_ocr: ocr}, credential:cred};
   PhonePanel.paint();
-  return [$("#relogin-auto-path").textContent, $("#relogin-auto-path").className];
+  return [$("#relogin-head-status-text").textContent, $("#relogin-ocr-sub").textContent, $("#relogin-auto-path").textContent];
 };
 const once = {available:true, store_available:true, saved:false, staged:true, staged_hint:"st****01"};
 out.push(line(once, {available:true, ready:true, status:"ready"}));
@@ -2087,16 +2093,12 @@ out.push(line({available:true, store_available:true, saved:false, staged:false, 
 out.push(line({available:true, store_available:true, saved:true, username:"20230001", paused:true}, {available:true, ready:true, status:"ready"}));
 """)
         enabled, installed, missing, none, rejected, saved_bad = values
-        self.assertEqual(enabled, ["失效后自动登录：已启用。登录失效时电脑自己重新登录，报名计划等开放或提交时也一样，不用你动手。", "up-ok"])
-        self.assertEqual(installed, ["失效后自动登录：验证码识别本机已装，还没启用（在上面“高级功能”里点“启用”）。"
-                                     "现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。", "up-warn"])
-        self.assertEqual(missing, ["失效后自动登录：还缺验证码识别组件（在上面的“高级功能”里一键安装）。"
-                                   "现在登录失效时要你输验证码；报名计划开放前 100 秒内失效的场次会直接结束。", "up-warn"])
-        self.assertEqual(none[0], "失效后自动登录：未启用，还没有账号密码。登录失效后要手动重新登录；"
-                                  "报名计划开放前 100 秒内失效的场次会直接结束。")
-        self.assertEqual(rejected, none, "这次那份被学校拒了：表里没有这一档，按「还没有账号密码」显示")
-        self.assertIn("已启用", saved_bad[0], "保存的密码被拒走单独的红字，结论行不再写括号（CR07）")
-        self.assertNotIn("（", saved_bad[0].split("已启用")[0])
+        self.assertEqual((enabled[0], enabled[1]), ("已就绪", "已启用（连续 3 次认错转手动）"))
+        self.assertEqual((installed[0], installed[1]), ("还差 1 步", "本机已安装，还没启用"))
+        self.assertEqual((missing[0], missing[1]), ("还差 1 步", "未安装（可选）"))
+        self.assertEqual(none[0], "还差 1 步")
+        self.assertEqual(rejected, none, "这次那份被学校拒了：按未保存显示")
+        self.assertEqual((saved_bad[0], saved_bad[1]), ("还差 1 步", "已启用（连续 3 次认错转手动）"))
 
     def test_bad_saved_password_has_its_own_red_line(self):
         """CR18：保存的密码学校不认，是单独一条红字，表单展开时不显示。"""
@@ -2191,14 +2193,14 @@ out.push({calls: calls.filter((c) => c === "clear_relogin_credentials"), note: $
         """CR01、CR02、CR04、CR13、CR17、DT01、DT04、IM01、IM02：静态文案逐字照原型。"""
         html = (LOCAL / "ui" / "index.html").read_text(encoding="utf-8")
         view = module_group_raw_src(PANEL_ENTRY, skip=OCR_VIEW_MODULES)
-        for text in ("登录信息、设置、运行记录和下载的组件，都只保存在这台电脑。",
-                     "登录失效时用账号密码自动登录。账号密码只用 Windows 当前用户加密保存在本机，手机页看不到。",
+        for text in ("登录信息、设置、记录和组件只存在这台电脑",
+                     "失效后自动登录", "1. 保存本机账号密码", "2. 验证码识别组件",
                      "登录时，工具会替你勾选学校登录页上的“我已阅读并同意《隐私协议》”。",
                      "只在这次运行中用，不保存到本机",
                      "清除后，电脑不会再自动登录，手机上重新登录也要重新输入账号密码。",
                      "保存的密码学校不认，自动登录已暂停。点“更换”输入新密码。",
                      "可选组件，大小以发布页为准（现在读不到）。下载后自动校验并启用，不会自动升级。",
-                     "这一项关系到自动登录，所以装好了也不会自己打开。",
+                     "关系到自动登录，装好后要手动启用。",
                      "一直下载不了的话，可以到发布页手动下载组件包，再",
                      'id="btn-ocr-enable" type="button" hidden>启用</button>',
                      'id="ocr-feature-status-text"',
@@ -2664,7 +2666,7 @@ out.push([ui.model.offlineTries, $("offline-note-title").textContent,
         self.assertFalse(values[0][0], "离线提示必须显示")
         self.assertEqual(values[0][1], "连不上电脑",
                          "N=0 时标题不带「已重试」尾缀（原型 Phone:852）")
-        self.assertEqual(values[0][2], "确认电脑开着、程序没退出。如果只是手机断网，电脑上的计划不受影响。")
+        self.assertEqual(values[0][2], "确认电脑没睡眠、程序没退出；只是手机断网的话，电脑照常报名。")
         self.assertEqual(values[0][3], "重试", "告警条上要有「重试」钮（EX01）")
         self.assertFalse(values[0][4], "还要告诉用户先刷新")
         self.assertFalse(values[0][5], "刷新按钮必须可点")
@@ -4658,7 +4660,7 @@ out.push([$("today-items").hidden, $("btn-toggle-list").textContent,
         self.assertEqual(row["cardCancel"], "取消这一场",
                          "等待场的卡带取消钮（取末尾子元素读，共享实例不逐个读）")
         self.assertFalse(row["tipHidden"])
-        self.assertIn("手机能锁屏，电脑不能关机或睡眠", row["tip"])
+        self.assertIn("手机可以锁屏，电脑别关机、别睡眠", row["tip"])
         self.assertFalse(row["toggleHidden"], "运行中给「查看活动列表」钮")
         self.assertEqual(row["toggleText"], "查看活动列表")
         self.assertEqual(row["expanded"], "false")
@@ -5190,12 +5192,13 @@ ui.model.items = [{id: "a1", name: "甲讲座", sign_start: "2026-11-09 09:00:00
 ui.model.filter = {q: "甲", status: "all", time: "all"};
 $("q").value = "甲"; $("search-q").value = "甲"; $("search-view").hidden = true;
 ui.renderItems();
-const beforeCount = $("upcoming-items")._children.filter((n) => n.tagName === "LABEL").length;
+const countLabels = (el) => (el.tagName === "LABEL" ? 1 : 0) + (el._children || []).reduce((s, c) => s + countLabels(c), 0);
+const beforeCount = countLabels($("upcoming-items"));
 let focusCount = 0;
 $("search-q").focus = () => { if (!$("search-view").hidden) focusCount += 1; };
 $("btn-search").click();
 const afterOpen = {focusCount, qVal: $("q").value, sqVal: $("search-q").value,
-  rowCount: $("upcoming-items")._children.filter((n) => n.tagName === "LABEL").length};
+  rowCount: countLabels($("upcoming-items"))};
 $("btn-search").click();
 out.push({beforeCount, afterOpen, focusAfterClose: focusCount});
 ''')
@@ -6245,7 +6248,7 @@ out.push(PhoneModel.termsBoard());
         # 停止支（Phone:834）：无待核对＝off 档、无描边；有待核对＝默认 tag + st-warn
         self.assertEqual(stopped["head"], {"text": "已停止", "tone": "off"})
         self.assertEqual(stopped["title"], "报名计划已停止")
-        self.assertEqual(stopped["text"], "已提交的场次保留原状态，还没提交的场次已取消。")
+        self.assertEqual(stopped["text"], "已经提交的场次结果不变，还没提交的已取消。")
         self.assertEqual(stopped["boardCls"], "")
         self.assertEqual(stopped_ask["head"], {"text": "已停止，需确认", "tone": ""})
         self.assertEqual(stopped_ask["boardCls"], "st-warn")
@@ -6256,7 +6259,7 @@ out.push(PhoneModel.termsBoard());
         self.assertEqual(ask_only["boardCls"], "st-warn")
         self.assertEqual(full_only["head"], {"text": "名额已满", "tone": ""})
         self.assertEqual(full_only["title"], "这次没报上：名额满了")
-        self.assertEqual(full_only["text"], "学校的名额在开放后被报满了，不是工具出错。")
+        self.assertEqual(full_only["text"], "名额满了，不是工具出错。")
         self.assertEqual(full_only["boardCls"], "st-warn")
         self.assertEqual(bad_only["head"], {"text": "未成功", "tone": "red"})
         self.assertEqual(bad_only["title"], "报名计划没有成功")
@@ -7230,9 +7233,9 @@ class LayoutStaticTests(unittest.TestCase):
         """T-缺口（PA02）：配对页的两句说明被静态钉住——照原型逐字落的
         （配对码在哪、手机只是遥控器），改动必须过审计，不得悄悄走样。"""
         html = (PHONE_DIR / "index.html").read_text(encoding="utf-8")
-        self.assertIn("配对码在电脑的“设置 → 手机访问”里，5 分钟内有效，只能用一次。", html,
+        self.assertIn("配对码在电脑“设置 → 手机访问”里，5 分钟内有效，只能用一次。", html,
                       "PA02 第一句：配对码在哪里、时效与一次性")
-        self.assertIn("手机只是遥控器，真正报名的还是电脑，所以电脑要开着、不能睡眠。", html,
+        self.assertIn("报名是电脑在做，电脑别关机、别睡眠。", html,
                       "PA02 第二句：手机与电脑的分工")
 
     def test_mobile_palette_and_touch_targets(self):
@@ -7887,20 +7890,18 @@ out.push({shown, once, cleared, saved, hidden, fromComputer, pausedShown: !$("re
 
     def test_terms_not_accepted_keeps_the_phone_read_only(self):
         """电脑没同意条款：手机停在缓存，不能开始也不能重新登录；条款告警、整板暂停、
-        列表行全禁用、底栏副题换成条款门；同意后全部恢复。
-
-        原断言钉住 #banner kind=terms 的单句。TM01 照原型把告警换成专用告警条两句
-        （原型 .alert，Phone.dc.html:853——原单句文案退役），并补整板「已暂停」
-        （Phone:798）、列表行全禁用（Phone:742）与底栏副题（Phone:863），
-        断言随之改读 #terms-alert 与板/行/底栏。
-        """
+        列表行全禁用、底栏副题换成条款门；同意后全部恢复（TM01）。"""
         values = run_phone_js('''
 const ui = PhoneUI;
+document.createElement = (tag) => ({tagName: tag.toUpperCase(), className: "", textContent: "", _children: [], dataset: {}, style: {}, listeners: {}, setAttribute() {}, addEventListener() {}, appendChild(c) { this._children.push(c); return c; }});
+Object.defineProperty($("items"), "textContent", {get() { return ""; }, set(v) { if (!v) this._children.length = 0; }});
 ui.model.lastOkAt = Date.now();
 ui.ingest({state: {terms_ok: false, busy: false,
   business_clock: {state: "ready", epoch_s: Date.UTC(2026, 10, 8, 6, 0, 0) / 1000,
                    tick_s: 1000000, sampled_tick_s: 1000000},
   activities: [{id: "a1", name: "甲活动", sign_start: "2026-11-08 20:00:00", act_start: "2026-11-11 09:00:00", act_end: "2026-11-11 10:00:00"}]}});
+const _fn = (e, p) => p(e) ? e : (e._children || []).reduce((a, c) => a || _fn(c, p), null);
+const readRow = () => { const r = _fn($("items"), (n) => n.dataset && n.dataset.id === "a1"); return [_fn(r, (n) => n.tagName === "INPUT").disabled, r.className.indexOf("dim") >= 0]; };
 ui.model.selected = ["a1"];
 ui.refreshControls();
 ui.renderItems();
@@ -7911,16 +7912,14 @@ const locked = {start: $("btn-start").disabled, relogin: $("btn-relogin").disabl
   boardTitle: $("board-title").textContent, boardSub: $("board-sub").textContent,
   cap: $("board-cap-text").textContent,
   barSub: $("bar-sub").textContent,
-  row: (() => { const row = $("items")._children[2];
-                return [row._children[0].disabled, row.className.indexOf("dim") >= 0]; })()};
+  row: readRow()};
 ui.ingest({state: {terms_ok: true}});
 ui.refreshControls();
 ui.renderItems();
 out.push({locked, start: $("btn-start").disabled, relogin: $("btn-relogin").disabled,
   alertHidden: $("terms-alert").hidden, boardTitle: $("board-title").textContent,
   barSub: $("bar-sub").textContent,
-  row: (() => { const row = $("items")._children[2];
-                return [row._children[0].disabled, row.className.indexOf("dim") >= 0]; })()});
+  row: readRow()});
 ''')
         r = values[0]
         self.assertTrue(r["locked"]["start"], "没同意条款不能开始")
@@ -8048,8 +8047,8 @@ out.push([$("relogin-note").textContent, $("run-tip").textContent, $("bar-title"
         note, tip, bar = values[0]
         # 原断言钉住旧句（无句号）：RL08 完成态文案照原型（Phone.dc.html:894）补全句号
         self.assertEqual(note, "重新登录成功，报名计划照常继续。")
-        self.assertIn("手机能锁屏，电脑不能关机或睡眠", tip)
-        self.assertIn("要改，回电脑点“修改计划”，或者停止后重新选。", tip)
+        self.assertIn("手机可以锁屏，电脑别关机、别睡眠", tip)
+        self.assertIn("要改计划回电脑，或先停止。", tip)
         self.assertIn("（从手机开始）", bar)
 
     def test_task_lines_use_the_computer_vocabulary(self):
@@ -8121,14 +8120,16 @@ function mk(tag) {
   return el;
 }
 document.createElement = (tag) => mk(tag);
-function walk(el, fn) { fn(el); (el.children || []).forEach((c) => walk(c, fn)); }
+function walk(el, fn) { fn(el); (el.children || el._children || []).forEach((c) => walk(c, fn)); }
 function texts(el) { const out = []; walk(el, (n) => { if (n.textContent) out.push(n.textContent); }); return out.join("|"); }
 function tags(el, tag) { const out = []; walk(el, (n) => { if (n.tag === tag) out.push(n); }); return out; }
 function draw(ui) {
   ["#items", "#upcoming-items", "#signed-items"].forEach((id) => { $(id)._children.length = 0; });
   ui.renderItems();
   const rows = {};
-  ["#items", "#upcoming-items", "#signed-items"].forEach((id) => { $(id)._children.forEach((li) => { rows[li.dataset.id] = li; }); });
+  ["#items", "#upcoming-items", "#signed-items"].forEach((id) => {
+    walk($(id), (el) => { if (el.dataset && el.dataset.id) rows[el.dataset.id] = el; });
+  });
   return rows;
 }
 /* 原断言按旧行几何导航：行曾是 li，点按监听在第一个子元素（label）上，原因面板是行的第二个子节点。
@@ -8465,7 +8466,7 @@ out.push({ signed: texts(rows.s1), signedButtons: tags(rows.s1, "button").length
   clashC: texts(rows.c1), free: texts(rows.d1), nul: texts(rows2.n1),
   rfNo: tags(rows.c1, "span").some((s) => s.className === "rf no"), rfYes: tags(rows.d1, "span").some((s) => s.className === "rf") });
 """)[0]
-        self.assertIn("11月8日 22:40 – 11月10日 23:20（%s跨%s3%s天%s）" % (WJ, WJ, WJ, WJ), out["signed"])
+        self.assertIn("11-08 22:40 – 11-10 23:20（%s跨%s3%s天%s）" % (WJ, WJ, WJ, WJ), out["signed"])
         self.assertIn("可取消至 11月8日 14:00，在电脑上或" + WJ.join("学校网站取消。"), out["signed"])
         self.assertEqual(out["signedButtons"], 0, "手机上没有取消按钮")
         self.assertIn("报后不可退", out["clashC"])
@@ -8487,12 +8488,12 @@ out.push(texts(rows.s1));
         self.assertNotIn("可取消至", out)
 
     def test_build_row_renders_unknown_time_left_soon_flags_place_reward_and_warn(self):
-        """活动行必须按字段呈现待公布样式、临近倒计时色调、旗标类名、地点、奖励与重叠提醒。"""
+        """活动行必须按字段呈现时间轴待公布节点、临近倒计时色调、旗标类名、四层地点/奖励与重叠提醒。"""
         out = run_phone_js(SETUP + DOM + r"""
 const ui = PhoneUI;
 ui.model.items = [
   {id: "o1", name: "已选场", sign_start: "2026-11-06 10:00:00", act_start: "2026-11-07 09:00:00", act_end: "2026-11-07 10:00:00"},
-  {id: "p1", name: "急场", place: "报告厅", sign_start: "2026-11-06 14:05:00", act_start: "2026-11-07 09:00:00",
+  {id: "p1", name: "急场", type: "志愿服务", place: "报告厅", sign_start: "2026-11-06 14:05:00", act_start: "2026-11-07 09:00:00",
     act_end: "2026-11-07 11:00:00", reward_state: "ready", points: 2, wage: 0},
   {id: "p2", name: "晚场", place: "操场", sign_start: "2026-11-06 16:00:00"},
   {id: "u1", name: "待定", sign_start: ""},
@@ -8501,28 +8502,31 @@ ui.model.items = [
 ui.model.filter.status = "all"; ui.model.selected = ["o1"]; ui.model.busy = false;
 clockAt(ui.model);
 const rows = draw(ui);
+const tlTimes = tags($("#upcoming-items"), "span").filter((s) => s.className && s.className.startsWith("tl-t")).map((s) => [s.textContent, s.className]);
 out.push({
-  p1: {bCls: tags(rows.p1, "b")[0].className, smCls: tags(rows.p1, "small").map((s) => s.className),
+  p1: {typeTag: tags(rows.p1, "span").filter((s) => s.className === "type-tag").map((s) => s.textContent),
+    smCls: tags(rows.p1, "small").map((s) => s.className),
     flags: tags(rows.p1, "span").filter((s) => s.className.startsWith("flag")).map((s) => s.className),
     warn: tags(rows.p1, "span").filter((s) => s.className === "w").map((s) => s.textContent), text: texts(rows.p1)},
   p2: {smCls: tags(rows.p2, "small").map((s) => s.className),
     flags: tags(rows.p2, "span").filter((s) => s.className.startsWith("flag")).map((s) => s.className)},
-  u1: {bCls: tags(rows.u1, "b")[0].className, smN: tags(rows.u1, "small").length},
+  u1: {tlTimes, smN: tags(rows.u1, "small").length},
   c1: {smN: tags(rows.c1, "small").length, text: texts(rows.c1)},
   o1WarnN: tags(rows.o1, "span").filter((s) => s.className === "w").length,
 });
 """)[0]
-        self.assertEqual(out["p1"]["bCls"], "")
-        self.assertEqual(out["p1"]["smCls"], ["soon"])
+        self.assertEqual(out["p1"]["typeTag"], ["志愿服务"])
+        self.assertEqual(out["p1"]["smCls"], ["left soon"])
         self.assertEqual(out["p1"]["flags"], ["flag next"])
         self.assertIn("与已选的「已选场」时间重叠", out["p1"]["warn"][0])
         self.assertIn("报告厅", out["p1"]["text"])
         self.assertIn("2 分 · 工资 0", out["p1"]["text"])
-        self.assertEqual(out["p2"]["smCls"], [""])
+        self.assertEqual(out["p2"]["smCls"], ["left"])
         self.assertEqual(out["p2"]["flags"], ["flag"])
-        self.assertEqual(out["u1"], {"bCls": "txt", "smN": 0})
+        self.assertIn(["待公布", "tl-t txt"], out["u1"]["tlTimes"])
+        self.assertEqual(out["u1"]["smN"], 0)
         self.assertEqual(out["c1"]["smN"], 0)
-        self.assertNotIn("旧礼堂", out["c1"]["text"])
+        self.assertIn("旧礼堂", out["c1"]["text"])
         self.assertEqual(out["o1WarnN"], 0)
 
     def test_clash_row_click_prevents_default_and_go_button_stops_bubbling(self):
@@ -8564,7 +8568,8 @@ document.querySelector = (sel) => {
   const m = /^\[data-id="([^"]+)"\]$/.exec(sel);
   if (!m) return null;
   for (const b of ["#items", "#upcoming-items", "#signed-items"]) {
-    const hit = $(b)._children.find((n) => n.dataset && n.dataset.id === m[1]);
+    let hit = null;
+    walk($(b), (n) => { if (!hit && n.dataset && n.dataset.id === m[1]) hit = n; });
     if (hit) return hit;
   }
   return null;
@@ -8758,6 +8763,108 @@ class PhoneScriptSplitGuardTests(unittest.TestCase):
                     self.assertIn(boot_line, lines, f"最后一份脚本 {name} 缺少启动行：{boot_line}")
                 else:
                     self.assertNotIn(boot_line, lines, f"非最后一份脚本 {name} 不得包含启动行：{boot_line}")
+
+
+class PhoneTimelineD9Tests(unittest.TestCase):
+    """D9：手机页时间轴节点（同抢 N 场 / 四态圆点）、中性与琥珀倒计时、两行两格与类型标签。"""
+
+    def test_timeline_nodes_batch_tag_and_next_batch_amber(self):
+        out = run_phone_js(SETUP + DOM + r"""
+const ui = PhoneUI;
+ui.model.items = [
+  {id: "o1", name: "已开放两场甲", sign_start: "2026-11-06 10:00:00", type: "创新创业"},
+  {id: "o2", name: "已开放两场乙", sign_start: "2026-11-06 10:00:00"},
+  {id: "n1", name: "下一批甲", sign_start: "2026-11-06 16:00:00", sign_end: "2026-11-06 20:00:00"},
+  {id: "n2", name: "下一批乙", sign_start: "2026-11-06 16:00:00"},
+  {id: "w1", name: "更晚场", sign_start: "2026-11-06 20:00:00"},
+  {id: "s1", name: "已报", sign_start: "2026-11-05 08:00:00", signed: true, sync_pending: true},
+];
+ui.model.filter.status = "all";
+clockAt(ui.model);
+const view = PhoneModel.listView(ui.model.items, ui.model.filter, { nowS: PhoneModel.businessNowS(ui.model), selected: [], busy: false });
+const rows = draw(ui);
+out.push({
+  groups: view.groups.map((g) => ({
+    title: g.title, hasRail: g.hasRail,
+    nodes: (g.nodes || []).map((nd) => ({ time: nd.time, dotCls: nd.dotCls, hasBatch: nd.hasBatch, batchN: nd.batchN })),
+  })),
+  n1Left: rows.n1 ? tags(rows.n1, "small").map((s) => s.className) : [],
+  n2Left: rows.n2 ? tags(rows.n2, "small").map((s) => s.className) : [],
+  w1Left: rows.w1 ? tags(rows.w1, "small").map((s) => s.className) : [],
+  o1Type: tags(rows.o1, "span").filter((s) => s.className === "type-tag").map((s) => s.textContent),
+  o2Type: tags(rows.o2, "span").filter((s) => s.className === "type-tag").map((s) => s.textContent),
+  o1Cells: tags(rows.o1, "em").map((e) => e.textContent),
+  s1Text: texts(rows.s1),
+});
+""")[0]
+        g_open, g_today, g_signed = out["groups"]
+        self.assertEqual(g_open["nodes"], [{"time": "10:00", "dotCls": "open", "hasBatch": False, "batchN": 2}])
+        self.assertEqual(g_today["nodes"], [
+            {"time": "16:00", "dotCls": "next", "hasBatch": True, "batchN": 2},
+            {"time": "20:00", "dotCls": "wait", "hasBatch": False, "batchN": 1},
+        ])
+        self.assertFalse(g_signed["hasRail"])
+        self.assertEqual(out["n1Left"], ["left soon"])
+        self.assertEqual(out["n2Left"], ["left soon"])
+        self.assertEqual(out["w1Left"], ["left"])
+        self.assertEqual(out["o1Type"], ["创新创业"])
+        self.assertEqual(out["o2Type"], ["其他"])
+        self.assertEqual(out["o1Cells"], ["举办", "地点", "签到", "签退"])
+        self.assertIn("报名已确认，学校列表正在同步", out["s1Text"])
+
+    def test_sleep_missed_layer4_known_and_unknown_open_time(self):
+        out = run_phone_js(SETUP + r"""
+out.push({
+  kOpen: PhoneModel.missedLayer4Text({ missed_by_sleep: true, sign_start: "2026-11-06 14:30:00" }, "open"),
+  kClosed: PhoneModel.missedLayer4Text({ missed_by_sleep: true, sign_start: "2026-11-06 14:30:00" }, "closed"),
+  uOpen: PhoneModel.missedLayer4Text({ missed_by_sleep: true, sign_start: "" }, "pre"),
+  uClosed: PhoneModel.missedLayer4Text({ missed_by_sleep: true }, "closed"),
+});
+""")[0]
+        self.assertEqual(out["kOpen"], "电脑在 14:30 开放时睡着了，没有提交 · 还能报")
+        self.assertEqual(out["kClosed"], "电脑在 14:30 开放时睡着了，没有提交 · 已截止")
+        self.assertEqual(out["uOpen"], "电脑睡着时错过了开放，没有提交 · 还能报")
+        self.assertEqual(out["uClosed"], "电脑睡着时错过了开放，没有提交 · 已截止")
+
+    def test_same_batch_tag_four_way_boundary(self):
+        out = run_phone_js(SETUP + r"""
+const nowS = Date.UTC(2026, 10, 6, 6, 0, 0) / 1000;
+const pre1 = { id: "p1", st: "pre", openTs: nowS + 3600 };
+const pre2 = { id: "p2", st: "pre", openTs: nowS + 3600 };
+const open1 = { id: "o1", st: "open", openTs: nowS - 600 };
+const open2 = { id: "o2", st: "open", openTs: nowS - 600 };
+out.push({
+  dayPair: PhoneModel.timelineNodes([pre1, pre2], "今天", nowS, "p1", pre1.openTs).map((n) => [n.hasBatch, n.batchN]),
+  daySingle: PhoneModel.timelineNodes([pre1], "今天", nowS, "p1", pre1.openTs).map((n) => [n.hasBatch, n.batchN]),
+  nonDay: ["正在开放", "待公布", "已报名", "已截止"].map((t) => PhoneModel.timelineNodes([pre1, pre2], t, nowS, "p1", pre1.openTs)[0].hasBatch),
+  dayOpen: PhoneModel.timelineNodes([open1, open2], "今天", nowS, "p1", pre1.openTs).map((n) => n.hasBatch),
+});
+""")[0]
+        self.assertEqual(out["dayPair"], [[True, 2]])
+        self.assertEqual(out["daySingle"], [[False, 1]])
+        self.assertEqual(out["nonDay"], [False, False, False, False])
+        self.assertEqual(out["dayOpen"], [False])
+
+    def test_countdown_soon_threshold_and_next_batch(self):
+        out = run_phone_js(SETUP + r"""
+const farOpen = Date.UTC(2026, 10, 6, 10, 0, 0) / 1000;
+const mk = (id, openS) => ({
+  id: id, name: id, sign_start: new Date(openS * 1000).toISOString().slice(0, 19).replace("T", " "),
+  sign_end: "2026-11-06 23:00:00",
+});
+const nextIt = { id: "n1", name: "下一批", sign_start: "2026-11-06 18:00:00", sign_end: "2026-11-06 23:00:00" };
+const farIt = { id: "f1", name: "更晚场", sign_start: "2026-11-06 20:00:00", sign_end: "2026-11-06 23:00:00" };
+const ctx = (nowS) => ({ items: [nextIt, farIt], nowS: nowS, selected: [], busy: false, nextPreId: "n1", nextOpenTs: farOpen, termsOk: true });
+const t20 = Date.UTC(2026, 10, 6, 12, 0, 0) / 1000;
+out.push({
+  at600: PhoneModel.rowView(farIt, ctx(t20 - 600)).leftCls,
+  at601: PhoneModel.rowView(farIt, ctx(t20 - 601)).leftCls,
+  nextBatchFar: PhoneModel.rowView(nextIt, ctx(farOpen - 7200)).leftCls,
+});
+""")[0]
+        self.assertEqual(out["at600"], "soon")
+        self.assertEqual(out["at601"], "")
+        self.assertEqual(out["nextBatchFar"], "soon")
 
 
 if __name__ == "__main__":

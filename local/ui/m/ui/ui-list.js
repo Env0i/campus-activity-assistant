@@ -3,13 +3,17 @@
 /* 手机页 DOM 层——活动列表、原因面板与整页搜索（依赖 model*.js、ui-session.js、ui-status.js 先加载）：
  * 负责列表分区常量、行与冲突原因面板构造、跳转已报名行、列表重画与搜索开合。 */
 
-/* G05 列表行（原型 .row 三列：勾选框 / 时刻大字 / 主体，Phone.dc.html:288/738-762）：
- * 数值全部来自 PhoneModel.rowView，这里只建元素、只写 textContent */
-function buildRow(box, row) {
-  const label = document.createElement("label");
-  label.className = "row" + (row.cls ? " " + row.cls : "")
-    + (model.flashId === row.id ? " flash" : "");
-  label.dataset.id = row.id;
+/* G05 列表行（D9 升级为四层卡片，数值全由 PhoneModel.rowView 计算，Phone.dc.html:288/738-762）：
+ * 这里只建元素、只写 textContent */
+function makeEl(tag, cls, text) {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (text !== undefined && text !== null) el.textContent = text;
+  return el;
+}
+
+function buildLayer1(row) {
+  const l1 = makeEl("div", "l1");
   const input = document.createElement("input");
   input.type = "checkbox";
   input.checked = row.selected;
@@ -22,80 +26,81 @@ function buildRow(box, row) {
     model.notice = res.notice;
     renderItems();
   });
-  const time = document.createElement("span");
-  time.className = "time";
-  const big = document.createElement("b");
-  if (row.timeCls) big.className = row.timeCls;
-  big.textContent = row.time;
-  time.appendChild(big);
-  if (row.hasLeft) {
-    const small = document.createElement("small");
-    if (row.leftCls) small.className = row.leftCls;
-    small.textContent = row.left;
-    time.appendChild(small);
-  }
-  const main = document.createElement("span");
-  main.className = "main";
-  const name = document.createElement("span");
-  name.className = "name";
-  name.textContent = row.name;
-  main.appendChild(name);
-  const sub = document.createElement("span");
-  sub.className = "sub";
-  row.flags.forEach((f) => {
-    const flag = document.createElement("span");
-    flag.className = "flag" + (f.cls ? " " + f.cls : "");
-    flag.textContent = f.text;
-    sub.appendChild(flag);
-  });
-  if (row.clash) {
-    /* 冲突与取消（20261107-conflict-cancel 在途块保留）：不可加入标签，点行展开原因 */
-    const flag = document.createElement("span");
-    flag.className = "flag clash";
-    flag.textContent = "不可加入";
-    sub.appendChild(flag);
-  }
-  if (row.act) {
-    const act = document.createElement("span");
-    act.textContent = row.act;
-    sub.appendChild(act);
-  }
-  if (row.hasRf) {
-    const rf = document.createElement("span");
-    rf.className = row.rfNo ? "rf no" : "rf";
-    rf.textContent = row.rf;
-    sub.appendChild(rf);
-  }
-  if (row.hasPlace) {
-    const place = document.createElement("span");
-    place.textContent = row.place;
-    sub.appendChild(place);
-  }
+  const nl = makeEl("div", "nl");
+  nl.appendChild(makeEl("span", "name", row.name));
+  l1.appendChild(input);
+  l1.appendChild(nl);
   if (row.rw && row.rw.text) {
-    /* 奖励排在这一行末尾，与原型 .sub 里 rw 的位置一致 */
-    const rw = document.createElement("span");
-    rw.className = row.rw.cls;
-    rw.textContent = row.rw.text;
-    sub.appendChild(rw);
+    /* 奖励排在第一层右侧，D9 替代原 .sub 里 rw 的位置 */
+    const right = makeEl("div", "l1-r");
+    right.appendChild(makeEl("span", row.rw.cls, row.rw.text));
+    l1.appendChild(right);
   }
-  main.appendChild(sub);
-  if (row.hasWarn) {
-    const warn = document.createElement("span");
-    warn.className = "w";
-    warn.textContent = row.warn;
-    main.appendChild(warn);
-  }
-  if (row.note) {
-    const note = document.createElement("span");
-    note.className = "cx-n";
-    note.textContent = row.note;
-    main.appendChild(note);
-  }
-  label.appendChild(input);
-  label.appendChild(time);
-  label.appendChild(main);
-  /* 重叠行：点按这一行展开 / 收起原因，一次只开一条（面板在行内占满整行宽） */
+  return l1;
+}
+
+function buildLayer2(row) {
+  const l2 = makeEl("div", "l2");
+  const leftBox = makeEl("div", "l2-l");
+  const typeTag = makeEl("span", "type-tag", row.typeLabel || "其他");
+  typeTag.setAttribute("title", row.typeLabel || "其他");
+  leftBox.appendChild(typeTag);
+  row.flags.forEach((f) => leftBox.appendChild(makeEl("span", "flag" + (f.cls ? " " + f.cls : ""), f.text)));
+  /* 冲突与取消（20261107-conflict-cancel 在途块保留）：不可加入标签，点行展开原因 */
+  if (row.clash) leftBox.appendChild(makeEl("span", "flag clash", "不可加入"));
+  if (row.hasRf) leftBox.appendChild(makeEl("span", row.rfNo ? "rf no" : "rf", row.rf));
+  if (row.signEndText) leftBox.appendChild(makeEl("span", "sign-end", row.signEndText));
+  const rightBox = makeEl("div", "l2-r");
+  if (row.hasLeft) rightBox.appendChild(makeEl("small", "left" + (row.leftCls ? " " + row.leftCls : ""), row.left));
+  l2.appendChild(leftBox);
+  l2.appendChild(rightBox);
+  return l2;
+}
+
+function buildCell(labelText, valueText, extraCls) {
+  const cell = makeEl("span", "l3-c" + (extraCls ? " " + extraCls : ""));
+  cell.appendChild(makeEl("em", "", labelText));
+  const val = document.createElement("span");
+  val.textContent = valueText;
+  cell.appendChild(val);
+  return cell;
+}
+
+function buildLayer3(row) {
+  const l3 = makeEl("div", "l3 l3-4");
+  const r1 = makeEl("div", "l3-r");
+  r1.appendChild(buildCell("举办", row.actCell, row.actInvalid ? "na" : ""));
+  r1.appendChild(buildCell("地点", row.placeCell, row.placeNa ? "na" : ""));
+  const r2 = makeEl("div", "l3-r");
+  r2.appendChild(buildCell("签到", row.inCell.text, row.inCell.cls));
+  r2.appendChild(buildCell("签退", row.outCell.text, row.outCell.cls));
+  l3.appendChild(r1);
+  l3.appendChild(r2);
+  return l3;
+}
+
+function buildLayer4(row) {
+  if (!row.hasL4) return null;
+  const l4 = makeEl("div", "l4");
+  if (row.hasWarn) l4.appendChild(makeEl("span", "w", row.warn));
+  if (row.missedText) l4.appendChild(makeEl("span", "note-m", row.missedText));
+  if (row.syncText) l4.appendChild(makeEl("span", "note-s", row.syncText));
+  if (row.note) l4.appendChild(makeEl("span", "cx-n", row.note));
+  return l4;
+}
+
+function buildRow(box, row) {
+  const label = document.createElement("label");
+  label.className = "row" + (row.cls ? " " + row.cls : "")
+    + (model.flashId === row.id ? " flash" : "");
+  label.dataset.id = row.id;
+  label.appendChild(buildLayer1(row));
+  label.appendChild(buildLayer2(row));
+  label.appendChild(buildLayer3(row));
+  const l4 = buildLayer4(row);
+  if (l4) label.appendChild(l4);
   if (row.clash) {
+    /* 重叠行：点按这一行展开 / 收起原因，一次只开一条（面板在行内占满整行宽） */
     label.addEventListener("click", (event) => {
       if (event && event.preventDefault) event.preventDefault();
       PhoneModel.toggleWhy(model, row.id);
@@ -234,10 +239,103 @@ function inListZone(zone, title) {
   return zone[0] === "upcoming-items" && TODAY_ZONE_TITLES.indexOf(title) < 0;
 }
 
+function buildNowLine(nowText) {
+  /* 「现在 {HH:MM}」分隔行（原型 nowline/nowchip，Phone.dc.html:93-97/286） */
+  const line = makeEl("div", "nowline");
+  const chip = makeEl("span", "nowchip");
+  chip.appendChild(makeEl("span", "", "现在 "));
+  chip.appendChild(makeEl("b", "", nowText));
+  line.appendChild(chip);
+  return line;
+}
+
+function buildGroupHeader(group) {
+  /* 组条（原型 .grp，Phone:287）：组名 + 组注 + 计数 */
+  const bar = makeEl("div", "grp" + (group.cls ? " " + group.cls : ""));
+  bar.appendChild(makeEl("b", "", group.title));
+  bar.appendChild(makeEl("span", "", group.note));
+  bar.appendChild(makeEl("span", "ct", group.n + " 场"));
+  return bar;
+}
+
+function buildTimelineNode(nd) {
+  const node = makeEl("div", "tl-node");
+  const axis = makeEl("div", "tl-axis");
+  const timeBox = makeEl("div", "tl-time");
+  timeBox.appendChild(makeEl("span", "tl-t" + (nd.timeCls ? " " + nd.timeCls : ""), nd.time));
+  if (nd.hasDay) timeBox.appendChild(makeEl("span", "tl-day", nd.day));
+  if (nd.hasBatch) timeBox.appendChild(makeEl("span", "tl-batch", "同抢 " + nd.batchN + " 场"));
+  const dot = makeEl("span", "tl-dot " + nd.dotCls);
+  dot.setAttribute("aria-hidden", "true");
+  axis.appendChild(timeBox);
+  axis.appendChild(dot);
+  const cards = makeEl("div", "tl-cards");
+  nd.rows.forEach((row) => buildRow(cards, row));
+  node.appendChild(axis);
+  node.appendChild(cards);
+  return node;
+}
+
+function appendGroupBody(box, group) {
+  if (group.hasRail && group.nodes) {
+    group.nodes.forEach((nd) => box.appendChild(buildTimelineNode(nd)));
+    return;
+  }
+  const below = makeEl("div", "tl-below");
+  group.rows.forEach((row) => buildRow(below, row));
+  box.appendChild(below);
+}
+
+/* RS01：结果态供任务卡/底栏/列表开合共用；termsOk 传给行禁用（TM01） */
+function renderSignedSummary(showList, result, nowS) {
+  /* UI-F1/R-P3-7（用户决策 2）：details#signed-summary 只在结果态作「已报名汇总」 */
+  const summary = $("signed-summary");
+  if (!summary) return;
+  summary.hidden = !showList || !result;
+  if (!result) return;
+  const sumBox = $("signed-items");
+  sumBox.textContent = "";
+  (model.items || []).filter((i) => i && i.signed).forEach((item) => {
+    buildRow(sumBox, PhoneModel.rowView(item, {
+      items: model.items, nowS: nowS, selected: [], busy: model.busy,
+      nextPreId: "", nextOpenTs: 0, termsOk: model.termsOk,
+    }));
+  });
+}
+
+function paintZonechrome(view, showList, result, zoneCount, nowS) {
+  /* G08 段钮计数（原型 segs 的 <small>N</small>，Phone:931）：对全部活动按开放状态聚合 */
+  $("seg-free").textContent = String(view.counts.free);
+  $("seg-signed").textContent = String(view.counts.signed);
+  $("seg-all").textContent = String(view.counts.all);
+  const signedCount = (model.items || []).filter((i) => i.signed).length;
+  if ($("signed-count")) $("signed-count").textContent = String(signedCount);
+  const noMatch = view.total === 0;
+  $("fbar").hidden = !showList;
+  $("search-view").hidden = !showList || !model.searchOpen;
+  /* RW01 列表显隐（原型 showList/canToggleList，Phone.dc.html:930）：运行与结果两态默认收起 */
+  const toggle = $("btn-toggle-list");
+  toggle.hidden = !(model.busy || result);
+  toggle.setAttribute("aria-expanded", model.listOpen ? "true" : "false");
+  toggle.textContent = model.listOpen ? "收起活动列表" : "查看活动列表";
+  /* G09 空态三分：筛选后（含按段钮）一行都没有走原型那句（Phone:290，tip 居中） */
+  const tip = $("filter-empty");
+  tip.textContent = "没有符合筛选的活动。";
+  tip.hidden = !showList || !noMatch;
+  $("today-items").hidden = !showList || noMatch;
+  if ($("upcoming-zone")) $("upcoming-zone").hidden = !showList || noMatch;
+  renderSignedSummary(showList, result, nowS);
+  $("empty").hidden = !showList || noMatch || nowS === null || zoneCount[0] > 0;
+  if ($("upcoming-empty")) $("upcoming-empty").hidden = !showList || noMatch || zoneCount[1] > 0;
+  /* LD04 勾选冲突提示条（原型 notice，role=alert，显示在列表区） */
+  const notice = $("list-notice");
+  notice.textContent = model.notice || "";
+  notice.hidden = !showList || !model.notice;
+}
+
 function renderItems() {
   model.nowMs = Date.now();
   const nowS = PhoneModel.businessNowS(model);
-  /* RS01：结果态供任务卡/底栏/列表开合共用；termsOk 传给行禁用（TM01） */
   const result = PhoneModel.resultView(model.plan, model.busy);
   const view = PhoneModel.listView(model.items, model.filter, {
     nowS: nowS, selected: model.selected, busy: model.busy, termsOk: model.termsOk,
@@ -250,83 +348,14 @@ function renderItems() {
     view.groups.forEach((group) => {
       if (!inListZone(zone, group.title)) return;
       zoneCount[zi] += group.n;
-      /* 「现在 {HH:MM}」分隔行（原型 nowline/nowchip，Phone.dc.html:93-97/286） */
-      if (group.nowBefore && group.now) {
-        const line = document.createElement("div");
-        line.className = "nowline";
-        const chip = document.createElement("span");
-        chip.className = "nowchip";
-        const label = document.createElement("span");
-        label.textContent = "现在 ";
-        const clock = document.createElement("b");
-        clock.textContent = group.now;
-        chip.appendChild(label);
-        chip.appendChild(clock);
-        line.appendChild(chip);
-        box.appendChild(line);
-      }
-      /* 组条（原型 .grp，Phone:287）：组名 + 组注 + 计数 */
-      const bar = document.createElement("div");
-      bar.className = "grp" + (group.cls ? " " + group.cls : "");
-      const title = document.createElement("b");
-      title.textContent = group.title;
-      const note = document.createElement("span");
-      note.textContent = group.note;
-      const ct = document.createElement("span");
-      ct.className = "ct";
-      ct.textContent = group.n + " 场";
-      bar.appendChild(title);
-      bar.appendChild(note);
-      bar.appendChild(ct);
-      box.appendChild(bar);
-      group.rows.forEach((row) => buildRow(box, row));
+      if (group.nowBefore && group.now) box.appendChild(buildNowLine(group.now));
+      box.appendChild(buildGroupHeader(group));
+      appendGroupBody(box, group);
     });
   });
-  /* G08 段钮计数（原型 segs 的 <small>N</small>，Phone:931）：对全部活动按开放状态聚合 */
-  $("seg-free").textContent = String(view.counts.free);
-  $("seg-signed").textContent = String(view.counts.signed);
-  $("seg-all").textContent = String(view.counts.all);
-  const signedCount = (model.items || []).filter((i) => i.signed).length;
-  if ($("signed-count")) $("signed-count").textContent = String(signedCount);
-  /* G09 空态三分：筛选后（含按段钮）一行都没有走原型那句（Phone:290，tip 居中），
-     并收起两个空区盒；有结果但该区没行时保留原有两句区提示，与这句分开 */
-  const noMatch = view.total === 0;
-  /* RW01 列表显隐（原型 showList/canToggleList，Phone.dc.html:930）：运行与结果两态默认
-     收起（RS01 接通 result），pending 与草稿照常显示；#btn-toggle-list 开合（aria-expanded 随动） */
   const pendingNow = !!(model.pending && !model.pending.done);
   const showList = model.listOpen || (!model.busy && !pendingNow);
-  $("fbar").hidden = !showList;
-  $("search-view").hidden = !showList || !model.searchOpen;
-  const toggle = $("btn-toggle-list");
-  toggle.hidden = !(model.busy || result);
-  toggle.setAttribute("aria-expanded", model.listOpen ? "true" : "false");
-  toggle.textContent = model.listOpen ? "收起活动列表" : "查看活动列表";
-  const tip = $("filter-empty");
-  tip.textContent = "没有符合筛选的活动。";
-  tip.hidden = !showList || !noMatch;
-  $("today-items").hidden = !showList || noMatch;
-  if ($("upcoming-zone")) $("upcoming-zone").hidden = !showList || noMatch;
-  /* UI-F1/R-P3-7（用户决策 2）：details#signed-summary 只在结果态作「已报名汇总」
-     入口；行集不过段钮过滤，与「已报名 N 场」计数同一口径（都是已报名行总数），
-     修掉「折叠区有数无行」——草稿态主列表已展示这些行，整块收起不与列表重复 */
-  if ($("signed-summary")) {
-    $("signed-summary").hidden = !showList || !result;
-    if (result) {
-      const sumBox = $("signed-items");
-      sumBox.textContent = "";
-      (model.items || []).filter((i) => i && i.signed).forEach((item) => {
-        buildRow(sumBox, PhoneModel.rowView(item, {
-          items: model.items, nowS: nowS, selected: [], busy: model.busy,
-          nextPreId: "", termsOk: model.termsOk }));
-      });
-    }
-  }
-  $("empty").hidden = !showList || noMatch || nowS === null || zoneCount[0] > 0;   // 时钟不可用时不判「今天」，收起今天区空态
-  if ($("upcoming-empty")) $("upcoming-empty").hidden = !showList || noMatch || zoneCount[1] > 0;
-  /* LD04 勾选冲突提示条（原型 notice，role=alert，显示在列表区） */
-  const notice = $("list-notice");
-  notice.textContent = model.notice || "";
-  notice.hidden = !showList || !model.notice;
+  paintZonechrome(view, showList, result, zoneCount, nowS);
   renderBoard(view);
   refreshControls();
 }

@@ -29,4 +29,5 @@ function paintClockStatus() {
   btn.title = title;
   btn.setAttribute("aria-label", title);
   btn.setAttribute("aria-expanded", clockPopOpenNow() ? "true" : "false");
+  btn.classList.toggle("collapsed-warn", !!(S.collapsedBanner === "clock" && S.bannerTopKey === "clock"));
 }

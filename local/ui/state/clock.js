@@ -27,11 +27,11 @@ const CLOCK_ICONS = {
 };
 
 const CLOCK_COPY = {
-  ready: { label: "已校准", explain: "报名时间和倒计时均以北京时间为准。" },
+  ready: { label: "已校准", explain: "报名按这个时间执行，工具不改电脑的时间。" },
   syncing: { label: "正在校准…", explain: "正在获取网络时间。报名计划需在校准完成后启动。" },
   retrying: { label: "正在重试校准", explain: "上一轮没得到可信时间，工具会按 5、10、20、30 秒退避自动重试；也可以点「重试校准」立刻再试。" },
   holdover: { label: "使用上次校准结果", explain: "时间仍可用，工具会自动重试校准。" },
-  unavailable: { label: "时间校准失败", explain: "报名计划暂不可启动。检查网络后重试。" },
+  unavailable: { label: "时间校准失败", explain: "还没校准，多半是连不上授时服务。校准前能看活动，不能开始报名。" },
   demo: { label: "演示时间", explain: "使用示例活动和时间，不会提交报名。" },
 };
 const CLOCK_SYNC_FAILURE = "本次校准未成功。";

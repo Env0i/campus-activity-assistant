@@ -109,10 +109,29 @@ def detail_fields(raw):
     return data if isinstance(data, dict) else raw
 
 
-def parse_attendance_detail(raw, school_epoch):
-    """把 getInfo 的签到/签退字段归一化；未知保持 None，绝不猜成无需。
+def _clean_text(value):
+    """纯文本字段清洗：非字符串或缺省一律归一化为空串。"""
+    return value.strip() if isinstance(value, str) else ""
 
-    真实字段：sfxyqd/qdkssj/qdjssj（签到）、sfxyqt/qtkssj/qtjssj（签退）。
+
+def _non_negative_int(value):
+    """面向范围代码：仅接受非负整数（或纯整数数字串），其余返回 None。"""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, str):
+        text = value.strip()
+        if text.isdigit():
+            return int(text)
+    return None
+
+
+def parse_attendance_detail(raw, school_epoch):
+    """把 getInfo 的签到/签退、退报与简介字段归一化；未知保持 None。
+
+    真实字段：sfxyqd/qdkssj/qdjssj（签到）、sfxyqt/qtkssj/qtjssj（签退）、
+    hdms（简介）、mxfw（面向范围文字）、hdmxfw（面向范围代码）。
     标记明确时优先；标记缺失但时间段存在才推导 true；两者都缺失 → None。
     """
     data = detail_fields(raw)
@@ -148,6 +167,9 @@ def parse_attendance_detail(raw, school_epoch):
         # 给 0 就存 0（真实回答），给不出就 None（界面写「未公布」）。
         "points": reward_number(data, POINTS_NAMES),
         "wage": reward_number(data, WAGE_NAMES),
+        "description": _clean_text(data.get("hdms")),
+        "audience": _clean_text(data.get("mxfw")),
+        "audience_code": _non_negative_int(data.get("hdmxfw")),
     }
 
 
@@ -193,8 +215,13 @@ def apply_attendance(item, detail):
         item["points"] = None
         item["wage"] = None
         item["reward_state"] = "pending"
+        item["description"] = None
+        item["audience"] = None
+        item["audience_code"] = None
         return item
     for key, value in detail.items():
+        if key in ("description", "audience", "audience_code", "points", "wage"):
+            continue
         if key in ("checkin_required", "checkout_required",
                    "cancel_allowed", "can_sign"):
             # 三态键：只有 None 才让位给详情；False 是明确回答，不能被「真值判断」吞掉
@@ -208,10 +235,13 @@ def apply_attendance(item, detail):
     item["attendance_source"] = "list" if list_has else "detail"
     item["attendance_state"] = "ready"
     # 奖励以这次详情为准：详情里没有这两项，就是学校尚未公布（None），
-    # 不能沿用上一轮的值——活动可能改了奖励。
+    # 不能沿用上一轮的值——活动可能改了奖励（简介/面向范围同理，保留 0 与空串不被假值吞掉）。
     item["points"] = detail.get("points")
     item["wage"] = detail.get("wage")
     item["reward_state"] = "ready"
+    item["description"] = detail.get("description")
+    item["audience"] = detail.get("audience")
+    item["audience_code"] = detail.get("audience_code")
     item.pop("attendance_error", None)
     return item
 

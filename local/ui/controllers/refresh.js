@@ -9,9 +9,10 @@ function applyPrefs(prefs) {
     sort: ["open", "name"].indexOf(filter.sort) >= 0 ? filter.sort : "open",
     checkin: ["all", "yes", "no"].indexOf(filter.checkin) >= 0 ? filter.checkin : "all",
     checkout: ["all", "yes", "no"].indexOf(filter.checkout) >= 0 ? filter.checkout : "all",
+    types: normalizeTypeFilter(filter.types),
   };
   S.logOpen = !!S.prefs.log_open;
-  S.filterOpen = !!S.prefs.filter_open;   /* LS06 更多筛选面板的展开状态 */
+  S.filterOpen = !!S.prefs.filter_open;
   /* 重试策略偏好：只认白名单值，脏数据回落默认（120 秒 / 不限）。
    * 白名单与默认值来自 bootstrap 的权威选项（桌面/手机同源），不各写一套。 */
   const policy = S.prefs.retry_policy || {};
@@ -37,7 +38,7 @@ function applyPrefs(prefs) {
  * 不能拿「半个 prefs」回调 applyPrefs——那会把重试策略、浏览器开关、
  * 运行记录展开、引导版本等一起重置掉，用户设的 10 分钟/3 次就白设了。 */
 function clearFilters() {
-  S.filter = { q: "", status: "all", time: "all", sort: "open", checkin: "all", checkout: "all" };
+  S.filter = { q: "", status: "all", time: "all", sort: "open", checkin: "all", checkout: "all", types: [] };
   $("#q").value = S.filter.q;
   $("#time").value = S.filter.time;
   $("#sort").value = S.filter.sort;
@@ -233,9 +234,11 @@ function settleListWaitFailure(reason, options) {
   const countFailure = !(options && options.termsRequired);
   if (S.round.background) {
     if (countFailure) noteBackgroundListFailed();
+  } else if (S.items.length > 0 && countFailure && !S.runtime.roundError) {
+    S.listState = "ready"; S.listRefreshFail = true; S.listError = reason;
+    noteListFailed(S.listError); render();
   } else {
-    S.listState = "error";
-    S.listError = reason;
+    S.listState = "error"; S.listError = reason;
     if (countFailure) noteListFailed(S.listError);
     render();
   }
@@ -460,44 +463,35 @@ function applyActivities(payload, quiet) {
     if (S.round.background) {
       /* 后台轮失败：用户正在看的列表、勾选、筛选一概不动，不挂横幅、不切错误空态、不写失败日志；
        * 只累计次数，连续 3 次才在运行记录里说一句（noteBackgroundListFailed） */
-      noteBackgroundListFailed();
-      settleRefreshBranch("list");
-      return;
+      noteBackgroundListFailed(); settleRefreshBranch("list"); return;
     }
-    S.items = [];
-    S.byId = new Map();
-    S.selected.clear();
-    syncResultSelection();   /* 列表失败清掉选择不是用户改勾选，不关结果页 */
-    S.listState = "error";
     /* FB4：先消费后端的 runtime_error 再渲染——check 成功而 list 起不来时
-     * 组件横幅不能缺席；失败原话留给列表空态做唯一完整说明，不再生成
-     * 同义结果框，也不靠清空 result 去藏重复——真实业务结果原样保留 */
-    if (noteRoundError(res.runtime_error)) {
-      paintBanners();
-      updateControls();
+     * 组件横幅不能缺席；无旧列表时失败原话留给列表空态做唯一完整说明（D7 有旧列表时保留旧行并在上方内联重试），
+     * 不再生成同义结果框，也不靠清空 result 去藏重复——真实业务结果原样保留 */
+    const rtErr = noteRoundError(res.runtime_error);
+    if (S.items.length > 0 && !rtErr) {
+      S.listState = "ready"; S.listRefreshFail = true; S.listError = res.text || "";
+      noteListFailed(S.listError); render(); settleRefreshBranch("list"); return;
     }
-    S.listError = res.text || "";
-    noteListFailed(S.listError);
-    render();
-    settleRefreshBranch("list");
-    return;
+    S.items = []; S.byId = new Map(); S.selected.clear(); syncResultSelection();
+    S.listState = "error";
+    if (rtErr) { paintBanners(); updateControls(); }
+    S.listError = res.text || ""; noteListFailed(S.listError);
+    render(); settleRefreshBranch("list"); return;
   }
-  S.listError = "";
-  S.items = (res.items || []).map(normalize);
-  applyConfirmedToItems();
+  const wasLoading = S.listState === "loading";
+  S.listRefreshFail = false; S.listError = "";
+  S.items = (res.items || []).map(normalize); applyConfirmedToItems();
   S.byId = new Map(S.items.map((item) => [String(item.id), item]));
   Array.from(S.selected).forEach((id) => { if (!S.byId.has(String(id))) S.selected.delete(id); });
-  syncResultSelection();   /* 列表里没了的场次自动移出，不关结果页 */
-  S.listState = "ready";
-  S.listAtMono = _monoMs();   /* 时刻表上方的「N 分钟前更新」从这一刻算 */
+  syncResultSelection();
   /* 任何一次列表成功（手动或后台）都让后台失败计数清零，并记下这份列表的北京时间 HH:MM，
    * 供「连续 3 次没成功」那句说清列表还是几点的 */
-  autoRefreshState.fails = 0;
+  S.listState = "ready"; S.listAtMono = _monoMs(); autoRefreshState.fails = 0;
   const loadedAt = businessNowMs();
-  autoRefreshState.okLabel = loadedAt === null ? "" : hm(loadedAt);
-  render();
-  maybeStartTour();   /* 列表到了：等着的首次引导看看能不能开始 */
-  settleRefreshBranch("list");
+  autoRefreshState.okLabel = loadedAt === null ? "" : hm(loadedAt); S.listAtLabel = autoRefreshState.okLabel;
+  if (!S.round.background && wasLoading && typeof flashRefreshDone === "function") flashRefreshDone();
+  render(); maybeStartTour(); settleRefreshBranch("list");
 }
 
 /* ================================================================ 后台自动刷新

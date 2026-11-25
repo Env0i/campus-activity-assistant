@@ -1633,5 +1633,54 @@ out.push(__open("", true));
         self.assertEqual(res[1], [True, ""], "停止中点标识不弹卡")
         self.assertEqual(res[2], [False, "phone"], "开好以后照常弹卡")
 
+
+class ProgramGroupCardTests(unittest.TestCase):
+    """D6：设置「程序」组合卡的折叠详情、状态点与飞书/更新展开切换。"""
+
+    def test_program_card_toggles_update_and_feishu_details(self):
+        """飞书与更新默认收起详情；点展开箭头切换显隐，飞书配置状态反映到标题行。"""
+        res = run_js(r"""
+S.feishuWebhook = "https://open.feishu.cn/hook/abc";
+S.feishuOpen = false;
+S.updateOpen = false;
+S.update = { state: "idle", result: {} };
+paintFeishuRow(true);
+paintUpdate();
+const before = { fsHidden: $("#feishu-detail").hidden, fsText: $("#feishu-status-text").textContent,
+                 upHidden: $("#update-detail").hidden, fsExp: $("#btn-feishu-toggle").getAttribute("aria-expanded") };
+$("#btn-feishu-toggle").click();
+$("#btn-update-row-toggle").click();
+const after = { fsHidden: $("#feishu-detail").hidden, upHidden: $("#update-detail").hidden,
+                fsExp: $("#btn-feishu-toggle").getAttribute("aria-expanded"),
+                upExp: $("#btn-update-row-toggle").getAttribute("aria-expanded") };
+out.push({ before, after });
+""")[0]
+        self.assertTrue(res["before"]["fsHidden"])
+        self.assertIn("已配置", res["before"]["fsText"])
+        self.assertTrue(res["before"]["upHidden"])
+        self.assertEqual(res["before"]["fsExp"], "false")
+        self.assertFalse(res["after"]["fsHidden"])
+        self.assertFalse(res["after"]["upHidden"])
+        self.assertEqual(res["after"]["fsExp"], "true")
+        self.assertEqual(res["after"]["upExp"], "true")
+
+
+class PhoneTimelineContractTests(unittest.TestCase):
+    """D9：手机页时间轴节点、四层卡片与类型标签静态契约。"""
+
+    def test_phone_styles_and_list_avoid_grid_and_desc_popup(self):
+        root = Path(__file__).resolve().parents[2]
+        css = (root / "ui" / "m" / "styles.css").read_text(encoding="utf-8")
+        js = (root / "ui" / "m" / "ui" / "ui-list.js").read_text(encoding="utf-8")
+        for token in (".tl-node", ".tl-dot.open", ".tl-dot.next", ".tl-dot.wait",
+                      ".tl-dot.unknown", ".tl-batch", ".type-tag", ".l3-r",
+                      ".flag.next { display: none; }"):
+            self.assertIn(token, css)
+        for token in ("buildTimelineNode", "tl-below", "l3 l3-4", "type-tag"):
+            self.assertIn(token, js)
+        self.assertNotIn("desc-btn", js)
+        self.assertNotIn("innerHTML", js)
+
+
 if __name__ == "__main__":
     unittest.main()

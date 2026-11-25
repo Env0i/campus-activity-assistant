@@ -6,6 +6,12 @@ import { render, setBusy } from "./features/shell/actions-render.js";
 import { ingestBusinessClock, resyncClock, pollClockNow, startClockPolling } from "./features/clock/actions.js";
 import { clearSelection, tipGoSigned, toggleSelection } from "./features/list/actions-selection.js";
 import { listErrorCopy } from "./features/list/state-errors.js";
+import { isSoonCountdown } from "./features/list/state-timeline.js";
+import { matchesTypeFilter, normalizeTypeFilter } from "./features/list/state-types.js";
+import { paintDescIfOpen } from "./features/list/view-desc.js";
+import { buildCardHtml, buildGroupBodyHtml, cardStateHtml, clashOfItem } from "./features/list/view-timeline.js";
+import { skeletonHtml, paintRefreshBarAndFail, flashRefreshDone } from "./features/list/view-refresh.js";
+import { paintTypeFilters } from "./features/list/view-types.js";
 /* 过渡期清单（ESM 地基批）：把模块里的名字挂回 window，给还没迁的普通脚本用。
  * 模块里的名字不进全局作用域，普通脚本只能经 window 拿到；清单里的每个名字必须真的
  * 有普通脚本在用（tools/code_shape/ui_modules.mjs 守着，没人用就红），一旦没有就要从
@@ -115,6 +121,18 @@ export function installLegacyGlobals() {
   window.tipGoSigned = tipGoSigned;
   window.toggleSelection = toggleSelection;
   window.listErrorCopy = listErrorCopy;
+  window.isSoonCountdown = isSoonCountdown;
+  window.buildCardHtml = buildCardHtml;
+  window.buildGroupBodyHtml = buildGroupBodyHtml;
+  window.cardStateHtml = cardStateHtml;
+  window.clashOfItem = clashOfItem;
+  window.matchesTypeFilter = matchesTypeFilter;
+  window.normalizeTypeFilter = normalizeTypeFilter;
+  window.paintTypeFilters = paintTypeFilters;
+  window.paintDescIfOpen = paintDescIfOpen;
+  window.skeletonHtml = skeletonHtml;
+  window.paintRefreshBarAndFail = paintRefreshBarAndFail;
+  window.flashRefreshDone = flashRefreshDone;
   window.termsAccepted = termsAccepted;
   window.termsLocked = termsLocked;
   /* app.js 的 check 事件要顺手刷新这张卡片（重新登录成功会走 check）。跨文件只能靠

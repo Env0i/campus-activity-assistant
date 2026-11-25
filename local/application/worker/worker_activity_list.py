@@ -164,6 +164,7 @@ def _json_rows(rows, now, sign_state):
             "index": i,
             "id": act["id"],
             "name": act["name"],
+            "type": act.get("type") or "其他",
             "sign_start": act["sign_start"],
             "sign_end": act["sign_end"],
             "act_start": act["act_start"],
@@ -187,6 +188,9 @@ def _json_rows(rows, now, sign_state):
             "points": act.get("points"),
             "wage": act.get("wage"),
             "reward_state": act.get("reward_state") or "pending",
+            "description": act.get("description"),
+            "audience": act.get("audience"),
+            "audience_code": act.get("audience_code"),
             "state": "已报名" if act["signed"]
                      else ("待确认" if now is None else sign_state(act, now)),
         })

@@ -207,6 +207,33 @@ class AttendanceDetailContractTests(unittest.TestCase):
         self.assertEqual(rows[2]["attendance_state"], "pending")
         self.assertEqual(rows[2]["attendance_error"], "detail_unavailable")
         self.assertIsNone(rows[2]["checkin_required"], "详情失败不得猜成无需")
+        self.assertIsNone(rows[2]["description"], "详情失败简介应为 None 以示未同步")
+        self.assertIsNone(rows[2]["audience"])
+        self.assertIsNone(rows[2]["audience_code"])
+
+    def test_description_and_audience_mapping_handles_text_and_codes(self):
+        parsed = grab.parse_attendance_detail({
+            "code": 1,
+            "data": {"hdms": "  活动简介\n第二行  ", "mxfw": " 示例一分部 ", "hdmxfw": "1"},
+        })
+        self.assertEqual(parsed["description"], "活动简介\n第二行")
+        self.assertEqual(parsed["audience"], "示例一分部")
+        self.assertEqual(parsed["audience_code"], 1)
+
+    def test_description_and_audience_empty_or_invalid_shapes(self):
+        parsed = grab.parse_attendance_detail({
+            "code": 1,
+            "data": {"hdms": 123, "mxfw": None, "hdmxfw": "-2"},
+        })
+        self.assertEqual(parsed["description"], "")
+        self.assertEqual(parsed["audience"], "")
+        self.assertIsNone(parsed["audience_code"])
+        for bad_code in (True, False, 1.5, "abc", ""):
+            res = grab.parse_attendance_detail({"code": 1, "data": {"hdmxfw": bad_code}})
+            self.assertIsNone(res["audience_code"], f"应拒绝非法代码 {bad_code!r}")
+        zero = grab.parse_attendance_detail({"code": 1, "data": {"hdms": "", "hdmxfw": 0}})
+        self.assertEqual(zero["description"], "")
+        self.assertEqual(zero["audience_code"], 0)
 
 
 class TaskSpecSnapshotContractTests(unittest.TestCase):

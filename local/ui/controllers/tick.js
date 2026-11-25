@@ -46,7 +46,7 @@ function tick() {
       if (els.left) {
         const text = leftTextOf(item);
         if (els.left.textContent !== text) els.left.textContent = text;
-        els.left.classList.toggle("is-soon", left !== null && left > 0 && left <= 600);
+        els.left.classList.toggle("is-soon", typeof isSoonCountdown === "function" ? isSoonCountdown(item, left) : (left !== null && left > 0 && left <= 600));
       }
       if (els.ago && left !== null && left <= 0 && !item.signed) els.ago.textContent = "已开放 " + durText(-left);
     });
