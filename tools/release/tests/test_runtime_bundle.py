@@ -19,6 +19,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -1741,6 +1742,17 @@ class BuildEmbedsWorkerTests(unittest.TestCase):
                          "OUT 根目录不再放置外置 worker（独立 EXE 定位）")
         self.assertIn("prune_output(out,", assemble, "重建清理通路保留")
         self.assertIn('if child.name == "data":', src, "prune_output 仍跳过 data")
+
+    def test_dynamic_component_siblings_have_hidden_imports(self):
+        """component_packages 用 importlib 动态加载同级模块，构建必须逐个 hidden-import。"""
+        pkg = read("local/infrastructure/components/component_packages.py")
+        siblings = re.findall(r'_load_sibling\("([^"]+)"\)', pkg)
+        self.assertTrue(siblings, "没从 component_packages.py 解析到 _load_sibling 调用")
+        build = read("local/build/build_exe.py")
+        for name in siblings:
+            dotted = "infrastructure.components." + name
+            self.assertIn('"%s"' % dotted, build,
+                          "build_exe.py 缺 hidden-import：%s（冻结后启动会 ModuleNotFoundError）" % dotted)
 
     def test_assemble_embeds_worker_and_skips_sidecar(self):
         """mock 构建行为：记录 run_pyinstaller 调用序与 extra_data 指向实际 worker/VERSION。"""

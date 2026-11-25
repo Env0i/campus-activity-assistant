@@ -33,6 +33,15 @@ OUT = PROJECT / "dist" / "campus-grab-exe"
 OUT_ONEDIR = PROJECT / "dist" / "campus-grab-exe-onedir"
 WORK = PROJECT / "dist" / ".pyinstaller-work"
 VERSION_FILE = PROJECT / "VERSION"
+# component_packages._load_sibling 用 importlib 动态加载同级模块，PyInstaller
+# 静态分析看不到这些 import；不显式 hidden-import，冻结后启动即 ModuleNotFoundError。
+COMPONENT_SIBLING_MODULES = (
+    "infrastructure.components.component_manifest",
+    "infrastructure.components.component_storage",
+    "infrastructure.components.component_transactions",
+    "infrastructure.components.component_artifacts",
+    "infrastructure.components.component_cloudflared",
+)
 
 
 def read_version() -> str:
@@ -80,6 +89,8 @@ def run_pyinstaller(name: str, source: Path, mode: str, add_ui: bool,
     if name != "grab-worker":
         args += ["--icon", str(icon_path)]
         args += ["--hidden-import", "signup_plan", "--collect-all", "webview"]
+        for module in COMPONENT_SIBLING_MODULES:
+            args += ["--hidden-import", module]
         if add_ui:
             args += ["--add-data", str(LOCAL / "ui") + os.pathsep + "ui"]
         # 版本单一来源：同一份根 VERSION 放进冻结资源根，app.py 用 RESOURCE_ROOT 读
