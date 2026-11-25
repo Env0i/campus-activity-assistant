@@ -10,11 +10,7 @@
         "reason": "不在本轮重构范围"
       },
       "server/deploy/login/auto_login.py": {
-        "value": 824,
-        "reason": "不在本轮重构范围"
-      },
-      "server/deploy/signup/grab_signup.py": {
-        "value": 819,
+        "value": 811,
         "reason": "不在本轮重构范围"
       },
       "tools/qa/qa_runtime_reliability.py": {
@@ -46,7 +42,7 @@
         "value": 512
       },
       "local/ui/controllers/refresh.js": {
-        "value": 602
+        "value": 596
       },
       "local/ui/views/terms.js": {
         "value": 507
@@ -80,10 +76,6 @@
         "value": 108,
         "reason": "存量，未排期"
       },
-      "local/ui/m/ui/ui-list.js::buildRow": {
-        "value": 102,
-        "reason": "步骤 1 手机页"
-      },
       "local/ui/m/ui/ui-sync.js::ingest": {
         "value": 101,
         "reason": "步骤 1 手机页"
@@ -101,11 +93,7 @@
         "reason": "不在本轮重构范围"
       },
       "server/deploy/login/auto_login.py::main": {
-        "value": 123,
-        "reason": "不在本轮重构范围"
-      },
-      "server/deploy/signup/grab_signup.py::run_submit_loop": {
-        "value": 343,
+        "value": 117,
         "reason": "不在本轮重构范围"
       },
       "server/scripts/lib/fetch.py::main": {
@@ -155,9 +143,6 @@
       "local/build/build_advanced.py::_build_legacy": {
         "value": 76
       },
-      "local/domain/common/demo_data.py::demo_items": {
-        "value": 79
-      },
       "local/domain/phone/phone_rules.py::normalize_action": {
         "value": 76
       },
@@ -188,9 +173,6 @@
       "local/ui/controllers/tick.js::tick": {
         "value": 88
       },
-      "local/ui/features/login/view-recovery.js::paintRelogin": {
-        "value": 88
-      },
       "local/ui/features/phone-access/actions-panel.js::wire": {
         "value": 65
       },
@@ -203,9 +185,6 @@
       "local/ui/m/ui/ui-list.js::buildWhy": {
         "value": 85
       },
-      "local/ui/m/ui/ui-list.js::renderItems": {
-        "value": 96
-      },
       "local/ui/m/ui/ui-relogin.js::ingestRelogin": {
         "value": 87
       },
@@ -217,9 +196,6 @@
       },
       "local/ui/views/list.js::paintEmpty": {
         "value": 95
-      },
-      "local/ui/views/list.js::rowHtml": {
-        "value": 68
       },
       "local/ui/views/terms.js::applyTermsFooter": {
         "value": 77
@@ -244,9 +220,6 @@
       },
       "server/deploy/login/auto_login.py::_submit_once": {
         "value": 99
-      },
-      "server/deploy/signup/grab_signup.py::main": {
-        "value": 66
       },
       "server/deploy/login/server_refresh.js::runDaemon": {
         "value": 80
@@ -301,9 +274,6 @@
       },
       "tools/qa/verify_autologin_loop.py::main": {
         "value": 87
-      },
-      "local/ui/features/shell/view-banners.js::paintBanners": {
-        "value": 86
       },
       "local/ui/features/plan/view-controls.js::updateControls": {
         "value": 70
