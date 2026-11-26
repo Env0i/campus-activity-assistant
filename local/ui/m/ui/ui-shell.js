@@ -45,6 +45,7 @@ function closeSheet(force) {
     $("btn-sheet-close").hidden = true;   // 验证中：顺手把关闭钮也藏住
     return;
   }
+  const closingId = model.sheetId;
   model.sheetId = "";
   root.hidden = true;
   $("more-panel").hidden = true;
@@ -62,6 +63,10 @@ function closeSheet(force) {
   });
   model.confirm = null;                   // RW03：确认档随 sheet 收起
   model.relConfirm = false;               // RL06：确认层是开 sheet 那一次的事
+  if (closingId === "relogin" && model.flow
+      && ["success", "failed", "canceled"].indexOf(String(model.flow.state || "")) >= 0) {
+    model.relActiveFlowId = "";
+  }
   const opener = model.sheetOpener;
   model.sheetOpener = null;
   if (opener && typeof opener.focus === "function") opener.focus();

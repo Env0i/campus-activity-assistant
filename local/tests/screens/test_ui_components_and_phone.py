@@ -82,6 +82,28 @@ out.push([verifying.state, verifying.loading, verifying.installing]);
         self.assertEqual(res[1], ["outdated", True, True])
         self.assertEqual(res[2], ["verifying", True, True])
 
+    def test_installing_is_an_adapter_fact_not_a_listed_state(self):
+        """安装中只存在于适配层：状态机照旧报原状态，loading/installing 为真，清单里没有 installing。
+
+        两行标题行的「正在安装组件…」由这份适配事实驱动，不能被当成「没装」。
+        """
+        data = run_js("""
+const rows = [{}, { status: "outdated", available: true }, { ready: true }];
+const facts = rows.map((row) => componentState(row, { installing: true }));
+const head = rowHead("ocr", facts[0], { phase: "installing" });
+out.push({ states: facts.map((f) => f.state), loading: facts.map((f) => f.loading),
+  installing: facts.map((f) => f.installing), listed: COMPONENT_STATES.slice(),
+  head: { text: head.text, tone: head.tone, button: head.button } });
+""")[0]
+        self.assertEqual(data["installing"], [True, True, True])
+        self.assertEqual(data["loading"], [True, True, True])
+        self.assertNotIn("installing", data["listed"],
+                         "安装中是适配层事实，不能混进共享状态清单")
+        for state in data["states"]:
+            self.assertIn(state, data["listed"], "状态机返回值仍要落在清单里")
+        self.assertEqual(data["head"]["text"], "正在安装组件…")
+        self.assertEqual(data["head"]["tone"], "blue")
+        self.assertIsNone(data["head"]["button"], "安装中不给可点的按钮")
 
 
 class ProbeTests(unittest.TestCase):
@@ -220,6 +242,28 @@ out.push(ocrPhase({ ready: true, download: { state: "downloading" } }));
 """)
         self.assertEqual(res, ["on", "off", "missing", "checking", "outdated",
                                "broken", "downloading", "verifying", "downloading"])
+
+    def test_phone_lifecycle_phases_stay_adapter_facts(self):
+        """开机关机是适配层的显示事实：开着仍报 on（组件行说在下载也不改），两档都不进连接状态清单。"""
+        data = run_js("""
+const downloading = { download: { state: "downloading" }, ready: false };
+const on = phonePhase({ running: true }, downloading);
+const starting = rowHead("phone", componentState({}, {}), { phase: "off", starting: true });
+const stopping = rowHead("phone", componentState({ ready: true }, { running: true }),
+                         { phase: "on", stopping: true });
+out.push({ on: on, links: PHONE_LINK_STATES.slice(),
+  starting: { text: starting.text, tone: starting.tone, button: starting.button },
+  stopping: { text: stopping.text, tone: stopping.tone, button: stopping.button } });
+""")[0]
+        self.assertEqual(data["on"], "on", "手机访问开着时组件行在下载也按启用画")
+        self.assertNotIn("starting", data["links"])
+        self.assertNotIn("stopping", data["links"])
+        self.assertEqual(data["starting"]["text"], "正在开启…")
+        self.assertEqual(data["starting"]["tone"], "blue")
+        self.assertIsNone(data["starting"]["button"])
+        self.assertEqual(data["stopping"]["text"], "正在停止…")
+        self.assertEqual(data["stopping"]["tone"], "blue")
+        self.assertIsNone(data["stopping"]["button"])
 
 # ==================== 源自 test_component_transitions.py ====================
 """组件行的状态转移：读状态这一层（等锁、超时、读不到）与坏了、取消、下载中各自长什么样。
@@ -1366,6 +1410,23 @@ out.push(__view());
         self.assertEqual(unknown["chip"][1], CONNECTED)
         self.assertEqual(unknown["cardChip"], ["已连接", "ok", "长期地址"])
         self.assertEqual(off_link["chip"], [False, PHONE_WAITING, "adv-s amber blink", "waiting"])
+
+    def test_unknown_link_stays_a_compatibility_fallback(self):
+        """兼容行为，不是独立渲染的 unknown 状态：开着但 link=unknown 时退回配对与活动会话的两档规则。
+
+        没配对、没有活动会话 → waiting；有配对 → connected。unknown 不在连接状态清单里。
+        """
+        data = run_js("""
+out.push({
+  unpaired: phoneLinkView({ running: true, link: "unknown", paired_count: 0, live_session: false }),
+  paired: phoneLinkView({ running: true, link: "unknown", paired_count: 1, live_session: false }),
+  listed: PHONE_LINK_STATES.slice(),
+});
+""")[0]
+        self.assertEqual(data["unpaired"]["link"], "waiting")
+        self.assertEqual(data["paired"]["link"], "connected")
+        self.assertNotIn("unknown", data["listed"],
+                         "unknown 只是老快照的兜底输入，不是新的可见状态")
 
 
 class PairingIsNotLinkTests(unittest.TestCase):

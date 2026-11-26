@@ -2164,6 +2164,7 @@ render();
 const emptyLoad = {
   rows: document.querySelector("#rows").innerHTML,
   loading: document.querySelector("#list").classList.contains("is-loading"),
+  count: document.querySelector("#count").textContent,
   planTitle: document.querySelector("#selected").textContent,
   planText: document.querySelector("#board-text").textContent,
   ledLabel: document.querySelector("#led-label").firstChild ? document.querySelector("#led-label").firstChild.textContent : "",
@@ -2179,6 +2180,7 @@ out.push({
   emptyLoad,
   rows: document.querySelector("#rows").innerHTML,
   barHidden: document.querySelector("#list-refresh-bar").hidden,
+  count: document.querySelector("#count").textContent,
   fresh: document.querySelector("#fresh").textContent,
   selected: S.selected.has("a1"),
 });
@@ -2186,11 +2188,13 @@ out.push({
         row = res[0]
         self.assertIn("skel-card", row["emptyLoad"]["rows"], "空列表加载态必须画时间轴骨架卡片")
         self.assertTrue(row["emptyLoad"]["loading"], "空列表加载态要带 is-loading")
+        self.assertEqual(row["emptyLoad"]["count"], "正在刷新…")
         self.assertEqual(row["emptyLoad"]["planTitle"], "活动列表正在加载")
         self.assertEqual(row["emptyLoad"]["planText"], "先等这一次加载结束。")
         self.assertIn("正在加载", row["emptyLoad"]["ledLabel"])
         self.assertIn("旧活动", row["rows"], "有旧列表时刷新必须保留旧行")
         self.assertFalse(row["barHidden"], "有旧列表刷新时顶部细进度条要出现")
+        self.assertEqual(row["count"], "1 / 1 场", "有旧列表刷新时 #count 保持场数，不与 #fresh 重复写「正在刷新…」")
         self.assertEqual(row["fresh"], "正在刷新…")
         self.assertTrue(row["selected"], "刷新中必须保留原勾选")
 
@@ -9314,6 +9318,107 @@ checkUpdate(); timeout(); setTimeout = original;
 out.push({state:S.update.state,disabled:document.querySelector("#btn-update-check").disabled});
 """)
         self.assertEqual(res[0], {"state": "error", "disabled": False})
+
+    def test_checking_intermediate_event_stays_checking_and_rearms_watchdog(self):
+        """start_check 同步推 checking 时：不误判为 error，清空上次检查残留字段，并重挂 15 秒看门狗。"""
+        res = run_js(r"""
+const original = setTimeout;
+const timers = [];
+setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+S.update.result = { checked_at: "2026-10-25T15:00:00Z", installer: { url: "https://example.invalid/old.exe" } };
+window.pywebview = { api: { check_update: id => {
+  window.onBackend.update({ request_id: id, state: "checking", text: "正在检查更新…" });
+  return Promise.resolve({ ok: true, queued: true, request_id: id });
+} } };
+checkUpdate();
+await Promise.resolve();
+const mid = {
+  state: S.update.state,
+  errHidden: document.querySelector("#update-error-box").hidden,
+  disabled: document.querySelector("#btn-update-check").disabled,
+  checkedHidden: document.querySelector("#update-checked-at").hidden,
+  hasOldInstaller: !!(S.update.result && S.update.result.installer),
+  timerCount: timers.length,
+  lastMs: timers.length ? timers[timers.length - 1].ms : 0,
+};
+timers[timers.length - 1].fn();
+setTimeout = original;
+out.push({ mid, afterTimeout: S.update.state, errHiddenAfter: document.querySelector("#update-error-box").hidden });
+""")
+        self.assertEqual(res[0]["mid"], {
+            "state": "checking", "errHidden": True, "disabled": True,
+            "checkedHidden": True, "hasOldInstaller": False, "timerCount": 2, "lastMs": 15000,
+        })
+        self.assertEqual(res[0]["afterTimeout"], "error")
+        self.assertFalse(res[0]["errHiddenAfter"])
+
+    def test_launching_timeout_only_fires_before_launcher_started(self):
+        """启动安装程序在二段已拉起前挂 15 秒看门狗防卡死；收到已启动提示后撤销看门狗。"""
+        res = run_js(r"""
+const original = setTimeout, origClear = clearTimeout;
+const active = new Map(); let timerId = 0;
+setTimeout = (fn, ms) => { const id = ++timerId; active.set(id, { fn, ms }); return id; };
+clearTimeout = (id) => { active.delete(id); };
+S.update.state = "ready_to_install";
+S.update.result = { installer: { url: "https://example.invalid/app.exe", bytes: 1024 } };
+window.pywebview = { api: { update_launch: id => Promise.resolve({ ok: true, queued: true, request_id: id }) } };
+launchInstaller();
+const beforeWatch = Array.from(active.values()).filter((t) => t.ms === 15000).length;
+window.onBackend.update({ request_id: S.update.requestId, state: "launching", text: "安装程序已启动。请先关闭本工具，再按向导完成安装。" });
+const afterWatch = active.has(S.update.timer);
+S.update.state = "ready_to_install";
+S.update.paintedState = "";
+launchInstaller();
+active.get(S.update.timer).fn();
+setTimeout = original; clearTimeout = origClear;
+out.push({ beforeWatch, afterWatch, timedOutState: S.update.state });
+""")
+        self.assertEqual(res[0], {"beforeWatch": 1, "afterWatch": False, "timedOutState": "failed"})
+
+    def test_restore_update_does_not_arm_watchdog_after_launcher_started(self):
+        """二段已拉起启动器后重载页面恢复，不该再挂看门狗误判超时失败。"""
+        res = run_js(r"""
+const origSet = setTimeout, origClear = clearTimeout;
+const active = new Map(); let seq = 0;
+setTimeout = (fn, ms) => { const id = ++seq; active.set(id, { fn, ms }); return id; };
+clearTimeout = (id) => { active.delete(id); };
+restoreUpdate({ checking: true, request_id: "l1",
+  result: { request_id: "l1", state: "launching", text: "安装程序已启动。请先关闭本工具，再按向导完成安装。" } });
+const watchdogCount = Array.from(active.values()).filter((t) => t.ms >= 15000).length;
+setTimeout = origSet; clearTimeout = origClear;
+out.push({ state: S.update.state, watchdogCount });
+""")
+        self.assertEqual(res[0], {"state": "launching", "watchdogCount": 0})
+
+    def test_cancel_download_failure_surfaces_failed_state(self):
+        """取消下载被拒绝或桥接异常时应落到 failed，而不是静默卡在下载中。"""
+        res = run_js(r"""
+S.update.requestId = "dl-1"; S.update.state = "downloading";
+S.update.result = { installer: { url: "https://example.invalid/app.exe", bytes: 1024 } };
+window.pywebview = { api: { update_cancel: () => Promise.resolve({ ok: false, text: "无法中止" }) } };
+cancelDownload();
+await Promise.resolve(); await Promise.resolve();
+const rejected = { state: S.update.state, text: S.update.result.text };
+S.update.requestId = "dl-2"; S.update.state = "downloading";
+window.pywebview = { api: { update_cancel: () => Promise.reject(new Error("ipc down")) } };
+cancelDownload();
+await Promise.resolve(); await Promise.resolve();
+out.push({ rejected, threw: { state: S.update.state, text: S.update.result.text } });
+""")
+        self.assertEqual(res[0]["rejected"], {"state": "failed", "text": "无法中止"})
+        self.assertEqual(res[0]["threw"]["state"], "failed")
+        self.assertIn("ipc down", res[0]["threw"]["text"])
+
+    def test_ready_clock_popover_does_not_repeat_pc_time_disclaimer(self):
+        """已校准时钟弹层不在说明和页脚同时复读「不会修改电脑时间」。"""
+        res = run_js(r"""
+renderClockPop();
+const html = document.querySelector("#clock-pop").innerHTML;
+out.push({ html, totalMentions: (html.match(/电脑时间|电脑的时间/g) || []).length });
+""")
+        self.assertIn('<p class="pop-explain">报名按这个时间执行。</p>', res[0]["html"])
+        self.assertIn('<span class="pop-note">不会修改电脑时间</span>', res[0]["html"])
+        self.assertEqual(res[0]["totalMentions"], 1)
 
 
 class UpdateBoardPaintTests(unittest.TestCase):

@@ -86,6 +86,15 @@ Object.assign(PhoneModel, {
       : "重新登录成功，活动列表已刷新。计划不会自动重新开始，要你重新核对后再点开始。";
   },
 
+  /* 判断重登终态是否属于本轮：后端终态 snapshot 的 live 恒为 false，需结合 activeFlowId 归属 */
+  relOutcomeCurrent(flow, activeFlowId) {
+    const f = (flow && typeof flow === "object") ? flow : {};
+    if (f.live === true) return true;
+    const active = String(activeFlowId || "");
+    if (!active) return false;
+    return active === "__pending__" || (!!f.flow_id && String(f.flow_id) === active);
+  },
+
   /* RL01–RL08 重登 sheet 的呈现数据（原型 rel 段，Phone.dc.html:881-905）。
    * flow=state.login_relay、setup=state.relogin_setup（拿不到时不猜 needAcct，字段先收着）、
    * local={confirm,starting,submitting,entered,savedChoice,planBusy}。 */
@@ -153,7 +162,7 @@ Object.assign(PhoneModel, {
       return view;
     }
     /* RL08 完成态（原型 relogin==='done'，Phone:892-894）：两套文案 + 附言 */
-    if (state === "success" && f.live) {
+    if (state === "success" && PhoneModel.relOutcomeCurrent(f, o.activeFlowId)) {
       view.text = PhoneModel.loginDoneText(!!o.firstLogin, o.planBusy)
         + (o.entered ? (o.savedChoice
           ? "账号已加密保存到电脑，下次失效时" + saveGain + "。"
@@ -163,7 +172,7 @@ Object.assign(PhoneModel, {
     }
     /* RL05：失败结论进红条（safe_error 服务端透传；B-P2-1：bad_password 走原型整句，
        其余码保留通用句）；回表单初态可重试 */
-    if ((state === "failed" || state === "canceled") && f.live) {
+    if ((state === "failed" || state === "canceled") && PhoneModel.relOutcomeCurrent(f, o.activeFlowId)) {
       view.err = PhoneModel.reloginFailText(String(f.safe_error || state));
     }
     /* 表单初态（RL04 lead 四态 / RL07 relbad 红错盖过原因） */

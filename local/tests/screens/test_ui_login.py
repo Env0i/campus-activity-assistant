@@ -1690,6 +1690,47 @@ out.push({ due: autoRefreshDue() });
 """)[0]
         self.assertFalse(data["due"], "登录进行中不该自动刷新")
 
+    def test_relogin_open_school_page_waits_for_new_attempt_and_settles_on_failure(self):
+        """已登录或失败场景点「打开学校登录页」：不因旧 valid 误关，失败时退出 lgwait 到 msg。"""
+        data = run_js(DIALOG_PRELUDE + r"""
+let tick = null;
+window.setInterval = (fn) => { tick = fn; return 1; };
+window.clearInterval = () => {};
+window.pywebview = { api: { login: () => new Promise(() => {}) } };
+$("#dlg-relogin").removeAttribute = () => {};
+S.terms.version = "v1"; S.terms.acceptedVersion = "v1"; S.terms.unknown = false;
+S.login = { result: "valid", ok: true };
+openLogin();
+reloginOpenSchoolPage();
+tick();
+const stillWaiting = { open: S.relogin.open, step: stepOf() };
+handleDone({ kind: "login", ok: false, reason: "窗口被关掉" });
+tick();
+const afterFail = { open: S.relogin.open, step: stepOf(), msg: $("#rl-msg-text").textContent };
+reloginOpenSchoolPage();
+handleDone({ kind: "login", ok: true });
+tick();
+out.push({ stillWaiting, afterFail, afterOk: { open: S.relogin.open, log: logText() } });
+""")[0]
+        self.assertEqual(data["stillWaiting"], {"open": True, "step": "lgwait"})
+        self.assertEqual(data["afterFail"]["step"], "msg")
+        self.assertTrue(data["afterFail"]["open"])
+        self.assertIn("登录窗口被关掉了", data["afterFail"]["msg"])
+        self.assertFalse(data["afterOk"]["open"])
+        self.assertIn("登录成功", data["afterOk"]["log"])
+
+    def test_receive_relogin_waiting_code_without_image_keeps_wait_step(self):
+        """手动模式收到无图 waiting_code 时进入获取验证码等待文案，不静默丢弃。"""
+        data = run_js(DIALOG_PRELUDE + r"""
+cred({ saved: true, paused: false, username: "20230001" });
+openRelogin();
+S.relogin.flowId = "f-noimg";
+receiveReloginState({ state: "waiting_code", mode: "manual", flow_id: "f-noimg", image: "" });
+out.push({ step: stepOf(), text: $("#rl-wait-text").textContent });
+""")[0]
+        self.assertEqual(data["step"], "wait")
+        self.assertEqual(data["text"], "正在获取验证码…")
+
 
 class ClosedDialogTests(unittest.TestCase):
     """对话框关着的时候，后台回来的结果不该把状态改到一半。"""

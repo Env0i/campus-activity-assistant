@@ -128,11 +128,36 @@ export function finishResult() {
  * 说计划已不在就写修改作废，拿不到快照时保守写停止没成功，不替后端下结论。
  * wasEditing 由停止分支在进入 stopFailed 前记下带过来；桥接异常那一支不写这两句。 */
 let stopAttempt = 0;
+let stopTimer = 0;
+
+export function clearStopTimer() {
+  if (stopTimer) { clearTimeout(stopTimer); stopTimer = 0; }
+}
 
 /* 同一计划再次停止时，旧请求及其快照也不能归属于新的一次停止。 */
 function ownsStopReply(planId, attempt) {
   return S.plan.id === planId && stopAttempt === attempt
     && PLAN_TERMINAL.indexOf(S.plan.status) < 0;
+}
+
+function reconcileStopTimeout(planId, attempt) {
+  stopTimer = 0;
+  if (!ownsStopReply(planId, attempt) || !S.stopping) return;
+  const releaseStuck = () => {
+    S.stopping = false;
+    S.editing = null;
+    S.stopNote = { planId, text: "停止状态同步超时，已核对最新状态；如仍在运行可再点停止。" };
+    addLog("停止状态同步超时，已核对最新状态");
+    render();
+  };
+  api("bootstrap").then((info) => {
+    if (!ownsStopReply(planId, attempt) || !S.stopping) return;
+    if (info) ingestBootstrapPlan(info, true);
+    if (ownsStopReply(planId, attempt) && S.stopping) releaseStuck();
+    else render();
+  }).catch(() => {
+    if (ownsStopReply(planId, attempt) && S.stopping) releaseStuck();
+  });
 }
 
 function resyncPlanFromBootstrap(wasEditing, planId, attempt) {
@@ -158,6 +183,7 @@ function resyncPlanFromBootstrap(wasEditing, planId, attempt) {
 export function doStopPlan() {
   S.stopNote = null;
   if (!S.plan.id) return;
+  clearStopTimer();
   /* 立刻给「正在停止」的反馈：后端在按进程树终止 worker，
    * busy 要等 plan_done 才解锁，中间不能看起来像卡死 */
   S.stopping = true;
@@ -169,6 +195,7 @@ export function doStopPlan() {
   const planId = S.plan.id;
   const attempt = ++stopAttempt;
   const stopFailed = (line, noteText) => {
+    clearStopTimer();
     const wasEditing = !!S.editing;
     S.stopping = false;
     S.editing = null;
@@ -187,6 +214,8 @@ export function doStopPlan() {
     if (res && res.ok === false) {
       const wasEditing = stopFailed(res.text || "当前没有这个计划");
       resyncPlanFromBootstrap(wasEditing, planId, attempt);
+    } else {
+      stopTimer = setTimeout(() => reconcileStopTimeout(planId, attempt), 15000);
     }
   }).catch((err) => {
     if (!ownsStopReply(planId, attempt)) return;

@@ -1907,5 +1907,36 @@ out.push(finished);
         self.assertTrue(data["finished"]["resultOpen"])
         self.assertIn("报名计划完成", data["finished"]["title"])
 
+    def test_stop_plan_timeout_reconciles_when_plan_done_is_lost(self):
+        """stop_plan 返回 ok 但 plan_done 丢失时，15 秒兜底对账应解除 S.stopping 并给出提示。"""
+        data = run_js(FLOW_PRELUDE + r'''
+const origSet = setTimeout, origClear = clearTimeout;
+const timers = new Map(); let seq = 0;
+setTimeout = (fn, ms) => { const id = ++seq; timers.set(id, { fn, ms }); return id; };
+clearTimeout = (id) => { timers.delete(id); };
+window.pywebview = { api: {
+  stop_plan: () => Promise.resolve({ ok: true }),
+  bootstrap: () => Promise.resolve({ busy: true, plan: { plan_id: "p1", status: "running", tasks: [] } }),
+} };
+S.busy = true;
+S.plan = { id: "p1", gen: 1, status: "running", tasks: new Map() };
+doStopPlan(); await flush();
+const armedMs = Array.from(timers.values()).map((t) => t.ms);
+for (const [id, t] of Array.from(timers.entries())) { if (t.ms === 15000) { timers.delete(id); t.fn(); } }
+await flush();
+const afterTimeout = { stopping: S.stopping, note: S.stopNote && S.stopNote.text };
+doStopPlan(); await flush();
+const armedCount = Array.from(timers.values()).filter((t) => t.ms === 15000).length;
+handlePlanDone({ plan_id: "p1", plan_generation: 1, status: "stopped", tasks: [] });
+const afterDoneCount = Array.from(timers.values()).filter((t) => t.ms === 15000).length;
+setTimeout = origSet; clearTimeout = origClear;
+out.push({ armedMs, afterTimeout, armedCount, afterDoneCount });
+''')[0]
+        self.assertIn(15000, data["armedMs"])
+        self.assertFalse(data["afterTimeout"]["stopping"])
+        self.assertIn("超时", data["afterTimeout"]["note"] or "")
+        self.assertEqual(data["armedCount"], 1)
+        self.assertEqual(data["afterDoneCount"], 0)
+
 if __name__ == "__main__":
     unittest.main()

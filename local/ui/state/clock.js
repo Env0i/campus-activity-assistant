@@ -27,7 +27,7 @@ const CLOCK_ICONS = {
 };
 
 const CLOCK_COPY = {
-  ready: { label: "已校准", explain: "报名按这个时间执行，工具不改电脑的时间。" },
+  ready: { label: "已校准", explain: "报名按这个时间执行。" },
   syncing: { label: "正在校准…", explain: "正在获取网络时间。报名计划需在校准完成后启动。" },
   retrying: { label: "正在重试校准", explain: "上一轮没得到可信时间，工具会按 5、10、20、30 秒退避自动重试；也可以点「重试校准」立刻再试。" },
   holdover: { label: "使用上次校准结果", explain: "时间仍可用，工具会自动重试校准。" },

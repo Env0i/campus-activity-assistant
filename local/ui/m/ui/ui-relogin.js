@@ -19,6 +19,7 @@ function renderRelogin() {
     savedChoice: model.relSavedChoice,
     planBusy: model.busy,
     firstLogin: !!model.relFirstLogin,
+    activeFlowId: model.relActiveFlowId,
   });
   $("rel-err").textContent = view.err;
   $("rel-err").hidden = !view.err;
@@ -74,14 +75,29 @@ function endReloginControls() {
   $("captcha").hidden = true;
   $("captcha").removeAttribute("src");
 }
+function syncReloginActiveFlow(info, relayState) {
+  const fid = String(info.flow_id || "");
+  const inFlight = relayState === "starting" || relayState === "waiting_code" || relayState === "verifying";
+  if (inFlight && fid && (info.live === true || model.relActiveFlowId === "__pending__")) {
+    model.relActiveFlowId = fid;
+  }
+  if (info.live === true) return true;
+  if (!model.relActiveFlowId) return false;
+  return model.relActiveFlowId === "__pending__" || (!!fid && fid === model.relActiveFlowId);
+}
+function pollAfterReloginSuccess(info) {
+  const fid = String(info.flow_id || "");
+  if (fid && fid === model.relPolledFlowId) return;
+  if (fid) model.relPolledFlowId = fid;
+  void poll(true);
+}
 function ingestRelogin(info) {
   model.flow = info;
   const relayState = String(info.state || "");
+  const currentOutcome = syncReloginActiveFlow(info, relayState);
   if (String(info.mode || "") === "auto"
       && relayState !== "success" && relayState !== "failed" && relayState !== "canceled") {
-    // 电脑自己认图：手机不给验证码，也就不可能和电脑抢同一张图。
-    // 这里只报进度；连续失败到阈值后服务端会把 mode 换成 manual，图自然会来。
-    // （auto 的终态落到底下各自的分支：RL03 只描述「正在进行」）
+    // 电脑自己认图，连续失败到阈值后服务端切换为 manual 并下发验证码
     const rounds = Math.max(Number(info.attempts || 0), Number(info.auto_failures || 0));
     if (info.retrying) {
       $("relogin-note").textContent = "电脑正在自动登录" +
@@ -134,13 +150,12 @@ function ingestRelogin(info) {
     model.challenge = null;
     model.reloginSubmitting = false;
     endReloginControls();
-    if (info.live) {
-      /* RL08（原型 Phone:892-894）：完成态两套文案；计划在跑＝照常继续，闲时按打开面板时记下的 relFirstLogin 取句 */
+    if (currentOutcome) {
+      /* RL08（原型 Phone:892-894）：完成态两套文案 */
       $("relogin-note").textContent = PhoneModel.loginDoneText(!!model.relFirstLogin, model.busy);
-      void poll(true);
+      pollAfterReloginSuccess(info);
     } else {
-      // 中继在空闲时会回上一场的结论：那是历史，不是这一次。只按 live 播报，
-      // 否则每次打开手机页都会把很早以前那一次成功再演一遍。
+      // 中继空闲回放历史成功：只按本次场次播报，避免每次打开重演
       $("relogin-note").textContent = "上次重新登录已完成；需要时点「重新登录」再试";
     }
   } else if (relayState === "failed" || relayState === "canceled") {
@@ -149,7 +164,7 @@ function ingestRelogin(info) {
     endReloginControls();
     const reason = String(info.safe_error || relayState);
     /* B-P2-1：bad_password 走原型整句（两处「结束」呈现同一映射），其余码保留前缀+码 */
-    $("relogin-note").textContent = info.live
+    $("relogin-note").textContent = currentOutcome
       ? PhoneModel.reloginFailText(reason)
       : PhoneModel.reloginFailText(reason, "上次重新登录未完成：");
   } else if (relayState && relayState !== "waiting_code") {
@@ -207,6 +222,7 @@ async function beginRelogin() {
     refreshControls();
     return;
   }
+  model.relActiveFlowId = String(body.flow_id || "__pending__");
   if (String(body.mode || "") === "auto") {
     // 电脑接手了：手机不进入验证码流程，只等快照回报进度
     $("relogin-note").textContent = "电脑正在自动登录，手机上不用再操作";

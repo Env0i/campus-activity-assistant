@@ -90,7 +90,6 @@ function refreshControls() {
   /* 圆点是 pill 的固定子元素：文案写进内层 #conn-text，不整体覆盖 textContent */
   $("conn-text").textContent = conn.text;
   $("conn").dataset.state = conn.state;
-  $("stale-note").hidden = !stale;
   /* 刷新钮是图标钮（G01）：忙态不写字，交给 disabled + pill「同步中」 */
   $("btn-refresh").disabled = Boolean(model.flying);
   /* 电脑没同意条款：手机停在缓存，不能开始也不能重新登录（与电脑同一道门，后端也会拦） */
@@ -125,10 +124,13 @@ function refreshControls() {
   $("review-policy").textContent = hint;
   $("review-policy").hidden = !hint;
   $("login-line").textContent = PhoneModel.loginLine(model.login, model.reloginSetup, model.flow || null);
+  const relNote = $("relogin-note");
+  if (relNote) relNote.hidden = !relNote.textContent || PhoneModel.loginRecovering(model.login, model.flow || null);
   $("btn-relogin-open").textContent = PhoneModel.loginCopy(PhoneModel.loginState(model.login), false).reloginEntry;
   /* 验证中（提交验证码）sheet 不给关闭钮；开关本身在 openSheet/closeSheet 里管 */
   if (model.sheetId) $("btn-sheet-close").hidden = sheetBusy();
   renderAlerts(stale);   // EX01/EX02/EX05/EX06/TM01：五条告警按原型优先链互斥
+  $("stale-note").hidden = !stale || !$("offline-note").hidden;
   renderBar();
   renderRelogin();   // RL01–RL08：重登 sheet 的六态跟着模型走
 }

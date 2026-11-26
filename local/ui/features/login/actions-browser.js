@@ -8,6 +8,11 @@ import { paintSelected } from "../plan/view.js";
 import { termsLocked } from "../terms/state.js";
 import { RUNTIME_ERRORS } from "../shell/state-runtime.js";
 
+function settleBrowserOutcome(attempt, ok, text) {
+  if (!S.login || S.login.browserAttempt !== attempt) return;
+  S.login.browserOutcome = { attempt, ok: !!ok, text: String(text || "") };
+}
+
 export function doLogin() {
   if (S.busy) return;
   /* 条款未同意：登录是学校网络动作，拒绝后按钮已禁用，这里只兜底不强弹 */
@@ -20,6 +25,8 @@ export function doLogin() {
    * （见 handleDone），不能把仍有效的旧凭证画成「登录已失效」。 */
   S.login.preLoginSnapshot = loginSnapshotState();
   S.login.loginPending = true;
+  const attempt = (S.login.browserAttempt = (S.login.browserAttempt || 0) + 1);
+  S.login.browserOutcome = null;
   setResult(null);
   setBusy(true);
   /* setBusy 会把 S.busy 置真；大屏据此会误判「报名计划在跑」，
@@ -31,6 +38,7 @@ export function doLogin() {
       /* 演示模式不打开学校登录页：如实说明，不当成登录失败（R20） */
       S.login.loginPending = false;
       S.login.preLoginSnapshot = null;
+      settleBrowserOutcome(attempt, false, res.text || "演示模式不联网。");
       setBusy(false);
       setResult({ ok: "partial", title: "演示模式不登录", text: res.text || "演示模式不联网。" });
       return;
@@ -40,6 +48,7 @@ export function doLogin() {
       /* 登录窗口没起来 / 被忙碌或条款拦下：回滚到尝试前的结论，只留错误提示 */
       restoreLoginSnapshotState(S.login.preLoginSnapshot);
       S.login.preLoginSnapshot = null;
+      settleBrowserOutcome(attempt, false, (res && res.text) || "登录没能开始，再试一次。");
       if (res && res.error && RUNTIME_ERRORS[res.error]) {
         /* FB4：登录的同步组件失败只挂横幅与唯一恢复入口，
          * 不再生成「登录没能开始」同义结果框；同时计入本轮刷新故障累计——
@@ -57,6 +66,7 @@ export function doLogin() {
     S.login.loginPending = false;
     restoreLoginSnapshotState(S.login.preLoginSnapshot);
     S.login.preLoginSnapshot = null;
+    settleBrowserOutcome(attempt, false, msg(err));
     setBusy(false);
     syncLoginDependentView();
     setResult({ ok: false, kind: "login_attempt", title: "登录没能开始", text: msg(err) });
@@ -67,12 +77,14 @@ export function doLogin() {
 export function handleDone(payload) {
   const data = payload || {};
   if (data.kind === "login") {
+    const attempt = (S.login && S.login.browserAttempt) || 0;
     S.login.loginPending = false;
     setBusy(false);
     if (data.ok) {
       /* 登录成功=新会话已保存：作废尝试前快照，旧锚点立即清掉；紧接着的校验
        * 事件会带新锚点回来，这两秒里宁可显示未知，也不能拿旧凭证的剩余时间充数。 */
       S.login.preLoginSnapshot = null;
+      settleBrowserOutcome(attempt, true, "");
       setLogin(null, true, true, { estimated_expires_at: null, saved_at: null });
       syncLoginDependentView();
       setResult({ ok: true, title: "登录成功", text: "正在加载活动列表。", autoClose: Date.now() + 6000 });
@@ -88,6 +100,7 @@ export function handleDone(payload) {
       S.login.preLoginSnapshot = null;
       syncLoginDependentView();
       const copy = loginFailCopy(data.reason);
+      settleBrowserOutcome(attempt, false, copy.title + "：" + copy.text);
       setResult({ ok: false, kind: "login_attempt", title: copy.title, text: copy.text, action: { label: "再试一次", run: doLogin } });
     }
     return;

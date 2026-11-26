@@ -5,7 +5,7 @@ import { render } from "../shell/actions-render.js";
 
 import { PLAN_TERMINAL, admitPlanEvent, closeResultPage, mergeTask, openResultPage, planEventOwns, selectionSignature } from "./state.js";
 import { stopReasonText } from "./state-board.js";
-import { editPausedLine } from "./actions-run.js";
+import { clearStopTimer, editPausedLine } from "./actions-run.js";
 
 /* 计划收口共用入口：options 可以是旧的布尔 autoRefresh，也可以是具名选项
  * （restore 恢复 / autoRefresh 是否排补刷新）。恢复分支只展示快照：
@@ -20,6 +20,7 @@ export function presentPlanDone(payload, options) {
   S.plan.id = String(data.plan_id || S.plan.id || "");
   S.plan.status = String(data.status || "failed");
   /* 计划收尾：解除「正在停止」并解锁 busy（canceled/终态都已落定） */
+  clearStopTimer();
   S.stopping = false;
   /* 记下终态时的选择集合（旧口径，保留给 QA 与诊断读）；结果页进出改由结果页标记决定 */
   S.plan.doneSelection = selectionSignature();
@@ -63,6 +64,7 @@ export function handlePlanDone(payload) {
     /* 重复终态：合并任务详情但不重开结果页。
      * doStopPlan 曾把 S.stopping 置 true，presentPlanDone 不会走到这里，
      * 所以必须在这个早返回分支自己收口停止标记。 */
+    clearStopTimer();
     S.stopping = false;
     (data.tasks || []).forEach((task) => {
       S.plan.tasks.set(String(task.task_id),

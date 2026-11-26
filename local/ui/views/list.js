@@ -236,10 +236,11 @@ function paintEmpty(rows) {
 }
 
 function paintCount(rows) {
-  /* 列表还没加载过时不显示场数和新鲜度：不能把「还没拿到」说成「0 场」 */
+  /* 列表还没加载过时不显示场数和新鲜度：不能把「还没拿到」说成「0 场」；
+   * 手里已有列表时刷新由 #fresh 写「正在刷新…」，#count 保持 N / M 场，不并排重复。 */
   const known = S.listState === "ready" || S.items.length > 0;
-  $("#count").textContent = S.listState === "loading" ? "正在刷新…"
-    : (known ? rows.length + " / " + S.items.length + " 场" : "");
+  $("#count").textContent = known ? rows.length + " / " + S.items.length + " 场"
+    : (S.listState === "loading" ? "正在刷新…" : "");
   paintFreshness();
 }
 

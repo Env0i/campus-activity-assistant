@@ -68,15 +68,29 @@ export function stopBrowserWatch() {
   if (reloginBrowserWatch) { clearInterval(reloginBrowserWatch); reloginBrowserWatch = 0; }
 }
 
-export function watchBrowserLogin() {
+export function watchBrowserLogin(attempt) {
   stopBrowserWatch();
+  const startedValid = !!((S.login || {}).result === "valid" || (S.login || {}).ok === true);
+  let sawPending = !!((S.login || {}).loginPending);
   reloginBrowserWatch = setInterval(() => {
     if (!S.relogin || !S.relogin.open) { stopBrowserWatch(); return; }
     const login = S.login || {};
-    if (login.result === "valid" || login.ok === true) {
+    if (attempt) {
+      const outcome = login.browserOutcome;
+      if (!outcome || outcome.attempt !== attempt) return;
+      stopBrowserWatch();
+      if (outcome.ok) { addLog("登录成功"); closeRelogin(); }
+      else reloginStep("msg", outcome.text || "登录没完成，可以再试一次。");
+      return;
+    }
+    if (login.loginPending) { sawPending = true; return; }
+    if (!startedValid && (login.result === "valid" || login.ok === true)) {
       stopBrowserWatch();
       addLog("登录成功");
       closeRelogin();
+    } else if (sawPending) {
+      stopBrowserWatch();
+      reloginStep("msg", "登录没完成，可以再试一次。");
     }
   }, 1000);
 }
@@ -136,9 +150,16 @@ export function reloginPickWay(way) {
 
 /* 「打开学校登录页」：交给浏览器登录那条老路，对话框停在 lgwait 等它回来 */
 export function reloginOpenSchoolPage() {
-  reloginStep("lgwait");
-  watchBrowserLogin();
+  const prev = (S.login && S.login.browserAttempt) || 0;
   doLogin();
+  const next = (S.login && S.login.browserAttempt) || 0;
+  if (next === prev) {
+    if (typeof termsLocked === "function" && termsLocked()) { closeRelogin(); return; }
+    reloginStep("msg", "现在无法打开学校登录页，请稍后再试。");
+    return;
+  }
+  reloginStep("lgwait");
+  watchBrowserLogin(next);
 }
 
 export function closeRelogin() {
@@ -262,8 +283,9 @@ export function receiveReloginState(payload) {
     reloginShowChallenge(challengeWithHandoff(data));
     return;
   }
-  if (state === "verifying" || state === "starting" || (state === "waiting_code" && data.mode === "auto")) {
-    reloginStep("wait", data.mode === "auto" ? "电脑正在识别验证码…" : "正在登录…");
+  if (state === "verifying" || state === "starting" || state === "waiting_code") {
+    reloginStep("wait", data.mode === "auto" ? "电脑正在识别验证码…"
+      : (state === "waiting_code" ? "正在获取验证码…" : "正在登录…"));
     return;
   }
   if (state === "success") {

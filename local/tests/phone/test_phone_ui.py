@@ -2668,7 +2668,7 @@ out.push([ui.model.offlineTries, $("offline-note-title").textContent,
                          "N=0 时标题不带「已重试」尾缀（原型 Phone:852）")
         self.assertEqual(values[0][2], "确认电脑没睡眠、程序没退出；只是手机断网的话，电脑照常报名。")
         self.assertEqual(values[0][3], "重试", "告警条上要有「重试」钮（EX01）")
-        self.assertFalse(values[0][4], "还要告诉用户先刷新")
+        self.assertTrue(values[0][4], "离线红条已接管提示，不与 #stale-note 同时出现")
         self.assertFalse(values[0][5], "刷新按钮必须可点")
         # G01/G13：从未连上过是「离线」档（bad），不是静默过期的「同步中」
         self.assertEqual(values[0][6], "离线")
@@ -3610,6 +3610,52 @@ out.push({confirmShown, sheetOpen: !$("sheet-root").hidden,
             "confirmShown": True, "sheetOpen": True,
             "autoBtnHidden": True, "formHidden": False,
         }])
+
+    def test_terminal_relay_with_live_false_renders_outcome_when_tracked(self):
+        """后端终态恒发 live:false：跟踪到同场 flow_id 时仍应呈现成功完成与失败红条。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let polls = 0;
+globalThis.__fetch = async () => { polls += 1; return {status: 200, json: async () => ({state: {}, events: []})}; };
+ui.ingest({state: {terms_ok: true, login_relay: {state: "starting", flow_id: "f-real", live: true}}});
+ui.openRelogin();
+ui.ingest({state: {terms_ok: true, login_relay: {state: "success", flow_id: "f-real", live: false}}});
+ui.ingest({state: {terms_ok: true, login_relay: {state: "success", flow_id: "f-real", live: false}}});
+const ok = {doneHidden: $("btn-relogin-done").hidden, formHidden: $("rel-form").hidden,
+  text: $("rel-text").textContent, note: $("relogin-note").textContent, polls};
+ui.closeSheet(true);
+ui.ingest({state: {terms_ok: true, login_relay: {state: "starting", flow_id: "f-fail", live: true}}});
+ui.openRelogin();
+ui.ingest({state: {terms_ok: true, login_relay: {state: "failed", safe_error: "bad_password", flow_id: "f-fail", live: false}}});
+out.push({ok, errText: $("rel-err").textContent, errHidden: $("rel-err").hidden, formHidden: $("rel-form").hidden});
+''')
+        ok = values[0]["ok"]
+        self.assertFalse(ok["doneHidden"])
+        self.assertTrue(ok["formHidden"])
+        self.assertIn("重新登录成功", ok["text"])
+        self.assertEqual(ok["polls"], 1, "同一场成功终态只补一次轮询")
+        self.assertFalse(values[0]["errHidden"])
+        self.assertIn("账号或密码不对", values[0]["errText"])
+        self.assertFalse(values[0]["formHidden"])
+
+    def test_relogin_note_hides_while_login_line_shows_recovering(self):
+        """自动登录进行中时 #login-line 已说明进度，#relogin-note 应隐藏避免同屏重复。"""
+        values = run_phone_js('''
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+ui.ingest({state: {terms_ok: true,
+  login: {session_present: true, session_expired: true, last_check_state: "expired", recovering: true},
+  login_relay: {state: "starting", mode: "auto", origin: "auto", flow_id: "f-auto", live: true}}});
+ui.refreshControls();
+const whileRecovering = {hidden: $("relogin-note").hidden, line: $("login-line").textContent};
+ui.ingest({state: {terms_ok: true,
+  login: {session_present: false, session_expired: true, last_check_state: "expired", recovering: false},
+  login_relay: {state: "failed", safe_error: "eof", flow_id: "f-auto", live: true}}});
+ui.refreshControls();
+out.push({whileRecovering, afterFailHidden: $("relogin-note").hidden});
+''')
+        self.assertTrue(values[0]["whileRecovering"]["hidden"])
+        self.assertIn("自动", values[0]["whileRecovering"]["line"])
+        self.assertFalse(values[0]["afterFailHidden"])
 
 
 
@@ -6993,7 +7039,7 @@ ui.model.lastOkAt = Date.now(); ui.model.busy = false; ui.model.pending = null;
 $("stale-note").hidden = false; $("btn-stop").hidden = false; $("btn-cancel-start").hidden = false;
 ui.refreshControls();
 const clean = [$("stale-note").hidden, $("btn-stop").hidden, $("btn-cancel-start").hidden];
-ui.model.lastOkAt = 0; ui.model.busy = true; ui.model.pending = {at: Date.now(), done: false};
+ui.model.lastOkAt = Date.now() - PhoneModel.staleAfterMs - 1; ui.model.busy = true; ui.model.pending = {at: Date.now(), done: false};
 $("stale-note").hidden = true; $("btn-stop").hidden = true; $("btn-cancel-start").hidden = true;
 ui.refreshControls();
 out.push({clean, active: [$("stale-note").hidden, $("btn-stop").hidden, $("btn-cancel-start").hidden]});
