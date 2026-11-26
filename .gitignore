@@ -28,6 +28,8 @@ server/dist/
 .Claude/
 .Codex/
 .codex/
+# superpowers 过程施工单草稿：只对本机协作有意义，不入正式 docs/ 文档树
+/docs/superpowers/plans/
 
 # 外部二进制：cloudflared 等由用户侧自带或按需下载，五十多兆的可执行文件不入库
 local/bin/
@@ -43,14 +45,12 @@ __pycache__/
 Thumbs.db
 *.swp
 
-# 原始视觉证据含验证码或本机临时路径，保留本地，不加入版本库。
-/design/evidence/2026-10-31/3-relogin.png
-/design/evidence/2026-10-31/components-dialog.png
-
-# 2026-11-04 视觉证据（ui-gap 全量截图 + 真机 PNG，约 19MB）：本地保留给
-# Claude 比对用，不进公开仓库；同目录的 .md 台账正常入库。
+# 证据目录下的报告台账（README.md 等）和复现脚本正常入库；截图二进制图片（png/jpg/webp）
+# 留在本地不入库，防止仓库历史持续膨胀（历史已追踪截图不受本规则回溯影响）。
 /design/evidence/2026-11-04/ui-gap/
-/design/evidence/2026-11-04/*.png
+/design/evidence/**/*.png
+/design/evidence/**/*.jpg
+/design/evidence/**/*.webp
 
 # Trae 导出的原型分享包（本机生成，不入库）
 .trae-html-share-packages/
