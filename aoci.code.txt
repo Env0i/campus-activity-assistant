@@ -2,8 +2,8 @@
 
 ===/<repository>/===
 .gitattributes[FC6T]: F:统一文本行尾为LF，保留Windows脚本和文本分发所需CRLF，AOCI索引单独固定LF | R:- | A:Git文本属性 | S:aoci索引必须是LF，切分支检出成CRLF会让索引服务读不出根清单
-.gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物、本地工具资料及本机MCP宿主配置 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查
-AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、测试与AOCI治理纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建测试与提交分别受授权边界约束
+.gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物、本地工具资料、本机MCP宿主配置、计划草稿与证据截图 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查；证据目录只忽略png/jpg/webp截图，文字台账与复现脚本仍入库
+AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、测试、AOCI治理与证据留存纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建测试与提交分别受授权边界约束；证据截图留本地，文字台账与复现脚本入库
 CHANGELOG.md[SV4L]: F:按版本倒序记录每个版本的用户可见变化与修复边界，顶部是最新正式版本 | R:code:VERSION,code:tools/release/release.py | A:变更记录 | S:发版说明直接取最新一节；旧版本段不追改，也不写内部编号与临时路径
 CLAUDE.md[SG5T]: F:导入共同规则并补充Claude原型预览、尾注与测试边界 | R:code:AGENTS.md | A:Claude宿主指引 | S:-
 LICENSE[SG4T]: F:声明MIT授权、保留版权许可条件及免责条款 | R:- | A:MIT许可 | S:-
@@ -1466,9 +1466,9 @@ view-timeline.js[IU8S]: F:组装桌面时间轴节点DOM与四层活动卡片HTM
 view-types.js[IU5T]: F:渲染「更多筛选」面板中的活动类型多选按钮条及「不限」清除按钮 | R:code:local/ui/features/list/state-types.js | A:paintTypeFilters | S:传入已选S.filter.types取并集，刷新后列表中消失的已选类别仍可显示并取消
 
 ===/<repository>/local/ui/features/login/===
-actions-browser.js[AI8S]: F:编排浏览器登录尝试和终态收口 | R:code:local/ui/features/login/state.js,code:local/ui/features/terms/state.js,code:local/ui/features/shell/view-result.js | A:doLogin,handleDone,loginFailCopy | S:取消、超时及失败恢复尝试前登录事实；成功清旧估算锚点，已有列表补加载走后台轮；登录未完成的三处结果条带login_attempt类别，供有效检查时收起
+actions-browser.js[AI8S]: F:编排浏览器登录尝试和终态收口 | R:code:local/ui/features/login/state.js,code:local/ui/features/terms/state.js,code:local/ui/features/shell/view-result.js | A:doLogin,handleDone,loginFailCopy | S:取消、超时及失败恢复尝试前登录事实；成功清旧估算锚点，已有列表补加载走后台轮；登录未完成的三处结果条带login_attempt类别；每次尝试用自增browserAttempt绑定browserOutcome，迟到回包不能结算新一轮
 actions-recovery.js[AI8S]: F:编排恢复账号的一次运行暂存、加密保存及确认清除 | R:code:local/ui/features/phone-access/state.js | A:recoveryActionsPack | S:加密不可用退为本次运行；请求后无论成败清空输入，异常不回显原文
-actions-relogin.js[AI9M]: F:编排桌面重登、中继验证码、自动转人工及浏览器交接 | R:code:local/ui/features/login/state-relogin.js,code:local/ui/features/login/view-relogin.js,code:local/ui/features/login/actions-browser.js | A:loginEntry,openRelogin,openLogin,closeRelogin,receiveReloginState,wireRelogin | S:已有live流程直接接续；关框取消人工而不取消未转人工的自动流程；切浏览器先等取消释放。验证码绑定flow和challenge；转人工次数只在同一场第一次看到handoff时记下；计划忙不刷新，明确密码错误不重试
+actions-relogin.js[AI9M]: F:编排桌面重登、中继验证码、自动转人工及浏览器交接 | R:code:local/ui/features/login/state-relogin.js,code:local/ui/features/login/view-relogin.js,code:local/ui/features/login/actions-browser.js | A:loginEntry,openRelogin,openLogin,closeRelogin,receiveReloginState,wireRelogin | S:已有live流程直接接续；关框取消人工而不取消未转人工的自动流程；切浏览器先等取消释放。验证码绑定flow和challenge；转人工次数只在同一场第一次看到handoff时记下；计划忙不刷新，明确密码错误不重试；打开学校页以browserAttempt自增确认尝试真的发起，浏览器等待只结算本轮
 actions.js[AI8T]: F:摄入登录锚点和自动恢复状态并同步相关视口 | R:code:local/ui/features/login/state-machine.js,code:local/ui/features/login/view.js | A:applyAutoState,receiveAutoState,setLogin,syncLoginDependentView | S:仅认auto_state，缺字段保留；估算用后端绝对锚点不按接收时间续期，显式null清除锚点
 state-machine.js[DI8T]: F:纯推导登录阶段与兼容视图状态 | R:code:local/ui/features/login/actions.js,code:local/ui/features/login/view.js | A:LOGIN_PHASES,LOGIN_VIEW_STATES,AUTO_STATES,loginPhase,loginViewState | S:忙碌不遮蔽明确失效及自动恢复；条款覆盖普通阶段但保留演示、自动恢复与登录中
 state-recovery.js[DI6S]: F:计算账号打码与登录组「失效后自动登录·还差N步」二步清单纯模型 | R:code:local/domain/login_rules.py,code:local/ui/features/components/state-ocr.js | A:maskAccount,step2Checklist,loginChecklistModel | S:maskAccount被普通脚本经legacy-globals使用；纯状态投影不碰DOM
@@ -1487,8 +1487,8 @@ view.js[IU7M]: F:绘制手机通道、组件、二维码、口语说明、关闭
 
 ===/<repository>/local/ui/features/plan/===
 actions-draft.js[AU4T]: F:绑定计划标题地点的展开操作 | R:code:local/ui/features/plan/view.js | A:bindPlaceToggle | S:只改当前按钮展开属性，保留键盘焦点
-actions-events.js[AB8S]: F:呈现计划终态与场次结论，并承接停止后的草稿恢复 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/actions-run.js,code:local/ui/controllers/refresh.js | A:presentPlanDone,handlePlanDone,restartStoppedPlan,loggedConclusion,showTaskResult | S:完成须过归属，重复终态只补详情。实时收尾可补首次确认，恢复仅展示历史结论，不重建确认窗口或安排刷新。修改草稿等真实stopped，待核对不自动重发
-actions-run.js[AB8S]: F:编排场次取消、计划停止及快照对账，并承接修改与重选 | R:code:local/ui/features/plan/state-board.js,code:local/ui/features/plan/view-controls.js,code:local/ui/controllers/refresh.js | A:cancelTask,stopPlan,confirmStopPlan,modifyPlan,doStopPlan,reselectFailed | S:确认停止后忙态等终态，提交中或开放前100秒禁修改。停止按计划ID和尝试号隔离迟到回复；补查后仍属原计划才写结论，以已定终态或已接纳的空闲无计划快照为结束证据
+actions-events.js[AB8S]: F:呈现计划终态与场次结论，并承接停止后的草稿恢复 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/actions-run.js,code:local/ui/controllers/refresh.js | A:presentPlanDone,handlePlanDone,restartStoppedPlan,loggedConclusion,showTaskResult | S:完成须过归属，重复终态只补详情。实时收尾可补首次确认，恢复仅展示历史结论，不重建确认窗口或安排刷新。修改草稿等真实stopped，待核对不自动重发；任何终态收口都清停止超时计时器
+actions-run.js[AB8M]: F:编排场次取消、计划停止及快照对账，并承接修改与重选 | R:code:local/ui/features/plan/state-board.js,code:local/ui/features/plan/view-controls.js,code:local/ui/controllers/refresh.js | A:cancelTask,stopPlan,confirmStopPlan,modifyPlan,doStopPlan,reselectFailed | S:确认停止后忙态等终态，提交中或开放前100秒禁修改。停止按计划ID和尝试号隔离迟到回复；补查后仍属原计划才写结论，以已定终态或已接纳的空闲无计划快照为结束证据；stop_plan返回成功但15秒无plan_done时查bootstrap对账并解锁，避免永久卡在正在停止
 actions-start.js[AB9M]: F:提交唯一请求ID的开始请求，只读对账并恢复接纳后的计划快照 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/actions-events.js,code:local/ui/features/terms/state.js | A:startPlan,reconcileStart,adoptPlan,restoreEditedPlan | S:开始15秒未回应只查start_request_state，未知时继续锁开始。过期接纳回复不能接管当前计划，同计划已终态不因旧运行快照复活。场次快照交由mergeTask保留先到的进度和计数
 actions.js[AB8S]: F:接纳实时计划事件和恢复快照，合并场次并同步报名事实 | R:code:local/ui/features/plan/state.js,code:local/ui/features/plan/actions-events.js,code:local/ui/controllers/refresh.js | A:advancePlanStatus,handlePlan,handleTask,verifyTask | S:快照与事件共用计划归属。旧结论不回退，恢复同一终态才可同步全局忙态且不重开结果页。恢复只登记成功任务身份，实时首次确认才回写；刷新核对不发报名
 state-board.js[DB8M]: F:投影计划栏结果页（含口语化已停止/名额满/睡眠提示）、草稿副句与运行状态 | R:code:local/ui/features/plan/state-task.js,code:local/ui/features/plan/state-machine.js | A:resultView,boardSummary,draftPrompt | S:错过了排在待核对之后、名额满之前；名额满为中性色不回填重选
@@ -1523,14 +1523,14 @@ view-feishu.js[IU4T]: F:绘制设置里飞书提醒地址输入框与保存或�
 state.js[DD8T]: F:投影条款同意状态和学校动作锁定 | R:code:local/ui/state/store.js,code:local/ui/controllers/terms.js | A:termsAccepted,termsLocked | S:演示不锁；unknown必锁；尚无版本但非unknown时后端兜底，不冒充已确认结论。
 
 ===/<repository>/local/ui/features/update/===
-actions.js[AV8S]: F:编排手动版本检查、下载确认取消及安装启动 | R:code:local/ui/views/update.js,code:local/ui/state/store.js | A:receiveUpdate,restoreUpdate,checkUpdate,startDownload,confirmDownload,launchInstaller | S:仅接当前request_id事件，合并进度保留安装器；检查不下载；迟到ack不能回退完成态。
+actions.js[AV8S]: F:编排手动版本检查、下载确认取消及安装启动 | R:code:local/ui/views/update.js,code:local/ui/state/store.js | A:receiveUpdate,restoreUpdate,checkUpdate,startDownload,confirmDownload,launchInstaller | S:仅接当前request_id事件，合并进度保留安装器；检查不下载；迟到ack不能回退完成态。checking是合法中间态，检查与未拉起的启动阶段续15秒看门狗；开发新检查先清旧结论；取消失败落failed，不静默卡在下载中
 
 ===/<repository>/local/ui/m/===
 index.html[EU7M]: F:提供手机配对页、时间轴列表容器、计划板与操作抽屉结构，按序加载12份脚本 | R:code:local/ui/m/model/model.js,code:local/ui/m/ui/ui-shell.js,code:local/ui/m/styles.css | A:配对页,时间轴列表,计划核对,script清单 | S:脚本标签次序即依赖，测试从这里读清单；图标走根路径URL；手机是电脑遥控器，电脑关机或睡眠会中断执行
 styles.css[FU5L]: F:定义手机单栏时间轴竖线节点、四层卡片（L2不换行）、点阵板与底部抽屉布局 | R:code:local/ui/m/index.html | A:手机页面与时间轴卡片样式 | S:hidden全局优先；.l2-l子项不换行且仅.sign-end可省略；抽屉页脚固定安全区外；文件保持LF
 
 ===/<repository>/local/ui/state/===
-clock.js[DD9M]: F:把后端时钟快照锚定到浏览器单调域、判可信时间并提供口语时钟说明 | R:code:local/ui/state/store.js,code:local/ui/state/time.js | A:clockReading,businessNowMs,bnowS,bnLeftSec,clockUiState | S:无效返回null不是0；锚点900秒寿命及500毫秒误差上限；桥接误差只计一次，漂移仅采样后时长
+clock.js[DD9M]: F:把后端时钟快照锚定到浏览器单调域、判可信时间并提供口语时钟说明 | R:code:local/ui/state/store.js,code:local/ui/state/time.js | A:clockReading,businessNowMs,bnowS,bnLeftSec,clockUiState | S:无效返回null不是0；锚点900秒寿命及500毫秒误差上限；桥接误差只计一次，漂移仅采样后时长；已校准说明不复读页脚的不会改电脑时间
 conflict.js[DB8S]: F:投影跨天时段、已报名冲突时间线及取消资格 | R:code:local/ui/state/time.js,code:local/ui/state/filters.js | A:actSpanAbs,cancelWindowOpen,canCancelNow,conflictTipModel,cancelBlock | S:窗口未知返回null；零点结束按前日24:00；取消须避开计划与刷新并发，气泡要求已确认重叠。
 filters.js[DB9M]: F:归一化活动(含type/description/audience/audience_code)并投影筛选、选择、冲突和下一场 | R:code:local/ui/state/store.js,code:local/ui/state/labels.js,code:local/ui/state/conflict.js | A:normalize,filtered,nextOpen,validateSelection,signedClash | S:筛选不改全局下一场与冲突集合；未知签到不写无需，奖励0不丢；description与audience保留空串/null区分；冲突比举办半开区间
 labels.js[DD8S]: F:按业务时间投影报名模式、活动任务状态及时间标签 | R:code:local/ui/state/clock.js,code:local/ui/state/time.js | A:modeOf,stateOf,taskLabel,taskClass,leftOf | S:时钟无效不拿OS判开放；截止那一刻即已截止，与modeOf一致；未确认结果警示中性色
@@ -1542,7 +1542,7 @@ time.js[DG8S]: F:严格解析学校UTC+8时间并提供格式、跨天文本及�
 clock-pop.js[AU6S]: F:呈现业务校时详情及学校HTTP粗测诊断 | R:code:local/ui/state/clock.js,code:local/ui/views/clock.js | A:applyClock,renderClockPop,toggleClockPop | S:学校HTTP时间只用于诊断，不参与业务时间；轮询重画保留展开记录和滚动位置。
 clock.js[AU6T]: F:渲染顶栏业务时钟状态、重试提示及收起横幅角标点 | R:code:local/ui/state/clock.js | A:paintClockStatus | S:退避提示仅在retrying档显示，走字不重建详情浮层；横幅收起时加collapsed-warn
 conflict-tip.js[AU6S]: F:呈现与已报名活动重叠的原因及时间轴气泡 | R:code:local/ui/state/conflict.js,code:local/ui/views/list.js | A:tipOpen,paintTip,tipKey | S:气泡挂在body使用fixed避免列表裁剪；仅标签悬停或聚焦打开，重算无冲突即关闭。
-list.js[AU7M]: F:编排列表渲染骨架/刷新保行、按天时间轴分组、口语空态及计划摘要并委派卡片生成 | R:code:local/ui/state/filters.js,code:local/ui/state/store.js,code:local/ui/features/list/view-timeline.js | A:paintList,paintEmpty,paintRail | S:无可信时间时可报名数为待确认；有旧列表刷新中不替换旧行；成功返回零场与尚未加载分开，空态动作走显式dataset意图
+list.js[AU7M]: F:编排列表渲染骨架/刷新保行、按天时间轴分组、口语空态及计划摘要并委派卡片生成 | R:code:local/ui/state/filters.js,code:local/ui/state/store.js,code:local/ui/features/list/view-timeline.js | A:paintList,paintEmpty,paintRail | S:无可信时间时可报名数为待确认；有旧列表刷新中不替换旧行，场数留在 #count、正在刷新只由 #fresh 说；成功返回零场与尚未加载分开，空态动作走显式dataset意图
 log.js[AO5T]: F:呈现有界运行记录并提供复制 | R:code:local/ui/state/store.js,code:local/ui/state/time.js | A:addLog,copyLog | S:worker带有效业务时间戳时不叠接收时间；最近40条去重，界面最多500条。
 selection.js[AU5T]: F:呈现报名状态计数、更多筛选计数（含类型多选）及类型多选标签区重绘 | R:code:local/ui/state/filters.js,code:local/ui/features/list/view-types.js | A:paintChips,paintMoreFilters | S:更多筛选计数计入types非空(+1)但不计常驻关键词和状态胶囊；时钟未知时不报伪零
 settings.js[AU6T]: F:呈现设置抽屉关窗偏好、条款摘要状态行（口语提示）与撤回状态 | R:code:local/ui/state/store.js,code:local/ui/features/terms/state.js | A:paintClosePref,paintTermsRow | S:撤回确认开合独立记录；运行计划期间禁撤回并显示原因，关闭偏好未知值退回ask
@@ -1581,7 +1581,7 @@ push_card.py[IU5T]: F:向指定飞书会话发送菜单或空列表测试卡 | R
 
 ===/<repository>/tools/code_shape/===
 README.md[SQ7S]: F:定义代码大小分层、名单收紧及模块守卫口径 | R:code:tools/code_shape/check.py,code:tools/code_shape/ui_modules.mjs | A:规则说明,检查命令 | S:名单只减不增；匿名函数按出现顺序标识，前插导致键错位需人工批准仅改键不改数值。
-baseline.json[FQ7L]: F:记录存量超限文件函数测试与多赋值属性类 | R:code:tools/code_shape/check.py | A:files,functions,test_functions,classes | S:记录值只允许收紧，甲档与类含原因；不是豁免新增或增长的许可。按路径::名字记账，函数搬到新文件即算新函数须≤60行；收紧只用check.py --tighten
+baseline.json[FQ7M]: F:记录存量超限文件函数测试与多赋值属性类 | R:code:tools/code_shape/check.py | A:files,functions,test_functions,classes | S:记录值只允许收紧，甲档与类含原因；不是豁免新增或增长的许可。按路径::名字记账，函数搬到新文件即算新函数须≤60行；收紧只用check.py --tighten
 check.py[XQ8L]: F:按统一物理行与属性量法比对和收紧代码大小名单 | R:code:tools/code_shape/baseline.json,code:tools/code_shape/jsfuncs.mjs | A:collect,compare,tighten,main | S:新未跟踪源码也查；Python函数不含装饰器且嵌套单算；属性仅三方法以上赋值；缺node只读可跳JS，init/tighten拒写防删名单。
 jsfuncs.mjs[XQ6T]: F:向大小守卫输出JS函数范围与物理行JSON | R:code:tools/code_shape/jsscan.mjs,code:tools/code_shape/check.py | A:命令行文件列表 | S:末行无换行补一行；量法保留匿名函数位置供调用方归一化。
 jslex.mjs[KQ7M]: F:无依赖扫描JS记号、模板插值及括号深度 | R:code:tools/code_shape/jsscan.mjs,code:tools/code_shape/ui_refs.mjs | A:tokenize,matchBrackets,braceDepths,KEYWORDS | S:模板插值展开普通记号并计花括号深度；正则不闭合回退为除号，文本段本身不当引用。
@@ -1830,7 +1830,7 @@ net_after_tidy.py[XQ3M]: F:只读复用手机安全网72条变异定义，把收
 ===/<repository>/design/evidence/2026-11-23/phone-render-net/===
 before.md[TQ3M]: F:保存手机摄入与渲染组23个函数226条变异的补测前逐条结论，行为守142、无人守84，并按写入、条件、显隐三类单列统计 | R:code:design/evidence/2026-11-23/phone-render-net/scripts/mutate_render.py | A:变异结论表、分类统计 | S:-
 after-ui-sync.md[TQ3T]: F:记录渲染组第一批ui-sync.js的19条无人守补测后结论、新增用例、三条等价的调用方证明及全组226条复跑统计 | R:code:design/evidence/2026-11-23/phone-render-net/before.md,code:local/tests/test_phone_ui.py | A:逐条结论、全组对照 | S:-
-after-ui-status.md[TQ3T]: F:记录渲染组第二批ui-status.js的29条无人守补测后结论、9条新增用例、三条等价的调用方证明及全组226条复跑统计 | R:code:design/evidence/2026-11-23/phone-render-net/before.md,code:local/tests/test_phone_ui.py | A:逐条结论、新增用例清单、全组对照 | S:-
+after-ui-status.md[TQ3S]: F:记录渲染组第二批ui-status.js的29条无人守补测后结论、9条新增用例、三条等价的调用方证明及全组226条复跑统计 | R:code:design/evidence/2026-11-23/phone-render-net/before.md,code:local/tests/test_phone_ui.py | A:逐条结论、新增用例清单、全组对照 | S:-
 README.md[TQ4S]: F:手机页摄入与渲染组安全网总览：三类变异口径、23个函数对照、补测前后四档统计、三批新增用例、主界面显示两条变异结论、等价摘要与复现命令 | R:code:design/evidence/2026-11-23/phone-render-net/after.md | A:整组结论入口 | S:真机与打包窗口未验
 after-ui-list.md[TQ3S]: F:记录渲染组第三批ui-list.js的34条无人守补测后全部行为守的结论、7条新增用例及全组复跑统计 | R:code:design/evidence/2026-11-23/phone-render-net/before.md,code:local/tests/test_phone_ui.py | A:逐条结论、新增用例清单 | S:-
 after.md[TQ3M]: F:渲染组全部226条变异补测后的逐条结论与首个失败用例，行为守220、等价6、无人守0 | R:code:design/evidence/2026-11-23/phone-render-net/scripts/mutate_render.py | A:逐条结论、按文件与口径统计 | S:源码再改须重跑
@@ -1869,7 +1869,7 @@ equiv.json[FQ3T]: F:按变异编号保存外壳组判为等价的理由与调用
 mutate_shell.py[XQ4L]: F:对手机页外壳ui-shell.js 7个函数生成写入、条件、显隐、返回值、文字与禁用、事件绑定六类单点变异，在临时副本逐条复跑手机页测试并出报告 | R:code:design/evidence/2026-11-23/phone-relogin-net/scripts/mutate_relogin.py,code:local/tests/test_phone_ui.py | A:--list,--baseline,--ids,--workers,--equiv-json,--out | S:只在导出副本里改，单条超90秒按失败计
 
 ===/<repository>/design/evidence/2026-11-23/real-env-smoke/===
-README.md[SQ3T]: F:记录手机页在真实Chromium浏览器与当前源码重打onefile EXE里的两环境离线冒烟及iPhone Safari真机复测：配对、列表筛选、抽屉、计划开始停止、重登及包内ui/m逐字节一致 | R:code:local/dev_phone_preview.py,code:local/build/build_exe.py | A:冒烟结论、真机复测、未覆盖项、复现命令 | S:计划运行与重登靠离线替身，Android与学校链路未验
+README.md[SQ3S]: F:记录手机页在真实Chromium浏览器与当前源码重打onefile EXE里的两环境离线冒烟及iPhone Safari真机复测：配对、列表筛选、抽屉、计划开始停止、重登及包内ui/m逐字节一致 | R:code:local/dev_phone_preview.py,code:local/build/build_exe.py | A:冒烟结论、真机复测、未覆盖项、复现命令 | S:计划运行与重登靠离线替身，Android与学校链路未验
 
 ===/<repository>/design/evidence/2026-11-23/real-env-smoke/scripts/===
 capture_exe_window.ps1[XQ2T]: F:以演示模式启动打包EXE并只截应用窗口矩形作为WebView2渲染证据 | R:code:design/evidence/2026-11-23/real-env-smoke/README.md | A:窗口截图 | S:-
@@ -2035,17 +2035,17 @@ worker_log.py[RO7S]: F:提供worker日志层：跨进程日志锁、按大小轮
 ===/<repository>/local/ui/m/model/===
 model-conflict.js[DU7M]: F:给手机页纯规则补上时刻取法、时段重叠、开始前举办时间检查、业务时钟、取消说明、冲突原因面板与开始前提醒 | R:code:local/ui/m/model/model.js,code:local/ui/state/conflict.js,code:local/application/phone/phone_service.py | A:tsOf,actBlock,actBlockText,signedClash,cancelWindowOpen,whyView | S:业务时间只认电脑时钟快照；快照有时刻键就只用它；已选缺举办时间优先于已报名缺时间
 model-list.js[DU7M]: F:给手机页提供倒计时、开放分组、冲突、时间轴节点(同抢N场)、四层卡片行与草稿板纯规则投影 | R:code:local/ui/m/model/model-conflict.js,code:local/application/phone/phone_service.py | A:stOf,visibleItems,rowView,timelineNodes,draftBoard,listView | S:截止先读close_ts；10分钟内(<=600s)或下一批亮琥珀；同抢仅在pre组且>=2场全部waiting；日期用MM-DD，睡眠错过区分已知时刻与未知
-model-relogin.js[DU7M]: F:给手机页纯规则补上重新登录视图、转人工判断、登录成功句、配对点阵字形与配对错误文案，并把PhoneModel挂到全局 | R:code:local/ui/m/model/model-run.js,code:local/domain/phone/phone_rules.py,code:local/application/login/login_relay_service.py | A:reloginView,relHandoff,loginDoneText,glyphs,pairView,pairWrongText | S:转人工只认中继live与handoff，不按次数猜；配错文案的60秒与后端配错落锁时长耦合
+model-relogin.js[DU7M]: F:给手机页纯规则补上重新登录视图、转人工判断、登录成功句、配对点阵字形与配对错误文案，并把PhoneModel挂到全局 | R:code:local/ui/m/model/model-run.js,code:local/domain/phone/phone_rules.py,code:local/application/login/login_relay_service.py | A:reloginView,relHandoff,loginDoneText,glyphs,pairView,pairWrongText | S:转人工只认中继live与handoff，不按次数猜；配错文案的60秒与后端配错落锁时长耦合；重登终态snapshot的live恒false，须用activeFlowId归属本轮，不能只看live
 model-run.js[DU7M]: F:给手机页纯规则补上开始待定、运行等待板、任务卡、口语化结束结论、条款板与登录四态 | R:code:local/ui/m/model/model-list.js | A:pendingBoard,runBoard,taskCard,confirmView,resultView,loginLine | S:-
 model.js[DU7M]: F:定义手机页纯规则对象PhoneModel的核心成员：请求标识、筛选、开放时刻、退避与同步节奏、会话状态码分流、登录四态与文案、开始门禁 | R:code:local/ui/m/index.html,code:local/ui/m/model/model-conflict.js | A:PhoneModel,filterItems,openEpochOf,sessionVerdict,canStart,loginState | S:必须最先加载；开始门禁最后还要actBlock为空；四态只管说法，门禁仍按loginRaw
 
 ===/<repository>/local/ui/m/ui/===
 ui-list.js[IU7M]: F:绘制手机页时间轴竖线节点、四层卡片、冲突原因面板、跳到已报名行与整页搜索开合 | R:code:local/ui/m/model/model-list.js,code:local/ui/m/ui/ui-session.js | A:LIST_ZONES,buildTimelineNode,buildRow,buildWhy,renderItems,toggleSearch | S:全部用textContent构造；已报名与已截止不画竖线节点；未校准日期组落下方区
 ui-plan.js[AU7M]: F:编排手机页报名计划操作：开始与对账、取消等待、停止、取消单场、结果重选、重试设置与核对抽屉 | R:code:local/ui/m/ui/ui-session.js,code:local/ui/m/model/model-run.js | A:startPlan,reconcile,cancelPendingStart,stopPlan,cancelTask,reselectFailed | S:开始结果未知时保留原请求标识只读对账，不自动重发
-ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model/model-relogin.js,code:local/ui/m/ui/ui-session.js,code:local/ui/m/ui/ui-shell.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:关面板即清输入，验证码绑定当前挑战；发起、提交、取消失败句同时写抽屉红条，因#relogin-note在更多面板里被挡；标题与成功句按打开时记的relFirstLogin取
-ui-session.js[AN8M]: F:定义手机页DOM层共用的$、请求超时与model状态对象，并负责带CSRF的请求、配对与锁定倒计时、轮询退避和会话失效处理 | R:code:local/ui/m/model/model.js,code:local/infrastructure/phone/phone_http.py | A:model,api,postAction,pair,poll,adoptCookieCsrf | S:$与model是全局词法名；请求8秒不回就放弃并放回单飞锁；未配对时一个定时器都不排；写请求与403按cookie覆盖csrf，轮询只在内存为空时补
-ui-shell.js[EU7M]: F:提供手机页抽屉外壳与确认槽、绑定全页事件，并导出PhoneUI与启动wire | R:code:local/ui/m/ui/ui-session.js,code:local/ui/m/ui/ui-plan.js,code:local/ui/m/ui/ui-relogin.js | A:openSheet,closeSheet,askConfirm,wire,PhoneUI | S:必须最后加载，启动两行只在这里；前面任一脚本缺席会在wire时报引用错误
-ui-status.js[IU7M]: F:绘制手机页提示条与告警（含口语化离线/锁屏提示）、控件门禁、底栏、计划点阵板与任务卡 | R:code:local/ui/m/model/model-run.js,code:local/ui/m/ui/ui-session.js | A:setBanner,renderAlerts,refreshControls,renderBar,renderBoard,addLog | S:提示条带来源标签，只有状态过时类能自动清掉；举办时间检查底栏句排在离线之后、默认副题之前
+ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model/model-relogin.js,code:local/ui/m/ui/ui-session.js,code:local/ui/m/ui/ui-shell.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:关面板即清输入，验证码绑定当前挑战；发起、提交、取消失败句同时写抽屉红条，因#relogin-note在更多面板里被挡；标题与成功句按打开时记的relFirstLogin取；当前场次用relActiveFlowId归属，成功终态只触发一次轮询
+ui-session.js[AN8M]: F:定义手机页DOM层共用的$、请求超时与model状态对象，并负责带CSRF的请求、配对与锁定倒计时、轮询退避和会话失效处理 | R:code:local/ui/m/model/model.js,code:local/infrastructure/phone/phone_http.py | A:model,api,postAction,pair,poll,adoptCookieCsrf | S:$与model是全局词法名；请求8秒不回就放弃并放回单飞锁；未配对时一个定时器都不排；写请求与403按cookie覆盖csrf，轮询只在内存为空时补；relActiveFlowId与relPolledFlowId只存本会话，不落盘
+ui-shell.js[EU7M]: F:提供手机页抽屉外壳与确认槽、绑定全页事件，并导出PhoneUI与启动wire | R:code:local/ui/m/ui/ui-session.js,code:local/ui/m/ui/ui-plan.js,code:local/ui/m/ui/ui-relogin.js | A:openSheet,closeSheet,askConfirm,wire,PhoneUI | S:必须最后加载，启动两行只在这里；前面任一脚本缺席会在wire时报引用错误；关闭重登sheet且已到终态时清relActiveFlowId，避免下一轮沿用旧场次
+ui-status.js[IU7M]: F:绘制手机页提示条与告警（含口语化离线/锁屏提示）、控件门禁、底栏、计划点阵板与任务卡 | R:code:local/ui/m/model/model-run.js,code:local/ui/m/ui/ui-session.js | A:setBanner,renderAlerts,refreshControls,renderBar,renderBoard,addLog | S:提示条带来源标签，只有状态过时类能自动清掉；举办时间检查底栏句排在离线之后、默认副题之前；离线红条在场时不再单独显示状态过时，重登进行中不收relogin-note
 ui-sync.js[AU7M]: F:摄入电脑状态快照与事件游标并按整秒局部刷新北京时间、倒计时与计划板 | R:code:local/ui/m/model/model-conflict.js,code:local/ui/m/ui/ui-status.js | A:ingest,scheduleTick,tickClock,tickBoardLed,tickRowLeft | S:事件按序号去重，重置轮次才重新接纳；整秒刷新只改数字不重画、不额外联网
 
 ===/<repository>/server/deploy/install/===
