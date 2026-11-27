@@ -29,7 +29,6 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 _LOGIN_HERE = os.path.dirname(os.path.abspath(__file__))
 if _LOGIN_HERE not in sys.path:
     sys.path.insert(0, _LOGIN_HERE)
-import ocr_models  # noqa: E402
 import preempt_guard  # noqa: E402
 
 LOGIN_DIR = os.environ.get("LOGIN_DIR", "").strip() or "/root/campus-login"
@@ -235,14 +234,17 @@ def _clean_code(text):
 
 
 def _ddddocr_engine(which):
-    """按需加载 ddddocr 模型；custom 缺文件或依赖缺失时记住 None，逐级兜底。"""
+    """按需加载 ddddocr 模型；缺 ocr_models 或资产时只跳过 custom，beta/old 直接创建。"""
     if which in _DDDD_ENGINES:
         return _DDDD_ENGINES[which]
     engine = None
     try:
         import ddddocr  # 可选依赖；没装时整条链路仍靠 Tesseract 走通
-
-        engine = ocr_models.load_engine(which, ddddocr, _LOGIN_HERE)
+        if which == "custom":
+            import ocr_models
+            engine = ocr_models.load_engine(which, ddddocr, _LOGIN_HERE)
+        else:
+            engine = ddddocr.DdddOcr(ocr=True, det=False, beta=(which == "beta"), show_ad=False)
     except Exception as exc:
         log("[w] ddddocr(%s) 不可用，继续回退：%s" % (which, type(exc).__name__))
     _DDDD_ENGINES[which] = engine

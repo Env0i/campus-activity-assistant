@@ -237,6 +237,52 @@ class AutoLoginOcrFallbackTests(unittest.TestCase):
             self.assertEqual(auto_login.recognize(img_b64), "BT77")
             self.assertTrue(all("import_onnx_path" not in c for c in calls))
 
+    def test_missing_ocr_models_module_falls_back_to_beta_and_old(self):
+        img_b64 = "data:image/png;base64,WA=="
+        calls = []
+
+        class FakeBetaOld:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            def classification(self, _raw):
+                calls.append(self.kwargs)
+                return "BAD" if self.kwargs.get("beta") else "OLD4"
+
+        fake_mod = types.ModuleType("ddddocr")
+        fake_mod.DdddOcr = FakeBetaOld
+        with mock.patch.dict(sys.modules, {"ddddocr": fake_mod, "ocr_models": None}), \
+                mock.patch.dict(auto_login._DDDD_ENGINES, {}, clear=True):
+            reloaded = _load_auto_login()
+            with mock.patch.dict(reloaded._DDDD_ENGINES, {}, clear=True):
+                self.assertEqual(reloaded.recognize(img_b64), "OLD4")
+        self.assertEqual([c.get("beta") for c in calls], [True, False])
+        self.assertTrue(all(c.get("ocr") is True and c.get("det") is False and c.get("show_ad") is False for c in calls))
+
+    def test_paired_model_files_and_env_override(self):
+        import ocr_models
+        with tempfile.TemporaryDirectory() as tmp:
+            onnx = Path(tmp, "school_captcha.onnx")
+            charsets = Path(tmp, "charsets.json")
+            onnx.write_bytes(b"onnx")
+            with mock.patch.dict(os.environ, {"CAMPUS_CUSTOM_OCR_DIR": tmp}, clear=False):
+                self.assertIsNone(ocr_models.custom_model_paths())
+                self.assertIsNone(ocr_models.load_engine("custom", mock.Mock()))
+            onnx.unlink()
+            charsets.write_text("{}", encoding="utf-8")
+            with mock.patch.dict(os.environ, {"CAMPUS_CUSTOM_OCR_DIR": tmp}, clear=False):
+                self.assertIsNone(ocr_models.custom_model_paths())
+                self.assertIsNone(ocr_models.load_engine("custom", mock.Mock()))
+            onnx.write_bytes(b"onnx")
+            with tempfile.TemporaryDirectory() as other, \
+                    mock.patch.dict(os.environ, {"CAMPUS_CUSTOM_OCR_DIR": tmp}, clear=False):
+                self.assertEqual(ocr_models.custom_model_paths(other), (str(onnx), str(charsets)))
+                fake_mod = mock.Mock()
+                ocr_models.load_engine("custom", fake_mod, other)
+                fake_mod.DdddOcr.assert_called_once_with(
+                    show_ad=False, import_onnx_path=str(onnx), charsets_path=str(charsets)
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
