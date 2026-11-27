@@ -28,6 +28,8 @@ server/dist/
 .Claude/
 .Codex/
 .codex/
+.WorkBuddy/
+.workbuddy/
 # superpowers 过程施工单草稿：只对本机协作有意义，不入正式 docs/ 文档树
 /docs/superpowers/plans/
 
