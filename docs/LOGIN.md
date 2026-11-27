@@ -143,7 +143,7 @@
 
 `auto_login.py::recognize` 的取值顺序：
 
-1. **定制校园验证码 ONNX 模型（主，2026-11-27 训练实测）**：针对学校 `200x44` 字符样式训练的 31 字符集（`23456789ABCDEFGHJKMNPQRSTUVWXYZ`，避开 `0/1/I/L/O`）自包含 ONNX（`server/deploy/login/models/school_captcha.onnx` + `charsets.json`，约 `10.45 MB`）；50 张严格未见真实留出集 **50/50 (100%)**、全部 180 张真实样本 **180/180 (100%)**（同批样本基线 `beta` 为 47/50 与 174/180）；
+1. **定制校园验证码 ONNX 模型（主，2026-11-27 训练实测）**：针对学校 `200x44` 字符样式训练的 31 字符集（`23456789ABCDEFGHJKMNPQRSTUVWXYZ`，避开 `0/1/I/L/O`）自包含 ONNX（`server/deploy/login/models/school_captcha.onnx` + `charsets.json`，约 `10.45 MB`）；50 张严格未见真实留出集 **50/50 (100%)**、全部 180 张真实样本 **180/180 (100%)**（同批样本基线 `beta` 为 47/50 与 174/180；[评测与复现说明台账](../design/evidence/2026-11-27/ocr-custom-model/README.md)）；
 2. ddddocr `beta=True`（`common.onnx`）：要求输出正好 4 位，定制模型缺失、报错或非 4 位时接管；
 3. 长度不对时换默认模型（`common_old.onnx`），同样要求 4 位；
 4. 再不行走 Tesseract：饱和度为 0 的灰度（`255 - (max-min)`）→ 干扰线是 1~2px 斜线，

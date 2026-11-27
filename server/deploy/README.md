@@ -9,7 +9,7 @@
 | `login/test_atomic_json.js` | 只在开发时跑 | — | 原子写的行为测试 |
 | `systemd/campus-login.service` | `/etc/systemd/system/` | systemd | 续期 daemon 的单元 |
 | `login/auto_login.py` | `/root/campus-login/auto_login.py` | `campus-autologin.timer`（每 5 分钟） | 失效时无人值守重登：取验证码 → OCR（定制模型 → `beta` → `old` → Tesseract）→ 页面提交 → API 校验 → 原子写 `storage_state.json` / `session.json` |
-| `login/ocr_models.py`、`login/models/` | `/root/campus-login/ocr_models.py`、`/root/campus-login/models/` | 被 `auto_login.py` 按需加载 | 定制校园验证码 ONNX 模型与字符集（缺文件时静默退回内置 `beta`/`old`） |
+| `login/ocr_models.py`、`login/models/` | `/root/campus-login/ocr_models.py`、`/root/campus-login/models/` | 被 `auto_login.py` 按需加载 | 定制校园验证码 ONNX 模型与字符集（50 张留出集 50/50、180 张真实样本 180/180，见[评测台账](../../design/evidence/2026-11-27/ocr-custom-model/README.md)；缺文件时静默退回内置 `beta`/`old`） |
 | `systemd/campus-autologin.service` / `.timer` | `/etc/systemd/system/` | systemd | 上面那个脚本的 oneshot + 定时器 |
 | `signup/grab_signup.py` | `/root/campus-login/grab_signup.py` | `server/scripts/signup/watchlist_runner.py` 用 `systemd-run` 拉起 | 到点进详情页点「立即报名」；结果私聊回报 |
 | `install/set_credentials.py` | `/root/campus-login/set_credentials.py` | 人工跑一次 | 交互写 `credentials.json`（0600），账号密码只存在这里 |
