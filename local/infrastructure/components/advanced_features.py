@@ -17,6 +17,7 @@ import threading
 import time
 import zipfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 from domain.components.component_rules import check_timed_out
@@ -215,6 +216,47 @@ def install_feature(
     return {"ok": True, "feature": key, "text": "%s已安装" % spec.title}
 
 
+def _custom_ocr_paths():
+    """返回随源码或旧单体包附带的定制校园验证码模型路径；缺失时返回 ``None``。"""
+    roots = []
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        roots.append(Path(sys._MEIPASS) / "ocr_models")
+    roots.append(Path(__file__).resolve().parents[3] / "server" / "deploy" / "login" / "models")
+    for base in roots:
+        onnx_path = base / "school_captcha.onnx"
+        charsets_path = base / "charsets.json"
+        if onnx_path.is_file() and charsets_path.is_file():
+            return str(onnx_path), str(charsets_path)
+    return None
+
+
+def _classify_local(ddddocr_mod, raw: bytes) -> str:
+    """按 定制校园模型 → beta → 默认模型 的顺序尝试识别，全部命中缓存。"""
+    custom = _custom_ocr_paths()
+    specs = []
+    if custom is not None:
+        specs.append(("custom", custom))
+    specs.extend(("builtin", beta) for beta in (True, False))
+    with _OCR_LOCK:
+        for kind, arg in specs:
+            try:
+                cache_key = (ddddocr_mod.DdddOcr, kind, arg)
+                engine = _OCR_ENGINES.get(cache_key)
+                if engine is None:
+                    if kind == "custom":
+                        engine = ddddocr_mod.DdddOcr(
+                            show_ad=False, import_onnx_path=arg[0], charsets_path=arg[1])
+                    else:
+                        engine = ddddocr_mod.DdddOcr(show_ad=False, beta=arg)
+                    _OCR_ENGINES[cache_key] = engine
+                value = str(engine.classification(raw) or "").strip()
+                if _CAPTCHA_RE.fullmatch(value):
+                    return value
+            except Exception:
+                continue
+        return ""
+
+
 def classify_captcha(image_data_uri: str, *, root=None, frozen=None) -> str:
     """可选 ddddocr 识别入口；缺组件、坏图片或非四位结果都返回空串。
 
@@ -235,21 +277,8 @@ def classify_captcha(image_data_uri: str, *, root=None, frozen=None) -> str:
             value = str(result.get("code") or "").strip()
         else:
             import ddddocr
-            # 模型初始化昂贵；每个解释器缓存，beta 不可用才回退默认模型。
-            with _OCR_LOCK:
-                for beta in (True, False):
-                    try:
-                        cache_key = (ddddocr.DdddOcr, beta)
-                        engine = _OCR_ENGINES.get(cache_key)
-                        if engine is None:
-                            engine = ddddocr.DdddOcr(show_ad=False, beta=beta)
-                            _OCR_ENGINES[cache_key] = engine
-                        value = str(engine.classification(raw) or "").strip()
-                        if _CAPTCHA_RE.fullmatch(value):
-                            return value
-                    except Exception:
-                        continue
-                return ""
+            # 模型初始化昂贵；每个解释器缓存，定制模型或 beta 不可用才回退后续模型。
+            return _classify_local(ddddocr, raw)
     except Exception:  # noqa: BLE001 - 引擎任何故障都必须回退人工输入
         return ""
     return value if _CAPTCHA_RE.fullmatch(value) else ""

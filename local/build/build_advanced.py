@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -89,6 +90,22 @@ def _remove_ocr_models(directory):
             path.unlink()
 
 
+def _custom_ocr_source_dir():
+    return LOCAL.parent / "server" / "deploy" / "login" / "models"
+
+
+def _legacy_ocr_data_args():
+    custom_dir = _custom_ocr_source_dir()
+    onnx = custom_dir / "school_captcha.onnx"
+    charsets = custom_dir / "charsets.json"
+    if not onnx.is_file() or not charsets.is_file():
+        return []
+    return [
+        "--add-data", "%s%socr_models" % (onnx, os.pathsep),
+        "--add-data", "%s%socr_models" % (charsets, os.pathsep),
+    ]
+
+
 def _model_source_files():
     spec = importlib.util.find_spec("ddddocr")
     if spec is None or not spec.origin:
@@ -107,6 +124,13 @@ def _model_source_files():
         "charsets-old.json": {"charset": list(charsets.CHARSET_OLD), "word": False,
                               "image": [-1, 64], "channel": 1},
     }
+    custom_dir = _custom_ocr_source_dir()
+    custom_onnx = custom_dir / "school_captcha.onnx"
+    custom_charsets = custom_dir / "charsets.json"
+    if custom_onnx.is_file() and custom_charsets.is_file():
+        sources["school_captcha.onnx"] = custom_onnx
+        metadata["charsets-school.json"] = json.loads(
+            custom_charsets.read_text(encoding="utf-8"))
     return sources, metadata
 
 
@@ -205,7 +229,7 @@ def _build_legacy(feature, output_dir, cloudflared=None):
     if feature == "phone_control":
         command.extend(["--exclude-module", "ddddocr", "--exclude-module", "onnxruntime"])
     else:
-        command.extend(["--exclude-module", "segno"])
+        command.extend(["--exclude-module", "segno", *_legacy_ocr_data_args()])
     command.append(str(wrapper))
     subprocess.run(command, check=True)
     directory = run_root / "dist" / "feature-helper"

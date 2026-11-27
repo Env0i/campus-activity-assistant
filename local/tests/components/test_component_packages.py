@@ -1498,5 +1498,53 @@ class BuilderTests(unittest.TestCase):
         self.assertEqual(result["code"], "Cd34")
         legacy.assert_called_once_with(payload["image"], frozen=False)
 
+    def test_external_custom_model_prioritized_before_beta(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
+            root = Path(tmp)
+            for name in ("school_captcha.onnx", "charsets-school.json",
+                         "common.onnx", "charsets-beta.json",
+                         "common_old.onnx", "charsets-old.json"):
+                (root / name).write_bytes(b"ok")
+            calls = []
+
+            class OrderEngine:
+                def __init__(self, **kwargs):
+                    self.path = kwargs["import_onnx_path"]
+
+                def classification(self, _raw):
+                    calls.append(Path(self.path).name)
+                    return "7UEY" if self.path.endswith("school_captcha.onnx") else "70EY"
+
+            payload = {"op": "ocr", "image": "data:image/png;base64,WA=="}
+            fake_mod = mock.Mock(DdddOcr=OrderEngine)
+            with mock.patch.dict(os.environ, {"CAMPUS_OCR_MODEL_ROOT": str(root)}), \
+                    mock.patch.dict(sys.modules, {"ddddocr": fake_mod, "onnxruntime": mock.Mock()}):
+                res = advanced_helper.run("relogin_ocr", stream=io.BytesIO(json.dumps(payload).encode()))
+            self.assertTrue(res["ok"])
+            self.assertEqual(res["code"], "7UEY")
+            self.assertEqual(calls, ["school_captcha.onnx"])
+
+    def test_model_source_files_attaches_custom_model_when_present(self):
+        with tempfile.TemporaryDirectory(dir=TMP_ROOT) as tmp:
+            custom_dir = Path(tmp)
+            (custom_dir / "school_captcha.onnx").write_bytes(b"onnx")
+            (custom_dir / "charsets.json").write_text(
+                json.dumps({"charset": [" ", "A"], "word": False, "image": [-1, 64], "channel": 1}),
+                encoding="utf-8",
+            )
+            fake_pkg = custom_dir / "pkg"
+            fake_pkg.mkdir()
+            (fake_pkg / "common.onnx").write_bytes(b"b")
+            (fake_pkg / "common_old.onnx").write_bytes(b"o")
+            fake_charsets = mock.Mock(CHARSET_BETA=["", "a"], CHARSET_OLD=["", "b"])
+            with mock.patch.object(builder, "_custom_ocr_source_dir", return_value=custom_dir), \
+                    mock.patch.object(builder.importlib.util, "find_spec",
+                                       return_value=mock.Mock(origin=str(fake_pkg / "__init__.py"))), \
+                    mock.patch.object(builder.importlib, "import_module", return_value=fake_charsets):
+                sources, metadata = builder._model_source_files()
+            self.assertIn("school_captcha.onnx", sources)
+            self.assertIn("charsets-school.json", metadata)
+            self.assertEqual(metadata["charsets-school.json"]["image"], [-1, 64])
+
 if __name__ == "__main__":
     unittest.main()

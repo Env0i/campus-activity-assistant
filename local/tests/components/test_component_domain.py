@@ -344,6 +344,30 @@ class CaptchaGateTests(unittest.TestCase):
         FakeOcr.raises = True
         self.assertEqual(af.classify_captcha(PNG_URI), "")
 
+    def test_custom_model_prioritized_and_falls_back_to_beta(self):
+        calls = []
+
+        class OrderFakeOcr:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            def classification(self, _raw):
+                calls.append(self.kwargs)
+                if "import_onnx_path" in self.kwargs:
+                    return "AB" if len(calls) > 1 else "ZX9K"
+                return "BT77"
+
+        fake = types.ModuleType("ddddocr")
+        fake.DdddOcr = OrderFakeOcr
+        sys.modules["ddddocr"] = fake
+        self.addCleanup(lambda: sys.modules.pop("ddddocr", None))
+        with mock.patch.object(af, "_OCR_ENGINES", {}), \
+                mock.patch.object(af, "_custom_ocr_paths", return_value=("m.onnx", "c.json")):
+            self.assertEqual(af.classify_captcha(PNG_URI), "ZX9K")
+            self.assertEqual(calls[0]["import_onnx_path"], "m.onnx")
+            self.assertEqual(af.classify_captcha(PNG_URI), "BT77")
+            self.assertTrue(calls[-1]["beta"])
+
     def test_base_startup_never_imports_ddddocr(self):
         sys.modules.pop("ddddocr", None)
         af.feature_state({})

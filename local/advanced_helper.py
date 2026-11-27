@@ -25,10 +25,16 @@ def _external_model_candidates():
         root = Path(configured)
     else:
         return ()
-    return (
+    candidates = []
+    school_onnx = root / "school_captcha.onnx"
+    school_charsets = root / "charsets-school.json"
+    if school_onnx.is_file() or school_charsets.is_file():
+        candidates.append((school_onnx, school_charsets, False))
+    candidates.extend((
         (root / "common.onnx", root / "charsets-beta.json", True),
         (root / "common_old.onnx", root / "charsets-old.json", False),
-    )
+    ))
+    return tuple(candidates)
 
 
 def _classify_with_external_model(image, ddddocr):
