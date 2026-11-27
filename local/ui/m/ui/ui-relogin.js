@@ -75,15 +75,9 @@ function endReloginControls() {
   $("captcha").hidden = true;
   $("captcha").removeAttribute("src");
 }
-function syncReloginActiveFlow(info, relayState) {
-  const fid = String(info.flow_id || "");
-  const inFlight = relayState === "starting" || relayState === "waiting_code" || relayState === "verifying";
-  if (inFlight && fid && (info.live === true || model.relActiveFlowId === "__pending__")) {
-    model.relActiveFlowId = fid;
-  }
-  if (info.live === true) return true;
-  if (!model.relActiveFlowId) return false;
-  return model.relActiveFlowId === "__pending__" || (!!fid && fid === model.relActiveFlowId);
+function syncReloginActiveFlow(info) {
+  model.relActiveFlowId = PhoneModel.relNextFlowId(info, model.relActiveFlowId);
+  return PhoneModel.relOutcomeCurrent(info, model.relActiveFlowId);
 }
 function pollAfterReloginSuccess(info) {
   const fid = String(info.flow_id || "");
@@ -94,10 +88,12 @@ function pollAfterReloginSuccess(info) {
 function ingestRelogin(info) {
   model.flow = info;
   const relayState = String(info.state || "");
-  const currentOutcome = syncReloginActiveFlow(info, relayState);
+  const currentOutcome = syncReloginActiveFlow(info);
   if (String(info.mode || "") === "auto"
       && relayState !== "success" && relayState !== "failed" && relayState !== "canceled") {
-    // 电脑自己认图，连续失败到阈值后服务端切换为 manual 并下发验证码
+    // 电脑自己认图：手机不给验证码，也就不可能和电脑抢同一张图。
+    // 这里只报进度；连续失败到阈值后服务端会把 mode 换成 manual，图自然会来。
+    // （auto 的终态落到底下各自的分支：RL03 只描述「正在进行」）
     const rounds = Math.max(Number(info.attempts || 0), Number(info.auto_failures || 0));
     if (info.retrying) {
       $("relogin-note").textContent = "电脑正在自动登录" +
@@ -151,11 +147,11 @@ function ingestRelogin(info) {
     model.reloginSubmitting = false;
     endReloginControls();
     if (currentOutcome) {
-      /* RL08（原型 Phone:892-894）：完成态两套文案 */
+      /* RL08（原型 Phone:892-894）：完成态两套文案；计划在跑＝照常继续，闲时按打开面板时记下的 relFirstLogin 取句（经 loginDoneText；同场只补轮询一次） */
       $("relogin-note").textContent = PhoneModel.loginDoneText(!!model.relFirstLogin, model.busy);
       pollAfterReloginSuccess(info);
     } else {
-      // 中继空闲回放历史成功：只按本次场次播报，避免每次打开重演
+      // 中继在空闲时会回上一场的结论：那是历史，不是这一次；仅按流程编号归属（或 live）播报，否则每次打开手机页都会把很早以前那一次成功再演一遍。
       $("relogin-note").textContent = "上次重新登录已完成；需要时点「重新登录」再试";
     }
   } else if (relayState === "failed" || relayState === "canceled") {

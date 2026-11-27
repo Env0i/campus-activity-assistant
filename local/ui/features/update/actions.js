@@ -28,7 +28,7 @@ export function receiveUpdate(payload) {
     "applying", "ready_to_install", "ready_to_restart", "launching", "failed"];
   S.update.state = known.indexOf(data.state) >= 0 ? data.state : "error";
   paintUpdate();
-  /* 检查、启动（二段已拉起前）与下载/校验在途阶段都续上看门狗；终态不再计时。 */
+  /* 下载/校验是长动作，每次进度都续上看门狗；检查与启动（二段已拉起前）也续上看门狗，终态不再计时。 */
   const launched = isUpdateLaunched(S.update.state, data.text);
   if (S.update.state === "checking" || (S.update.state === "launching" && !launched)) {
     watchUpdate(S.update.requestId, 15000);

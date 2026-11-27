@@ -3638,6 +3638,64 @@ out.push({ok, errText: $("rel-err").textContent, errHidden: $("rel-err").hidden,
         self.assertIn("账号或密码不对", values[0]["errText"])
         self.assertFalse(values[0]["formHidden"])
 
+    def test_pending_flow_id_ignores_historical_outcomes_until_inflight_sets_id(self):
+        """T2：__pending__ 待定标记不认历史终态，先见进行中快照定编号后才认，错号仍按历史。"""
+        values = run_phone_js('''
+out.push([
+  PhoneModel.relOutcomeCurrent({state: "success", flow_id: "old", live: false}, "__pending__"),
+  PhoneModel.relOutcomeCurrent({state: "success", flow_id: "f-other", live: false}, "f-cur"),
+  PhoneModel.relOutcomeCurrent({state: "success", flow_id: "f-cur", live: false}, "f-cur"),
+  PhoneModel.relOutcomeCurrent({state: "success", flow_id: "old", live: true}, "__pending__"),
+  PhoneModel.relNextFlowId({state: "waiting_code", flow_id: "f-wc", live: false}, "__pending__"),
+  PhoneModel.relNextFlowId({state: "verifying", flow_id: "f-vf", live: false}, "__pending__"),
+  PhoneModel.relNextFlowId({state: "starting", flow_id: "", live: false}, "__pending__"),
+  PhoneModel.relNextFlowId({state: "success", flow_id: "old", live: false}, "__pending__"),
+]);
+const ui = PhoneUI; ui.model.lastOkAt = Date.now();
+let polls = 0;
+globalThis.__fetch = async (_u, opts) => {
+  if (opts && opts.method === "POST") return {status: 200, json: async () => ({ok: true, mode: "manual"})};
+  polls += 1; return {status: 200, json: async () => ({state: {}, events: []})};
+};
+ui.ingest({state: {terms_ok: true, relogin_setup: {saved: true, ocr_ready: false}}});
+ui.openRelogin();
+await ui.beginRelogin();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+polls = 0;
+ui.ingest({state: {terms_ok: true, login_relay: {state: "success", flow_id: "old-1", live: false}}});
+const pendingHist = {fid: ui.model.relActiveFlowId, note: $("relogin-note").textContent,
+  doneHidden: $("btn-relogin-done").hidden, polls};
+ui.ingest({state: {terms_ok: true, login_relay: {state: "starting", flow_id: "f-cur", live: false}}});
+ui.ingest({state: {terms_ok: true, login_relay: {state: "success", flow_id: "f-other", live: false}}});
+const wrongFid = {fid: ui.model.relActiveFlowId, note: $("relogin-note").textContent,
+  doneHidden: $("btn-relogin-done").hidden, polls};
+ui.ingest({state: {terms_ok: true, login_relay: {state: "success", flow_id: "f-cur", live: false}}});
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+const matched = {note: $("relogin-note").textContent, text: $("rel-text").textContent,
+  doneHidden: $("btn-relogin-done").hidden, polls};
+await ui.beginRelogin();
+for (let i = 0; i < 10; i += 1) await Promise.resolve();
+polls = 0;
+ui.ingest({state: {terms_ok: true, login_relay: {state: "success", flow_id: "live-1", live: true}}});
+out.push({pendingHist, wrongFid, matched, liveNote: $("relogin-note").textContent, livePolls: polls});
+''')
+        self.assertEqual(values[0], [False, False, True, True, "f-wc", "f-vf", "__pending__", "__pending__"])
+        r = values[1]
+        self.assertEqual(r["pendingHist"]["fid"], "__pending__")
+        self.assertTrue(r["pendingHist"]["note"].startswith("上次重新登录已完成"))
+        self.assertTrue(r["pendingHist"]["doneHidden"])
+        self.assertEqual(r["pendingHist"]["polls"], 0)
+        self.assertEqual(r["wrongFid"]["fid"], "f-cur")
+        self.assertTrue(r["wrongFid"]["note"].startswith("上次重新登录已完成"))
+        self.assertTrue(r["wrongFid"]["doneHidden"])
+        self.assertEqual(r["wrongFid"]["polls"], 0)
+        self.assertIn("重新登录成功", r["matched"]["note"])
+        self.assertIn("重新登录成功", r["matched"]["text"])
+        self.assertFalse(r["matched"]["doneHidden"])
+        self.assertEqual(r["matched"]["polls"], 1)
+        self.assertIn("重新登录成功", r["liveNote"])
+        self.assertEqual(r["livePolls"], 1)
+
     def test_relogin_note_hides_while_login_line_shows_recovering(self):
         """自动登录进行中时 #login-line 已说明进度，#relogin-note 应隐藏避免同屏重复。"""
         values = run_phone_js('''

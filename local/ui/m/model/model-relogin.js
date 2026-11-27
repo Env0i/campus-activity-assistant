@@ -86,13 +86,26 @@ Object.assign(PhoneModel, {
       : "重新登录成功，活动列表已刷新。计划不会自动重新开始，要你重新核对后再点开始。";
   },
 
-  /* 判断重登终态是否属于本轮：后端终态 snapshot 的 live 恒为 false，需结合 activeFlowId 归属 */
+  /* 追踪当前重登场次编号：仅看到本场进行中快照（starting/waiting_code/verifying 且带 flow_id）
+     才把空闲或待定标记 __pending__ 定为具体编号；终态快照不借此改写归属 */
+  relNextFlowId(flow, activeFlowId) {
+    const f = (flow && typeof flow === "object") ? flow : {};
+    const state = String(f.state || "");
+    const fid = String(f.flow_id || "");
+    const active = String(activeFlowId || "");
+    const inFlight = state === "starting" || state === "waiting_code" || state === "verifying";
+    if (inFlight && fid && (f.live === true || active === "__pending__")) return fid;
+    return active;
+  },
+
+  /* 判断重登终态是否属于本轮：后端终态 snapshot 的 live 恒为 false，须凭已定下的 flow_id 认归属；
+     待定标记 __pending__ 下未见本场进行中快照，收到终态一律按历史处理 */
   relOutcomeCurrent(flow, activeFlowId) {
     const f = (flow && typeof flow === "object") ? flow : {};
     if (f.live === true) return true;
     const active = String(activeFlowId || "");
-    if (!active) return false;
-    return active === "__pending__" || (!!f.flow_id && String(f.flow_id) === active);
+    if (!active || active === "__pending__") return false;
+    return !!f.flow_id && String(f.flow_id) === active;
   },
 
   /* RL01–RL08 重登 sheet 的呈现数据（原型 rel 段，Phone.dc.html:881-905）。
