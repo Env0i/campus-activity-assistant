@@ -8,7 +8,8 @@
 | `login/atomic_json.js` | `/root/campus-login/atomic_json.js` | 被 `server_refresh.js` require | 原子写 JSON，daemon 与抓取脚本并发读写会话文件时防半截文件 |
 | `login/test_atomic_json.js` | 只在开发时跑 | — | 原子写的行为测试 |
 | `systemd/campus-login.service` | `/etc/systemd/system/` | systemd | 续期 daemon 的单元 |
-| `login/auto_login.py` | `/root/campus-login/auto_login.py` | `campus-autologin.timer`（每 5 分钟） | 失效时无人值守重登：取验证码 → OCR → 页面提交 → API 校验 → 原子写 `storage_state.json` / `session.json` |
+| `login/auto_login.py` | `/root/campus-login/auto_login.py` | `campus-autologin.timer`（每 5 分钟） | 失效时无人值守重登：取验证码 → OCR（定制模型 → `beta` → `old` → Tesseract）→ 页面提交 → API 校验 → 原子写 `storage_state.json` / `session.json` |
+| `login/ocr_models.py`、`login/models/` | `/root/campus-login/ocr_models.py`、`/root/campus-login/models/` | 被 `auto_login.py` 按需加载 | 定制校园验证码 ONNX 模型与字符集（缺文件时静默退回内置 `beta`/`old`） |
 | `systemd/campus-autologin.service` / `.timer` | `/etc/systemd/system/` | systemd | 上面那个脚本的 oneshot + 定时器 |
 | `signup/grab_signup.py` | `/root/campus-login/grab_signup.py` | `server/scripts/signup/watchlist_runner.py` 用 `systemd-run` 拉起 | 到点进详情页点「立即报名」；结果私聊回报 |
 | `install/set_credentials.py` | `/root/campus-login/set_credentials.py` | 人工跑一次 | 交互写 `credentials.json`（0600），账号密码只存在这里 |
@@ -39,7 +40,8 @@
 ## 同步方式
 
 ```bash
-scp server/deploy/login/auto_login.py server/deploy/signup/grab_signup.py server/deploy/install/set_credentials.py root@<服务器>:/root/campus-login/
+scp server/deploy/login/auto_login.py server/deploy/login/ocr_models.py server/deploy/signup/grab_signup.py server/deploy/install/set_credentials.py root@<服务器>:/root/campus-login/
+scp -r server/deploy/login/models root@<服务器>:/root/campus-login/
 scp server/deploy/login/server_refresh.js server/deploy/login/atomic_json.js root@<服务器>:/root/campus-login/
 scp server/deploy/systemd/campus-autologin.service server/deploy/systemd/campus-autologin.timer server/deploy/systemd/campus-login.service root@<服务器>:/etc/systemd/system/
 ssh root@<服务器> systemctl daemon-reload

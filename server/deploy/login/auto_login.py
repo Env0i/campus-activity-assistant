@@ -29,6 +29,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 _LOGIN_HERE = os.path.dirname(os.path.abspath(__file__))
 if _LOGIN_HERE not in sys.path:
     sys.path.insert(0, _LOGIN_HERE)
+import ocr_models  # noqa: E402
 import preempt_guard  # noqa: E402
 
 LOGIN_DIR = os.environ.get("LOGIN_DIR", "").strip() or "/root/campus-login"
@@ -74,8 +75,8 @@ PROBE_FAIL_STREAK = 2
 RETRY_DELAY_SEC = 30
 # 验证码字符集（学校侧就是大写字母 + 数字，4 位）
 CAPTCHA_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-# ddddocr 模型按优先级排列：beta（common.onnx）明显强于默认（common_old.onnx）
-DDDDOCR_MODELS = ("beta", "old")
+# ddddocr 模型按优先级排列：校园定制模型（180 样本 100%）→ beta → 默认（common_old.onnx）
+DDDDOCR_MODELS = ("custom", "beta", "old")
 # --preempt 在用到 8 小时主动换新，消掉失效前盲窗。
 PREEMPT_HOURS = 8.0
 
@@ -234,19 +235,16 @@ def _clean_code(text):
 
 
 def _ddddocr_engine(which):
-    """按需加载 ddddocr 模型，加载不到就记住 None（回退 Tesseract，不反复抛异常）。"""
+    """按需加载 ddddocr 模型；custom 缺文件或依赖缺失时记住 None，逐级兜底。"""
     if which in _DDDD_ENGINES:
         return _DDDD_ENGINES[which]
     engine = None
     try:
         import ddddocr  # 可选依赖；没装时整条链路仍靠 Tesseract 走通
 
-        # show_ad=False 关掉首次运行的横幅文字，免得混进日志
-        engine = ddddocr.DdddOcr(
-            ocr=True, det=False, beta=(which == "beta"), show_ad=False
-        )
+        engine = ocr_models.load_engine(which, ddddocr, _LOGIN_HERE)
     except Exception as exc:
-        log("[w] ddddocr(%s) 不可用，回退 Tesseract：%s" % (which, type(exc).__name__))
+        log("[w] ddddocr(%s) 不可用，继续回退：%s" % (which, type(exc).__name__))
     _DDDD_ENGINES[which] = engine
     return engine
 

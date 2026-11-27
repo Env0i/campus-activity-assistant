@@ -199,5 +199,44 @@ class AutoLoginEnvPathTests(unittest.TestCase):
                          os.path.join("/opt/custom-app", "data", "token_probe.log"))
 
 
+class AutoLoginOcrFallbackTests(unittest.TestCase):
+    """定制校园模型优先、缺文件或异常输出时回退 beta/old/Tesseract。"""
+
+    def test_custom_model_prioritized_and_falls_back_when_absent_or_short(self):
+        img_b64 = "data:image/png;base64,WA=="
+        calls = []
+
+        class FakeDdddOcr:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            def classification(self, _raw):
+                calls.append(self.kwargs)
+                if "import_onnx_path" in self.kwargs:
+                    return "7UEY" if len(calls) == 1 else "7U"
+                return "BT77" if self.kwargs.get("beta") else "OLD4"
+
+        fake_mod = types.ModuleType("ddddocr")
+        fake_mod.DdddOcr = FakeDdddOcr
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "school_captcha.onnx").write_bytes(b"onnx")
+            Path(tmp, "charsets.json").write_text("{}", encoding="utf-8")
+            with mock.patch.dict(sys.modules, {"ddddocr": fake_mod}), \
+                    mock.patch.dict(os.environ, {"CAMPUS_CUSTOM_OCR_DIR": tmp}, clear=False), \
+                    mock.patch.dict(auto_login._DDDD_ENGINES, {}, clear=True):
+                self.assertEqual(auto_login.recognize(img_b64), "7UEY")
+                self.assertIn("import_onnx_path", calls[0])
+                self.assertEqual(auto_login.recognize(img_b64), "BT77")
+                self.assertTrue(calls[-1].get("beta"))
+
+        with tempfile.TemporaryDirectory() as empty_dir, \
+                mock.patch.dict(sys.modules, {"ddddocr": fake_mod}), \
+                mock.patch.dict(os.environ, {"CAMPUS_CUSTOM_OCR_DIR": empty_dir}, clear=False), \
+                mock.patch.dict(auto_login._DDDD_ENGINES, {}, clear=True):
+            calls.clear()
+            self.assertEqual(auto_login.recognize(img_b64), "BT77")
+            self.assertTrue(all("import_onnx_path" not in c for c in calls))
+
+
 if __name__ == "__main__":
     unittest.main()
