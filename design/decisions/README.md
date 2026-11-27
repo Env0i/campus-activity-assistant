@@ -21,9 +21,11 @@
 | [011](011-unified-help-and-manual-update.md) | 设置 + 帮助分工与手动检查更新（2026-11-02 由单帮助入口修订） | confirmed（入口分工待实现，技术与用户验收分列） |
 | [012](012-independent-beijing-clock.md) | 独立北京时间贯穿界面/计划/worker/登录估算（006/007/008 受影响条款就地修订） | confirmed + implemented（隔离验收见 20261026-independent-beijing-clock result；真实学校验收 pending） |
 | [013](013-distribution-and-privacy.md) | 分发形态、隐私边界与条款同意策略 | implemented（三资产已发布；真实学校窗口属用户验收） |
-| [014](014-workbench-ui.md) | 新工作台：时刻表与计划栏、窗口分档、计划阶段与提醒 | confirmed（代码未落地，实现见 UI-B/UI-C） |
-| [015](015-signup-path-and-replies.md) | 报名链路：密钥来源、回包分类、终态核对、登录失效 | implemented（回归测试通过；真实窗口复验待用户） |
+| [014](014-workbench-ui.md) | 新工作台：时刻表与计划栏、窗口分档、计划阶段与提醒 | implemented（新工作台已落地；2026-11-24 界面翻新由[决策 017](017-workbench-refresh.md) 承接） |
+| [015](015-signup-path-and-replies.md) | 报名链路：密钥来源、回包分类、终态核对、登录失效 | implemented（本机回归测试通过；服务器直发签名与主动换新避让 2026-11-26 经用户确认已有真实报名成功） |
 | [016](016-conflict-visibility-and-cancel.md) | 冲突看得见、跨天如实写、报后能不能退、电脑端取消报名 | confirmed（代码与离线单元测试已落地；真机取消与学校回包未验证） |
+| [017](017-workbench-refresh.md) | 界面翻新：时间轴卡片、活动类型、活动简介与口语文案 | implemented（1.3.0 已发布；2026-11-26 用户真窗口复核与目标用户反馈收尾；部分边界列已知限制） |
+| [018](018-owner-chat-self-service.md) | 私聊自助：我的报名、预报名查冲突、私聊取消、开始与签退提醒、变动通知 | implemented（A–F 项已上线并真机验收正常；直发见[决策 015](015-signup-path-and-replies.md)） |
 
 > 008/010 机制已有隔离运行证据；有效登录真机验收和正式发行仍各自待确认。
 > 不应把用户验收未完成混写成代码尚未实现，规则确认与实现验收分列，

@@ -17,12 +17,8 @@
 | 提案 | 状态 |
 |---|---|
 | [replayable-product-tour.md](replayable-product-tour.md) 可重播分步功能引导 | proposed（尚未实现） |
-| [activity-description-info-button.md](activity-description-info-button.md) 活动简介问号入口 | accepted（2026-11-24 用户看截图定稿） |
 | [auto-relogin-failure-notice.md](auto-relogin-failure-notice.md) 自动登录失败后怎么告知用户 | proposed（尚未实现） |
-| [workbench-ui-polish.md](workbench-ui-polish.md) 工作台界面打磨：时间轴列表、设置抽屉与状态过渡 | accepted（2026-11-24 用户看截图定稿） |
-| [copy-simplification.md](copy-simplification.md) 全工具界面文案精简对照与规范修订建议 | accepted（2026-11-24 用户看截图定稿） |
 | [engineering-refactor.md](engineering-refactor.md) 代码工程化重构：状态机、单一规则与模块边界 | proposed（方向已定，1.2.2 发版后审计再定计划） |
-| [owner-chat-self-service.md](owner-chat-self-service.md) 私聊自助：不打开学校平台也能管好自己的报名 | proposed（2026-11-24 已确认并拆计划，落地后转入 decisions） |
 
 ## 生命周期
 
