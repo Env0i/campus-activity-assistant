@@ -48,6 +48,8 @@
 
 ### 1.2 `local/config.json`（本机版，可选）
 
+文件位置：源码运行用 `local/config.json`；安装版与独立 EXE 用数据目录（`%LOCALAPPDATA%\TianSoftActivityPreRegistration\data\`，`CAMPUS_DATA_DIR` 可改位置）里的 `config.json`，升级换版本目录不丢。启动时若数据目录里还没有合法的飞书地址，会把旧版本目录或程序旁的地址迁过来，不删旧文件。
+
 ```json
 {
   "site": {

@@ -2413,6 +2413,141 @@ class FeishuWebhookApiTests(unittest.TestCase):
             got = self.local_app.Api.test_feishu_webhook(dummy, "https://example.test/hook/8")
         self.assertTrue(got["ok"], got)
         self.assertEqual(calls[0][0], "https://example.test/hook/8")
+
+
+class FeishuConfigLocationTests(unittest.TestCase):
+    """飞书地址的位置：冻结态在数据目录，旧位置的地址启动时迁过来，目标已有合法地址就不动。"""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix="campus-feishu-loc-")
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+
+    @staticmethod
+    def _read(path):
+        return Path(path).read_text(encoding="utf-8")
+
+    @staticmethod
+    def _write(path, data):
+        Path(path).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    def _put(self, path, data):
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._write(path, data)
+        return path
+
+    def test_config_file_path_frozen_lives_in_data_dir(self):
+        from infrastructure.stores import runtime_paths
+        data = self.root / "data"
+        here = self.root / "app"
+        self.assertEqual(runtime_paths.config_file_path(frozen=True, here=here, data_dir=data),
+                         data / "config.json")
+        self.assertEqual(runtime_paths.config_file_path(frozen=False, here=here, data_dir=data),
+                         here / "config.json")
+
+    def test_legacy_candidates_newest_version_first_then_install_root(self):
+        from infrastructure.stores import runtime_paths
+        versions = self.root / "versions"
+        for name in ("1.3.0", "1.10.0", "1.3.1", ".staging-x"):
+            (versions / name).mkdir(parents=True, exist_ok=True)
+        here = versions / "1.3.1"
+        self.assertEqual(runtime_paths.legacy_config_candidates(here), [
+            here / "config.json",
+            versions / "1.10.0" / "config.json",
+            versions / "1.3.0" / "config.json",
+            self.root / "config.json",
+        ])
+
+    def test_legacy_candidates_outside_versions_is_only_the_run_dir(self):
+        from infrastructure.stores import runtime_paths
+        here = self.root / "app"
+        self.assertEqual(runtime_paths.legacy_config_candidates(here), [here / "config.json"])
+
+    def test_migrate_keeps_existing_valid_target_address(self):
+        target = self._put(self.root / "data" / "config.json",
+                           {"feishu_webhook": "https://example.test/new"})
+        old = self._put(self.root / "old" / "config.json",
+                        {"feishu_webhook": "https://example.test/old"})
+        got = feishu_settings.migrate_legacy(target, [old], read=self._read, write=self._write)
+        self.assertIsNone(got)
+        self.assertEqual(json.loads(self._read(target)),
+                         {"feishu_webhook": "https://example.test/new"})
+
+    def test_migrate_takes_first_valid_candidate_and_keeps_other_keys(self):
+        target = self._put(self.root / "data" / "config.json",
+                           {"site": {"base": "https://example.test"}})
+        bad_json = self.root / "a" / "config.json"
+        bad_json.parent.mkdir(parents=True, exist_ok=True)
+        bad_json.write_text("{not json", encoding="utf-8")
+        plain = self._put(self.root / "b" / "config.json",
+                          {"feishu_webhook": "http://example.test/plain"})
+        good = self._put(self.root / "c" / "config.json",
+                         {"feishu_webhook": "https://example.test/good", "window": {"w": 1}})
+        later = self._put(self.root / "d" / "config.json",
+                          {"feishu_webhook": "https://example.test/later"})
+        candidates = [self.root / "missing" / "config.json", bad_json, plain, good, later]
+        got = feishu_settings.migrate_legacy(target, candidates, read=self._read, write=self._write)
+        self.assertTrue(got["ok"], got)
+        self.assertEqual(json.loads(self._read(target)),
+                         {"site": {"base": "https://example.test"},
+                          "feishu_webhook": "https://example.test/good"})
+        self.assertEqual(json.loads(self._read(good)),
+                         {"feishu_webhook": "https://example.test/good", "window": {"w": 1}},
+                         "旧文件只读，不改写")
+
+    def test_migrate_refuses_to_overwrite_unreadable_target(self):
+        target = self.root / "data" / "config.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("{broken", encoding="utf-8")
+        old = self._put(self.root / "old" / "config.json",
+                        {"feishu_webhook": "https://example.test/old"})
+        got = feishu_settings.migrate_legacy(target, [old], read=self._read, write=self._write)
+        self.assertFalse(got["ok"], got)
+        self.assertEqual(got["error"], "config_unreadable")
+        self.assertEqual(target.read_text(encoding="utf-8"), "{broken")
+
+    def test_migrate_without_any_candidate_returns_none_and_writes_nothing(self):
+        target = self.root / "data" / "config.json"
+        got = feishu_settings.migrate_legacy(target, [self.root / "x" / "config.json"],
+                                             read=self._read, write=self._write)
+        self.assertIsNone(got)
+        self.assertFalse(target.exists())
+
+    def _app(self):
+        try:
+            import app as local_app
+        except Exception as exc:  # pragma: no cover - 仅在缺依赖的环境触发
+            self.skipTest("local/app.py 无法导入：%s" % exc)
+        return local_app
+
+    def test_standalone_exe_layout_migrates_before_returning_no_thread(self):
+        local_app = self._app()
+        here = self.root / "app"
+        self._put(here / "config.json", {"feishu_webhook": "https://example.test/from-exe"})
+        data_dir = self.root / "data"
+        with mock.patch.object(local_app, "DATA_DIR", data_dir):
+            thread = local_app.sweep_versions_in_background(
+                frozen=True, here=here, version="1.3.1", sweep=mock.Mock())
+        self.assertIsNone(thread, "独立 EXE 没有版本目录可清理")
+        self.assertEqual(json.loads(self._read(data_dir / "config.json")),
+                         {"feishu_webhook": "https://example.test/from-exe"})
+
+    def test_migration_error_is_logged_and_cleanup_still_runs(self):
+        local_app = self._app()
+        logged = []
+        sweep = mock.Mock(return_value={"removed": [], "failed": []})
+        with mock.patch.object(local_app, "DATA_DIR", self.root / "data"), \
+                mock.patch.object(local_app._feishu_settings, "migrate_legacy",
+                                  side_effect=RuntimeError("boom")):
+            thread = local_app.sweep_versions_in_background(
+                frozen=True, here=self.root / "versions" / "1.3.1", version="1.3.1",
+                sweep=sweep, log=lambda **fields: logged.append(fields))
+        thread.join(5)
+        self.assertEqual(logged, [{"error": "RuntimeError"}])
+        sweep.assert_called_once()
+
+
 class LoginExpiredPushTransportTests(unittest.TestCase):
     """失效推送经注入端口发送：应用层不自己联网，端口失败只记一行日志。"""
 

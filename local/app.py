@@ -53,7 +53,7 @@ from infrastructure.update import updater
 # 登录态/偏好统一数据根：开发用 local/data，冻结 EXE 用 %LOCALAPPDATA%
 # （CAMPUS_DATA_DIR 可覆盖），与 grab-worker 解析出同一份登录文件
 from infrastructure.stores.runtime_paths import (DATA_DIR, LOG_FILE, LOG_LOCK_FILE, SESSION_FILE,
-                           UI_STATE_FILE, ensure_data_dir, migration_record)
+                           UI_STATE_FILE, ensure_data_dir, migration_record, config_file_path, legacy_config_candidates)
 
 # 分层依赖（只准向下）：app（interface 外观）→ application → domain 纯规则；
 # 外部副作用统一走 infrastructure 适配器。旧模块级名字保留为兼容包装/再导出，
@@ -103,7 +103,7 @@ from application.settings import feishu_settings as _feishu_settings
 HERE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 RESOURCE_ROOT = Path(getattr(sys, "_MEIPASS", HERE))
 # 和报名进程同一份配置：界面只读其中的 feishu_webhook 一个键
-CONFIG_FILE = HERE / "config.json"
+CONFIG_FILE = config_file_path(frozen=getattr(sys, "frozen", False), here=HERE, data_dir=DATA_DIR)
 UI = RESOURCE_ROOT / "ui" / "index.html"
 
 
@@ -271,14 +271,7 @@ def terms_state(prefs: dict) -> dict:
 
 def _feishu_webhook() -> str:
     """只取 config.json 里的 feishu_webhook；没配、读不出或不是 https 都当没配。"""
-    try:
-        data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return ""
-    if not isinstance(data, dict):
-        return ""
-    hook = str(data.get("feishu_webhook") or "").strip()
-    return hook if hook.startswith("https://") else ""
+    return _feishu_settings.configured_hook(CONFIG_FILE, read=_read_config_text)
 
 
 def _read_config_text(path) -> str:
@@ -482,6 +475,13 @@ def sweep_versions_in_background(*, frozen=None, here=None, version=None,
     （log(failed=数量) 或 log(error=异常类型名)，不带路径），绝不影响主程序启动。
     """
     frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
+    if frozen:  # 先迁旧地址：下面的清理会删掉更早的版本目录，旧位置的地址随之消失
+        try:
+            _feishu_settings.migrate_legacy(config_file_path(frozen=True, here=HERE if here is None else here, data_dir=DATA_DIR),
+                                            legacy_config_candidates(HERE if here is None else here), read=_read_config_text, write=_prefs_store.atomic_write)
+        except Exception as exc:  # noqa: BLE001 - 迁移失败不挡启动
+            if log:
+                log(error=type(exc).__name__)
     target = version_sweep_target(frozen=frozen, here=HERE if here is None else here,
                                   version=APP_VERSION if version is None else version)
     if target is None:

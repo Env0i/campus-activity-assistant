@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from urllib.parse import urlsplit
 
 WEBHOOK_KEY = "feishu_webhook"
@@ -122,3 +123,49 @@ def test_message(raw_url, *, post) -> dict:
                         % type(exc).__name__}
     return _parse_feishu_reply(raw_reply)
 
+
+def configured_hook(path, *, read) -> str:
+    """只取 config.json 里的 feishu_webhook；没配、读不出或不是 https 都当没配。"""
+    try:
+        data = json.loads(read(path))
+    except Exception:
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    hook = str(data.get("feishu_webhook") or "").strip()
+    return hook if hook.startswith("https://") else ""
+
+
+def _valid_hook(data) -> str:
+    """配置对象里合法的非空地址；缺失、结构不对或不合法都返回空串。"""
+    if not isinstance(data, dict):
+        return ""
+    try:
+        return normalize_url(data.get(WEBHOOK_KEY))
+    except ValueError:
+        return ""
+
+
+def migrate_legacy(target, candidates, *, read, write):
+    """把旧位置的飞书地址迁进目标 config.json：目标已有合法地址就什么都不做。
+
+    候选按优先级排列；读不出、不是 JSON 对象、地址为空或不合法的候选跳过，且不改写候选。
+    取第一个合法地址经 save 合并写入（其余键保留）；目标读不出时 save 拒绝，原样返回它的结果。
+    没有找到任何合法候选返回 None。
+    """
+    try:
+        if _valid_hook(_load_existing(target, read)):
+            return None
+    except ConfigUnreadable:
+        pass  # 目标读不出：不在这里覆盖，交给 save 拒绝
+    for candidate in candidates:
+        if Path(candidate) == Path(target):
+            continue
+        try:
+            data = json.loads(read(candidate))
+        except (OSError, ValueError):
+            continue
+        url = _valid_hook(data)
+        if url:
+            return save(target, url, read=read, write=write)
+    return None

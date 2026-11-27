@@ -41,7 +41,7 @@ REQUEST_SECURITY_CLIENT_KEY = "Pq3Zk2A9xML7"
 
 HERE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 from infrastructure.stores.runtime_paths import DATA_DIR as DATA  # noqa: F401
-from infrastructure.stores.runtime_paths import LOG_FILE, LOG_LOCK_FILE, SESSION_FILE, STATE_FILE, ensure_data_dir
+from infrastructure.stores.runtime_paths import LOG_FILE, LOG_LOCK_FILE, SESSION_FILE, STATE_FILE, ensure_data_dir, config_file_path
 from infrastructure.stores.prefs_store import PrefsLockTimeout, acquire_file_lock, release_file_lock  # noqa: F401
 from infrastructure.stores import login_session_store
 from application.signup import signup_outcome, signup_policy, signup_run, signup_target
@@ -66,7 +66,7 @@ from infrastructure.clock.business_clock import BusinessClock, ClockClient, Cloc
 
 # 测试会把 grab.time 换成假时钟：计时段只能用导入时取好的别名，不能现取 grab.time
 _perf_counter = time.perf_counter
-CONFIG_FILE = HERE / "config.json"
+CONFIG_FILE = config_file_path(frozen=getattr(sys, "frozen", False), here=HERE, data_dir=DATA)
 
 # ---- 独立北京时间（决策 012）-----------------------------------------------
 _CLOCK = {"now": None, "bounds": None, "meta": None}

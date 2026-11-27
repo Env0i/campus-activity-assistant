@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -167,3 +168,40 @@ def _migrate_legacy_data() -> None:
         if acquired:
             release_file_lock(lock_handle)
         lock_handle.close()
+
+
+# config.json（飞书提醒地址等）的位置：冻结态放数据目录（跨版本保留），源码态仍在 local/ 下。
+def config_file_path(*, frozen: bool, here, data_dir) -> Path:
+    """config.json 的当前位置。只算路径，不建目录、不读写文件。"""
+    if frozen:
+        return Path(data_dir) / "config.json"
+    return Path(here) / "config.json"
+
+
+_VERSION_DIR_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+
+
+def legacy_config_candidates(here) -> list:
+    """冻结态旧位置的 config.json 候选，按优先级排列，只算路径、不读文件。
+
+    顺序：运行目录本身 → versions/ 下其余 x.y.z 版本目录（版本号从新到旧）→ 安装根。
+    运行目录不在 versions/ 下（独立 EXE）时只返回运行目录这一项。
+    """
+    here = Path(here)
+    candidates = [here / "config.json"]
+    if here.parent.name != "versions":
+        return candidates
+    try:
+        entries = list(here.parent.iterdir())
+    except OSError:
+        entries = []
+    others = []
+    for entry in entries:
+        match = _VERSION_DIR_RE.match(entry.name)
+        if not match or entry.name == here.name or not entry.is_dir():
+            continue
+        others.append((tuple(int(part) for part in match.groups()), entry))
+    for _key, entry in sorted(others, key=lambda item: item[0], reverse=True):
+        candidates.append(entry / "config.json")
+    candidates.append(here.parent.parent / "config.json")
+    return candidates
