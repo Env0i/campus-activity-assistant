@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-19T01:08:33Z",
-  "updated_at": "2026-11-26T10:03:40Z",
+  "updated_at": "2026-11-27T07:31:07Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -29,9 +29,9 @@
     },
     ".gitignore": {
       "role": "index",
-      "sha256": "efb2335e885f76921a44f278a7f72ac03fc1a5d6336e493b5949838d8ad00c3c",
-      "size": 1857,
-      "normalized_sha256": "efb2335e885f76921a44f278a7f72ac03fc1a5d6336e493b5949838d8ad00c3c"
+      "sha256": "abc2b34befd7d063606481f45e1e35b144b64974d50faf88deb5fac1dcb614cf",
+      "size": 1881,
+      "normalized_sha256": "abc2b34befd7d063606481f45e1e35b144b64974d50faf88deb5fac1dcb614cf"
     },
     ".workbuddy/memory/2026-11-12.md": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "ebf85581b2ee965470fcba1a711ae9f4fdc64360673aa93b1798ef19abd4e552",
-      "size": 52340,
-      "normalized_sha256": "ebf85581b2ee965470fcba1a711ae9f4fdc64360673aa93b1798ef19abd4e552"
+      "sha256": "de1ed5c019909c70ecaa79fedd216123fa28f0f75175a8aa90748d3a3a2183df",
+      "size": 53532,
+      "normalized_sha256": "de1ed5c019909c70ecaa79fedd216123fa28f0f75175a8aa90748d3a3a2183df"
     },
     "CLAUDE.md": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "da4ffbe24e1bf544f74efa92328d5ea1cfc4aa511ea030bc99ef57d49f0453f8",
-      "size": 411039,
-      "normalized_sha256": "da4ffbe24e1bf544f74efa92328d5ea1cfc4aa511ea030bc99ef57d49f0453f8"
+      "sha256": "6c4ece4945831cea325ad9f27e76a8a85c522c5a72fd704035465d4dc7c89ee4",
+      "size": 411362,
+      "normalized_sha256": "6c4ece4945831cea325ad9f27e76a8a85c522c5a72fd704035465d4dc7c89ee4"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -10764,9 +10764,9 @@
     },
     "local/tests/phone/test_phone_ui.py": {
       "role": "observe",
-      "sha256": "190ea4a0fbb5595b08940995adbeab81b1217993eaebe27fa74038c7731f4fa8",
-      "size": 497835,
-      "normalized_sha256": "190ea4a0fbb5595b08940995adbeab81b1217993eaebe27fa74038c7731f4fa8"
+      "sha256": "15674e7f468156a610855d21b150a0f27a68157ab71af78b1120c1f3e5dfa346",
+      "size": 501529,
+      "normalized_sha256": "15674e7f468156a610855d21b150a0f27a68157ab71af78b1120c1f3e5dfa346"
     },
     "local/tests/phone/test_tunnel_manager.py": {
       "role": "observe",
@@ -11382,9 +11382,9 @@
     },
     "local/ui/features/update/actions.js": {
       "role": "index",
-      "sha256": "76d7b100342dc7d0be7e5379a463216c7c639e9a1035c40df6182957d01a894a",
-      "size": 8299,
-      "normalized_sha256": "76d7b100342dc7d0be7e5379a463216c7c639e9a1035c40df6182957d01a894a"
+      "sha256": "b593b13c63dd5a3de073dec09a0bf8fb59ecfbc32343242cbfce7ad345574c03",
+      "size": 8332,
+      "normalized_sha256": "b593b13c63dd5a3de073dec09a0bf8fb59ecfbc32343242cbfce7ad345574c03"
     },
     "local/ui/index.html": {
       "role": "index",
@@ -11470,9 +11470,9 @@
     },
     "local/ui/m/model/model-relogin.js": {
       "role": "index",
-      "sha256": "94a0736f231e46ff2e0ab71a3e83e979e8ab16679f94113d7406a49c010b107c",
-      "size": 14985,
-      "normalized_sha256": "94a0736f231e46ff2e0ab71a3e83e979e8ab16679f94113d7406a49c010b107c"
+      "sha256": "950a17e725e1a77291dff331a0ea98e5c46cbdb6834614ecf4e258903b45cc26",
+      "size": 15750,
+      "normalized_sha256": "950a17e725e1a77291dff331a0ea98e5c46cbdb6834614ecf4e258903b45cc26"
     },
     "local/ui/m/model/model-run.js": {
       "role": "index",
@@ -11548,9 +11548,9 @@
     },
     "local/ui/m/ui/ui-relogin.js": {
       "role": "index",
-      "sha256": "103b2273873b48e5a118ccb74c4ae2c0ff59d4849ca392aa6bd8d49288c8334d",
-      "size": 14930,
-      "normalized_sha256": "103b2273873b48e5a118ccb74c4ae2c0ff59d4849ca392aa6bd8d49288c8334d"
+      "sha256": "5ac37a638119b6d30458410943ba7aa72aa91dadbfdcf56b0d17a584450e6282",
+      "size": 15050,
+      "normalized_sha256": "5ac37a638119b6d30458410943ba7aa72aa91dadbfdcf56b0d17a584450e6282"
     },
     "local/ui/m/ui/ui-session.js": {
       "role": "index",

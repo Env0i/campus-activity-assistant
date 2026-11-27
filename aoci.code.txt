@@ -2,9 +2,9 @@
 
 ===/<repository>/===
 .gitattributes[FC6T]: F:统一文本行尾为LF，保留Windows脚本和文本分发所需CRLF，AOCI索引单独固定LF | R:- | A:Git文本属性 | S:aoci索引必须是LF，切分支检出成CRLF会让索引服务读不出根清单
-.gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物、本地工具资料、本机MCP宿主配置、计划草稿与证据截图 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查；证据目录只忽略png/jpg/webp截图，文字台账与复现脚本仍入库
+.gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物、本地工具与本机AI工具目录、本机MCP宿主配置、计划草稿与证据截图 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查；证据目录只忽略png/jpg/webp截图，文字台账与复现脚本仍入库
 AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、测试、AOCI治理与证据留存纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建测试与提交分别受授权边界约束；证据截图留本地，文字台账与复现脚本入库
-CHANGELOG.md[SV4L]: F:按版本倒序记录每个版本的用户可见变化与修复边界，顶部是最新正式版本 | R:code:VERSION,code:tools/release/release.py | A:变更记录 | S:发版说明直接取最新一节；旧版本段不追改，也不写内部编号与临时路径
+CHANGELOG.md[SV4L]: F:按版本倒序记录每个版本的用户可见变化与修复边界，顶部未发布一节收集发版后的改动，其下是最新正式版本 | R:code:VERSION,code:tools/release/release.py | A:变更记录 | S:发版说明直接取最新版本一节，发版时把未发布一节改成版本号；旧版本段不追改，也不写内部编号与临时路径
 CLAUDE.md[SG5T]: F:导入共同规则并补充Claude原型预览、尾注与测试边界 | R:code:AGENTS.md | A:Claude宿主指引 | S:-
 LICENSE[SG4T]: F:声明MIT授权、保留版权许可条件及免责条款 | R:- | A:MIT许可 | S:-
 README.md[SG6M]: F:介绍工具的下载、时间轴界面、手机遥控、隐私边界与常见问题，是发布页之外的总入口 | R:code:local/README.md,code:server/README.md | A:使用与文档导航 | S:截图必须是脱敏演示数据；下载表里的资产名必须与 Release 实际附件一致
@@ -1523,7 +1523,7 @@ view-feishu.js[IU4T]: F:绘制设置里飞书提醒地址输入框与保存或�
 state.js[DD8T]: F:投影条款同意状态和学校动作锁定 | R:code:local/ui/state/store.js,code:local/ui/controllers/terms.js | A:termsAccepted,termsLocked | S:演示不锁；unknown必锁；尚无版本但非unknown时后端兜底，不冒充已确认结论。
 
 ===/<repository>/local/ui/features/update/===
-actions.js[AV8S]: F:编排手动版本检查、下载确认取消及安装启动 | R:code:local/ui/views/update.js,code:local/ui/state/store.js | A:receiveUpdate,restoreUpdate,checkUpdate,startDownload,confirmDownload,launchInstaller | S:仅接当前request_id事件，合并进度保留安装器；检查不下载；迟到ack不能回退完成态。checking是合法中间态，检查与未拉起的启动阶段续15秒看门狗；开发新检查先清旧结论；取消失败落failed，不静默卡在下载中
+actions.js[AV8S]: F:编排手动版本检查、下载确认取消及安装启动 | R:code:local/ui/views/update.js,code:local/ui/state/store.js | A:receiveUpdate,restoreUpdate,checkUpdate,startDownload,confirmDownload,launchInstaller | S:仅接当前request_id事件，合并进度保留安装器；检查不下载；迟到ack不能回退完成态。checking是合法中间态，检查与未拉起的启动阶段续15秒看门狗，下载校验每次进度续60秒；新检查先清旧结论；取消失败落failed，不静默卡在下载中
 
 ===/<repository>/local/ui/m/===
 index.html[EU7M]: F:提供手机配对页、时间轴列表容器、计划板与操作抽屉结构，按序加载12份脚本 | R:code:local/ui/m/model/model.js,code:local/ui/m/ui/ui-shell.js,code:local/ui/m/styles.css | A:配对页,时间轴列表,计划核对,script清单 | S:脚本标签次序即依赖，测试从这里读清单；图标走根路径URL；手机是电脑遥控器，电脑关机或睡眠会中断执行
@@ -2035,14 +2035,14 @@ worker_log.py[RO7S]: F:提供worker日志层：跨进程日志锁、按大小轮
 ===/<repository>/local/ui/m/model/===
 model-conflict.js[DU7M]: F:给手机页纯规则补上时刻取法、时段重叠、开始前举办时间检查、业务时钟、取消说明、冲突原因面板与开始前提醒 | R:code:local/ui/m/model/model.js,code:local/ui/state/conflict.js,code:local/application/phone/phone_service.py | A:tsOf,actBlock,actBlockText,signedClash,cancelWindowOpen,whyView | S:业务时间只认电脑时钟快照；快照有时刻键就只用它；已选缺举办时间优先于已报名缺时间
 model-list.js[DU7M]: F:给手机页提供倒计时、开放分组、冲突、时间轴节点(同抢N场)、四层卡片行与草稿板纯规则投影 | R:code:local/ui/m/model/model-conflict.js,code:local/application/phone/phone_service.py | A:stOf,visibleItems,rowView,timelineNodes,draftBoard,listView | S:截止先读close_ts；10分钟内(<=600s)或下一批亮琥珀；同抢仅在pre组且>=2场全部waiting；日期用MM-DD，睡眠错过区分已知时刻与未知
-model-relogin.js[DU7M]: F:给手机页纯规则补上重新登录视图、转人工判断、登录成功句、配对点阵字形与配对错误文案，并把PhoneModel挂到全局 | R:code:local/ui/m/model/model-run.js,code:local/domain/phone/phone_rules.py,code:local/application/login/login_relay_service.py | A:reloginView,relHandoff,loginDoneText,glyphs,pairView,pairWrongText | S:转人工只认中继live与handoff，不按次数猜；配错文案的60秒与后端配错落锁时长耦合；重登终态snapshot的live恒false，须用activeFlowId归属本轮，不能只看live
+model-relogin.js[DU7M]: F:给手机页纯规则补上重新登录视图、转人工判断、登录成功句、重登场次归属、配对点阵字形与配对错误文案，并把PhoneModel挂到全局 | R:code:local/ui/m/model/model-run.js,code:local/domain/phone/phone_rules.py,code:local/application/login/login_relay_service.py | A:reloginView,relHandoff,loginDoneText,relNextFlowId,relOutcomeCurrent,pairView | S:转人工只认中继live与handoff，不按次数猜；配错文案的60秒与后端配错落锁时长耦合；重登终态snapshot的live恒false，须用已定下的flow_id归属本轮；待定标记__pending__下不认任何终态，只有见到本场进行中快照才定编号
 model-run.js[DU7M]: F:给手机页纯规则补上开始待定、运行等待板、任务卡、口语化结束结论、条款板与登录四态 | R:code:local/ui/m/model/model-list.js | A:pendingBoard,runBoard,taskCard,confirmView,resultView,loginLine | S:-
 model.js[DU7M]: F:定义手机页纯规则对象PhoneModel的核心成员：请求标识、筛选、开放时刻、退避与同步节奏、会话状态码分流、登录四态与文案、开始门禁 | R:code:local/ui/m/index.html,code:local/ui/m/model/model-conflict.js | A:PhoneModel,filterItems,openEpochOf,sessionVerdict,canStart,loginState | S:必须最先加载；开始门禁最后还要actBlock为空；四态只管说法，门禁仍按loginRaw
 
 ===/<repository>/local/ui/m/ui/===
 ui-list.js[IU7M]: F:绘制手机页时间轴竖线节点、四层卡片、冲突原因面板、跳到已报名行与整页搜索开合 | R:code:local/ui/m/model/model-list.js,code:local/ui/m/ui/ui-session.js | A:LIST_ZONES,buildTimelineNode,buildRow,buildWhy,renderItems,toggleSearch | S:全部用textContent构造；已报名与已截止不画竖线节点；未校准日期组落下方区
 ui-plan.js[AU7M]: F:编排手机页报名计划操作：开始与对账、取消等待、停止、取消单场、结果重选、重试设置与核对抽屉 | R:code:local/ui/m/ui/ui-session.js,code:local/ui/m/model/model-run.js | A:startPlan,reconcile,cancelPendingStart,stopPlan,cancelTask,reselectFailed | S:开始结果未知时保留原请求标识只读对账，不自动重发
-ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model/model-relogin.js,code:local/ui/m/ui/ui-session.js,code:local/ui/m/ui/ui-shell.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:关面板即清输入，验证码绑定当前挑战；发起、提交、取消失败句同时写抽屉红条，因#relogin-note在更多面板里被挡；标题与成功句按打开时记的relFirstLogin取；当前场次用relActiveFlowId归属，成功终态只触发一次轮询
+ui-relogin.js[AI7M]: F:编排手机页重新登录：重登面板呈现与打开、账号与验证码提交、取消换图及电脑重登流程状态摄入 | R:code:local/ui/m/model/model-relogin.js,code:local/ui/m/ui/ui-session.js,code:local/ui/m/ui/ui-shell.js | A:renderRelogin,openRelogin,ingestRelogin,beginRelogin,submitRelogin,cancelRelogin | S:关面板即清输入，验证码绑定当前挑战；发起、提交、取消失败句同时写抽屉红条，因#relogin-note在更多面板里被挡；标题与成功句按打开时记的relFirstLogin取；场次归属只调模型层relNextFlowId与relOutcomeCurrent，不在本层判断待定标记；成功终态同场只触发一次轮询
 ui-session.js[AN8M]: F:定义手机页DOM层共用的$、请求超时与model状态对象，并负责带CSRF的请求、配对与锁定倒计时、轮询退避和会话失效处理 | R:code:local/ui/m/model/model.js,code:local/infrastructure/phone/phone_http.py | A:model,api,postAction,pair,poll,adoptCookieCsrf | S:$与model是全局词法名；请求8秒不回就放弃并放回单飞锁；未配对时一个定时器都不排；写请求与403按cookie覆盖csrf，轮询只在内存为空时补；relActiveFlowId与relPolledFlowId只存本会话，不落盘
 ui-shell.js[EU7M]: F:提供手机页抽屉外壳与确认槽、绑定全页事件，并导出PhoneUI与启动wire | R:code:local/ui/m/ui/ui-session.js,code:local/ui/m/ui/ui-plan.js,code:local/ui/m/ui/ui-relogin.js | A:openSheet,closeSheet,askConfirm,wire,PhoneUI | S:必须最后加载，启动两行只在这里；前面任一脚本缺席会在wire时报引用错误；关闭重登sheet且已到终态时清relActiveFlowId，避免下一轮沿用旧场次
 ui-status.js[IU7M]: F:绘制手机页提示条与告警（含口语化离线/锁屏提示）、控件门禁、底栏、计划点阵板与任务卡 | R:code:local/ui/m/model/model-run.js,code:local/ui/m/ui/ui-session.js | A:setBanner,renderAlerts,refreshControls,renderBar,renderBoard,addLog | S:提示条带来源标签，只有状态过时类能自动清掉；举办时间检查底栏句排在离线之后、默认副题之前；离线红条在场时不再单独显示状态过时，重登进行中不收relogin-note
