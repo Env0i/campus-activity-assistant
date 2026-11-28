@@ -4,11 +4,11 @@
 .gitattributes[FC6T]: F:统一文本行尾为LF，保留Windows脚本和文本分发所需CRLF，AOCI索引单独固定LF | R:- | A:Git文本属性 | S:aoci索引必须是LF，切分支检出成CRLF会让索引服务读不出根清单
 .gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物、本地工具与本机AI工具目录、本机MCP宿主配置、计划草稿与证据截图 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查；证据目录只忽略png/jpg/webp截图，文字台账与复现脚本仍入库
 AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、发版命令、测试、AOCI治理与证据留存纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建、测试、联网拉基线与提交分别受授权边界约束；证据截图留本地，文字台账与复现脚本入库
-CHANGELOG.md[SV4L]: F:按版本倒序记录各正式版本的用户可见变化与修复边界，最新正式版本置于顶部（当前为1.3.2；顶部另有未发布一节） | R:code:VERSION,code:tools/release/release.py | A:变更记录 | S:发版说明直接取顶部最新一节，发版时把未发布一节改成版本号；旧版本段不追改，也不写内部编号与临时路径
+CHANGELOG.md[SV4L]: F:按版本倒序记录各正式版本的用户可见变化与修复边界，最新正式版本置于顶部（当前为1.3.3，无未发布一节） | R:code:VERSION,code:tools/release/release.py | A:变更记录 | S:发版说明直接取顶部最新一节，发版时把未发布一节改成版本号；旧版本段不追改，也不写内部编号与临时路径
 CLAUDE.md[SG5T]: F:导入共同规则并补充Claude原型预览、尾注与测试边界 | R:code:AGENTS.md | A:Claude宿主指引 | S:-
 LICENSE[SG4T]: F:声明MIT授权、保留版权许可条件及免责条款 | R:- | A:MIT许可 | S:-
 README.md[SG6M]: F:介绍工具的下载、时间轴界面、手机遥控、隐私边界与常见问题，是发布页之外的总入口 | R:code:local/README.md,code:server/README.md | A:使用与文档导航 | S:截图必须是脱敏演示数据；下载表里的资产名必须与Release实际附件一致，区分单EXE/ZIP与安装版程序目录，并标明1.2.1及更早停止维护
-VERSION[FV7T]: F:提供发行和运行版本号的唯一文本来源（当前为1.3.2） | R:code:tools/release/release.py | A:版本字符串 | S:不能只修改界面显示版本，构建和发布也从该文件取值；发布tag只由它推导，已发布的tag不重用
+VERSION[FV7T]: F:提供发行和运行版本号的唯一文本来源（当前为1.3.3） | R:code:tools/release/release.py | A:版本字符串 | S:不能只修改界面显示版本，构建和发布也从该文件取值；发布tag只由它推导，已发布的tag不重用
 requirements-dev.txt[FQ3T]: F:固定开发静态检查器版本 | R:code:ruff.toml | A:开发依赖安装 | S:开发检查依赖不进入运行包。
 ruff.toml[FQ5T]: F:配置Python静态检查范围及存量例外 | R:code:requirements-dev.txt | A:ruff check local server tools | S:仅E9及F；例外只减不增，不能新增忽略来消告警。
 
