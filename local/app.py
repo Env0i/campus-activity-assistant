@@ -53,7 +53,8 @@ from infrastructure.update import updater
 # 登录态/偏好统一数据根：开发用 local/data，冻结 EXE 用 %LOCALAPPDATA%
 # （CAMPUS_DATA_DIR 可覆盖），与 grab-worker 解析出同一份登录文件
 from infrastructure.stores.runtime_paths import (DATA_DIR, LOG_FILE, LOG_LOCK_FILE, SESSION_FILE,
-                           UI_STATE_FILE, ensure_data_dir, migration_record, config_file_path, legacy_config_candidates)
+                           UI_STATE_FILE, ensure_data_dir, migration_record, config_file_path, legacy_config_candidates,
+                           worker_path)
 
 # 分层依赖（只准向下）：app（interface 外观）→ application → domain 纯规则；
 # 外部副作用统一走 infrastructure 适配器。旧模块级名字保留为兼容包装/再导出，
@@ -107,13 +108,9 @@ CONFIG_FILE = config_file_path(frozen=getattr(sys, "frozen", False), here=HERE, 
 UI = RESOURCE_ROOT / "ui" / "index.html"
 
 
-def resolve_worker_path(frozen: bool, here: Path, resource_root: Path) -> Path:
-    """worker 唯一来源（纯函数，供契约测试）：源码态跑 here/grab.py；
-    冻结态只用打包进资源根的 grab-worker.exe——绝不退回 EXE 旁的旧文件，
-    也不依赖启动 cwd：独立单 EXE 被拷到任何空目录都必须自足。"""
-    if frozen:
-        return resource_root / "grab-worker.exe"
-    return here / "grab.py"
+# worker 唯一来源已下沉至 runtime_paths.worker_path：源码态跑 here/grab.py；
+# 冻结态只看打包资源根（优先 w/grab-worker.exe，否则回退 resource_root / "grab-worker.exe"），绝不借用 EXE 旁旧文件。
+resolve_worker_path = worker_path
 
 
 GRAB = resolve_worker_path(getattr(sys, "frozen", False), HERE, RESOURCE_ROOT)

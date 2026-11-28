@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 """用 PyInstaller 构建本机版 EXE；脚本只构建，不自动安装 PyInstaller。
 
-构建产物是**独立可用**的主界面 campus-activity-watch.exe：先构建 grab-worker（onefile），
-再把它作为普通数据资源与 VERSION 一起打进主程序资源根——冻结态 app.py 按
-RESOURCE_ROOT/grab-worker.exe 解析，单 EXE 拷到任何空目录都能自足，
-不再要求 worker 躺在 EXE 旁边（旧外置 worker 定位已被用户 2026-10-25 决定取代）。
+构建产物支持两种形态：
+- onedir（版本目录）：主程序排除重依赖，grab-worker 以目录形态（--contents-directory .）
+  放在 <版本目录>/_internal/w/ 并清理 playwright/driver/package/lib/tools/skills 文档，
+  同时生成 update-launcher.exe 及其输入指纹，并校验版本目录内相对路径长度上限。
+- onefile（独立单 EXE）：先构建单文件 grab-worker，再把它作为普通数据资源与 VERSION
+  一起打进主程序资源根，使单 EXE 拷到任何空目录都能自足，不依赖 EXE 旁外置 worker。
 资源落点两种模式同源：onedir 在 <exe>/_internal/（PyInstaller 6.x 的 _MEIPASS），
 onefile 在运行期解包根；主程序内执行的是完整既有 worker，不重新分析其依赖。
 
@@ -17,6 +19,8 @@ onefile 在运行期解包根；主程序内执行的是完整既有 worker，�
 from __future__ import annotations
 
 import argparse
+import hashlib
+import importlib.metadata
 import importlib.util
 import os
 import re
@@ -47,6 +51,14 @@ COMPONENT_SIBLING_MODULES = (
 MAIN_EXCLUDED_MODULES = ("ddddocr", "onnxruntime", "cv2", "numpy", "segno")
 # onedir 装配后复核 _internal 下不得残留上述重依赖目录。
 _FORBIDDEN_ONEDIR_DIRS = ("cv2", "onnxruntime", "numpy", "numpy.libs", "ddddocr")
+# Windows 默认 260 字符路径上限：按 20 字符用户名 + 每用户安装 + 旧版客户端暂存工作目录
+# （C:\Users\<20 字符>\AppData\Local\Programs\CampusActivityWatch\versions\.staging-<请求号>.part-<32 位十六进制>\）
+# 固定占用 153 字符，留给版本目录内相对路径的安全空间收口在 100 字符以内。
+MAX_VERSION_DIR_RELATIVE_PATH = 100
+# 改启动器打包参数时加一
+LAUNCHER_BUILD_REVISION = 1
+LAUNCHER_FINGERPRINT_FILE = "update-launcher.fingerprint"
+_WORKER_SKILLS_REL = Path("playwright") / "driver" / "package" / "lib" / "tools" / "skills"
 
 
 def read_version() -> str:
@@ -93,6 +105,9 @@ def run_pyinstaller(name: str, source: Path, mode: str, add_ui: bool,
     ]
     if name != "grab-worker":
         args += ["--icon", str(icon_path)]
+    elif mode == "onedir":
+        # onedir 报名进程与主程序共享 _internal/w/，避免自身再套一层 _internal 拉长相对路径
+        args += ["--contents-directory", "."]
     if name == "campus-activity-watch":
         args += ["--hidden-import", "signup_plan", "--collect-all", "webview"]
         for module in COMPONENT_SIBLING_MODULES:
@@ -144,45 +159,117 @@ def _verify_onedir_exclusions(out: Path) -> None:
             raise SystemExit("[exe] onedir 产物 _internal 下存在不应打包的目录：%s" % name)
 
 
-def assemble(mode: str) -> Path:
-    # onefile 沿用既有目录；onedir 按版本隔离，避免覆盖其他候选产物。
-    out = OUT if mode == "onefile" else OUT_ONEDIR / read_version()
-    prune_output(out, preserve_data=(mode == "onefile"))
-    out.mkdir(parents=True, exist_ok=True)
-    # 先构建现有 worker（onefile），再把它当普通数据资源随 VERSION 一起进主程序
-    # 资源根：不用 --add-binary（那会让 PyInstaller 重新分析 worker 依赖），
-    # 主程序冻结态按 RESOURCE_ROOT/grab-worker.exe 解析——单 EXE 与 onedir 同源自足
-    worker = run_pyinstaller("grab-worker", LOCAL / "grab.py", "onefile", False)
-    # --add-data 对文件源按「dest/源文件名」归档：dest 必须是 "."，
-    # 让 worker 以 basename（恰为 grab-worker.exe）落在资源根；
-    # 写成 dest="grab-worker.exe" 会解包成同名目录，冻结态解析直接 worker_missing
-    app = run_pyinstaller("campus-activity-watch", LOCAL / "app.py", mode, True,
-                          extra_data=[(worker, "."), (VERSION_FILE, ".")])
-    # onedir 版本目录需要一个独立入口：主程序退出后它才有权限切换 staging，
-    # 再按 current.json 启动固定版本 EXE。onefile 仍沿用旧的完整安装器路径，
-    # 不额外生成旁路启动器，避免改变既有单文件资产形态。
-    launcher = None
-    if mode == "onedir":
-        launcher = run_pyinstaller("update-launcher", LOCAL / "update_launcher.py",
-                                   "onefile", False)
-    if mode == "onefile":
-        shutil.copy2(app, out / app.name)
-    else:
-        shutil.copytree(app.parent, out, dirs_exist_ok=True)
-        shutil.copy2(launcher, out / "update-launcher.exe")
-        _verify_onedir_exclusions(out)
-    # worker 已内置进主程序资源根：OUT 不再放置外置 grab-worker.exe，
-    # 构建失败会在这里之前直接退出，绝不退回「外置 worker 入口」假称独立
+def _install_onedir_worker(worker_exe: Path, out: Path) -> Path:
+    """将目录形态报名进程拷贝到版本目录的 _internal/w/ 下。"""
+    target = out / "_internal" / "w"
+    shutil.copytree(worker_exe.parent, target, dirs_exist_ok=True)
+    return target
+
+
+def _prune_worker_docs(worker_dir: Path) -> None:
+    """删掉驱动里仅作说明、运行时不读取且占 98 字符长路径的 skills 文档目录。"""
+    skills_dir = worker_dir / _WORKER_SKILLS_REL
+    if skills_dir.exists():
+        shutil.rmtree(skills_dir)
+
+
+def _verify_version_dir_paths(out: Path) -> None:
+    """确保版本目录内任一文件相对路径不超过 100 字符，给旧版暂存工作目录留足余量。"""
+    longest_rel = ""
+    for item in out.rglob("*"):
+        if item.is_file():
+            rel = item.relative_to(out).as_posix()
+            if len(rel) > len(longest_rel):
+                longest_rel = rel
+    if len(longest_rel) > MAX_VERSION_DIR_RELATIVE_PATH:
+        raise SystemExit(
+            "[exe] 版本目录相对路径超过 %d 字符上限（%d 字符）：%s"
+            % (MAX_VERSION_DIR_RELATIVE_PATH, len(longest_rel), longest_rel))
+
+
+def _pyinstaller_version() -> str:
+    try:
+        return importlib.metadata.version("pyinstaller")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def _compute_launcher_fingerprint(
+    launcher_src: "Path | None" = None,
+    icon_path: "Path | None" = None,
+    *,
+    py_version: "str | None" = None,
+    pyinstaller_version: "str | None" = None,
+    revision: "int | None" = None,
+) -> str:
+    """按固定顺序拼接启动器源码、图标、Python 与 PyInstaller 版本及修订号算 SHA-256。"""
+    src_bytes = Path(launcher_src or (LOCAL / "update_launcher.py")).read_bytes()
+    ico_bytes = Path(icon_path or (LOCAL / "ui" / "brand" / "app.ico")).read_bytes()
+    py_ver = sys.version if py_version is None else py_version
+    pi_ver = _pyinstaller_version() if pyinstaller_version is None else pyinstaller_version
+    rev = LAUNCHER_BUILD_REVISION if revision is None else revision
+    digest = hashlib.sha256()
+    for part in (src_bytes, ico_bytes, py_ver.encode("utf-8"),
+                 pi_ver.encode("utf-8"), str(rev).encode("utf-8")):
+        digest.update(part)
+        digest.update(b"\x00")
+    return digest.hexdigest()
+
+
+def _write_launcher_fingerprint(out: Path) -> Path:
+    path = out / LAUNCHER_FINGERPRINT_FILE
+    path.write_text(_compute_launcher_fingerprint() + "\n", encoding="utf-8")
+    return path
+
+
+def _copy_release_docs(out: Path) -> None:
     shutil.copy2(LOCAL / "README.md", out / "README.md")
-    # 发行说明 / 预览 / 协议：与 Release ZIP 的清单保持同一套来源
     shutil.copy2(PROJECT / "CHANGELOG.md", out / "CHANGELOG.md")
     if (LOCAL / "gui-preview.png").is_file():
         shutil.copy2(LOCAL / "gui-preview.png", out / "gui-preview.png")
     if (PROJECT / "LICENSE").is_file():
         shutil.copy2(PROJECT / "LICENSE", out / "LICENSE")
+
+
+def assemble(mode: str) -> Path:
+    # onefile 沿用既有目录；onedir 按版本隔离，避免覆盖其他候选产物。
+    out = OUT if mode == "onefile" else OUT_ONEDIR / read_version()
+    prune_output(out, preserve_data=(mode == "onefile"))
+    out.mkdir(parents=True, exist_ok=True)
+    # 先构建 worker（onefile 模式打成单文件并随 VERSION 进资源根，onedir 模式打成目录放 _internal/w/）；
+    # 不用 --add-binary（会重分析依赖），onefile 与 onedir 都只从资源根解析 worker。
+    worker = run_pyinstaller("grab-worker", LOCAL / "grab.py", mode, False)
+    if mode == "onefile":
+        # --add-data 对文件源按「dest/源文件名」归档：dest 必须是 "."，
+        # 让 worker 以 basename（恰为 grab-worker.exe）落在资源根；
+        # 写成 dest="grab-worker.exe" 会解包成同名目录，冻结态解析直接 worker_missing
+        app = run_pyinstaller("campus-activity-watch", LOCAL / "app.py", mode, True,
+                              extra_data=[(worker, "."), (VERSION_FILE, ".")])
+    else:
+        app = run_pyinstaller("campus-activity-watch", LOCAL / "app.py", mode, True,
+                              extra_data=[(VERSION_FILE, ".")])
+    # onedir 版本目录需要一个独立入口：主程序退出后它才有权限切换 staging，
+    # 再按 current.json 启动固定版本 EXE。onefile 仍沿用旧的完整安装器路径，
+    # 不额外生成旁路启动器，避免改变既有单文件资产形态。
+    launcher = (run_pyinstaller("update-launcher", LOCAL / "update_launcher.py", "onefile", False)
+                if mode == "onedir" else None)
+    if mode == "onefile":
+        shutil.copy2(app, out / app.name)
+    else:
+        shutil.copytree(app.parent, out, dirs_exist_ok=True)
+        _prune_worker_docs(_install_onedir_worker(worker, out))
+        shutil.copy2(launcher, out / "update-launcher.exe")
+        _verify_onedir_exclusions(out)
+        _write_launcher_fingerprint(out)
+    # worker 已落进资源根（onefile 内置，onedir 放 _internal/w/）：OUT 不再放置外置 grab-worker.exe，
+    # 构建失败会在这里之前直接退出，绝不退回「外置 worker 入口」假称独立
+    # 发行说明 / 预览 / 协议：与 Release ZIP 的清单保持同一套来源
+    _copy_release_docs(out)
     # data 只是占位目录：已有（旧版数据）原样保留，全新构建维持旧布局
     if mode == "onefile":
         (out / "data").mkdir(exist_ok=True)
+    else:
+        _verify_version_dir_paths(out)
     return out
 
 

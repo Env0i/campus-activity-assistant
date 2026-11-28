@@ -150,3 +150,10 @@
 - 本决策第 7 条「TOUR_VERSION 仍 1」是 2026-10-25 的历史记录；引导内容版本现由
   [009](009-replayable-product-tour.md) 修订为 3，与本决策的发行形态无关。
 
+## 2026-11-28 修订
+
+- **规则 1 的适用边界**：规则 1 只约束独立单 EXE 与四成员 ZIP（两者仍内置 onefile 形态的 `grab-worker.exe` 与 `VERSION` 到资源根）。
+- **安装版版本目录里的报名进程目录形态**：安装版版本目录下的报名进程改以目录形态（`--contents-directory .`）放在资源根下的 `w/`（即 `_internal/w/`），不再嵌套一层 `_internal`，并清理仅作说明的 `skills` 文档目录。
+- **解析位置与职责不变**：冻结态路径解析依然只看打包资源根，先查 `w/grab-worker.exe`、不存在时再回退资源根下的 `grab-worker.exe`，绝不借用 EXE 旁（`here`）的任何文件。
+- **函数落点**：路径解析纯函数下沉至 `local/infrastructure/stores/runtime_paths.py` 的 `worker_path`，`local/app.py` 保留 `resolve_worker_path` 作为再导出；「变更方式」中 `build_exe.py::assemble()` 与解析函数同改同验的契约保持不变。
+

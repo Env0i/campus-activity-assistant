@@ -2186,5 +2186,132 @@ class BuildTrimmingTests(unittest.TestCase):
                 self.be.assemble("onedir")
 
 
+class WorkerLayoutAndFingerprintTests(unittest.TestCase):
+    """版本目录报名进程目录布局、路径长度门禁、启动器指纹与路径解析测试。"""
+
+    def setUp(self):
+        sys.path.insert(0, str(LOCAL / "build"))
+        try:
+            import build_exe
+        except Exception as exc:
+            raise unittest.SkipTest("无法导入 build_exe：%s" % exc)
+        finally:
+            sys.path.pop(0)
+        self.be = build_exe
+
+    def test_grab_worker_onedir_adds_contents_directory_dot(self):
+        recorded = []
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(self.be, "WORK", Path(tmp)), \
+                    mock.patch.object(
+                        self.be.subprocess, "run",
+                        side_effect=lambda args, cwd=None, text=True: (
+                            recorded.append(list(args)) or SimpleNamespace(returncode=0))):
+                self.be.run_pyinstaller("grab-worker", self.be.LOCAL / "grab.py", "onedir", False)
+        args = recorded[0]
+        self.assertIn("--onedir", args)
+        idx = args.index("--contents-directory")
+        self.assertEqual(args[idx + 1], ".")
+
+    def test_assemble_onedir_places_worker_dir_prunes_skills_and_writes_fingerprint(self):
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            onedir_root = tmp / "onedir"
+            worker_dir = tmp / "stage-worker" / "dist" / "grab-worker"
+            worker_exe = worker_dir / "grab-worker.exe"
+            skills = worker_dir / "playwright" / "driver" / "package" / "lib" / "tools" / "skills" / "doc.md"
+            keep = worker_dir / "playwright" / "driver" / "node.exe"
+            fake_app_dir = tmp / "stage-app" / "dist" / "campus-activity-watch"
+            fake_launcher = tmp / "stage-launcher" / "dist" / "update-launcher.exe"
+            for p, body in ((worker_exe, b"w"), (skills, b"doc"), (keep, b"n"),
+                            (fake_app_dir / "campus-activity-watch.exe", b"a"),
+                            (fake_app_dir / "_internal" / "base.dll", b"b"),
+                            (fake_launcher, b"l")):
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(body)
+            calls = []
+
+            def fake_run(name_, source, mode, add_ui, extra_data=None):
+                calls.append((name_, mode, list(extra_data or [])))
+                return {"grab-worker": worker_exe,
+                        "campus-activity-watch": fake_app_dir / "campus-activity-watch.exe",
+                        "update-launcher": fake_launcher}[name_]
+
+            with mock.patch.object(self.be, "OUT_ONEDIR", onedir_root), \
+                    mock.patch.object(self.be, "read_version", return_value="1.3.3"), \
+                    mock.patch.object(self.be, "run_pyinstaller", side_effect=fake_run):
+                out = self.be.assemble("onedir")
+            self.assertEqual([c[:2] for c in calls], [
+                ("grab-worker", "onedir"), ("campus-activity-watch", "onedir"), ("update-launcher", "onefile")])
+            self.assertEqual([Path(s).name for s, _ in calls[1][2]], ["VERSION"])
+            self.assertTrue((out / "_internal" / "w" / "grab-worker.exe").is_file())
+            self.assertTrue((out / "_internal" / "w" / "playwright" / "driver" / "node.exe").is_file())
+            self.assertFalse((out / "_internal" / "w" / "playwright" / "driver" / "package" / "lib" / "tools" / "skills").exists())
+            self.assertFalse((out / "_internal" / "grab-worker.exe").exists())
+            fp = (out / "update-launcher.fingerprint").read_text(encoding="utf-8").strip()
+            self.assertRegex(fp, r"^[0-9a-f]{64}$")
+
+    def test_version_dir_path_length_gate(self):
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            onedir_root = tmp / "onedir"
+            worker_dir = tmp / "w"
+            app_dir = tmp / "a"
+            launcher = tmp / "l" / "update-launcher.exe"
+            prefix = "_internal/w/"
+            ok_name = "a" * (100 - len(prefix))
+            for p, body in ((worker_dir / "grab-worker.exe", b"w"), (worker_dir / ok_name, b"ok"),
+                            (app_dir / "campus-activity-watch.exe", b"a"), (launcher, b"l")):
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(body)
+
+            def fake_run(name_, source, mode, add_ui, extra_data=None):
+                return {"grab-worker": worker_dir / "grab-worker.exe",
+                        "campus-activity-watch": app_dir / "campus-activity-watch.exe",
+                        "update-launcher": launcher}[name_]
+
+            with mock.patch.object(self.be, "OUT_ONEDIR", onedir_root), \
+                    mock.patch.object(self.be, "read_version", return_value="1.3.3"), \
+                    mock.patch.object(self.be, "run_pyinstaller", side_effect=fake_run):
+                self.be.assemble("onedir")
+                too_long = "b" * (101 - len(prefix))
+                (worker_dir / too_long).write_bytes(b"bad")
+                with self.assertRaises(SystemExit) as ctx:
+                    self.be.assemble("onedir")
+                self.assertIn(prefix + too_long, str(ctx.exception))
+
+    def test_launcher_fingerprint_deterministic_and_sensitive(self):
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            src = tmp / "update_launcher.py"
+            ico = tmp / "app.ico"
+            src.write_bytes(b"print('v1')")
+            ico.write_bytes(b"ico-1")
+            kw = dict(py_version="3.12.9", pyinstaller_version="6.22.3")
+            fp1 = self.be._compute_launcher_fingerprint(src, ico, **kw)
+            fp2 = self.be._compute_launcher_fingerprint(src, ico, **kw)
+            self.assertEqual(fp1, fp2)
+            src.write_bytes(b"print('v2')")
+            self.assertNotEqual(fp1, self.be._compute_launcher_fingerprint(src, ico, **kw))
+            src.write_bytes(b"print('v1')")
+            with mock.patch.object(self.be, "LAUNCHER_BUILD_REVISION", 2):
+                self.assertNotEqual(fp1, self.be._compute_launcher_fingerprint(src, ico, **kw))
+
+    def test_worker_path_prefers_dir_worker_and_ignores_here(self):
+        app = _app()
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            here = tmp / "here"
+            res = tmp / "res"
+            (here / "w").mkdir(parents=True)
+            (here / "w" / "grab-worker.exe").write_bytes(b"sidecar-w")
+            res.mkdir(parents=True)
+            self.assertEqual(app.resolve_worker_path(False, here, res), here / "grab.py")
+            self.assertEqual(app.resolve_worker_path(True, here, res), res / "grab-worker.exe")
+            (res / "w").mkdir()
+            (res / "w" / "grab-worker.exe").write_bytes(b"res-w")
+            self.assertEqual(app.resolve_worker_path(True, here, res), res / "w" / "grab-worker.exe")
+
+
 if __name__ == "__main__":
     unittest.main()

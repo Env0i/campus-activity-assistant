@@ -205,3 +205,17 @@ def legacy_config_candidates(here) -> list:
         candidates.append(entry / "config.json")
     candidates.append(here.parent.parent / "config.json")
     return candidates
+
+
+def worker_path(frozen: bool, here: Path, resource_root: Path) -> Path:
+    """解析报名进程入口路径：源码态走 here/grab.py，冻结态只看资源根。
+
+    冻结态支持两种打包形态：版本目录把目录形态报名进程放在资源根下的 w/grab-worker.exe，
+    独立单 EXE 把单文件报名进程直接解包在资源根 grab-worker.exe。
+    只检查资源根而绝不回退到 here（EXE 所在目录），避免独立单 EXE 静默借用旁路旧文件掩盖组件缺失。
+    """
+    if not frozen:
+        return Path(here) / "grab.py"
+    root = Path(resource_root)
+    dir_worker = root / "w" / "grab-worker.exe"
+    return dir_worker if dir_worker.is_file() else root / "grab-worker.exe"
