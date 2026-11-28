@@ -3622,5 +3622,54 @@ class ComponentAutoUpdateTests(unittest.TestCase):
         self.assertEqual(calls, ["relogin_ocr"], "每次启动最多试一次，不重试")
 
 
+class DownloadPlanAndCheckTests(unittest.TestCase):
+    """实际下载类型与字节数推算，以及 run_check 写入 download 结论。"""
+
+    def _installer(self, *, with_full=True, with_manifest=True, with_delta=True):
+        full = {"name": "full.zip", "url": "https://example.invalid/full.zip", "bytes": 4096}
+        if with_manifest:
+            full["target_manifest"] = {"version": "1.3.2", "files": []}
+        item = {"name": "setup.exe", "url": "https://example.invalid/setup.exe", "bytes": 8192}
+        if with_full:
+            item["full"] = full
+        if with_delta:
+            item["deltas"] = [{
+                "name": "delta.zip", "url": "https://example.invalid/delta.zip",
+                "base_version": "1.3.1", "bytes": 1024,
+            }]
+        return item
+
+    def test_download_plan_table(self):
+        from application.desktop.update_version_download import download_plan
+        cases = (
+            ("no_installer", None, False, None),
+            ("no_url", {"name": "setup.exe", "bytes": 10}, True, None),
+            ("switch_off", self._installer(), False, {"kind": "installer", "bytes": 8192}),
+            ("delta_match", self._installer(), True, {"kind": "delta", "bytes": 1024}),
+            ("delta_miss_full", self._installer(with_delta=False), True, {"kind": "full", "bytes": 4096}),
+            ("missing_manifest", self._installer(with_manifest=False), True, {"kind": "installer", "bytes": 8192}),
+        )
+        for label, installer, switch_ok, expected in cases:
+            with self.subTest(label=label):
+                self.assertEqual(download_plan(installer, "1.3.1", switch_ok), expected)
+
+    def test_run_check_attaches_download_plan_for_each_switch_probe(self):
+        installer = self._installer()
+        cases = (
+            ("true", lambda: True, {"kind": "delta", "bytes": 1024}),
+            ("raises", lambda: (_ for _ in ()).throw(RuntimeError("boom")), {"kind": "installer", "bytes": 8192}),
+            ("omitted", None, {"kind": "installer", "bytes": 8192}),
+        )
+        for label, probe, expected in cases:
+            with self.subTest(label=label):
+                state = FakeState()
+                kwargs = {"switch_available": probe} if probe is not None else {}
+                update_service.run_check(
+                    state, "req-" + label,
+                    fetch=lambda _v: {"state": "available", "latest_version": "1.3.2", "installer": dict(installer)},
+                    current_version="1.3.1", latest_url="https://example.invalid/latest", **kwargs)
+                self.assertEqual(state._update_result["download"], expected)
+
+
 if __name__ == "__main__":
     unittest.main()

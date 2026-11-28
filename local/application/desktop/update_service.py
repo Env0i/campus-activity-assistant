@@ -14,7 +14,9 @@ import threading
 from dataclasses import dataclass
 
 from application.desktop.update_version_download import (
+    can_use_version_dir,
     download_fallback_asset,
+    download_plan,
     download_version_asset,
     select_version_payload,
     stage_and_cleanup,
@@ -151,8 +153,7 @@ class UpdateService:
         full_payload = installer.get("full")
         # 只有真能走版本目录切换的环境才下载版本目录包；独立 EXE、源码态直接下完整
         # 安装器，磁盘上不留 .staging-*，用户也不会在 update_launch 处被拒绝。
-        if (version_switch_available() and isinstance(full_payload, dict)
-                and isinstance(full_payload.get("target_manifest"), dict)):
+        if can_use_version_dir(installer, bool(version_switch_available())):
             paths = update_version_paths()
             target_version = str(full_payload.get("target_version")
                                  or (self._update_result or {}).get("latest_version") or "")
@@ -258,7 +259,7 @@ class UpdateService:
 
 
 def run_check(state, request_id: str, *, fetch, current_version: str,
-              latest_url: str) -> None:
+              latest_url: str, switch_available=None) -> None:
     """后台更新检查：结论写入 state 并推 update 事件（单飞由调用方负责）。"""
     result = {"state": "error", "current_version": current_version,
               "latest_version": None, "url": latest_url,
@@ -275,6 +276,14 @@ def run_check(state, request_id: str, *, fetch, current_version: str,
         result = dict(result, request_id=request_id)
         skipped = result.pop("manifest_skipped", None)
         installer = result.get("installer")
+        if isinstance(installer, dict):
+            can_switch = False
+            if callable(switch_available):
+                try:
+                    can_switch = bool(switch_available())
+                except Exception:
+                    can_switch = False
+            result["download"] = download_plan(installer, current_version, can_switch)
         with state._lock:
             state._update_result = result
             state._update_installer = installer if isinstance(installer, dict) else None

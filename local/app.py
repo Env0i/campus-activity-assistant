@@ -1742,7 +1742,7 @@ class Api(_coordination.CoordinatorFields, _phone_service.PhoneFields,
         # 线程目标：fetch 端口在这里取，测试按 app.check_latest_release 替换的补丁才生效
         _update_service.run_check(self._updates, request_id, fetch=check_latest_release,
                                   current_version=APP_VERSION,
-                                  latest_url=RELEASES_LATEST_URL)
+                                  latest_url=RELEASES_LATEST_URL, switch_available=version_switch_available)
 
     def update_download(self, request_id: str) -> dict:
         """用户确认后启动安装器下载：单飞后台流式下载并校验，事件回推进度与结论。"""

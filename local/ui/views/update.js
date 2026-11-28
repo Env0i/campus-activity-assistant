@@ -30,6 +30,24 @@ function updateErrorText(result) {
   return String(result.text || "");
 }
 
+function updateSizeTexts(result) {
+  const dl = result && result.download && typeof result.download === "object" ? result.download : null;
+  const installer = result && result.installer && result.installer.url ? result.installer : null;
+  const kind = dl && (dl.kind === "delta" || dl.kind === "full") ? dl.kind : "installer";
+  const dlBytes = dl && Number(dl.bytes) > 0 ? Number(dl.bytes) : 0;
+  const instBytes = installer && Number(installer.bytes) > 0 ? Number(installer.bytes) : 0;
+  const realBytes = dlBytes > 0 ? dlBytes : (kind === "installer" ? instBytes : 0);
+  const ver = result && result.latest_version ? String(result.latest_version) : "";
+  const notePrefix = kind === "delta" ? "增量更新" : kind === "full" ? "完整更新包" : "完整安装包";
+  const qNoun = kind === "delta" ? "增量更新" : kind === "full" ? "完整更新包" : "安装包";
+  const note = realBytes > 0
+    ? notePrefix + " " + fmtBytes(realBytes) + "，下载后先校验，再由你决定什么时候安\u2060装" : "";
+  const size = realBytes > 0 ? "（" + fmtBytes(realBytes) + "）" : "";
+  const question = "下载 " + ver + " " + qNoun + size
+    + "？只写临时目录，不动现在的程序和你的数据。校验通过后，什么时候安装由你决定。";
+  return { note, question };
+}
+
 /* 更新七态（检查/可用/确认/下载/校验/安装/失败）+ 无安装器退回发布页：
    每个状态只留该状态唯一可做的动作，检查从不自动下载。 */
 function paintUpdate() {
@@ -77,24 +95,21 @@ function paintUpdate() {
   errBox.hidden = !errText;
   errBox.textContent = errText;
   const installer = result.installer && result.installer.url ? result.installer : null;
-  const realBytes = installer && Number(installer.bytes) > 0 ? Number(installer.bytes) : 0;
+  const sizeTexts = updateSizeTexts(result);
   /* 新版本块（UP04，原型 Main.dc.html:775 up-v）：大版本数字＋体积说明；
    * 后端没带 bytes 时降级为只显示版本数字，不显示体积句。 */
   const versionBox = $("#update-version-box");
   versionBox.hidden = state !== "available";
   if (state === "available") {
     $("#update-version-num").textContent = result.latest_version || "";
-    $("#update-version-note").textContent = realBytes > 0
-      ? "完整安装包 " + fmtBytes(realBytes) + "，下载后先校验，再由你决定什么时候安⁠装" : "";
+    $("#update-version-note").textContent = sizeTexts.note;
   }
   /* 确认问句（UP04，原型 Main.dc.html:776）：X=新版本号、Y=体积；
    * 后端没带体积时去掉括号段，问句其余部分不变。 */
   const confirmBox = $("#update-confirm-box");
   confirmBox.hidden = state !== "confirm";
   if (state === "confirm") {
-    const size = realBytes > 0 ? "（" + fmtBytes(realBytes) + "）" : "";
-    $("#update-confirm-question").textContent = "下载 " + (result.latest_version || "") + " 安装包" + size
-      + "？只写临时目录，不动现在的程序和你的数据。校验通过后，什么时候安装由你决定。";
+    $("#update-confirm-question").textContent = sizeTexts.question;
   }
   /* 进度块（UP06，原型 Main.dc.html:778-779/1459）：左「已下载」右「A / B MB（P%）」，
    * 校验中左句换「下载完成，正在校验」、右侧数字让位；百分比与 aria-valuenow 都来自真实回推。 */

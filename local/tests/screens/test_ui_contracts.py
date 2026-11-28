@@ -10003,5 +10003,49 @@ class FeishuReminderSettingContractTests(unittest.TestCase):
         self.assertIn("info.feishu_webhook", self.app)
         self.assertIn("paintFeishuRow", self.view)
         self.assertIn("paintFeishuRow(true)", self.actions, "打开抽屉时对齐已保存的地址")
+
+
+class UpdateDownloadKindTextTests(unittest.TestCase):
+    """新版本块与确认问句按实际下载类型（delta/full/installer）显示文案和体积。"""
+
+    def test_three_download_kinds_and_size_fallbacks(self):
+        res = run_js(r"""
+S.update.requestId = "request";
+function check(result) {
+  S.update.result = null;
+  window.onBackend.update(Object.assign({ request_id: "request", state: "available", latest_version: "1.3.2" }, result));
+  S.update.state = "available"; paintUpdate();
+  const note = document.querySelector("#update-version-note").textContent;
+  S.update.state = "confirm"; paintUpdate();
+  const question = document.querySelector("#update-confirm-question").textContent;
+  return { note, question };
+}
+const inst = { url: "https://example.invalid/x.exe", bytes: 96927744 };
+out.push({
+  delta: check({ installer: inst, download: { kind: "delta", bytes: 10485760 } }),
+  deltaBare: check({ installer: inst, download: { kind: "delta", bytes: 0 } }),
+  full: check({ installer: inst, download: { kind: "full", bytes: 20971520 } }),
+  fullBare: check({ installer: inst, download: { kind: "full", bytes: 0 } }),
+  inst: check({ installer: inst, download: { kind: "installer", bytes: 96927744 } }),
+  fallback: check({ installer: inst }),
+  instBare: check({ installer: { url: "https://example.invalid/x.exe" } }),
+});
+""")
+        r = res[0]
+        self.assertEqual(r["delta"]["note"], "增量更新 10.0 MB，下载后先校验，再由你决定什么时候安\u2060装")
+        self.assertEqual(r["delta"]["question"],
+                         "下载 1.3.2 增量更新（10.0 MB）？只写临时目录，不动现在的程序和你的数据。校验通过后，什么时候安装由你决定。")
+        self.assertEqual(r["deltaBare"]["note"], "")
+        self.assertEqual(r["deltaBare"]["question"],
+                         "下载 1.3.2 增量更新？只写临时目录，不动现在的程序和你的数据。校验通过后，什么时候安装由你决定。")
+        self.assertEqual(r["full"]["note"], "完整更新包 20.0 MB，下载后先校验，再由你决定什么时候安\u2060装")
+        self.assertEqual(r["full"]["question"],
+                         "下载 1.3.2 完整更新包（20.0 MB）？只写临时目录，不动现在的程序和你的数据。校验通过后，什么时候安装由你决定。")
+        self.assertEqual(r["fullBare"]["note"], "")
+        self.assertEqual(r["inst"]["note"], "完整安装包 92.4 MB，下载后先校验，再由你决定什么时候安\u2060装")
+        self.assertEqual(r["fallback"], r["inst"])
+        self.assertEqual(r["instBare"]["note"], "")
+
+
 if __name__ == "__main__":
     unittest.main()

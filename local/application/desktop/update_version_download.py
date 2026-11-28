@@ -9,6 +9,28 @@
 from __future__ import annotations
 
 
+def can_use_version_dir(installer, switch_available: bool) -> bool:
+    """与下载选路共用的版本目录切换前提：环境支持且携带完整 target_manifest。"""
+    full = installer.get("full") if isinstance(installer, dict) else None
+    return (bool(switch_available) and isinstance(full, dict)
+            and isinstance(full.get("target_manifest"), dict))
+
+
+def _positive_bytes(value) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 0
+
+
+def download_plan(installer, current_version: str, switch_available: bool) -> dict | None:
+    """算出本次检查实际要下载的资产类型与字节数，供界面确认前展示。"""
+    if not isinstance(installer, dict) or not installer.get("url"):
+        return None
+    if can_use_version_dir(installer, switch_available):
+        mode, selected, _ = select_version_payload(installer, current_version)
+        raw_bytes = selected.get("bytes") if isinstance(selected, dict) else 0
+        return {"kind": mode, "bytes": _positive_bytes(raw_bytes)}
+    return {"kind": "installer", "bytes": _positive_bytes(installer.get("bytes"))}
+
+
 def select_version_payload(installer: dict, current_version: str) -> tuple[str, dict | None, dict]:
     """按当前版本选匹配的增量包；没有匹配项时回退到完整更新包。"""
     delta = installer.get("delta")
