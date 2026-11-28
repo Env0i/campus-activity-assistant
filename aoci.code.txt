@@ -3,7 +3,7 @@
 ===/<repository>/===
 .gitattributes[FC6T]: F:统一文本行尾为LF，保留Windows脚本和文本分发所需CRLF，AOCI索引单独固定LF | R:- | A:Git文本属性 | S:aoci索引必须是LF，切分支检出成CRLF会让索引服务读不出根清单
 .gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物、本地工具与本机AI工具目录、本机MCP宿主配置、计划草稿与证据截图 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查；证据目录只忽略png/jpg/webp截图，文字台账与复现脚本仍入库
-AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、测试、AOCI治理与证据留存纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建测试与提交分别受授权边界约束；证据截图留本地，文字台账与复现脚本入库
+AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、发版命令、测试、AOCI治理与证据留存纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建、测试、联网拉基线与提交分别受授权边界约束；证据截图留本地，文字台账与复现脚本入库
 CHANGELOG.md[SV4L]: F:按版本倒序记录各正式版本的用户可见变化与修复边界，最新正式版本置于顶部（当前为1.3.1；顶部另有未发布一节） | R:code:VERSION,code:tools/release/release.py | A:变更记录 | S:发版说明直接取顶部最新一节，发版时把未发布一节改成版本号；旧版本段不追改，也不写内部编号与临时路径
 CLAUDE.md[SG5T]: F:导入共同规则并补充Claude原型预览、尾注与测试边界 | R:code:AGENTS.md | A:Claude宿主指引 | S:-
 LICENSE[SG4T]: F:声明MIT授权、保留版权许可条件及免责条款 | R:- | A:MIT许可 | S:-
@@ -70,12 +70,12 @@ pngkit.js[LU4T]: F:以Node内置压缩库读写PNG、裁图并封装多尺寸ICO
 005-attendance-filters.md[SU7T]: F:规定签到签退未知值、筛选语义与列表详情补全边界 | R:code:docs/UI_SPEC.md | A:签到签退决策 | S:筛选只影响可见行，不得改变计划集合与冲突计算
 006-session-persistence.md[SI8S]: F:规定登录四态、会话持久化、估算提醒、重登交接与恢复文案 | R:code:docs/LOGIN.md | A:登录态决策 | S:网络错误不得清会话或冒充过期；寿命估算只作提醒
 007-runtime-timeline.md[SO7T]: F:规定真实运行节点、原定参考与统一截止的时间线表达 | R:code:docs/UI_SPEC.md | A:运行时间线决策 | S:checkpoint首次写入后不得被迟到或重放事件改写
-008-lifecycle-version-release.md[SV6S]: F:记录运行周期元数据、版本真源及发布资产演进与验收状态 | R:code:VERSION | A:生命周期与发布决策 | S:实现、构建、发布和真机验收结论必须分列，旧证据不能替代当前验收
+008-lifecycle-version-release.md[SV6S]: F:记录运行周期元数据、版本真源、发布资产演进与2026-11安装目录瘦身修订 | R:code:VERSION | A:生命周期与发布决策 | S:实现、构建、发布和真机验收结论必须分列，旧证据不能替代当前验收；版本目录安装后只以versions目录与target_manifest对账为准
 009-replayable-product-tour.md[SU6T]: F:规定五步可重播引导的启动时机、独立内容版本和交互隔离 | R:code:local/ui/features/shell/actions-tour.js | A:引导决策 | S:引导只允许选择步骤操作背景，不能代用户开始报名
 010-standalone-exe-and-settings.md[SV7S]: F:规定独立EXE、四成员ZIP、内置worker及组件失败闭环 | R:code:local/build/build_exe.py | A:分发与组件决策 | S:worker必须从资源根解析，不借用EXE旁旧worker
 011-unified-help-and-manual-update.md[SU6T]: F:划分设置恢复动作与帮助解释，规定手动版本检查节奏 | R:code:local/update_check.py | A:设置帮助决策 | S:启动或打开设置不自动发起版本查询
 012-independent-beijing-clock.md[SR8S]: F:确定网络锚点加经过时长的统一业务时钟及快照门禁 | R:code:local/business_clock.py,code:local/time_contract.py | A:业务时钟决策 | S:时钟不可用只禁自动报名，不清登录态；worker不得独立选择另一时间源
-013-distribution-and-privacy.md[SS7S]: F:规定三种发行形态、稳定数据目录、卸载保护与用户同意边界 | R:code:docs/PRIVACY_POLICY.md | A:分发隐私决策 | S:静默卸载必须保留用户数据，抑制对话框的返回值不代表用户同意删除
+013-distribution-and-privacy.md[SS7M]: F:规定三种发行形态、稳定数据目录、安装目录收敛、卸载保护与用户同意边界 | R:code:docs/PRIVACY_POLICY.md | A:分发隐私决策 | S:静默卸载必须保留用户数据，抑制对话框的返回值不代表用户同意删除；版本目录安装不放根目录主EXE但保留三份说明协议
 014-workbench-ui.md[SU7S]: F:确定新工作台布局、窗口分档、计划阶段、四层卡片、简介浮层、设置清单、横幅收起及文案口径 | R:code:design/prototype/workbench-2026-11/README.md,code:docs/UI_SPEC.md | A:工作台设计决策与2026-11-24修订 | S:选中不等于开始，停止不等于取消报名；列表第三层按容器45rem切四格或两格；学校字段不进innerHTML；文案与手机页口径由决策017承接
 015-signup-path-and-replies.md[SB8S]: F:规定运行时密钥、直发降级、回包分类、终态核对和登录交接，并补服务器直发修订、来由与不做项 | R:code:local/domain/signup/signup_reply.py,code:local/grab.py,code:server/deploy/signup/signup_direct.py | A:报名链路决策,2026-11-24服务器修订 | S:每场结束均独立核对报名状态；运行时密钥只存内存不记日志；服务器签名用cryptography、与本机各一份实现靠对照用例防分叉；服务器直发已有真实报名成功
 016-conflict-visibility-and-cancel.md[SB7S]: F:确定已报名冲突可见性、跨天显示与取消报名边界，2026-11-24修订把取消入口扩到owner私聊 | R:code:local/domain/cancel_rules.py,code:server/scripts/signup/cancel_signup.py | A:冲突取消决策,2026-11-24私聊修订 | S:取消回包仅作参考，getJoinInfo复查未报名才算成功；手机页与群会话不做取消；原文保留，以文末修订覆盖读法
@@ -1321,9 +1321,9 @@ TopTransitions.dc.html[SU3T]: F:展示顶栏四类状态切换规则的原型 | 
 ===/<repository>/design/specs/===
 README.md[SU6T]: F:索引交互规格并区分规则决策、组件行为和技术验收文档职责 | R:- | A:辅助面板/文案/版本发布入口 | S:规则变化先修决策，不在规格复制业务规则
 assistance-panels.md[SU7S]: F:规定设置抽屉与帮助独立入口的职责、导航、条款路由及窄窗交互 | R:code:local/ui/views/settings.js,code:local/ui/features/shell/view-help.js | A:设置承载配置；帮助承载说明、快捷键、引导 | S:运行中重看引导的前后段存在漂移，须按UI_SPEC和代码核实
-copywriting.md[SU8L]: F:维护全工具用户可见文案真源，纳入2026-11-24口语规则、横幅按钮分工及桌面手机共用短句词表 | R:code:local/ui/index.html,code:local/app.py,code:design/decisions/017-workbench-refresh.md | A:术语/空态/横幅/计划栏/手机页文案真源 | S:文案不可改变worker协议；未知不等于失败，停止不等于取消报名；估算不判有效性；未校准分组不读手机钟；横幅标题<=10字；现行文案以代码为准，历史对照表只在git历史
+copywriting.md[SU8L]: F:维护全工具用户可见文案真源，含口语规则、更新下载三态文案及桌面手机共用短句词表 | R:code:local/ui/index.html,code:local/app.py,code:design/decisions/017-workbench-refresh.md | A:术语/空态/横幅/更新三态/计划栏文案真源 | S:文案不可改变worker协议；未知不等于失败，停止不等于取消报名；估算不判有效性；未校准分组不读手机钟；更新体积按download.kind选词且无正数不显示；现行文案以代码为准
 terms-consent.md[SU8M]: F:规定首次、更新与全文条款路由、版本绑定保存、未知恢复及响应式验收 | R:code:local/ui/controllers/terms.js,code:local/ui/views/terms.js,code:local/app.py | A:版本回执确认/超时只读对账/条款优先引导/正文精确比较 | S:十秒超时不取消事务；未知关闭学校动作；正文只可折叠空白，旧矩阵不代表修后通过
-versioning-and-release.md[SV8S]: F:规定版本真源、升版、tag绑定、同源正式资产和目录更新兼容要求 | R:code:VERSION,code:tools/release.py,code:local/updater.py | A:版本与引导分离/来源资产复核/失败恢复 | S:旧基线与候选并存不代表当前已发布；已发布tag不可重写，离线替身不能代替实包安装探针
+versioning-and-release.md[SV8S]: F:规定版本真源、升版、tag绑定、同源正式资产、目录更新及默认多基线增量与拆分构建规范 | R:code:VERSION,code:tools/release/release.py | A:版本与引导分离/来源资产复核/基线缓存与默认开关 | S:旧基线与候选并存不代表当前已发布；已发布tag不可重写，离线替身不能代替实包安装探针；自动增量只取严格低于目标版本的最近两个已缓存基线，缺基线构建前即停
 
 ===/<repository>/docs/===
 ARCHITECTURE.md[SG9M]: F:描述双产品数据流、学校接口、分层与本机服务职责、并发、组件、时钟与报名模块分工和恢复契约 | R:code:local/app.py,code:local/grab.py,code:local/application/signup/signup_run.py,code:local/infrastructure/school/school_http.py,code:local/application/plan/plan_service.py,code:local/infrastructure/components/component_packages.py,code:server/scripts/lib/common.py,code:server/bot/bot.js | A:combined分流/推送成功记账/锁等级/组件事务租约与子模块/直发点击核对/grab薄壳与worker编排下沉 | S:网络未知不等于4001；学校Date仅补列表筛选，不放行报名。状态发布在状态锁外；协调锁内不等待服务。app再导出仍是测试注入缝，组件读取失败不可误报未安装；grab与组件入口被测试替换的名字须在调用时仍从原模块取
@@ -1337,7 +1337,7 @@ PRIVACY_POLICY.md[SS7T]: F:披露本机数据处理、迁移删除、外部通�
 README.md[SG6T]: F:索引现行工程文档、批准设计、归档资料及路径迁移对照 | R:- | A:主契约与历史材料导航 | S:历史材料保留原貌，不替代现行文档
 RETRY_POLICY_GUIDE.md[SB8M]: F:解释报名窗口、真实提交计数、黄金风暴、回包、停止和三种预算策略 | R:code:local/grab.py,code:local/infrastructure/clock/business_clock.py,code:local/infrastructure/clock/time_contract.py | A:用户重试策略说明 | S:sign_end硬截止；显式时长不扩窗；无截止直到截止回退两分钟；停止不覆盖证据，服务器404语义待同步
 TIMING_AND_DEDUP_ANALYSIS.md[SB7L]: F:用历史活动分析推送时点、请求预算及独立动态监测状态机 | R:code:server/scripts/activity_watch.py,code:server/scripts/fetch.py | A:日报与动态监测推导/发现时刻语义 | S:推送成功才消耗消息；首轮只建基线，失败不清快照，空活动不等于未初始化
-UI_SPEC.md[SU9L]: F:定义本机工作台四档布局、活动字段(type/description/audience/audience_code)、时间轴卡片、简介浮层、设置清单、刷新与横幅验收契约 | R:code:local/app.py,code:local/grab.py,code:local/ui/index.html,code:local/infrastructure/clock/business_clock.py,code:design/decisions/017-workbench-refresh.md | A:主契约/§5.22-§5.25翻新条款/请求归属/飞书提醒 | S:迟到事件按plan与request归属合并；无可信钟不报名；条款不符零写入；description空串为未提供而None为未同步，不进innerHTML；文案与版本段落标注历史口径，现行以代码和VERSION为准；飞书地址写数据目录config.json，启动时从旧版本目录或程序旁迁回
+UI_SPEC.md[SU9L]: F:定义本机工作台四档布局、活动字段、时间轴卡片、简介浮层、设置与更新下载展示契约 | R:code:local/app.py,code:local/grab.py,code:local/ui/index.html,code:local/infrastructure/clock/business_clock.py,code:design/decisions/017-workbench-refresh.md | A:主契约/§5.22-§5.25翻新条款/更新大小展示/飞书提醒 | S:迟到事件按plan与request归属合并；无可信钟不报名；条款不符零写入；description空串为未提供而None为未同步；更新展示按download.kind选词并缺省回退安装包或省略；飞书地址写数据目录config.json，启动时从旧目录迁回
 USER_AGREEMENT.md[SS7S]: F:定义条款接受、个人使用边界、直发点击披露、责任及重新同意规则 | R:- | A:内嵌用户协议正文真源 | S:拒绝不退出但禁止学校动作；不承诺合规或报名成功，临时密钥仅内存
 
 ===/<repository>/docs/archive/===
@@ -1379,9 +1379,9 @@ README.md[SG3T]: F:说明历史讨论、发现、交接和计划的归档分类�
 2026-11-03-architecture-revision-design.md[SG8M]: F:汇总真实接口证据并提出直发、登录恢复、终态核对和服务器冻结的架构修订 | R:code:local/grab.py,code:docs/ARCHITECTURE.md | A:运行时密钥/回包分类/4001复查/候补提案 | S:标记讨论材料而非全已落地；404和429无真实样本，候补每次检查实际会报名，须逐场主动授权
 
 ===/<repository>/local/===
-README.md[SG6L]: F:说明本机版安装、命令行与图形操作、报名计划、手机访问和常见故障 | R:code:local/app.py,code:local/grab.py,code:docs/UI_SPEC.md | A:安装/活动选择/重试策略/可选组件 | S:混有旧六步引导、寿命和运行中禁重登说明，当前行为以工程契约及代码为准
+README.md[SG6L]: F:说明本机版安装、命令行与图形操作、报名计划、手机访问、自构建流程和常见故障 | R:code:local/app.py,code:local/grab.py,code:docs/UI_SPEC.md | A:安装/自构建/活动选择/重试策略/可选组件 | S:混有旧六步引导、寿命和运行中禁重登说明，当前行为以工程契约及代码为准；构建前须先获联网授权拉基线再prepare
 advanced_helper.py[EI7S]: F:为固定可选组件提供一次性JSON探测、二维码与验证码识别入口 | R:code:local/infrastructure/components/advanced_features.py,code:local/infrastructure/phone/phone_qr.py | A:run/main/固定feature协议 | S:stdout必须单JSON；账号会话不进协议；外置模型顺序为定制校园模型→beta→old，只来自宿主注入目录，模型失败不偷偷改用库内模型
-app.py[EG9L]: F:组合本机业务服务、基础设施端口与WebView桥接，保留Api入口、help三步短句及窗口与飞书设置生命周期 | R:code:local/application/coordination.py,code:local/application/plan/plan_service.py,code:local/application/login/login_recovery.py,code:local/application/login/relogin_entry.py,code:local/application/desktop/desktop_window.py,code:local/application/phone/phone_access_session.py,code:local/application/desktop/update_service.py,code:local/grab.py | A:Api,bootstrap,help,条款门禁,同名转发,save_feishu_webhook | S:demo数据根须在导入runtime_paths前隔离；条款不符零写入不启worker；Api.help须与DEFAULT_HELP逐字一致；update_prefs事务内严格读；关窗先收worker再退出；冻结态CONFIG_FILE取数据目录；版本清理前先迁旧飞书地址，迁移失败只记日志不挡启动
+app.py[EG9L]: F:组合本机业务服务、基础设施端口与WebView桥接，保留Api入口、help三步短句及窗口与飞书设置生命周期 | R:code:local/application/coordination.py,code:local/application/plan/plan_service.py,code:local/application/login/login_recovery.py,code:local/application/login/relogin_entry.py,code:local/application/desktop/desktop_window.py,code:local/application/phone/phone_access_session.py,code:local/application/desktop/update_service.py,code:local/grab.py | A:Api,bootstrap,help,条款门禁,同名转发,save_feishu_webhook | S:demo数据根须在导入runtime_paths前隔离；条款不符零写入不启worker；Api.help须与DEFAULT_HELP逐字一致；update_prefs事务内严格读；关窗先收worker；更新检查须注入version_switch_available以匹配实际下载选路；版本清理前迁旧飞书地址
 config.example.json[FC5T]: F:给出本机学校地址与飞书Webhook的脱敏可选配置结构 | R:code:local/site_target.py,code:local/grab.py | A:site.base/feishu_webhook | S:样例空值不能当已配置站点
 grab.py[EB9L]: F:提供本机worker命令入口、参数解析与端口薄转发，登录、探测、时钟、取消、报名与请求日志实现都在应用层、领域层与基础设施 | R:code:local/application/signup/signup_run.py,code:local/application/signup/signup_policy.py,code:local/application/worker/worker_auth.py,code:local/application/worker/worker_clock.py,code:local/application/worker/worker_cancel.py,code:local/application/worker/worker_runtime.py,code:local/infrastructure/school/school_http.py | A:login/check/list/cancel/grab/selftest | S:stdout的JSON及retry行是协议。搬走的编排、请求层与日志层都在调用时从本模块全局取名字（含urllib、time、open），测试替换grab.X才生效，不能改成import时绑定；BurstPolicy是只覆盖告警与时钟异常钩子的子类。时钟状态_CLOCK留在本模块。日志锁超时默认值在定义时取。双文件保存把本模块open交给事务。运行时密钥仅存当前场次进程内存；CONFIG_FILE冻结态取数据目录、源码取脚本旁，报名进程与界面读同一份
 requirements-advanced-ocr.txt[FE5T]: F:声明可选验证码识别组件的构建依赖 | R:code:local/infrastructure/component_packages.py | A:- | S:-
@@ -1396,9 +1396,10 @@ coordination.py[AW9S]: F:持有唯一协调锁、关闭屏障、在途槽位和�
 
 ===/<repository>/local/build/===
 build_advanced.py[OV8M]: F:构建手机与OCR单体或四类复用资产并生成摘要清单、ZIP和构建报告 | R:code:local/infrastructure/components/component_packages.py,code:local/advanced_helper.py | A:组件资产生产/校验探针 | S:输出必须系统临时根独立绝对子目录且拒既有运行目录；手机OCR依赖互斥；cloudflared显式固定版本；定制模型从server/deploy/login/models复制为ocr_models，缺文件时保持原资产；清单探针过才封包
-build_exe.py[OV8S]: F:先冻结worker再嵌入主程序，支持版本化目录及兼容单EXE | R:code:local/app.py,code:local/grab.py,code:local/update_launcher.py | A:冻结EXE/onedir/更新启动器 | S:worker作为数据落资源根，不能再次分析或成同名目录；失败不降级外置worker，图标缺失立即失败；component_packages 动态加载的五个同级模块必须逐个 hidden-import，否则冻结启动即缺模块
-build_installer.py[OV8L]: F:从指定冻结程序派生Inno安装包并管理白名单、版本载荷和卸载确认 | R:code:local/build/build_exe.py,code:local/update_launcher.py | A:安装器渲染/编译/产物核验 | S:AppId发布后固定；模板只替换占位键不format花括号；运行状态不得入包，静默卸载保留数据，交互删除默认否且仅默认根
+build_exe.py[OV8M]: F:先冻结worker再嵌入主程序，排除独立识别库，支持版本目录及单EXE与启动器构建 | R:code:local/app.py,code:local/grab.py,code:local/update_launcher.py | A:冻结EXE/onedir排除校验/精简更新启动器 | S:worker作为数据落资源根，不能再次分析或成同名目录；component_packages五个同级模块须hidden-import；主程序排除识别库后onedir装配须复核_internal无残留目录；update-launcher只留图标不收重依赖
+build_installer.py[OV8L]: F:从指定冻结程序派生Inno安装包并管理白名单、版本目录布局、版本载荷和卸载确认 | R:code:local/build/build_exe.py,code:local/build/installer_layout.py,code:local/update_launcher.py | A:安装器渲染/编译/产物核验 | S:AppId发布后固定；因release按路径加载故用importlib加载同级installer_layout；模板只替换占位键不format花括号；版本目录模式不放根目录主EXE且用InstallDelete清旧版；静默卸载保留数据
 make_portable.py[OV6M]: F:组装嵌入式Python、应用依赖和启动器的历史绿色目录 | R:code:local/runtime_paths.py,code:local/requirements.txt | A:历史便携包构建 | S:复用输出按精确名单清会话偏好日志，避免运行态进包；浏览器用系统内核
+installer_layout.py[OV6T]: F:生成Inno安装器在版本目录与非版本目录模式下的入口、快捷方式、卸载图标和旧程序清理片段 | R:code:local/build/build_installer.py | A:is_version_dir_mode,icon_lines,root_exe_line,uninstall_icon_value,install_delete_section | S:仅当payload_dir与updater同时非空才走版本目录模式；该模式下省略根目录主EXE并用InstallDelete删旧版主EXE
 
 ===/<repository>/local/domain/===
 __init__.py[DB6T]: F:声明领域纯函数职责与注入规则 | R:code:local/app.py | A:纯规则依赖边界 | S:不读文件墙钟网络进程，仅标准库及领域包
@@ -1545,7 +1546,7 @@ selection.js[AU5T]: F:呈现报名状态计数、更多筛选计数（含类型�
 settings.js[AU6T]: F:呈现设置抽屉关窗偏好、条款摘要状态行（口语提示）与撤回状态 | R:code:local/ui/state/store.js,code:local/ui/features/terms/state.js | A:paintClosePref,paintTermsRow | S:撤回确认开合独立记录；运行计划期间禁撤回并显示原因，关闭偏好未知值退回ask
 status-cards.js[AU7M]: F:管理时钟/登录/手机三张详情卡、手机连接标识及点开对应胶囊重置已收起横幅 | R:code:local/ui/views/clock-pop.js,code:local/ui/features/phone-access/state-link.js | A:openStatusCard,paintStatusCards,wireStatusCards | S:登录预计有效仅提示，不参与失效与放行；条款门下隐藏学校动作钮；点固定对应胶囊清除collapsedBanner再显横幅
 terms.js[AU7L]: F:呈现条款全文、首次说明、版本更新与许可阅读状态 | R:code:local/ui/features/terms/state.js,code:local/ui/views/settings.js | A:paintTerms,applyTermsFooter,switchTermsDoc | S:未知状态不宣称未同意；保存未确认时禁重复同意并提供复查；首次说明勾选门缺元素时拒绝，更新框无勾选门；paintTerms顺带重画设置抽屉条款行
-update.js[AU7M]: F:呈现手动更新各阶段（口语初始说明）、下载进度、提示关闭钮和安装动作 | R:code:local/ui/features/update/actions.js | A:paintUpdate,updateErrorText,revealUpdateStatus | S:状态换来的推进按钮先停800毫秒防连点；launching须后端启动成功前缀才允许关工具；文件保持LF
+update.js[AU7M]: F:呈现手动更新各阶段、按实际下载类型显示体积、下载进度、提示关闭钮与动作区显隐 | R:code:local/ui/features/update/actions.js | A:paintUpdate,updateErrorText,updateSizeTexts,revealUpdateStatus | S:状态换来的推进按钮先停800毫秒防连点；downloading_delta进度左字改已下载增量包；无正数体积时不显示新版本体积句及确认括号；launching须后端启动成功前缀才允许关工具；文件保持LF
 
 ===/<repository>/server/===
 README.md[SG5S]: F:说明服务器能力、部署入口和权限边界 | R:code:docs/OPERATIONS.md,code:docs/FEISHU_BOT.md,code:docs/CONFIG.md | A:服务器能力表,常用命令,文档导航 | S:群无个人状态或动作；仅本人清单自动报名；旧server分支不作开发源。
@@ -1893,8 +1894,8 @@ split_asset_flow.py[AC6S]: F:编排分片资产组：校验组完整、复用缓
 clock_service.py[AR8S]: F:提供业务钟快照、可用性、手动单飞重校、列表短等待和准备前监测 | R:code:local/infrastructure/clock/business_clock.py,code:local/application/plan/plan_admission.py | A:now/snapshot/手动同步/计划前监测 | S:仅demo可用系统墙钟；列表等不到仍继续列表，不因时钟阻断；重校网络在协调锁外，计划准备前20秒每计划请求一次
 desktop_lifecycle.py[AW8T]: F:置桌面关闭屏障并按序停止组件登录手机计划及受管进程树 | R:code:local/application/coordination.py,code:local/application/worker/worker_service.py | A:锁内资源快照/锁外关停/完成事件 | S:后到shutdown锁外等待同一完成Event，返回即真正收尾；树终止成功不重复杀PID，异常仍发布完成事件
 desktop_window.py[AU7M]: F:编排桌面窗口外壳：关窗三选与偏好、隐藏与唤回、托盘、二次打开及计划结束通知 | R:code:local/app.py,code:local/infrastructure/desktop/tray_icon.py | A:request_window_close,ask_window_close,hide_window,show_window,_on_second_open,DesktopWindowFields | S:隐藏须托盘或活手机会话至少一条，门禁不过不记住隐藏偏好；窗口托盘全经端口注入，旧字段名由代理类提供
-update_service.py[AV9L]: F:管理更新检查、受信下载、完整增量目录准备及安装器或启动器发起 | R:code:local/infrastructure/update/update_check.py,code:local/infrastructure/update/updater.py,code:local/application/desktop/update_version_download.py | A:单飞/快照接管/delta回退/full准备/launch | S:仅冻结versions布局且有launcher走目录切换，其余安装器；取消后不fallback。launching检查不能清staging；启动器成功才延迟退出，安装器不自动退，错误不得污染登录组件状态
-update_version_download.py[AV5S]: F:为版本目录更新选增量或完整包、带进度下载、暂存清理与完整安装器兜底下载 | R:code:local/application/desktop/update_service.py | A:select_version_payload,download_with_progress,download_version_asset,stage_and_cleanup,download_fallback_asset | S:不持有UpdateService锁，状态读写仍在update_service；当前版本没有匹配增量包才回退完整包
+update_service.py[AV9L]: F:管理更新检查与下载预估、受信下载、完整增量目录准备及安装器或启动器发起 | R:code:local/infrastructure/update/update_check.py,code:local/infrastructure/update/updater.py,code:local/application/desktop/update_version_download.py | A:单飞/run_check/快照接管/delta回退/full准备/launch | S:仅冻结versions布局且有launcher并带target_manifest走目录切换，检查与下载共用can_use_version_dir防错配；switch_available异常按False处理；取消后不fallback；启动器成功才延迟退出
+update_version_download.py[AV5S]: F:判定版本目录下载前提与计划大小，为目录更新选增量或完整包、带进度下载及清理 | R:code:local/application/desktop/update_service.py | A:can_use_version_dir,download_plan,select_version_payload,download_with_progress,download_version_asset,download_fallback_asset | S:不持有UpdateService锁，状态读写仍在update_service；download_plan与下载选路共用can_use_version_dir与select_version_payload；非正整数或布尔字节归零
 
 ===/<repository>/local/application/login/===
 auto_relogin.py[AI8M]: F:调度登录检查、失效恢复、人工交接及失败退避并投影统一状态 | R:code:local/domain/login/login_rules.py,code:local/application/login/login_relay_service.py | A:定期检查/request_recover/reset/view | S:外部回调锁外执行；busy和其他活跃流程接管不累失败；转人工不增失败，generation隔离reset前回调
@@ -2124,8 +2125,9 @@ verify_autologin_loop.py[TI9S]: F:故意破坏服务器会话并等待timer检�
 
 ===/<repository>/tools/release/===
 build_update_delta.py[OV7T]: F:离线封装版本差分ZIP及旁路清单生成 | R:code:local/infrastructure/update/update_delta.py | A:build_outputs,main | S:复用产品归档验证；清单去下划线内部字段，.part原子替换，失败清本次半成品。
-release.py[OV9L]: F:以VERSION分离只读检查、本地构建准备与正式发布 | R:code:VERSION,code:tools/release/release_guards.py,code:local/build/build_installer.py,code:local/infrastructure/update/update_delta.py | A:main,stage_local_assets,verify_release_assets,do_publish,zip_server,write_manifest | S:准备前后HEAD及dirty一致；站点仅环境注入并finally移除生成模块；ZIP与独立EXE同源；单资产300MiB/清单65536字节上限；发布干净main、来源指纹及人工确认后上传前重验，tag不强改。
+release.py[OV9L]: F:以VERSION分离只读检查、历史基线拉取、本地构建准备与正式发布 | R:code:VERSION,code:tools/release/release_guards.py,code:tools/release/release_bases.py,code:local/build/build_installer.py,code:local/infrastructure/update/update_delta.py | A:main,stage_local_assets,verify_release_assets,do_publish,zip_server,write_manifest | S:准备前后HEAD及dirty一致；站点仅环境注入并finally移除生成模块；--prepare默认多基线增量与拆分组件且缺基线构建前即停；ZIP与独立EXE同源；单资产300MiB/清单65536字节上限；发布干净main及人工确认后上传前重验，tag不强改
 release_guards.py[OQ8S]: F:顺序执行发版结构分层静态及全量守卫并校验站点 | R:code:tools/release/release.py,code:tools/code_shape/check.py,code:requirements-dev.txt | A:run_guards,guard_steps,run_command,site_origin_for_build | S:每步有界且失败即停，超时124；当前解释器不自动装ruff；正式构建缺站点或非HTTPS拒绝，dirty预览可未注入。
+release_bases.py[OV8M]: F:拉取校验历史版本包至本地基线缓存、发现多基线并验证与打包增量资产 | R:code:tools/release/release.py,code:local/infrastructure/update/update_delta.py | A:fetch_base,discover_bases,resolve_delta_bases,verify_delta_base,stage_delta_payload,target_manifest | S:必须按路径动态加载update_delta；--fetch-base限制清单256KiB、5000成员、1GiB总解压、禁符号链接与路径穿越，复核SHA-256及target_manifest_sha256；本地缓存ZIP经字节与SHA-256核对才复用，落盘替换对Windows占用重试15次
 
 ===/<repository>/local/application/settings/===
 __init__.py[AC2T]: F:声明设置类用例包只做校验编排，读写配置与联网由组合根注入 | R:code:local/app.py | A:- | S:-
