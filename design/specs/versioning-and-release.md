@@ -158,6 +158,17 @@
 
 ## 2026-11-28 第二步
 
-- **报名进程目录形态与路径预算**：版本目录（`onedir`）下的报名进程改以目录形态（`--contents-directory .`）放在 `_internal/w/` 并删掉运行期不读的 `playwright/driver/package/lib/tools/skills` 文档目录，避免每版重传整份不变的浏览器驱动字节。按 Windows 默认 260 字符路径上限、20 字符用户名及每用户安装路径计算，旧版客户端暂存工作目录（`%LOCALAPPDATA%\Programs\CampusActivityWatch\versions\.staging-<请求号>.part-<32 位十六进制>\`）固定占 153 字符，留给版本目录内相对路径只有 106 字符，因此 `build_exe.py` 以 `MAX_VERSION_DIR_RELATIVE_PATH = 100` 作为硬门禁，超长即在构建阶段中止。独立单 EXE 与四成员 ZIP 仍保持 onefile 形态不变。
+- **报名进程目录形态与路径预算**：版本目录（`onedir`）下的报名进程改以目录形态（`--contents-directory .`）放在 `_internal/w/` 并删掉运行期不读的 `playwright/driver/package/lib/tools/skills` 文档目录，避免每版重传整份不变的浏览器驱动字节。按 Windows 默认 260 字符路径上限、20 字符用户名及每用户安装路径计算，旧版客户端暂存工作目录（`%LOCALAPPDATA%\Programs\CampusActivityWatch\versions\.staging-<请求号>.part-<32 位十六进制>\`）固定占 153 字符，留给版本目录内相对路径只有 106 字符，因此 `build_exe.py` 以 `MAX_VERSION_DIR_RELATIVE_PATH = 100` 作为硬门禁，超长即在构建阶段中止。（预算有误，以文末 2026-11-28 增量路径修复一节为准）独立单 EXE 与四成员 ZIP 仍保持 onefile 形态不变。
 - **启动器指纹与沿用规则**：`build_exe.py` 在版本目录构建时按固定顺序计算 `update_launcher.py` 字节、`app.ico` 字节、`sys.version`、PyInstaller 版本与打包修订号的 SHA-256，写入 `update-launcher.fingerprint`。`--prepare` 在增量基线核对通过后从新到旧查找首个指纹匹配且带 `update-launcher.exe` 的基线，将已发布的启动器二进制原样复用到新版本目录（`--no-delta` 无基线时不复用）。
 - **发布清单上限与停止维护**：自 2026-11-28 起，1.2.1 及更早版本停止维护，这些旧版本在程序内检查更新时将提示版本信息无法识别，需要前往发布页手动下载。发布 `manifest.json` 大小上限按 1.2.2 起客户端的 256 KiB 上限留余量放宽至 **240 KiB**（`245,760` 字节），单资产 300 MiB 上限维持不变。
+
+## 2026-11-28 增量路径修复与升级演练
+
+- **根因**：1.3.3 实机从 1.3.2 升级时，60 MiB 增量包下载完成后应用失败（`apply_failed`，WinError 3 路径不存在），被迫回退下载 72 MiB 完整包。根因是暂存工作目录名三层叠拼：`.staging-<请求号>`（32 字符）叠 `.stage-<32 位十六进制>` 再叠 `.part-<32 位十六进制>`，增量路径上的工作目录名共 109 字符，把整条路径顶过 Windows 上限；完整包回退不经增量应用，工作目录名只有 71 字符（`.staging-<请求号>` 叠 `.stage-<32 位十六进制>`），所以回退能成功。
+- **路径预算**（Windows 默认上限 260 含结尾空字符，即最多 259 字符；按每用户默认安装位置，版本根 `C:\Users\<用户名>\AppData\Local\Programs\CampusActivityWatch\versions\` 共 62 + 用户名长度个字符，含结尾反斜杠）：
+  - 1.3.3 及更早客户端走增量：可用相对路径 = 259 − (62 + 用户名长度) − 109 − 1 = 87 − 用户名长度；
+  - 1.3.3 及更早客户端走完整包回退：可用相对路径 = 259 − (62 + 用户名长度) − 71 − 1；用户名 20 字符时为 105，`MAX_VERSION_DIR_RELATIVE_PATH = 100` 的门禁仍保证回退可用（上文第二步一节写的「153 字符」「106 字符」把 `.stage-` 少算 1 字符，以本节为准）；
+  - 修复后的客户端：暂存工作目录改用独立短名，增量路径上最长的目录名就是 `.staging-<请求号>`（32 字符），可用相对路径 = 259 − (62 + 用户名长度) − 32 − 1；用户名 20 字符时为 144。
+- **暂存短名规则**：`update_delta.sibling_work_dir(anchor, prefix)` 在锚点同级生成 `prefix + 12 位十六进制` 的独立短名，prefix 只接受 `.stage-`、`.part-`、`.backup-` 三个值；`stage_update` 的应用目录与 `apply_delta` 的应用、备份目录都改用它，不再把 staging 名拼进任何临时名。以 `.staging-` 开头的旧叠名残留仍被原前缀清理，`.backup-` 已加入 `sweep_version_root` 的清理前缀。界面生成请求号的写法、`.staging-<请求号>` 暂存目录命名与 `update_launcher.py` 均不变。
+- **版本目录删浏览器调试资源**：onedir 版本目录的报名进程里删 `playwright/driver/package/lib/vite` 整个目录（40 个文件，把 1.3.3 版本目录实测最长相对路径顶到 97 字符）。证据：worker 驱动核心 `lib/coreBundle.js` 里只在录制器（recorder，录制生成代码与 page.pause 调试）、调试回放查看器（traceViewer）、调试面板（dashboard）三处读取 lib/vite，htmlReport 在核心代码里没有引用；`local/` 下的 Python 代码不调 pause、tracing、codegen，也不设 PWDEBUG，报名功能不用这些调试入口。删掉后版本目录最长相对路径约 80。要删的目录与 skills 一起列在 `build_exe.py` 的模块级元组常量里，只对 onedir 删，onefile 独立 EXE 形态不变。
+- **发版前升级演练**：publish 之前必须对两组增量各跑一次 `tools/release/rehearse_upgrade.py`（用户名长度 20）：其一，「上一个已发布版本的客户端代码 + 本次增量包」——旧客户端的三层叠拼工作目录会先复制整份基线目录，上一版如仍带着路径较长的资源（正式 1.3.3 的 `lib/vite`，最长相对路径 97），过渡增量在长路径关闭的机器上任何用户名都会超限，此时允许失败但要把判定与最长路径写进发版记录；其二，「当前代码 + 本次构建两次之间的增量」——基线已不含长路径资源且工作目录是独立短名，必须通过。演练脚本用该版客户端自己的更新代码，在与真实默认安装位置等长的目录里应用增量包，由子进程审计钩子量出实际触碰到的最长路径，并按「应用成功 + 增量模式 + 最长路径 ≤ 259」判定，不依赖操作系统报错——开了长路径支持的机器上超长路径不会报错，必须由程序量出判断。

@@ -1985,5 +1985,105 @@ class LauncherReuseAndManifestLimitTests(unittest.TestCase):
             self.assertIn("1.2.2", str(ctx.exception))
 
 
+def load_update_delta():
+    """把 local/infrastructure/update/update_delta.py 当模块导入（造增量夹具用）。"""
+    spec = importlib.util.spec_from_file_location(
+        "campus_update_delta_for_test",
+        LOCAL / "infrastructure" / "update" / "update_delta.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_rehearse_upgrade():
+    """把 tools/release/rehearse_upgrade.py 当模块导入（不执行 main）。"""
+    spec = importlib.util.spec_from_file_location(
+        "campus_rehearse_upgrade_for_test",
+        ROOT / "tools" / "release" / "rehearse_upgrade.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class UpgradeRehearsalTests(unittest.TestCase):
+    """发版前升级演练：某版客户端自己的 stage_update 在等长版本根里应用增量包。
+
+    判定只认程序量出的最长路径，不依赖 LongPathsEnabled=1 时系统不报错。
+    三个用例各走一次真实子进程，较慢；基线/目标目录与增量包类级建一次。
+    目标里那个相对路径 90 字符的文件：加上 32 字符 staging 名、工作目录名与
+    81 字符等长版本根后，旧客户端三层叠拼（282）越限，新客户端短名（192）不越。
+    """
+
+    BASE_VERSION = "1.3.2"
+    TARGET_VERSION = "1.3.3"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.rehearse = load_rehearse_upgrade()
+        cls.delta_mod = load_update_delta()
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.tmp.cleanup)
+        root = Path(cls.tmp.name)
+        base = root / "base"
+        target = root / "target"
+        base.mkdir()
+        target.mkdir()
+        long_rel = "lib/" + "n" * 82 + ".bin"
+        if len(long_rel) != 90:
+            raise AssertionError("演练文件的相对路径必须恰好 90 字符：%d" % len(long_rel))
+        (base / "app.exe").write_bytes(b"base-body")
+        (target / "app.exe").write_bytes(b"target-body")
+        (target / long_rel).parent.mkdir(parents=True)
+        (target / long_rel).write_bytes(b"target-long-path-body")
+        cls.delta = cls.delta_mod.write_delta_zip(
+            cls.delta_mod.build_delta(base, target, cls.BASE_VERSION,
+                                      cls.TARGET_VERSION),
+            root / "delta.zip", target_dir=target)
+        cls.base_dir = base
+        cls.target_dir = target
+
+    def _run(self, client_ref, work_parent):
+        return self.rehearse.run_rehearsal(
+            client_ref=client_ref, base_dir=self.base_dir,
+            base_version=self.BASE_VERSION, delta=self.delta,
+            target_dir=self.target_dir, target_version=self.TARGET_VERSION,
+            username_length=20, work_parent=work_parent)
+
+    def test_worktree_client_passes_and_stays_within_path_limit(self):
+        """新客户端（独立短名工作目录）在等长根里通过演练，演练根用完即删。"""
+        with tempfile.TemporaryDirectory() as work:
+            got = self._run("worktree", work)
+        self.assertTrue(got["ok"], "worktree 客户端应通过演练：%s" % got["reasons"])
+        self.assertLessEqual(got["max_len"], self.rehearse.PATH_LIMIT,
+                             "实测最长路径不得越过上限：%s" % got["max_path"])
+        self.assertEqual(got["result"].get("mode"), "delta")
+        measured = {"open", "os.mkdir", "os.rename", "os.scandir", "shutil.copytree"}
+        self.assertLessEqual(measured, set(got["events"]),
+                             "审计钩子必须量到真实复制与改名路径：%s" % got["events"])
+        self.assertFalse(Path(got["rehearsal_root"]).exists(), "演练目录必须删掉")
+
+    def test_v133_client_staged_names_exceed_path_limit(self):
+        """旧客户端把 staging 名与 .stage-/.part- 三层叠拼，等长根里必越限。"""
+        with tempfile.TemporaryDirectory() as work:
+            got = self._run("v1.3.3", work)
+        self.assertFalse(got["ok"], "旧客户端三层叠拼必须判定不通过：%s" % got["reasons"])
+        self.assertGreater(got["max_len"], self.rehearse.PATH_LIMIT,
+                           "旧客户端实测最长路径必须越限：%s" % got["max_path"])
+        self.assertTrue(any("超过上限" in reason for reason in got["reasons"]),
+                        "不通过原因必须点名路径超限：%s" % got["reasons"])
+        self.assertFalse(Path(got["rehearsal_root"]).exists(), "演练目录必须删掉")
+
+    def test_work_parent_too_long_is_refused_before_any_subprocess(self):
+        """等长根放不下时必须可读地拒绝，且不起任何子进程、不悄悄降级。"""
+        with tempfile.TemporaryDirectory() as outer:
+            parent = Path(outer) / ("q" * 90)
+            parent.mkdir()
+            with mock.patch.object(subprocess, "run",
+                                   side_effect=AssertionError("太长的父目录不得起子进程")):
+                with self.assertRaises(SystemExit) as refused:
+                    self._run("worktree", parent)
+        self.assertIn("太长", str(refused.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

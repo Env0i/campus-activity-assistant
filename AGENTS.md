@@ -136,6 +136,11 @@ python local/app.py --demo
 # 拉取历史增量基线到 dist/delta-bases/：需联网，执行前须用户授权
 python tools/release/release.py --fetch-base <上一版本号>
 python tools/release/release.py --prepare
+# 发布前升级演练（publish 之前）：对「上一已发布版本客户端 + 本次增量包」与
+# 「当前代码 + 本次构建两次之间的增量」各跑一次（用户名长度 20）；前者允许按预算
+# 失败但要把判定与最长路径写进发版记录，后者必须通过。脚本量实际触碰到的最长路径，
+# 不依赖系统报错。用法与参数见 tools/release/rehearse_upgrade.py --help
+python tools/release/rehearse_upgrade.py --client-ref v<上一版本号> --base-dir dist/delta-bases/<上一版本号>/onedir --base-version <上一版本号> --delta <增量 zip> --target-dir <本次构建的版本目录> --target-version <本次版本号> --username-length 20
 ```
 
 ## 测试注意
