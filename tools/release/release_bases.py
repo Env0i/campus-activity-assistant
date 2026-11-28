@@ -27,6 +27,8 @@ FETCH_TIMEOUT_S = 60
 MAX_MANIFEST_BYTES = 256 * 1024
 MAX_EXTRACT_MEMBERS = 5000
 MAX_EXTRACT_BYTES = 1024 * 1024 * 1024
+LAUNCHER_FINGERPRINT_FILE = "update-launcher.fingerprint"
+LAUNCHER_EXE_NAME = "update-launcher.exe"
 _VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 _SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9._-]{1,120}$")
@@ -362,3 +364,41 @@ def resolve_delta_bases(dist_dir: Path, version: str, delta_base,
     for base_dir, base_ver, base_man in bases:
         verify_fn(base_dir, base_ver, base_man)
     return bases
+
+
+def _read_hex_fingerprint(path: Path) -> str | None:
+    try:
+        text = path.read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        return None
+    return text if _SHA256_RE.fullmatch(text) else None
+
+
+def reuse_launcher(onedir_dir: Path, bases) -> str | None:
+    """按从新到旧选首个启动器指纹一致的基线，复制其已发布 update-launcher.exe 覆盖新版本目录。"""
+    target_dir = Path(onedir_dir)
+    current_fp = _read_hex_fingerprint(target_dir / LAUNCHER_FINGERPRINT_FILE)
+    if not current_fp:
+        return None
+    for base_dir, base_ver, _ in bases:
+        src_dir = Path(base_dir)
+        base_fp = _read_hex_fingerprint(src_dir / LAUNCHER_FINGERPRINT_FILE)
+        base_exe = src_dir / LAUNCHER_EXE_NAME
+        if base_fp == current_fp and base_exe.is_file():
+            shutil.copy2(base_exe, target_dir / LAUNCHER_EXE_NAME)
+            return base_ver
+    return None
+
+
+def stage_deltas(bases, target_version: str, stage_dir: Path, target_dir: Path,
+                 *, stage_delta_fn) -> tuple[list[Path], list[dict]]:
+    """为已核对的基线列表生成增量包并按从新到旧返回路径与清单摘要。"""
+    paths: list[Path] = []
+    infos: list[dict] = []
+    for base_dir, base_ver, _ in bases:
+        d_path, d_info = stage_delta_fn(base_ver, target_version, stage_dir, Path(base_dir), target_dir)
+        paths.append(d_path)
+        infos.append(d_info)
+        print("[prepare] delta 资产：%s  %.1f MB（基线 %s）"
+              % (d_path.name, d_path.stat().st_size / 1024 / 1024, base_ver))
+    return paths, infos

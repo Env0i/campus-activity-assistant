@@ -86,6 +86,7 @@ _RELEASE_BASES = importlib.util.module_from_spec(_bases_spec)
 _bases_spec.loader.exec_module(_RELEASE_BASES)
 fetch_base = _RELEASE_BASES.fetch_base
 discover_bases = _RELEASE_BASES.discover_bases
+reuse_launcher = _RELEASE_BASES.reuse_launcher
 
 
 def write_site_build(origin: str) -> None:
@@ -292,6 +293,8 @@ def sha256_of(path: Path) -> str:
 # 清单 files 的每一项，任何一项超过 300 MiB 就把整份清单当作无效，老用户从此看不到更新。
 # 这个口径是已经发出去的客户端行为，只能在发版这一侧挡住。
 MAX_MANIFEST_ASSET_BYTES = 300 * 1024 * 1024
+# 1.2.1 及更早客户端于 2026-11-28 停止维护；1.2.2 起客户端读取上限 256 KiB，这里留余量设为 240 KiB。
+MAX_PUBLISHED_MANIFEST_BYTES = 240 * 1024
 
 
 def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
@@ -365,8 +368,8 @@ def write_manifest(stage_dir: Path, version: str, tag: str, files: list[Path],
     path = stage_dir / "manifest.json"
     encoded = json.dumps(manifest, ensure_ascii=False, sort_keys=True,
                          separators=(",", ":")).encode("utf-8")
-    if len(encoded) > 65536:
-        raise SystemExit("[prepare] manifest 超过旧客户端 65536 字节读取上限")
+    if len(encoded) > MAX_PUBLISHED_MANIFEST_BYTES:
+        raise SystemExit("[prepare] manifest 超过 1.2.2 起客户端的读取上限（留了余量）")
     path.write_bytes(encoded)
     return path
 
@@ -598,6 +601,9 @@ def stage_local_assets(version: str, *, with_component: bool = True,
                          "稳定后请重跑 --prepare"
                          % (pre["commit"], "*" if pre["dirty"] else "",
                             post["commit"], "*" if post["dirty"] else ""))
+    reused_launcher = reuse_launcher(onedir_out, bases) if bases else None
+    if reused_launcher:
+        print("[prepare] 沿用基线 %s 的 update-launcher.exe（打包输入指纹一致）" % reused_launcher)
     stage_dir = DIST / ("release-" + tag)
     shutil.rmtree(stage_dir, ignore_errors=True)
     stage_dir.mkdir(parents=True)
@@ -628,15 +634,8 @@ def stage_local_assets(version: str, *, with_component: bool = True,
 
     payload_path, target_manifest_sha256, target_manifest = stage_full_payload(
         version, stage_dir, onedir_out)
-    delta_paths: list[Path] = []
-    delta_infos: list[dict] = []
-    for base_dir, base_ver, _ in bases:
-        d_path, d_info = stage_delta_payload(
-            base_ver, version, stage_dir, Path(base_dir), onedir_out)
-        delta_paths.append(d_path)
-        delta_infos.append(d_info)
-        print("[prepare] delta 资产：%s  %.1f MB（基线 %s）"
-              % (d_path.name, d_path.stat().st_size / 1024 / 1024, base_ver))
+    delta_paths, delta_infos = _RELEASE_BASES.stage_deltas(
+        bases, version, stage_dir, onedir_out, stage_delta_fn=stage_delta_payload)
 
     # 安装版：从暂存区里**同一份冻结 EXE**（copy2 自 out，与独立 EXE 字节一致）
     # 派生安装器。喂暂存副本而不是 dist 原件：暂存目录是白名单净地，check_source

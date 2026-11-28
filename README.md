@@ -96,7 +96,7 @@
 
 ## 下载
 
-到 [**Releases**](https://github.com/Env0i/campus-activity-assistant/releases/latest) 下载最新版。三种形态的程序本体是同一份 EXE，按习惯选一种即可：
+到 [**Releases**](https://github.com/Env0i/campus-activity-assistant/releases/latest) 下载最新版。单文件和完整 ZIP 是同一份 EXE，安装版装的是同一版本的程序目录，按习惯选一种即可：
 
 | 文件 | 适合谁 |
 |---|---|
@@ -111,7 +111,12 @@
 | `campus-activity-watch-phone-control-vX.Y.Z-win-x64.zip` | 手机遥控；内置 Cloudflare 通道所需的 `cloudflared` |
 | `campus-activity-watch-relogin-ocr-vX.Y.Z-win-x64.zip` | 验证码识别；保存账号后，登录失效时能自动登回来 |
 
+设置里一键下载时会按需分开下载组件的各个部分，只补变化的部分。
+
 **系统要求**：Windows 10 或 11（64 位），需要 WebView2 运行时（Windows 11 自带，Windows 10 一般已随 Edge 装好）。
+
+> [!NOTE]
+> 1.2.1 及更早版本已停止维护，程序里检查更新会提示去发布页，请到发布页手动下载最新版。
 
 > [!TIP]
 > 每个版本都附有 `manifest.json`，记录各文件的大小和 SHA-256。下载后可用 PowerShell 的 `Get-FileHash` 核对。

@@ -124,7 +124,7 @@
 
 ## 1.2.2 候选的发布兼容与验收（2026-11-10）
 
-- 公开 `manifest.json` 必须满足已发布 1.2.1 检查器的 65,536 字节读取上限。目标文件清单保存一份，以目标清单哈希绑定 full 与 delta，使用确定性的紧凑 UTF-8 序列化。超过上限时准备阶段拒绝产出可发清单。
+- 公开 `manifest.json` 必须满足已发布 1.2.1 检查器的 65,536 字节读取上限。目标文件清单保存一份，以目标清单哈希绑定 full 与 delta，使用确定性的紧凑 UTF-8 序列化。超过上限时准备阶段拒绝产出可发清单。（上限已被文末 2026-11-28 一节取代）
 - `full_payload` 声明的完整版本目录 ZIP 必须进入存在性、大小、SHA-256、确认前后资产指纹和最终上传集合校验。完整 payload、delta 和拆分组件均按清单逐项核对。
 - 1.2.1 的安装用户通过完整 Inno 安装器迁入版本目录。历史源码重建的 onedir 可验证差分格式，正式差分基线应对应实际分发过的版本目录清单。
 - 拆分组件按稳定内容标识复用，完整功能组在所有下载、校验和组合探针成功后原子切换。旧单体包与旧固定目录继续作为兼容输入，原可用组保留到新组提交成功。
@@ -155,3 +155,9 @@
 - **基线缓存拉取（`--fetch-base VERSION`）**：可重复传入多个三段版本号，与 `--check`、`--prepare`、`--publish` 互斥；该阶段不跑构建也不跑代码守卫，按发布资产下载历史版本的 `manifest.json`（上限 256 KiB）与 `full_payload` 完整版本包，校验大小、SHA-256、逐成员安全相对路径与解包后的 `target_manifest_sha256`，通过后落地到 `dist/delta-bases/<版本>/onedir` 与 `manifest.json`。该操作需要联网，执行前须经用户授权。
 - **默认行为**：`tools/release/release.py --prepare` 默认同时开启多基线增量生成与 schema2 拆分组件构建（原 `--split-components` 开关保留只为兼容旧命令）。自动基线从 `dist/delta-bases` 取版本号严格小于目标版本、同时具有 `manifest.json` 与 `onedir` 的最近 **2** 个已发布版本（按版本从新到旧排序），并在任何构建之前逐一校验；若本地基线缓存为空，则在构建前直接报错退出并提示先运行 `--fetch-base` 或显式加 `--no-delta`。
 - **显式覆盖与关闭开关**：可用 `--no-delta` 跳过自动增量包生成，用 `--no-split` 跳过 schema2 拆分资产构建；显式传入 `--delta-base` / `--delta-base-version` / `--delta-base-manifest` 时仍只按该单一基线生成 delta，且 `--no-delta` 不得与它们同时传入。
+
+## 2026-11-28 第二步
+
+- **报名进程目录形态与路径预算**：版本目录（`onedir`）下的报名进程改以目录形态（`--contents-directory .`）放在 `_internal/w/` 并删掉运行期不读的 `playwright/driver/package/lib/tools/skills` 文档目录，避免每版重传整份不变的浏览器驱动字节。按 Windows 默认 260 字符路径上限、20 字符用户名及每用户安装路径计算，旧版客户端暂存工作目录（`%LOCALAPPDATA%\Programs\CampusActivityWatch\versions\.staging-<请求号>.part-<32 位十六进制>\`）固定占 153 字符，留给版本目录内相对路径只有 106 字符，因此 `build_exe.py` 以 `MAX_VERSION_DIR_RELATIVE_PATH = 100` 作为硬门禁，超长即在构建阶段中止。独立单 EXE 与四成员 ZIP 仍保持 onefile 形态不变。
+- **启动器指纹与沿用规则**：`build_exe.py` 在版本目录构建时按固定顺序计算 `update_launcher.py` 字节、`app.ico` 字节、`sys.version`、PyInstaller 版本与打包修订号的 SHA-256，写入 `update-launcher.fingerprint`。`--prepare` 在增量基线核对通过后从新到旧查找首个指纹匹配且带 `update-launcher.exe` 的基线，将已发布的启动器二进制原样复用到新版本目录（`--no-delta` 无基线时不复用）。
+- **发布清单上限与停止维护**：自 2026-11-28 起，1.2.1 及更早版本停止维护，这些旧版本在程序内检查更新时将提示版本信息无法识别，需要前往发布页手动下载。发布 `manifest.json` 大小上限按 1.2.2 起客户端的 256 KiB 上限留余量放宽至 **240 KiB**（`245,760` 字节），单资产 300 MiB 上限维持不变。

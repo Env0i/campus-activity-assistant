@@ -880,7 +880,7 @@ class AssetVerificationTests(unittest.TestCase):
             result = old.check_latest_release("1.2.1")
             self.assertEqual(result["state"], "available")
             self.assertEqual(result["installer"]["sha256"], self.rel.sha256_of(installer))
-            target["files"] = entries * 3
+            target["files"] = entries * 8
             with self.assertRaises(SystemExit):
                 self.rel.write_manifest(stage, self.VERSION, "v" + self.VERSION,
                     [installer], build_state=self._state(), target_manifest=target)
@@ -1893,6 +1893,96 @@ class ReleaseBasesAndDefaultsTests(unittest.TestCase):
             self.assertTrue(onedir.is_dir())
             self.assertTrue((cache / "1.3.1" / "manifest.json").is_file())
         self.assertEqual(calls["onedir"], 3)
+
+
+class LauncherReuseAndManifestLimitTests(unittest.TestCase):
+    """启动器指纹沿用与 240 KiB 发布清单上限测试。"""
+
+    def setUp(self):
+        self.rel = load_release()
+
+    def _make_base(self, root: Path, ver: str, *, fp: str | None, exe: bytes | None) -> tuple[Path, str, Path]:
+        base_dir = root / ver / "onedir"
+        base_dir.mkdir(parents=True)
+        (base_dir / "app.exe").write_bytes(b"app-" + ver.encode())
+        if fp is not None:
+            (base_dir / "update-launcher.fingerprint").write_text(fp + "\n", encoding="utf-8")
+        if exe is not None:
+            (base_dir / "update-launcher.exe").write_bytes(exe)
+        tm = self.rel._target_manifest(base_dir, ver)
+        manifest = root / ver / "manifest.json"
+        import json as json_mod
+        manifest.write_text(json_mod.dumps({"version": ver, "target_manifest_sha256": tm["target_manifest_sha256"]}), encoding="utf-8")
+        return base_dir, ver, manifest
+
+    def test_reuse_launcher_matrix(self):
+        fp_ok = "a" * 64
+        fp_other = "b" * 64
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            b131 = self._make_base(tmp / "both", "1.3.1", fp=fp_ok, exe=b"L131")
+            b130 = self._make_base(tmp / "both", "1.3.0", fp=fp_ok, exe=b"L130")
+            new_dir = tmp / "new1"
+            new_dir.mkdir()
+            (new_dir / "update-launcher.fingerprint").write_text(fp_ok + "\n", encoding="utf-8")
+            (new_dir / "update-launcher.exe").write_bytes(b"FRESH")
+            self.assertEqual(self.rel.reuse_launcher(new_dir, [b131, b130]), "1.3.1")
+            self.assertEqual((new_dir / "update-launcher.exe").read_bytes(), b"L131")
+
+            b_bad = self._make_base(tmp / "older", "1.3.1", fp=fp_other, exe=b"BAD")
+            (new_dir / "update-launcher.exe").write_bytes(b"FRESH")
+            self.assertEqual(self.rel.reuse_launcher(new_dir, [b_bad, b130]), "1.3.0")
+            self.assertEqual((new_dir / "update-launcher.exe").read_bytes(), b"L130")
+
+            b_nofp = self._make_base(tmp / "miss", "1.3.1", fp=None, exe=b"NOFP")
+            b_noexe = self._make_base(tmp / "miss", "1.3.0", fp=fp_ok, exe=None)
+            (new_dir / "update-launcher.exe").write_bytes(b"FRESH")
+            self.assertIsNone(self.rel.reuse_launcher(new_dir, [b_bad, b_nofp, b_noexe]))
+            self.assertEqual((new_dir / "update-launcher.exe").read_bytes(), b"FRESH")
+
+    def test_stage_local_assets_reuses_launcher_and_keeps_manifest_hash(self):
+        import hashlib, json as json_mod
+        fp = "c" * 64
+        with tempfile.TemporaryDirectory() as tmp:
+            dist = Path(tmp)
+            self._make_base(dist / "delta-bases", "1.3.2", fp=fp, exe=b"REUSED-LAUNCHER")
+            out = dist / "campus-grab-exe"
+            out.mkdir()
+            (out / "campus-activity-watch.exe").write_bytes(b"new-exe")
+            onedir = dist / "onedir" / "1.3.3"
+            onedir.mkdir(parents=True)
+            (onedir / "campus-activity-watch.exe").write_bytes(b"new-exe")
+            (onedir / "update-launcher.exe").write_bytes(b"NEWLY-BUILT")
+            (onedir / "update-launcher.fingerprint").write_text(fp + "\n", encoding="utf-8")
+            state = {"branch": "main", "dirty": "", "commit": "f" * 7, "full": "f" * 40}
+            helper = InstallerSourceIntegrationTests()
+            env_patch, site_patch = helper._site_patches(self.rel, tmp)
+            with mock.patch.object(self.rel, "DIST", dist), mock.patch.object(self.rel, "git_state", lambda: state), \
+                    mock.patch.object(self.rel, "build_exe_onefile", lambda: out), \
+                    mock.patch.object(self.rel, "build_exe_onedir", lambda v: onedir), \
+                    mock.patch.object(self.rel, "BUILD_INSTALLER", helper._FakeBuilder()), \
+                    mock.patch.object(self.rel, "stage_split_artifacts", return_value=([], None)), env_patch, site_patch:
+                got = self.rel.stage_local_assets("1.3.3", with_component=False, split_components=True, auto_delta=True)
+            self.assertEqual((onedir / "update-launcher.exe").read_bytes(), b"REUSED-LAUNCHER")
+            data = json_mod.loads(got["manifest"].read_text(encoding="utf-8"))
+            entry = next(f for f in data["target_manifest"]["files"] if f["path"] == "update-launcher.exe")
+            self.assertEqual(entry["sha256"], hashlib.sha256(b"REUSED-LAUNCHER").hexdigest())
+
+    def test_write_manifest_allows_100kb_and_rejects_over_240kib(self):
+        with tempfile.TemporaryDirectory() as name:
+            stage = Path(name)
+            inst = stage / self.rel.installer_asset_name("1.3.3")
+            inst.write_bytes(b"inst")
+            state = {"branch": "main", "dirty": "", "commit": "f" * 7, "full": "f" * 40}
+            entries_100k = [{"path": "w/f%04d.bin" % i, "bytes": i, "sha256": "ab" * 32} for i in range(950)]
+            path = self.rel.write_manifest(stage, "1.3.3", "v1.3.3", [inst], build_state=state,
+                                           target_manifest={"version": "1.3.3", "files": entries_100k})
+            self.assertGreater(path.stat().st_size, 95 * 1024)
+            entries_over = [{"path": "w/f%04d.bin" % i, "bytes": i, "sha256": "ab" * 32} for i in range(2500)]
+            with self.assertRaises(SystemExit) as ctx:
+                self.rel.write_manifest(stage, "1.3.3", "v1.3.3", [inst], build_state=state,
+                                        target_manifest={"version": "1.3.3", "files": entries_over})
+            self.assertIn("1.2.2", str(ctx.exception))
 
 
 if __name__ == "__main__":
