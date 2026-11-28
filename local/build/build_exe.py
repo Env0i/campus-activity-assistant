@@ -4,7 +4,7 @@
 
 构建产物支持两种形态：
 - onedir（版本目录）：主程序排除重依赖，grab-worker 以目录形态（--contents-directory .）
-  放在 <版本目录>/_internal/w/ 并清理 playwright/driver/package/lib/tools/skills 文档，
+  放在 <版本目录>/_internal/w/ 并清理驱动里运行时不读取的调试资源（见 _WORKER_PRUNED_RELS），
   同时生成 update-launcher.exe 及其输入指纹，并校验版本目录内相对路径长度上限。
 - onefile（独立单 EXE）：先构建单文件 grab-worker，再把它作为普通数据资源与 VERSION
   一起打进主程序资源根，使单 EXE 拷到任何空目录都能自足，不依赖 EXE 旁外置 worker。
@@ -51,14 +51,31 @@ COMPONENT_SIBLING_MODULES = (
 MAIN_EXCLUDED_MODULES = ("ddddocr", "onnxruntime", "cv2", "numpy", "segno")
 # onedir 装配后复核 _internal 下不得残留上述重依赖目录。
 _FORBIDDEN_ONEDIR_DIRS = ("cv2", "onnxruntime", "numpy", "numpy.libs", "ddddocr")
-# Windows 默认 260 字符路径上限：按 20 字符用户名 + 每用户安装 + 旧版客户端暂存工作目录
-# （C:\Users\<20 字符>\AppData\Local\Programs\CampusActivityWatch\versions\.staging-<请求号>.part-<32 位十六进制>\）
-# 固定占用 153 字符，留给版本目录内相对路径的安全空间收口在 100 字符以内。
+# Windows 默认 260 字符路径上限，含结尾空字符即最多 259 字符。安装根在每用户目录下：
+# C:\Users\<用户名>\AppData\Local\Programs\CampusActivityWatch\versions\，共 62 + 用户名长度
+# 个字符（含结尾反斜杠）。按暂存工作目录名分三种口径，留给版本目录内相对路径的预算：
+# - 旧版（1.3.3 及更早）客户端走增量：暂存工作目录三段叠拼——.staging-<请求号>（32 字符）
+#   叠 .stage-<32 位十六进制> 再叠 .part-<32 位十六进制>，共 109 字符，
+#   可用相对路径 = 259 − (62 + 用户名长度) − 109 − 1 = 87 − 用户名长度；
+# - 旧版客户端走完整包回退（不经 apply_delta）：工作目录名 71 字符，可用相对路径
+#   = 259 − (62 + 用户名长度) − 71 − 1，用户名 20 字符时为 105，门禁取 100 仍保证回退可用；
+# - 修复后的客户端：暂存工作目录改用独立短名（.stage-/.part-/.backup- 加 12 位
+#   十六进制，最长 20 字符），增量路径上最长的目录名是 staging 名本身（32 字符），
+#   可用相对路径 = 259 − (62 + 用户名长度) − 32 − 1，用户名 20 字符时为 144。
 MAX_VERSION_DIR_RELATIVE_PATH = 100
 # 改启动器打包参数时加一
 LAUNCHER_BUILD_REVISION = 1
 LAUNCHER_FINGERPRINT_FILE = "update-launcher.fingerprint"
-_WORKER_SKILLS_REL = Path("playwright") / "driver" / "package" / "lib" / "tools" / "skills"
+# 只删报名链路用不到的调试资源：驱动核心（lib/coreBundle.js）只在录制器（recorder，
+# 录制生成代码与 page.pause）、调试回放查看器（traceViewer）、调试面板（dashboard）
+# 三处读取 lib/vite，htmlReport 在核心代码里没有引用；local/ 下的 Python 代码不调
+# pause、tracing、codegen，也不设 PWDEBUG。lib/vite 有 40 个文件，把 1.3.3 版本目录
+# 实测最长相对路径顶到 97 字符，删掉后约 80。只对 onedir 版本目录删
+# （_prune_worker_docs 仅在 onedir 分支调用），onefile 独立 EXE 形态不变。
+_WORKER_PRUNED_RELS = (
+    Path("playwright") / "driver" / "package" / "lib" / "tools" / "skills",
+    Path("playwright") / "driver" / "package" / "lib" / "vite",
+)
 
 
 def read_version() -> str:
@@ -167,10 +184,11 @@ def _install_onedir_worker(worker_exe: Path, out: Path) -> Path:
 
 
 def _prune_worker_docs(worker_dir: Path) -> None:
-    """删掉驱动里仅作说明、运行时不读取且占 98 字符长路径的 skills 文档目录。"""
-    skills_dir = worker_dir / _WORKER_SKILLS_REL
-    if skills_dir.exists():
-        shutil.rmtree(skills_dir)
+    """删掉驱动里运行时不读取、报名链路用不到的调试资源目录（清单见 _WORKER_PRUNED_RELS）。"""
+    for rel in _WORKER_PRUNED_RELS:
+        target = worker_dir / rel
+        if target.exists():
+            shutil.rmtree(target)
 
 
 def _verify_version_dir_paths(out: Path) -> None:

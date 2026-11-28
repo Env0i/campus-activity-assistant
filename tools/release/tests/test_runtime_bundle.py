@@ -2280,6 +2280,71 @@ class WorkerLayoutAndFingerprintTests(unittest.TestCase):
                     self.be.assemble("onedir")
                 self.assertIn(prefix + too_long, str(ctx.exception))
 
+    def test_assemble_onedir_prunes_vite_and_skills_keeps_other_worker_files(self):
+        """onedir 装配删掉 lib/vite 与 skills 两处调试资源，其余 worker 文件原样保留。"""
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            onedir_root = tmp / "onedir"
+            worker_dir = tmp / "stage-worker" / "dist" / "grab-worker"
+            lib = worker_dir / "playwright" / "driver" / "package" / "lib"
+            pruned = [lib / "vite" / "dashboard" / "index.js",
+                      lib / "tools" / "skills" / "doc.md"]
+            keep = [worker_dir / "grab-worker.exe",
+                    worker_dir / "playwright" / "driver" / "node.exe",
+                    lib / "coreBundle.js"]
+            fake_app_dir = tmp / "stage-app" / "dist" / "campus-activity-watch"
+            fake_launcher = tmp / "stage-launcher" / "dist" / "update-launcher.exe"
+            for p in (pruned + keep
+                      + [fake_app_dir / "campus-activity-watch.exe",
+                         fake_app_dir / "_internal" / "base.dll", fake_launcher]):
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(b"x")
+
+            def fake_run(name_, source, mode, add_ui, extra_data=None):
+                return {"grab-worker": worker_dir / "grab-worker.exe",
+                        "campus-activity-watch": fake_app_dir / "campus-activity-watch.exe",
+                        "update-launcher": fake_launcher}[name_]
+
+            with mock.patch.object(self.be, "OUT_ONEDIR", onedir_root), \
+                    mock.patch.object(self.be, "read_version", return_value="1.3.3"), \
+                    mock.patch.object(self.be, "run_pyinstaller", side_effect=fake_run):
+                out = self.be.assemble("onedir")
+            w = out / "_internal" / "w"
+            for rel in (("playwright", "driver", "package", "lib", "vite"),
+                        ("playwright", "driver", "package", "lib", "tools", "skills")):
+                self.assertFalse(w.joinpath(*rel).exists(),
+                                 "调试资源目录必须删掉：%s" % "/".join(rel))
+            for p in keep:
+                self.assertTrue((w / p.relative_to(worker_dir)).is_file(),
+                                "其余 worker 文件必须保留：%s" % p.name)
+
+    def test_assemble_onefile_never_invokes_worker_prune(self):
+        """onefile 装配根本不调 prune：worker 内文件一个都不删，独立 EXE 形态不变。"""
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            out = tmp / "out"
+            worker_dir = tmp / "stage-worker" / "dist" / "grab-worker"
+            lib = worker_dir / "playwright" / "driver" / "package" / "lib"
+            files = [worker_dir / "grab-worker.exe",
+                     lib / "vite" / "dashboard" / "index.js",
+                     lib / "tools" / "skills" / "doc.md"]
+            fake_app = tmp / "stage-app" / "dist" / "campus-activity-watch.exe"
+            for p in files + [fake_app]:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(b"x")
+
+            def fake_run(name_, source, mode, add_ui, extra_data=None):
+                return {"grab-worker": worker_dir / "grab-worker.exe",
+                        "campus-activity-watch": fake_app}[name_]
+
+            with mock.patch.object(self.be, "OUT", out), \
+                    mock.patch.object(self.be, "run_pyinstaller", side_effect=fake_run), \
+                    mock.patch.object(self.be, "_prune_worker_docs",
+                                      side_effect=AssertionError("onefile 不得调 prune")):
+                self.be.assemble("onefile")
+            for p in files:
+                self.assertTrue(p.is_file(), "onefile 不得删 worker 内文件：%s" % p.name)
+
     def test_launcher_fingerprint_deterministic_and_sensitive(self):
         with tempfile.TemporaryDirectory() as name:
             tmp = Path(name)
