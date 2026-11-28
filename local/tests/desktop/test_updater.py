@@ -1003,6 +1003,31 @@ class DeltaTests(unittest.TestCase):
             if extraction is not None:
                 shutil.rmtree(extraction, ignore_errors=True)
 
+    def test_sibling_work_dir_is_in_anchor_parent(self):
+        work = update_delta.sibling_work_dir(self.staging, ".part-")
+        self.assertEqual(work.parent, self.staging.parent)
+
+    def test_sibling_work_dir_name_is_prefix_plus_short_hex(self):
+        for prefix in (".stage-", ".part-", ".backup-"):
+            with self.subTest(prefix=prefix):
+                name = update_delta.sibling_work_dir(self.staging, prefix).name
+                self.assertTrue(name.startswith(prefix))
+                suffix = name[len(prefix):]
+                self.assertEqual(len(suffix), 12)
+                self.assertTrue(all(ch in "0123456789abcdef" for ch in suffix))
+
+    def test_sibling_work_dir_does_not_stack_staging_name(self):
+        """工作目录名不再叠拼 staging 名：staging 名再长，整条路径也不随之变长（防旧版叠拼把路径顶到长度上限的回归）。"""
+        long_staging = self.root / (".staging-" + "n" * 200)
+        work = update_delta.sibling_work_dir(long_staging, ".part-")
+        self.assertEqual(work.parent, self.root)
+        self.assertFalse(work.name.startswith(long_staging.name))
+
+    def test_sibling_work_dir_rejects_unknown_prefix(self):
+        for bad in (".staging-", ".old-", "stage-", "", ".backup"):
+            with self.subTest(prefix=bad), self.assertRaises(ValueError):
+                update_delta.sibling_work_dir(self.staging, bad)
+
 # ==================== 源自 test_update_launcher.py ====================
 """版本启动器（update_launcher）的返修回归：等待父进程、目标目录残留、坏 staging、current 回退。
 
@@ -1983,6 +2008,16 @@ class SweepVersionRootTests(unittest.TestCase):
         result = updater.sweep_version_root(self.root / "nope", current_file=self.current)
         self.assertEqual(result["removed"], [])
         self.assertEqual(result["failed"], [])
+
+    def test_backup_leftover_is_removed(self):
+        """delta 应用中断留下的 .backup-* 旧目录也归入受控残留，sweep 能清掉。"""
+        backup = self.versions / ".backup-1a2b3c4d5e6f"
+        backup.mkdir()
+        (backup / "campus-activity-watch.exe").write_bytes(b"x")
+        result = updater.sweep_version_root(
+            self.versions, current_file=self.current, keep_dir=self.versions / "1.3.0")
+        self.assertIn(".backup-1a2b3c4d5e6f", result["removed"])
+        self.assertFalse(backup.exists())
 
 if __name__ == "__main__":
     unittest.main()

@@ -25,9 +25,9 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 try:
-    from infrastructure.update.update_delta import DeltaError, apply_delta, validate_relative_path, verify_directory
+    from infrastructure.update.update_delta import DeltaError, apply_delta, sibling_work_dir, validate_relative_path, verify_directory
 except ImportError:  # 源码模块由 app.py 注入 local 到 sys.path；独立测试仍可导入
-    from .update_delta import DeltaError, apply_delta, validate_relative_path, verify_directory
+    from .update_delta import DeltaError, apply_delta, sibling_work_dir, validate_relative_path, verify_directory
 
 CHUNK_BYTES = 64 * 1024
 # 与 update_check.MAX_INSTALLER_BYTES 同源口径：安装包下载上限（约 300 MB）
@@ -233,7 +233,7 @@ def cleanup_staging(path, *, version_root=None) -> bool:
 
 
 # 版本根下只清理这些前缀的更新残留：下载/应用中断、没点重启、切换被让开的旧目录。
-_SWEEP_PREFIXES = (".staging-", ".stage-", ".part-", ".old-")
+_SWEEP_PREFIXES = (".staging-", ".stage-", ".part-", ".backup-", ".old-")
 
 
 def _current_and_previous(current_file):
@@ -264,8 +264,9 @@ def _is_link(path: Path) -> bool:
 def sweep_version_root(version_root, *, current_file, keep_dir=None) -> dict:
     """清理版本根里的更新残留和多余旧版本；返回 {"removed": [...], "failed": [...]}。
 
-    只删三类名字：.staging-* / .stage-* / .part-* / .old-* 残留，以及版本号目录里
-    不是 current.json 的 version / previous_version 的那些。始终保留 keep_dir
+    只删受控前缀残留：.staging-* / .stage-* / .part-* / .backup-* / .old-*，
+    以及版本号目录里不是 current.json 的 version / previous_version 的那些。
+    始终保留 keep_dir
     （当前进程正在运行的目录）；链接一律跳过；名字不认识的不碰。current.json
     读不出来时不知道谁是当前版本，只清残留、不删任何版本目录。删不掉的记进
     failed，下次启动再试，绝不抛异常（调用方是启动后的后台线程）。
@@ -359,7 +360,7 @@ def stage_update(base_dir, payload, staging_dir, *, mode, base_version=None,
                  target_manifest=None, target_version=None) -> dict:
     """在隔离临时目录应用 delta 或完整 onedir 包，并校验目标 manifest。"""
     staging = Path(staging_dir)
-    work = staging.parent / (staging.name + ".stage-" + uuid.uuid4().hex)
+    work = sibling_work_dir(staging, ".stage-")
     try:
         expected_manifest = _manifest_for_target(target_manifest) if target_manifest is not None else None
         if (target_version and expected_manifest is not None

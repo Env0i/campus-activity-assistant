@@ -280,14 +280,28 @@ def verify_directory(directory, manifest: dict) -> bool:
     return actual["files"] == expected
 
 
+def sibling_work_dir(anchor, prefix) -> Path:
+    """在 anchor 同级生成带受控前缀的短随机临时目录名。
+
+    为什么是独立短名：临时名一旦叠拼 staging 名（staging 名本身又带
+    .staging-<请求号>），多层叠加后整条路径容易顶到 Windows 的路径长度上限；
+    短名不随 staging 名长短变化。12 位十六进制在单个版本根内足够防撞，
+    也比 32 位短。prefix 只收启动清理认识的三个前缀，否则中途残留会变成
+    sweep 清不掉的陌生名字，所以其余值一律拒绝。
+    """
+    if prefix not in (".stage-", ".part-", ".backup-"):
+        raise ValueError("未知的工作目录前缀：%r" % (prefix,))
+    return Path(anchor).parent / (prefix + uuid.uuid4().hex[:12])
+
+
 def apply_delta(base_dir, delta, staging_dir, *, base_version: str | None = None,
                 payload_dir=None) -> bool:
     """在临时目录构造目标版本，成功后替换 staging_dir。"""
     base = _ensure_directory(Path(base_dir))
     staging = Path(staging_dir)
     manifest, payload_root, cleanup_payload = _delta_parts(delta, payload_dir=payload_dir)
-    work = staging.parent / (staging.name + ".part-" + uuid.uuid4().hex)
-    backup = staging.parent / (staging.name + ".backup-" + uuid.uuid4().hex)
+    work = sibling_work_dir(staging, ".part-")
+    backup = sibling_work_dir(staging, ".backup-")
     try:
         expected_base_version = base_version if base_version is not None else manifest["base_version"]
         if expected_base_version != manifest["base_version"]:
@@ -377,5 +391,6 @@ def write_delta_zip(delta: dict, output, *, target_dir=None) -> Path:
 
 __all__ = [
     "DeltaError", "apply_delta", "build_delta", "manifest_from_directory",
-    "validate_relative_path", "verify_directory", "write_delta_zip",
+    "sibling_work_dir", "validate_relative_path", "verify_directory",
+    "write_delta_zip",
 ]
