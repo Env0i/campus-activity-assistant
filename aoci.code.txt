@@ -3,8 +3,8 @@
 ===/<repository>/===
 .gitattributes[FC6T]: F:统一文本行尾为LF，保留Windows脚本和文本分发所需CRLF，AOCI索引单独固定LF | R:- | A:Git文本属性 | S:aoci索引必须是LF，切分支检出成CRLF会让索引服务读不出根清单
 .gitignore[FS6T]: F:排除机器配置、登录运行数据、构建产物、本地工具与本机AI工具目录、本机MCP宿主配置、计划草稿与证据截图 | R:- | A:Git忽略规则 | S:已跟踪文件仍受Git管理，忽略规则不能代替敏感内容审查；证据目录只忽略png/jpg/webp截图，文字台账与复现脚本仍入库
-AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、发版命令、测试、AOCI治理与证据留存纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建、测试、联网拉基线与提交分别受授权边界约束；证据截图留本地，文字台账与复现脚本入库
-CHANGELOG.md[SV4L]: F:按版本倒序记录各正式版本的用户可见变化与修复边界，最新正式版本置于顶部（当前为1.3.3，无未发布一节） | R:code:VERSION,code:tools/release/release.py | A:变更记录 | S:发版说明直接取顶部最新一节，发版时把未发布一节改成版本号；旧版本段不追改，也不写内部编号与临时路径
+AGENTS.md[SG8L]: F:规定协作者授权、敏感数据边界、架构分层、发版命令、升级演练、测试、AOCI治理与证据留存纪律 | R:code:CLAUDE.md | A:仓库Agent规则 | S:共享工作区不得覆盖他人修改；构建、测试、联网拉基线与提交分别受授权边界约束；证据截图留本地，文字台账与复现脚本入库；发版前须用上一版客户端与当前代码各跑一次升级演练，旧客户端允许按预算失败但需记录判定与最长路径
+CHANGELOG.md[SV4L]: F:按版本倒序记录各正式版本的用户可见变化与修复边界，最新正式版本置于顶部（当前为1.3.3；顶部另有未发布一节） | R:code:VERSION,code:tools/release/release.py | A:变更记录 | S:发版说明直接取顶部最新一节，发版时把未发布一节改成版本号；旧版本段不追改，也不写内部编号与临时路径
 CLAUDE.md[SG5T]: F:导入共同规则并补充Claude原型预览、尾注与测试边界 | R:code:AGENTS.md | A:Claude宿主指引 | S:-
 LICENSE[SG4T]: F:声明MIT授权、保留版权许可条件及免责条款 | R:- | A:MIT许可 | S:-
 README.md[SG6M]: F:介绍工具的下载、时间轴界面、手机遥控、隐私边界与常见问题，是发布页之外的总入口 | R:code:local/README.md,code:server/README.md | A:使用与文档导航 | S:截图必须是脱敏演示数据；下载表里的资产名必须与Release实际附件一致，区分单EXE/ZIP与安装版程序目录，并标明1.2.1及更早停止维护
@@ -1323,7 +1323,7 @@ README.md[SU6T]: F:索引交互规格并区分规则决策、组件行为和技�
 assistance-panels.md[SU7S]: F:规定设置抽屉与帮助独立入口的职责、导航、条款路由及窄窗交互 | R:code:local/ui/views/settings.js,code:local/ui/features/shell/view-help.js | A:设置承载配置；帮助承载说明、快捷键、引导 | S:运行中重看引导的前后段存在漂移，须按UI_SPEC和代码核实
 copywriting.md[SU8L]: F:维护全工具用户可见文案真源，含口语规则、更新下载三态文案及桌面手机共用短句词表 | R:code:local/ui/index.html,code:local/app.py,code:design/decisions/017-workbench-refresh.md | A:术语/空态/横幅/更新三态/计划栏文案真源 | S:文案不可改变worker协议；未知不等于失败，停止不等于取消报名；估算不判有效性；未校准分组不读手机钟；更新体积按download.kind选词且无正数不显示；现行文案以代码为准
 terms-consent.md[SU8M]: F:规定首次、更新与全文条款路由、版本绑定保存、未知恢复及响应式验收 | R:code:local/ui/controllers/terms.js,code:local/ui/views/terms.js,code:local/app.py | A:版本回执确认/超时只读对账/条款优先引导/正文精确比较 | S:十秒超时不取消事务；未知关闭学校动作；正文只可折叠空白，旧矩阵不代表修后通过
-versioning-and-release.md[SV8S]: F:规定版本真源、升版、tag绑定、同源资产、目录更新、启动器沿用与240KiB清单上限规范 | R:code:VERSION,code:tools/release/release.py | A:版本分离/来源复核/基线缓存/路径预算与沿用规则 | S:旧基线与候选并存不代表已发布；已发布tag不可重写；版本目录相对路径上限100字符；清单上限放宽至240KiB，1.2.1及更早已停止维护
+versioning-and-release.md[SV8S]: F:规定版本真源、升版、tag绑定、同源资产、目录更新、启动器沿用、增量路径预算、升级演练与240KiB清单上限规范 | R:code:VERSION,code:tools/release/release.py,code:tools/release/rehearse_upgrade.py,code:local/infrastructure/update/update_delta.py | A:版本分离/来源复核/基线缓存/路径预算/升级演练与沿用规则 | S:旧基线与候选并存不代表已发布；已发布tag不可重写；版本目录相对路径上限100字符；清单上限放宽至240KiB，1.2.1及更早已停止维护；旧客户端三层叠名109字符为根因，修复后工作目录用独立短名；发版前两组演练，旧客户端允许按预算失败但须记录
 
 ===/<repository>/docs/===
 ARCHITECTURE.md[SG9M]: F:描述双产品数据流、学校接口、分层与本机服务职责、并发、组件、时钟与报名模块分工和恢复契约 | R:code:local/app.py,code:local/grab.py,code:local/application/signup/signup_run.py,code:local/infrastructure/school/school_http.py,code:local/application/plan/plan_service.py,code:local/infrastructure/components/component_packages.py,code:server/scripts/lib/common.py,code:server/bot/bot.js | A:combined分流/推送成功记账/锁等级/组件事务租约与子模块/直发点击核对/grab薄壳与worker编排下沉 | S:网络未知不等于4001；学校Date仅补列表筛选，不放行报名。状态发布在状态锁外；协调锁内不等待服务。app再导出仍是测试注入缝，组件读取失败不可误报未安装；grab与组件入口被测试替换的名字须在调用时仍从原模块取
@@ -1396,7 +1396,7 @@ coordination.py[AW9S]: F:持有唯一协调锁、关闭屏障、在途槽位和�
 
 ===/<repository>/local/build/===
 build_advanced.py[OV8M]: F:构建手机与OCR单体或四类复用资产并生成摘要清单、ZIP和构建报告 | R:code:local/infrastructure/components/component_packages.py,code:local/advanced_helper.py | A:组件资产生产/校验探针 | S:输出必须系统临时根独立绝对子目录且拒既有运行目录；手机OCR依赖互斥；cloudflared显式固定版本；定制模型从server/deploy/login/models复制为ocr_models，缺文件时保持原资产；清单探针过才封包
-build_exe.py[OV8M]: F:先构建worker再装配主程序，支持onefile内置及onedir目录形态w/、路径门禁与启动器指纹 | R:code:local/app.py,code:local/grab.py,code:local/update_launcher.py | A:冻结EXE/onedir目录worker/路径门禁/启动器指纹 | S:onefile版worker仍以dest=.入资源根；onedir版worker用--contents-directory .装入_internal/w/并删skills目录，相对路径须<=100字符；component_packages五个同级模块须hidden-import；写update-launcher.fingerprint含打包修订号
+build_exe.py[OV8M]: F:先构建worker再装配主程序，支持onefile内置及onedir目录形态w/、路径门禁、调试资源裁剪与启动器指纹 | R:code:local/app.py,code:local/grab.py,code:local/update_launcher.py | A:冻结EXE/onedir目录worker/路径门禁/调试资源裁剪/启动器指纹 | S:onefile版worker仍以dest=.入资源根；onedir版worker用--contents-directory .装入_internal/w/并删skills与lib/vite两处调试资源，相对路径须<=100字符；门禁100只保证旧客户端完整包回退，增量预算按用户名长度另算；component_packages五个同级模块须hidden-import；写update-launcher.fingerprint含打包修订号
 build_installer.py[OV8L]: F:从指定冻结程序派生Inno安装包并管理白名单、版本目录布局、版本载荷和卸载确认 | R:code:local/build/build_exe.py,code:local/build/installer_layout.py,code:local/update_launcher.py | A:安装器渲染/编译/产物核验 | S:AppId发布后固定；因release按路径加载故用importlib加载同级installer_layout；模板只替换占位键不format花括号；版本目录模式不放根目录主EXE且用InstallDelete清旧版；静默卸载保留数据
 make_portable.py[OV6M]: F:组装嵌入式Python、应用依赖和启动器的历史绿色目录 | R:code:local/runtime_paths.py,code:local/requirements.txt | A:历史便携包构建 | S:复用输出按精确名单清会话偏好日志，避免运行态进包；浏览器用系统内核
 installer_layout.py[OV6T]: F:生成Inno安装器在版本目录与非版本目录模式下的入口、快捷方式、卸载图标和旧程序清理片段 | R:code:local/build/build_installer.py | A:is_version_dir_mode,icon_lines,root_exe_line,uninstall_icon_value,install_delete_section | S:仅当payload_dir与updater同时非空才走版本目录模式；该模式下省略根目录主EXE并用InstallDelete删旧版主EXE
@@ -2020,8 +2020,8 @@ runtime_paths.py[PD8M]: F:统一源码和冻结版数据路径、config.json位�
 
 ===/<repository>/local/infrastructure/update/===
 update_check.py[IV8L]: F:检查固定仓库正式清单并解析可校验更新资产 | R:code:local/infrastructure/update/updater.py,code:local/infrastructure/update/update_delta.py | A:check_latest_release,parse_version,payload_from_manifest,resolve_component_assets | S:每次检查复用一次manifest响应；用到资产损坏即失败，无关旧条目跳过；拆分组件齐备且兼容标识一致才可用。
-update_delta.py[IV8M]: F:生成目录清单及文件差分并校验隔离应用 | R:code:local/infrastructure/update/updater.py | A:manifest_from_directory,build_delta,apply_delta,verify_directory,validate_relative_path | S:拒绝路径穿越及链接；ZIP成员须精确匹配清单，基础及目标哈希均校验；失败恢复原staging。
-updater.py[IV8L]: F:下载校验更新包并管理隔离staging及版本残留 | R:code:local/infrastructure/update/update_delta.py,code:local/infrastructure/update/update_check.py | A:download_payload,launch_installer,sweep_version_root,stage_update,switch_version,select_payload | S:仅HTTPS、限额、大小及SHA256通过才原子保留；清扫不跟链接且保护当前/前版/运行目录；current损坏不删版本。
+update_delta.py[IV8M]: F:生成目录清单及文件差分、生成同级短工作目录名并校验隔离应用 | R:code:local/infrastructure/update/updater.py | A:manifest_from_directory,build_delta,apply_delta,sibling_work_dir,verify_directory,validate_relative_path | S:拒绝路径穿越及链接；ZIP成员须精确匹配清单，基础及目标哈希均校验；失败恢复原staging；工作目录用前缀+12位随机短名，不叠拼staging名，prefix只收stage/part/backup
+updater.py[IV8L]: F:下载校验更新包并管理隔离staging及版本残留 | R:code:local/infrastructure/update/update_delta.py,code:local/infrastructure/update/update_check.py | A:download_payload,launch_installer,sweep_version_root,stage_update,switch_version,select_payload | S:仅HTTPS、限额、大小及SHA256通过才原子保留；清扫不跟链接且保护当前/前版/运行目录；current损坏不删版本；工作目录统一用sibling_work_dir，.backup-纳入清扫
 
 ===/<repository>/local/infrastructure/worker/===
 worker_log.py[RO7S]: F:提供worker日志层：跨进程日志锁、按大小轮转、写一行带北京时间戳的日志、stderr降级出口与JSON模式下的stdout改道 | R:code:local/grab.py,code:local/infrastructure/stores/prefs_store.py | A:write_log,log_file_lock,rotate_log_file,append_log_line_unlocked,stderr_note,stdout_to_stderr | S:轮转与追加在同一把锁内；拿不到锁只走stderr，不无锁追加；进程内线程锁只此一把
@@ -2128,6 +2128,7 @@ build_update_delta.py[OV7T]: F:离线封装版本差分ZIP及旁路清单生成 
 release.py[OV9L]: F:以VERSION分离只读检查、历史基线拉取、本地构建准备与正式发布 | R:code:VERSION,code:tools/release/release_guards.py,code:tools/release/release_bases.py,code:local/build/build_installer.py,code:local/infrastructure/update/update_delta.py | A:main,stage_local_assets,verify_release_assets,do_publish,zip_server,write_manifest | S:准备前后HEAD及dirty一致；build_exe_onedir后调用reuse_launcher按基线沿用启动器；站点仅环境注入并finally移除；单资产300MiB/清单240KiB上限（1.2.1及更早停维）；发布干净main及人工确认后上传前重验，tag不强改
 release_guards.py[OQ8S]: F:顺序执行发版结构分层静态及全量守卫并校验站点 | R:code:tools/release/release.py,code:tools/code_shape/check.py,code:requirements-dev.txt | A:run_guards,guard_steps,run_command,site_origin_for_build | S:每步有界且失败即停，超时124；当前解释器不自动装ruff；正式构建缺站点或非HTTPS拒绝，dirty预览可未注入。
 release_bases.py[OV8L]: F:拉取校验历史版本包、发现多基线、沿用未变启动器并验证与打包增量资产 | R:code:tools/release/release.py,code:local/infrastructure/update/update_delta.py | A:fetch_base,discover_bases,resolve_delta_bases,verify_delta_base,reuse_launcher,stage_deltas | S:按路径动态加载update_delta；--fetch-base限清单256KiB、5000成员、1GiB总解压并禁符号链接与越界；reuse_launcher按从新到旧匹配指纹且核对exe存在后复制已验证基线的启动器，落盘替换对Windows占用重试15次
+rehearse_upgrade.py[OV8L]: F:发版前用指定版本客户端复刻默认安装路径并应用增量，量最长路径判定升级可行性 | R:code:tools/release/release.py,code:local/infrastructure/update/update_delta.py,code:design/specs/versioning-and-release.md | A:run_rehearsal,build_equal_length_root,judge,parse_args | S:旧客户端三层叠名按预算可失败但须记录判定与最长路径；当前代码增量必须通过；审计钩子量实际路径不依赖系统报错；只动临时目录、git只读
 
 ===/<repository>/local/application/settings/===
 __init__.py[AC2T]: F:声明设置类用例包只做校验编排，读写配置与联网由组合根注入 | R:code:local/app.py | A:- | S:-
