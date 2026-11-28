@@ -1688,5 +1688,212 @@ class RealGitFixtureTests(unittest.TestCase):
             self.assertEqual(self.rel.remote_tag_commit("v0.0.0-fixture-nope"), "")
 
 
+class ReleaseBasesAndDefaultsTests(unittest.TestCase):
+    """默认增量与拆分组件开关、历史基线发现与 fetch_base 校验逻辑。"""
+
+    def setUp(self):
+        self.rel = load_release()
+
+    def _make_base_cache(self, root: Path, version: str, files: dict[str, bytes]) -> Path:
+        base_dir = root / version / "onedir"
+        base_dir.mkdir(parents=True)
+        for rel, body in files.items():
+            p = base_dir / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(body)
+        tm = self.rel._target_manifest(base_dir, version)
+        manifest = {"version": version, "target_manifest_sha256": tm["target_manifest_sha256"]}
+        import json as json_mod
+        (root / version / "manifest.json").write_text(json_mod.dumps(manifest), encoding="utf-8")
+        return base_dir
+
+    def _build_remote_fixture(self, version: str, files: dict[str, bytes], *,
+                              zip_members: dict[str, bytes] | None = None,
+                              override_target_sha: str | None = None) -> tuple[bytes, bytes, str]:
+        import hashlib
+        import io
+        import json as json_mod
+        import zipfile as zf_mod
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src"
+            src.mkdir()
+            for rel, body in files.items():
+                p = src / rel
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(body)
+            tm = self.rel._target_manifest(src, version)
+        buf = io.BytesIO()
+        with zf_mod.ZipFile(buf, "w") as zf:
+            for rel, body in (zip_members if zip_members is not None else files).items():
+                zf.writestr(rel, body)
+        zbytes = buf.getvalue()
+        zsha = hashlib.sha256(zbytes).hexdigest()
+        name = self.rel.payload_asset_name(version)
+        tsha = override_target_sha or tm["target_manifest_sha256"]
+        manifest = {
+            "version": version,
+            "target_manifest_sha256": tsha,
+            "full_payload": {"name": name, "bytes": len(zbytes), "sha256": zsha,
+                             "target_manifest_sha256": tsha},
+            "files": {name: {"bytes": len(zbytes), "sha256": zsha}},
+        }
+        return json_mod.dumps(manifest).encode("utf-8"), zbytes, tm["target_manifest_sha256"]
+
+    def test_discover_bases_filters_invalid_and_orders_newest_first(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / "delta-bases"
+            for ver in ("1.2.3", "1.3.0", "1.3.1", "1.3.2", "1.4.0"):
+                self._make_base_cache(cache, ver, {"app.exe": b"v" + ver.encode()})
+            (cache / "1.2.9").mkdir(parents=True)
+            (cache / "1.2.9" / "manifest.json").write_text("{}", encoding="utf-8")
+            (cache / "not-a-ver" / "onedir").mkdir(parents=True)
+            (cache / "not-a-ver" / "manifest.json").write_text("{}", encoding="utf-8")
+            got = self.rel.discover_bases(cache, "1.3.2")
+            self.assertEqual([item[1] for item in got], ["1.3.1", "1.3.0"])
+
+    def test_auto_delta_empty_cache_fails_before_any_build(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            no_build = AssertionError("空基线缓存不得触发构建")
+            with mock.patch.object(self.rel, "DIST", Path(tmp)), \
+                    mock.patch.object(self.rel, "build_exe_onefile", side_effect=no_build), \
+                    mock.patch.object(self.rel, "build_exe_onedir", side_effect=no_build):
+                with self.assertRaises(SystemExit) as ctx:
+                    self.rel.stage_local_assets("1.3.2", auto_delta=True)
+            self.assertIn("--fetch-base", str(ctx.exception))
+
+    def test_auto_delta_stages_two_bases_newest_first_in_manifest(self):
+        import json as json_mod
+        with tempfile.TemporaryDirectory() as tmp:
+            dist = Path(tmp)
+            cache = dist / "delta-bases"
+            for ver in ("1.2.3", "1.3.0", "1.3.1"):
+                self._make_base_cache(cache, ver, {"app.exe": b"old-" + ver.encode()})
+            out = dist / "campus-grab-exe"
+            out.mkdir()
+            (out / "campus-activity-watch.exe").write_bytes(b"new-exe")
+            onedir = dist / "onedir" / "1.3.2"
+            onedir.mkdir(parents=True)
+            (onedir / "campus-activity-watch.exe").write_bytes(b"new-exe")
+            (onedir / "update-launcher.exe").write_bytes(b"launcher")
+            (onedir / "app.exe").write_bytes(b"new-1.3.2")
+            state = {"branch": "main", "dirty": "", "commit": "f" * 7, "full": "f" * 40}
+            helper = InstallerSourceIntegrationTests()
+            env_patch, site_patch = helper._site_patches(self.rel, tmp)
+            with mock.patch.object(self.rel, "DIST", dist), \
+                    mock.patch.object(self.rel, "git_state", lambda: state), \
+                    mock.patch.object(self.rel, "build_exe_onefile", lambda: out), \
+                    mock.patch.object(self.rel, "build_exe_onedir", lambda v: onedir), \
+                    mock.patch.object(self.rel, "BUILD_INSTALLER", helper._FakeBuilder()), \
+                    mock.patch.object(self.rel, "stage_split_artifacts", return_value=([], None)), \
+                    env_patch, site_patch:
+                got = self.rel.stage_local_assets(
+                    "1.3.2", with_component=False, split_components=True, auto_delta=True)
+            data = json_mod.loads(got["manifest"].read_text(encoding="utf-8"))
+            self.assertEqual([d["base_version"] for d in data["deltas"]], ["1.3.1", "1.3.0"])
+            self.assertEqual(data["base_version"], "1.3.1")
+
+    def test_cli_flags_for_defaults_and_conflicts(self):
+        cases = (
+            (["release.py", "--prepare"], True, True),
+            (["release.py", "--prepare", "--no-split"], False, True),
+            (["release.py", "--prepare", "--no-delta"], True, False),
+        )
+        for argv, exp_split, exp_auto in cases:
+            with self.subTest(argv=argv), mock.patch.object(sys, "argv", argv), \
+                    mock.patch.object(self.rel, "stage_local_assets") as staged:
+                self.assertEqual(self.rel.main(), 0)
+                self.assertEqual(staged.call_args.kwargs["split_components"], exp_split)
+                self.assertEqual(staged.call_args.kwargs["auto_delta"], exp_auto)
+        for bad in (["release.py", "--prepare", "--no-delta", "--delta-base", "d"],
+                    ["release.py", "--fetch-base", "1.3.1", "--prepare"]):
+            with self.subTest(bad=bad), mock.patch.object(sys, "argv", bad):
+                with self.assertRaises(SystemExit):
+                    self.rel.main()
+
+    def test_fetch_base_verifies_hash_paths_and_target_manifest(self):
+        import io
+        m_bytes, z_bytes, _ = self._build_remote_fixture("1.3.1", {"app.exe": b"hello"})
+
+        def make_opener(manifest_raw: bytes, zip_raw: bytes):
+            def _open(url: str):
+                data = manifest_raw if url.endswith("/manifest.json") else zip_raw
+                return io.BytesIO(data)
+            return _open
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / "delta-bases"
+            onedir = self.rel.fetch_base("1.3.1", cache, open_url=make_opener(m_bytes, z_bytes))
+            self.assertTrue(onedir.is_dir())
+            self.assertTrue((cache / "1.3.1" / "manifest.json").is_file())
+            self.rel.verify_delta_base(onedir, "1.3.1", cache / "1.3.1" / "manifest.json")
+
+        _, same_len_tamper, _ = self._build_remote_fixture("1.3.1", {"app.exe": b"hellX"})
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / "delta-bases"
+            with self.assertRaises(SystemExit) as sha_err:
+                self.rel.fetch_base("1.3.1", cache, open_url=make_opener(m_bytes, same_len_tamper))
+            self.assertIn("SHA-256", str(sha_err.exception))
+            self.assertFalse((cache / "1.3.1" / self.rel.payload_asset_name("1.3.1")).exists())
+            self.assertFalse((cache / "1.3.1" / "onedir").exists())
+
+        m_trav, trav_zip, _ = self._build_remote_fixture(
+            "1.3.1", {"app.exe": b"hello"}, zip_members={"../x": b"evil"})
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / "delta-bases"
+            with self.assertRaises(SystemExit) as trav_err:
+                self.rel.fetch_base("1.3.1", cache, open_url=make_opener(m_trav, trav_zip))
+            self.assertIn("解包校验失败", str(trav_err.exception))
+            self.assertFalse((cache / "1.3.1" / "onedir").exists())
+
+        m_bad_tm, z_bad_tm, _ = self._build_remote_fixture(
+            "1.3.1", {"app.exe": b"hello"}, override_target_sha="0" * 64)
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / "delta-bases"
+            with self.assertRaises(SystemExit):
+                self.rel.fetch_base("1.3.1", cache, open_url=make_opener(m_bad_tm, z_bad_tm))
+            self.assertFalse((cache / "1.3.1" / "onedir").exists())
+
+    def test_fetch_base_default_opener_uses_60s_timeout(self):
+        import io
+        m_bytes, z_bytes, _ = self._build_remote_fixture("1.3.1", {"app.exe": b"hello"})
+        timeouts = []
+
+        def fake_urlopen(url: str, timeout=None):
+            timeouts.append((url, timeout))
+            return io.BytesIO(m_bytes if url.endswith("/manifest.json") else z_bytes)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / "delta-bases"
+            with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+                onedir = self.rel.fetch_base("1.3.1", cache)
+            self.assertTrue(onedir.is_dir())
+        self.assertEqual(len(timeouts), 2)
+        self.assertTrue(all(t == 60 for _, t in timeouts))
+
+    def test_fetch_base_retries_transient_permission_error_on_replace(self):
+        import io
+        m_bytes, z_bytes, _ = self._build_remote_fixture("1.3.1", {"app.exe": b"hello"})
+        real_replace = os.replace
+        calls = {"onedir": 0}
+
+        def flaky_replace(src, dst):
+            if Path(dst).name == "onedir":
+                calls["onedir"] += 1
+                if calls["onedir"] <= 2:
+                    raise PermissionError(5, "locked")
+            return real_replace(src, dst)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / "delta-bases"
+            with mock.patch("os.replace", side_effect=flaky_replace), \
+                    mock.patch("time.sleep"):
+                onedir = self.rel.fetch_base(
+                    "1.3.1", cache,
+                    open_url=lambda u: io.BytesIO(m_bytes if u.endswith("/manifest.json") else z_bytes))
+            self.assertTrue(onedir.is_dir())
+            self.assertTrue((cache / "1.3.1" / "manifest.json").is_file())
+        self.assertEqual(calls["onedir"], 3)
+
+
 if __name__ == "__main__":
     unittest.main()

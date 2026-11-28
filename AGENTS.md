@@ -133,6 +133,8 @@ python local/app.py --demo
 
 # 发版：不带参数时只读检查；--prepare 只在本地构建，不打 tag、不上传
 # --publish 是对外发布，必须用户授权
+# 拉取历史增量基线到 dist/delta-bases/：需联网，执行前须用户授权
+python tools/release/release.py --fetch-base <上一版本号>
 python tools/release/release.py --prepare
 ```
 
@@ -221,7 +223,7 @@ python tools/release/release.py --prepare
 ### 发版
 
 - 版本号的真源是根目录的 `VERSION`。
-- `tools/release/release.py --prepare` 构建一份冻结 EXE，再由同一份 EXE 派生出独立 EXE、四成员 ZIP、安装版和 manifest。
+- `tools/release/release.py --prepare` 构建冻结 EXE 与版本目录，独立 EXE 与四成员 ZIP 来自同一份 EXE，安装版装版本目录，默认产增量与拆分组件。
 - `--publish` 要求三件事：在干净的 main 上，逐项核验资产，人工确认。
 - `--prepare` 与 `--publish` 动手前先跑发版守卫（tools/release/release_guards.py），任何一步不过就不构建、不发布；命令行上没有跳过守卫的开关。
 

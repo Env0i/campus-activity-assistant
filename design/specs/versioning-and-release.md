@@ -111,7 +111,7 @@
 - **差分更新是后续候选，不是本期范围**：差分补丁要先有补丁基线管理、产物签名、失败回滚
   和断点恢复四项前置能力，缺一不可。在这些能力就位并单独验收前，**不得**在发布资产里加入
   任何补丁类附件，也不得让更新器接受非完整安装器的下载目标。完整 ZIP 与独立 EXE 继续
-  只提供发布页手动下载，不进自动更新流程。
+  只提供发布页手动下载，不进自动更新流程。（已被文末 2026-11-27 一节取代）
 
 
 ## 历史证据与当前版本的边界
@@ -148,4 +148,10 @@
 - **发版前门禁**：`write_manifest` 在序列化与哈希之前检查 `files` 每一项不超过 300 MiB，超限直接中止，因为已发布的 1.2.0 与 1.2.1 客户端会把含超限项的整份清单当作无效。`--prepare` 带 `--delta-base` 时必须同时给 `--delta-base-manifest`（基线版本已发布的 `manifest.json` 本地副本），在构建之前用与更新器同一实现算出基线目录的目标清单哈希并比对，版本或哈希不符就中止；PyInstaller 构建不可复现，重建的基线生成的增量包对谁都不匹配。复现 `py -3.12 -X utf8 -m unittest discover -s local/tests -p "test_lifecycle_release.py" -k ReleaseGuard`。
 - **验证边界**：以上均为离线单测与替身（Windows 句柄接口、进程启动、关窗口都不真实调用）。真实安装、版本切换、卸载仍需在打包产物上人工验收，不能用本节的单测成绩代替。
 
-候选构建命令为 `py -3.12 -X utf8 tools/release.py --prepare --split-components`。验证记录应注明源码来源与实际运行结果，候选返修沿用 1.2.2。
+候选构建命令为 `py -3.12 -X utf8 tools/release.py --prepare --split-components`。验证记录应注明源码来源与实际运行结果，候选返修沿用 1.2.2。（已被文末 2026-11-27 一节取代）
+
+## 2026-11-27 发版默认产增量与拆分组件
+
+- **基线缓存拉取（`--fetch-base VERSION`）**：可重复传入多个三段版本号，与 `--check`、`--prepare`、`--publish` 互斥；该阶段不跑构建也不跑代码守卫，按发布资产下载历史版本的 `manifest.json`（上限 256 KiB）与 `full_payload` 完整版本包，校验大小、SHA-256、逐成员安全相对路径与解包后的 `target_manifest_sha256`，通过后落地到 `dist/delta-bases/<版本>/onedir` 与 `manifest.json`。该操作需要联网，执行前须经用户授权。
+- **默认行为**：`tools/release/release.py --prepare` 默认同时开启多基线增量生成与 schema2 拆分组件构建（原 `--split-components` 开关保留只为兼容旧命令）。自动基线从 `dist/delta-bases` 取版本号严格小于目标版本、同时具有 `manifest.json` 与 `onedir` 的最近 **2** 个已发布版本（按版本从新到旧排序），并在任何构建之前逐一校验；若本地基线缓存为空，则在构建前直接报错退出并提示先运行 `--fetch-base` 或显式加 `--no-delta`。
+- **显式覆盖与关闭开关**：可用 `--no-delta` 跳过自动增量包生成，用 `--no-split` 跳过 schema2 拆分资产构建；显式传入 `--delta-base` / `--delta-base-version` / `--delta-base-manifest` 时仍只按该单一基线生成 delta，且 `--no-delta` 不得与它们同时传入。

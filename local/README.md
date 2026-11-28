@@ -104,9 +104,9 @@
 
 ### 自己构建（开发者）
 
-- **一条命令出全套资产**：`python tools/release/release.py --prepare` —— 构建一次冻结 onefile EXE
-  （grab-worker 已内置，独立可用），再由**同一份 EXE** 派生三资产：独立 EXE、四成员完整 ZIP
-  （EXE + README + 启动说明 + LICENSE）、安装版（内部调用 `local/build/build_installer.py`），外加 manifest
+- **一条命令出全套资产**：先在获得联网授权时运行 `python tools/release/release.py --fetch-base <上一版本号>` 拉取历史基线到 `dist/delta-bases/`，再运行 `python tools/release/release.py --prepare`（可选 `--no-delta` / `--no-split` 关闭默认项）。
+  它会构建冻结 EXE 与版本目录，默认产增量与拆分组件：独立 EXE 与四成员完整 ZIP（EXE + README + 启动说明 + LICENSE）
+  来自同一份已内置 grab-worker 的 EXE，安装版内部调用 `local/build/build_installer.py` 安装版本目录，另附 manifest
   清单（版本、完整 commit、source_dirty、每个文件的 SHA-256）。旧版「主 EXE 必须与
   `grab-worker.exe` 同目录」是历史旧包口径，已被 2026-10-25 的独立 EXE 决定取代（见
   `design/decisions/010-standalone-exe-and-settings.md`）。构建脚本不读 `data/`、不把登录态

@@ -80,6 +80,13 @@ _guards_spec.loader.exec_module(_RELEASE_GUARDS)
 site_origin_for_build = _RELEASE_GUARDS.site_origin_for_build
 RUN_GUARDS = _RELEASE_GUARDS.run_guards
 
+_bases_spec = importlib.util.spec_from_file_location(
+    "release_bases", Path(__file__).resolve().parent / "release_bases.py")
+_RELEASE_BASES = importlib.util.module_from_spec(_bases_spec)
+_bases_spec.loader.exec_module(_RELEASE_BASES)
+fetch_base = _RELEASE_BASES.fetch_base
+discover_bases = _RELEASE_BASES.discover_bases
+
 
 def write_site_build(origin: str) -> None:
     """生成 local/_site_build.py（只含 BUILD_BASE 一个字符串常量）。"""
@@ -389,13 +396,7 @@ def build_exe_onedir(version: str) -> Path:
 
 def _target_manifest(directory: Path, version: str) -> dict:
     """按更新器同一实现生成 onedir 目录清单，避免两边哈希口径漂移。"""
-    module = _load_local_module("release_update_delta", "infrastructure", "update", "update_delta.py")
-    if module is None:
-        raise SystemExit("[prepare] 找不到 local/infrastructure/update/update_delta.py：payload 清单无法生成")
-    try:
-        return module.manifest_from_directory(directory, version=version)
-    except Exception as exc:
-        raise SystemExit("[prepare] onedir payload 清单生成失败：%s" % exc)
+    return _RELEASE_BASES.target_manifest(directory, version, root=ROOT)
 
 
 def stage_full_payload(version: str, stage_dir: Path, onedir_dir: Path) -> tuple[Path, str, dict]:
@@ -410,67 +411,17 @@ def stage_full_payload(version: str, stage_dir: Path, onedir_dir: Path) -> tuple
 
 
 def verify_delta_base(base_dir, base_version: str, base_manifest) -> None:
-    """核对 --delta-base 目录就是基线版本当年发布出去的那一份，不符就中止。
-
-    PyInstaller 构建不可复现：自己重建出来的 onedir 与用户机器上装的哈希不同，
-    据它生成的增量包对谁都套不上。所以必须拿基线版本已发布的 manifest.json
-    （本地副本）当真相，用与更新器同一实现算出基线目录的目标清单哈希来比。
-    """
-    if not base_manifest:
-        raise SystemExit(
-            "[prepare] 生成 delta 必须同时提供 --delta-base-manifest：基线版本 %s 已发布的 "
-            "manifest.json 本地副本。重建出的基线与用户机器上的不一致，增量包会对谁都不匹配。"
-            % base_version)
-    path = Path(base_manifest)
-    try:
-        published = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise SystemExit("[prepare] 读不出基线清单 %s：%s" % (path.name, exc))
-    if not isinstance(published, dict):
-        raise SystemExit("[prepare] 基线清单 %s 格式不对" % path.name)
-    if published.get("version") != base_version:
-        raise SystemExit("[prepare] 基线清单是 %s 的，与 --delta-base-version %s 不一致"
-                         % (published.get("version"), base_version))
-    full_payload = published.get("full_payload")
-    expected = published.get("target_manifest_sha256") or (
-        full_payload.get("target_manifest_sha256") if isinstance(full_payload, dict) else None)
-    if not isinstance(expected, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected):
-        raise SystemExit("[prepare] 基线清单没有 target_manifest_sha256，无法核对 --delta-base")
-    actual = _target_manifest(Path(base_dir), base_version)["target_manifest_sha256"]
-    if actual.lower() != expected.lower():
-        raise SystemExit(
-            "[prepare] --delta-base 目录与基线版本 %s 已发布的清单不符（目标清单哈希不同）："
-            "请用当年发布的那份 onedir，而不是重新构建的" % base_version)
+    """核对 --delta-base 目录就是基线版本当年发布出去的那一份，不符就中止。"""
+    _RELEASE_BASES.verify_delta_base(base_dir, base_version, base_manifest, root=ROOT)
 
 
 def stage_delta_payload(base_version: str, target_version: str,
                         stage_dir: Path, base_dir: Path,
                         target_dir: Path) -> tuple[Path, dict]:
     """从显式历史 onedir 基线生成 delta 资产和发布清单条目。"""
-    module = _load_local_module("release_update_delta", "infrastructure", "update", "update_delta.py")
-    if module is None:
-        raise SystemExit("[prepare] 找不到 local/infrastructure/update/update_delta.py：delta 无法生成")
-    base_dir = Path(base_dir)
-    target_dir = Path(target_dir)
-    if not base_dir.is_dir() or not target_dir.is_dir():
-        raise SystemExit("[prepare] delta 基线或目标目录不存在")
-    target = stage_dir / delta_asset_name(base_version, target_version)
-    try:
-        delta = module.build_delta(base_dir, target_dir, base_version, target_version)
-        module.write_delta_zip(delta, target, target_dir=target_dir)
-    except Exception as exc:
-        raise SystemExit("[prepare] delta 生成失败：%s" % exc)
-    target_manifest = delta["target_manifest"]
-    metadata = {
-        "name": target.name,
-        "bytes": target.stat().st_size,
-        "sha256": sha256_of(target),
-        "base_version": base_version,
-        "target_version": target_version,
-        "target_manifest_sha256": delta["target_manifest_sha256"],
-        "target_manifest": target_manifest,
-    }
-    return target, metadata
+    return _RELEASE_BASES.stage_delta_payload(
+        base_version, target_version, stage_dir, base_dir, target_dir,
+        delta_name_fn=delta_asset_name, sha256_fn=sha256_of, root=ROOT)
 
 
 def _default_cloudflared() -> Path:
@@ -613,7 +564,8 @@ def stage_local_assets(version: str, *, with_component: bool = True,
                        delta_base: Path | str | None = None,
                        delta_base_version: str | None = None,
                        delta_base_manifest: Path | str | None = None,
-                       split_components: bool = False) -> dict:
+                       split_components: bool = False,
+                       auto_delta: bool = False) -> dict:
     """准备阶段：构建 + 组装完整 ZIP、单文件 EXE 与 onedir payload，写 manifest。
 
     只产生本地文件：不打 tag、不上传、不访问网络；OUT/data 里的旧登录态
@@ -621,11 +573,10 @@ def stage_local_assets(version: str, *, with_component: bool = True,
     构建前后来源（HEAD/脏状态）必须一致：构建中途改代码的产物不能当候选。
     """
     tag = tag_of(version)
-    if delta_base is not None or delta_base_version is not None:
-        # 基线核对放在构建之前：基线不对时不值得再等几十分钟的构建
-        if delta_base is None or not delta_base_version:
-            raise SystemExit("[prepare] 生成 delta 需要同时提供 --delta-base 和 --delta-base-version")
-        verify_delta_base(delta_base, delta_base_version, delta_base_manifest)
+    # 基线核对放在构建之前：基线不对时不值得再等几十分钟的构建
+    bases = _RELEASE_BASES.resolve_delta_bases(
+        DIST, version, delta_base, delta_base_version, delta_base_manifest,
+        auto_delta=auto_delta, verify_fn=verify_delta_base)
     pre = git_state()
     # 来源脏 = 预览构建：允许不注入站点地址；干净来源的正式候选必须注入，
     # 缺 SCHOOL_ORIGIN 或不是 https 时在构建**之前**直接失败（不产出任何资产）。
@@ -677,14 +628,15 @@ def stage_local_assets(version: str, *, with_component: bool = True,
 
     payload_path, target_manifest_sha256, target_manifest = stage_full_payload(
         version, stage_dir, onedir_out)
-    delta_path = None
-    delta_info = None
-    if delta_base is not None:
-        delta_path, delta_info = stage_delta_payload(
-            delta_base_version, version, stage_dir, Path(delta_base), onedir_out)
+    delta_paths: list[Path] = []
+    delta_infos: list[dict] = []
+    for base_dir, base_ver, _ in bases:
+        d_path, d_info = stage_delta_payload(
+            base_ver, version, stage_dir, Path(base_dir), onedir_out)
+        delta_paths.append(d_path)
+        delta_infos.append(d_info)
         print("[prepare] delta 资产：%s  %.1f MB（基线 %s）"
-              % (delta_path.name, delta_path.stat().st_size / 1024 / 1024,
-                 delta_base_version))
+              % (d_path.name, d_path.stat().st_size / 1024 / 1024, base_ver))
 
     # 安装版：从暂存区里**同一份冻结 EXE**（copy2 自 out，与独立 EXE 字节一致）
     # 派生安装器。喂暂存副本而不是 dist 原件：暂存目录是白名单净地，check_source
@@ -704,23 +656,19 @@ def stage_local_assets(version: str, *, with_component: bool = True,
 
     # 手机控制组件包：和安装器同属「派生资产」，但它必须内置固定版本的 cloudflared，
     # 所以单独构建、单独核验。--without-component 只在明确接受「组件不可用」时用。
-    component_path = None
-    ocr_component_path = None
-    if with_component:
-        component_path = stage_phone_component(version, stage_dir, cloudflared)
-        ocr_component_path = stage_ocr_component(version, stage_dir)
-    else:
+    component_path = stage_phone_component(version, stage_dir, cloudflared) if with_component else None
+    ocr_component_path = stage_ocr_component(version, stage_dir) if with_component else None
+    if not with_component:
         print("[prepare] 跳过两个组件包（--without-component）："
               "这次发布里手机控制和验证码识别的「下载并安装」都会不可用")
 
-    split_paths = []
+    split_paths: list[Path] = []
     split_info = None
     if split_components:
         split_paths, split_info = stage_split_artifacts(version, stage_dir, cloudflared)
 
     assets = [zip_path, exe_path, installer_path, payload_path]
-    if delta_path is not None:
-        assets.append(delta_path)
+    assets.extend(delta_paths)
     if component_path is not None:
         assets.append(component_path)
     if ocr_component_path is not None:
@@ -732,8 +680,8 @@ def stage_local_assets(version: str, *, with_component: bool = True,
                               site_configured=bool(site_origin),
                               ocr_component_included=ocr_component_path is not None,
                               full_payload=payload_path,
-                              deltas=[delta_info] if delta_info is not None else None,
-                              base_version=delta_base_version,
+                              deltas=delta_infos or None,
+                              base_version=(delta_infos[0]["base_version"] if delta_infos else None),
                               target_manifest_sha256=target_manifest_sha256,
                               target_manifest=target_manifest,
                               split_assets=split_info)
@@ -744,7 +692,8 @@ def stage_local_assets(version: str, *, with_component: bool = True,
           % (manifest, "脏（仅供预览，不得发布）" if post["dirty"] else "干净"))
     return {"zip": zip_path, "exe": exe_path, "installer": installer_path,
             "payload": payload_path,
-            "delta": delta_path,
+            "delta": (delta_paths[0] if delta_paths else None),
+            "deltas": delta_paths,
             "split_assets": split_paths,
             "component": component_path, "ocr_component": ocr_component_path,
             "manifest": manifest}
@@ -1259,34 +1208,16 @@ def _guards_or_exit() -> None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="打 Release（版本号读 VERSION，默认只做只读检查）")
-    ap.add_argument("tag", nargs="?",
-                    help="兼容校验输入：必须与 VERSION 推导一致；不再单独触发发布")
-    ap.add_argument("--check", action="store_true", help="只读检查（默认行为，可省略）")
-    ap.add_argument("--prepare", action="store_true",
-                    help="本地准备 EXE/ZIP 资产（不打 tag、不上传、不要求 main）")
-    ap.add_argument("--publish", action="store_true",
-                    help="外部发布：核验资产 + 干净 main + 人工确认，才打 tag 并上传 GitHub")
-    ap.add_argument("--yes", action="store_true", help="publish 的非交互确认（其余门禁照常）")
-    ap.add_argument("--clobber", action="store_true",
-                    help="允许覆盖已有 Release 的附件（默认拒绝覆盖，保护已发布产物）")
-    ap.add_argument("--without-component", action="store_true",
-                    help="prepare 时不打手机控制组件包（会让「安装手机控制」不可用）")
-    ap.add_argument("--cloudflared",
-                    help="prepare 打包组件时内置的 cloudflared.exe（默认 local/bin/cloudflared.exe）")
-    ap.add_argument("--delta-base",
-                    help="prepare 时使用历史 onedir 版本目录生成 delta 资产（默认不生成）")
-    ap.add_argument("--delta-base-version",
-                    help="--delta-base 对应的三段版本号")
-    ap.add_argument("--delta-base-manifest",
-                    help="基线版本已发布的 manifest.json 本地副本；给了 --delta-base 就必须给，"
-                         "用来核对基线目录就是当年发布的那一份")
-    ap.add_argument("--split-components", action="store_true",
-                    help="prepare 时同时构建 schema2 runtime/model/tool 资产")
-    args = ap.parse_args()
-    stages = [args.check, args.prepare, args.publish]
+    args = _build_parser().parse_args()
+    stages = [args.check, args.prepare, args.publish, bool(args.fetch_base)]
     if sum(1 for s in stages if s) > 1:
-        raise SystemExit("[release] --check / --prepare / --publish 三阶段互斥，一次只选一个")
+        raise SystemExit("[release] --check / --prepare / --publish / --fetch-base 四阶段互斥，一次只选一个")
+    if args.no_delta and any((args.delta_base is not None, args.delta_base_version, args.delta_base_manifest)):
+        raise SystemExit("[release] --no-delta 不能与 --delta-base* 同时使用")
+    if args.fetch_base:
+        for base_ver in args.fetch_base:
+            fetch_base(base_ver, DIST / "delta-bases")
+        return 0
     version = read_version()
     derived = tag_of(version)
     if args.tag:
@@ -1304,16 +1235,50 @@ def main() -> int:
         do_publish(derived, args.yes, version, args.clobber)
         return 0
     if args.prepare:
+        auto_delta = (not args.no_delta and args.delta_base is None
+                      and not args.delta_base_version)
         stage_local_assets(version,
                            with_component=not args.without_component,
                            cloudflared=args.cloudflared,
                            delta_base=args.delta_base,
                            delta_base_version=args.delta_base_version,
                            delta_base_manifest=args.delta_base_manifest,
-                           split_components=args.split_components)
+                           split_components=not args.no_split,
+                           auto_delta=auto_delta)
         return 0
     check_only(version)   # 默认与 --check：零副作用
     return 0
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(description="打 Release（版本号读 VERSION，默认只做只读检查）")
+    ap.add_argument("tag", nargs="?",
+                    help="兼容校验输入：必须与 VERSION 推导一致；不再单独触发发布")
+    ap.add_argument("--check", action="store_true", help="只读检查（默认行为，可省略）")
+    ap.add_argument("--prepare", action="store_true",
+                    help="本地准备 EXE/ZIP 资产（不打 tag、不上传、不要求 main）")
+    ap.add_argument("--publish", action="store_true",
+                    help="外部发布：核验资产 + 干净 main + 人工确认，才打 tag 并上传 GitHub")
+    ap.add_argument("--fetch-base", action="append", default=[], metavar="VERSION",
+                    help="下载历史版本完整包并解包到本地基线缓存（可重复，与 --check/--prepare/--publish 互斥）")
+    ap.add_argument("--yes", action="store_true", help="publish 的非交互确认（其余门禁照常）")
+    ap.add_argument("--clobber", action="store_true",
+                    help="允许覆盖已有 Release 的附件（默认拒绝覆盖，保护已发布产物）")
+    ap.add_argument("--without-component", action="store_true",
+                    help="prepare 时不打手机控制组件包（会让「安装手机控制」不可用）")
+    ap.add_argument("--cloudflared",
+                    help="prepare 打包组件时内置的 cloudflared.exe（默认 local/bin/cloudflared.exe）")
+    ap.add_argument("--delta-base",
+                    help="prepare 时使用历史 onedir 版本目录生成 delta 资产")
+    ap.add_argument("--delta-base-version",
+                    help="--delta-base 对应的三段版本号")
+    ap.add_argument("--delta-base-manifest",
+                    help="基线版本已发布的 manifest.json 本地副本；给了 --delta-base 就必须给")
+    ap.add_argument("--no-delta", action="store_true", help="prepare 时跳过自动增量包生成")
+    ap.add_argument("--no-split", action="store_true", help="prepare 时跳过 schema2 拆分资产构建")
+    ap.add_argument("--split-components", action="store_true",
+                    help="已默认开启，保留只为兼容旧命令")
+    return ap
 
 
 if __name__ == "__main__":
