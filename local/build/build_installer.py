@@ -31,12 +31,20 @@ make_portable.py 的构建能力。
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+
+# release.py 按文件路径加载本模块（sys.path 不含 local/build），同级模块须按路径加载。
+_layout_spec = importlib.util.spec_from_file_location(
+    "installer_layout", Path(__file__).resolve().parent / "installer_layout.py")
+_LAYOUT = importlib.util.module_from_spec(_layout_spec)
+_layout_spec.loader.exec_module(_LAYOUT)
 
 # 脚本在 local/build/：local/（README、installer/ 语言文件）是上一级，仓库根再上一级
 LOCAL = Path(__file__).resolve().parent.parent
@@ -174,7 +182,7 @@ DisableProgramGroupPage=auto
 @@LICENSE_LINE@@OutputDir=@@OUT_DIR@@
 OutputBaseFilename=@@PRODUCT_NAME@@-安装版-@@VERSION@@
 UninstallDisplayName={#MyAppName} @@VERSION@@
-UninstallDisplayIcon={app}\\{#MyAppExeName}
+UninstallDisplayIcon=@@UNINSTALL_ICON@@
 ; 安装包图标：SetupIconFile 只决定安装向导左上角和控制面板条目，
 ; 桌面快捷方式和 EXE 自身的图标由 PyInstaller --icon 打包进 EXE；
 ; 图标文件缺失时构建直接报错（build_exe.py 已检查，这里兜底再校验一次）
@@ -206,8 +214,7 @@ Name: "desktopicon"; Description: "在桌面上创建快捷方式"; GroupDescrip
 ; 会一起塞进别人电脑，事后还没人知道少了/多了什么。
 ; 主 EXE 显式 DestName：release.py 会把带版本号的资产名 EXE 喂进来，
 ; 装到用户机器上的名字必须仍是固定的 EXE_NAME，否则快捷方式对不上。
-Source: "@@EXE_SRC@@"; DestDir: "{app}"; DestName: "@@EXE_NAME@@"; Flags: ignoreversion
-@@DOC_LINES@@
+@@ROOT_EXE_LINE@@@@DOC_LINES@@
 @@PAYLOAD_LINES@@
 
 [Icons]
@@ -216,7 +223,7 @@ Name: "{group}\\遇到问题先看我"; Filename: "{app}\\遇到问题先看我.
 Name: "{group}\\卸载 {#MyAppName}"; Filename: "{uninstallexe}"
 @@DESKTOP_ICON_LINES@@
 
-[UninstallDelete]
+@@INSTALL_DELETE_SECTION@@[UninstallDelete]
 ; 版本目录是更新器在安装之后才创建的（安装器的文件清单里没有），卸载不会自动带走。
 ; 只删 {app} 下的 versions；用户数据在 {localappdata} 的数据目录，不在这里，
 ; 是否删除仍只由下面 [Code] 的那道确认决定。
@@ -351,20 +358,7 @@ def payload_lines(payload_dir: "Path | None", version: str,
     return ("\n".join(lines) + "\n") if lines else ""
 
 
-def icon_lines(payload_dir: "Path | None", updater: "Path | None") -> tuple[str, str]:
-    """有完整版本 payload 时让快捷方式走启动器，否则保留旧的 onefile 入口。"""
-    if payload_dir is not None and updater is not None:
-        parameters = ('Parameters: "--start --version-root ""{app}\\versions"" '
-                      '--current-file ""{app}\\current.json"""')
-        main = ('Name: "{group}\\{#MyAppName}"; Filename: "{app}\\update-launcher.exe"; '
-                + parameters)
-        desktop = ('Name: "{autodesktop}\\{#MyAppName}"; '
-                   'Filename: "{app}\\update-launcher.exe"; ' + parameters +
-                   '; Tasks: desktopicon')
-        return main, desktop
-    return ('Name: "{group}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"',
-            'Name: "{autodesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"; '
-            'Tasks: desktopicon')
+icon_lines = _LAYOUT.icon_lines
 
 
 def render_iss(version: str, exe: Path, out_dir: Path,
@@ -398,7 +392,9 @@ def render_iss(version: str, exe: Path, out_dir: Path,
         "@@EXE_NAME@@": EXE_NAME,
         "@@DATA_DIR_NAME@@": DATA_DIR_NAME,
         "@@APP_ID@@": APP_ID,
-        "@@EXE_SRC@@": str(Path(exe)),
+        "@@ROOT_EXE_LINE@@": _LAYOUT.root_exe_line(exe, EXE_NAME, payload_dir, updater),
+        "@@UNINSTALL_ICON@@": _LAYOUT.uninstall_icon_value(payload_dir, updater),
+        "@@INSTALL_DELETE_SECTION@@": _LAYOUT.install_delete_section(payload_dir, updater),
         "@@DOC_LINES@@": doc_lines(),
         "@@PAYLOAD_LINES@@": payload,
         "@@MAIN_ICON_LINES@@": main_icon,

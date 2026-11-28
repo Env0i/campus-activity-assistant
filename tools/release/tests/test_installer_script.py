@@ -539,5 +539,54 @@ class VersionTest(unittest.TestCase):
         self.assertRegex(bi.read_version(), r"^\d+\.\d+\.\d+$")
 
 
+class VersionDirInstallerLayoutTest(unittest.TestCase):
+    """版本目录模式去掉根目录主 EXE 并清理旧版残留；非版本目录模式保持原样。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.out = Path(self.tmp.name).resolve()
+        self.exe = Path("C:/fake/src/campus-activity-watch-v9.9.9-win-x64.exe")
+        self.payload = self.out / "onedir" / "9.9.9"
+        self.payload.mkdir(parents=True)
+        (self.payload / "campus-activity-watch.exe").write_bytes(b"onedir-app")
+        (self.payload / "update-launcher.exe").write_bytes(b"launcher")
+
+    def test_version_dir_mode_drops_root_exe_and_cleans_legacy_entry(self):
+        text = bi.render_iss(
+            "9.9.9", self.exe, self.out,
+            payload_dir=self.payload, updater=self.payload / "update-launcher.exe")
+        self.assertEqual(re.findall(r"@@[A-Z_]+@@", text), [])
+        self.assertNotIn('DestDir: "{app}"; DestName: "campus-activity-watch.exe"', text)
+        self.assertIn("UninstallDisplayIcon={app}\\update-launcher.exe", text)
+        self.assertIn("[InstallDelete]", text)
+        self.assertIn('Type: files; Name: "{app}\\{#MyAppExeName}"', text)
+
+    def test_non_version_dir_modes_keep_root_exe_without_install_delete(self):
+        cases = (
+            bi.render_iss("9.9.9", self.exe, self.out),
+            bi.render_iss("9.9.9", self.exe, self.out, onedir_source=self.payload),
+        )
+        for text in cases:
+            self.assertEqual(re.findall(r"@@[A-Z_]+@@", text), [])
+            self.assertNotIn("[InstallDelete]", text)
+            self.assertIn("UninstallDisplayIcon={app}\\{#MyAppExeName}", text)
+            self.assertIn('Source: "%s"; DestDir: "{app}"; DestName: "%s"' %
+                          (self.exe, bi.EXE_NAME), text)
+
+    def test_file_spec_import_without_build_dir_on_sys_path(self):
+        import importlib.util
+        clean_path = [p for p in sys.path if Path(p).resolve() != (LOCAL / "build").resolve()]
+        spec = importlib.util.spec_from_file_location(
+            "isolated_build_installer", LOCAL / "build" / "build_installer.py")
+        mod = importlib.util.module_from_spec(spec)
+        with mock.patch.object(sys, "path", clean_path):
+            spec.loader.exec_module(mod)
+        text = mod.render_iss(
+            "9.9.9", self.exe, self.out,
+            payload_dir=self.payload, updater=self.payload / "update-launcher.exe")
+        self.assertIn("[InstallDelete]", text)
+
+
 if __name__ == "__main__":
     unittest.main()

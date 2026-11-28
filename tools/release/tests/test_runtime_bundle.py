@@ -2097,5 +2097,94 @@ class SpawnFailureClassificationTests(unittest.TestCase):
         self.assertEqual(acts[0]["runtime_error"], "spawn_failed")
 
 
+class BuildTrimmingTests(unittest.TestCase):
+    """主程序排除重依赖库与启动器瘦身的参数契约，以及 onedir 排除校验。"""
+
+    def setUp(self):
+        sys.path.insert(0, str(LOCAL / "build"))
+        try:
+            import build_exe
+        except Exception as exc:
+            raise unittest.SkipTest("无法导入 build_exe：%s" % exc)
+        finally:
+            sys.path.pop(0)
+        self.be = build_exe
+
+    def _capture_args(self, name: str, source: Path, mode: str, add_ui: bool,
+                      extra_data=None) -> list[str]:
+        recorded = []
+
+        def fake_run(args, cwd=None, text=True):
+            recorded.append(list(args))
+            return SimpleNamespace(returncode=0)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(self.be, "WORK", Path(tmp)), \
+                    mock.patch.object(self.be.subprocess, "run", side_effect=fake_run):
+                self.be.run_pyinstaller(name, source, mode, add_ui, extra_data)
+        return recorded[0]
+
+    def test_main_app_excludes_ocr_modules_and_collects_webview(self):
+        args = self._capture_args("campus-activity-watch", self.be.LOCAL / "app.py", "onedir", True)
+        pairs = list(zip(args, args[1:]))
+        for mod in ("ddddocr", "onnxruntime", "cv2", "numpy", "segno"):
+            self.assertIn(("--exclude-module", mod), pairs)
+        self.assertIn(("--collect-all", "webview"), pairs)
+
+    def test_update_launcher_keeps_icon_without_heavy_options(self):
+        src = self.be.LOCAL / "update_launcher.py"
+        args = self._capture_args("update-launcher", src, "onefile", False)
+        self.assertIn("--icon", args)
+        for flag in ("--collect-all", "--hidden-import", "--add-data", "--exclude-module"):
+            self.assertNotIn(flag, args)
+
+    def test_grab_worker_pyinstaller_args_match_literal_baseline(self):
+        src = self.be.LOCAL / "grab.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            recorded = []
+            work = Path(tmp)
+            with mock.patch.object(self.be, "WORK", work), \
+                    mock.patch.object(
+                        self.be.subprocess, "run",
+                        side_effect=lambda args, cwd=None, text=True: (
+                            recorded.append(list(args)) or SimpleNamespace(returncode=0))):
+                self.be.run_pyinstaller("grab-worker", src, "onefile", False)
+            stage = work / "grab-worker"
+            expected = [
+                sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
+                "--name", "grab-worker", "--distpath", str(stage / "dist"),
+                "--workpath", str(stage / "build"), "--specpath", str(stage),
+                "--onefile", "--console", str(src),
+            ]
+            self.assertEqual(recorded[0], expected)
+
+    def test_assemble_onedir_rejects_forbidden_internal_dirs_and_accepts_clean(self):
+        with tempfile.TemporaryDirectory() as name:
+            tmp = Path(name)
+            onedir_root = tmp / "onedir"
+            fake_worker = tmp / "w" / "grab-worker.exe"
+            fake_app_dir = tmp / "a"
+            fake_launcher = tmp / "l" / "update-launcher.exe"
+            for p, body in ((fake_worker, b"w"), (fake_app_dir / "campus-activity-watch.exe", b"a"),
+                            (fake_launcher, b"l")):
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(body)
+            (fake_app_dir / "_internal" / "cv2").mkdir(parents=True)
+
+            def fake_run(name_, source, mode, add_ui, extra_data=None):
+                return {"grab-worker": fake_worker,
+                        "campus-activity-watch": fake_app_dir / "campus-activity-watch.exe",
+                        "update-launcher": fake_launcher}[name_]
+
+            with mock.patch.object(self.be, "OUT_ONEDIR", onedir_root), \
+                    mock.patch.object(self.be, "read_version", return_value="1.3.2"), \
+                    mock.patch.object(self.be, "run_pyinstaller", side_effect=fake_run):
+                with self.assertRaises(SystemExit) as ctx:
+                    self.be.assemble("onedir")
+                self.assertIn("cv2", str(ctx.exception))
+                (fake_app_dir / "_internal" / "cv2").rmdir()
+                self.be.assemble("onedir")
+
+
 if __name__ == "__main__":
     unittest.main()

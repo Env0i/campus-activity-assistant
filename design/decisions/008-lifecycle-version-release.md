@@ -184,3 +184,9 @@ UTC），v2 缺失时退回旧文本路径并保持旧质量语义。软件版�
   三资产正式构建仍待授权执行**，不得引用旧轮数字冒充。
 
 决策 013 记录分发形态、条款同意策略与服务器版认证边界的完整规则。
+
+## 2026-11-27 修订
+
+- **安装器版本目录模式不再带根目录 onefile EXE**：同时传入完整 `payload_dir` 与 `updater` 时，安装版只安装 `{app}\versions\<版本>\` 版本目录、`update-launcher.exe`、`current.json` 与说明/协议文件；桌面与开始菜单快捷方式、控制面板卸载图标（`UninstallDisplayIcon`）均指向 `update-launcher.exe`，并通过 `[InstallDelete]` 删除升级前旧版遗留的根目录主 EXE，避免用户固定入口继续启动旧版本。
+- **同源证据更新**：安装器不再在 `{app}` 根目录放置主 EXE，同源核验改为两项——「独立 EXE 与四成员 ZIP 内 EXE 字节一致」加「静默安装出的 `versions/<版本>/` 版本目录与发布 `manifest.json` 中的 `target_manifest` 逐文件一致」；旧的「安装出的主 EXE 与独立 EXE 同哈希」口径作废。
+- **主程序与启动器构建瘦身**：`campus-activity-watch` 构建排除仅由独立高级组件 helper 使用的识别库模块，`update-launcher` 保留图标并去除 `webview` 等重依赖收集；独立单 EXE 内置 `grab-worker.exe` 与四成员 ZIP 形态不变。

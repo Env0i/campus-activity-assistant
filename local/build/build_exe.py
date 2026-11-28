@@ -42,6 +42,11 @@ COMPONENT_SIBLING_MODULES = (
     "infrastructure.components.component_artifacts",
     "infrastructure.components.component_cloudflared",
 )
+# 以下模块仅给独立高级组件 helper 使用，主程序冻结态不直接加载；
+# 若不排除，PyInstaller 会顺着源码态分支把百余 MB 的识别库打包进主程序。
+MAIN_EXCLUDED_MODULES = ("ddddocr", "onnxruntime", "cv2", "numpy", "segno")
+# onedir 装配后复核 _internal 下不得残留上述重依赖目录。
+_FORBIDDEN_ONEDIR_DIRS = ("cv2", "onnxruntime", "numpy", "numpy.libs", "ddddocr")
 
 
 def read_version() -> str:
@@ -88,9 +93,12 @@ def run_pyinstaller(name: str, source: Path, mode: str, add_ui: bool,
     ]
     if name != "grab-worker":
         args += ["--icon", str(icon_path)]
+    if name == "campus-activity-watch":
         args += ["--hidden-import", "signup_plan", "--collect-all", "webview"]
         for module in COMPONENT_SIBLING_MODULES:
             args += ["--hidden-import", module]
+        for module in MAIN_EXCLUDED_MODULES:
+            args += ["--exclude-module", module]
         if add_ui:
             args += ["--add-data", str(LOCAL / "ui") + os.pathsep + "ui"]
         # 版本单一来源：同一份根 VERSION 放进冻结资源根，app.py 用 RESOURCE_ROOT 读
@@ -126,6 +134,16 @@ def prune_output(out: Path, *, preserve_data: bool = True) -> None:
             child.unlink()
 
 
+def _verify_onedir_exclusions(out: Path) -> None:
+    """确认主程序 onedir 产物的 _internal 下未混入被排除的重依赖目录。"""
+    internal = out / "_internal"
+    if not internal.is_dir():
+        return
+    for name in _FORBIDDEN_ONEDIR_DIRS:
+        if (internal / name).exists():
+            raise SystemExit("[exe] onedir 产物 _internal 下存在不应打包的目录：%s" % name)
+
+
 def assemble(mode: str) -> Path:
     # onefile 沿用既有目录；onedir 按版本隔离，避免覆盖其他候选产物。
     out = OUT if mode == "onefile" else OUT_ONEDIR / read_version()
@@ -152,6 +170,7 @@ def assemble(mode: str) -> Path:
     else:
         shutil.copytree(app.parent, out, dirs_exist_ok=True)
         shutil.copy2(launcher, out / "update-launcher.exe")
+        _verify_onedir_exclusions(out)
     # worker 已内置进主程序资源根：OUT 不再放置外置 grab-worker.exe，
     # 构建失败会在这里之前直接退出，绝不退回「外置 worker 入口」假称独立
     shutil.copy2(LOCAL / "README.md", out / "README.md")
